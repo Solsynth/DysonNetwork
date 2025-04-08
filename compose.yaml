@@ -1,0 +1,6 @@
+﻿services:
+  dysonnetwork.sphere:
+    image: dysonnetwork.sphere
+    build:
+      context: .
+      dockerfile: DysonNetwork.Sphere/Dockerfile
