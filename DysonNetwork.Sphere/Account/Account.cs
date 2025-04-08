@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using System.Text.Json.Serialization;
 using NodaTime;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Security;
@@ -23,7 +24,7 @@ public class AccountContact : BaseModel
     public Instant? VerifiedAt { get; set; }
     [MaxLength(1024)] public string Content { get; set; } = string.Empty;
     
-    public Account Account { get; set; } = null!;
+    [JsonIgnore] public Account Account { get; set; } = null!;
 }
 
 public enum AccountContactType
@@ -37,7 +38,7 @@ public class AccountAuthFactor : BaseModel
     public AccountAuthFactorType Type { get; set; }
     public string? Secret { get; set; } = null;
     
-    public Account Account { get; set; } = null!;
+    [JsonIgnore] public Account Account { get; set; } = null!;
 
     public AccountAuthFactor HashSecret(int cost = 12)
     {

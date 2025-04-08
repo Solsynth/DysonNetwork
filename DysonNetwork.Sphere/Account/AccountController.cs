@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -12,8 +13,8 @@ public class AccountController(AppDatabase db)
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Account?>> GetByName(string name)
     {
-        var account = await db.Accounts.FindAsync(name);
-        return account;
+        var account = await db.Accounts.Where(a => a.Name == name).FirstOrDefaultAsync();
+        return account is null ? new NotFoundResult() : account;
     }
 
     public class AccountCreateRequest
@@ -32,9 +33,9 @@ public class AccountController(AppDatabase db)
         {
             Name = request.Name,
             Nick = request.Nick,
-            Contacts = new List<AccountContact>()
+            Contacts = new List<AccountContact>
             {
-                new AccountContact
+                new()
                 {
                     Type = AccountContactType.Email,
                     Content = request.Email
