@@ -1,6 +1,12 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using DysonNetwork.Sphere;
+using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Auth;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -9,19 +15,31 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddDbContext<AppDatabase>(opt =>
-    opt.UseNpgsql(
-        builder.Configuration.GetConnectionString("App"),
-        o => o.UseNodaTime()
-    ).UseSnakeCaseNamingConvention()
-);
-
+builder.Services.AddDbContext<AppDatabase>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+});
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddAuthorization();
+builder.Services.AddAuthentication("Bearer").AddJwtBearer(options =>
+{
+    var publicKey = File.ReadAllText(builder.Configuration["Jwt:PublicKeyPath"]!);
+    var rsa = RSA.Create();
+    rsa.ImportFromPem(publicKey);
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = "solar-network",
+        IssuerSigningKey = new RsaSecurityKey(rsa)
+    };
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -39,8 +57,34 @@ builder.Services.AddSwaggerGen(options =>
             Url = new Uri("https://www.gnu.org/licenses/agpl-3.0.html")
         }
     });
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Please enter a valid token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "Bearer"
+    });
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            []
+        }
+    });
 });
 builder.Services.AddOpenApi();
+
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 
@@ -48,6 +92,11 @@ if (app.Environment.IsDevelopment()) app.MapOpenApi();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.All
+});
 
 using (var scope = app.Services.CreateScope())
 {

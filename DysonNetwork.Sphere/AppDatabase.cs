@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
+using Npgsql;
 
 namespace DysonNetwork.Sphere;
 
@@ -11,11 +12,31 @@ public abstract class BaseModel
     public Instant? DeletedAt { get; set; }
 }
 
-public class AppDatabase(DbContextOptions<AppDatabase> options) : DbContext(options)
+public class AppDatabase(
+    DbContextOptions<AppDatabase> options,
+    IConfiguration configuration
+) : DbContext(options)
 {
     public DbSet<Account.Account> Accounts { get; set; }
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
+    public DbSet<Auth.Session> AuthSessions { get; set; }
+    public DbSet<Auth.Challenge> AuthChallenges { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(configuration.GetConnectionString("App"));
+        dataSourceBuilder.EnableDynamicJson();
+        dataSourceBuilder.UseNodaTime();
+        var dataSource = dataSourceBuilder.Build();
+
+        optionsBuilder.UseNpgsql(
+            dataSource,
+            opt => opt.UseNodaTime()
+        ).UseSnakeCaseNamingConvention();
+
+        base.OnConfiguring(optionsBuilder);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -82,11 +103,6 @@ public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDatabase>();
-        optionsBuilder.UseNpgsql(
-            configuration.GetConnectionString("App"),
-            o => o.UseNodaTime()
-        ).UseSnakeCaseNamingConvention();
-
-        return new AppDatabase(optionsBuilder.Options);
+        return new AppDatabase(optionsBuilder.Options, configuration);
     }
 }
