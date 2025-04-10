@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250409150800_AddAuthSession")]
+    [Migration("20250410150812_AddAuthSession")]
     partial class AddAuthSession
     {
         /// <inheritdoc />
@@ -177,11 +177,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("blacklist_factors");
 
-                    b.Property<List<string>>("Claims")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("claims");
-
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -208,6 +203,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("nonce");
+
+                    b.Property<List<string>>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("scopes");
 
                     b.Property<int>("StepRemain")
                         .HasColumnType("integer")

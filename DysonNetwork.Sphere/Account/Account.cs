@@ -9,6 +9,8 @@ public class Account : BaseModel
     public long Id { get; set; }
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
+    [MaxLength(32)] public string Language { get; set; } = string.Empty;
+    public bool IsSuperuser { get; set; } = false;
 
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
 

@@ -1,9 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Casbin;
+using Casbin.Persist.Adapter.EFCore;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +27,23 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 });
 builder.Services.AddHttpContextAccessor();
+
+// Casbin permissions
+
+var casbinDbContext = new CasbinDbContext<int>(
+    new DbContextOptionsBuilder<CasbinDbContext<int>>()
+        .UseNpgsql(builder.Configuration.GetConnectionString("Guard"))
+        .Options
+);
+var casbinEfcore = new EFCoreAdapter<int>(casbinDbContext);
+casbinDbContext.Database.EnsureCreated();
+var casbinEncofcer = new Enforcer("Casbin.conf", casbinEfcore);
+casbinEncofcer.LoadPolicy();
+
+builder.Services.AddSingleton<IEnforcer>(casbinEncofcer);
+builder.Services.AddSingleton<IAuthorizationHandler, CasbinAuthorizationHandler>();
+
+// Other pipelines
 
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication("Bearer").AddJwtBearer(options =>
