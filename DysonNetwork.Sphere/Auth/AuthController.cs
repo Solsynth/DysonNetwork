@@ -24,10 +24,22 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
     public async Task<ActionResult<Challenge>> StartChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
-        if (account is null) return new NotFoundResult();
+        if (account is null) return new NotFoundObjectResult("Account was not found.");
 
         var ipAddress = httpContext.HttpContext?.Connection.RemoteIpAddress?.ToString();
         var userAgent = httpContext.HttpContext?.Request.Headers.UserAgent.ToString();
+
+        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+
+        // Trying to pick up challenges from the same IP address and user agent
+        var existingChallenge = await db.AuthChallenges
+            .Where(e => e.Account == account)
+            .Where(e => e.IpAddress == ipAddress)
+            .Where(e => e.UserAgent == userAgent)
+            .Where(e => e.StepRemain > 0)
+            .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
+            .FirstOrDefaultAsync();
+        if (existingChallenge is not null) return existingChallenge;
 
         var challenge = new Challenge
         {
@@ -149,7 +161,10 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
                 if (!Guid.TryParse(sessionIdClaim, out var sessionId))
                     return new UnauthorizedObjectResult("Invalid or missing session_id claim in refresh token.");
 
-                session = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+                session = await db.AuthSessions
+                    .Include(e => e.Account)
+                    .Include(e => e.Challenge)
+                    .FirstOrDefaultAsync(s => s.Id == sessionId);
                 if (session is null)
                     return new NotFoundObjectResult("Session not found or expired.");
 

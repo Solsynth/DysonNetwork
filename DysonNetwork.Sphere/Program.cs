@@ -45,6 +45,7 @@ builder.Services.AddSingleton<IAuthorizationHandler, CasbinAuthorizationHandler>
 
 // Other pipelines
 
+builder.Services.AddCors();
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication("Bearer").AddJwtBearer(options =>
 {
@@ -108,6 +109,12 @@ builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+    db.Database.Migrate();
+}
+
 if (app.Environment.IsDevelopment()) app.MapOpenApi();
 
 app.UseSwagger();
@@ -118,11 +125,11 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.All
 });
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-    db.Database.Migrate();
-}
+app.UseCors(opts =>
+    opts.SetIsOriginAllowed(_ => true)
+        .AllowCredentials()
+        .AllowAnyHeader()
+        .AllowAnyMethod());
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
