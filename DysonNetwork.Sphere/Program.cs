@@ -153,6 +153,15 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
     {
         OnAuthorizeAsync = async eventContext =>
         {
+            if (eventContext.Intent == IntentType.DeleteFile)
+            {
+                eventContext.FailRequest(
+                    HttpStatusCode.BadRequest,
+                    "Deleting files from this endpoint was disabled, please refer to the Dyson Network File API."
+                );
+                return;
+            }
+
             var httpContext = eventContext.HttpContext;
             var user = httpContext.User;
             if (!user.Identity?.IsAuthenticated ?? true)
@@ -192,9 +201,13 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
             var fileService = eventContext.HttpContext.RequestServices.GetRequiredService<FileService>();
 
             var info = await fileService.AnalyzeFileAsync(account, file.Id, fileStream, fileName, contentType);
-            await fileService.UploadFileToRemoteAsync(info, fileStream, null);
-            
-            await tusDiskStore.DeleteFileAsync(file.Id, eventContext.CancellationToken);
+#pragma warning disable CS4014
+            Task.Run(async () =>
+            {
+                await fileService.UploadFileToRemoteAsync(info, fileStream, null);
+                await tusDiskStore.DeleteFileAsync(file.Id, eventContext.CancellationToken);
+            });
+#pragma warning restore CS4014
         },
         OnCreateCompleteAsync = eventContext =>
         {
