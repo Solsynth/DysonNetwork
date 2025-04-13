@@ -22,6 +22,7 @@ public class AppDatabase(
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
     public DbSet<Auth.Session> AuthSessions { get; set; }
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
+    public DbSet<Storage.CloudFile> Files { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
