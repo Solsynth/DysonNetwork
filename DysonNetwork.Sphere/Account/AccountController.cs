@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
 [Route("/accounts")]
-public class AccountController(AppDatabase db, IHttpContextAccessor httpContext)
+public class AccountController(AppDatabase db, IHttpContextAccessor httpContext) : ControllerBase
 {
     [HttpGet("{name}")]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
@@ -37,7 +37,7 @@ public class AccountController(AppDatabase db, IHttpContextAccessor httpContext)
     {
         var dupeNameCount = await db.Accounts.Where(a => a.Name == request.Name).CountAsync();
         if (dupeNameCount > 0)
-            return new BadRequestObjectResult("The name is already taken.");
+            return BadRequest("The name is already taken.");
 
         var account = new Account
         {
@@ -77,6 +77,6 @@ public class AccountController(AppDatabase db, IHttpContextAccessor httpContext)
 
         var account = await db.Accounts.FindAsync(userId);
 
-        return new OkObjectResult(account);
+        return Ok(account);
     }
 }

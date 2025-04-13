@@ -10,7 +10,9 @@ using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NodaTime;
@@ -20,6 +22,8 @@ using tusdotnet.Models;
 using File = System.IO.File;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
 
 // Add services to the container.
 
@@ -201,20 +205,28 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
             var fileService = eventContext.HttpContext.RequestServices.GetRequiredService<FileService>();
 
             var info = await fileService.AnalyzeFileAsync(account, file.Id, fileStream, fileName, contentType);
+
+            var jsonOptions = httpContext.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value
+                .JsonSerializerOptions;
+            var infoJson = JsonSerializer.Serialize(info, jsonOptions);
+            eventContext.HttpContext.Response.Headers.Append("X-FileInfo", infoJson);
+
 #pragma warning disable CS4014
             Task.Run(async () =>
             {
-                await fileService.UploadFileToRemoteAsync(info, fileStream, null);
-                await tusDiskStore.DeleteFileAsync(file.Id, eventContext.CancellationToken);
+                using var scope = eventContext.HttpContext.RequestServices
+                    .GetRequiredService<IServiceScopeFactory>()
+                    .CreateScope();
+                // Keep the service didn't be disposed
+                var fs = scope.ServiceProvider.GetRequiredService<FileService>();
+                // Keep the file stream opened
+                var fileData = await tusDiskStore.GetFileAsync(file.Id, CancellationToken.None);
+                var newStream = await fileData.GetContentAsync(CancellationToken.None);
+                await fs.UploadFileToRemoteAsync(info, newStream, null);
+                await tusDiskStore.DeleteFileAsync(file.Id, CancellationToken.None);
             });
 #pragma warning restore CS4014
         },
-        OnCreateCompleteAsync = eventContext =>
-        {
-            // var baseUrl = builder.Configuration.GetValue<string>("Storage:BaseUrl")!;
-            // eventContext.SetUploadUrl(new Uri($"{baseUrl}/files/{eventContext.FileId}"));
-            return Task.CompletedTask;
-        }
     }
 }));
 

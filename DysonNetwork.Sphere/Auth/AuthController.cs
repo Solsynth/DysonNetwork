@@ -10,7 +10,12 @@ namespace DysonNetwork.Sphere.Auth;
 
 [ApiController]
 [Route("/auth")]
-public class AuthController(AppDatabase db, AccountService accounts, AuthService auth, IHttpContextAccessor httpContext)
+public class AuthController(
+    AppDatabase db,
+    AccountService accounts,
+    AuthService auth,
+    IHttpContextAccessor httpContext
+) : ControllerBase
 {
     public class ChallengeRequest
     {
@@ -24,7 +29,7 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
     public async Task<ActionResult<Challenge>> StartChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
-        if (account is null) return new NotFoundObjectResult("Account was not found.");
+        if (account is null) return NotFound("Account was not found.");
 
         var ipAddress = httpContext.HttpContext?.Connection.RemoteIpAddress?.ToString();
         var userAgent = httpContext.HttpContext?.Request.Headers.UserAgent.ToString();
@@ -66,7 +71,7 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
             .Include(e => e.Account.AuthFactors)
             .Where(e => e.Id == id).FirstOrDefaultAsync();
         return challenge is null
-            ? new NotFoundObjectResult("Auth challenge was not found.")
+            ? NotFound("Auth challenge was not found.")
             : challenge.Account.AuthFactors.ToList();
     }
 
@@ -83,14 +88,14 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
     )
     {
         var challenge = await db.AuthChallenges.FindAsync(id);
-        if (challenge is null) return new NotFoundObjectResult("Auth challenge was not found.");
+        if (challenge is null) return NotFound("Auth challenge was not found.");
 
         var factor = await db.AccountAuthFactors.FindAsync(request.FactorId);
-        if (factor is null) return new NotFoundObjectResult("Auth factor was not found.");
+        if (factor is null) return NotFound("Auth factor was not found.");
 
         if (challenge.StepRemain == 0) return challenge;
         if (challenge.ExpiredAt.HasValue && challenge.ExpiredAt.Value < Instant.FromDateTimeUtc(DateTime.UtcNow))
-            return new BadRequestResult();
+            return BadRequest();
 
         try
         {
@@ -102,7 +107,7 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
         }
         catch
         {
-            return new BadRequestResult();
+            return BadRequest();
         }
 
         await db.SaveChangesAsync();
@@ -125,21 +130,21 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
             case "authorization_code":
                 var code = Guid.TryParse(request.Code, out var codeId) ? codeId : Guid.Empty;
                 if (code == Guid.Empty)
-                    return new BadRequestObjectResult("Invalid or missing authorization code.");
+                    return BadRequest("Invalid or missing authorization code.");
                 var challenge = await db.AuthChallenges
                     .Include(e => e.Account)
                     .Where(e => e.Id == code)
                     .FirstOrDefaultAsync();
                 if (challenge is null)
-                    return new NotFoundObjectResult("Authorization code not found or expired.");
+                    return BadRequest("Authorization code not found or expired.");
                 if (challenge.StepRemain != 0)
-                    return new BadRequestObjectResult("Challenge not yet completed.");
+                    return BadRequest("Challenge not yet completed.");
 
                 session = await db.AuthSessions
                     .Where(e => e.Challenge == challenge)
                     .FirstOrDefaultAsync();
                 if (session is not null)
-                    return new BadRequestObjectResult("Session already exists for this challenge.");
+                    return BadRequest("Session already exists for this challenge.");
 
                 session = new Session
                 {
@@ -159,21 +164,21 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
                 var sessionIdClaim = token.Claims.FirstOrDefault(c => c.Type == "session_id")?.Value;
 
                 if (!Guid.TryParse(sessionIdClaim, out var sessionId))
-                    return new UnauthorizedObjectResult("Invalid or missing session_id claim in refresh token.");
+                    return Unauthorized("Invalid or missing session_id claim in refresh token.");
 
                 session = await db.AuthSessions
                     .Include(e => e.Account)
                     .Include(e => e.Challenge)
                     .FirstOrDefaultAsync(s => s.Id == sessionId);
                 if (session is null)
-                    return new NotFoundObjectResult("Session not found or expired.");
+                    return NotFound("Session not found or expired.");
 
                 session.LastGrantedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
                 await db.SaveChangesAsync();
 
                 return auth.CreateToken(session);
             default:
-                return new BadRequestObjectResult("Unsupported grant type.");
+                return BadRequest("Unsupported grant type.");
         }
     }
 
@@ -183,11 +188,11 @@ public class AuthController(AppDatabase db, AccountService accounts, AuthService
     {
         var sessionIdClaim = httpContext.HttpContext?.User.FindFirst("session_id")?.Value;
         if (!Guid.TryParse(sessionIdClaim, out var sessionId))
-            return new UnauthorizedResult();
+            return Unauthorized();
 
         var session = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
-        if (session is null) return new NotFoundResult();
+        if (session is null) return NotFound();
 
-        return new OkObjectResult(session);
+        return Ok(session);
     }
 }

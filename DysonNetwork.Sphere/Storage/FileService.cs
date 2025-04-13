@@ -117,11 +117,30 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         );
 
         file.UploadedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        db.Update(file);
         await db.SaveChangesAsync();
         return file;
     }
 
-    private RemoteStorageConfig GetRemoteStorageConfig(string destination)
+    public async Task DeleteFileDataAsync(CloudFile file)
+    {
+        if (file.UploadedTo is null) return;
+        var dest = GetRemoteStorageConfig(file.UploadedTo);
+        var client = CreateMinioClient(dest);
+        if (client is null)
+            throw new InvalidOperationException(
+                $"Failed to configure client for remote destination '{file.UploadedTo}'"
+            );
+
+        var bucket = dest.Bucket;
+        await client.RemoveObjectAsync(
+            new RemoveObjectArgs().WithBucket(bucket).WithObject(file.Id)
+        );
+
+        return;
+    }
+
+    public RemoteStorageConfig GetRemoteStorageConfig(string destination)
     {
         var destinations = configuration.GetSection("Storage:Remote").Get<List<RemoteStorageConfig>>()!;
         var dest = destinations.FirstOrDefault(d => d.Id == destination);
@@ -129,7 +148,7 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         return dest;
     }
 
-    private IMinioClient? CreateMinioClient(RemoteStorageConfig dest)
+    public IMinioClient? CreateMinioClient(RemoteStorageConfig dest)
     {
         var client = new MinioClient()
             .WithEndpoint(dest.Endpoint)
