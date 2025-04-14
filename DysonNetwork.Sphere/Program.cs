@@ -204,7 +204,12 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
 
             var fileService = eventContext.HttpContext.RequestServices.GetRequiredService<FileService>();
 
-            var info = await fileService.AnalyzeFileAsync(account, file.Id, fileStream, fileName, contentType);
+            var (info, processedStream) = await fileService.AnalyzeFileAsync(account, file.Id, fileStream, fileName, contentType);
+            // Write the processed stream to the disk
+            var tusPath = builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!;
+            var tusFilePath = Path.Combine(tusPath, file.Id);
+            await using var fileStreamWriter = new FileStream(tusFilePath, FileMode.Create, FileAccess.Write);
+            await processedStream.CopyToAsync(fileStreamWriter);
 
             var jsonOptions = httpContext.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value
                 .JsonSerializerOptions;
