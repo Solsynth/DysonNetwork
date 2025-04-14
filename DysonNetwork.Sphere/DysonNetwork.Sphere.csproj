@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <PackageReference Include="Blurhash.ImageSharp" Version="4.0.0" />
         <PackageReference Include="Casbin.NET" Version="2.12.0" />
         <PackageReference Include="Casbin.NET.Adapter.EFCore" Version="2.5.0" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
@@ -31,6 +32,9 @@
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="9.0.4" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
+        <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.5" />
+        <PackageReference Include="SixLabors.ImageSharp.Web" Version="3.1.4" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.0" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.0" />
         <PackageReference Include="tusdotnet" Version="2.8.1" />
