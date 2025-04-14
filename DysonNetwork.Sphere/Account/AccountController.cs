@@ -82,6 +82,8 @@ public class AccountController(AppDatabase db) : ControllerBase
 
         var account = await db.Accounts
             .Include(e => e.Profile)
+            .Include(e => e.Profile.Picture)
+            .Include(e => e.Profile.Background)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
 
@@ -155,6 +157,7 @@ public class AccountController(AppDatabase db) : ControllerBase
             
             picture.UsedCount++;
             profile.Picture = picture;
+            db.Update(picture);
         }
 
         if (request.BackgroundId is not null)
@@ -169,8 +172,10 @@ public class AccountController(AppDatabase db) : ControllerBase
 
             background.UsedCount++;
             profile.Background = background;
+            db.Update(background);
         }
 
+        db.Update(profile);
         await db.SaveChangesAsync();
         return profile;
     }
