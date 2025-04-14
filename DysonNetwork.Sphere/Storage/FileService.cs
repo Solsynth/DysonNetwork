@@ -14,46 +14,14 @@ namespace DysonNetwork.Sphere.Storage;
 
 public class FileService(AppDatabase db, IConfiguration configuration)
 {
-    private static readonly List<ExifTag> BlacklistExifTags =
-    [
-        ExifTag.GPSLatitudeRef,
-        ExifTag.GPSLatitude,
-        ExifTag.GPSLongitudeRef,
-        ExifTag.GPSLongitude,
-        ExifTag.GPSAltitudeRef,
-        ExifTag.GPSAltitude,
-        ExifTag.GPSSatellites,
-        ExifTag.GPSStatus,
-        ExifTag.GPSMeasureMode,
-        ExifTag.GPSDOP,
-        ExifTag.GPSSpeedRef,
-        ExifTag.GPSSpeed,
-        ExifTag.GPSTrackRef,
-        ExifTag.GPSTrack,
-        ExifTag.GPSImgDirectionRef,
-        ExifTag.GPSImgDirection,
-        ExifTag.GPSMapDatum,
-        ExifTag.GPSDestLatitudeRef,
-        ExifTag.GPSDestLatitude,
-        ExifTag.GPSDestLongitudeRef,
-        ExifTag.GPSDestLongitude,
-        ExifTag.GPSDestBearingRef,
-        ExifTag.GPSDestBearing,
-        ExifTag.GPSDestDistanceRef,
-        ExifTag.GPSDestDistance,
-        ExifTag.GPSProcessingMethod,
-        ExifTag.GPSAreaInformation,
-        ExifTag.GPSDateStamp,
-        ExifTag.GPSDifferential
-    ];
-
-    public async Task<(CloudFile, Stream)> AnalyzeFileAsync(
+    // The analysis file method no longer will remove the GPS EXIF data
+    // It should be handled on the client side, and for some specific cases it should be keep
+    public async Task<CloudFile> AnalyzeFileAsync(
         Account.Account account,
         string fileId,
         Stream stream,
         string fileName,
-        string? contentType,
-        string? filePath = null
+        string? contentType
     )
     {
         var fileSize = stream.Length;
@@ -61,7 +29,7 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
 
         var existingFile = await db.Files.Where(f => f.Hash == hash).FirstOrDefaultAsync();
-        if (existingFile is not null) return (existingFile, stream);
+        if (existingFile is not null) return existingFile;
 
         var file = new CloudFile
         {
@@ -88,16 +56,9 @@ public class FileService(AppDatabase db, IConfiguration configuration)
                     ushort orientation = 1;
                     List<IExifValue> exif = [];
 
-                    if (exifProfile is not null)
-                    {
-                        exif = exifProfile.Values
-                            .Where(v => !BlacklistExifTags.Contains((ExifTag)v.Tag))
-                            .ToList<IExifValue>();
-
-                        if (exifProfile.Values.FirstOrDefault(e => e.Tag == ExifTag.Orientation)
-                                ?.GetValue() is ushort o)
-                            orientation = o;
-                    }
+                    if (exifProfile?.Values.FirstOrDefault(e => e.Tag == ExifTag.Orientation)
+                            ?.GetValue() is ushort o)
+                        orientation = o;
 
                     if (orientation is 6 or 8)
                         (width, height) = (height, width);
@@ -114,11 +75,6 @@ public class FileService(AppDatabase db, IConfiguration configuration)
                         ["ratio"] = aspectRatio,
                         ["exif"] = exif
                     };
-
-                    var newStream = new MemoryStream();
-                    await imageSharp.SaveAsWebpAsync(newStream);
-                    file.MimeType = "image/webp";
-                    stream = newStream;
                 }
 
                 break;
@@ -140,7 +96,7 @@ public class FileService(AppDatabase db, IConfiguration configuration)
 
         db.Files.Add(file);
         await db.SaveChangesAsync();
-        return (file, stream);
+        return file;
     }
 
     private static async Task<string> HashFileAsync(Stream stream, int chunkSize = 1024 * 1024, long? fileSize = null)
