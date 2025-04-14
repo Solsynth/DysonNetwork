@@ -18,6 +18,7 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<Account.Account> Accounts { get; set; }
+    public DbSet<Account.Profile> AccountProfiles { get; set; }
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
     public DbSet<Auth.Session> AuthSessions { get; set; }
@@ -42,6 +43,11 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.Entity<Account.Account>()
+            .HasOne(a => a.Profile)
+            .WithOne(p => p.Account)
+            .HasForeignKey<Account.Profile>(p => p.Id);
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

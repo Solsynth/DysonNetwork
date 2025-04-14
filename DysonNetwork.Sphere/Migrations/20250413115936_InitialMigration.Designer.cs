@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250412182922_AddCloudFiles")]
-    partial class AddCloudFiles
+    [Migration("20250413115936_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -164,6 +164,64 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasDatabaseName("ix_account_contacts_account_id");
 
                     b.ToTable("account_contacts", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Account.Profile", b =>
+                {
+                    b.Property<long>("Id")
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BackgroundId")
+                        .HasColumnType("text")
+                        .HasColumnName("background_id");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("bio");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("FirstName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("first_name");
+
+                    b.Property<string>("LastName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("last_name");
+
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("middle_name");
+
+                    b.Property<string>("PictureId")
+                        .HasColumnType("text")
+                        .HasColumnName("picture_id");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_account_profiles");
+
+                    b.HasIndex("BackgroundId")
+                        .HasDatabaseName("ix_account_profiles_background_id");
+
+                    b.HasIndex("PictureId")
+                        .HasDatabaseName("ix_account_profiles_picture_id");
+
+                    b.ToTable("account_profiles", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Auth.Challenge", b =>
@@ -393,6 +451,32 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Account.Profile", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Storage.CloudFile", "Background")
+                        .WithMany()
+                        .HasForeignKey("BackgroundId")
+                        .HasConstraintName("fk_account_profiles_files_background_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
+                        .WithOne("Profile")
+                        .HasForeignKey("DysonNetwork.Sphere.Account.Profile", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_profiles_accounts_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Storage.CloudFile", "Picture")
+                        .WithMany()
+                        .HasForeignKey("PictureId")
+                        .HasConstraintName("fk_account_profiles_files_picture_id");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Background");
+
+                    b.Navigation("Picture");
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Auth.Challenge", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
@@ -445,6 +529,9 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Challenges");
 
                     b.Navigation("Contacts");
+
+                    b.Navigation("Profile")
+                        .IsRequired();
 
                     b.Navigation("Sessions");
                 });

@@ -12,11 +12,26 @@ public class Account : BaseModel
     [MaxLength(32)] public string Language { get; set; } = string.Empty;
     public bool IsSuperuser { get; set; } = false;
 
+    public Profile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
 
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
     [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
     [JsonIgnore] public ICollection<Auth.Challenge> Challenges { get; set; } = new List<Auth.Challenge>();
+}
+
+public class Profile : BaseModel
+{
+    public long Id { get; set; }
+    [MaxLength(256)] public string? FirstName { get; set; }
+    [MaxLength(256)] public string? MiddleName { get; set; }
+    [MaxLength(256)] public string? LastName { get; set; }
+    [MaxLength(4096)] public string? Bio { get; set; }
+    
+    public Storage.CloudFile? Picture { get; set; }
+    public Storage.CloudFile? Background { get; set; }
+    
+    [JsonIgnore] public Account Account { get; set; } = null!;
 }
 
 public class AccountContact : BaseModel
