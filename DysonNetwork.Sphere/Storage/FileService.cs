@@ -158,8 +158,11 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         );
 
         file.UploadedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        db.Update(file);
-        await db.SaveChangesAsync();
+        await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(
+            setter => setter
+                .SetProperty(f => f.UploadedAt, file.UploadedAt)
+                .SetProperty(f => f.UploadedTo, file.UploadedTo)
+        );
         return file;
     }
 
