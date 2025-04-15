@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Minio;
 using Minio.DataModel.Args;
 using NodaTime;
+using Quartz;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using ExifTag = SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag;
@@ -162,6 +163,14 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         return file;
     }
 
+    public async Task DeleteFileAsync(CloudFile file)
+    {
+        await DeleteFileDataAsync(file);
+
+        db.Remove(file);
+        await db.SaveChangesAsync();
+    }
+
     public async Task DeleteFileDataAsync(CloudFile file)
     {
         if (file.UploadedTo is null) return;
@@ -177,7 +186,8 @@ public class FileService(AppDatabase db, IConfiguration configuration)
             new RemoveObjectArgs().WithBucket(bucket).WithObject(file.Id)
         );
 
-        return;
+        db.Remove(file);
+        await db.SaveChangesAsync();
     }
 
     public RemoteStorageConfig GetRemoteStorageConfig(string destination)
@@ -197,5 +207,40 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         if (dest.EnableSsl) client = client.WithSSL();
 
         return client.Build();
+    }
+
+    public async Task MarkUsageAsync(CloudFile file, int delta)
+    {
+        await db.Files.Where(o => o.Id == file.Id)
+            .ExecuteUpdateAsync(
+                setter => setter.SetProperty(
+                    b => b.UsedCount,
+                    b => b.UsedCount + delta
+                )
+            );
+    }
+}
+
+public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger<CloudFileUnusedRecyclingJob> logger)
+    : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        logger.LogInformation("Deleting unused cloud files...");
+
+        var cutoff = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
+        var files = db.Files
+            .Where(f => f.UsedCount == 0)
+            .Where(f => f.CreatedAt < cutoff)
+            .ToList();
+
+        logger.LogInformation($"Deleting {files.Count} unused cloud files...");
+
+        var tasks = files.Select(fs.DeleteFileDataAsync);
+        await Task.WhenAll(tasks);
+
+        await db.Files
+            .Where(f => f.UsedCount == 0 && f.CreatedAt < cutoff)
+            .ExecuteDeleteAsync();
     }
 }

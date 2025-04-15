@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
 [Route("/accounts")]
-public class AccountController(AppDatabase db) : ControllerBase
+public class AccountController(AppDatabase db, FileService fs) : ControllerBase
 {
     [HttpGet("{name}")]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
@@ -150,14 +151,10 @@ public class AccountController(AppDatabase db) : ControllerBase
             var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
             if (profile.Picture is not null)
-            {
-                profile.Picture.UsedCount--;
-                db.Update(profile.Picture);
-            }
-            
-            picture.UsedCount++;
+                await fs.MarkUsageAsync(profile.Picture, -1);
+
             profile.Picture = picture;
-            db.Update(picture);
+            await fs.MarkUsageAsync(picture, 1);
         }
 
         if (request.BackgroundId is not null)
@@ -165,14 +162,10 @@ public class AccountController(AppDatabase db) : ControllerBase
             var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
             if (profile.Background is not null)
-            {
-                profile.Background.UsedCount--;
-                db.Update(profile.Background);
-            }
+                await fs.MarkUsageAsync(profile.Background, -1);
 
-            background.UsedCount++;
             profile.Background = background;
-            db.Update(background);
+            await fs.MarkUsageAsync(background, 1);
         }
 
         db.Update(profile);

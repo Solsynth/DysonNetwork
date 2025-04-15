@@ -1,7 +1,9 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
 using Npgsql;
+using Quartz;
 
 namespace DysonNetwork.Sphere;
 
@@ -43,7 +45,7 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
+
         modelBuilder.Entity<Account.Account>()
             .HasOne(a => a.Profile)
             .WithOne(p => p.Account)
@@ -97,6 +99,52 @@ public class AppDatabase(
         }
 
         return await base.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclingJob> logger) : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        logger.LogInformation("Deleting soft-deleted records...");
+        
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var threshold = now - Duration.FromDays(7);
+
+        var entityTypes = db.Model.GetEntityTypes()
+            .Where(t => typeof(BaseModel).IsAssignableFrom(t.ClrType) && t.ClrType != typeof(BaseModel))
+            .Select(t => t.ClrType);
+
+        foreach (var entityType in entityTypes)
+        {
+            var set = (IQueryable)db.GetType().GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!
+                .MakeGenericMethod(entityType).Invoke(db, null)!;
+            var parameter = Expression.Parameter(entityType, "e");
+            var property = Expression.Property(parameter, nameof(BaseModel.DeletedAt));
+            var condition = Expression.LessThan(property, Expression.Constant(threshold, typeof(Instant?)));
+            var notNull = Expression.NotEqual(property, Expression.Constant(null, typeof(Instant?)));
+            var finalCondition = Expression.AndAlso(notNull, condition);
+            var lambda = Expression.Lambda(finalCondition, parameter);
+
+            var queryable = set.Provider.CreateQuery(
+                Expression.Call(
+                    typeof(Queryable),
+                    "Where",
+                    [entityType],
+                    set.Expression,
+                    Expression.Quote(lambda)
+                )
+            );
+
+            var toListAsync = typeof(EntityFrameworkQueryableExtensions)
+                .GetMethod(nameof(EntityFrameworkQueryableExtensions.ToListAsync))!
+                .MakeGenericMethod(entityType);
+
+            var items = await (dynamic)toListAsync.Invoke(null, [queryable, CancellationToken.None])!;
+            db.RemoveRange(items);
+        }
+
+        await db.SaveChangesAsync();
     }
 }
 

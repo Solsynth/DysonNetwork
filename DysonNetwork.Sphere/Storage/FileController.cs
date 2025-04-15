@@ -93,7 +93,7 @@ public class FileController(
             .FirstOrDefaultAsync();
         if (file is null) return NotFound();
 
-        await fs.DeleteFileDataAsync(file);
+        await fs.DeleteFileAsync(file);
 
         db.Files.Remove(file);
         await db.SaveChangesAsync();

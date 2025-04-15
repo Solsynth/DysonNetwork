@@ -17,6 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
+using Quartz;
 using tusdotnet;
 using tusdotnet.Models;
 using File = System.IO.File;
@@ -116,6 +117,28 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
+
+// Timed task
+
+builder.Services.AddQuartz(q =>
+{
+    var appDatabaseRecyclingJob = new JobKey("AppDatabaseRecycling");
+    q.AddJob<AppDatabaseRecyclingJob>(opts => opts.WithIdentity(appDatabaseRecyclingJob));
+    q.AddTrigger(opts => opts
+        .ForJob(appDatabaseRecyclingJob)
+        .WithIdentity("AppDatabaseRecyclingTrigger")
+        .WithCronSchedule("0 0 0 * * ?"));
+
+    var cloudFilesRecyclingJob = new JobKey("CloudFilesUnusedRecycling");
+    q.AddJob<CloudFileUnusedRecyclingJob>(opts => opts.WithIdentity(cloudFilesRecyclingJob));
+    q.AddTrigger(opts => opts
+        .ForJob(cloudFilesRecyclingJob)
+        .WithIdentity("CloudFilesUnusedRecyclingTrigger")
+        .WithSimpleSchedule(o => o.WithIntervalInHours(1).RepeatForever())
+    );
+});
+builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
+
 
 var app = builder.Build();
 
