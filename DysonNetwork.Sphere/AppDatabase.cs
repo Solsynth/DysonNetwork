@@ -7,7 +7,7 @@ using Quartz;
 
 namespace DysonNetwork.Sphere;
 
-public abstract class BaseModel
+public abstract class ModelBase
 {
     public Instant CreatedAt { get; set; }
     public Instant UpdatedAt { get; set; }
@@ -23,6 +23,7 @@ public class AppDatabase(
     public DbSet<Account.Profile> AccountProfiles { get; set; }
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
+    public DbSet<Account.Relationship> AccountRelationships { get; set; }
     public DbSet<Auth.Session> AuthSessions { get; set; }
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
     public DbSet<Storage.CloudFile> Files { get; set; }
@@ -51,10 +52,21 @@ public class AppDatabase(
             .WithOne(p => p.Account)
             .HasForeignKey<Account.Profile>(p => p.Id);
 
+        modelBuilder.Entity<Account.Relationship>()
+            .HasKey(r => new { r.FromAccountId, r.ToAccountId });
+        modelBuilder.Entity<Account.Relationship>()
+            .HasOne(r => r.FromAccount)
+            .WithMany(a => a.OutgoingRelationships)
+            .HasForeignKey(r => r.FromAccountId);
+        modelBuilder.Entity<Account.Relationship>()
+            .HasOne(r => r.ToAccount)
+            .WithMany(a => a.IncomingRelationships)
+            .HasForeignKey(r => r.ToAccountId);
+        
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (typeof(BaseModel).IsAssignableFrom(entityType.ClrType))
+            if (typeof(ModelBase).IsAssignableFrom(entityType.ClrType))
             {
                 var method = typeof(AppDatabase)
                     .GetMethod(nameof(SetSoftDeleteFilter),
@@ -67,7 +79,7 @@ public class AppDatabase(
     }
 
     private static void SetSoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)
-        where TEntity : BaseModel
+        where TEntity : ModelBase
     {
         modelBuilder.Entity<TEntity>().HasQueryFilter(e => e.DeletedAt == null);
     }
@@ -76,7 +88,7 @@ public class AppDatabase(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
-        foreach (var entry in ChangeTracker.Entries<BaseModel>())
+        foreach (var entry in ChangeTracker.Entries<ModelBase>())
         {
             switch (entry.State)
             {
@@ -112,7 +124,7 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
         var threshold = now - Duration.FromDays(7);
 
         var entityTypes = db.Model.GetEntityTypes()
-            .Where(t => typeof(BaseModel).IsAssignableFrom(t.ClrType) && t.ClrType != typeof(BaseModel))
+            .Where(t => typeof(ModelBase).IsAssignableFrom(t.ClrType) && t.ClrType != typeof(ModelBase))
             .Select(t => t.ClrType);
 
         foreach (var entityType in entityTypes)
@@ -120,7 +132,7 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
             var set = (IQueryable)db.GetType().GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!
                 .MakeGenericMethod(entityType).Invoke(db, null)!;
             var parameter = Expression.Parameter(entityType, "e");
-            var property = Expression.Property(parameter, nameof(BaseModel.DeletedAt));
+            var property = Expression.Property(parameter, nameof(ModelBase.DeletedAt));
             var condition = Expression.LessThan(property, Expression.Constant(threshold, typeof(Instant?)));
             var notNull = Expression.NotEqual(property, Expression.Constant(null, typeof(Instant?)));
             var finalCondition = Expression.AndAlso(notNull, condition);

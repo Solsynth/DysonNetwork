@@ -20,7 +20,7 @@ public class RemoteStorageConfig
     public string? AccessProxy { get; set; }
 }
 
-public class CloudFile : BaseModel
+public class CloudFile : ModelBase
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;

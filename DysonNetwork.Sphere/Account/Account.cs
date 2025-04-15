@@ -4,7 +4,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class Account : BaseModel
+public class Account : ModelBase
 {
     public long Id { get; set; }
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
@@ -18,23 +18,26 @@ public class Account : BaseModel
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
     [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
     [JsonIgnore] public ICollection<Auth.Challenge> Challenges { get; set; } = new List<Auth.Challenge>();
+
+    [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
+    [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
 }
 
-public class Profile : BaseModel
+public class Profile : ModelBase
 {
     public long Id { get; set; }
     [MaxLength(256)] public string? FirstName { get; set; }
     [MaxLength(256)] public string? MiddleName { get; set; }
     [MaxLength(256)] public string? LastName { get; set; }
     [MaxLength(4096)] public string? Bio { get; set; }
-    
+
     public Storage.CloudFile? Picture { get; set; }
     public Storage.CloudFile? Background { get; set; }
-    
+
     [JsonIgnore] public Account Account { get; set; } = null!;
 }
 
-public class AccountContact : BaseModel
+public class AccountContact : ModelBase
 {
     public long Id { get; set; }
     public AccountContactType Type { get; set; }
@@ -51,7 +54,7 @@ public enum AccountContactType
     Address
 }
 
-public class AccountAuthFactor : BaseModel
+public class AccountAuthFactor : ModelBase
 {
     public long Id { get; set; }
     public AccountAuthFactorType Type { get; set; }

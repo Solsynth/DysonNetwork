@@ -5,7 +5,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth;
 
-public class Session : BaseModel
+public class Session : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Instant? LastGrantedAt { get; set; }
@@ -15,7 +15,7 @@ public class Session : BaseModel
     [JsonIgnore] public Challenge Challenge { get; set; } = null!;
 }
 
-public class Challenge : BaseModel
+public class Challenge : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Instant? ExpiredAt { get; set; }
