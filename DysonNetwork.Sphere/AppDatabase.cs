@@ -53,15 +53,15 @@ public class AppDatabase(
             .HasForeignKey<Account.Profile>(p => p.Id);
 
         modelBuilder.Entity<Account.Relationship>()
-            .HasKey(r => new { r.FromAccountId, r.ToAccountId });
+            .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
         modelBuilder.Entity<Account.Relationship>()
-            .HasOne(r => r.FromAccount)
+            .HasOne(r => r.Account)
             .WithMany(a => a.OutgoingRelationships)
-            .HasForeignKey(r => r.FromAccountId);
+            .HasForeignKey(r => r.AccountId);
         modelBuilder.Entity<Account.Relationship>()
-            .HasOne(r => r.ToAccount)
+            .HasOne(r => r.Related)
             .WithMany(a => a.IncomingRelationships)
-            .HasForeignKey(r => r.ToAccountId);
+            .HasForeignKey(r => r.RelatedId);
         
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

@@ -79,7 +79,7 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
     {
         var userIdClaim = User.FindFirst("user_id")?.Value;
         long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return new BadRequestObjectResult("Invalid or missing user_id claim.");
+        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
 
         var account = await db.Accounts
             .Include(e => e.Profile)
@@ -103,7 +103,7 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
     {
         var userIdClaim = User.FindFirst("user_id")?.Value;
         long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return new BadRequestObjectResult("Invalid or missing user_id claim.");
+        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
 
         var account = await db.Accounts.FindAsync(userId);
         if (account is null) return BadRequest("Unable to get your account.");
@@ -132,7 +132,7 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
     {
         var userIdClaim = User.FindFirst("user_id")?.Value;
         long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return new BadRequestObjectResult("Invalid or missing user_id claim.");
+        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
 
         var profile = await db.AccountProfiles
             .Where(p => p.Account.Id == userId)

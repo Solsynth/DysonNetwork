@@ -1,18 +1,22 @@
+using NodaTime;
+
 namespace DysonNetwork.Sphere.Account;
 
-public enum RelationshipType
+public enum RelationshipStatus
 {
-    Friend,
+    Pending,
+    Friends,
     Blocked
 }
 
 public class Relationship : ModelBase
 {
-    public long FromAccountId { get; set; }
-    public Account FromAccount { get; set; } = null!;
+    public long AccountId { get; set; }
+    public Account Account { get; set; } = null!;
+    public long RelatedId { get; set; }
+    public Account Related { get; set; } = null!;
 
-    public long ToAccountId { get; set; }
-    public Account ToAccount { get; set; } = null!;
+    public Instant? ExpiredAt { get; set; }
 
-    public RelationshipType Type { get; set; }
+    public RelationshipStatus Status { get; set; } = RelationshipStatus.Pending;
 }

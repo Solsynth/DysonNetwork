@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250415171044_AddRelationship")]
+    [Migration("20250417145426_AddRelationship")]
     partial class AddRelationship
     {
         /// <inheritdoc />
@@ -226,13 +226,13 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Relationship", b =>
                 {
-                    b.Property<long>("FromAccountId")
+                    b.Property<long>("AccountId")
                         .HasColumnType("bigint")
-                        .HasColumnName("from_account_id");
+                        .HasColumnName("account_id");
 
-                    b.Property<long>("ToAccountId")
+                    b.Property<long>("RelatedId")
                         .HasColumnType("bigint")
-                        .HasColumnName("to_account_id");
+                        .HasColumnName("related_id");
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -242,19 +242,23 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
-                    b.Property<int>("Type")
+                    b.Property<Instant?>("ExpiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expired_at");
+
+                    b.Property<int>("Status")
                         .HasColumnType("integer")
-                        .HasColumnName("type");
+                        .HasColumnName("status");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("FromAccountId", "ToAccountId")
+                    b.HasKey("AccountId", "RelatedId")
                         .HasName("pk_account_relationships");
 
-                    b.HasIndex("ToAccountId")
-                        .HasDatabaseName("ix_account_relationships_to_account_id");
+                    b.HasIndex("RelatedId")
+                        .HasDatabaseName("ix_account_relationships_related_id");
 
                     b.ToTable("account_relationships", (string)null);
                 });
@@ -514,23 +518,23 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Relationship", b =>
                 {
-                    b.HasOne("DysonNetwork.Sphere.Account.Account", "FromAccount")
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
                         .WithMany("OutgoingRelationships")
-                        .HasForeignKey("FromAccountId")
+                        .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_account_relationships_accounts_from_account_id");
+                        .HasConstraintName("fk_account_relationships_accounts_account_id");
 
-                    b.HasOne("DysonNetwork.Sphere.Account.Account", "ToAccount")
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Related")
                         .WithMany("IncomingRelationships")
-                        .HasForeignKey("ToAccountId")
+                        .HasForeignKey("RelatedId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_account_relationships_accounts_to_account_id");
+                        .HasConstraintName("fk_account_relationships_accounts_related_id");
 
-                    b.Navigation("FromAccount");
+                    b.Navigation("Account");
 
-                    b.Navigation("ToAccount");
+                    b.Navigation("Related");
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Auth.Challenge", b =>
