@@ -1,12 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using Casbin;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/posts")]
-public class PostController(AppDatabase db, PostService ps) : ControllerBase
+public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20)
@@ -99,6 +101,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
         [MaxLength(8)] public List<string>? Categories { get; set; }
         [MaxLength(32)] public List<string>? Attachments { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
+        public Instant? PublishedAt { get; set; }
     }
 
     [HttpPost]
@@ -108,6 +111,8 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (!await enforcer.EnforceAsync((string)HttpContext.Items["CurrentIdentity"]!, "global", "posts", "create"))
+            return StatusCode(403);
 
         Publisher? publisher;
         if (publisherName is null)
@@ -136,8 +141,10 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
             Description = request.Description,
             Content = request.Content,
             Visibility = request.Visibility ?? PostVisibility.Public,
+            PublishedAt = request.PublishedAt,
             Type = request.Type ?? PostType.Moment,
             Meta = request.Meta,
+            Publisher = publisher,
         };
 
         try
@@ -190,7 +197,8 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
                 post,
                 attachments: request.Attachments,
                 tags: request.Tags,
-                categories: request.Categories
+                categories: request.Categories,
+                publishedAt: request.PublishedAt
             );
         }
         catch (InvalidOperationException err)

@@ -20,6 +20,8 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
         var publisher = await db.Publishers
             .Where(e => e.Name == name)
+            .Include(e => e.Picture)
+            .Include(e => e.Background)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 
@@ -37,6 +39,8 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Publisher)
+            .Include(e => e.Publisher.Picture)
+            .Include(e => e.Publisher.Background)
             .ToListAsync();
 
         return members.Select(m => m.Publisher).ToList();
@@ -53,6 +57,8 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.Publisher)
+            .Include(e => e.Publisher.Picture)
+            .Include(e => e.Publisher.Background)
             .ToListAsync();
 
         return members.ToList();
@@ -164,7 +170,8 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     public async Task<ActionResult<Publisher>> CreatePublisherIndividual(PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        if (!await enforcer.EnforceAsync(currentUser.Id.ToString(), "global", "publishers", "create"))
+        if (!await enforcer.EnforceAsync((string)HttpContext.Items["CurrentIdentity"]!, "global", "publishers",
+                "create"))
             return StatusCode(403);
 
         var takenName = request.Name ?? currentUser.Name;

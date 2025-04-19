@@ -13,6 +13,12 @@ public class PostService(AppDatabase db, FileService fs)
         List<string>? categories = null
     )
     {
+        if (post.PublishedAt is not null)
+        {
+            if (post.PublishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
+                throw new InvalidOperationException("Cannot create the post which published in the past.");
+        }
+        
         if (attachments is not null)
         {
             post.Attachments = await db.Files.Where(e => attachments.Contains(e.Id)).ToListAsync();
@@ -46,7 +52,7 @@ public class PostService(AppDatabase db, FileService fs)
             if (post.Categories.Count != categories.Distinct().Count())
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
         }
-        
+
         if (post.Empty)
             throw new InvalidOperationException("Cannot create a post with barely no content.");
 
@@ -63,10 +69,20 @@ public class PostService(AppDatabase db, FileService fs)
         Post post,
         List<string>? attachments = null,
         List<string>? tags = null,
-        List<string>? categories = null
+        List<string>? categories = null,
+        Instant? publishedAt = null
     )
     {
         post.EditedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+
+        if (publishedAt is not null)
+        {
+            // User cannot set the published at to the past to prevent scam,
+            // But we can just let the controller set the published at, because when no changes to
+            // the published at will blocked the update operation
+            if (publishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
+                throw new InvalidOperationException("Cannot set the published at to the past.");
+        }
 
         if (attachments is not null)
         {
@@ -87,7 +103,7 @@ public class PostService(AppDatabase db, FileService fs)
             await fs.MarkUsageRangeAsync(added, 1);
             await fs.MarkUsageRangeAsync(removed, -1);
         }
-        
+
         if (tags is not null)
         {
             var existingTags = await db.PostTags.Where(e => tags.Contains(e.Slug)).ToListAsync();
@@ -111,14 +127,14 @@ public class PostService(AppDatabase db, FileService fs)
             post.Categories = await db.PostCategories.Where(e => categories.Contains(e.Slug)).ToListAsync();
             if (post.Categories.Count != categories.Distinct().Count())
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
-        } 
-        
+        }
+
         if (post.Empty)
             throw new InvalidOperationException("Cannot edit a post to barely no content.");
-        
+
         db.Update(post);
         await db.SaveChangesAsync();
-        
+
         return post;
     }
 

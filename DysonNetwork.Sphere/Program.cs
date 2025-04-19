@@ -51,6 +51,7 @@ var casbinDbContext = new CasbinDbContext<int>(
 var casbinEfcore = new EFCoreAdapter<int>(casbinDbContext);
 casbinDbContext.Database.EnsureCreated();
 var casbinEncofcer = new Enforcer("Casbin.conf", casbinEfcore);
+casbinEncofcer.EnableCache(true);
 casbinEncofcer.LoadPolicy();
 
 builder.Services.AddSingleton<IEnforcer>(casbinEncofcer);

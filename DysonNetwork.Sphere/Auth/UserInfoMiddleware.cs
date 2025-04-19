@@ -26,6 +26,8 @@ public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
             if (user is not null)
             {
                 context.Items["CurrentUser"] = user;
+                var prefix = user.IsSuperuser ? "super:" : "";
+                context.Items["CurrentIdentity"] = $"{prefix}{userId}";
             }
         }
 
