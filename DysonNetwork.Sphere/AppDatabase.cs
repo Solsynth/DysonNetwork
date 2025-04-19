@@ -31,6 +31,9 @@ public class AppDatabase(
     public DbSet<Post.PublisherMember> PublisherMembers { get; set; }
     public DbSet<Post.Post> Posts { get; set; }
     public DbSet<Post.PostReaction> PostReactions { get; set; }
+    public DbSet<Post.PostTag> PostTags { get; set; }
+    public DbSet<Post.PostCategory> PostCategories { get; set; }
+    public DbSet<Post.PostCollection> PostCollections { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -81,15 +84,31 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<Post.Post>()
+            .HasOne(p => p.ThreadedPost)
+            .WithOne()
+            .HasForeignKey<Post.Post>(p => p.ThreadedPostId);
+        modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.RepliedPost)
             .WithMany()
-            .HasForeignKey("RepliedPostId")
+            .HasForeignKey(p => p.RepliedPostId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.ForwardedPost)
             .WithMany()
-            .HasForeignKey("ForwardedPostId")
+            .HasForeignKey(p  => p.ForwardedPostId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Post.Post>()
+            .HasMany(p => p.Tags)
+            .WithMany(t => t.Posts)
+            .UsingEntity(j => j.ToTable("post_tag_links"));
+        modelBuilder.Entity<Post.Post>()
+            .HasMany(p => p.Categories)
+            .WithMany(c => c.Posts)
+            .UsingEntity(j => j.ToTable("post_category_links"));
+        modelBuilder.Entity<Post.Post>()
+            .HasMany(p => p.Collections)
+            .WithMany(c => c.Posts)
+            .UsingEntity(j => j.ToTable("post_collection_links"));
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

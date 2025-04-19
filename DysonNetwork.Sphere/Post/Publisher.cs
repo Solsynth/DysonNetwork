@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Storage;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
@@ -12,6 +13,7 @@ public enum PublisherType
     Organizational
 }
 
+[Index(nameof(Name), IsUnique = true)]
 public class Publisher : ModelBase
 {
     public long Id { get; set; }
@@ -24,7 +26,10 @@ public class Publisher : ModelBase
     public CloudFile? Background { get; set; }
 
     [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
+    [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
     [JsonIgnore] public ICollection<PublisherMember> Members { get; set; } = new List<PublisherMember>();
+    
+    public long? AccountId { get; set; }
     [JsonIgnore] public Account.Account? Account { get; set; }
 }
 

@@ -70,6 +70,10 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_accounts");
 
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_accounts_name");
+
                     b.ToTable("accounts", (string)null);
                 });
 
@@ -416,9 +420,26 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("downvotes");
 
+                    b.Property<Instant?>("EditedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("edited_at");
+
                     b.Property<long?>("ForwardedPostId")
                         .HasColumnType("bigint")
                         .HasColumnName("forwarded_post_id");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("language");
+
+                    b.Property<Dictionary<string, object>>("Meta")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("meta");
+
+                    b.Property<Instant?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
 
                     b.Property<long>("PublisherId")
                         .HasColumnType("bigint")
@@ -427,6 +448,10 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<long?>("RepliedPostId")
                         .HasColumnType("bigint")
                         .HasColumnName("replied_post_id");
+
+                    b.Property<long?>("ThreadedPostId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("threaded_post_id");
 
                     b.Property<string>("Title")
                         .HasMaxLength(1024)
@@ -453,6 +478,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("views_unique");
 
+                    b.Property<int>("Visibility")
+                        .HasColumnType("integer")
+                        .HasColumnName("visibility");
+
                     b.HasKey("Id")
                         .HasName("pk_posts");
 
@@ -465,7 +494,99 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasIndex("RepliedPostId")
                         .HasDatabaseName("ix_posts_replied_post_id");
 
+                    b.HasIndex("ThreadedPostId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_posts_threaded_post_id");
+
                     b.ToTable("posts", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PostCategory", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("slug");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_post_categories");
+
+                    b.ToTable("post_categories", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PostCollection", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
+
+                    b.Property<long>("PublisherId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("publisher_id");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("slug");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_post_collections");
+
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_post_collections_publisher_id");
+
+                    b.ToTable("post_collections", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostReaction", b =>
@@ -517,6 +638,44 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasDatabaseName("ix_post_reactions_post_id");
 
                     b.ToTable("post_reactions", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PostTag", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("slug");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_post_tags");
+
+                    b.ToTable("post_tags", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.Publisher", b =>
@@ -581,6 +740,10 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("BackgroundId")
                         .HasDatabaseName("ix_publishers_background_id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_publishers_name");
 
                     b.HasIndex("PictureId")
                         .HasDatabaseName("ix_publishers_picture_id");
@@ -711,6 +874,63 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("files", (string)null);
                 });
 
+            modelBuilder.Entity("PostPostCategory", b =>
+                {
+                    b.Property<long>("CategoriesId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("categories_id");
+
+                    b.Property<long>("PostsId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("posts_id");
+
+                    b.HasKey("CategoriesId", "PostsId")
+                        .HasName("pk_post_category_links");
+
+                    b.HasIndex("PostsId")
+                        .HasDatabaseName("ix_post_category_links_posts_id");
+
+                    b.ToTable("post_category_links", (string)null);
+                });
+
+            modelBuilder.Entity("PostPostCollection", b =>
+                {
+                    b.Property<long>("CollectionsId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("collections_id");
+
+                    b.Property<long>("PostsId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("posts_id");
+
+                    b.HasKey("CollectionsId", "PostsId")
+                        .HasName("pk_post_collection_links");
+
+                    b.HasIndex("PostsId")
+                        .HasDatabaseName("ix_post_collection_links_posts_id");
+
+                    b.ToTable("post_collection_links", (string)null);
+                });
+
+            modelBuilder.Entity("PostPostTag", b =>
+                {
+                    b.Property<long>("PostsId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("posts_id");
+
+                    b.Property<long>("TagsId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tags_id");
+
+                    b.HasKey("PostsId", "TagsId")
+                        .HasName("pk_post_tag_links");
+
+                    b.HasIndex("TagsId")
+                        .HasDatabaseName("ix_post_tag_links_tags_id");
+
+                    b.ToTable("post_tag_links", (string)null);
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Account.AccountAuthFactor", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
@@ -836,11 +1056,30 @@ namespace DysonNetwork.Sphere.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_posts_posts_replied_post_id");
 
+                    b.HasOne("DysonNetwork.Sphere.Post.Post", "ThreadedPost")
+                        .WithOne()
+                        .HasForeignKey("DysonNetwork.Sphere.Post.Post", "ThreadedPostId")
+                        .HasConstraintName("fk_posts_posts_threaded_post_id");
+
                     b.Navigation("ForwardedPost");
 
                     b.Navigation("Publisher");
 
                     b.Navigation("RepliedPost");
+
+                    b.Navigation("ThreadedPost");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PostCollection", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Post.Publisher", "Publisher")
+                        .WithMany("Collections")
+                        .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_collections_publishers_publisher_id");
+
+                    b.Navigation("Publisher");
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostReaction", b =>
@@ -926,6 +1165,57 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("PostPostCategory", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Post.PostCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoriesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_category_links_post_categories_categories_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Post.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_category_links_posts_posts_id");
+                });
+
+            modelBuilder.Entity("PostPostCollection", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Post.PostCollection", null)
+                        .WithMany()
+                        .HasForeignKey("CollectionsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_collection_links_post_collections_collections_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Post.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_collection_links_posts_posts_id");
+                });
+
+            modelBuilder.Entity("PostPostTag", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Post.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_tag_links_posts_posts_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Post.PostTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_tag_links_post_tags_tags_id");
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Account", b =>
                 {
                     b.Navigation("AuthFactors");
@@ -953,6 +1243,8 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.Publisher", b =>
                 {
+                    b.Navigation("Collections");
+
                     b.Navigation("Members");
 
                     b.Navigation("Posts");

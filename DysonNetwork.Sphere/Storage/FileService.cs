@@ -158,10 +158,9 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         );
 
         file.UploadedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(
-            setter => setter
-                .SetProperty(f => f.UploadedAt, file.UploadedAt)
-                .SetProperty(f => f.UploadedTo, file.UploadedTo)
+        await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(setter => setter
+            .SetProperty(f => f.UploadedAt, file.UploadedAt)
+            .SetProperty(f => f.UploadedTo, file.UploadedTo)
         );
         return file;
     }
@@ -215,8 +214,18 @@ public class FileService(AppDatabase db, IConfiguration configuration)
     public async Task MarkUsageAsync(CloudFile file, int delta)
     {
         await db.Files.Where(o => o.Id == file.Id)
-            .ExecuteUpdateAsync(
-                setter => setter.SetProperty(
+            .ExecuteUpdateAsync(setter => setter.SetProperty(
+                    b => b.UsedCount,
+                    b => b.UsedCount + delta
+                )
+            );
+    }
+
+    public async Task MarkUsageRangeAsync(ICollection<CloudFile> files, int delta)
+    {
+        var ids = files.Select(f => f.Id).ToArray();
+        await db.Files.Where(o => ids.Contains(o.Id))
+            .ExecuteUpdateAsync(setter => setter.SetProperty(
                     b => b.UsedCount,
                     b => b.UsedCount + delta
                 )

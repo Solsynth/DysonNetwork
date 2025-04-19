@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
+[Index(nameof(Name), IsUnique = true)]
 public class Account : ModelBase
 {
     public long Id { get; set; }

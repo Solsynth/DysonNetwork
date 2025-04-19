@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Casbin;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,13 +10,13 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/publishers")]
-public class PublisherController(AppDatabase db, PublisherService ps, FileService fs) : ControllerBase
+public class PublisherController(AppDatabase db, PublisherService ps, FileService fs, IEnforcer enforcer)
+    : ControllerBase
 {
     [HttpGet("{name}")]
     public async Task<ActionResult<Publisher>> GetPublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
 
         var publisher = await db.Publishers
             .Where(e => e.Name == name)
@@ -56,7 +57,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
         return members.ToList();
     }
-    
+
     public class PublisherMemberRequest
     {
         [Required] public long RelatedUserId { get; set; }
@@ -65,11 +66,12 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpPost("invites/{name}")]
     [Authorize]
-    public async Task<ActionResult<PublisherMember>> InviteMember(string name, [FromBody] PublisherMemberRequest request)
+    public async Task<ActionResult<PublisherMember>> InviteMember(string name,
+        [FromBody] PublisherMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
-        
+
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
         if (relatedUser is null) return BadRequest("Related user was not found");
 
@@ -86,7 +88,8 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             .FirstOrDefaultAsync();
         if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
         if (member.Role < PublisherMemberRole.Manager)
-            return StatusCode(403, "You need at least be a manager to invite other members to collaborate this publisher.");
+            return StatusCode(403,
+                "You need at least be a manager to invite other members to collaborate this publisher.");
         if (member.Role < request.Role)
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
@@ -98,10 +101,10 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             PublisherId = publisher.Id,
             Role = request.Role,
         };
-        
+
         db.PublisherMembers.Add(newMember);
         await db.SaveChangesAsync();
-        
+
         return Ok(newMember);
     }
 
@@ -111,35 +114,35 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
-        
+
         var member = await db.PublisherMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.Publisher.Name == name)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
-        
+
         member.JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
         await db.SaveChangesAsync();
-        
+
         return Ok(member);
     }
-    
+
     [HttpPost("invites/{name}/decline")]
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
-        
+
         var member = await db.PublisherMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.Publisher.Name == name)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
-        
+
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
@@ -161,6 +164,8 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     public async Task<ActionResult<Publisher>> CreatePublisherIndividual(PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (!await enforcer.EnforceAsync(currentUser.Id.ToString(), "global", "publishers", "create"))
+            return StatusCode(403);
 
         var takenName = request.Name ?? currentUser.Name;
         var duplicateNameCount = await db.Publishers
@@ -276,10 +281,10 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             await fs.MarkUsageAsync(publisher.Picture, -1);
         if (publisher.Background is not null)
             await fs.MarkUsageAsync(publisher.Background, -1);
-        
+
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();
-        
+
         return NoContent();
     }
 }
