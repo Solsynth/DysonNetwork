@@ -83,9 +83,8 @@ public class FileController(
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteFile(string id)
     {
-        var userIdClaim = User.FindFirst("user_id")?.Value;
-        if (userIdClaim is null) return Unauthorized();
-        var userId = long.Parse(userIdClaim);
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
 
         var file = await db.Files
             .Where(e => e.Id == id)

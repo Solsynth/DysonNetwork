@@ -3,12 +3,13 @@ using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
 [Route("/accounts")]
-public class AccountController(AppDatabase db, FileService fs) : ControllerBase
+public class AccountController(AppDatabase db, FileService fs, IMemoryCache memCache) : ControllerBase
 {
     [HttpGet("{name}")]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
@@ -77,9 +78,8 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
     public async Task<ActionResult<Account>> GetMe()
     {
-        var userIdClaim = User.FindFirst("user_id")?.Value;
-        long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
 
         var account = await db.Accounts
             .Include(e => e.Profile)
@@ -101,15 +101,12 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
     [HttpPatch("me")]
     public async Task<ActionResult<Account>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
     {
-        var userIdClaim = User.FindFirst("user_id")?.Value;
-        long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
-
-        var account = await db.Accounts.FindAsync(userId);
-        if (account is null) return BadRequest("Unable to get your account.");
+        if (HttpContext.Items["CurrentUser"] is not Account account) return Unauthorized();
 
         if (request.Nick is not null) account.Nick = request.Nick;
         if (request.Language is not null) account.Language = request.Language;
+        
+        memCache.Remove($"user_${account.Id}");
 
         await db.SaveChangesAsync();
         return account;
@@ -130,9 +127,8 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
     [HttpPatch("me/profile")]
     public async Task<ActionResult<Profile>> UpdateProfile([FromBody] ProfileRequest request)
     {
-        var userIdClaim = User.FindFirst("user_id")?.Value;
-        long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
 
         var profile = await db.AccountProfiles
             .Where(p => p.Account.Id == userId)
@@ -170,6 +166,9 @@ public class AccountController(AppDatabase db, FileService fs) : ControllerBase
 
         db.Update(profile);
         await db.SaveChangesAsync();
+        
+        memCache.Remove($"user_${userId}");
+        
         return profile;
     }
 }

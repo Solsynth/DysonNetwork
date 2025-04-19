@@ -7,6 +7,7 @@ using Casbin.Persist.Adapter.EFCore;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -29,6 +30,8 @@ builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
 // Add services to the container.
 
 builder.Services.AddDbContext<AppDatabase>();
+builder.Services.AddMemoryCache();
+
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -117,6 +120,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<PublisherService>();
+builder.Services.AddScoped<PostService>();
 
 // Timed task
 
@@ -167,6 +172,7 @@ app.UseCors(opts =>
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
+app.UseMiddleware<UserInfoMiddleware>();
 
 app.MapControllers();
 

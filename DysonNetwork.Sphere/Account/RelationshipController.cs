@@ -14,9 +14,8 @@ public class RelationshipController(AppDatabase db, AccountService accounts) : C
     public async Task<ActionResult<List<Relationship>>> ListRelationships([FromQuery] int offset = 0,
         [FromQuery] int take = 20)
     {
-        var userIdClaim = User.FindFirst("user_id")?.Value;
-        long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
 
         var totalCount = await db.AccountRelationships
             .CountAsync(r => r.Account.Id == userId);
@@ -42,12 +41,8 @@ public class RelationshipController(AppDatabase db, AccountService accounts) : C
     [Authorize]
     public async Task<ActionResult<Relationship>> CreateRelationship([FromBody] RelationshipCreateRequest request)
     {
-        var userIdClaim = User.FindFirst("user_id")?.Value;
-        long? userId = long.TryParse(userIdClaim, out var id) ? id : null;
-        if (userId is null) return BadRequest("Invalid or missing user_id claim.");
-
-        var currentUser = await db.Accounts.FindAsync(userId.Value);
-        if (currentUser is null) return BadRequest("Failed to get your current user");
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        
         var relatedUser = await db.Accounts.FindAsync(request.UserId);
         if (relatedUser is null) return BadRequest("Invalid related user");
 

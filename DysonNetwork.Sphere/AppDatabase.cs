@@ -27,6 +27,10 @@ public class AppDatabase(
     public DbSet<Auth.Session> AuthSessions { get; set; }
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
     public DbSet<Storage.CloudFile> Files { get; set; }
+    public DbSet<Post.Publisher> Publishers { get; set; }
+    public DbSet<Post.PublisherMember> PublisherMembers { get; set; }
+    public DbSet<Post.Post> Posts { get; set; }
+    public DbSet<Post.PostReaction> PostReactions { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -63,6 +67,30 @@ public class AppDatabase(
             .WithMany(a => a.IncomingRelationships)
             .HasForeignKey(r => r.RelatedId);
         
+        modelBuilder.Entity<Post.PublisherMember>()
+            .HasKey(pm => new { pm.PublisherId, pm.AccountId });
+        modelBuilder.Entity<Post.PublisherMember>()
+            .HasOne(pm => pm.Publisher)
+            .WithMany(p => p.Members)
+            .HasForeignKey(pm => pm.PublisherId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Post.PublisherMember>()
+            .HasOne(pm => pm.Account)
+            .WithMany()
+            .HasForeignKey(pm => pm.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        modelBuilder.Entity<Post.Post>()
+            .HasOne(p => p.RepliedPost)
+            .WithMany()
+            .HasForeignKey("RepliedPostId")
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Post.Post>()
+            .HasOne(p => p.ForwardedPost)
+            .WithMany()
+            .HasForeignKey("ForwardedPostId")
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -119,7 +147,7 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
     public async Task Execute(IJobExecutionContext context)
     {
         logger.LogInformation("Deleting soft-deleted records...");
-        
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var threshold = now - Duration.FromDays(7);
 
