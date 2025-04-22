@@ -18,7 +18,11 @@ public class PostService(AppDatabase db, FileService fs)
             if (post.PublishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
                 throw new InvalidOperationException("Cannot create the post which published in the past.");
         }
-        
+        else
+        {
+            post.PublishedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        }
+
         if (attachments is not null)
         {
             post.Attachments = await db.Files.Where(e => attachments.Contains(e.Id)).ToListAsync();

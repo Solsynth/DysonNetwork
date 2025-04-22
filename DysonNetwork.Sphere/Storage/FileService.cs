@@ -81,17 +81,25 @@ public class FileService(AppDatabase db, IConfiguration configuration)
                 break;
             case "video":
             case "audio":
-                var mediaInfo = await FFProbe.AnalyseAsync(stream);
-                file.FileMeta = new Dictionary<string, object>
+                try
                 {
-                    ["duration"] = mediaInfo.Duration.TotalSeconds,
-                    ["format_name"] = mediaInfo.Format.FormatName,
-                    ["format_long_name"] = mediaInfo.Format.FormatLongName,
-                    ["start_time"] = mediaInfo.Format.StartTime.ToString(),
-                    ["bit_rate"] = mediaInfo.Format.BitRate.ToString(CultureInfo.InvariantCulture),
-                    ["tags"] = mediaInfo.Format.Tags ?? [],
-                    ["chapters"] = mediaInfo.Chapters,
-                };
+                    var mediaInfo = await FFProbe.AnalyseAsync(stream);
+                    file.FileMeta = new Dictionary<string, object>
+                    {
+                        ["duration"] = mediaInfo.Duration.TotalSeconds,
+                        ["format_name"] = mediaInfo.Format.FormatName,
+                        ["format_long_name"] = mediaInfo.Format.FormatLongName,
+                        ["start_time"] = mediaInfo.Format.StartTime.ToString(),
+                        ["bit_rate"] = mediaInfo.Format.BitRate.ToString(CultureInfo.InvariantCulture),
+                        ["tags"] = mediaInfo.Format.Tags ?? [],
+                        ["chapters"] = mediaInfo.Chapters,
+                    };
+                }
+                catch
+                {
+                    // ignored
+                }
+
                 break;
         }
 

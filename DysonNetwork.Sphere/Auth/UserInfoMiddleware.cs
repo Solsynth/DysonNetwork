@@ -14,6 +14,8 @@ public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
             {
                 user = await db.Accounts
                     .Include(e => e.Profile)
+                    .Include(e => e.Profile.Picture)
+                    .Include(e => e.Profile.Background)
                     .Where(e => e.Id == userId)
                     .FirstOrDefaultAsync();
 

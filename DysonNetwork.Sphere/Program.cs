@@ -26,6 +26,7 @@ using File = System.IO.File;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue);
 
 // Add services to the container.
 
@@ -166,6 +167,8 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseCors(opts =>
     opts.SetIsOriginAllowed(_ => true)
+        .WithExposedHeaders("X-Total")
+        .WithHeaders("X-Total")
         .AllowCredentials()
         .AllowAnyHeader()
         .AllowAnyMethod()
