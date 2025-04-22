@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
+using System.Text.Json;
 
 namespace DysonNetwork.Sphere.Auth;
 
@@ -14,7 +15,8 @@ public class AuthController(
     AppDatabase db,
     AccountService accounts,
     AuthService auth,
-    IHttpContextAccessor httpContext
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory
 ) : ControllerBase
 {
     public class ChallengeRequest
@@ -31,8 +33,8 @@ public class AuthController(
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
 
-        var ipAddress = httpContext.HttpContext?.Connection.RemoteIpAddress?.ToString();
-        var userAgent = httpContext.HttpContext?.Request.Headers.UserAgent.ToString();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
 
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
 
@@ -186,7 +188,7 @@ public class AuthController(
     [HttpGet("test")]
     public async Task<ActionResult> Test()
     {
-        var sessionIdClaim = httpContext.HttpContext?.User.FindFirst("session_id")?.Value;
+        var sessionIdClaim = HttpContext.User.FindFirst("session_id")?.Value;
         if (!Guid.TryParse(sessionIdClaim, out var sessionId))
             return Unauthorized();
 
@@ -194,5 +196,54 @@ public class AuthController(
         if (session is null) return NotFound();
 
         return Ok(session);
+    }
+
+    [HttpPost("captcha")]
+    public async Task<ActionResult> ValidateCaptcha([FromBody] string token)
+    {
+        var provider = configuration.GetSection("Captcha")["Provider"]?.ToLower();
+        var apiKey = configuration.GetSection("Captcha")["ApiKey"];
+        var apiSecret = configuration.GetSection("Captcha")["ApiSecret"];
+
+        var client = httpClientFactory.CreateClient();
+
+        switch (provider)
+        {
+            case "cloudflare":
+                var content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                var response = await client.PostAsync("https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                    content);
+                response.EnsureSuccessStatusCode();
+
+                var json = await response.Content.ReadAsStringAsync();
+                var cfResult = JsonSerializer.Deserialize<CloudflareVerificationResponse>(json);
+
+                if (cfResult?.Success == true)
+                    return Ok(new { success = true });
+
+                return BadRequest(new { success = false, errors = cfResult?.ErrorCodes });
+            case "google":
+                var secretKey = configuration.GetSection("CaptchaSettings")["GoogleRecaptchaSecretKey"];
+                if (string.IsNullOrEmpty(secretKey))
+                {
+                    return StatusCode(500, "Google reCaptcha secret key is not configured.");
+                }
+
+                content = new StringContent($"secret={secretKey}&response={token}", System.Text.Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                response = await client.PostAsync("https://www.google.com/recaptcha/api/siteverify", content);
+                response.EnsureSuccessStatusCode();
+
+                json = await response.Content.ReadAsStringAsync();
+                var capResult = JsonSerializer.Deserialize<GoogleVerificationResponse>(json);
+
+                if (capResult?.Success == true)
+                    return Ok(new { success = true });
+
+                return BadRequest(new { success = false, errors = capResult?.ErrorCodes });
+            default:
+                return StatusCode(500, "The server misconfigured for the captcha.");
+        }
     }
 }

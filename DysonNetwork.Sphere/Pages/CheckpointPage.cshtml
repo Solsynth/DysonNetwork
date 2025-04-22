@@ -1,0 +1,149 @@
+@page "/auth/captcha"
+@model DysonNetwork.Sphere.Pages.CheckpointPage
+
+@{
+    Layout = null;
+
+    var cfg = ViewData.Model.Configuration;
+    var provider = cfg.GetSection("Captcha")["Provider"]?.ToLower();
+    var apiKey = cfg.GetSection("Captcha")["ApiKey"];
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Solar Network Captcha</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap"
+        rel="stylesheet"
+    />
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2d2d2d;
+            font-family: "Roboto Mono", monospace;
+            color: #c9d1d9;
+        }
+
+        .parent {
+            padding: 20px;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 300;
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 11px;
+            opacity: 0.6;
+        }
+
+        .footer-product {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .g-recaptcha {
+            display: inline-block; /* Adjust as needed */
+        }
+    </style>
+    @switch (provider)
+    {
+        case "recaptcha":
+            <script src="https://www.recaptcha.net/recaptcha/api.js" async defer></script>
+            break;
+        case "cloudflare":
+            <script
+                src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+                async
+                defer
+            ></script>
+            break;
+    }
+</head>
+<body>
+<div class="parent">
+    <div class="container">
+        <h1>reCaptcha</h1>
+        @switch (provider)
+        {
+            case "cloudflare":
+                <div
+                    class="cf-turnstile"
+                    data-sitekey="@apiKey"
+                    data-callback="onSuccess"
+                ></div>
+                break;
+            case "recaptcha":
+                <div
+                    class="g-recaptcha"
+                    data-sitekey="@apiKey"
+                    data-callback="onSuccess"
+                ></div>
+                break;
+            default:
+                <p style="color: yellow;">Captcha provider not configured correctly.</p>
+                break;
+        }
+    </div>
+    <div class="footer">
+        <div class="footer-product">Solar Network Anti-Robot</div>
+        <a
+            href="https://solsynth.dev"
+            style="color: #c9d1d9; text-decoration: none"
+        >Solsynth LLC</a>
+        &copy; @DateTime.Now.Year<br/>
+        Powered by
+        @switch (provider)
+        {
+            case "cloudflare":
+                <a href="https://www.cloudflare.com/turnstile/" style="color: #c9d1d9"
+                >Cloudflare Turnstile</a>
+                break;
+            case "recaptcha":
+                <a href="https://www.google.com/recaptcha/" style="color: #c9d1d9"
+                >Google reCaptcha</a>
+                break;
+            default:
+                <span>Nothing</span>
+                break;
+        }
+        <br/>
+        Hosted by
+        <a
+            @* TODO Update the project link here *@
+            href="https://github.com/Solsynth/HyperNet.Nexus"
+            style="color: #c9d1d9"
+        >DysonNetwork.Sphere</a>
+    </div>
+</div>
+<script>
+    function getQueryParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    function onSuccess(token) {
+        window.parent.postMessage("captcha_tk=" + token, "*");
+        const redirectUri = getQueryParam("redirect_uri");
+        if (redirectUri) {
+            window.location.href = `${redirectUri}?captcha_tk=${encodeURIComponent(token)}`;
+        }
+    }
+</script>
+</body>
+</html>

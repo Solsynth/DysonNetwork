@@ -40,7 +40,7 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 
     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 });
-builder.Services.AddHttpContextAccessor();
+builder.Services.AddRazorPages();
 
 // Casbin permissions
 
@@ -155,7 +155,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-if (app.Environment.IsDevelopment()) app.MapOpenApi();
+app.MapOpenApi();
 
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -179,6 +179,8 @@ app.UseAuthorization();
 app.UseMiddleware<UserInfoMiddleware>();
 
 app.MapControllers();
+app.MapStaticAssets();
+app.MapRazorPages();
 
 var tusDiskStore = new tusdotnet.Stores.TusDiskStore(
     builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
