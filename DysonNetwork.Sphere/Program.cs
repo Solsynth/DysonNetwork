@@ -33,6 +33,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 builder.Services.AddDbContext<AppDatabase>();
 builder.Services.AddMemoryCache();
 
+builder.Services.AddHttpClient();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
