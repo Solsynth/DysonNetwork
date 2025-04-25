@@ -77,6 +77,23 @@ public class AuthController(
             : challenge.Account.AuthFactors.ToList();
     }
 
+    [HttpPost("challenge/{id}/factors/{factorId:long}")]
+    public async Task<ActionResult> RequestFactorCode([FromRoute] Guid id, [FromRoute] long factorId)
+    {
+        var challenge = await db.AuthChallenges
+            .Include(e => e.Account)
+            .Where(e => e.Id == id).FirstOrDefaultAsync();
+        if (challenge is null) return NotFound("Auth challenge was not found.");
+        var factor = await db.AccountAuthFactors
+            .Where(e => e.Id == factorId)
+            .Where(e => e.Account == challenge.Account).FirstOrDefaultAsync();
+        if (factor is null) return NotFound("Auth factor was not found.");
+
+        // TODO do the logic here
+
+        return Ok();
+    }
+
     public class PerformChallengeRequest
     {
         [Required] public long FactorId { get; set; }
