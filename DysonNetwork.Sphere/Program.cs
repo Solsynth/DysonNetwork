@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 using Casbin;
 using Casbin.Persist.Adapter.EFCore;
 using DysonNetwork.Sphere;
@@ -12,6 +13,7 @@ using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -61,6 +63,13 @@ builder.Services.AddSingleton<IAuthorizationHandler, CasbinAuthorizationHandler>
 
 // Other pipelines
 
+builder.Services.AddRateLimiter(o => o.AddFixedWindowLimiter(policyName: "fixed", opts =>
+{
+    opts.Window = TimeSpan.FromMinutes(1);
+    opts.PermitLimit = 120;
+    opts.QueueLimit = 2;
+    opts.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+}));
 builder.Services.AddCors();
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication("Bearer").AddJwtBearer(options =>
@@ -175,13 +184,14 @@ app.UseCors(opts =>
         .AllowAnyMethod()
 );
 
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.UseMiddleware<UserInfoMiddleware>();
 
-app.MapControllers();
-app.MapStaticAssets();
-app.MapRazorPages();
+app.MapControllers().RequireRateLimiting("fixed");
+app.MapStaticAssets().RequireRateLimiting("fixed");
+app.MapRazorPages().RequireRateLimiting("fixed");
 
 var tusDiskStore = new tusdotnet.Stores.TusDiskStore(
     builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
