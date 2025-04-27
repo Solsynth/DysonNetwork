@@ -59,7 +59,8 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Permission.PermissionGroupMember>()
-            .HasKey(pg => new { pg.GroupId, pg.AccountId }); 
+            .HasKey(pg => new { pg.GroupId, pg.AccountId })
+            .HasName("permission_group_members"); 
         modelBuilder.Entity<Permission.PermissionGroupMember>()
             .HasOne(pg => pg.Group)
             .WithMany(g => g.Members)
