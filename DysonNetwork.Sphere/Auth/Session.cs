@@ -29,6 +29,7 @@ public class Challenge : ModelBase
     [MaxLength(256)] public string? DeviceId { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
 
+    public long AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
     public Challenge Normalize()

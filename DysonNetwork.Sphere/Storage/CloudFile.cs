@@ -5,7 +5,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Storage;
 
-public class RemoteStorageConfig
+public abstract class RemoteStorageConfig
 {
     public string Id { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
@@ -22,7 +22,7 @@ public class RemoteStorageConfig
 
 public class CloudFile : ModelBase
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    [MaxLength(128)] public string Id { get; set; } = Guid.NewGuid().ToString();
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Description { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? FileMeta { get; set; } = null!;
@@ -32,6 +32,7 @@ public class CloudFile : ModelBase
     [MaxLength(256)] public string? Hash { get; set; }
     public long Size { get; set; }
     public Instant? UploadedAt { get; set; }
+    public Instant? ExpiredAt { get; set; }
     [MaxLength(128)] public string? UploadedTo { get; set; }
 
     // Metrics

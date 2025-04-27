@@ -27,6 +27,7 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
             .Include(e => e.Attachments)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Where(e => e.RepliedPostId == null)
             .FilterWithVisibility(currentUser, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
@@ -110,6 +111,8 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
         [MaxLength(32)] public List<string>? Attachments { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Instant? PublishedAt { get; set; }
+        public long? RepliedPostId { get; set; }
+        public long? ForwardedPostId { get; set; }
     }
 
     [HttpPost]
@@ -154,6 +157,22 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
             Meta = request.Meta,
             Publisher = publisher,
         };
+
+        if (request.RepliedPostId is not null)
+        {
+            var repliedPost = await db.Posts.FindAsync(request.RepliedPostId.Value);
+            if (repliedPost is null) return BadRequest("Post replying to was not found.");
+            post.RepliedPost = repliedPost;
+            post.RepliedPostId = repliedPost.Id;
+        }
+
+        if (request.ForwardedPostId is not null)
+        {
+            var forwardedPost = await db.Posts.FindAsync(request.ForwardedPostId.Value);
+            if (forwardedPost is null) return BadRequest("Forwarded post was not found.");
+            post.ForwardedPost = forwardedPost;
+            post.ForwardedPostId = forwardedPost.Id;
+        }
 
         try
         {
@@ -226,6 +245,7 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
 
         var post = await db.Posts
             .Where(e => e.Id == id)
+            .Include(e => e.Publisher)
             .Include(e => e.Attachments)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();

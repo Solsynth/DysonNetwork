@@ -249,9 +249,12 @@ public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger
         logger.LogInformation("Deleting unused cloud files...");
 
         var cutoff = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
+        var now = SystemClock.Instance.GetCurrentInstant();
         var files = db.Files
-            .Where(f => f.UsedCount == 0)
-            .Where(f => f.CreatedAt < cutoff)
+            .Where(f =>
+                (f.ExpiredAt == null && f.UsedCount == 0 && f.CreatedAt < cutoff) ||
+                (f.ExpiredAt != null && f.ExpiredAt >= now)
+            )
             .ToList();
 
         logger.LogInformation($"Deleting {files.Count} unused cloud files...");

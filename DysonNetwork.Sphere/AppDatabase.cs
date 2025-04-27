@@ -26,6 +26,8 @@ public class AppDatabase(
     public DbSet<Account.Relationship> AccountRelationships { get; set; }
     public DbSet<Auth.Session> AuthSessions { get; set; }
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
+    public DbSet<Account.Notification> Notifications { get; set; }
+    public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
     public DbSet<Storage.CloudFile> Files { get; set; }
     public DbSet<Post.Publisher> Publishers { get; set; }
     public DbSet<Post.PublisherMember> PublisherMembers { get; set; }

@@ -130,6 +130,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddOpenApi();
 
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PublisherService>();
