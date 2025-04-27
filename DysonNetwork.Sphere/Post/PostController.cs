@@ -17,6 +17,7 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
         var currentUser = currentUserValue as Account.Account;
 
         var totalCount = await db.Posts
+            .FilterWithVisibility(currentUser, isListing: true)
             .CountAsync();
         var posts = await db.Posts
             .Include(e => e.Publisher)
@@ -77,6 +78,7 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
 
         var totalCount = await db.Posts
             .Where(e => e.RepliedPostId == post.Id)
+            .FilterWithVisibility(currentUser, isListing: true)
             .CountAsync();
         var posts = await db.Posts
             .Where(e => e.RepliedPostId == id)

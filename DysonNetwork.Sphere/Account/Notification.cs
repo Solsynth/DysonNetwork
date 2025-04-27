@@ -9,6 +9,7 @@ namespace DysonNetwork.Sphere.Account;
 public class Notification : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(1024)] public string Topic { get; set; } = null!;
     [MaxLength(1024)] public string? Title { get; set; }
     [MaxLength(2048)] public string? Subtitle { get; set; }
     [MaxLength(4096)] public string? Content { get; set; }

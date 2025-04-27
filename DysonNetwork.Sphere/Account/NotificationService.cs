@@ -42,6 +42,8 @@ public class NotificationService
                     : ApnServerType.Development
             }, clientFactory.CreateClient());
     }
+    
+    // TODO remove all push notification with this device id when this device is logged out
 
     public async Task<NotificationPushSubscription> SubscribePushNotification(
         Account account,
