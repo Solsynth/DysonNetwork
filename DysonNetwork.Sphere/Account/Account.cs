@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -23,6 +24,8 @@ public class Account : ModelBase
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
+    
+    [JsonIgnore] public ICollection<PermissionGroupMember> GroupMemberships { get; set; } = new List<PermissionGroupMember>();
 }
 
 public class Profile : ModelBase

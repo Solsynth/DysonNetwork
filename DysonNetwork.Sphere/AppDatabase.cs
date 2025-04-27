@@ -19,6 +19,8 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
+    public DbSet<Permission.PermissionNode> PermissionNodes { get; set; } = null!;
+    public DbSet<Permission.PermissionGroup> PermissionGroups { get; set; } = null!;
     public DbSet<Account.Account> Accounts { get; set; }
     public DbSet<Account.Profile> AccountProfiles { get; set; }
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
@@ -56,6 +58,19 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<Permission.PermissionGroupMember>()
+            .HasKey(pg => new { pg.GroupId, pg.AccountId }); 
+        modelBuilder.Entity<Permission.PermissionGroupMember>()
+            .HasOne(pg => pg.Group)
+            .WithMany(g => g.Members)
+            .HasForeignKey(pg => pg.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Permission.PermissionGroupMember>()
+            .HasOne(pg => pg.Account)
+            .WithMany(a => a.GroupMemberships)
+            .HasForeignKey(pg => pg.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
         modelBuilder.Entity<Account.Account>()
             .HasOne(a => a.Profile)
             .WithOne(p => p.Account)
