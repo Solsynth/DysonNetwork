@@ -1,0 +1,98 @@
+@page "/spells/{spellWord}"
+@using DysonNetwork.Sphere.Account
+@model DysonNetwork.Sphere.Pages.MagicSpellPage
+
+@{
+    Layout = null;
+
+    var spell = ViewData["Spell"] as MagicSpell;
+}
+
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Solar Network Magic Spell</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap"
+        rel="stylesheet"
+    />
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2d2d2d;
+            font-family: "Roboto Mono", monospace;
+            color: #c9d1d9;
+        }
+
+        .parent {
+            padding: 20px;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 300;
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 11px;
+            opacity: 0.6;
+        }
+
+        .footer-product {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .g-recaptcha {
+            display: inline-block; /* Adjust as needed */
+        }
+    </style>
+</head>
+<body>
+<div class="parent">
+    <div class="container">
+        <h1>Magic Spell</h1>
+        @if (spell == null)
+        {
+            <div>
+                <p style="color: yellow;">The spell was expired or not exists.</p>
+            </div>
+        }
+        else
+        {
+            <div>
+                <p style="color: green;">The spell was applied successfully!</p>
+            </div>
+        }
+    </div>
+    <div class="footer">
+        <div class="footer-product">Solar Network</div>
+        <a
+            href="https://solsynth.dev"
+            style="color: #c9d1d9; text-decoration: none"
+        >Solsynth LLC</a>
+        &copy; @DateTime.Now.Year<br/>
+        Powered by
+        <a
+            href="https://github.com/Solsynth/DysonNetwork"
+            style="color: #c9d1d9"
+        >DysonNetwork.Sphere</a>
+    </div>
+</div>
+</body>
+</html>

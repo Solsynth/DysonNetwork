@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Casbin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -15,68 +16,43 @@ public class SignedTokenPair
     public Instant ExpiredAt { get; set; }
 }
 
-public class AuthService(AppDatabase db, IConfiguration config, IEnforcer enforcer)
+public class AuthService(IConfiguration config, IHttpClientFactory httpClientFactory)
 {
-    public async Task<bool> AssignRoleToUserAsync(string user, string role, string domain = "global")
+    public async Task<bool> ValidateCaptcha(string token)
     {
-        var added = await enforcer.AddGroupingPolicyAsync(user, role, domain);
-        if (added) await enforcer.SavePolicyAsync();
-        return added;
-    }
+        var provider = config.GetSection("Captcha")["Provider"]?.ToLower();
+        var apiSecret = config.GetSection("Captcha")["ApiSecret"];
 
-    public async Task<bool> AddPermissionToUserAsync(string user, string domain, string obj, string act)
-    {
-        var added = await enforcer.AddPolicyAsync(user, domain, obj, act);
-        if (added) await enforcer.SavePolicyAsync();
-        return added;
-    }
-    
-    public async Task<bool> RemovePermissionFromUserAsync(string user, string domain, string obj, string act)
-    {
-        var removed = await enforcer.RemovePolicyAsync(user, domain, obj, act);
-        if (removed) await enforcer.SavePolicyAsync();
-        return removed;
-    }
+        var client = httpClientFactory.CreateClient();
 
-    public async Task<bool> CreateRoleAsync(string role, string domain, IEnumerable<(string obj, string act)> permissions)
-    {
-        bool anyAdded = false;
-        foreach (var (obj, act) in permissions)
+        switch (provider)
         {
-            var added = await enforcer.AddPolicyAsync(role, domain, obj, act);
-            if (added) anyAdded = true;
-        }
+            case "cloudflare":
+                var content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                var response = await client.PostAsync("https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                    content);
+                response.EnsureSuccessStatusCode();
 
-        if (anyAdded) await enforcer.SavePolicyAsync();
-        return anyAdded;
+                var json = await response.Content.ReadAsStringAsync();
+                var cfResult = JsonSerializer.Deserialize<CloudflareVerificationResponse>(json);
+
+                return cfResult?.Success == true;
+            case "google":
+                content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                response = await client.PostAsync("https://www.google.com/recaptcha/api/siteverify", content);
+                response.EnsureSuccessStatusCode();
+
+                json = await response.Content.ReadAsStringAsync();
+                var capResult = JsonSerializer.Deserialize<GoogleVerificationResponse>(json);
+
+                return capResult?.Success == true;
+            default:
+                throw new ArgumentException("The server misconfigured for the captcha.");
+        }
     }
 
-    public async Task<bool> AddPermissionsToRoleAsync(string role, string domain, IEnumerable<(string obj, string act)> permissions)
-    {
-        bool anyAdded = false;
-        foreach (var (obj, act) in permissions)
-        {
-            var added = await enforcer.AddPolicyAsync(role, domain, obj, act);
-            if (added) anyAdded = true;
-        }
-
-        if (anyAdded) await enforcer.SavePolicyAsync();
-        return anyAdded;
-    }
-
-    public async Task<bool> RemovePermissionsFromRoleAsync(string role, string domain, IEnumerable<(string obj, string act)> permissions)
-    {
-        bool anyRemoved = false;
-        foreach (var (obj, act) in permissions)
-        {
-            var removed = await enforcer.RemovePolicyAsync(role, domain, obj, act);
-            if (removed) anyRemoved = true;
-        }
-
-        if (anyRemoved) await enforcer.SavePolicyAsync();
-        return anyRemoved;
-    }
-    
     public SignedTokenPair CreateToken(Session session)
     {
         var privateKeyPem = File.ReadAllText(config["Jwt:PrivateKeyPath"]!);
@@ -98,9 +74,9 @@ public class AuthService(AppDatabase db, IConfiguration config, IEnforcer enforc
             expires: DateTime.Now.AddDays(30),
             signingCredentials: creds
         );
-        
+
         session.Challenge.Scopes.ForEach(c => claims.Add(new Claim("scope", c)));
-        if(session.Account.IsSuperuser) claims.Add(new Claim("is_superuser", "1"));
+        if (session.Account.IsSuperuser) claims.Add(new Claim("is_superuser", "1"));
         var accessTokenClaims = new JwtSecurityToken(
             issuer: "solar-network",
             audience: string.Join(',', session.Challenge.Audiences),

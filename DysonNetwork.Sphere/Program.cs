@@ -8,6 +8,7 @@ using Casbin.Persist.Adapter.EFCore;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
@@ -44,22 +45,6 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 });
 builder.Services.AddRazorPages();
-
-// Casbin permissions
-
-var casbinDbContext = new CasbinDbContext<int>(
-    new DbContextOptionsBuilder<CasbinDbContext<int>>()
-        .UseNpgsql(builder.Configuration.GetConnectionString("Guard"))
-        .Options
-);
-var casbinEfcore = new EFCoreAdapter<int>(casbinDbContext);
-casbinDbContext.Database.EnsureCreated();
-var casbinEncofcer = new Enforcer("Casbin.conf", casbinEfcore);
-casbinEncofcer.EnableCache(true);
-casbinEncofcer.LoadPolicy();
-
-builder.Services.AddSingleton<IEnforcer>(casbinEncofcer);
-builder.Services.AddSingleton<IAuthorizationHandler, CasbinAuthorizationHandler>();
 
 // Other pipelines
 
@@ -129,7 +114,10 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddOpenApi();
 
+builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<MagicSpellService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
@@ -163,7 +151,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-    db.Database.Migrate();
+    await db.Database.MigrateAsync();
 }
 
 app.MapOpenApi();
@@ -189,6 +177,7 @@ app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.UseMiddleware<UserInfoMiddleware>();
+app.UseMiddleware<PermissionMiddleware>();
 
 app.MapControllers().RequireRateLimiting("fixed");
 app.MapStaticAssets().RequireRateLimiting("fixed");

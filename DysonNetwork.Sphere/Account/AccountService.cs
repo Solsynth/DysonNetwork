@@ -1,10 +1,11 @@
 using Casbin;
+using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class AccountService(AppDatabase db, IEnforcer enforcer)
+public class AccountService(AppDatabase db, PermissionService pm)
 {
     public async Task<Account?> LookupAccount(string probe)
     {
@@ -145,18 +146,18 @@ public class AccountService(AppDatabase db, IEnforcer enforcer)
         // others: use the default permissions by design
 
         var domain = $"user:{relationship.AccountId.ToString()}";
-        var target = relationship.RelatedId.ToString();
+        var target = $"user:{relationship.RelatedId.ToString()}";
 
-        await enforcer.DeleteRolesForUserAsync(target, domain);
+        await pm.RemovePermissionNode(target, domain, "*");
 
-        string role = relationship.Status switch
+        bool? value = relationship.Status switch
         {
-            RelationshipStatus.Friends => "friends",
-            RelationshipStatus.Blocked => "blocked",
-            _ => "default" // fallback role
+            RelationshipStatus.Friends => true,
+            RelationshipStatus.Blocked => false,
+            _ => null,
         };
-        if (role == "default") return;
+        if (value is null) return;
 
-        await enforcer.AddRoleForUserAsync(target, role, domain);
+        await pm.AddPermissionNode(target, domain, "*", value);
     }
 }

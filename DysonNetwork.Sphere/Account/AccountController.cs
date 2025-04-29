@@ -1,15 +1,23 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
 [Route("/accounts")]
-public class AccountController(AppDatabase db, FileService fs, IMemoryCache memCache) : ControllerBase
+public class AccountController(
+    AppDatabase db,
+    FileService fs,
+    AuthService auth,
+    MagicSpellService spells,
+    IMemoryCache memCache
+) : ControllerBase
 {
     [HttpGet("{name}")]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
@@ -39,6 +47,10 @@ public class AccountController(AppDatabase db, FileService fs, IMemoryCache memC
         [MinLength(4)]
         [MaxLength(128)]
         public string Password { get; set; } = string.Empty;
+
+        [MaxLength(128)] public string Language { get; set; } = "en";
+
+        [Required] public string CaptchaToken { get; set; } = string.Empty;
     }
 
     [HttpPost]
@@ -46,6 +58,8 @@ public class AccountController(AppDatabase db, FileService fs, IMemoryCache memC
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Account>> CreateAccount([FromBody] AccountCreateRequest request)
     {
+        if (!await auth.ValidateCaptcha(request.CaptchaToken)) return BadRequest("Invalid captcha token.");
+
         var dupeNameCount = await db.Accounts.Where(a => a.Name == request.Name).CountAsync();
         if (dupeNameCount > 0)
             return BadRequest("The name is already taken.");
@@ -54,6 +68,7 @@ public class AccountController(AppDatabase db, FileService fs, IMemoryCache memC
         {
             Name = request.Name,
             Nick = request.Nick,
+            Language = request.Language,
             Contacts = new List<AccountContact>
             {
                 new()
@@ -75,6 +90,18 @@ public class AccountController(AppDatabase db, FileService fs, IMemoryCache memC
 
         await db.Accounts.AddAsync(account);
         await db.SaveChangesAsync();
+
+        var spell = await spells.CreateMagicSpell(
+            account,
+            MagicSpellType.AccountActivation,
+            new Dictionary<string, object>
+            {
+                { "contact_method", account.Contacts.First().Content }
+            },
+            expiredAt: SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromDays(7))
+        );
+        spells.NotifyMagicSpell(spell);
+
         return account;
     }
 
@@ -110,7 +137,7 @@ public class AccountController(AppDatabase db, FileService fs, IMemoryCache memC
 
         if (request.Nick is not null) account.Nick = request.Nick;
         if (request.Language is not null) account.Language = request.Language;
-        
+
         memCache.Remove($"user_${account.Id}");
 
         await db.SaveChangesAsync();
@@ -171,9 +198,9 @@ public class AccountController(AppDatabase db, FileService fs, IMemoryCache memC
 
         db.Update(profile);
         await db.SaveChangesAsync();
-        
+
         memCache.Remove($"user_${userId}");
-        
+
         return profile;
     }
 }

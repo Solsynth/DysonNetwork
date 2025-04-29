@@ -15,8 +15,7 @@ public class AuthController(
     AppDatabase db,
     AccountService accounts,
     AuthService auth,
-    IConfiguration configuration,
-    IHttpClientFactory httpClientFactory
+    IConfiguration configuration
 ) : ControllerBase
 {
     public class ChallengeRequest
@@ -218,49 +217,7 @@ public class AuthController(
     [HttpPost("captcha")]
     public async Task<ActionResult> ValidateCaptcha([FromBody] string token)
     {
-        var provider = configuration.GetSection("Captcha")["Provider"]?.ToLower();
-        var apiKey = configuration.GetSection("Captcha")["ApiKey"];
-        var apiSecret = configuration.GetSection("Captcha")["ApiSecret"];
-
-        var client = httpClientFactory.CreateClient();
-
-        switch (provider)
-        {
-            case "cloudflare":
-                var content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
-                    "application/x-www-form-urlencoded");
-                var response = await client.PostAsync("https://challenges.cloudflare.com/turnstile/v0/siteverify",
-                    content);
-                response.EnsureSuccessStatusCode();
-
-                var json = await response.Content.ReadAsStringAsync();
-                var cfResult = JsonSerializer.Deserialize<CloudflareVerificationResponse>(json);
-
-                if (cfResult?.Success == true)
-                    return Ok(new { success = true });
-
-                return BadRequest(new { success = false, errors = cfResult?.ErrorCodes });
-            case "google":
-                var secretKey = configuration.GetSection("CaptchaSettings")["GoogleRecaptchaSecretKey"];
-                if (string.IsNullOrEmpty(secretKey))
-                {
-                    return StatusCode(500, "Google reCaptcha secret key is not configured.");
-                }
-
-                content = new StringContent($"secret={secretKey}&response={token}", System.Text.Encoding.UTF8,
-                    "application/x-www-form-urlencoded");
-                response = await client.PostAsync("https://www.google.com/recaptcha/api/siteverify", content);
-                response.EnsureSuccessStatusCode();
-
-                json = await response.Content.ReadAsStringAsync();
-                var capResult = JsonSerializer.Deserialize<GoogleVerificationResponse>(json);
-
-                if (capResult?.Success == true)
-                    return Ok(new { success = true });
-
-                return BadRequest(new { success = false, errors = capResult?.ErrorCodes });
-            default:
-                return StatusCode(500, "The server misconfigured for the captcha.");
-        }
+        var result = await auth.ValidateCaptcha(token);
+        return result ? Ok() : BadRequest();
     }
 }

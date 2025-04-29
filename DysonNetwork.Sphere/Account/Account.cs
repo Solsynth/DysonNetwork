@@ -13,6 +13,7 @@ public class Account : ModelBase
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(32)] public string Language { get; set; } = string.Empty;
+    public Instant? ActivatedAt { get; set; }
     public bool IsSuperuser { get; set; } = false;
 
     public Profile Profile { get; set; } = null!;
@@ -24,8 +25,6 @@ public class Account : ModelBase
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
-    
-    [JsonIgnore] public ICollection<PermissionGroupMember> GroupMemberships { get; set; } = new List<PermissionGroupMember>();
 }
 
 public class Profile : ModelBase

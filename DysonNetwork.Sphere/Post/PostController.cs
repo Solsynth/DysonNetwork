@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Casbin;
+using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -8,7 +9,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/posts")]
-public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) : ControllerBase
+public class PostController(AppDatabase db, PostService ps) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20)
@@ -118,14 +119,13 @@ public class PostController(AppDatabase db, PostService ps, IEnforcer enforcer) 
     }
 
     [HttpPost]
+    [RequiredPermission("global", "posts.create")]
     public async Task<ActionResult<Post>> CreatePost(
         [FromBody] PostRequest request,
         [FromHeader(Name = "X-Pub")] string? publisherName
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        if (!await enforcer.EnforceAsync((string)HttpContext.Items["CurrentIdentity"]!, "global", "posts", "create"))
-            return StatusCode(403);
 
         Publisher? publisher;
         if (publisherName is null)

@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
@@ -19,18 +20,24 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Permission.PermissionNode> PermissionNodes { get; set; } = null!;
-    public DbSet<Permission.PermissionGroup> PermissionGroups { get; set; } = null!;
+    public DbSet<PermissionNode> PermissionNodes { get; set; } = null!;
+    public DbSet<PermissionGroup> PermissionGroups { get; set; } = null!;
+    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
+
+    public DbSet<Account.MagicSpell> MagicSpells { get; set; } = null!;
     public DbSet<Account.Account> Accounts { get; set; }
     public DbSet<Account.Profile> AccountProfiles { get; set; }
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
     public DbSet<Account.Relationship> AccountRelationships { get; set; }
-    public DbSet<Auth.Session> AuthSessions { get; set; }
-    public DbSet<Auth.Challenge> AuthChallenges { get; set; }
     public DbSet<Account.Notification> Notifications { get; set; }
     public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
+
+    public DbSet<Auth.Session> AuthSessions { get; set; }
+    public DbSet<Auth.Challenge> AuthChallenges { get; set; }
+
     public DbSet<Storage.CloudFile> Files { get; set; }
+
     public DbSet<Post.Publisher> Publishers { get; set; }
     public DbSet<Post.PublisherMember> PublisherMembers { get; set; }
     public DbSet<Post.Post> Posts { get; set; }
@@ -51,6 +58,25 @@ public class AppDatabase(
             opt => opt.UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
+        optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
+        {
+            var defaultPermissionGroup = await context.Set<PermissionGroup>()
+                .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
+            if (defaultPermissionGroup is null)
+            {
+                context.Set<PermissionGroup>().Add(new PermissionGroup
+                {
+                    Key = "default",
+                    Nodes =
+                    {
+                        PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true)
+                    }
+                });
+                await context.SaveChangesAsync(cancellationToken);
+            }
+        });
+
         base.OnConfiguring(optionsBuilder);
     }
 
@@ -59,19 +85,13 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Permission.PermissionGroupMember>()
-            .HasKey(pg => new { pg.GroupId, pg.AccountId })
-            .HasName("permission_group_members"); 
+            .HasKey(pg => new { pg.GroupId, pg.Actor });
         modelBuilder.Entity<Permission.PermissionGroupMember>()
             .HasOne(pg => pg.Group)
             .WithMany(g => g.Members)
             .HasForeignKey(pg => pg.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Permission.PermissionGroupMember>()
-            .HasOne(pg => pg.Account)
-            .WithMany(a => a.GroupMemberships)
-            .HasForeignKey(pg => pg.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-        
+
         modelBuilder.Entity<Account.Account>()
             .HasOne(a => a.Profile)
             .WithOne(p => p.Account)
@@ -87,7 +107,7 @@ public class AppDatabase(
             .HasOne(r => r.Related)
             .WithMany(a => a.IncomingRelationships)
             .HasForeignKey(r => r.RelatedId);
-        
+
         modelBuilder.Entity<Post.PublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
         modelBuilder.Entity<Post.PublisherMember>()
@@ -100,7 +120,7 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
-        
+
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.ThreadedPost)
             .WithOne()
@@ -113,7 +133,7 @@ public class AppDatabase(
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.ForwardedPost)
             .WithMany()
-            .HasForeignKey(p  => p.ForwardedPostId)
+            .HasForeignKey(p => p.ForwardedPostId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Post.Post>()
             .HasMany(p => p.Tags)

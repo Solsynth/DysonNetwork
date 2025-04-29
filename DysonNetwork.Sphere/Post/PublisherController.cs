@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Casbin;
+using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/publishers")]
-public class PublisherController(AppDatabase db, PublisherService ps, FileService fs, IEnforcer enforcer)
+public class PublisherController(AppDatabase db, PublisherService ps, FileService fs)
     : ControllerBase
 {
     [HttpGet("{name}")]
@@ -167,12 +168,10 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpPost("individual")]
     [Authorize]
+    [RequiredPermission("global", "publishers.create")]
     public async Task<ActionResult<Publisher>> CreatePublisherIndividual(PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        if (!await enforcer.EnforceAsync((string)HttpContext.Items["CurrentIdentity"]!, "global", "publishers",
-                "create"))
-            return StatusCode(403);
 
         var takenName = request.Name ?? currentUser.Name;
         var duplicateNameCount = await db.Publishers

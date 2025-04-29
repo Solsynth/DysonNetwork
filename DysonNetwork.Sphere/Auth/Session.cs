@@ -21,6 +21,7 @@ public class Challenge : ModelBase
     public Instant? ExpiredAt { get; set; }
     public int StepRemain { get; set; }
     public int StepTotal { get; set; }
+    public int FailedAttempts { get; set; }
     [Column(TypeName = "jsonb")] public List<long> BlacklistFactors { get; set; } = new();
     [Column(TypeName = "jsonb")] public List<string> Audiences { get; set; } = new();
     [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = new();
