@@ -20,7 +20,7 @@ public class EmailService
 
     public EmailService(IConfiguration configuration)
     {
-        var cfg = configuration.GetValue<EmailServiceConfiguration>("Email");
+        var cfg = configuration.GetSection("Email").Get<EmailServiceConfiguration>();
         _configuration = cfg ?? throw new ArgumentException("Email service was not configured.");
     }
 

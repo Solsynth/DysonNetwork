@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace DysonNetwork.Sphere.Pages;
+namespace DysonNetwork.Sphere.Pages.Checkpoint;
 
 public class CheckpointPage(IConfiguration configuration) : PageModel
 {
     [BindProperty] public IConfiguration Configuration { get; set; } = configuration;
 
-    public void OnGet()
+    public ActionResult OnGet()
     {
+        return Page();
     }
 }

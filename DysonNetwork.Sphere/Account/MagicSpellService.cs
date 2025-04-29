@@ -44,7 +44,7 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
         if (contact is null) throw new ArgumentException("Account has no contact method that can use");
 
         // TODO replace the baseurl
-        var link = $"https://api.sn.solsynth.dev/spells/{spell}";
+        var link = $"https://api.sn.solsynth.dev/spells/{Uri.EscapeDataString(spell.Spell)}";
 
         try
         {
@@ -102,6 +102,7 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
                     });
                 }
 
+                db.Remove(spell);
                 await db.SaveChangesAsync();
                 break;
             default:

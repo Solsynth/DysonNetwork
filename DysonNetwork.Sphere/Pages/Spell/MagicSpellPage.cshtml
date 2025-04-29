@@ -1,14 +1,12 @@
 @page "/spells/{spellWord}"
 @using DysonNetwork.Sphere.Account
-@model DysonNetwork.Sphere.Pages.MagicSpellPage
+@model DysonNetwork.Sphere.Pages.Spell.MagicSpellPage
 
 @{
     Layout = null;
 
     var spell = ViewData["Spell"] as MagicSpell;
 }
-
-<!DOCTYPE html>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -56,10 +54,6 @@
             font-weight: bold;
             margin-bottom: 5px;
             opacity: 0.8;
-        }
-
-        .g-recaptcha {
-            display: inline-block; /* Adjust as needed */
         }
     </style>
 </head>

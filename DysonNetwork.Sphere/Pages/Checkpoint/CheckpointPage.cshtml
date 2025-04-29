@@ -1,5 +1,5 @@
 @page "/auth/captcha"
-@model DysonNetwork.Sphere.Pages.CheckpointPage
+@model DysonNetwork.Sphere.Pages.Checkpoint.CheckpointPage
 
 @{
     Layout = null;
@@ -73,6 +73,9 @@
                 defer
             ></script>
             break;
+        case "hcaptcha":
+            <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+            break;
     }
 </head>
 <body>
@@ -91,6 +94,13 @@
             case "recaptcha":
                 <div
                     class="g-recaptcha"
+                    data-sitekey="@apiKey"
+                    data-callback="onSuccess"
+                ></div>
+                break;
+            case "hcaptcha":
+                <div
+                    class="h-captcha"
                     data-sitekey="@apiKey"
                     data-callback="onSuccess"
                 ></div>

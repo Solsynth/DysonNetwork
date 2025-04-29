@@ -24,6 +24,12 @@ public class AuthService(IConfiguration config, IHttpClientFactory httpClientFac
         var apiSecret = config.GetSection("Captcha")["ApiSecret"];
 
         var client = httpClientFactory.CreateClient();
+        
+        var jsonOpts = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower
+        };
 
         switch (provider)
         {
@@ -33,11 +39,11 @@ public class AuthService(IConfiguration config, IHttpClientFactory httpClientFac
                 var response = await client.PostAsync("https://challenges.cloudflare.com/turnstile/v0/siteverify",
                     content);
                 response.EnsureSuccessStatusCode();
-
+                
                 var json = await response.Content.ReadAsStringAsync();
-                var cfResult = JsonSerializer.Deserialize<CloudflareVerificationResponse>(json);
+                var result = JsonSerializer.Deserialize<CaptchaVerificationResponse>(json, options: jsonOpts);
 
-                return cfResult?.Success == true;
+                return result?.Success == true;
             case "google":
                 content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
                     "application/x-www-form-urlencoded");
@@ -45,9 +51,19 @@ public class AuthService(IConfiguration config, IHttpClientFactory httpClientFac
                 response.EnsureSuccessStatusCode();
 
                 json = await response.Content.ReadAsStringAsync();
-                var capResult = JsonSerializer.Deserialize<GoogleVerificationResponse>(json);
+                result = JsonSerializer.Deserialize<CaptchaVerificationResponse>(json, options: jsonOpts);
 
-                return capResult?.Success == true;
+                return result?.Success == true;
+            case "hcaptcha":
+                content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                response = await client.PostAsync("https://hcaptcha.com/siteverify", content);
+                response.EnsureSuccessStatusCode();
+
+                json = await response.Content.ReadAsStringAsync();
+                result = JsonSerializer.Deserialize<CaptchaVerificationResponse>(json, options: jsonOpts);
+
+                return result?.Success == true;
             default:
                 throw new ArgumentException("The server misconfigured for the captcha.");
         }
