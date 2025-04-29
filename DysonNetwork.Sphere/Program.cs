@@ -212,11 +212,9 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
 
             var userId = httpContext.User.FindFirst("user_id")?.Value;
             if (userId == null) return;
-            var isSuperuser = httpContext.User.FindFirst("is_superuser")?.Value == "1";
-            if (isSuperuser) userId = "super:" + userId;
 
-            var enforcer = httpContext.RequestServices.GetRequiredService<IEnforcer>();
-            var allowed = await enforcer.EnforceAsync(userId, "global", "files", "create");
+            var pm = httpContext.RequestServices.GetRequiredService<PermissionService>();
+            var allowed = await pm.HasPermissionAsync($"user:{userId}", "global", "files.create");
             if (!allowed)
             {
                 eventContext.FailRequest(HttpStatusCode.Forbidden);

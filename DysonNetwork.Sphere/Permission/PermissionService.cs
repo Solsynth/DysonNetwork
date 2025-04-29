@@ -6,9 +6,15 @@ namespace DysonNetwork.Sphere.Permission;
 
 public class PermissionService(AppDatabase db)
 {
+    public async Task<bool> HasPermissionAsync(string actor, string area, string key)
+    {
+        var value = await GetPermissionAsync<bool>(actor, area, key);
+        return value;
+    }
+
     public async Task<T?> GetPermissionAsync<T>(string actor, string area, string key)
     {
-        var now =  SystemClock.Instance.GetCurrentInstant();
+        var now = SystemClock.Instance.GetCurrentInstant();
         var groupsId = await db.PermissionGroupMembers
             .Where(n => n.Actor == actor)
             .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
@@ -17,14 +23,14 @@ public class PermissionService(AppDatabase db)
             .ToListAsync();
         var permission = await db.PermissionNodes
             .Where(n => n.GroupId == null || groupsId.Contains(n.GroupId.Value))
-            .Where(n => n.Key == key && n.Actor == actor && n.Area == area)
+            .Where(n => n.Key == key && (n.GroupId != null || n.Actor == actor) && n.Area == area)
             .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
             .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
             .FirstOrDefaultAsync();
-        
+
         return permission is not null ? _DeserializePermissionValue<T>(permission.Value) : default;
     }
-    
+
     public async Task<PermissionNode> AddPermissionNode<T>(
         string actor,
         string area,
@@ -95,7 +101,7 @@ public class PermissionService(AppDatabase db)
     {
         var node = await db.PermissionNodes
             .Where(n => n.GroupId == group.Id)
-            .Where(n => n.Actor == actor &&  n.Area == area && n.Key == key)
+            .Where(n => n.Actor == actor && n.Area == area && n.Key == key)
             .FirstOrDefaultAsync();
         if (node is null) return;
         db.PermissionNodes.Remove(node);
