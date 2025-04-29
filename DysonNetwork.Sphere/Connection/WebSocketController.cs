@@ -3,25 +3,34 @@ using System.Net.WebSockets;
 using DysonNetwork.Sphere.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Sphere.Connection;
 
 [ApiController]
 [Route("/ws")]
 public class WebSocketController : ControllerBase
-{    
+{
     // Concurrent dictionary to store active WebSocket connections.
     // Key: Tuple (AccountId, DeviceId); Value: WebSocket and CancellationTokenSource
-    private static readonly ConcurrentDictionary<(long AccountId, string DeviceId), (WebSocket Socket, CancellationTokenSource Cts)> ActiveConnections = new ConcurrentDictionary<(long, string), (WebSocket, CancellationTokenSource)>();
+    private static readonly ConcurrentDictionary<
+        (long AccountId, string DeviceId),
+        (WebSocket Socket, CancellationTokenSource Cts)
+    > ActiveConnections =
+        new ConcurrentDictionary<(long, string), (WebSocket, CancellationTokenSource)>();
 
     [Route("/ws")]
     [Authorize]
-    public async Task TheGateway([FromQuery] string deviceId)
+    [SwaggerIgnore]
+    public async Task TheGateway()
     {
         if (HttpContext.WebSockets.IsWebSocketRequest)
         {
             // Get AccountId from HttpContext
-            if (!HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue) || currentUserValue is not Account.Account currentUser)
+            if (
+                !HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue)
+                || currentUserValue is not Account.Account currentUser
+            )
             {
                 HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 return;
@@ -35,7 +44,7 @@ public class WebSocketController : ControllerBase
                 return;
             }
 
-            using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();            
+            using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
             // Create a CancellationTokenSource for this connection
             var cts = new CancellationTokenSource();
             var connectionKey = (accountId, deviceId);
@@ -44,10 +53,14 @@ public class WebSocketController : ControllerBase
             if (!ActiveConnections.TryAdd(connectionKey, (webSocket, cts)))
             {
                 // Failed to add
-                await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Failed to establish connection.", CancellationToken.None);
+                await webSocket.CloseAsync(
+                    WebSocketCloseStatus.InternalServerError,
+                    "Failed to establish connection.",
+                    CancellationToken.None
+                );
                 return;
             }
-            
+
             try
             {
                 await _ConnectionEventLoop(webSocket, connectionKey, cts.Token);
@@ -69,29 +82,50 @@ public class WebSocketController : ControllerBase
         }
     }
 
-    private static async Task _ConnectionEventLoop(WebSocket webSocket, (long AccountId, string DeviceId) connectionKey, CancellationToken cancellationToken)
+    private static async Task _ConnectionEventLoop(
+        WebSocket webSocket,
+        (long AccountId, string DeviceId) connectionKey,
+        CancellationToken cancellationToken
+    )
     {
         // Buffer for receiving messages.
-        var buffer = new byte[1024 * 4]; 
+        var buffer = new byte[1024 * 4];
         try
         {
             // We don't handle receiving data, so we ignore the return.
-            var receiveResult = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            var receiveResult = await webSocket.ReceiveAsync(
+                new ArraySegment<byte>(buffer),
+                cancellationToken
+            );
             while (!receiveResult.CloseStatus.HasValue)
             {
                 // Keep connection alive and wait for close requests
-                receiveResult = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                receiveResult = await webSocket.ReceiveAsync(
+                    new ArraySegment<byte>(buffer),
+                    cancellationToken
+                );
             }
 
             // Close connection
-            await webSocket.CloseAsync(receiveResult.CloseStatus.Value, receiveResult.CloseStatusDescription, cancellationToken);
+            await webSocket.CloseAsync(
+                receiveResult.CloseStatus.Value,
+                receiveResult.CloseStatusDescription,
+                cancellationToken
+            );
         }
         catch (OperationCanceledException)
         {
             // Connection was canceled, close it gracefully
-            if (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.Aborted)
+            if (
+                webSocket.State != WebSocketState.Closed
+                && webSocket.State != WebSocketState.Aborted
+            )
             {
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed by server", CancellationToken.None);
+                await webSocket.CloseAsync(
+                    WebSocketCloseStatus.NormalClosure,
+                    "Connection closed by server",
+                    CancellationToken.None
+                );
             }
         }
     }
@@ -102,7 +136,13 @@ public class WebSocketController : ControllerBase
         if (ActiveConnections.TryGetValue((accountId, deviceId), out var connection))
         {
             var buffer = System.Text.Encoding.UTF8.GetBytes(message);
-            await connection.Socket.SendAsync(new ArraySegment<byte>(buffer, 0, buffer.Length), WebSocketMessageType.Text, true, connection.Cts.Token);
+            await connection.Socket.SendAsync(
+                new ArraySegment<byte>(buffer, 0, buffer.Length),
+                WebSocketMessageType.Text,
+                true,
+                connection.Cts.Token
+            );
         }
     }
 }
+
