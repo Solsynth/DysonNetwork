@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,7 +37,6 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
 
     public class PushNotificationSubscribeRequest
     {
-        [MaxLength(4096)] public string DeviceId { get; set; } = null!;
         [MaxLength(4096)] public string DeviceToken { get; set; } = null!;
         public NotificationPushProvider Provider { get; set; }
     }
@@ -47,12 +47,16 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
         [FromBody] PushNotificationSubscribeRequest request
     )
     {
+        HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
         if (currentUser == null) return Unauthorized();
+        var currentSession = currentSessionValue as Session;
+        if (currentSession == null) return Unauthorized();
 
         var result =
-            await nty.SubscribePushNotification(currentUser, request.Provider, request.DeviceId, request.DeviceToken);
+            await nty.SubscribePushNotification(currentUser, request.Provider, currentSession.Challenge.DeviceId!,
+                request.DeviceToken);
 
         return Ok(result);
     }

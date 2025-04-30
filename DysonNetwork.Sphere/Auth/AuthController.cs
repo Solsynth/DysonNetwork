@@ -20,8 +20,9 @@ public class AuthController(
 {
     public class ChallengeRequest
     {
+        [Required] public ChallengePlatform Platform { get; set; }
         [Required] [MaxLength(256)] public string Account { get; set; } = string.Empty;
-        [MaxLength(512)] public string? DeviceId { get; set; }
+        [Required] [MaxLength(512)] public string DeviceId { get; set; }
         public List<string> Audiences { get; set; } = new();
         public List<string> Scopes { get; set; } = new();
     }
@@ -52,6 +53,7 @@ public class AuthController(
             Account = account,
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
             StepTotal = 1,
+            Platform = request.Platform,
             Audiences = request.Audiences,
             Scopes = request.Scopes,
             IpAddress = ipAddress,
@@ -125,6 +127,8 @@ public class AuthController(
         }
         catch
         {
+            challenge.FailedAttempts++;
+            await db.SaveChangesAsync();
             return BadRequest();
         }
 

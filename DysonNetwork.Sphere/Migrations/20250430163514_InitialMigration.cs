@@ -171,6 +171,8 @@ namespace DysonNetwork.Sphere.Migrations
                     step_remain = table.Column<int>(type: "integer", nullable: false),
                     step_total = table.Column<int>(type: "integer", nullable: false),
                     failed_attempts = table.Column<int>(type: "integer", nullable: false),
+                    platform = table.Column<int>(type: "integer", nullable: false),
+                    type = table.Column<int>(type: "integer", nullable: false),
                     blacklist_factors = table.Column<List<long>>(type: "jsonb", nullable: false),
                     audiences = table.Column<List<string>>(type: "jsonb", nullable: false),
                     scopes = table.Column<List<string>>(type: "jsonb", nullable: false),
@@ -326,6 +328,7 @@ namespace DysonNetwork.Sphere.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
+                    label = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     last_granted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     expired_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     account_id = table.Column<long>(type: "bigint", nullable: false),

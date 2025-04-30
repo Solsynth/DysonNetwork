@@ -72,11 +72,10 @@ public class NotificationService
             DeviceId = deviceId,
             DeviceToken = deviceToken,
             Provider = provider,
-            Account = account,
             AccountId = account.Id,
         };
 
-        _db.Add(subscription);
+        _db.NotificationPushSubscriptions.Add(subscription);
         await _db.SaveChangesAsync();
 
         return subscription;

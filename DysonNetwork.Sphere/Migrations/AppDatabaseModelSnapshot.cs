@@ -505,6 +505,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("nonce");
 
+                    b.Property<int>("Platform")
+                        .HasColumnType("integer")
+                        .HasColumnName("platform");
+
                     b.Property<List<string>>("Scopes")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -517,6 +521,10 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<int>("StepTotal")
                         .HasColumnType("integer")
                         .HasColumnName("step_total");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -562,6 +570,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<Instant?>("ExpiredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expired_at");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("label");
 
                     b.Property<Instant?>("LastGrantedAt")
                         .HasColumnType("timestamp with time zone")

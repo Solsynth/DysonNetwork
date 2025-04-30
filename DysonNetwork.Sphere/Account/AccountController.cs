@@ -4,7 +4,6 @@ using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
@@ -15,8 +14,8 @@ public class AccountController(
     AppDatabase db,
     FileService fs,
     AuthService auth,
-    MagicSpellService spells,
-    IMemoryCache memCache
+    AccountService accounts,
+    MagicSpellService spells
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -138,7 +137,7 @@ public class AccountController(
         if (request.Nick is not null) account.Nick = request.Nick;
         if (request.Language is not null) account.Language = request.Language;
 
-        memCache.Remove($"user_${account.Id}");
+        await accounts.PurgeAccountCache(account);
 
         await db.SaveChangesAsync();
         return account;
@@ -199,7 +198,7 @@ public class AccountController(
         db.Update(profile);
         await db.SaveChangesAsync();
 
-        memCache.Remove($"user_${userId}");
+        await accounts.PurgeAccountCache(currentUser);
 
         return profile;
     }

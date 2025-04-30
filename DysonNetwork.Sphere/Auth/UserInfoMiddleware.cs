@@ -7,29 +7,30 @@ public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
 {
     public async Task InvokeAsync(HttpContext context, AppDatabase db)
     {
-        var userIdClaim = context.User.FindFirst("user_id")?.Value;
-        if (userIdClaim is not null && long.TryParse(userIdClaim, out var userId))
+        var sessionIdClaim = context.User.FindFirst("session_id")?.Value;
+        if (sessionIdClaim is not null && Guid.TryParse(sessionIdClaim, out var sessionId))
         {
-            if (!cache.TryGetValue($"user_{userId}", out Account.Account? user))
+            if (!cache.TryGetValue($"dyn_auth_{sessionId}", out Session? session))
             {
-                user = await db.Accounts
-                    .Include(e => e.Profile)
-                    .Include(e => e.Profile.Picture)
-                    .Include(e => e.Profile.Background)
-                    .Where(e => e.Id == userId)
+                session = await db.AuthSessions
+                    .Include(e => e.Challenge)
+                    .Include(e => e.Account)
+                    .Include(e => e.Account.Profile)
+                    .Include(e => e.Account.Profile.Picture)
+                    .Include(e => e.Account.Profile.Background)
+                    .Where(e => e.Id == sessionId)
                     .FirstOrDefaultAsync();
 
-                if (user is not null)
+                if (session is not null)
                 {
-                    cache.Set($"user_{userId}", user, TimeSpan.FromMinutes(10));
+                    cache.Set($"dyn_auth_{sessionId}", session, TimeSpan.FromHours(1));
                 }
             }
 
-            if (user is not null)
+            if (session is not null)
             {
-                context.Items["CurrentUser"] = user;
-                var prefix = user.IsSuperuser ? "super:" : "";
-                context.Items["CurrentIdentity"] = $"{prefix}{userId}";
+                context.Items["CurrentUser"] = session.Account;
+                context.Items["CurrentSession"] = session;
             }
         }
 

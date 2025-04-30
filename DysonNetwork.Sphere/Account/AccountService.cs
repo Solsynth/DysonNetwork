@@ -1,12 +1,23 @@
 using Casbin;
 using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class AccountService(AppDatabase db, PermissionService pm)
+public class AccountService(AppDatabase db, PermissionService pm, IMemoryCache cache)
 {
+    public async Task PurgeAccountCache(Account account)
+    {
+        var sessions = await db.AuthSessions.Where(e => e.Account.Id == account.Id).Select(e => e.Id)
+            .ToListAsync();
+        foreach (var session in sessions)
+        {
+            cache.Remove($"dyn_auth_{session}");
+        }
+    }
+
     public async Task<Account?> LookupAccount(string probe)
     {
         var account = await db.Accounts.Where(a => a.Name == probe).FirstOrDefaultAsync();

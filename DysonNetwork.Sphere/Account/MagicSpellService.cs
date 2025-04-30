@@ -45,6 +45,8 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
 
         // TODO replace the baseurl
         var link = $"https://api.sn.solsynth.dev/spells/{Uri.EscapeDataString(spell.Spell)}";
+        
+        logger.LogError($"Sending magic spell... {link}");
 
         try
         {

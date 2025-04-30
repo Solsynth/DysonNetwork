@@ -24,6 +24,7 @@ using NodaTime.Serialization.SystemTextJson;
 using Quartz;
 using tusdotnet;
 using tusdotnet.Models;
+using tusdotnet.Models.Configuration;
 using File = System.IO.File;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,7 +35,6 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 // Add services to the container.
 
 builder.Services.AddDbContext<AppDatabase>();
-builder.Services.AddMemoryCache();
 
 builder.Services.AddHttpClient();
 builder.Services.AddControllers().AddJsonOptions(options =>
@@ -189,7 +189,7 @@ var tusDiskStore = new tusdotnet.Stores.TusDiskStore(
 app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
 {
     Store = tusDiskStore,
-    Events = new()
+    Events = new Events
     {
         OnAuthorizeAsync = async eventContext =>
         {
@@ -203,8 +203,8 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
             }
 
             var httpContext = eventContext.HttpContext;
-            var user = httpContext.User;
-            if (!user.Identity?.IsAuthenticated ?? true)
+            var user = httpContext.Items["CurrentUser"] as Account;
+            if (user is null)
             {
                 eventContext.FailRequest(HttpStatusCode.Unauthorized);
                 return;
@@ -223,12 +223,7 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
         OnFileCompleteAsync = async eventContext =>
         {
             var httpContext = eventContext.HttpContext;
-            var user = httpContext.User;
-            var userId = long.Parse(user.FindFirst("user_id")!.Value);
-
-            var db = httpContext.RequestServices.GetRequiredService<AppDatabase>();
-            var account = await db.Accounts.FindAsync(userId);
-            if (account is null) return;
+            if (httpContext.Items["CurrentUser"] is not Account user) return;
 
             var file = await eventContext.GetFileAsync();
             var metadata = await file.GetMetadataAsync(eventContext.CancellationToken);
@@ -238,7 +233,7 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
 
             var fileService = eventContext.HttpContext.RequestServices.GetRequiredService<FileService>();
 
-            var info = await fileService.AnalyzeFileAsync(account, file.Id, fileStream, fileName, contentType);
+            var info = await fileService.AnalyzeFileAsync(user, file.Id, fileStream, fileName, contentType);
 
             var jsonOptions = httpContext.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value
                 .JsonSerializerOptions;

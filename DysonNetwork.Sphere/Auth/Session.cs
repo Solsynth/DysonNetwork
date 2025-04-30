@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth;
@@ -8,11 +9,29 @@ namespace DysonNetwork.Sphere.Auth;
 public class Session : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(1024)] public string? Label { get; set; }
     public Instant? LastGrantedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
 
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
     [JsonIgnore] public Challenge Challenge { get; set; } = null!;
+}
+
+public enum ChallengeType
+{
+    Login,
+    OAuth
+}
+
+public enum ChallengePlatform
+{
+    Unidentified,
+    Web,
+    Ios,
+    Android,
+    MacOs,
+    Windows,
+    Linux
 }
 
 public class Challenge : ModelBase
@@ -22,6 +41,8 @@ public class Challenge : ModelBase
     public int StepRemain { get; set; }
     public int StepTotal { get; set; }
     public int FailedAttempts { get; set; }
+    public ChallengePlatform Platform { get; set; } = ChallengePlatform.Unidentified;
+    public ChallengeType Type { get; set; } = ChallengeType.Login;
     [Column(TypeName = "jsonb")] public List<long> BlacklistFactors { get; set; } = new();
     [Column(TypeName = "jsonb")] public List<string> Audiences { get; set; } = new();
     [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = new();
