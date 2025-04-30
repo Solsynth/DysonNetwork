@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.Connection;
 
 [ApiController]
 [Route("/ws")]
-public class WebSocketController : ControllerBase
+public class WebSocketController(ILogger<WebSocketContext> logger) : ControllerBase
 {
     private static readonly ConcurrentDictionary<
         (long AccountId, string DeviceId),
@@ -20,57 +20,55 @@ public class WebSocketController : ControllerBase
     [SwaggerIgnore]
     public async Task TheGateway()
     {
-        if (HttpContext.WebSockets.IsWebSocketRequest)
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
+        if (currentUserValue is not Account.Account currentUser ||
+            currentSessionValue is not Auth.Session currentSession)
         {
-            HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-            HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
-            if (currentUserValue is not Account.Account currentUser ||
-                currentSessionValue is not Auth.Session currentSession)
-            {
-                HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return;
-            }
-
-            var accountId = currentUser.Id;
-            var deviceId = currentSession.Challenge.DeviceId;
-
-            if (string.IsNullOrEmpty(deviceId))
-            {
-                HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
-                return;
-            }
-
-            using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
-            var cts = new CancellationTokenSource();
-            var connectionKey = (accountId, deviceId);
-
-            if (!ActiveConnections.TryAdd(connectionKey, (webSocket, cts)))
-            {
-                await webSocket.CloseAsync(
-                    WebSocketCloseStatus.InternalServerError,
-                    "Failed to establish connection.",
-                    CancellationToken.None
-                );
-                return;
-            }
-
-            try
-            {
-                await _ConnectionEventLoop(webSocket, connectionKey, cts.Token);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"WebSocket Error: {ex.Message}");
-            }
-            finally
-            {
-                ActiveConnections.TryRemove(connectionKey, out _);
-                cts.Dispose();
-            }
+            HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
         }
-        else
+
+        var accountId = currentUser.Id;
+        var deviceId = currentSession.Challenge.DeviceId;
+
+        if (string.IsNullOrEmpty(deviceId))
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
+        var cts = new CancellationTokenSource();
+        var connectionKey = (accountId, deviceId);
+
+        if (!ActiveConnections.TryAdd(connectionKey, (webSocket, cts)))
+        {
+            await webSocket.CloseAsync(
+                WebSocketCloseStatus.InternalServerError,
+                "Failed to establish connection.",
+                CancellationToken.None
+            );
+            return;
+        }
+
+        logger.LogInformation(
+            $"Connection established with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}");
+
+        try
+        {
+            await _ConnectionEventLoop(webSocket, connectionKey, cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"WebSocket Error: {ex.Message}");
+        }
+        finally
+        {
+            ActiveConnections.TryRemove(connectionKey, out _);
+            cts.Dispose();
+            logger.LogInformation(
+                $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}");
         }
     }
 

@@ -173,6 +173,7 @@ app.UseCors(opts =>
         .AllowAnyMethod()
 );
 
+app.UseWebSockets();
 app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthorization();
