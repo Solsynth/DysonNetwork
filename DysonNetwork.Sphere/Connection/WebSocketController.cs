@@ -8,13 +8,8 @@ namespace DysonNetwork.Sphere.Connection;
 
 [ApiController]
 [Route("/ws")]
-public class WebSocketController(ILogger<WebSocketContext> logger) : ControllerBase
+public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> logger) : ControllerBase
 {
-    private static readonly ConcurrentDictionary<
-        (long AccountId, string DeviceId),
-        (WebSocket Socket, CancellationTokenSource Cts)
-    > ActiveConnections = new();
-
     [Route("/ws")]
     [Authorize]
     [SwaggerIgnore]
@@ -42,7 +37,7 @@ public class WebSocketController(ILogger<WebSocketContext> logger) : ControllerB
         var cts = new CancellationTokenSource();
         var connectionKey = (accountId, deviceId);
 
-        if (!ActiveConnections.TryAdd(connectionKey, (webSocket, cts)))
+        if (!ws.TryAdd(connectionKey, webSocket, cts))
         {
             await webSocket.CloseAsync(
                 WebSocketCloseStatus.InternalServerError,
@@ -57,7 +52,7 @@ public class WebSocketController(ILogger<WebSocketContext> logger) : ControllerB
 
         try
         {
-            await _ConnectionEventLoop(webSocket, connectionKey, cts.Token);
+            await _ConnectionEventLoop(connectionKey, webSocket, cts.Token);
         }
         catch (Exception ex)
         {
@@ -65,16 +60,15 @@ public class WebSocketController(ILogger<WebSocketContext> logger) : ControllerB
         }
         finally
         {
-            ActiveConnections.TryRemove(connectionKey, out _);
-            cts.Dispose();
+            ws.Disconnect(connectionKey);
             logger.LogInformation(
                 $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}");
         }
     }
 
-    private static async Task _ConnectionEventLoop(
-        WebSocket webSocket,
+    private async Task _ConnectionEventLoop(
         (long AccountId, string DeviceId) connectionKey,
+        WebSocket webSocket,
         CancellationToken cancellationToken
     )
     {
@@ -93,41 +87,17 @@ public class WebSocketController(ILogger<WebSocketContext> logger) : ControllerB
                 );
             }
 
-            await webSocket.CloseAsync(
-                receiveResult.CloseStatus.Value,
-                receiveResult.CloseStatusDescription,
-                cancellationToken
-            );
+            // TODO handle values
         }
         catch (OperationCanceledException)
         {
-            // Connection was canceled, close it gracefully
             if (
                 webSocket.State != WebSocketState.Closed
                 && webSocket.State != WebSocketState.Aborted
             )
             {
-                await webSocket.CloseAsync(
-                    WebSocketCloseStatus.NormalClosure,
-                    "Connection closed by server",
-                    CancellationToken.None
-                );
+                ws.Disconnect(connectionKey);
             }
-        }
-    }
-
-    // This method will be used later to send messages to specific connections
-    public static async Task SendMessageAsync(long accountId, string deviceId, string message)
-    {
-        if (ActiveConnections.TryGetValue((accountId, deviceId), out var connection))
-        {
-            var buffer = System.Text.Encoding.UTF8.GetBytes(message);
-            await connection.Socket.SendAsync(
-                new ArraySegment<byte>(buffer, 0, buffer.Length),
-                WebSocketMessageType.Text,
-                true,
-                connection.Cts.Token
-            );
         }
     }
 }

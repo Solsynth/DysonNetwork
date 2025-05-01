@@ -37,6 +37,8 @@ public class AppDatabase(
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
 
     public DbSet<Storage.CloudFile> Files { get; set; }
+    
+    public DbSet<Activity.Activity> Activities { get; set; }
 
     public DbSet<Post.Publisher> Publishers { get; set; }
     public DbSet<Post.PublisherMember> PublisherMembers { get; set; }

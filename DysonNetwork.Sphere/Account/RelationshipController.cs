@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
 [Route("/relationships")]
-public class RelationshipController(AppDatabase db, AccountService accounts) : ControllerBase
+public class RelationshipController(AppDatabase db, RelationshipService rels) : ControllerBase
 {
     [HttpGet]
     [Authorize]
@@ -48,7 +48,7 @@ public class RelationshipController(AppDatabase db, AccountService accounts) : C
 
         try
         {
-            var relationship = await accounts.CreateRelationship(
+            var relationship = await rels.CreateRelationship(
                 currentUser, relatedUser, request.Status
             );
             return relationship;

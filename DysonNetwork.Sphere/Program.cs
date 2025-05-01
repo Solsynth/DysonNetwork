@@ -7,7 +7,9 @@ using Casbin;
 using Casbin.Persist.Adapter.EFCore;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
@@ -114,14 +116,17 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddOpenApi();
 
+builder.Services.AddScoped<WebSocketService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<RelationshipService>();
 builder.Services.AddScoped<MagicSpellService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PublisherService>();
+builder.Services.AddScoped<ActivityService>();
 builder.Services.AddScoped<PostService>();
 
 // Timed task

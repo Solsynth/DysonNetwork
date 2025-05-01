@@ -1,12 +1,14 @@
+using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostService(AppDatabase db, FileService fs)
+public class PostService(AppDatabase db, FileService fs, ActivityService act)
 {
     public async Task<Post> PostAsync(
+        Account.Account user,
         Post post,
         List<string>? attachments = null,
         List<string>? tags = null,
@@ -65,6 +67,8 @@ public class PostService(AppDatabase db, FileService fs)
         db.Posts.Add(post);
         await db.SaveChangesAsync();
         await fs.MarkUsageRangeAsync(post.Attachments, 1);
+
+        await act.CreateNewPostActivity(user, post);
 
         return post;
     }
@@ -153,7 +157,7 @@ public class PostService(AppDatabase db, FileService fs)
 public static class PostQueryExtensions
 {
     public static IQueryable<Post> FilterWithVisibility(this IQueryable<Post> source, Account.Account? currentUser,
-        bool isListing = false)
+        List<long> userFriends, bool isListing = false)
     {
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
 
@@ -172,6 +176,9 @@ public static class PostQueryExtensions
 
         return source
             .Where(e => e.PublishedAt != null && now >= e.PublishedAt && e.Publisher.AccountId == currentUser.Id)
-            .Where(e => e.Visibility != PostVisibility.Private || e.Publisher.AccountId == currentUser.Id);
+            .Where(e => e.Visibility != PostVisibility.Private || e.Publisher.AccountId == currentUser.Id)
+            .Where(e => e.Visibility != PostVisibility.Friends ||
+                        (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
+                        e.Publisher.AccountId == currentUser.Id);
     }
 }

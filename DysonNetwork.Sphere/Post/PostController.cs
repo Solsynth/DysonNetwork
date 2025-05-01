@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Casbin;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,16 +10,17 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/posts")]
-public class PostController(AppDatabase db, PostService ps) : ControllerBase
+public class PostController(AppDatabase db, PostService ps, RelationshipService rels) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
+        var userFriends = await rels.ListAccountFriends(currentUser!);
 
         var totalCount = await db.Posts
-            .FilterWithVisibility(currentUser, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
         var posts = await db.Posts
             .Include(e => e.Publisher)
@@ -30,7 +32,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Where(e => e.RepliedPostId == null)
-            .FilterWithVisibility(currentUser, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -46,6 +48,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
+        var userFriends = await rels.ListAccountFriends(currentUser!);
 
         var post = await db.Posts
             .Where(e => e.Id == id)
@@ -58,7 +61,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.Attachments)
-            .FilterWithVisibility(currentUser)
+            .FilterWithVisibility(currentUser, userFriends)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
@@ -71,6 +74,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
+        var userFriends = await rels.ListAccountFriends(currentUser!);
 
         var post = await db.Posts
             .Where(e => e.Id == id)
@@ -79,7 +83,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
 
         var totalCount = await db.Posts
             .Where(e => e.RepliedPostId == post.Id)
-            .FilterWithVisibility(currentUser, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
         var posts = await db.Posts
             .Where(e => e.RepliedPostId == id)
@@ -91,7 +95,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
             .Include(e => e.Attachments)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
-            .FilterWithVisibility(currentUser, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -179,6 +183,7 @@ public class PostController(AppDatabase db, PostService ps) : ControllerBase
         try
         {
             post = await ps.PostAsync(
+                currentUser,
                 post,
                 attachments: request.Attachments,
                 tags: request.Tags,
