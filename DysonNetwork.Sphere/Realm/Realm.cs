@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -22,9 +23,10 @@ public class Realm : ModelBase
     public CloudFile? Background { get; set; }
     
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
+    [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
 
     public long AccountId { get; set; }
-    [JsonIgnore] public Account.Account Account { get; set; }
+    [JsonIgnore] public Account.Account Account { get; set; } = null!;
 }
 
 public enum RealmMemberRole

@@ -50,6 +50,9 @@ public class AppDatabase(
 
     public DbSet<Realm.Realm> Realms { get; set; }
     public DbSet<Realm.RealmMember> RealmMembers { get; set; }
+    
+    public DbSet<Chat.ChatRoom> ChatRooms { get; set; }
+    public DbSet<Chat.ChatMember> ChatMembers { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -165,7 +168,20 @@ public class AppDatabase(
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Post.PublisherMember>()
+        modelBuilder.Entity<Realm.RealmMember>()
+            .HasOne(pm => pm.Account)
+            .WithMany()
+            .HasForeignKey(pm => pm.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        modelBuilder.Entity<Chat.ChatMember>()
+            .HasKey(pm => new { pm.ChatRoom, pm.AccountId });
+        modelBuilder.Entity<Chat.ChatMember>()
+            .HasOne(pm => pm.ChatRoom)
+            .WithMany(p => p.Members)
+            .HasForeignKey(pm => pm.ChatRoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Chat.ChatMember>()
             .HasOne(pm => pm.Account)
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
