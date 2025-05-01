@@ -79,7 +79,8 @@ public class AppDatabase(
                     {
                         PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "files.create", true)
+                        PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "chatrooms.create", true)
                     }
                 });
                 await context.SaveChangesAsync(cancellationToken);
