@@ -34,6 +34,7 @@ public class CloudFile : ModelBase
     public Instant? UploadedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
     [MaxLength(128)] public string? UploadedTo { get; set; }
+    public bool HasCompression { get; set; }= false;
 
     // Metrics
     // When this used count keep zero, it means it's not used by anybody, so it can be recycled

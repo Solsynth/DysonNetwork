@@ -192,7 +192,7 @@ app.MapRazorPages().RequireRateLimiting("fixed");
 var tusDiskStore = new tusdotnet.Stores.TusDiskStore(
     builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
 );
-app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
+app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
 {
     Store = tusDiskStore,
     Events = new Events
@@ -239,28 +239,12 @@ app.MapTus("/files/tus", (_) => Task.FromResult<DefaultTusConfiguration>(new()
 
             var fileService = eventContext.HttpContext.RequestServices.GetRequiredService<FileService>();
 
-            var info = await fileService.AnalyzeFileAsync(user, file.Id, fileStream, fileName, contentType);
+            var info = await fileService.ProcessNewFileAsync(user, file.Id, fileStream, fileName, contentType);
 
             var jsonOptions = httpContext.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value
                 .JsonSerializerOptions;
             var infoJson = JsonSerializer.Serialize(info, jsonOptions);
             eventContext.HttpContext.Response.Headers.Append("X-FileInfo", infoJson);
-
-#pragma warning disable CS4014
-            Task.Run(async () =>
-            {
-                using var scope = eventContext.HttpContext.RequestServices
-                    .GetRequiredService<IServiceScopeFactory>()
-                    .CreateScope();
-                // Keep the service didn't be disposed
-                var fs = scope.ServiceProvider.GetRequiredService<FileService>();
-                // Keep the file stream opened
-                var fileData = await tusDiskStore.GetFileAsync(file.Id, CancellationToken.None);
-                var newStream = await fileData.GetContentAsync(CancellationToken.None);
-                await fs.UploadFileToRemoteAsync(info, newStream, null);
-                await tusDiskStore.DeleteFileAsync(file.Id, CancellationToken.None);
-            });
-#pragma warning restore CS4014
         },
     }
 }));

@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using Blurhash.ImageSharp;
 using Microsoft.EntityFrameworkCore;
 using Minio;
+using Minio.DataModel;
 using Minio.DataModel.Args;
 using NodaTime;
 using Quartz;
@@ -15,9 +16,11 @@ namespace DysonNetwork.Sphere.Storage;
 
 public class FileService(AppDatabase db, IConfiguration configuration)
 {
+    private static readonly string TempFilePrefix = "dyn-cloudfile";
+
     // The analysis file method no longer will remove the GPS EXIF data
     // It should be handled on the client side, and for some specific cases it should be keep
-    public async Task<CloudFile> AnalyzeFileAsync(
+    public async Task<CloudFile> ProcessNewFileAsync(
         Account.Account account,
         string fileId,
         Stream stream,
@@ -25,6 +28,10 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         string? contentType
     )
     {
+        // If this variable present a value means the processor modified the uploaded file
+        // Upload this file to the remote instead
+        var modifiedResult = new List<(string filePath, string suffix)>();
+
         var fileSize = stream.Length;
         var hash = await HashFileAsync(stream, fileSize: fileSize);
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
@@ -76,6 +83,24 @@ public class FileService(AppDatabase db, IConfiguration configuration)
                         ["ratio"] = aspectRatio,
                         ["exif"] = exif
                     };
+
+                    var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
+                    var ogTask = imageSharp.SaveAsWebpAsync(imagePath);
+                    modifiedResult.Add((imagePath, string.Empty));
+
+                    var compressedClone = imageSharp.Clone();
+                    compressedClone.Mutate(i => i.Resize(new ResizeOptions
+                        {
+                            Mode = ResizeMode.Max,
+                            Size = new Size(1024, 1024),
+                        })
+                    );
+                    var imageCompressedPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}-compressed");
+                    var compressedTask = compressedClone.SaveAsWebpAsync(imagePath);
+                    modifiedResult.Add((imageCompressedPath, ".compressed"));
+                    file.HasCompression = true;
+
+                    await Task.WhenAll(ogTask, compressedTask);
                 }
 
                 break;
@@ -105,6 +130,15 @@ public class FileService(AppDatabase db, IConfiguration configuration)
 
         db.Files.Add(file);
         await db.SaveChangesAsync();
+
+#pragma warning disable CS4014
+        if (modifiedResult.Count > 0)
+            foreach (var result in modifiedResult)
+                UploadFileToRemoteAsync(file, result.filePath, null, result.suffix, true);
+        else
+            UploadFileToRemoteAsync(file, stream, null);
+#pragma warning restore CS4014
+
         return file;
     }
 
@@ -141,7 +175,17 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    public async Task<CloudFile> UploadFileToRemoteAsync(CloudFile file, Stream stream, string? targetRemote)
+    public async Task<CloudFile> UploadFileToRemoteAsync(CloudFile file, string filePath, string? targetRemote,
+        string? suffix = null, bool selfDestruct = false)
+    {
+        var fileStream = File.OpenRead(filePath);
+        var result = await UploadFileToRemoteAsync(file, fileStream, targetRemote);
+        if (selfDestruct) File.Delete(filePath);
+        return result;
+    }
+
+    public async Task<CloudFile> UploadFileToRemoteAsync(CloudFile file, Stream stream, string? targetRemote,
+        string? suffix = null)
     {
         if (file.UploadedAt.HasValue) return file;
 
@@ -159,7 +203,7 @@ public class FileService(AppDatabase db, IConfiguration configuration)
 
         await client.PutObjectAsync(new PutObjectArgs()
             .WithBucket(bucket)
-            .WithObject(file.Id)
+            .WithObject(string.IsNullOrWhiteSpace(suffix) ? file.Id : file.Id + suffix)
             .WithStreamData(stream)
             .WithObjectSize(stream.Length)
             .WithContentType(contentType)
