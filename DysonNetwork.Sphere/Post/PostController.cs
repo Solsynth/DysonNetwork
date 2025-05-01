@@ -38,6 +38,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+        posts = PostService.TruncatePostContent(posts);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -101,6 +102,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+        posts = PostService.TruncatePostContent(posts);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 

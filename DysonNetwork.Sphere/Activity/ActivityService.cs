@@ -30,6 +30,7 @@ public class ActivityService(AppDatabase db)
                 .Include(e => e.Tags)
                 .FilterWithVisibility(currentUser, userFriends)
                 .ToListAsync();
+            posts = PostService.TruncatePostContent(posts);
 
             var postsDict = posts.ToDictionary(p => p.Id);
 

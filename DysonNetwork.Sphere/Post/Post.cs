@@ -51,7 +51,7 @@ public class Post : ModelBase
     public Post? ForwardedPost { get; set; }
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
     
-    public NpgsqlTsVector SearchVector { get; set; }
+    [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; }
 
     public Publisher Publisher { get; set; } = null!;
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
@@ -59,7 +59,8 @@ public class Post : ModelBase
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
     public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
 
-    public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
+    [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
+    [NotMapped] public bool IsTruncated = false;
 }
 
 public class PostTag : ModelBase

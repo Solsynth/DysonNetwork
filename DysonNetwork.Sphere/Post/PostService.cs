@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,64 @@ namespace DysonNetwork.Sphere.Post;
 
 public class PostService(AppDatabase db, FileService fs, ActivityService act)
 {
+    public static List<Post> TruncatePostContent(List<Post> input)
+    {
+        // This truncate post content is designed for quill delta
+        const int maxLength = 256;
+        foreach (var item in input)
+        {
+            if (item.Content is not { RootElement: var rootElement }) continue;
+
+            if (rootElement.ValueKind != JsonValueKind.Array) continue;
+            var totalLength = 0;
+            var truncatedArrayElements = new List<JsonElement>();
+
+            foreach (var element in rootElement.EnumerateArray())
+            {
+                if (element is { ValueKind: JsonValueKind.Object } &&
+                    element.TryGetProperty("insert", out var insertProperty))
+                {
+                    if (insertProperty is { ValueKind: JsonValueKind.String })
+                    {
+                        var textContent = insertProperty.GetString()!;
+                        if (totalLength + textContent.Length <= maxLength)
+                        {
+                            truncatedArrayElements.Add(element);
+                            totalLength += textContent.Length;
+                        }
+                        else
+                        {
+                            var remainingLength = maxLength - totalLength;
+                            if (remainingLength > 0)
+                            {
+                                using var truncatedElementDocument =
+                                    JsonDocument.Parse(
+                                        $@"{{ ""insert"": ""{textContent.Substring(0, remainingLength)}"" }}"
+                                    );
+                                truncatedArrayElements.Add(truncatedElementDocument.RootElement.Clone());
+                                totalLength = maxLength;
+                            }
+
+                            break;
+                        }
+                    }
+                    else
+                        truncatedArrayElements.Add(element);
+                }
+                else
+                    truncatedArrayElements.Add(element);
+
+                if (totalLength >= maxLength)
+                    break;
+            }
+
+            using var newDocument = JsonDocument.Parse(JsonSerializer.Serialize(truncatedArrayElements));
+            item.Content = newDocument;
+        }
+
+        return input;
+    }
+
     public async Task<Post> PostAsync(
         Account.Account user,
         Post post,
