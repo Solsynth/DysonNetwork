@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using Casbin;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
@@ -17,7 +18,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
-        var userFriends = await rels.ListAccountFriends(currentUser!);
+        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
 
         var totalCount = await db.Posts
             .FilterWithVisibility(currentUser, userFriends, isListing: true)
@@ -48,7 +49,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
-        var userFriends = await rels.ListAccountFriends(currentUser!);
+        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
 
         var post = await db.Posts
             .Where(e => e.Id == id)
@@ -74,7 +75,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
-        var userFriends = await rels.ListAccountFriends(currentUser!);
+        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
 
         var post = await db.Posts
             .Where(e => e.Id == id)
@@ -110,7 +111,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
     {
         [MaxLength(1024)] public string? Title { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
-        public string? Content { get; set; }
+        public JsonDocument? Content { get; set; }
         public PostVisibility? Visibility { get; set; }
         public PostType? Type { get; set; }
         [MaxLength(16)] public List<string>? Tags { get; set; }

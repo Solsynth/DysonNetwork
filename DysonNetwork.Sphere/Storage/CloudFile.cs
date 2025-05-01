@@ -5,7 +5,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Storage;
 
-public abstract class RemoteStorageConfig
+public class RemoteStorageConfig
 {
     public string Id { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
@@ -41,6 +41,7 @@ public class CloudFile : ModelBase
     public int UsedCount { get; set; } = 0;
 
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
+    public long AccountId { get; set; }
 }
 
 public enum CloudFileSensitiveMark

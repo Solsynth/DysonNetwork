@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
 
 #nullable disable
 
@@ -787,8 +788,8 @@ namespace DysonNetwork.Sphere.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("Content")
-                        .HasColumnType("text")
+                    b.Property<JsonDocument>("Content")
+                        .HasColumnType("jsonb")
                         .HasColumnName("content");
 
                     b.Property<Instant>("CreatedAt")
@@ -837,6 +838,14 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("replied_post_id");
 
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tsvector")
+                        .HasColumnName("search_vector")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "simple")
+                        .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Title", "Description", "Content" });
+
                     b.Property<long?>("ThreadedPostId")
                         .HasColumnType("bigint")
                         .HasColumnName("threaded_post_id");
@@ -881,6 +890,11 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("RepliedPostId")
                         .HasDatabaseName("ix_posts_replied_post_id");
+
+                    b.HasIndex("SearchVector")
+                        .HasDatabaseName("ix_posts_search_vector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
 
                     b.HasIndex("ThreadedPostId")
                         .IsUnique()

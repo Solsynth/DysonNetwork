@@ -50,7 +50,6 @@ public class AuthController(
 
         var challenge = new Challenge
         {
-            Account = account,
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
             StepTotal = 1,
             Platform = request.Platform,
@@ -59,6 +58,7 @@ public class AuthController(
             IpAddress = ipAddress,
             UserAgent = userAgent,
             DeviceId = request.DeviceId,
+            AccountId = account.Id
         }.Normalize();
 
         await db.AuthChallenges.AddAsync(challenge);
@@ -123,13 +123,19 @@ public class AuthController(
             {
                 challenge.StepRemain--;
                 challenge.BlacklistFactors.Add(factor.Id);
+                db.Update(challenge);
+            }
+            else
+            {
+                throw new ArgumentException("Invalid password.");
             }
         }
         catch
         {
             challenge.FailedAttempts++;
+            db.Update(challenge);
             await db.SaveChangesAsync();
-            return BadRequest();
+            return BadRequest("Invalid password.");
         }
 
         await db.SaveChangesAsync();

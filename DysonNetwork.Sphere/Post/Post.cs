@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Storage;
 using NodaTime;
+using NpgsqlTypes;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -31,8 +33,7 @@ public class Post : ModelBase
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
 
-    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
-    public string? Content { get; set; }
+    [Column(TypeName = "jsonb")] public JsonDocument? Content { get; set; }
 
     public PostType Type { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
@@ -49,6 +50,8 @@ public class Post : ModelBase
     public long? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
+    
+    public NpgsqlTsVector SearchVector { get; set; }
 
     public Publisher Publisher { get; set; } = null!;
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
@@ -56,7 +59,7 @@ public class Post : ModelBase
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
     public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
 
-    public bool Empty => Content?.Trim() is { Length: 0 } && Attachments.Count == 0 && ForwardedPostId == null;
+    public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
 }
 
 public class PostTag : ModelBase

@@ -22,13 +22,12 @@ public class PublisherService(AppDatabase db, FileService fs)
             Bio = bio ?? account.Profile.Bio,
             Picture = picture ?? account.Profile.Picture,
             Background = background ?? account.Profile.Background,
-            Account = account,
+            AccountId = account.Id,
             Members = new List<PublisherMember>
             {
                 new()
                 {
                     AccountId = account.Id,
-                    Account = account,
                     Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }

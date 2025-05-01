@@ -42,9 +42,7 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
 
         var relationship = new Relationship
         {
-            Account = sender,
             AccountId = sender.Id,
-            Related = target,
             RelatedId = target.Id,
             Status = status
         };
@@ -66,9 +64,7 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
 
         var relationship = new Relationship
         {
-            Account = sender,
             AccountId = sender.Id,
-            Related = target,
             RelatedId = target.Id,
             Status = RelationshipStatus.Pending,
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(7))
@@ -96,9 +92,7 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
 
         var relationshipBackward = new Relationship
         {
-            Account = relationship.Related,
             AccountId = relationship.RelatedId,
-            Related = relationship.Account,
             RelatedId = relationship.AccountId,
             Status = status
         };

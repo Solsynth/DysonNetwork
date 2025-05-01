@@ -14,7 +14,7 @@ using ExifTag = SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag;
 
 namespace DysonNetwork.Sphere.Storage;
 
-public class FileService(AppDatabase db, IConfiguration configuration)
+public class FileService(AppDatabase db, IConfiguration configuration, ILogger<FileService> logger, IServiceScopeFactory scopeFactory)
 {
     private static readonly string TempFilePrefix = "dyn-cloudfile";
 
@@ -46,7 +46,7 @@ public class FileService(AppDatabase db, IConfiguration configuration)
             MimeType = contentType,
             Size = fileSize,
             Hash = hash,
-            Account = account,
+            AccountId = account.Id
         };
 
         switch (contentType.Split('/')[0])
@@ -83,24 +83,6 @@ public class FileService(AppDatabase db, IConfiguration configuration)
                         ["ratio"] = aspectRatio,
                         ["exif"] = exif
                     };
-
-                    var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    var ogTask = imageSharp.SaveAsWebpAsync(imagePath);
-                    modifiedResult.Add((imagePath, string.Empty));
-
-                    var compressedClone = imageSharp.Clone();
-                    compressedClone.Mutate(i => i.Resize(new ResizeOptions
-                        {
-                            Mode = ResizeMode.Max,
-                            Size = new Size(1024, 1024),
-                        })
-                    );
-                    var imageCompressedPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}-compressed");
-                    var compressedTask = compressedClone.SaveAsWebpAsync(imagePath);
-                    modifiedResult.Add((imageCompressedPath, ".compressed"));
-                    file.HasCompression = true;
-
-                    await Task.WhenAll(ogTask, compressedTask);
                 }
 
                 break;
@@ -131,13 +113,77 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         db.Files.Add(file);
         await db.SaveChangesAsync();
 
-#pragma warning disable CS4014
-        if (modifiedResult.Count > 0)
-            foreach (var result in modifiedResult)
-                UploadFileToRemoteAsync(file, result.filePath, null, result.suffix, true);
-        else
-            UploadFileToRemoteAsync(file, stream, null);
-#pragma warning restore CS4014
+        _ = Task.Run(async () =>
+        {
+            using var scope = scopeFactory.CreateScope();
+            var nfs = scope.ServiceProvider.GetRequiredService<FileService>();
+            
+            try
+            {
+                logger.LogInformation("Processed file {fileId}, now trying optimizing if possible...", fileId);
+
+                if (contentType.Split('/')[0] == "image")
+                {
+                    file.MimeType = "image/webp";
+                    
+                    List<Task> tasks = [];
+
+                    var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), file.Id);
+                    using var imageSharp = await Image.LoadAsync<Rgba32>(ogFilePath);
+                    var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
+                    tasks.Add(imageSharp.SaveAsWebpAsync(imagePath));
+                    modifiedResult.Add((imagePath, string.Empty));
+
+                    if (imageSharp.Size.Width * imageSharp.Size.Height >= 1024 * 1024)
+                    {
+                        var compressedClone = imageSharp.Clone();
+                        compressedClone.Mutate(i => i.Resize(new ResizeOptions
+                            {
+                                Mode = ResizeMode.Max,
+                                Size = new Size(1024, 1024),
+                            })
+                        );
+                        var imageCompressedPath =
+                            Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}-compressed");
+                        tasks.Add(compressedClone.SaveAsWebpAsync(imageCompressedPath));
+                        modifiedResult.Add((imageCompressedPath, ".compressed"));
+                        file.HasCompression = true;
+                    }
+
+                    await Task.WhenAll(tasks);
+                }
+
+                logger.LogInformation("Optimized file {fileId}, now uploading...", fileId);
+
+                if (modifiedResult.Count > 0)
+                {
+                    List<Task<CloudFile>> tasks = [];
+                    tasks.AddRange(modifiedResult.Select(result =>
+                        nfs.UploadFileToRemoteAsync(file, result.filePath, null, result.suffix, true)));
+
+                    await Task.WhenAll(tasks);
+                    file = await tasks.First();
+                }
+                else
+                {
+                    file = await nfs.UploadFileToRemoteAsync(file, stream, null);
+                }
+
+                logger.LogInformation("Uploaded file {fileId} done!", fileId);
+
+                var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                await scopedDb.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(setter => setter
+                    .SetProperty(f => f.UploadedAt, file.UploadedAt)
+                    .SetProperty(f => f.UploadedTo, file.UploadedTo)
+                    .SetProperty(f => f.MimeType, file.MimeType)
+                    .SetProperty(f => f.HasCompression, file.HasCompression)
+                );
+            }
+            catch (Exception err)
+            {
+                logger.LogError(err, "Failed to process {fileId}", fileId);
+            }
+        }).ConfigureAwait(false);
 
         return file;
     }
@@ -179,7 +225,7 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         string? suffix = null, bool selfDestruct = false)
     {
         var fileStream = File.OpenRead(filePath);
-        var result = await UploadFileToRemoteAsync(file, fileStream, targetRemote);
+        var result = await UploadFileToRemoteAsync(file, fileStream, targetRemote, suffix);
         if (selfDestruct) File.Delete(filePath);
         return result;
     }
@@ -210,10 +256,6 @@ public class FileService(AppDatabase db, IConfiguration configuration)
         );
 
         file.UploadedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(setter => setter
-            .SetProperty(f => f.UploadedAt, file.UploadedAt)
-            .SetProperty(f => f.UploadedTo, file.UploadedTo)
-        );
         return file;
     }
 

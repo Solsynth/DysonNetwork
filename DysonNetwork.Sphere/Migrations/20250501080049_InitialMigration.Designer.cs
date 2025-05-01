@@ -9,13 +9,14 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
 
 #nullable disable
 
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250430163514_InitialMigration")]
+    [Migration("20250501080049_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -456,6 +457,54 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("account_relationships", (string)null);
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Activity.Activity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("account_id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("ResourceIdentifier")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("resource_identifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("type");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Visibility")
+                        .HasColumnType("integer")
+                        .HasColumnName("visibility");
+
+                    b.HasKey("Id")
+                        .HasName("pk_activities");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_activities_account_id");
+
+                    b.ToTable("activities", (string)null);
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Auth.Challenge", b =>
                 {
                     b.Property<Guid>("Id")
@@ -742,8 +791,8 @@ namespace DysonNetwork.Sphere.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("Content")
-                        .HasColumnType("text")
+                    b.Property<JsonDocument>("Content")
+                        .HasColumnType("jsonb")
                         .HasColumnName("content");
 
                     b.Property<Instant>("CreatedAt")
@@ -792,6 +841,14 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("replied_post_id");
 
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tsvector")
+                        .HasColumnName("search_vector")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "simple")
+                        .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Title", "Description", "Content" });
+
                     b.Property<long?>("ThreadedPostId")
                         .HasColumnType("bigint")
                         .HasColumnName("threaded_post_id");
@@ -836,6 +893,11 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("RepliedPostId")
                         .HasDatabaseName("ix_posts_replied_post_id");
+
+                    b.HasIndex("SearchVector")
+                        .HasDatabaseName("ix_posts_search_vector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
 
                     b.HasIndex("ThreadedPostId")
                         .IsUnique()
@@ -1165,6 +1227,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("file_meta");
 
+                    b.Property<bool>("HasCompression")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_compression");
+
                     b.Property<string>("Hash")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -1382,6 +1448,18 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("Related");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Activity.Activity", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_activities_accounts_account_id");
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Auth.Challenge", b =>

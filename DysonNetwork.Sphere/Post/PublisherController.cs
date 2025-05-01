@@ -102,9 +102,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
         var newMember = new PublisherMember
         {
-            Account = relatedUser,
             AccountId = relatedUser.Id,
-            Publisher = publisher,
             PublisherId = publisher.Id,
             Role = request.Role,
         };

@@ -37,7 +37,7 @@ public class AppDatabase(
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
 
     public DbSet<Storage.CloudFile> Files { get; set; }
-    
+
     public DbSet<Activity.Activity> Activities { get; set; }
 
     public DbSet<Post.Publisher> Publishers { get; set; }
@@ -72,7 +72,8 @@ public class AppDatabase(
                     Nodes =
                     {
                         PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true)
+                        PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "files.create", true)
                     }
                 });
                 await context.SaveChangesAsync(cancellationToken);
@@ -86,9 +87,9 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Permission.PermissionGroupMember>()
+        modelBuilder.Entity<PermissionGroupMember>()
             .HasKey(pg => new { pg.GroupId, pg.Actor });
-        modelBuilder.Entity<Permission.PermissionGroupMember>()
+        modelBuilder.Entity<PermissionGroupMember>()
             .HasOne(pg => pg.Group)
             .WithMany(g => g.Members)
             .HasForeignKey(pg => pg.GroupId)
@@ -123,6 +124,10 @@ public class AppDatabase(
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<Post.Post>()
+            .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
+            .HasIndex(p => p.SearchVector)
+            .HasMethod("GIN");
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.ThreadedPost)
             .WithOne()

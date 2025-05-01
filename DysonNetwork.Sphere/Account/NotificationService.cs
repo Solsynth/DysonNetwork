@@ -42,7 +42,7 @@ public class NotificationService
                     : ApnServerType.Development
             }, clientFactory.CreateClient());
     }
-    
+
     // TODO remove all push notification with this device id when this device is logged out
 
     public async Task<NotificationPushSubscription> SubscribePushNotification(
@@ -101,16 +101,13 @@ public class NotificationService
             Subtitle = subtitle,
             Content = content,
             Meta = meta,
-            Account = account,
             AccountId = account.Id,
         };
 
         _db.Add(notification);
         await _db.SaveChangesAsync();
 
-#pragma warning disable CS4014
-        if (!isSilent) DeliveryNotification(notification);
-#pragma warning restore CS4014
+        if (!isSilent) _ = DeliveryNotification(notification).ConfigureAwait(false);
 
         return notification;
     }

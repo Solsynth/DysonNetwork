@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
 
 #nullable disable
 
@@ -157,6 +158,30 @@ namespace DysonNetwork.Sphere.Migrations
                     table.ForeignKey(
                         name: "fk_account_relationships_accounts_related_id",
                         column: x => x.related_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "activities",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    type = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    resource_identifier = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
+                    visibility = table.Column<int>(type: "integer", nullable: false),
+                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_activities", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_activities_accounts_account_id",
+                        column: x => x.account_id,
                         principalTable: "accounts",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -395,6 +420,7 @@ namespace DysonNetwork.Sphere.Migrations
                     uploaded_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     expired_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     uploaded_to = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    has_compression = table.Column<bool>(type: "boolean", nullable: false),
                     used_count = table.Column<int>(type: "integer", nullable: false),
                     account_id = table.Column<long>(type: "bigint", nullable: false),
                     post_id = table.Column<long>(type: "bigint", nullable: true),
@@ -487,7 +513,7 @@ namespace DysonNetwork.Sphere.Migrations
                     edited_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     published_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     visibility = table.Column<int>(type: "integer", nullable: false),
-                    content = table.Column<string>(type: "text", nullable: true),
+                    content = table.Column<JsonDocument>(type: "jsonb", nullable: true),
                     type = table.Column<int>(type: "integer", nullable: false),
                     meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
                     views_unique = table.Column<int>(type: "integer", nullable: false),
@@ -497,6 +523,9 @@ namespace DysonNetwork.Sphere.Migrations
                     threaded_post_id = table.Column<long>(type: "bigint", nullable: true),
                     replied_post_id = table.Column<long>(type: "bigint", nullable: true),
                     forwarded_post_id = table.Column<long>(type: "bigint", nullable: true),
+                    search_vector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
+                        .Annotation("Npgsql:TsVectorConfig", "simple")
+                        .Annotation("Npgsql:TsVectorProperties", new[] { "title", "description", "content" }),
                     publisher_id = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -694,6 +723,11 @@ namespace DysonNetwork.Sphere.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_activities_account_id",
+                table: "activities",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_auth_challenges_account_id",
                 table: "auth_challenges",
                 column: "account_id");
@@ -807,6 +841,12 @@ namespace DysonNetwork.Sphere.Migrations
                 column: "replied_post_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_posts_search_vector",
+                table: "posts",
+                column: "search_vector")
+                .Annotation("Npgsql:IndexMethod", "GIN");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_posts_threaded_post_id",
                 table: "posts",
                 column: "threaded_post_id",
@@ -890,6 +930,9 @@ namespace DysonNetwork.Sphere.Migrations
 
             migrationBuilder.DropTable(
                 name: "account_relationships");
+
+            migrationBuilder.DropTable(
+                name: "activities");
 
             migrationBuilder.DropTable(
                 name: "auth_sessions");

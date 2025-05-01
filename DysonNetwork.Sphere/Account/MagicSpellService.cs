@@ -22,7 +22,6 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
             Type = type,
             ExpiresAt = expiredAt,
             AffectedAt = affectedAt,
-            Account = account,
             AccountId = account.Id,
             Meta = meta
         };
