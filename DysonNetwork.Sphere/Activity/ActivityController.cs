@@ -13,21 +13,22 @@ public class ActivityController(AppDatabase db, ActivityService act, Relationshi
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
-        var userFriends = await rels.ListAccountFriends(currentUser!);
+        var userFriends = currentUser is null ? null : await rels.ListAccountFriends(currentUser);
 
         var totalCount = await db.Activities
             .FilterWithVisibility(currentUser, userFriends)
             .CountAsync();
-        var posts = await db.Activities
+        var activities = await db.Activities
             .Include(e => e.Account)
             .FilterWithVisibility(currentUser, userFriends)
             .OrderByDescending(e => e.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+        activities = await act.LoadActivityData(activities, currentUser, userFriends);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
-        return Ok(posts); 
+        return Ok(activities); 
     }
 }
