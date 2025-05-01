@@ -23,7 +23,7 @@ public class PermissionService(AppDatabase db)
             .ToListAsync();
         var permission = await db.PermissionNodes
             .Where(n => n.GroupId == null || groupsId.Contains(n.GroupId.Value))
-            .Where(n => n.Key == key && (n.GroupId != null || n.Actor == actor) && n.Area == area)
+            .Where(n => (n.Key == key || n.Key == "*") && (n.GroupId != null || n.Actor == actor) && n.Area == area)
             .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
             .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
             .FirstOrDefaultAsync();

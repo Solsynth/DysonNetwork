@@ -20,11 +20,11 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<PermissionNode> PermissionNodes { get; set; } = null!;
-    public DbSet<PermissionGroup> PermissionGroups { get; set; } = null!;
-    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
+    public DbSet<PermissionNode> PermissionNodes { get; set; }
+    public DbSet<PermissionGroup> PermissionGroups { get; set; }
+    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; }
 
-    public DbSet<Account.MagicSpell> MagicSpells { get; set; } = null!;
+    public DbSet<Account.MagicSpell> MagicSpells { get; set; }
     public DbSet<Account.Account> Accounts { get; set; }
     public DbSet<Account.Profile> AccountProfiles { get; set; }
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
@@ -47,6 +47,9 @@ public class AppDatabase(
     public DbSet<Post.PostTag> PostTags { get; set; }
     public DbSet<Post.PostCategory> PostCategories { get; set; }
     public DbSet<Post.PostCollection> PostCollections { get; set; }
+
+    public DbSet<Realm.Realm> Realms { get; set; }
+    public DbSet<Realm.RealmMember> RealmMembers { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -154,19 +157,30 @@ public class AppDatabase(
             .HasMany(p => p.Collections)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_collection_links"));
+        
+        modelBuilder.Entity<Realm.RealmMember>()
+            .HasKey(pm => new { pm.RealmId, pm.AccountId });
+        modelBuilder.Entity<Realm.RealmMember>()
+            .HasOne(pm => pm.Realm)
+            .WithMany(p => p.Members)
+            .HasForeignKey(pm => pm.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Post.PublisherMember>()
+            .HasOne(pm => pm.Account)
+            .WithMany()
+            .HasForeignKey(pm => pm.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (typeof(ModelBase).IsAssignableFrom(entityType.ClrType))
-            {
-                var method = typeof(AppDatabase)
-                    .GetMethod(nameof(SetSoftDeleteFilter),
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-                    .MakeGenericMethod(entityType.ClrType);
+            if (!typeof(ModelBase).IsAssignableFrom(entityType.ClrType)) continue;
+            var method = typeof(AppDatabase)
+                .GetMethod(nameof(SetSoftDeleteFilter),
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+                .MakeGenericMethod(entityType.ClrType);
 
-                method.Invoke(null, [modelBuilder]);
-            }
+            method.Invoke(null, [modelBuilder]);
         }
     }
 
