@@ -1,15 +1,22 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Storage;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Realm;
 
+[Index(nameof(Slug), IsUnique = true)]
 public class Realm : ModelBase
 {
     public long Id { get; set; }
+    [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
+    [MaxLength(4096)] public string? VerifiedAs { get; set; }
+    public Instant? VerifiedAt { get; set; }
+    public bool IsCommunity { get; set; }
+    public bool IsPublic { get; set; }
 
     public CloudFile? Picture { get; set; }
     public CloudFile? Background { get; set; }
