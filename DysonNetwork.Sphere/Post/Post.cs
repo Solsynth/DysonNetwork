@@ -51,7 +51,7 @@ public class Post : ModelBase
     public Post? ForwardedPost { get; set; }
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
     
-    [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; }
+    [JsonIgnore] public NpgsqlTsVector? SearchVector { get; set; }
 
     public Publisher Publisher { get; set; } = null!;
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();

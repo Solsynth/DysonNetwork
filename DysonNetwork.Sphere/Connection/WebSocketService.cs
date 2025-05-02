@@ -1,11 +1,19 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using DysonNetwork.Sphere.Chat;
 
 namespace DysonNetwork.Sphere.Connection;
 
-public class WebSocketService(ChatService cs)
+public class WebSocketService
 {
-    public static readonly ConcurrentDictionary<
+    private readonly IDictionary<string, IWebSocketPacketHandler> _handlerMap;
+
+    public WebSocketService(IEnumerable<IWebSocketPacketHandler> handlers)
+    {
+        _handlerMap = handlers.ToDictionary(h => h.PacketType);
+    }
+
+    private static readonly ConcurrentDictionary<
         (long AccountId, string DeviceId),
         (WebSocket Socket, CancellationTokenSource Cts)
     > ActiveConnections = new();
@@ -17,7 +25,8 @@ public class WebSocketService(ChatService cs)
     )
     {
         if (ActiveConnections.TryGetValue(key, out _))
-            Disconnect(key, "Just connected somewhere else with the same identifier."); // Disconnect the previous one using the same identifier
+            Disconnect(key,
+                "Just connected somewhere else with the same identifier."); // Disconnect the previous one using the same identifier
         return ActiveConnections.TryAdd(key, (socket, cts));
     }
 
@@ -33,40 +42,58 @@ public class WebSocketService(ChatService cs)
         ActiveConnections.TryRemove(key, out _);
     }
 
-    public void HandlePacket(Account.Account currentUser, string deviceId, WebSocketPacket packet, WebSocket socket)
+    public void SendPacketToAccount(long userId, WebSocketPacket packet)
     {
-        switch (packet.Type)
+        var connections = ActiveConnections.Where(c => c.Key.AccountId == userId);
+        var packetBytes = packet.ToBytes();
+        var segment = new ArraySegment<byte>(packetBytes);
+
+        foreach (var connection in connections)
         {
-            case "message.read":
-                var request = packet.GetData<ChatController.MarkMessageReadRequest>();
-                if (request is null)
-                {
-                    socket.SendAsync(
-                        new ArraySegment<byte>(new WebSocketPacket
-                        {
-                            Type = WebSocketPacketType.Error,
-                            ErrorMessage = "Mark message as read requires you provide the ChatRoomId and MessageId"
-                        }.ToBytes()),
-                        WebSocketMessageType.Binary,
-                        true,
-                        CancellationToken.None
-                    );
-                    break;
-                }
-                _ = cs.MarkMessageAsReadAsync(request.MessageId, currentUser.Id, currentUser.Id).ConfigureAwait(false);
-                break;
-            default:
-                socket.SendAsync(
-                    new ArraySegment<byte>(new WebSocketPacket
-                    {
-                        Type = WebSocketPacketType.Error,
-                        ErrorMessage = $"Unprocessable packet: {packet.Type}"
-                    }.ToBytes()),
-                    WebSocketMessageType.Binary,
-                    true,
-                    CancellationToken.None
-                );
-                break;
+            connection.Value.Socket.SendAsync(
+                segment,
+                WebSocketMessageType.Binary,
+                true,
+                CancellationToken.None
+            );
         }
+    }
+
+    public void SendPacketToDevice(string deviceId, WebSocketPacket packet)
+    {
+        var connections = ActiveConnections.Where(c => c.Key.DeviceId == deviceId);
+        var packetBytes = packet.ToBytes();
+        var segment = new ArraySegment<byte>(packetBytes);
+
+        foreach (var connection in connections)
+        {
+            connection.Value.Socket.SendAsync(
+                segment,
+                WebSocketMessageType.Binary,
+                true,
+                CancellationToken.None
+            );
+        }
+    }
+
+    public async Task HandlePacket(Account.Account currentUser, string deviceId, WebSocketPacket packet,
+        WebSocket socket)
+    {
+        if (_handlerMap.TryGetValue(packet.Type, out var handler))
+        {
+            await handler.HandleAsync(currentUser, deviceId, packet, socket);
+            return;
+        }
+
+        await socket.SendAsync(
+            new ArraySegment<byte>(new WebSocketPacket
+            {
+                Type = WebSocketPacketType.Error,
+                ErrorMessage = $"Unprocessable packet: {packet.Type}"
+            }.ToBytes()),
+            WebSocketMessageType.Binary,
+            true,
+            CancellationToken.None
+        );
     }
 }

@@ -3,19 +3,17 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
-using Casbin;
-using Casbin.Persist.Adapter.EFCore;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Connection;
+using DysonNetwork.Sphere.Connection.Handlers;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -118,6 +116,10 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddOpenApi();
 
+// The handlers for websocket
+builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
+
+// Services
 builder.Services.AddScoped<WebSocketService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<PermissionService>();
@@ -132,6 +134,7 @@ builder.Services.AddScoped<ActivityService>();
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<RealmService>();
 builder.Services.AddScoped<ChatRoomService>();
+builder.Services.AddScoped<ChatService>();
 
 // Timed task
 
@@ -213,7 +216,7 @@ app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
             }
 
             var httpContext = eventContext.HttpContext;
-            var user = httpContext.Items["CurrentUser"] as Account;
+            if (httpContext.Items["CurrentUser"] is Account user)
             if (user is null)
             {
                 eventContext.FailRequest(HttpStatusCode.Unauthorized);

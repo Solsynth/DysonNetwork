@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Net.Mail;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Storage;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
@@ -15,7 +15,7 @@ public class Message : ModelBase
     [Column(TypeName = "jsonb")] public List<Guid>? MembersMetioned { get; set; }
     public Instant? EditedAt { get; set; }
 
-    public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
+    public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
     public ICollection<MessageStatus> Statuses { get; set; } = new List<MessageStatus>();
 
@@ -39,6 +39,7 @@ public enum MessageReactionAttitude
 
 public class MessageReaction : ModelBase
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
     public Guid MessageId { get; set; }
     [JsonIgnore] public Message Message { get; set; } = null!;
     public Guid SenderId { get; set; }

@@ -1,9 +1,47 @@
-using DysonNetwork.Sphere;
-using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Connection;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
-public class ChatService(AppDatabase db)
+namespace DysonNetwork.Sphere.Chat;
+
+public class ChatService(AppDatabase db, NotificationService nty, WebSocketService ws)
 {
+    public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
+    {
+        db.ChatMessages.Add(message);
+        await db.SaveChangesAsync();
+        _ = DeliverMessageAsync(message, sender, room).ConfigureAwait(false);
+        return message;
+    }
+
+    public async Task DeliverMessageAsync(Message message, ChatMember sender, ChatRoom room)
+    {
+        var roomSubject = room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
+        var tasks = new List<Task>();
+        await foreach (
+            var member in db.ChatMembers
+                   .Where(m => m.ChatRoomId == message.ChatRoomId && m.AccountId != message.Sender.AccountId)
+                   .Where(m => m.Notify != ChatMemberNotify.None)
+                   .Where(m => m.Notify != ChatMemberNotify.Mentions || (message.MembersMetioned != null && message.MembersMetioned.Contains(m.Id)))
+                   .AsAsyncEnumerable()
+        )
+        {
+            ws.SendPacketToAccount(member.AccountId, new WebSocketPacket
+            {
+                Type = "messages.new",
+                Data = message
+            });
+            tasks.Add(nty.DeliveryNotification(new Notification
+            {
+                AccountId = member.AccountId,
+                Topic = "messages.new",
+                Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
+            }));
+        }
+        await Task.WhenAll(tasks);
+    }
+
     public async Task MarkMessageAsReadAsync(Guid messageId, long roomId, long userId)
     {
         var existingStatus = await db.ChatStatuses
@@ -45,4 +83,48 @@ public class ChatService(AppDatabase db)
 
         return messages.Count(m => !m.IsRead);
     }
+
+    public async Task<SyncResponse> GetSyncDataAsync(long roomId, long lastSyncTimestamp)
+    {
+        var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
+        var changes = await db.ChatMessages
+            .IgnoreQueryFilters()
+            .Where(m => m.ChatRoomId == roomId)
+            .Where(m => m.UpdatedAt > timestamp || m.DeletedAt > timestamp)
+            .Select(m => new MessageChange
+            {
+                MessageId = m.Id,
+                Action = m.DeletedAt != null ? "delete" : (m.EditedAt == null ? "create" : "update"),
+                Message = m.DeletedAt != null ? null : m,
+                Timestamp = m.DeletedAt != null ? m.DeletedAt.Value : m.UpdatedAt
+            })
+            .ToListAsync();
+
+        return new SyncResponse
+        {
+            Changes = changes,
+            CurrentTimestamp = SystemClock.Instance.GetCurrentInstant()
+        };
+    }
+}
+
+public class MessageChangeAction
+{
+    public const string Create = "create";
+    public const string Update = "update";
+    public const string Delete = "delete";
+}
+
+public class MessageChange
+{
+    public Guid MessageId { get; set; }
+    public string Action { get; set; } = null!;
+    public Message? Message { get; set; }
+    public Instant Timestamp { get; set; }
+}
+
+public class SyncResponse
+{
+    public List<MessageChange> Changes { get; set; } = [];
+    public Instant CurrentTimestamp { get; set; }
 }

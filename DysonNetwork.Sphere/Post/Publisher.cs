@@ -48,6 +48,6 @@ public class PublisherMember : ModelBase
     public long AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
-    public PublisherMemberRole Role { get; set; }
+    public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
 }

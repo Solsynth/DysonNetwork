@@ -37,7 +37,6 @@ public class ChatRoomController(AppDatabase db, FileService fs) : ControllerBase
             .Include(e => e.ChatRoom)
             .Include(e => e.ChatRoom.Picture)
             .Include(e => e.ChatRoom.Background)
-            .Include(e => e.ChatRoom.Type == ChatRoomType.DirectMessage ? e.ChatRoom.Members : null)
             .Select(m => m.ChatRoom)
             .ToListAsync();
 

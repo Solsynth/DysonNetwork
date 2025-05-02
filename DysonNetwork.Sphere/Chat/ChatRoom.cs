@@ -35,6 +35,13 @@ public enum ChatMemberRole
     Normal = 0
 }
 
+public enum ChatMemberNotify
+{
+    All,
+    Mentions,
+    None
+}
+
 public class ChatMember : ModelBase
 {
     public Guid Id { get; set; }
@@ -43,7 +50,10 @@ public class ChatMember : ModelBase
     public long AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
-    public ChatMemberRole Role { get; set; }
+    [MaxLength(1024)] public string? Nick { get; set; }
+
+    public ChatMemberRole Role { get; set; } = ChatMemberRole.Normal;
+    public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
     public bool IsBot { get; set; } = false;
 }
