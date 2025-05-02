@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Sphere.Connection;
@@ -52,7 +53,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
 
         try
         {
-            await _ConnectionEventLoop(connectionKey, webSocket, cts.Token);
+            await _ConnectionEventLoop(deviceId, currentUser, webSocket, cts.Token);
         }
         catch (Exception ex)
         {
@@ -67,11 +68,14 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
     }
 
     private async Task _ConnectionEventLoop(
-        (long AccountId, string DeviceId) connectionKey,
+        string deviceId,
+        Account.Account currentUser,
         WebSocket webSocket,
         CancellationToken cancellationToken
     )
     {
+        var connectionKey = (AccountId: currentUser.Id, DeviceId: deviceId);
+
         var buffer = new byte[1024 * 4];
         try
         {
@@ -85,9 +89,11 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
                     new ArraySegment<byte>(buffer),
                     cancellationToken
                 );
-            }
 
-            // TODO handle values
+                var packet = WebSocketPacket.FromBytes(buffer[..receiveResult.Count]);
+                if (packet is null) continue;
+                ws.HandlePacket(currentUser, connectionKey.DeviceId, packet, webSocket);
+            }
         }
         catch (OperationCanceledException)
         {

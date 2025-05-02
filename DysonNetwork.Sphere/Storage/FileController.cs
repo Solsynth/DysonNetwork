@@ -15,7 +15,7 @@ public class FileController(
 ) : ControllerBase
 {
     [HttpGet("{id}")]
-    public async Task<ActionResult> OpenFile(string id)
+    public async Task<ActionResult> OpenFile(string id, [FromQuery] bool original = false)
     {
         var file = await db.Files.FindAsync(id);
         if (file is null) return NotFound();
@@ -29,12 +29,18 @@ public class FileController(
         }
 
         var dest = fs.GetRemoteStorageConfig(file.UploadedTo);
+        var fileName = file.Id;
+
+        if (!original && file.HasCompression)
+        {
+            fileName += ".compressed";
+        }
 
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
         {
             var proxyUrl = dest.ImageProxy;
             var baseUri = new Uri(proxyUrl.EndsWith('/') ? proxyUrl : $"{proxyUrl}/");
-            var fullUri = new Uri(baseUri, file.Id);
+            var fullUri = new Uri(baseUri, fileName);
             return Redirect(fullUri.ToString());
         }
 
@@ -42,7 +48,7 @@ public class FileController(
         {
             var proxyUrl = dest.AccessProxy;
             var baseUri = new Uri(proxyUrl.EndsWith('/') ? proxyUrl : $"{proxyUrl}/");
-            var fullUri = new Uri(baseUri, file.Id);
+            var fullUri = new Uri(baseUri, fileName);
             return Redirect(fullUri.ToString());
         }
 
@@ -67,7 +73,7 @@ public class FileController(
         // Fallback redirect to the S3 endpoint (public read)
         var protocol = dest.EnableSsl ? "https" : "http";
         // Use the path bucket lookup mode
-        return Redirect($"{protocol}://{dest.Endpoint}/{dest.Bucket}/{file.Id}");
+        return Redirect($"{protocol}://{dest.Endpoint}/{dest.Bucket}/{fileName}");
     }
 
     [HttpGet("{id}/info")]

@@ -37,6 +37,7 @@ public enum ChatMemberRole
 
 public class ChatMember : ModelBase
 {
+    public Guid Id { get; set; }
     public long ChatRoomId { get; set; }
     [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
     public long AccountId { get; set; }

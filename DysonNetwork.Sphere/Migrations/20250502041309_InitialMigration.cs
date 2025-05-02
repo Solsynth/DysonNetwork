@@ -406,6 +406,52 @@ namespace DysonNetwork.Sphere.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "chat_members",
+                columns: table => new
+                {
+                    chat_room_id = table.Column<long>(type: "bigint", nullable: false),
+                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    role = table.Column<int>(type: "integer", nullable: false),
+                    joined_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    is_bot = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_chat_members", x => new { x.chat_room_id, x.account_id });
+                    table.ForeignKey(
+                        name: "fk_chat_members_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "chat_rooms",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
+                    type = table.Column<int>(type: "integer", nullable: false),
+                    is_public = table.Column<bool>(type: "boolean", nullable: false),
+                    picture_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    background_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    realm_id = table.Column<long>(type: "bigint", nullable: true),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_chat_rooms", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "files",
                 columns: table => new
                 {
@@ -471,6 +517,47 @@ namespace DysonNetwork.Sphere.Migrations
                         principalColumn: "id");
                     table.ForeignKey(
                         name: "fk_publishers_files_picture_id",
+                        column: x => x.picture_id,
+                        principalTable: "files",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "realms",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    slug = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
+                    verified_as = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
+                    verified_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    is_community = table.Column<bool>(type: "boolean", nullable: false),
+                    is_public = table.Column<bool>(type: "boolean", nullable: false),
+                    picture_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    background_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_realms", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_realms_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_realms_files_background_id",
+                        column: x => x.background_id,
+                        principalTable: "files",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "fk_realms_files_picture_id",
                         column: x => x.picture_id,
                         principalTable: "files",
                         principalColumn: "id");
@@ -584,6 +671,35 @@ namespace DysonNetwork.Sphere.Migrations
                         name: "fk_publisher_members_publishers_publisher_id",
                         column: x => x.publisher_id,
                         principalTable: "publishers",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "realm_members",
+                columns: table => new
+                {
+                    realm_id = table.Column<long>(type: "bigint", nullable: false),
+                    account_id = table.Column<long>(type: "bigint", nullable: false),
+                    role = table.Column<int>(type: "integer", nullable: false),
+                    joined_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_realm_members", x => new { x.realm_id, x.account_id });
+                    table.ForeignKey(
+                        name: "fk_realm_members_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_realm_members_realms_realm_id",
+                        column: x => x.realm_id,
+                        principalTable: "realms",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -743,6 +859,26 @@ namespace DysonNetwork.Sphere.Migrations
                 column: "challenge_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_chat_members_account_id",
+                table: "chat_members",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_chat_rooms_background_id",
+                table: "chat_rooms",
+                column: "background_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_chat_rooms_picture_id",
+                table: "chat_rooms",
+                column: "picture_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_chat_rooms_realm_id",
+                table: "chat_rooms",
+                column: "realm_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_files_account_id",
                 table: "files",
                 column: "account_id");
@@ -878,6 +1014,32 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "publishers",
                 column: "picture_id");
 
+            migrationBuilder.CreateIndex(
+                name: "ix_realm_members_account_id",
+                table: "realm_members",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_realms_account_id",
+                table: "realms",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_realms_background_id",
+                table: "realms",
+                column: "background_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_realms_picture_id",
+                table: "realms",
+                column: "picture_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_realms_slug",
+                table: "realms",
+                column: "slug",
+                unique: true);
+
             migrationBuilder.AddForeignKey(
                 name: "fk_account_profiles_files_background_id",
                 table: "account_profiles",
@@ -890,6 +1052,35 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "account_profiles",
                 column: "picture_id",
                 principalTable: "files",
+                principalColumn: "id");
+
+            migrationBuilder.AddForeignKey(
+                name: "fk_chat_members_chat_rooms_chat_room_id",
+                table: "chat_members",
+                column: "chat_room_id",
+                principalTable: "chat_rooms",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "fk_chat_rooms_files_background_id",
+                table: "chat_rooms",
+                column: "background_id",
+                principalTable: "files",
+                principalColumn: "id");
+
+            migrationBuilder.AddForeignKey(
+                name: "fk_chat_rooms_files_picture_id",
+                table: "chat_rooms",
+                column: "picture_id",
+                principalTable: "files",
+                principalColumn: "id");
+
+            migrationBuilder.AddForeignKey(
+                name: "fk_chat_rooms_realms_realm_id",
+                table: "chat_rooms",
+                column: "realm_id",
+                principalTable: "realms",
                 principalColumn: "id");
 
             migrationBuilder.AddForeignKey(
@@ -938,6 +1129,9 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "auth_sessions");
 
             migrationBuilder.DropTable(
+                name: "chat_members");
+
+            migrationBuilder.DropTable(
                 name: "magic_spells");
 
             migrationBuilder.DropTable(
@@ -968,7 +1162,13 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "publisher_members");
 
             migrationBuilder.DropTable(
+                name: "realm_members");
+
+            migrationBuilder.DropTable(
                 name: "auth_challenges");
+
+            migrationBuilder.DropTable(
+                name: "chat_rooms");
 
             migrationBuilder.DropTable(
                 name: "permission_groups");
@@ -981,6 +1181,9 @@ namespace DysonNetwork.Sphere.Migrations
 
             migrationBuilder.DropTable(
                 name: "post_tags");
+
+            migrationBuilder.DropTable(
+                name: "realms");
 
             migrationBuilder.DropTable(
                 name: "accounts");

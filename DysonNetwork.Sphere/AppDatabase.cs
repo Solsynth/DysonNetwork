@@ -50,9 +50,11 @@ public class AppDatabase(
 
     public DbSet<Realm.Realm> Realms { get; set; }
     public DbSet<Realm.RealmMember> RealmMembers { get; set; }
-    
+
     public DbSet<Chat.ChatRoom> ChatRooms { get; set; }
     public DbSet<Chat.ChatMember> ChatMembers { get; set; }
+    public DbSet<Chat.Message> ChatMessages { get; set; }
+    public DbSet<Chat.MessageStatus> ChatStatuses { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -80,7 +82,7 @@ public class AppDatabase(
                         PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "chatrooms.create", true)
+                        PermissionService.NewPermissionNode("group:default", "global", "chat.create", true)
                     }
                 });
                 await context.SaveChangesAsync(cancellationToken);
@@ -161,7 +163,7 @@ public class AppDatabase(
             .HasMany(p => p.Collections)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_collection_links"));
-        
+
         modelBuilder.Entity<Realm.RealmMember>()
             .HasKey(pm => new { pm.RealmId, pm.AccountId });
         modelBuilder.Entity<Realm.RealmMember>()
@@ -174,9 +176,11 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
-        
+
         modelBuilder.Entity<Chat.ChatMember>()
-            .HasKey(pm => new { pm.ChatRoomId, pm.AccountId });
+            .HasKey(pm => new { pm.Id });
+        modelBuilder.Entity<Chat.ChatMember>()
+            .HasAlternateKey(pm => new { pm.ChatRoomId, pm.AccountId });
         modelBuilder.Entity<Chat.ChatMember>()
             .HasOne(pm => pm.ChatRoom)
             .WithMany(p => p.Members)
@@ -187,6 +191,8 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Chat.MessageStatus>()
+            .HasKey(e => new { e.MessageId, e.SenderId });
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

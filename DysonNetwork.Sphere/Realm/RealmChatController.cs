@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.Realm;
 [Route("/realm/{slug}")]
 public class RealmChatController(AppDatabase db) : ControllerBase
 {
-    [HttpGet("/chat")]
+    [HttpGet("chat")]
     [Authorize]
     public async Task<ActionResult<List<ChatRoom>>> ListRealmChat(string slug)
     {

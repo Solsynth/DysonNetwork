@@ -3,7 +3,7 @@ using System.Net.WebSockets;
 
 namespace DysonNetwork.Sphere.Connection;
 
-public class WebSocketService
+public class WebSocketService(ChatService cs)
 {
     public static readonly ConcurrentDictionary<
         (long AccountId, string DeviceId),
@@ -31,5 +31,42 @@ public class WebSocketService
         );
         data.Cts.Cancel();
         ActiveConnections.TryRemove(key, out _);
+    }
+
+    public void HandlePacket(Account.Account currentUser, string deviceId, WebSocketPacket packet, WebSocket socket)
+    {
+        switch (packet.Type)
+        {
+            case "message.read":
+                var request = packet.GetData<ChatController.MarkMessageReadRequest>();
+                if (request is null)
+                {
+                    socket.SendAsync(
+                        new ArraySegment<byte>(new WebSocketPacket
+                        {
+                            Type = WebSocketPacketType.Error,
+                            ErrorMessage = "Mark message as read requires you provide the ChatRoomId and MessageId"
+                        }.ToBytes()),
+                        WebSocketMessageType.Binary,
+                        true,
+                        CancellationToken.None
+                    );
+                    break;
+                }
+                _ = cs.MarkMessageAsReadAsync(request.MessageId, currentUser.Id, currentUser.Id).ConfigureAwait(false);
+                break;
+            default:
+                socket.SendAsync(
+                    new ArraySegment<byte>(new WebSocketPacket
+                    {
+                        Type = WebSocketPacketType.Error,
+                        ErrorMessage = $"Unprocessable packet: {packet.Type}"
+                    }.ToBytes()),
+                    WebSocketMessageType.Binary,
+                    true,
+                    CancellationToken.None
+                );
+                break;
+        }
     }
 }

@@ -16,7 +16,7 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250501080049_InitialMigration")]
+    [Migration("20250502041309_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -648,6 +648,117 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("auth_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.ChatMember", b =>
+                {
+                    b.Property<long>("ChatRoomId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("chat_room_id");
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("account_id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<bool>("IsBot")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_bot");
+
+                    b.Property<Instant?>("JoinedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("joined_at");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("ChatRoomId", "AccountId")
+                        .HasName("pk_chat_members");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_chat_members_account_id");
+
+                    b.ToTable("chat_members", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.ChatRoom", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BackgroundId")
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("background_id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_public");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("PictureId")
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("picture_id");
+
+                    b.Property<long?>("RealmId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("realm_id");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_chat_rooms");
+
+                    b.HasIndex("BackgroundId")
+                        .HasDatabaseName("ix_chat_rooms_background_id");
+
+                    b.HasIndex("PictureId")
+                        .HasDatabaseName("ix_chat_rooms_picture_id");
+
+                    b.HasIndex("RealmId")
+                        .HasDatabaseName("ix_chat_rooms_realm_id");
+
+                    b.ToTable("chat_rooms", (string)null);
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Permission.PermissionGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1195,6 +1306,132 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("publisher_members", (string)null);
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Realm.Realm", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("BackgroundId")
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("background_id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsCommunity")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_community");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_public");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("PictureId")
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("picture_id");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("slug");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VerifiedAs")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("verified_as");
+
+                    b.Property<Instant?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_realms");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_realms_account_id");
+
+                    b.HasIndex("BackgroundId")
+                        .HasDatabaseName("ix_realms_background_id");
+
+                    b.HasIndex("PictureId")
+                        .HasDatabaseName("ix_realms_picture_id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique()
+                        .HasDatabaseName("ix_realms_slug");
+
+                    b.ToTable("realms", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Realm.RealmMember", b =>
+                {
+                    b.Property<long>("RealmId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("realm_id");
+
+                    b.Property<long>("AccountId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("account_id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Instant?>("JoinedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("joined_at");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("RealmId", "AccountId")
+                        .HasName("pk_realm_members");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_realm_members_account_id");
+
+                    b.ToTable("realm_members", (string)null);
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Storage.CloudFile", b =>
                 {
                     b.Property<string>("Id")
@@ -1495,6 +1732,51 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Challenge");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.ChatMember", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_chat_members_accounts_account_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Chat.ChatRoom", "ChatRoom")
+                        .WithMany("Members")
+                        .HasForeignKey("ChatRoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_chat_members_chat_rooms_chat_room_id");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("ChatRoom");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.ChatRoom", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Storage.CloudFile", "Background")
+                        .WithMany()
+                        .HasForeignKey("BackgroundId")
+                        .HasConstraintName("fk_chat_rooms_files_background_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Storage.CloudFile", "Picture")
+                        .WithMany()
+                        .HasForeignKey("PictureId")
+                        .HasConstraintName("fk_chat_rooms_files_picture_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Realm.Realm", "Realm")
+                        .WithMany("ChatRooms")
+                        .HasForeignKey("RealmId")
+                        .HasConstraintName("fk_chat_rooms_realms_realm_id");
+
+                    b.Navigation("Background");
+
+                    b.Navigation("Picture");
+
+                    b.Navigation("Realm");
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Permission.PermissionGroupMember", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Permission.PermissionGroup", "Group")
@@ -1630,6 +1912,53 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Publisher");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Realm.Realm", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_realms_accounts_account_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Storage.CloudFile", "Background")
+                        .WithMany()
+                        .HasForeignKey("BackgroundId")
+                        .HasConstraintName("fk_realms_files_background_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Storage.CloudFile", "Picture")
+                        .WithMany()
+                        .HasForeignKey("PictureId")
+                        .HasConstraintName("fk_realms_files_picture_id");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Background");
+
+                    b.Navigation("Picture");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Realm.RealmMember", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_realm_members_accounts_account_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Realm.Realm", "Realm")
+                        .WithMany("Members")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_realm_members_realms_realm_id");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Realm");
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Storage.CloudFile", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
@@ -1716,6 +2045,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Sessions");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.ChatRoom", b =>
+                {
+                    b.Navigation("Members");
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Permission.PermissionGroup", b =>
                 {
                     b.Navigation("Members");
@@ -1737,6 +2071,13 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Members");
 
                     b.Navigation("Posts");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Realm.Realm", b =>
+                {
+                    b.Navigation("ChatRooms");
+
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

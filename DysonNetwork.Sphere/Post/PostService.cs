@@ -59,7 +59,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
                     break;
             }
 
-            using var newDocument = JsonDocument.Parse(JsonSerializer.Serialize(truncatedArrayElements));
+            var newDocument = JsonDocument.Parse(JsonSerializer.Serialize(truncatedArrayElements));
             item.Content = newDocument;
         }
 

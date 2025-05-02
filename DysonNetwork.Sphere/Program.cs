@@ -9,9 +9,11 @@ using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -128,6 +130,8 @@ builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PublisherService>();
 builder.Services.AddScoped<ActivityService>();
 builder.Services.AddScoped<PostService>();
+builder.Services.AddScoped<RealmService>();
+builder.Services.AddScoped<ChatRoomService>();
 
 // Timed task
 

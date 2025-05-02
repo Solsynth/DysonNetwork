@@ -167,8 +167,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
     public async Task<ActionResult<Realm>> CreateRealm(RealmRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        if (request.Name is null) return BadRequest("You cannot create a realm without a name.");
-        if (request.Slug is null) return BadRequest("You cannot create a realm without a slug.");
+        if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
+        if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest("You cannot create a realm without a slug.");
 
         var slugExists = await db.Realms.AnyAsync(r => r.Slug == request.Slug);
         if (slugExists) return BadRequest("Realm with this slug already exists.");
@@ -186,7 +186,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
                 new()
                 {
                     Role = RealmMemberRole.Owner,
-                    AccountId = currentUser.Id
+                    AccountId = currentUser.Id,
+                    JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
         };
@@ -212,7 +213,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         return Ok(realm);
     }
 
-    [HttpPut("{slug}")]
+    [HttpPatch("{slug}")]
     [Authorize]
     public async Task<ActionResult<Realm>> Update(string slug, [FromBody] RealmRequest request)
     {

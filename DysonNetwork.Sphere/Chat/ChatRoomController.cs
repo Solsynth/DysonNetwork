@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
+using Microsoft.AspNetCore.Authorization;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -17,6 +19,7 @@ public class ChatRoomController(AppDatabase db, FileService fs) : ControllerBase
             .Where(c => c.Id == id)
             .Include(e => e.Picture)
             .Include(e => e.Background)
+            .Include(e => e.Realm)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
         return Ok(chatRoom);
@@ -51,6 +54,8 @@ public class ChatRoomController(AppDatabase db, FileService fs) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize]
+    [RequiredPermission("global", "chat.create")]
     public async Task<ActionResult<ChatRoom>> CreateChatRoom(ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -65,7 +70,8 @@ public class ChatRoomController(AppDatabase db, FileService fs) : ControllerBase
                 new()
                 {
                     Role = ChatMemberRole.Owner,
-                    AccountId = currentUser.Id
+                    AccountId = currentUser.Id,
+                    JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
         };
@@ -105,7 +111,7 @@ public class ChatRoomController(AppDatabase db, FileService fs) : ControllerBase
         return Ok(chatRoom);
     }
 
-    [HttpPut("{id:long}")]
+    [HttpPatch("{id:long}")]
     public async Task<ActionResult<ChatRoom>> UpdateChatRoom(long id, [FromBody] ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
