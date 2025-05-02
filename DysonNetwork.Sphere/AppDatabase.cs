@@ -176,7 +176,7 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<Chat.ChatMember>()
-            .HasKey(pm => new { pm.ChatRoom, pm.AccountId });
+            .HasKey(pm => new { pm.ChatRoomId, pm.AccountId });
         modelBuilder.Entity<Chat.ChatMember>()
             .HasOne(pm => pm.ChatRoom)
             .WithMany(p => p.Members)

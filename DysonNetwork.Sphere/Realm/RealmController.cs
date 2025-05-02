@@ -13,8 +13,6 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
     [HttpGet("{slug}")]
     public async Task<ActionResult<Realm>> GetRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-
         var realm = await db.Realms
             .Where(e => e.Slug == slug)
             .Include(e => e.Picture)
@@ -27,7 +25,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Realm>>> ListManagedRealms()
+    public async Task<ActionResult<List<Realm>>> ListJoinedRealms()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -38,10 +36,13 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
             .Include(e => e.Realm)
             .Include(e => e.Realm.Picture)
             .Include(e => e.Realm.Background)
+            .Select(m => m.Realm)
             .ToListAsync();
 
-        return members.Select(m => m.Realm).ToList();
+        return members.ToList();
     }
+    
+    [HttpGet("/")]
 
     [HttpGet("invites")]
     [Authorize]
@@ -179,7 +180,15 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
             Description = request.Description!,
             AccountId = currentUser.Id,
             IsCommunity = request.IsCommunity ?? false,
-            IsPublic = request.IsPublic ?? false
+            IsPublic = request.IsPublic ?? false,
+            Members = new List<RealmMember>
+            {
+                new()
+                {
+                    Role = RealmMemberRole.Owner,
+                    AccountId = currentUser.Id
+                }
+            }
         };
 
         if (request.PictureId is not null)
@@ -242,6 +251,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         {
             var picture = await db.Files.FindAsync(request.PictureId);
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+            await fs.MarkUsageAsync(picture, 1);
+            if (realm.Picture is not null) await fs.MarkUsageAsync(realm.Picture, -1);
             realm.Picture = picture;
         }
 
@@ -249,6 +260,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         {
             var background = await db.Files.FindAsync(request.BackgroundId);
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+            await fs.MarkUsageAsync(background, 1);
+            if (realm.Background is not null) await fs.MarkUsageAsync(realm.Background, -1);
             realm.Background = background;
         }
 
@@ -265,6 +278,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
+            .Include(r => r.Picture)
+            .Include(r => r.Background)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -276,6 +291,12 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         db.Realms.Remove(realm);
         await db.SaveChangesAsync();
+
+        if (realm.Picture is not null)
+            await fs.MarkUsageAsync(realm.Picture, -1);
+        if (realm.Background is not null)
+            await fs.MarkUsageAsync(realm.Background, -1);
+
         return NoContent();
     }
 }

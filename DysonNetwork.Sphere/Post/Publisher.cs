@@ -41,7 +41,7 @@ public enum PublisherMemberRole
     Viewer = 25
 }
 
-public class PublisherMember
+public class PublisherMember : ModelBase
 {
     public long PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
