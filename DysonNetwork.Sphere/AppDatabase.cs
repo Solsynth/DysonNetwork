@@ -134,7 +134,6 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Post.Post>()
-            .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
             .HasIndex(p => p.SearchVector)
             .HasMethod("GIN");
         modelBuilder.Entity<Post.Post>()
@@ -193,6 +192,16 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Chat.MessageStatus>()
             .HasKey(e => new { e.MessageId, e.SenderId });
+        modelBuilder.Entity<Chat.Message>()
+            .HasOne(m => m.ForwardedMessage)
+            .WithMany()
+            .HasForeignKey(m => m.ForwardedMessageId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Chat.Message>()
+            .HasOne(m => m.RepliedMessage) 
+            .WithMany()
+            .HasForeignKey(m => m.RepliedMessageId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

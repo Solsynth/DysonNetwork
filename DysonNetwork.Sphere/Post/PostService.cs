@@ -74,6 +74,9 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         List<string>? categories = null
     )
     {
+        if (post.Empty)
+            throw new InvalidOperationException("Cannot create a post with barely no content.");
+
         if (post.PublishedAt is not null)
         {
             if (post.PublishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
@@ -118,8 +121,27 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
         }
 
-        if (post.Empty)
-            throw new InvalidOperationException("Cannot create a post with barely no content.");
+        // Vectorize the quill delta content
+        if (post.Content?.RootElement is { ValueKind: JsonValueKind.Array })
+        {
+            var searchTextBuilder = new System.Text.StringBuilder();
+            
+            if (!string.IsNullOrWhiteSpace(post.Title))
+                searchTextBuilder.AppendLine(post.Title);
+            if (!string.IsNullOrWhiteSpace(post.Description))
+                searchTextBuilder.AppendLine(post.Description);
+            
+            foreach (var element in post.Content.RootElement.EnumerateArray())
+            {
+                if (element is { ValueKind: JsonValueKind.Object } &&
+                    element.TryGetProperty("insert", out var insertProperty) &&
+                    insertProperty.ValueKind == JsonValueKind.String)
+                {
+                    searchTextBuilder.Append(insertProperty.GetString());
+                }
+            }
+            post.SearchVector = EF.Functions.ToTsVector(searchTextBuilder.ToString().Trim());
+        }
 
         // TODO Notify the subscribers
 
@@ -140,6 +162,9 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         Instant? publishedAt = null
     )
     {
+        if (post.Empty)
+            throw new InvalidOperationException("Cannot edit a post to barely no content.");
+
         post.EditedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
 
         if (publishedAt is not null)
@@ -196,8 +221,27 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
         }
 
-        if (post.Empty)
-            throw new InvalidOperationException("Cannot edit a post to barely no content.");
+        // Vectorize the quill delta content
+        if (post.Content?.RootElement is { ValueKind: JsonValueKind.Array })
+        {
+            var searchTextBuilder = new System.Text.StringBuilder();
+            
+            if (!string.IsNullOrWhiteSpace(post.Title))
+                searchTextBuilder.AppendLine(post.Title);
+            if (!string.IsNullOrWhiteSpace(post.Description))
+                searchTextBuilder.AppendLine(post.Description);
+            
+            foreach (var element in post.Content.RootElement.EnumerateArray())
+            {
+                if (element is { ValueKind: JsonValueKind.Object } &&
+                    element.TryGetProperty("insert", out var insertProperty) &&
+                    insertProperty.ValueKind == JsonValueKind.String)
+                {
+                    searchTextBuilder.Append(insertProperty.GetString());
+                }
+            }
+            post.SearchVector = EF.Functions.ToTsVector(searchTextBuilder.ToString().Trim());
+        }
 
         db.Update(post);
         await db.SaveChangesAsync();
