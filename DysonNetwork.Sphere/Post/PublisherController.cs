@@ -20,8 +20,6 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
         var publisher = await db.Publishers
             .Where(e => e.Name == name)
-            .Include(e => e.Picture)
-            .Include(e => e.Background)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 

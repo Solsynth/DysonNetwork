@@ -35,7 +35,9 @@ public class Profile : ModelBase
     [MaxLength(256)] public string? LastName { get; set; }
     [MaxLength(4096)] public string? Bio { get; set; }
 
+    public string? PictureId { get; set; }
     public Storage.CloudFile? Picture { get; set; }
+    public string? BackgroundId { get; set; }
     public Storage.CloudFile? Background { get; set; }
 
     [JsonIgnore] public Account Account { get; set; } = null!;

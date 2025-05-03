@@ -1,5 +1,6 @@
 using CorePush.Apple;
 using CorePush.Firebase;
+using DysonNetwork.Sphere.Connection;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -8,18 +9,21 @@ namespace DysonNetwork.Sphere.Account;
 public class NotificationService
 {
     private readonly AppDatabase _db;
+    private readonly WebSocketService _ws;
     private readonly ILogger<NotificationService> _logger;
     private readonly FirebaseSender? _fcm;
     private readonly ApnSender? _apns;
 
     public NotificationService(
         AppDatabase db,
+        WebSocketService ws,
         IConfiguration cfg,
         IHttpClientFactory clientFactory,
         ILogger<NotificationService> logger
     )
     {
         _db = db;
+        _ws = ws;
         _logger = logger;
 
         var cfgSection = cfg.GetSection("Notifications:Push");
@@ -83,6 +87,7 @@ public class NotificationService
 
     public async Task<Notification> SendNotification(
         Account account,
+        string topic,
         string? title = null,
         string? subtitle = null,
         string? content = null,
@@ -97,6 +102,7 @@ public class NotificationService
 
         var notification = new Notification
         {
+            Topic = topic,
             Title = title,
             Subtitle = subtitle,
             Content = content,
@@ -114,7 +120,11 @@ public class NotificationService
 
     public async Task DeliveryNotification(Notification notification)
     {
-        // TODO send websocket
+        _ws.SendPacketToAccount(notification.AccountId, new WebSocketPacket
+        {
+            Type = "notifications.new",
+            Data = notification
+        });
 
         // Pushing the notification
         var subscribers = await _db.NotificationPushSubscriptions

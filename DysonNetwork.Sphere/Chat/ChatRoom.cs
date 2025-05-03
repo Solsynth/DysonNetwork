@@ -19,7 +19,9 @@ public class ChatRoom : ModelBase
     public ChatRoomType Type { get; set; }
     public bool IsPublic { get; set; }
 
+    public string? PictureId { get; set; }
     public CloudFile? Picture { get; set; }
+    public string? BackgroundId { get; set; }
     public CloudFile? Background { get; set; }
 
     [JsonIgnore] public ICollection<ChatMember> Members { get; set; } = new List<ChatMember>();
@@ -46,9 +48,9 @@ public class ChatMember : ModelBase
 {
     public Guid Id { get; set; }
     public long ChatRoomId { get; set; }
-    [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
+    public ChatRoom ChatRoom { get; set; } = null!;
     public long AccountId { get; set; }
-    [JsonIgnore] public Account.Account Account { get; set; } = null!;
+    public Account.Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
 

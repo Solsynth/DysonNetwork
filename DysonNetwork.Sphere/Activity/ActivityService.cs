@@ -21,8 +21,6 @@ public class ActivityService(AppDatabase db)
         {
             var posts = await db.Posts.Where(e => postsId.Contains(e.Id))
                 .Include(e => e.Publisher)
-                .Include(e => e.Publisher.Picture)
-                .Include(e => e.Publisher.Background)
                 .Include(e => e.ThreadedPost)
                 .Include(e => e.ForwardedPost)
                 .Include(e => e.Attachments)

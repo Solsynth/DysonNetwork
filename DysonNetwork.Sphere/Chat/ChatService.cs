@@ -5,40 +5,54 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class ChatService(AppDatabase db, NotificationService nty, WebSocketService ws)
+public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 {
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
+        // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
-        _ = DeliverMessageAsync(message, sender, room).ConfigureAwait(false);
+        
+        // Then start the delivery process
+        // Using ConfigureAwait(false) is correct here since we don't need context to flow
+        _ = Task.Run(() => DeliverMessageAsync(message, sender, room))
+            .ConfigureAwait(false);
+        
         return message;
     }
 
     public async Task DeliverMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
+        var scope = scopeFactory.CreateScope();
+        var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
+
         var roomSubject = room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
         var tasks = new List<Task>();
-        await foreach (
-            var member in db.ChatMembers
-                   .Where(m => m.ChatRoomId == message.ChatRoomId && m.AccountId != message.Sender.AccountId)
-                   .Where(m => m.Notify != ChatMemberNotify.None)
-                   .Where(m => m.Notify != ChatMemberNotify.Mentions || (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
-                   .AsAsyncEnumerable()
-        )
+
+        var members = await scopedDb.ChatMembers
+            .Where(m => m.ChatRoomId == message.ChatRoomId)
+            .Where(m => m.Notify != ChatMemberNotify.None)
+            .Where(m => m.Notify != ChatMemberNotify.Mentions || 
+                   (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
+            .ToListAsync();
+
+        foreach (var member in members)
         {
-            ws.SendPacketToAccount(member.AccountId, new WebSocketPacket
+            scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
             {
                 Type = "messages.new",
                 Data = message
             });
-            tasks.Add(nty.DeliveryNotification(new Notification
+            tasks.Add(scopedNty.DeliveryNotification(new Notification
             {
                 AccountId = member.AccountId,
                 Topic = "messages.new",
                 Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
             }));
         }
+
         await Task.WhenAll(tasks);
     }
 

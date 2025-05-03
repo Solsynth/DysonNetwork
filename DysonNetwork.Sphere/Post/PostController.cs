@@ -24,8 +24,6 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .CountAsync();
         var posts = await db.Posts
             .Include(e => e.Publisher)
-            .Include(e => e.Publisher.Picture)
-            .Include(e => e.Publisher.Background)
             .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Attachments)
@@ -54,8 +52,6 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .Include(e => e.Publisher.Picture)
-            .Include(e => e.Publisher.Background)
             .Include(e => e.RepliedPost)
             .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)

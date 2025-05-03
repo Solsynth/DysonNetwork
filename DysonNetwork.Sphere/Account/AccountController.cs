@@ -25,8 +25,6 @@ public class AccountController(
     {
         var account = await db.Accounts
             .Include(e => e.Profile)
-            .Include(e => e.Profile.Picture)
-            .Include(e => e.Profile.Background)
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
         return account is null ? new NotFoundResult() : account;
@@ -114,8 +112,6 @@ public class AccountController(
 
         var account = await db.Accounts
             .Include(e => e.Profile)
-            .Include(e => e.Profile.Picture)
-            .Include(e => e.Profile.Background)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
 
@@ -201,5 +197,18 @@ public class AccountController(
         await accounts.PurgeAccountCache(currentUser);
 
         return profile;
+    }
+
+    [HttpGet("search")]
+    public async Task<List<Account>> Search([FromQuery] string query, [FromQuery] int take = 20)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+        return await db.Accounts
+            .Include(e => e.Profile)
+            .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") ||
+                        EF.Functions.ILike(a.Nick, $"%{query}%"))
+            .Take(take)
+            .ToListAsync();
     }
 }

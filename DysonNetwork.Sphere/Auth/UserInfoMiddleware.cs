@@ -16,8 +16,6 @@ public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
                     .Include(e => e.Challenge)
                     .Include(e => e.Account)
                     .Include(e => e.Account.Profile)
-                    .Include(e => e.Account.Profile.Picture)
-                    .Include(e => e.Account.Profile.Background)
                     .Where(e => e.Id == sessionId)
                     .FirstOrDefaultAsync();
 

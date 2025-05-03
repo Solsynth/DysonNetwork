@@ -34,8 +34,6 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Realm)
-            .Include(e => e.Realm.Picture)
-            .Include(e => e.Realm.Background)
             .Select(m => m.Realm)
             .ToListAsync();
 
@@ -55,8 +53,6 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.Realm)
-            .Include(e => e.Realm.Picture)
-            .Include(e => e.Realm.Background)
             .ToListAsync();
 
         return members.ToList();
@@ -81,8 +77,6 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         var realm = await db.Realms
             .Where(p => p.Slug == slug)
-            .Include(publisher => publisher.Picture)
-            .Include(publisher => publisher.Background)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -106,6 +100,9 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         db.RealmMembers.Add(newMember);
         await db.SaveChangesAsync();
+
+        newMember.Account = relatedUser;
+        await rs.SendInviteNotify(newMember);
 
         return Ok(newMember);
     }
@@ -148,6 +145,29 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         db.RealmMembers.Remove(member);
         await db.SaveChangesAsync();
 
+        return NoContent();
+    }
+
+    [HttpDelete("{slug}/members/me")]
+    [Authorize]
+    public async Task<ActionResult> LeaveRealm(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
+    
+        var member = await db.RealmMembers
+            .Where(m => m.AccountId == userId)
+            .Where(m => m.Realm.Slug == slug)
+            .Where(m => m.JoinedAt != null)
+            .FirstOrDefaultAsync();
+        if (member is null) return NotFound();
+        
+        if (member.Role == RealmMemberRole.Owner)
+            return StatusCode(403, "Owner cannot leave their own realm.");
+    
+        db.RealmMembers.Remove(member);
+        await db.SaveChangesAsync();
+    
         return NoContent();
     }
 

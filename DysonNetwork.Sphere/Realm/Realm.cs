@@ -19,9 +19,11 @@ public class Realm : ModelBase
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
 
+    public string? PictureId { get; set; }
     public CloudFile? Picture { get; set; }
+    public string? BackgroundId { get; set; }
     public CloudFile? Background { get; set; }
-    
+
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
     [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
 
@@ -39,10 +41,10 @@ public enum RealmMemberRole
 public class RealmMember : ModelBase
 {
     public long RealmId { get; set; }
-    [JsonIgnore] public Realm  Realm { get; set; } = null!;
+    [JsonIgnore] public Realm Realm { get; set; } = null!;
     public long AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
-    
+
     public RealmMemberRole Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }
 }

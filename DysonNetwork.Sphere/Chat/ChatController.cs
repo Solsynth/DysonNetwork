@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,24 +22,6 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         [MaxLength(36)] public string? Nonce { get; set; }
         public List<string>? AttachmentsId { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
-    }
-
-    [HttpGet("{roomId:long}/members/me")]
-    [Authorize]
-    public async Task<ActionResult<ChatMember>> GetCurrentIdentity(long roomId)
-    {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
-            return Unauthorized();
-
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
-            .Include(m => m.Account)
-            .FirstOrDefaultAsync();
-
-        if (member == null)
-            return NotFound();
-
-        return Ok(member);
     }
 
     [HttpGet("{roomId:long}/messages")]
@@ -70,6 +51,9 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             .OrderByDescending(m => m.CreatedAt)
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
+            .Include(m => m.Sender.Account.Profile)
+            .Include(m => m.Sender.Account.Profile.Picture)
+            .Include(m => m.Sender.Account.Profile.Background)
             .Include(m => m.Attachments)
             .Skip(offset)
             .Take(take)
@@ -95,10 +79,10 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
             .Include(m => m.ChatRoom)
             .Include(m => m.ChatRoom.Realm)
+            .Include(m => m.Account)
+            .Include(m => m.Account.Profile)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Normal) return StatusCode(403, "You need to be a normal member to send messages here.");
-        currentUser.Profile = null;
-        member.Account = currentUser;
 
         var message = new Message
         {

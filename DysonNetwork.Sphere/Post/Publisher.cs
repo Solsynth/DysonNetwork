@@ -22,7 +22,9 @@ public class Publisher : ModelBase
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Bio { get; set; }
 
+    public string? PictureId { get; set; }
     public CloudFile? Picture { get; set; }
+    public string? BackgroundId { get; set; }
     public CloudFile? Background { get; set; }
 
     [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
