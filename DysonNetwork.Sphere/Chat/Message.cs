@@ -9,10 +9,10 @@ namespace DysonNetwork.Sphere.Chat;
 public class Message : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    [MaxLength(1024)] public string Type { get; set; } = null!;
     [MaxLength(4096)] public string Content { get; set; } = string.Empty;
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
-    [Column(TypeName = "jsonb")] public List<Guid>? MembersMetioned { get; set; }
+    [Column(TypeName = "jsonb")] public List<Guid>? MembersMentioned { get; set; }
+    [MaxLength(36)] public string Nonce { get; set; } = null!;
     public Instant? EditedAt { get; set; }
 
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
@@ -28,6 +28,33 @@ public class Message : ModelBase
     public ChatMember Sender { get; set; } = null!;
     public long ChatRoomId { get; set; }
     [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
+    
+    public Message Clone()
+    {
+        return new Message
+        {
+            Id = Id,
+            Content = Content,
+            Meta = Meta?.ToDictionary(entry => entry.Key, entry => entry.Value),
+            MembersMentioned = MembersMentioned?.ToList(),
+            Nonce = Nonce,
+            EditedAt = EditedAt,
+            Attachments = new List<CloudFile>(Attachments),
+            Reactions = new List<MessageReaction>(Reactions),
+            Statuses = new List<MessageStatus>(Statuses),
+            RepliedMessageId = RepliedMessageId,
+            RepliedMessage = RepliedMessage?.Clone() as Message,
+            ForwardedMessageId = ForwardedMessageId,
+            ForwardedMessage = ForwardedMessage?.Clone() as Message,
+            SenderId = SenderId,
+            Sender = Sender,
+            ChatRoomId = ChatRoomId,
+            ChatRoom = ChatRoom,
+            CreatedAt = CreatedAt,
+            UpdatedAt = UpdatedAt,
+            DeletedAt = DeletedAt
+        };
+    }
 }
 
 public enum MessageReactionAttitude

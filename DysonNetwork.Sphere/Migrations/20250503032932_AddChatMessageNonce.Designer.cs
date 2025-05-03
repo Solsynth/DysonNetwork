@@ -5,6 +5,7 @@ using System.Text.Json;
 using DysonNetwork.Sphere;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -15,9 +16,11 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250503032932_AddChatMessageNonce")]
+    partial class AddChatMessageNonce
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -816,8 +819,7 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.Property<string>("Nonce")
                         .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("character varying(36)")
+                        .HasColumnType("text")
                         .HasColumnName("nonce");
 
                     b.Property<Guid?>("RepliedMessageId")
@@ -827,6 +829,12 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid")
                         .HasColumnName("sender_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("type");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

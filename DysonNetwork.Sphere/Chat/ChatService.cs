@@ -23,7 +23,7 @@ public class ChatService(AppDatabase db, NotificationService nty, WebSocketServi
             var member in db.ChatMembers
                    .Where(m => m.ChatRoomId == message.ChatRoomId && m.AccountId != message.Sender.AccountId)
                    .Where(m => m.Notify != ChatMemberNotify.None)
-                   .Where(m => m.Notify != ChatMemberNotify.Mentions || (message.MembersMetioned != null && message.MembersMetioned.Contains(m.Id)))
+                   .Where(m => m.Notify != ChatMemberNotify.Mentions || (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
                    .AsAsyncEnumerable()
         )
         {
@@ -94,7 +94,7 @@ public class ChatService(AppDatabase db, NotificationService nty, WebSocketServi
             .Select(m => new MessageChange
             {
                 MessageId = m.Id,
-                Action = m.DeletedAt != null ? "delete" : (m.EditedAt == null ? "create" : "update"),
+                Action = m.DeletedAt != null ? "delete" : (m.UpdatedAt == null ? "create" : "update"),
                 Message = m.DeletedAt != null ? null : m,
                 Timestamp = m.DeletedAt != null ? m.DeletedAt.Value : m.UpdatedAt
             })
