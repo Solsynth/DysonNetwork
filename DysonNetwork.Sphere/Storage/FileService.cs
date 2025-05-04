@@ -4,17 +4,23 @@ using System.Security.Cryptography;
 using Blurhash.ImageSharp;
 using Microsoft.EntityFrameworkCore;
 using Minio;
-using Minio.DataModel;
 using Minio.DataModel.Args;
 using NodaTime;
 using Quartz;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
+using tusdotnet.Stores;
 using ExifTag = SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag;
 
 namespace DysonNetwork.Sphere.Storage;
 
-public class FileService(AppDatabase db, IConfiguration configuration, ILogger<FileService> logger, IServiceScopeFactory scopeFactory)
+public class FileService(
+    AppDatabase db,
+    IConfiguration configuration,
+    TusDiskStore store,
+    ILogger<FileService> logger,
+    IServiceScopeFactory scopeFactory
+)
 {
     private static readonly string TempFilePrefix = "dyn-cloudfile";
 
@@ -28,16 +34,11 @@ public class FileService(AppDatabase db, IConfiguration configuration, ILogger<F
         string? contentType
     )
     {
-        // If this variable present a value means the processor modified the uploaded file
-        // Upload this file to the remote instead
-        var modifiedResult = new List<(string filePath, string suffix)>();
+        var result = new List<(string filePath, string suffix)>();
 
         var fileSize = stream.Length;
         var hash = await HashFileAsync(stream, fileSize: fileSize);
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
-
-        var existingFile = await db.Files.Where(f => f.Hash == hash).FirstOrDefaultAsync();
-        if (existingFile is not null) return existingFile;
 
         var file = new CloudFile
         {
@@ -53,17 +54,28 @@ public class FileService(AppDatabase db, IConfiguration configuration, ILogger<F
         {
             case "image":
                 stream.Position = 0;
-                using (var imageSharp = await Image.LoadAsync<Rgba32>(stream))
+                // We still need ImageSharp for blurhash calculation
+                using (var imageSharp = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(stream))
                 {
-                    var width = imageSharp.Width;
-                    var height = imageSharp.Height;
                     var blurhash = Blurhasher.Encode(imageSharp, 3, 3);
-                    var format = imageSharp.Metadata.DecodedImageFormat?.Name ?? "unknown";
 
-                    var exifProfile = imageSharp.Metadata.ExifProfile;
+                    // Reset stream position after ImageSharp read
+                    stream.Position = 0;
+
+                    // Use NetVips for the rest
+                    using var vipsImage = NetVips.Image.NewFromStream(stream);
+
+                    var width = vipsImage.Width;
+                    var height = vipsImage.Height;
+                    var format = vipsImage.Get("vips-loader") ?? "unknown";
+
+                    // Try to get orientation from exif data
                     ushort orientation = 1;
                     List<IExifValue> exif = [];
 
+                    // NetVips supports reading exif with vipsImage.GetField("exif-ifd0-Orientation")
+                    // but we'll keep the ImageSharp exif handling for now
+                    var exifProfile = imageSharp.Metadata.ExifProfile;
                     if (exifProfile?.Values.FirstOrDefault(e => e.Tag == ExifTag.Orientation)
                             ?.GetValue() is ushort o)
                         orientation = o;
@@ -117,7 +129,7 @@ public class FileService(AppDatabase db, IConfiguration configuration, ILogger<F
         {
             using var scope = scopeFactory.CreateScope();
             var nfs = scope.ServiceProvider.GetRequiredService<FileService>();
-            
+
             try
             {
                 logger.LogInformation("Processed file {fileId}, now trying optimizing if possible...", fileId);
@@ -125,40 +137,53 @@ public class FileService(AppDatabase db, IConfiguration configuration, ILogger<F
                 if (contentType.Split('/')[0] == "image")
                 {
                     file.MimeType = "image/webp";
-                    
+
                     List<Task> tasks = [];
 
                     var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), file.Id);
-                    using var imageSharp = await Image.LoadAsync<Rgba32>(ogFilePath);
+                    var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    tasks.Add(imageSharp.SaveAsWebpAsync(imagePath));
-                    modifiedResult.Add((imagePath, string.Empty));
+                    tasks.Add(Task.Run(() => vipsImage.WriteToFile(imagePath + ".webp")));
+                    result.Add((imagePath + ".webp", string.Empty));
 
-                    if (imageSharp.Size.Width * imageSharp.Size.Height >= 1024 * 1024)
+                    if (vipsImage.Width * vipsImage.Height >= 1024 * 1024)
                     {
-                        var compressedClone = imageSharp.Clone();
-                        compressedClone.Mutate(i => i.Resize(new ResizeOptions
-                            {
-                                Mode = ResizeMode.Max,
-                                Size = new Size(1024, 1024),
-                            })
-                        );
+                        var scale = 1024.0 / Math.Max(vipsImage.Width, vipsImage.Height);
                         var imageCompressedPath =
                             Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}-compressed");
-                        tasks.Add(compressedClone.SaveAsWebpAsync(imageCompressedPath));
-                        modifiedResult.Add((imageCompressedPath, ".compressed"));
+                        
+                        // Create and save image within the same synchronous block to avoid disposal issues
+                        tasks.Add(Task.Run(() => {
+                            using var compressedImage = vipsImage.Resize(scale);
+                            compressedImage.WriteToFile(imageCompressedPath + ".webp");
+                            vipsImage.Dispose();
+                        }));
+                        
+                        result.Add((imageCompressedPath + ".webp", ".compressed"));
                         file.HasCompression = true;
+                    }
+                    else
+                    {
+                        vipsImage.Dispose();
                     }
 
                     await Task.WhenAll(tasks);
                 }
+                else
+                {
+                    var tempFilePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
+                    await using var fileStream = File.Create(tempFilePath);
+                    stream.Position = 0;
+                    await stream.CopyToAsync(fileStream);
+                    result.Add((tempFilePath, string.Empty));
+                }
 
                 logger.LogInformation("Optimized file {fileId}, now uploading...", fileId);
 
-                if (modifiedResult.Count > 0)
+                if (result.Count > 0)
                 {
                     List<Task<CloudFile>> tasks = [];
-                    tasks.AddRange(modifiedResult.Select(result =>
+                    tasks.AddRange(result.Select(result =>
                         nfs.UploadFileToRemoteAsync(file, result.filePath, null, result.suffix, true)));
 
                     await Task.WhenAll(tasks);
@@ -183,7 +208,10 @@ public class FileService(AppDatabase db, IConfiguration configuration, ILogger<F
             {
                 logger.LogError(err, "Failed to process {fileId}", fileId);
             }
-        }).ConfigureAwait(false);
+
+            await stream.DisposeAsync();
+            await store.DeleteFileAsync(file.Id, CancellationToken.None);
+        });
 
         return file;
     }
@@ -250,7 +278,7 @@ public class FileService(AppDatabase db, IConfiguration configuration, ILogger<F
         await client.PutObjectAsync(new PutObjectArgs()
             .WithBucket(bucket)
             .WithObject(string.IsNullOrWhiteSpace(suffix) ? file.Id : file.Id + suffix)
-            .WithStreamData(stream)
+            .WithStreamData(stream) // Fix this disposed
             .WithObjectSize(stream.Length)
             .WithContentType(contentType)
         );

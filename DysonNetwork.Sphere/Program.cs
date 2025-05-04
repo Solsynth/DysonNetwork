@@ -25,8 +25,10 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using Quartz;
 using tusdotnet;
+using tusdotnet.Interfaces;
 using tusdotnet.Models;
 using tusdotnet.Models.Configuration;
+using tusdotnet.Stores;
 using File = System.IO.File;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -116,6 +118,11 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddOpenApi();
 
+var tusDiskStore = new TusDiskStore(
+    builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
+);
+builder.Services.AddSingleton(tusDiskStore);
+
 // The handlers for websocket
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
 
@@ -196,9 +203,6 @@ app.MapControllers().RequireRateLimiting("fixed");
 app.MapStaticAssets().RequireRateLimiting("fixed");
 app.MapRazorPages().RequireRateLimiting("fixed");
 
-var tusDiskStore = new tusdotnet.Stores.TusDiskStore(
-    builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
-);
 app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
 {
     Store = tusDiskStore,
@@ -216,8 +220,7 @@ app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
             }
 
             var httpContext = eventContext.HttpContext;
-            if (httpContext.Items["CurrentUser"] is Account user)
-            if (user is null)
+            if (httpContext.Items["CurrentUser"] is not Account user)
             {
                 eventContext.FailRequest(HttpStatusCode.Unauthorized);
                 return;
@@ -226,7 +229,8 @@ app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
             var userId = httpContext.User.FindFirst("user_id")?.Value;
             if (userId == null) return;
 
-            var pm = httpContext.RequestServices.GetRequiredService<PermissionService>();
+            using var scope = httpContext.RequestServices.CreateScope();
+            var pm = scope.ServiceProvider.GetRequiredService<PermissionService>();
             var allowed = await pm.HasPermissionAsync($"user:{userId}", "global", "files.create");
             if (!allowed)
             {
@@ -235,24 +239,37 @@ app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
         },
         OnFileCompleteAsync = async eventContext =>
         {
-            var httpContext = eventContext.HttpContext;
-            if (httpContext.Items["CurrentUser"] is not Account user) return;
+            using var scope = eventContext.HttpContext.RequestServices.CreateScope();
+            var services = scope.ServiceProvider;
+            
+            try
+            {
+                var httpContext = eventContext.HttpContext;
+                if (httpContext.Items["CurrentUser"] is not Account user) return;
 
-            var file = await eventContext.GetFileAsync();
-            var metadata = await file.GetMetadataAsync(eventContext.CancellationToken);
-            var fileName = metadata.TryGetValue("filename", out var fn) ? fn.GetString(Encoding.UTF8) : "uploaded_file";
-            var contentType = metadata.TryGetValue("content-type", out var ct) ? ct.GetString(Encoding.UTF8) : null;
-            var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
+                var file = await eventContext.GetFileAsync();
+                var metadata = await file.GetMetadataAsync(eventContext.CancellationToken);
+                var fileName = metadata.TryGetValue("filename", out var fn) ? fn.GetString(Encoding.UTF8) : "uploaded_file";
+                var contentType = metadata.TryGetValue("content-type", out var ct) ? ct.GetString(Encoding.UTF8) : null;
+                
+                var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
+                
+                var fileService = services.GetRequiredService<FileService>();
+                var info = await fileService.ProcessNewFileAsync(user, file.Id, fileStream, fileName, contentType);
 
-            var fileService = eventContext.HttpContext.RequestServices.GetRequiredService<FileService>();
+                using var finalScope = eventContext.HttpContext.RequestServices.CreateScope();
+                var jsonOptions = finalScope.ServiceProvider.GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions;
+                var infoJson = JsonSerializer.Serialize(info, jsonOptions);
+                eventContext.HttpContext.Response.Headers.Append("X-FileInfo", infoJson);
 
-            var info = await fileService.ProcessNewFileAsync(user, file.Id, fileStream, fileName, contentType);
-
-            var jsonOptions = httpContext.RequestServices.GetRequiredService<IOptions<JsonOptions>>().Value
-                .JsonSerializerOptions;
-            var infoJson = JsonSerializer.Serialize(info, jsonOptions);
-            eventContext.HttpContext.Response.Headers.Append("X-FileInfo", infoJson);
-        },
+                // Dispose the stream after all processing is complete
+                await fileStream.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
     }
 }));
 

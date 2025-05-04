@@ -85,8 +85,6 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         var posts = await db.Posts
             .Where(e => e.RepliedPostId == id)
             .Include(e => e.Publisher)
-            .Include(e => e.Publisher.Picture)
-            .Include(e => e.Publisher.Background)
             .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Attachments)

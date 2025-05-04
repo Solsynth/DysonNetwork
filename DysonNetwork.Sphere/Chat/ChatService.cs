@@ -9,6 +9,9 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 {
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
+        message.CreatedAt = SystemClock.Instance.GetCurrentInstant();
+        message.UpdatedAt = message.CreatedAt;
+        
         // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
@@ -23,7 +26,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 
     public async Task DeliverMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
-        var scope = scopeFactory.CreateScope();
+        using var scope = scopeFactory.CreateScope();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
         var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService>();
         var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
@@ -32,7 +35,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         var tasks = new List<Task>();
 
         var members = await scopedDb.ChatMembers
-            .Where(m => m.ChatRoomId == message.ChatRoomId)
+            .Where(m => m.ChatRoomId == message.ChatRoomId && m.AccountId != sender.AccountId)
             .Where(m => m.Notify != ChatMemberNotify.None)
             .Where(m => m.Notify != ChatMemberNotify.Mentions || 
                    (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
@@ -103,14 +106,17 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
         var changes = await db.ChatMessages
             .IgnoreQueryFilters()
+            .Include(e => e.Sender)
+            .Include(e => e.Sender.Account)
+            .Include(e => e.Sender.Account.Profile)
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.UpdatedAt > timestamp || m.DeletedAt > timestamp)
             .Select(m => new MessageChange
             {
                 MessageId = m.Id,
-                Action = m.DeletedAt != null ? "delete" : (m.UpdatedAt == null ? "create" : "update"),
+                Action = m.DeletedAt != null ? "delete" : (m.UpdatedAt == m.CreatedAt ? "create" : "update"),
                 Message = m.DeletedAt != null ? null : m,
-                Timestamp = m.DeletedAt != null ? m.DeletedAt.Value : m.UpdatedAt
+                Timestamp = m.DeletedAt ?? m.UpdatedAt
             })
             .ToListAsync();
 

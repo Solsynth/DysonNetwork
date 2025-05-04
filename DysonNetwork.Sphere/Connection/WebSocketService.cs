@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using DysonNetwork.Sphere.Chat;
 
 namespace DysonNetwork.Sphere.Connection;
 

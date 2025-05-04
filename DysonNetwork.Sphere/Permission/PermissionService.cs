@@ -1,11 +1,23 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Permission;
 
-public class PermissionService(AppDatabase db)
+public class PermissionService(
+    AppDatabase db,
+    IMemoryCache cache,
+    ILogger<PermissionService> logger)
 {
+    private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(1);
+
+    private string GetPermissionCacheKey(string actor, string area, string key) => 
+        $"perm:{actor}:{area}:{key}";
+
+    private string GetGroupsCacheKey(string actor) => 
+        $"perm_groups:{actor}";
+
     public async Task<bool> HasPermissionAsync(string actor, string area, string key)
     {
         var value = await GetPermissionAsync<bool>(actor, area, key);
@@ -14,13 +26,27 @@ public class PermissionService(AppDatabase db)
 
     public async Task<T?> GetPermissionAsync<T>(string actor, string area, string key)
     {
+        var cacheKey = GetPermissionCacheKey(actor, area, key);
+        
+        if (cache.TryGetValue<T>(cacheKey, out var cachedValue))
+        {
+            return cachedValue;
+        }
+
         var now = SystemClock.Instance.GetCurrentInstant();
-        var groupsId = await db.PermissionGroupMembers
-            .Where(n => n.Actor == actor)
-            .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
-            .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
-            .Select(e => e.GroupId)
-            .ToListAsync();
+        var groupsKey = GetGroupsCacheKey(actor);
+        
+        var groupsId = await cache.GetOrCreateAsync(groupsKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheExpiration;
+            return await db.PermissionGroupMembers
+                .Where(n => n.Actor == actor)
+                .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
+                .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
+                .Select(e => e.GroupId)
+                .ToListAsync();
+        });
+
         var permission = await db.PermissionNodes
             .Where(n => n.GroupId == null || groupsId.Contains(n.GroupId.Value))
             .Where(n => (n.Key == key || n.Key == "*") && (n.GroupId != null || n.Actor == actor) && n.Area == area)
@@ -28,7 +54,11 @@ public class PermissionService(AppDatabase db)
             .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
             .FirstOrDefaultAsync();
 
-        return permission is not null ? _DeserializePermissionValue<T>(permission.Value) : default;
+        var result = permission is not null ? _DeserializePermissionValue<T>(permission.Value) : default;
+
+        cache.Set(cacheKey, result, CacheExpiration);
+        
+        return result;
     }
 
     public async Task<PermissionNode> AddPermissionNode<T>(
@@ -54,6 +84,9 @@ public class PermissionService(AppDatabase db)
 
         db.PermissionNodes.Add(node);
         await db.SaveChangesAsync();
+
+        // Invalidate related caches
+        InvalidatePermissionCache(actor, area, key);
 
         return node;
     }
@@ -85,6 +118,10 @@ public class PermissionService(AppDatabase db)
         db.PermissionNodes.Add(node);
         await db.SaveChangesAsync();
 
+        // Invalidate related caches
+        InvalidatePermissionCache(actor, area, key);
+        cache.Remove(GetGroupsCacheKey(actor));
+
         return node;
     }
 
@@ -95,6 +132,9 @@ public class PermissionService(AppDatabase db)
             .FirstOrDefaultAsync();
         if (node is not null) db.PermissionNodes.Remove(node);
         await db.SaveChangesAsync();
+
+        // Invalidate cache
+        InvalidatePermissionCache(actor, area, key);
     }
 
     public async Task RemovePermissionNodeFromGroup<T>(PermissionGroup group, string actor, string area, string key)
@@ -106,6 +146,16 @@ public class PermissionService(AppDatabase db)
         if (node is null) return;
         db.PermissionNodes.Remove(node);
         await db.SaveChangesAsync();
+
+        // Invalidate caches
+        InvalidatePermissionCache(actor, area, key);
+        cache.Remove(GetGroupsCacheKey(actor));
+    }
+
+    private void InvalidatePermissionCache(string actor, string area, string key)
+    {
+        var cacheKey = GetPermissionCacheKey(actor, area, key);
+        cache.Remove(cacheKey);
     }
 
     private static T? _DeserializePermissionValue<T>(JsonDocument json)
