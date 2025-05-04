@@ -97,7 +97,7 @@ public class AccountController(
             },
             expiredAt: SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromDays(7))
         );
-        spells.NotifyMagicSpell(spell);
+        await spells.NotifyMagicSpell(spell, true);
 
         return account;
     }

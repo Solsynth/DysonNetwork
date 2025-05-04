@@ -37,11 +37,12 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .Take(take)
             .ToListAsync();
         posts = PostService.TruncatePostContent(posts);
-        
+
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
         foreach (var post in posts)
-            post.ReactionsCount = reactionMaps[post.Id];
+            post.ReactionsCount =
+                reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -104,7 +105,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .Take(take)
             .ToListAsync();
         posts = PostService.TruncatePostContent(posts);
-        
+
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
         foreach (var post in posts)
@@ -241,7 +242,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             AccountId = currentUser.Id
         };
         await ps.ModifyPostVotes(post, reaction, isExistingReaction);
-        
+
         if (isExistingReaction) return NoContent();
         return Ok(reaction);
     }
