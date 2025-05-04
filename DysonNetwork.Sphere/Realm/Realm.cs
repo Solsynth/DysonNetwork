@@ -41,9 +41,9 @@ public enum RealmMemberRole
 public class RealmMember : ModelBase
 {
     public long RealmId { get; set; }
-    [JsonIgnore] public Realm Realm { get; set; } = null!;
+    public Realm Realm { get; set; } = null!;
     public long AccountId { get; set; }
-    [JsonIgnore] public Account.Account Account { get; set; } = null!;
+    public Account.Account Account { get; set; } = null!;
 
     public RealmMemberRole Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }

@@ -39,8 +39,6 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         return members.ToList();
     }
-    
-    [HttpGet("/")]
 
     [HttpGet("invites")]
     [Authorize]
@@ -147,10 +145,49 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         return NoContent();
     }
+    
+    
+    [HttpGet("{slug}/members")]
+    public async Task<ActionResult<List<RealmMember>>> ListMembers(
+        string slug,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        var realm = await db.Realms
+            .Where(r => r.Slug == slug)
+            .FirstOrDefaultAsync();
+        if (realm is null) return NotFound();
 
-    [HttpDelete("{slug}/members/me")]
+        if (!realm.IsPublic)
+        {
+            if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+            var isMember = await db.RealmMembers
+                .AnyAsync(m => m.AccountId == currentUser.Id && m.RealmId == realm.Id && m.JoinedAt != null);
+            if (!isMember) return StatusCode(403, "You must be a member to view this realm's members.");
+        }
+
+        var query = db.RealmMembers
+            .Where(m => m.RealmId == realm.Id)
+            .Where(m => m.JoinedAt != null);
+
+        var total = await query.CountAsync();
+        Response.Headers["X-Total"] = total.ToString();
+
+        var members = await query
+            .OrderBy(m => m.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .Include(m => m.Account)
+            .Include(m => m.Account.Profile)
+            .ToListAsync();
+
+        return Ok(members);
+    }
+
+    [HttpGet("{slug}/members/me")]
     [Authorize]
-    public async Task<ActionResult> LeaveRealm(string slug)
+    public async Task<ActionResult<RealmMember>> GetCurrentIdentity(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -158,16 +195,34 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.Realm.Slug == slug)
+            .Include(m => m.Account)
+            .Include(m => m.Account.Profile)
+            .FirstOrDefaultAsync();
+        
+        if (member is null) return NotFound();
+        return Ok(member);
+    }
+
+    [HttpDelete("{slug}/members/me")]
+    [Authorize]
+    public async Task<ActionResult> LeaveRealm(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
+
+        var member = await db.RealmMembers
+            .Where(m => m.AccountId == userId)
+            .Where(m => m.Realm.Slug == slug)
             .Where(m => m.JoinedAt != null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
-        
+
         if (member.Role == RealmMemberRole.Owner)
             return StatusCode(403, "Owner cannot leave their own realm.");
-    
+
         db.RealmMembers.Remove(member);
         await db.SaveChangesAsync();
-    
+
         return NoContent();
     }
 

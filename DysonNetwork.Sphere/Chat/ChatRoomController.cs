@@ -20,6 +20,16 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
             .Include(e => e.Realm)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
+        if (chatRoom.Type != ChatRoomType.DirectMessage) return Ok(chatRoom);
+        
+        // Preload members for direct messages
+        var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
+        var directMembers = await db.ChatMembers
+            .Where(m => (currentUser != null && m.AccountId != currentUser!.Id))
+            .Include(m => m.Account)
+            .Include(m => m.Account.Profile)
+            .ToListAsync();
+        chatRoom.DirectMembers = directMembers.Select(ChatMemberTransmissionObject.FromEntity).ToList();
         return Ok(chatRoom);
     }
 
@@ -55,21 +65,22 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         var result = chatRooms.Select(r =>
         {
             if (r.Type == ChatRoomType.DirectMessage && directMembers.TryGetValue(r.Id, out var otherMember))
-                r.Members = new List<ChatMember> { otherMember };
+                r.DirectMembers = new List<ChatMemberTransmissionObject>
+                    { ChatMemberTransmissionObject.FromEntity(otherMember) };
             return r;
         }).ToList();
 
         return Ok(result);
     }
 
-    public class DmCreationRequest
+    public class DirectMessageRequest
     {
         [Required] public long RelatedUserId { get; set; }
     }
 
     [HttpPost("direct")]
     [Authorize]
-    public async Task<ActionResult<ChatRoom>> CreateDirectMessage([FromBody] DmCreationRequest request)
+    public async Task<ActionResult<ChatRoom>> CreateDirectMessage([FromBody] DirectMessageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
             return Unauthorized();
