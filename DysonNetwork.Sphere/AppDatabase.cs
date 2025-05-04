@@ -135,6 +135,7 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Post.Post>()
+            .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
             .HasIndex(p => p.SearchVector)
             .HasMethod("GIN");
         modelBuilder.Entity<Post.Post>()
@@ -199,7 +200,7 @@ public class AppDatabase(
             .HasForeignKey(m => m.ForwardedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Chat.Message>()
-            .HasOne(m => m.RepliedMessage) 
+            .HasOne(m => m.RepliedMessage)
             .WithMany()
             .HasForeignKey(m => m.RepliedMessageId)
             .OnDelete(DeleteBehavior.Restrict);

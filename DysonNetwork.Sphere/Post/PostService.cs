@@ -10,57 +10,12 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
 {
     public static List<Post> TruncatePostContent(List<Post> input)
     {
-        // This truncate post content is designed for quill delta
         const int maxLength = 256;
         foreach (var item in input)
         {
-            if (item.Content is not { RootElement: var rootElement }) continue;
-
-            if (rootElement.ValueKind != JsonValueKind.Array) continue;
-            var totalLength = 0;
-            var truncatedArrayElements = new List<JsonElement>();
-
-            foreach (var element in rootElement.EnumerateArray())
-            {
-                if (element is { ValueKind: JsonValueKind.Object } &&
-                    element.TryGetProperty("insert", out var insertProperty))
-                {
-                    if (insertProperty is { ValueKind: JsonValueKind.String })
-                    {
-                        var textContent = insertProperty.GetString()!;
-                        if (totalLength + textContent.Length <= maxLength)
-                        {
-                            truncatedArrayElements.Add(element);
-                            totalLength += textContent.Length;
-                        }
-                        else
-                        {
-                            var remainingLength = maxLength - totalLength;
-                            if (remainingLength > 0)
-                            {
-                                using var truncatedElementDocument =
-                                    JsonDocument.Parse(
-                                        $@"{{ ""insert"": ""{textContent.Substring(0, remainingLength)}"" }}"
-                                    );
-                                truncatedArrayElements.Add(truncatedElementDocument.RootElement.Clone());
-                                totalLength = maxLength;
-                            }
-
-                            break;
-                        }
-                    }
-                    else
-                        truncatedArrayElements.Add(element);
-                }
-                else
-                    truncatedArrayElements.Add(element);
-
-                if (totalLength >= maxLength)
-                    break;
-            }
-
-            var newDocument = JsonDocument.Parse(JsonSerializer.Serialize(truncatedArrayElements));
-            item.Content = newDocument;
+            if (!(item.Content?.Length > maxLength)) continue;
+            item.Content = item.Content[..maxLength];
+            item.IsTruncated = true;
         }
 
         return input;
@@ -119,29 +74,6 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
             post.Categories = await db.PostCategories.Where(e => categories.Contains(e.Slug)).ToListAsync();
             if (post.Categories.Count != categories.Distinct().Count())
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
-        }
-
-        // Vectorize the quill delta content
-        if (post.Content?.RootElement is { ValueKind: JsonValueKind.Array })
-        {
-            var searchTextBuilder = new System.Text.StringBuilder();
-
-            if (!string.IsNullOrWhiteSpace(post.Title))
-                searchTextBuilder.AppendLine(post.Title);
-            if (!string.IsNullOrWhiteSpace(post.Description))
-                searchTextBuilder.AppendLine(post.Description);
-
-            foreach (var element in post.Content.RootElement.EnumerateArray())
-            {
-                if (element is { ValueKind: JsonValueKind.Object } &&
-                    element.TryGetProperty("insert", out var insertProperty) &&
-                    insertProperty.ValueKind == JsonValueKind.String)
-                {
-                    searchTextBuilder.Append(insertProperty.GetString());
-                }
-            }
-
-            post.SearchVector = EF.Functions.ToTsVector(searchTextBuilder.ToString().Trim());
         }
 
         // TODO Notify the subscribers
@@ -220,29 +152,6 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
             post.Categories = await db.PostCategories.Where(e => categories.Contains(e.Slug)).ToListAsync();
             if (post.Categories.Count != categories.Distinct().Count())
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
-        }
-
-        // Vectorize the quill delta content
-        if (post.Content?.RootElement is { ValueKind: JsonValueKind.Array })
-        {
-            var searchTextBuilder = new System.Text.StringBuilder();
-
-            if (!string.IsNullOrWhiteSpace(post.Title))
-                searchTextBuilder.AppendLine(post.Title);
-            if (!string.IsNullOrWhiteSpace(post.Description))
-                searchTextBuilder.AppendLine(post.Description);
-
-            foreach (var element in post.Content.RootElement.EnumerateArray())
-            {
-                if (element is { ValueKind: JsonValueKind.Object } &&
-                    element.TryGetProperty("insert", out var insertProperty) &&
-                    insertProperty.ValueKind == JsonValueKind.String)
-                {
-                    searchTextBuilder.Append(insertProperty.GetString());
-                }
-            }
-
-            post.SearchVector = EF.Functions.ToTsVector(searchTextBuilder.ToString().Trim());
         }
 
         db.Update(post);

@@ -119,7 +119,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
     {
         [MaxLength(1024)] public string? Title { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
-        public JsonDocument? Content { get; set; }
+        public string? Content { get; set; }
         public PostVisibility? Visibility { get; set; }
         public PostType? Type { get; set; }
         [MaxLength(16)] public List<string>? Tags { get; set; }

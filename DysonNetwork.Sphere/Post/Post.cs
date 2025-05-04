@@ -32,8 +32,9 @@ public class Post : ModelBase
     public Instant? EditedAt { get; set; }
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
-
-    [Column(TypeName = "jsonb")] public JsonDocument? Content { get; set; }
+    
+    // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
+    public string? Content { get; set; }
 
     public PostType Type { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
@@ -51,8 +52,8 @@ public class Post : ModelBase
     public long? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
-    
-    [JsonIgnore] public NpgsqlTsVector? SearchVector { get; set; }
+
+    [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;
 
     public Publisher Publisher { get; set; } = null!;
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();

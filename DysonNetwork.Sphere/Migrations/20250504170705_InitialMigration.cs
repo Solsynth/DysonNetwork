@@ -709,7 +709,7 @@ namespace DysonNetwork.Sphere.Migrations
                     edited_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     published_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     visibility = table.Column<int>(type: "integer", nullable: false),
-                    content = table.Column<JsonDocument>(type: "jsonb", nullable: true),
+                    content = table.Column<string>(type: "text", nullable: true),
                     type = table.Column<int>(type: "integer", nullable: false),
                     meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
                     views_unique = table.Column<int>(type: "integer", nullable: false),
@@ -719,7 +719,9 @@ namespace DysonNetwork.Sphere.Migrations
                     threaded_post_id = table.Column<long>(type: "bigint", nullable: true),
                     replied_post_id = table.Column<long>(type: "bigint", nullable: true),
                     forwarded_post_id = table.Column<long>(type: "bigint", nullable: true),
-                    search_vector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: true),
+                    search_vector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
+                        .Annotation("Npgsql:TsVectorConfig", "simple")
+                        .Annotation("Npgsql:TsVectorProperties", new[] { "title", "description", "content" }),
                     publisher_id = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),

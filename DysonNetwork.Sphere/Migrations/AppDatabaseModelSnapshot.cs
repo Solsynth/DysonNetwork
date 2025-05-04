@@ -1077,8 +1077,8 @@ namespace DysonNetwork.Sphere.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<JsonDocument>("Content")
-                        .HasColumnType("jsonb")
+                    b.Property<string>("Content")
+                        .HasColumnType("text")
                         .HasColumnName("content");
 
                     b.Property<Instant>("CreatedAt")
@@ -1128,8 +1128,12 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("replied_post_id");
 
                     b.Property<NpgsqlTsVector>("SearchVector")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("tsvector")
-                        .HasColumnName("search_vector");
+                        .HasColumnName("search_vector")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "simple")
+                        .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Title", "Description", "Content" });
 
                     b.Property<long?>("ThreadedPostId")
                         .HasColumnType("bigint")
