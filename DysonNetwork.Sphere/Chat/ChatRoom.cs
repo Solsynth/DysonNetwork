@@ -34,7 +34,7 @@ public enum ChatMemberRole
 {
     Owner = 100,
     Moderator = 50,
-    Normal = 0
+    Member = 0
 }
 
 public enum ChatMemberNotify
@@ -54,7 +54,7 @@ public class ChatMember : ModelBase
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
-    public ChatMemberRole Role { get; set; } = ChatMemberRole.Normal;
+    public ChatMemberRole Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
     public bool IsBot { get; set; } = false;

@@ -26,18 +26,101 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
     [HttpGet]
     public async Task<ActionResult<List<ChatRoom>>> ListJoinedChatRooms()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+            return Unauthorized();
+
         var userId = currentUser.Id;
 
-        var members = await db.ChatMembers
+        var chatRooms = await db.ChatMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt != null)
-            .Include(e => e.ChatRoom)
+            .Include(m => m.ChatRoom)
             .Select(m => m.ChatRoom)
             .ToListAsync();
 
-        return members.ToList();
+        var directRoomsId = chatRooms
+            .Where(r => r.Type == ChatRoomType.DirectMessage)
+            .Select(r => r.Id)
+            .ToList();
+        var directMembers = directRoomsId.Count != 0
+            ? await db.ChatMembers
+                .Where(m => directRoomsId.Contains(m.ChatRoomId))
+                .Where(m => m.AccountId != userId)
+                .Include(m => m.Account)
+                .Include(m => m.Account.Profile)
+                .ToDictionaryAsync(m => m.ChatRoomId, m => m)
+            : new Dictionary<long, ChatMember>();
+
+        // Map the results
+        var result = chatRooms.Select(r =>
+        {
+            if (r.Type == ChatRoomType.DirectMessage && directMembers.TryGetValue(r.Id, out var otherMember))
+                r.Members = new List<ChatMember> { otherMember };
+            return r;
+        }).ToList();
+
+        return Ok(result);
     }
+
+    public class DmCreationRequest
+    {
+        [Required] public long RelatedUserId { get; set; }
+    }
+
+    [HttpPost("direct")]
+    [Authorize]
+    public async Task<ActionResult<ChatRoom>> CreateDirectMessage([FromBody] DmCreationRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+            return Unauthorized();
+
+        var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
+        if (relatedUser is null)
+            return BadRequest("Related user was not found");
+
+        // Check if DM already exists between these users
+        var existingDm = await db.ChatRooms
+            .Include(c => c.Members)
+            .Where(c => c.Type == ChatRoomType.DirectMessage && c.Members.Count == 2)
+            .Where(c => c.Members.Any(m => m.AccountId == currentUser.Id))
+            .Where(c => c.Members.Any(m => m.AccountId == request.RelatedUserId))
+            .FirstOrDefaultAsync();
+
+        if (existingDm != null)
+            return Ok(existingDm); // Return existing DM if found
+
+        // Create new DM chat room
+        var dmRoom = new ChatRoom
+        {
+            Name = $"DM between #{currentUser.Id} and #{request.RelatedUserId}",
+            Type = ChatRoomType.DirectMessage,
+            IsPublic = false,
+            Members = new List<ChatMember>
+            {
+                new()
+                {
+                    AccountId = currentUser.Id,
+                    Role = ChatMemberRole.Owner,
+                    JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
+                },
+                new()
+                {
+                    AccountId = request.RelatedUserId,
+                    Role = ChatMemberRole.Member,
+                    JoinedAt = null, // Pending status
+                }
+            }
+        };
+
+        db.ChatRooms.Add(dmRoom);
+        await db.SaveChangesAsync();
+
+        var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
+        await crs.SendInviteNotify(invitedMember);
+
+        return Ok(dmRoom);
+    }
+
 
     public class ChatRoomRequest
     {
@@ -60,6 +143,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         {
             Name = request.Name,
             Description = request.Description ?? string.Empty,
+            Type = ChatRoomType.Group,
             Members = new List<ChatMember>
             {
                 new()
@@ -105,6 +189,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
         return Ok(chatRoom);
     }
+
 
     [HttpPatch("{id:long}")]
     public async Task<ActionResult<ChatRoom>> UpdateChatRoom(long id, [FromBody] ChatRoomRequest request)
@@ -395,7 +480,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
     [HttpPatch("{roomId:long}/members/{memberId:long}/role")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(long roomId, long memberId, 
+    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(long roomId, long memberId,
         [FromBody] ChatMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -515,7 +600,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
                 .Where(m => m.Role == ChatMemberRole.Owner)
                 .Where(m => m.AccountId != currentUser.Id)
                 .AnyAsync();
-            
+
             if (!otherOwners)
                 return BadRequest("The last owner cannot leave the chat. Transfer ownership first or delete the chat.");
         }

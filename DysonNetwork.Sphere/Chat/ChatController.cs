@@ -43,7 +43,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             var member = await db.ChatMembers
                 .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
                 .FirstOrDefaultAsync();
-            if (member == null || member.Role < ChatMemberRole.Normal)
+            if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
         }
 
@@ -81,7 +81,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             var member = await db.ChatMembers
                 .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
                 .FirstOrDefaultAsync();
-            if (member == null || member.Role < ChatMemberRole.Normal)
+            if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
         }
     
@@ -118,7 +118,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             .Include(m => m.Account)
             .Include(m => m.Account.Profile)
             .FirstOrDefaultAsync();
-        if (member == null || member.Role < ChatMemberRole.Normal) return StatusCode(403, "You need to be a normal member to send messages here.");
+        if (member == null || member.Role < ChatMemberRole.Member) return StatusCode(403, "You need to be a normal member to send messages here.");
 
         var message = new Message
         {
