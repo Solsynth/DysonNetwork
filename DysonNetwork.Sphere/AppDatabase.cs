@@ -80,6 +80,7 @@ public class AppDatabase(
                     Nodes =
                     {
                         PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "posts.reactions.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "chat.create", true)

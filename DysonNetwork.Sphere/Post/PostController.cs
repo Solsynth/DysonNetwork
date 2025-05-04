@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -36,6 +37,11 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .Take(take)
             .ToListAsync();
         posts = PostService.TruncatePostContent(posts);
+        
+        var postsId = posts.Select(e => e.Id).ToList();
+        var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
+        foreach (var post in posts)
+            post.ReactionsCount = reactionMaps[post.Id];
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -62,6 +68,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
+        post.ReactionsCount = await ps.GetPostReactionMap(post.Id);
+
         return Ok(post);
     }
 
@@ -73,13 +81,13 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
 
-        var post = await db.Posts
+        var parent = await db.Posts
             .Where(e => e.Id == id)
             .FirstOrDefaultAsync();
-        if (post is null) return NotFound();
+        if (parent is null) return NotFound();
 
         var totalCount = await db.Posts
-            .Where(e => e.RepliedPostId == post.Id)
+            .Where(e => e.RepliedPostId == parent.Id)
             .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
         var posts = await db.Posts
@@ -96,6 +104,11 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .Take(take)
             .ToListAsync();
         posts = PostService.TruncatePostContent(posts);
+        
+        var postsId = posts.Select(e => e.Id).ToList();
+        var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
+        foreach (var post in posts)
+            post.ReactionsCount = reactionMaps[post.Id];
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -192,6 +205,45 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         }
 
         return post;
+    }
+
+    public class PostReactionRequest
+    {
+        [MaxLength(256)] public string Symbol { get; set; } = null!;
+        public PostReactionAttitude Attitude { get; set; }
+    }
+
+    [HttpPost("{id:long}/reactions")]
+    [Authorize]
+    [RequiredPermission("global", "posts.reactions.create")]
+    public async Task<ActionResult<PostReaction>> CreatePostReaction(long id, [FromBody] PostReactionRequest request)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not Account.Account currentUser) return Unauthorized();
+        var userFriends = await rels.ListAccountFriends(currentUser);
+
+        var post = await db.Posts
+            .Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .FilterWithVisibility(currentUser, userFriends)
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+
+        var isExistingReaction = await db.PostReactions
+            .AnyAsync(r => r.PostId == post.Id &&
+                           r.Symbol == request.Symbol &&
+                           r.AccountId == currentUser.Id);
+        var reaction = new PostReaction
+        {
+            Symbol = request.Symbol,
+            Attitude = request.Attitude,
+            PostId = post.Id,
+            AccountId = currentUser.Id
+        };
+        await ps.ModifyPostVotes(post, reaction, isExistingReaction);
+        
+        if (isExistingReaction) return NoContent();
+        return Ok(reaction);
     }
 
     [HttpPatch("{id:long}")]

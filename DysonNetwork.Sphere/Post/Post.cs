@@ -42,6 +42,7 @@ public class Post : ModelBase
     public int ViewsTotal { get; set; }
     public int Upvotes { get; set; }
     public int Downvotes { get; set; }
+    [NotMapped] public Dictionary<string, int> ReactionsCount { get; set; } = new();
 
     public long? ThreadedPostId { get; set; }
     public Post? ThreadedPost { get; set; }
@@ -106,5 +107,6 @@ public class PostReaction : ModelBase
 
     public long PostId { get; set; }
     [JsonIgnore] public Post Post { get; set; } = null!;
+    public long AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
 }

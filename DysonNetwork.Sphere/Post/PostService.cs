@@ -125,12 +125,12 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         if (post.Content?.RootElement is { ValueKind: JsonValueKind.Array })
         {
             var searchTextBuilder = new System.Text.StringBuilder();
-            
+
             if (!string.IsNullOrWhiteSpace(post.Title))
                 searchTextBuilder.AppendLine(post.Title);
             if (!string.IsNullOrWhiteSpace(post.Description))
                 searchTextBuilder.AppendLine(post.Description);
-            
+
             foreach (var element in post.Content.RootElement.EnumerateArray())
             {
                 if (element is { ValueKind: JsonValueKind.Object } &&
@@ -140,6 +140,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
                     searchTextBuilder.Append(insertProperty.GetString());
                 }
             }
+
             post.SearchVector = EF.Functions.ToTsVector(searchTextBuilder.ToString().Trim());
         }
 
@@ -225,12 +226,12 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         if (post.Content?.RootElement is { ValueKind: JsonValueKind.Array })
         {
             var searchTextBuilder = new System.Text.StringBuilder();
-            
+
             if (!string.IsNullOrWhiteSpace(post.Title))
                 searchTextBuilder.AppendLine(post.Title);
             if (!string.IsNullOrWhiteSpace(post.Description))
                 searchTextBuilder.AppendLine(post.Description);
-            
+
             foreach (var element in post.Content.RootElement.EnumerateArray())
             {
                 if (element is { ValueKind: JsonValueKind.Object } &&
@@ -240,6 +241,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
                     searchTextBuilder.Append(insertProperty.GetString());
                 }
             }
+
             post.SearchVector = EF.Functions.ToTsVector(searchTextBuilder.ToString().Trim());
         }
 
@@ -254,6 +256,62 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         db.Posts.Remove(post);
         await db.SaveChangesAsync();
         await fs.MarkUsageRangeAsync(post.Attachments, -1);
+    }
+
+    /// <summary>
+    /// Calculate the total number of votes for a post.
+    /// This function helps you save the new reactions.
+    /// </summary>
+    /// <param name="post">Post that modifying</param>
+    /// <param name="reaction">The new / target reaction adding / removing</param>
+    /// <param name="isRemoving">Indicate this operation is adding / removing</param>
+    public async Task ModifyPostVotes(Post post, PostReaction reaction, bool isRemoving)
+    {
+        var isExistingReaction = await db.Set<PostReaction>()
+            .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId);
+        if (isExistingReaction) return;
+
+        if (!isRemoving)
+        {
+            db.Add(reaction);
+            switch (reaction.Attitude)
+            {
+                case PostReactionAttitude.Positive:
+                    post.Upvotes++;
+                    break;
+                case PostReactionAttitude.Negative:
+                    post.Downvotes++;
+                    break;
+            }
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<Dictionary<string, int>> GetPostReactionMap(long postId)
+    {
+        return await db.Set<PostReaction>()
+            .Where(r => r.PostId == postId)
+            .GroupBy(r => r.Symbol)
+            .ToDictionaryAsync(
+                g => g.Key,
+                g => g.Count()
+            );
+    }
+
+    public async Task<Dictionary<long, Dictionary<string, int>>> GetPostReactionMapBatch(List<long> postIds)
+    {
+        return await db.Set<PostReaction>()
+            .Where(r => postIds.Contains(r.PostId))
+            .GroupBy(r => r.PostId)
+            .ToDictionaryAsync(
+                g => g.Key,
+                g => g.GroupBy(r => r.Symbol)
+                    .ToDictionary(
+                        sg => sg.Key,
+                        sg => sg.Count()
+                    )
+            );
     }
 }
 
