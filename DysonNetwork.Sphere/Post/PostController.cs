@@ -216,8 +216,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
 
     [HttpPost("{id:long}/reactions")]
     [Authorize]
-    [RequiredPermission("global", "posts.reactions.create")]
-    public async Task<ActionResult<PostReaction>> CreatePostReaction(long id, [FromBody] PostReactionRequest request)
+    [RequiredPermission("global", "posts.react")]
+    public async Task<ActionResult<PostReaction>> ReactPost(long id, [FromBody] PostReactionRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not Account.Account currentUser) return Unauthorized();
@@ -241,9 +241,9 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             PostId = post.Id,
             AccountId = currentUser.Id
         };
-        await ps.ModifyPostVotes(post, reaction, isExistingReaction);
+        var isRemoving = await ps.ModifyPostVotes(post, reaction, isExistingReaction);
 
-        if (isExistingReaction) return NoContent();
+        if (isRemoving) return NoContent();
         return Ok(reaction);
     }
 

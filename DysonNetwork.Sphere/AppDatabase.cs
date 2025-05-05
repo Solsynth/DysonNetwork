@@ -55,6 +55,7 @@ public class AppDatabase(
     public DbSet<Chat.ChatMember> ChatMembers { get; set; }
     public DbSet<Chat.Message> ChatMessages { get; set; }
     public DbSet<Chat.MessageStatus> ChatStatuses { get; set; }
+    public DbSet<Chat.MessageReaction> ChatReactions { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -80,7 +81,7 @@ public class AppDatabase(
                     Nodes =
                     {
                         PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "posts.reactions.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "posts.react", true),
                         PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "chat.create", true)

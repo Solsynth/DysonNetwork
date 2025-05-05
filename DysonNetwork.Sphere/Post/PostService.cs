@@ -174,27 +174,39 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
     /// <param name="post">Post that modifying</param>
     /// <param name="reaction">The new / target reaction adding / removing</param>
     /// <param name="isRemoving">Indicate this operation is adding / removing</param>
-    public async Task ModifyPostVotes(Post post, PostReaction reaction, bool isRemoving)
+    public async Task<bool> ModifyPostVotes(Post post, PostReaction reaction, bool isRemoving)
     {
         var isExistingReaction = await db.Set<PostReaction>()
             .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId);
-        if (isExistingReaction) return;
 
-        if (!isRemoving)
+        if (isRemoving)
+            await db.PostReactions
+                .Where(r => r.PostId == post.Id && r.Symbol == reaction.Symbol && r.AccountId == reaction.AccountId)
+                .ExecuteDeleteAsync();
+        else
+            db.PostReactions.Add(reaction);
+
+        if (isExistingReaction)
         {
-            db.Add(reaction);
-            switch (reaction.Attitude)
-            {
-                case PostReactionAttitude.Positive:
-                    post.Upvotes++;
-                    break;
-                case PostReactionAttitude.Negative:
-                    post.Downvotes++;
-                    break;
-            }
+            if (!isRemoving)
+                await db.SaveChangesAsync();
+            return isRemoving;
+        }
+
+        switch (reaction.Attitude)
+        {
+            case PostReactionAttitude.Positive:
+                if (isRemoving) post.Upvotes--;
+                else post.Upvotes++;
+                break;
+            case PostReactionAttitude.Negative:
+                if (isRemoving) post.Downvotes--;
+                else post.Downvotes++;
+                break;
         }
 
         await db.SaveChangesAsync();
+        return isRemoving;
     }
 
     public async Task<Dictionary<string, int>> GetPostReactionMap(long postId)
