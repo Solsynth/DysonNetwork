@@ -30,6 +30,7 @@ public class AppDatabase(
     public DbSet<Account.AccountContact> AccountContacts { get; set; }
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
     public DbSet<Account.Relationship> AccountRelationships { get; set; }
+    public DbSet<Account.Status> AccountStatuses { get; set; }
     public DbSet<Account.Notification> Notifications { get; set; }
     public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
 
@@ -87,7 +88,8 @@ public class AppDatabase(
                         PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "chat.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "chat.messages.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "chat.realtime.create", true)
+                        PermissionService.NewPermissionNode("group:default", "global", "chat.realtime.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "accounts.statuses.create", true)
                     }
                 });
                 await context.SaveChangesAsync(cancellationToken);

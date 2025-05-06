@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +16,7 @@ public class AccountController(
     FileService fs,
     AuthService auth,
     AccountService accounts,
+    AccountEventService events,
     MagicSpellService spells
 ) : ControllerBase
 {
@@ -201,6 +203,62 @@ public class AccountController(
         await accounts.PurgeAccountCache(currentUser);
 
         return profile;
+    }
+
+    public class StatusRequest
+    {
+        public StatusAttitude Attitude { get; set; }
+        public bool IsInvisible { get; set; }
+        public bool IsNotDisturb { get; set; }
+        [MaxLength(1024)] public string? Label { get; set; }
+        public Instant? ClearedAt { get; set; }
+    }
+
+    [HttpGet("me/statuses")]
+    [Authorize]
+    public async Task<ActionResult<Status>> GetCurrentStatus()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var status = await events.GetStatus(currentUser.Id);
+        return Ok(status);
+    }
+
+    [HttpPost("me/statuses")]
+    [Authorize]
+    [RequiredPermission("global", "accounts.statuses.create")]
+    public async Task<ActionResult<Status>> CreateStatus([FromBody] StatusRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var status = new Status
+        {
+            AccountId = currentUser.Id,
+            Attitude = request.Attitude,
+            IsInvisible = request.IsInvisible,
+            IsNotDisturb = request.IsNotDisturb,
+            Label = request.Label,
+            ClearedAt = request.ClearedAt
+        };
+
+        return await events.CreateStatus(currentUser, status);
+    }
+
+    [HttpDelete("me/statuses")]
+    [Authorize]
+    public async Task<ActionResult> DeleteStatus()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var status = await db.AccountStatuses
+            .Where(s => s.AccountId == currentUser.Id)
+            .Where(s => s.ClearedAt == null || s.ClearedAt > now)
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (status is null) return NotFound();
+        
+        await events.ClearStatus(currentUser, status);
+        return NoContent();
     }
 
     [HttpGet("search")]

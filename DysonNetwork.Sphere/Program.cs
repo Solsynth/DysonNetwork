@@ -131,6 +131,7 @@ builder.Services.AddScoped<WebSocketService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<AccountEventService>();
 builder.Services.AddScoped<RelationshipService>();
 builder.Services.AddScoped<MagicSpellService>();
 builder.Services.AddScoped<NotificationService>();

@@ -41,6 +41,11 @@ public class WebSocketService
         ActiveConnections.TryRemove(key, out _);
     }
 
+    public bool GetAccountIsConnected(long accountId)
+    {
+        return ActiveConnections.Any(c => c.Key.AccountId == accountId);
+    }
+
     public void SendPacketToAccount(long userId, WebSocketPacket packet)
     {
         var connections = ActiveConnections.Where(c => c.Key.AccountId == userId);
