@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -105,6 +106,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
 
     [HttpPost("{roomId:long}/messages")]
     [Authorize]
+    [RequiredPermission("global", "chat.messages.create")]
     public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, long roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -122,6 +124,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
 
         var message = new Message
         {
+            Type = "text",
             SenderId = member.Id,
             ChatRoomId = roomId,
             Nonce = request.Nonce ?? Guid.NewGuid().ToString(),

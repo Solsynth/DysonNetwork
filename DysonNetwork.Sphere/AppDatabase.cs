@@ -54,6 +54,7 @@ public class AppDatabase(
     public DbSet<Chat.ChatRoom> ChatRooms { get; set; }
     public DbSet<Chat.ChatMember> ChatMembers { get; set; }
     public DbSet<Chat.Message> ChatMessages { get; set; }
+    public DbSet<Chat.RealtimeCall> ChatRealtimeCall { get; set; }
     public DbSet<Chat.MessageStatus> ChatStatuses { get; set; }
     public DbSet<Chat.MessageReaction> ChatReactions { get; set; }
 
@@ -84,7 +85,9 @@ public class AppDatabase(
                         PermissionService.NewPermissionNode("group:default", "global", "posts.react", true),
                         PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "chat.create", true)
+                        PermissionService.NewPermissionNode("group:default", "global", "chat.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "chat.messages.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "chat.realtime.create", true)
                     }
                 });
                 await context.SaveChangesAsync(cancellationToken);
@@ -205,6 +208,16 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(m => m.RepliedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Chat.RealtimeCall>()
+            .HasOne(m => m.Room)
+            .WithMany()
+            .HasForeignKey(m => m.RoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Chat.RealtimeCall>()
+            .HasOne(m => m.Sender)
+            .WithMany()
+            .HasForeignKey(m => m.SenderId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

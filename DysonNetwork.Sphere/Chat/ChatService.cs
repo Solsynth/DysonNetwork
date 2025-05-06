@@ -11,16 +11,16 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
     {
         message.CreatedAt = SystemClock.Instance.GetCurrentInstant();
         message.UpdatedAt = message.CreatedAt;
-        
+
         // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
-        
+
         // Then start the delivery process
         // Using ConfigureAwait(false) is correct here since we don't need context to flow
         _ = Task.Run(() => DeliverMessageAsync(message, sender, room))
             .ConfigureAwait(false);
-        
+
         return message;
     }
 
@@ -37,8 +37,8 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         var members = await scopedDb.ChatMembers
             .Where(m => m.ChatRoomId == message.ChatRoomId && m.AccountId != sender.AccountId)
             .Where(m => m.Notify != ChatMemberNotify.None)
-            .Where(m => m.Notify != ChatMemberNotify.Mentions || 
-                   (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
+            .Where(m => m.Notify != ChatMemberNotify.Mentions ||
+                        (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
             .ToListAsync();
 
         foreach (var member in members)
@@ -101,6 +101,85 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         return messages.Count(m => !m.IsRead);
     }
 
+    public async Task<Dictionary<long, int>> CountUnreadMessagesForJoinedRoomsAsync(long userId)
+    {
+        var userRooms = await db.ChatMembers
+            .Where(m => m.AccountId == userId)
+            .Select(m => m.ChatRoomId)
+            .ToListAsync();
+
+        var messages = await db.ChatMessages
+            .Where(m => userRooms.Contains(m.ChatRoomId))
+            .Select(m => new
+            {
+                m.ChatRoomId,
+                IsRead = m.Statuses.Any(rs => rs.Sender.AccountId == userId)
+            })
+            .ToListAsync();
+
+        return messages
+            .GroupBy(m => m.ChatRoomId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Count(m => !m.IsRead)
+            );
+    }
+
+    public async Task<RealtimeCall> CreateCallAsync(ChatRoom room, ChatMember sender)
+    {
+        var call = new RealtimeCall
+        {
+            RoomId = room.Id,
+            SenderId = sender.Id,
+        };
+        db.ChatRealtimeCall.Add(call);
+        await db.SaveChangesAsync();
+
+        await SendMessageAsync(new Message
+        {
+            Type = "realtime.start",
+            ChatRoomId = room.Id,
+            SenderId = sender.Id,
+            Meta = new Dictionary<string, object>
+            {
+                { "call", call.Id }
+            }
+        }, sender, room);
+
+        return call;
+    }
+
+    public async Task EndCallAsync(long roomId)
+    {
+        var call = await GetCallOngoingAsync(roomId);
+        if (call is null) throw new InvalidOperationException("No ongoing call was not found.");
+        
+        call.EndedAt = SystemClock.Instance.GetCurrentInstant();
+        db.ChatRealtimeCall.Update(call);
+        await db.SaveChangesAsync();
+
+        await SendMessageAsync(new Message
+        {
+            Type = "realtime.ended",
+            ChatRoomId = call.RoomId,
+            SenderId = call.SenderId,
+            Meta = new Dictionary<string, object>
+            {
+                { "call", call.Id }
+            }
+        }, call.Sender, call.Room);
+    }
+    
+    public async Task<RealtimeCall?> GetCallOngoingAsync(long roomId)
+    {
+        return await db.ChatRealtimeCall
+            .Where(c => c.RoomId == roomId)
+            .Where(c => c.EndedAt == null)
+            .Include(c => c.Room)
+            .Include(c => c.Sender)
+            .FirstOrDefaultAsync();
+    }
+    
     public async Task<SyncResponse> GetSyncDataAsync(long roomId, long lastSyncTimestamp)
     {
         var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);

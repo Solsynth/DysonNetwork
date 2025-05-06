@@ -9,7 +9,8 @@ namespace DysonNetwork.Sphere.Chat;
 public class Message : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    [MaxLength(4096)] public string Content { get; set; } = string.Empty;
+    public string Type { get; set; } = null!;
+    [MaxLength(4096)] public string? Content { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     [Column(TypeName = "jsonb")] public List<Guid>? MembersMentioned { get; set; }
     [MaxLength(36)] public string Nonce { get; set; } = null!;

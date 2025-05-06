@@ -141,9 +141,9 @@ public class FileService(
                     List<Task> tasks = [];
 
                     var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), file.Id);
-                    var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
+                    using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    tasks.Add(Task.Run(() => vipsImage.WriteToFile(imagePath + ".webp")));
+                    vipsImage.WriteToFile(imagePath + ".webp");
                     result.Add((imagePath + ".webp", string.Empty));
 
                     if (vipsImage.Width * vipsImage.Height >= 1024 * 1024)
@@ -151,20 +151,13 @@ public class FileService(
                         var scale = 1024.0 / Math.Max(vipsImage.Width, vipsImage.Height);
                         var imageCompressedPath =
                             Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}-compressed");
-                        
+
                         // Create and save image within the same synchronous block to avoid disposal issues
-                        tasks.Add(Task.Run(() => {
-                            using var compressedImage = vipsImage.Resize(scale);
-                            compressedImage.WriteToFile(imageCompressedPath + ".webp");
-                            vipsImage.Dispose();
-                        }));
-                        
+                        using var compressedImage = vipsImage.Resize(scale);
+                        compressedImage.WriteToFile(imageCompressedPath + ".webp");
+
                         result.Add((imageCompressedPath + ".webp", ".compressed"));
                         file.HasCompression = true;
-                    }
-                    else
-                    {
-                        vipsImage.Dispose();
                     }
 
                     await Task.WhenAll(tasks);

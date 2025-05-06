@@ -25,6 +25,8 @@ public class AccountController(
     {
         var account = await db.Accounts
             .Include(e => e.Profile)
+            .Include(e => e.Profile.Picture)
+            .Include(e => e.Profile.Background)
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
         return account is null ? new NotFoundResult() : account;
@@ -105,13 +107,15 @@ public class AccountController(
     [Authorize]
     [HttpGet("me")]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<Account>> GetMe()
+    public async Task<ActionResult<Account>> GetCurrentIdentity()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var account = await db.Accounts
             .Include(e => e.Profile)
+            .Include(e => e.Profile.Picture)
+            .Include(e => e.Profile.Background)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
 
