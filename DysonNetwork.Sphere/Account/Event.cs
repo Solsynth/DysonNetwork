@@ -24,3 +24,29 @@ public class Status : ModelBase
     public long AccountId { get; set; }
     public Account Account { get; set; } = null!;
 }
+
+public enum CheckInResultLevel
+{
+    Worst,
+    Worse,
+    Normal,
+    Better,
+    Best
+}
+
+public class CheckInResult : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public CheckInResultLevel Level { get; set; }
+    [Column(TypeName = "jsonb")] public ICollection<FortuneTip> Tips { get; set; } = new List<FortuneTip>();
+    
+    public long AccountId { get; set; }
+    public Account Account { get; set; } = null!;
+}
+
+public class FortuneTip
+{
+    public bool IsPositive { get; set; }
+    public string Title { get; set; } = null!;
+    public string Content { get; set; } = null!;
+}

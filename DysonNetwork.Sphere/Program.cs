@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,11 +11,13 @@ using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Connection.Handlers;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +28,6 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using Quartz;
 using tusdotnet;
-using tusdotnet.Interfaces;
 using tusdotnet.Models;
 using tusdotnet.Models.Configuration;
 using tusdotnet.Stores;
@@ -38,6 +40,8 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 // Add services to the container.
 
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+
 builder.Services.AddDbContext<AppDatabase>();
 
 builder.Services.AddHttpClient();
@@ -47,8 +51,23 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+}).AddDataAnnotationsLocalization(options => {
+    options.DataAnnotationLocalizerProvider = (type, factory) =>
+        factory.Create(typeof(SharedResource));
 });
 builder.Services.AddRazorPages();
+
+builder.Services.Configure<RequestLocalizationOptions>(options => {
+    var supportedCultures = new[]
+    {
+        new CultureInfo("en-US"),
+        new CultureInfo("zh-CN"),
+    };
+
+    options.DefaultRequestCulture = new RequestCulture("en-US");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+});
 
 // Other pipelines
 
@@ -178,6 +197,8 @@ app.MapOpenApi();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseRequestLocalization();
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {

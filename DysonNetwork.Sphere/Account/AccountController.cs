@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Extensions;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -259,6 +260,46 @@ public class AccountController(
         
         await events.ClearStatus(currentUser, status);
         return NoContent();
+    }
+
+    [HttpGet("me/check-in")]
+    [Authorize]
+    public async Task<ActionResult<CheckInResult>> GetCheckInResult()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
+        
+        var today = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        var localTime = new TimeOnly(0, 0);
+        var startOfDay = today.ToDateOnly().ToDateTime(localTime).ToInstant();
+        var endOfDay = today.PlusDays(1).ToDateOnly().ToDateTime(localTime).ToInstant();
+        
+        var result = await db.AccountCheckInResults
+            .Where(x => x.AccountId == userId)
+            .Where(x => x.CreatedAt >= startOfDay && x.CreatedAt < endOfDay)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+    
+        return result is null ? NotFound() : Ok(result);
+    }
+    
+    [HttpPost("me/check-in")]
+    [Authorize]
+    public async Task<ActionResult<CheckInResult>> DoCheckIn([FromBody] string? captchaToken)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        
+        var isAvailable = await events.CheckInDailyIsAvailable(currentUser);
+        if (!isAvailable)
+            return BadRequest("Check-in is not available for today.");
+    
+        var needsCaptcha = events.CheckInDailyDoAskCaptcha(currentUser);
+        if (needsCaptcha && string.IsNullOrWhiteSpace(captchaToken))
+            return StatusCode(423, "Captcha is required for this check-in.");
+        if (!await auth.ValidateCaptcha(captchaToken!))
+            return BadRequest("Invalid captcha token.");
+
+        return await events.CheckInDaily(currentUser);
     }
 
     [HttpGet("search")]

@@ -16,7 +16,6 @@ public class ActivityService(AppDatabase db)
             .Select(e => long.Parse(e.ResourceIdentifier.Split("/").Last()))
             .Distinct()
             .ToList();
-
         if (postsId.Count > 0)
         {
             var posts = await db.Posts.Where(e => postsId.Contains(e.Id))
@@ -32,18 +31,68 @@ public class ActivityService(AppDatabase db)
 
             var postsDict = posts.ToDictionary(p => p.Id);
 
-            for (var idx = 0; idx < input.Count; idx++)
+            foreach (var item in input)
             {
-                var resourceIdentifier = input[idx].ResourceIdentifier;
+                var resourceIdentifier = item.ResourceIdentifier;
                 if (!resourceIdentifier.StartsWith("posts/")) continue;
                 var postId = long.Parse(resourceIdentifier.Split("/").Last());
-                if (postsDict.TryGetValue(postId, out var post) && input[idx].Data is null)
+                if (postsDict.TryGetValue(postId, out var post) && item.Data is null)
                 {
-                    input[idx].Data = post;
+                    item.Data = post;
                 }
             }
         }
 
+        var statusesId = input
+            .Where(e => e.ResourceIdentifier.StartsWith("account.statuses/"))
+            .Select(e => Guid.Parse(e.ResourceIdentifier.Split("/").Last()))
+            .Distinct()
+            .ToList();
+        if (statusesId.Count > 0)
+        {
+            var statuses = await db.AccountStatuses.Where(e => statusesId.Contains(e.Id))
+                .Include(e => e.Account)
+                .Include(e => e.Account.Profile)
+                .ToListAsync();
+            var statusesDict = statuses.ToDictionary(p => p.Id);
+            
+            foreach (var item in input)
+            {
+                var resourceIdentifier = item.ResourceIdentifier;
+                if (!resourceIdentifier.StartsWith("account.statuses/")) continue;
+                var statusId = Guid.Parse(resourceIdentifier.Split("/").Last());
+                if (statusesDict.TryGetValue(statusId, out var status) && item.Data is null)
+                {
+                    item.Data = status;
+                }
+            }
+        }
+        
+        var checkInId = input
+            .Where(e => e.ResourceIdentifier.StartsWith("account.check-in/"))
+            .Select(e => Guid.Parse(e.ResourceIdentifier.Split("/").Last()))
+            .Distinct()
+            .ToList();
+        if (checkInId.Count > 0)
+        {
+            var checkIns = await db.AccountCheckInResults.Where(e => checkInId.Contains(e.Id))
+                .Include(e => e.Account)
+                .Include(e => e.Account.Profile)
+                .ToListAsync();
+            var checkInsDict = checkIns.ToDictionary(p => p.Id);
+            
+            foreach (var item in input)
+            {
+                var resourceIdentifier = item.ResourceIdentifier;
+                if (!resourceIdentifier.StartsWith("account.check-in/")) continue;
+                var checkInResultId = Guid.Parse(resourceIdentifier.Split("/").Last());
+                if (checkInsDict.TryGetValue(checkInResultId, out var checkIn) && item.Data is null)
+                {
+                    item.Data = checkIn;
+                }
+            }
+        }
+        
         return input;
     }
 

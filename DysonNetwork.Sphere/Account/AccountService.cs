@@ -1,10 +1,13 @@
+using System.Globalization;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Localization;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class AccountService(AppDatabase db, PermissionService pm, IMemoryCache cache)
+public class AccountService(AppDatabase db, PermissionService pm, IMemoryCache cache, IStringLocalizerFactory localizerFactory)
 {
     public async Task PurgeAccountCache(Account account)
     {
@@ -30,5 +33,10 @@ public class AccountService(AppDatabase db, PermissionService pm, IMemoryCache c
         if (contact is not null) return contact.Account;
 
         return null;
+    }
+    
+    public IStringLocalizer GetEventLocalizer(string language)
+    {
+        return localizerFactory.Create(language, nameof(AccountEventResource));
     }
 }

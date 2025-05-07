@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    </resheader>
+    <data name="FortuneTipPositiveTitle_1" xml:space="preserve">
+        <value>抽卡</value>
+    </data>
+    <data name="FortuneTipPositiveContent_1" xml:space="preserve">
+        <value>次次出金</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_1 " xml:space="preserve">
+        <value>抽卡</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_2" xml:space="preserve">
+        <value>游戏</value>
+    </data>
+    <data name="FortuneTipPositiveContent_2" xml:space="preserve">
+        <value>升段如破竹</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_2" xml:space="preserve">
+        <value>游戏</value>
+    </data>
+    <data name="FortuneTipNegativeContent_2" xml:space="preserve">
+        <value>掉分如山崩</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_3" xml:space="preserve">
+        <value>抽奖</value>
+    </data>
+    <data name="FortuneTipPositiveContent_3" xml:space="preserve">
+        <value>欧气加身</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_3" xml:space="preserve">
+        <value>抽奖</value>
+    </data>
+    <data name="FortuneTipNegativeContent_3" xml:space="preserve">
+        <value>十连皆寂</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_4" xml:space="preserve">
+        <value>演讲</value>
+    </data>
+    <data name="FortuneTipPositiveContent_4" xml:space="preserve">
+        <value>妙语连珠</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
+        <value>演讲</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_5" xml:space="preserve">
+        <value>绘图</value>
+    </data>
+    <data name="FortuneTipPositiveContent_5" xml:space="preserve">
+        <value>灵感如泉涌</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_5" xml:space="preserve">
+        <value>绘图</value>
+    </data>
+    <data name="FortuneTipNegativeContent_5" xml:space="preserve">
+        <value>下笔如千斤</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_6" xml:space="preserve">
+        <value>编程</value>
+    </data>
+    <data name="FortuneTipPositiveContent_6" xml:space="preserve">
+        <value>0 error(s), 0 warning(s)</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_6" xml:space="preserve">
+        <value>编程</value>
+    </data>
+    <data name="FortuneTipNegativeContent_6" xml:space="preserve">
+        <value>114 error(s), 514 warning(s)</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_7" xml:space="preserve">
+        <value>购物</value>
+    </data>
+    <data name="FortuneTipPositiveContent_7" xml:space="preserve">
+        <value>汇率低谷</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_7" xml:space="preserve">
+        <value>开箱</value>
+    </data>
+    <data name="FortuneTipNegativeContent_7" xml:space="preserve">
+        <value>225% 关税</value>
+    </data>
+</root>

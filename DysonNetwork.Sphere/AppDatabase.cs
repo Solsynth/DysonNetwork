@@ -31,6 +31,7 @@ public class AppDatabase(
     public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
     public DbSet<Account.Relationship> AccountRelationships { get; set; }
     public DbSet<Account.Status> AccountStatuses { get; set; }
+    public DbSet<Account.CheckInResult> AccountCheckInResults { get; set; }
     public DbSet<Account.Notification> Notifications { get; set; }
     public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
 
