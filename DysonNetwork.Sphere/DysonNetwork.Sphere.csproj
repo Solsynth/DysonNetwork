@@ -64,40 +64,30 @@
         <Generator>ResXFileCodeGenerator</Generator>
         <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
       </EmbeddedResource>
-      <EmbeddedResource Update="Resources\SharedResource.zh-CN.resx">
-        <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>SharedResource-zh-CN.Designer.cs</LastGenOutput>
-      </EmbeddedResource>
       <EmbeddedResource Update="Resources\AccountEventResource.resx">
         <Generator>ResXFileCodeGenerator</Generator>
         <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
       </EmbeddedResource>
-      <EmbeddedResource Update="Resources\AccountEventResource.zh-CN.resx">
+      <EmbeddedResource Update="Resources\Localization\AccountEventResource.resx">
         <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>AccountEventResource.zh-CN.Designer.cs</LastGenOutput>
+        <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+      <EmbeddedResource Update="Resources\Localization\SharedResource.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
       </EmbeddedResource>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Update="Resources\SharedResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>SharedResource.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\SharedResource.zh-CN.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>SharedResource.zh-CN.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\AccountEventResource.Designer.cs">
+      <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
         <DesignTime>True</DesignTime>
         <AutoGen>True</AutoGen>
         <DependentUpon>AccountEventResource.resx</DependentUpon>
       </Compile>
-      <Compile Update="Resources\AccountEventResource.zh-CN.Designer.cs">
+      <Compile Update="Resources\Localization\SharedResource.Designer.cs">
         <DesignTime>True</DesignTime>
         <AutoGen>True</AutoGen>
-        <DependentUpon>AccountEventResource.zh-CN.resx</DependentUpon>
+        <DependentUpon>SharedResource.resx</DependentUpon>
       </Compile>
     </ItemGroup>
 

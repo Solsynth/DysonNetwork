@@ -4,7 +4,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Activity;
 
-public class ActivityService(AppDatabase db)
+public class ActivityReaderService(AppDatabase db, PostService ps)
 {
     public async Task<List<Activity>> LoadActivityData(List<Activity> input, Account.Account? currentUser,
         List<long> userFriends)
@@ -28,6 +28,11 @@ public class ActivityService(AppDatabase db)
                 .FilterWithVisibility(currentUser, userFriends)
                 .ToListAsync();
             posts = PostService.TruncatePostContent(posts);
+
+            var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
+            foreach (var post in posts)
+                post.ReactionsCount =
+                    reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
 
             var postsDict = posts.ToDictionary(p => p.Id);
 
@@ -55,7 +60,7 @@ public class ActivityService(AppDatabase db)
                 .Include(e => e.Account.Profile)
                 .ToListAsync();
             var statusesDict = statuses.ToDictionary(p => p.Id);
-            
+
             foreach (var item in input)
             {
                 var resourceIdentifier = item.ResourceIdentifier;
@@ -67,7 +72,7 @@ public class ActivityService(AppDatabase db)
                 }
             }
         }
-        
+
         var checkInId = input
             .Where(e => e.ResourceIdentifier.StartsWith("account.check-in/"))
             .Select(e => Guid.Parse(e.ResourceIdentifier.Split("/").Last()))
@@ -80,7 +85,7 @@ public class ActivityService(AppDatabase db)
                 .Include(e => e.Account.Profile)
                 .ToListAsync();
             var checkInsDict = checkIns.ToDictionary(p => p.Id);
-            
+
             foreach (var item in input)
             {
                 var resourceIdentifier = item.ResourceIdentifier;
@@ -92,10 +97,13 @@ public class ActivityService(AppDatabase db)
                 }
             }
         }
-        
+
         return input;
     }
+}
 
+public class ActivityService(AppDatabase db)
+{
     public async Task<Activity> CreateActivity(
         Account.Account user,
         string type,
@@ -159,6 +167,7 @@ public static class ActivityQueryExtensions
             .Where(e => e.Visibility != ActivityVisibility.Friends ||
                         userFriends.Contains(e.AccountId) ||
                         e.AccountId == currentUser.Id)
-            .Where(e => e.Visibility != ActivityVisibility.Selected || e.UsersVisible.Contains(currentUser.Id));
+            .Where(e => e.Visibility != ActivityVisibility.Selected ||
+                        EF.Functions.JsonExists(e.UsersVisible, currentUser.Id.ToString()));
     }
 }

@@ -120,9 +120,7 @@ public class AccountEventService(
 
     public async Task<CheckInResult> CheckInDaily(Account user)
     {
-        if (await CheckInDailyIsAvailable(user)) throw new InvalidOperationException("Check-in is not available");
-
-        var localizer = acc.GetEventLocalizer(user.Language);
+        var localizer = AccountService.GetEventLocalizer(user.Language);
 
         // Generate 2 positive tips
         var positiveIndices = Enumerable.Range(1, FortuneTipCount)
@@ -137,6 +135,7 @@ public class AccountEventService(
 
         // Generate 2 negative tips
         var negativeIndices = Enumerable.Range(1, FortuneTipCount)
+            .Except(positiveIndices)
             .OrderBy(_ => Random.Next())
             .Take(2)
             .ToList();

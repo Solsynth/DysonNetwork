@@ -60,13 +60,16 @@ builder.Services.AddRazorPages();
 builder.Services.Configure<RequestLocalizationOptions>(options => {
     var supportedCultures = new[]
     {
-        new CultureInfo("en-US"),
-        new CultureInfo("zh-CN"),
+        new CultureInfo("en-us"),
+        new CultureInfo("zh-hans"),
     };
 
-    options.DefaultRequestCulture = new RequestCulture("en-US");
+    options.DefaultRequestCulture = new RequestCulture("en-us");
     options.SupportedCultures = supportedCultures;
     options.SupportedUICultures = supportedCultures;
+    
+    // TODO parse user token
+    options.AddInitialRequestCultureProvider(new CustomRequestCultureProvider(async context => await Task.FromResult(new ProviderCultureResult("zh-hans"))));
 });
 
 // Other pipelines
@@ -158,6 +161,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PublisherService>();
 builder.Services.AddScoped<ActivityService>();
+builder.Services.AddScoped<ActivityReaderService>();
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<RealmService>();
 builder.Services.AddScoped<ChatRoomService>();

@@ -1,11 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-
 <root>
-    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-        <xsd:element name="root" msdata:IsDataSet="true">
-            
-        </xsd:element>
-    </xsd:schema>
     <resheader name="resmimetype">
         <value>text/microsoft-resx</value>
     </resheader>
@@ -24,8 +17,8 @@
     <data name="FortuneTipPositiveContent_1" xml:space="preserve">
         <value>次次出金</value>
     </data>
-    <data name="FortuneTipNegativeTitle_1 " xml:space="preserve">
-        <value>抽卡</value>
+    <data name="FortuneTipNegativeContent_1" xml:space="preserve">
+        <value>吃大保底</value>
     </data>
     <data name="FortuneTipPositiveTitle_2" xml:space="preserve">
         <value>游戏</value>
@@ -59,6 +52,9 @@
     </data>
     <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
         <value>演讲</value>
+    </data>
+    <data name="FortuneTipNegativeContent_4" xml:space="preserve">
+        <value>谨言慎行</value>
     </data>
     <data name="FortuneTipPositiveTitle_5" xml:space="preserve">
         <value>绘图</value>
@@ -95,5 +91,8 @@
     </data>
     <data name="FortuneTipNegativeContent_7" xml:space="preserve">
         <value>225% 关税</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
+        <value>抽卡</value>
     </data>
 </root>

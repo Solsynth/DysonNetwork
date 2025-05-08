@@ -1,18 +1,24 @@
 using System.Globalization;
+using System.Reflection;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class AccountService(AppDatabase db, PermissionService pm, IMemoryCache cache, IStringLocalizerFactory localizerFactory)
+public class AccountService(
+    AppDatabase db,
+    IMemoryCache cache,
+    IStringLocalizerFactory factory
+)
 {
     public async Task PurgeAccountCache(Account account)
     {
         cache.Remove($"dyn_user_friends_{account.Id}");
-        
+
         var sessions = await db.AuthSessions.Where(e => e.Account.Id == account.Id).Select(e => e.Id)
             .ToListAsync();
         foreach (var session in sessions)
@@ -34,9 +40,32 @@ public class AccountService(AppDatabase db, PermissionService pm, IMemoryCache c
 
         return null;
     }
-    
-    public IStringLocalizer GetEventLocalizer(string language)
+
+    public static IStringLocalizer GetEventLocalizer(string language)
     {
-        return localizerFactory.Create(language, nameof(AccountEventResource));
+        var culture = new CultureInfo(language, false);
+
+        var originalCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            // Set the desired culture
+            CultureInfo.CurrentUICulture = culture;
+            CultureInfo.CurrentCulture = culture;
+
+            // Now create the localizer
+            var localizer = new ResourceManagerStringLocalizerFactory(
+                new Microsoft.Extensions.Options.OptionsWrapper<LocalizationOptions>(new LocalizationOptions
+                    { ResourcesPath = "Resources" }),
+                NullLoggerFactory.Instance
+            ).Create(typeof(AccountEventResource));
+
+            return localizer;
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalCulture;
+        }
     }
 }

@@ -271,8 +271,8 @@ public class AccountController(
         
         var today = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
         var localTime = new TimeOnly(0, 0);
-        var startOfDay = today.ToDateOnly().ToDateTime(localTime).ToInstant();
-        var endOfDay = today.PlusDays(1).ToDateOnly().ToDateTime(localTime).ToInstant();
+        var startOfDay = today.ToDateOnly().ToDateTime(localTime).ToUniversalTime().ToInstant();
+        var endOfDay = today.PlusDays(1).ToDateOnly().ToDateTime(localTime).ToUniversalTime().ToInstant();
         
         var result = await db.AccountCheckInResults
             .Where(x => x.AccountId == userId)
@@ -294,12 +294,13 @@ public class AccountController(
             return BadRequest("Check-in is not available for today.");
     
         var needsCaptcha = events.CheckInDailyDoAskCaptcha(currentUser);
-        if (needsCaptcha && string.IsNullOrWhiteSpace(captchaToken))
-            return StatusCode(423, "Captcha is required for this check-in.");
-        if (!await auth.ValidateCaptcha(captchaToken!))
-            return BadRequest("Invalid captcha token.");
-
-        return await events.CheckInDaily(currentUser);
+        return needsCaptcha switch
+        {
+            true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,
+                "Captcha is required for this check-in."),
+            true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest("Invalid captcha token."),
+            _ => await events.CheckInDaily(currentUser)
+        };
     }
 
     [HttpGet("search")]

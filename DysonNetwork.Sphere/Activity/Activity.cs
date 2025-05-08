@@ -16,8 +16,8 @@ public class Activity : ModelBase
     [MaxLength(1024)] public string Type { get; set; } = null!;
     [MaxLength(4096)] public string ResourceIdentifier { get; set; } = null!;
     public ActivityVisibility Visibility { get; set; } = ActivityVisibility.Public;
-    [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta = new();
-    [Column(TypeName = "jsonb")] public ICollection<long> UsersVisible = new List<long>();
+    [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
+    [Column(TypeName = "jsonb")] public ICollection<long> UsersVisible { get; set; } = new List<long>();
 
     public long AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;

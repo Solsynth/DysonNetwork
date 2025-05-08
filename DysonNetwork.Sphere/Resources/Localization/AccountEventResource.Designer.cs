@@ -14,21 +14,21 @@ namespace DysonNetwork.Sphere.Resources {
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class AccountEventResource_zh_CN {
+    internal class AccountEventResource {
         
         private static System.Resources.ResourceManager resourceMan;
         
         private static System.Globalization.CultureInfo resourceCulture;
         
         [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal AccountEventResource_zh_CN() {
+        internal AccountEventResource() {
         }
         
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Advanced)]
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.AccountEventResource_zh_CN", typeof(AccountEventResource_zh_CN).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.AccountEventResource", typeof(AccountEventResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -57,9 +57,15 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
-        internal static string FortuneTipNegativeTitle_1_ {
+        internal static string FortuneTipNegativeTitle_1 {
             get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_1 ", resourceCulture);
+                return ResourceManager.GetString("FortuneTipNegativeTitle_1", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_1 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_1", resourceCulture);
             }
         }
         
@@ -126,6 +132,12 @@ namespace DysonNetwork.Sphere.Resources {
         internal static string FortuneTipNegativeTitle_4 {
             get {
                 return ResourceManager.GetString("FortuneTipNegativeTitle_4", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_4 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_4", resourceCulture);
             }
         }
         
@@ -198,6 +210,12 @@ namespace DysonNetwork.Sphere.Resources {
         internal static string FortuneTipNegativeContent_7 {
             get {
                 return ResourceManager.GetString("FortuneTipNegativeContent_7", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_1_ {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_1 ", resourceCulture);
             }
         }
     }
