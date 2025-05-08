@@ -257,7 +257,7 @@ public class AccountController(
             .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
         if (status is null) return NotFound();
-        
+
         await events.ClearStatus(currentUser, status);
         return NoContent();
     }
@@ -268,31 +268,31 @@ public class AccountController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
-        
+
         var today = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
         var localTime = new TimeOnly(0, 0);
         var startOfDay = today.ToDateOnly().ToDateTime(localTime).ToUniversalTime().ToInstant();
         var endOfDay = today.PlusDays(1).ToDateOnly().ToDateTime(localTime).ToUniversalTime().ToInstant();
-        
+
         var result = await db.AccountCheckInResults
             .Where(x => x.AccountId == userId)
             .Where(x => x.CreatedAt >= startOfDay && x.CreatedAt < endOfDay)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
-    
+
         return result is null ? NotFound() : Ok(result);
     }
-    
+
     [HttpPost("me/check-in")]
     [Authorize]
     public async Task<ActionResult<CheckInResult>> DoCheckIn([FromBody] string? captchaToken)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        
+
         var isAvailable = await events.CheckInDailyIsAvailable(currentUser);
         if (!isAvailable)
             return BadRequest("Check-in is not available for today.");
-    
+
         var needsCaptcha = events.CheckInDailyDoAskCaptcha(currentUser);
         return needsCaptcha switch
         {
@@ -301,6 +301,23 @@ public class AccountController(
             true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest("Invalid captcha token."),
             _ => await events.CheckInDaily(currentUser)
         };
+    }
+
+    [HttpGet("me/calendar")]
+    [Authorize]
+    public async Task<ActionResult<List<DailyEventResponse>>> GetEventCalendar([FromQuery] int? month, [FromQuery] int? year)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        month ??= currentDate.Month;
+        year ??= currentDate.Year;
+
+        if (month is < 1 or > 12) return BadRequest("Invalid month.");
+        if (year < 1) return BadRequest("Invalid year.");
+
+        var calendar = await events.GetEventCalendar(currentUser, month.Value, year.Value);
+        return Ok(calendar);
     }
 
     [HttpGet("search")]

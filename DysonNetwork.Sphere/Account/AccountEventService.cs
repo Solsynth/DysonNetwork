@@ -167,4 +167,45 @@ public class AccountEventService(
 
         return result;
     }
+
+public async Task<List<DailyEventResponse>> GetEventCalendar(Account user, int month, int year = 0)
+{
+    if (year == 0)
+        year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
+
+    // Create start and end dates for the specified month
+    var startOfMonth = new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+    var endOfMonth = startOfMonth.Plus(Duration.FromDays(DateTime.DaysInMonth(year, month)));
+
+    var statuses = await db.AccountStatuses
+        .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+        .OrderBy(x => x.CreatedAt)
+        .ToListAsync();
+        
+    var checkIn = await db.AccountCheckInResults
+        .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+        .ToListAsync();
+
+    var dates = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
+        .Select(day => new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant())
+        .ToList();
+
+    var statusesByDate = statuses
+        .GroupBy(s => s.CreatedAt.InUtc().Date)
+        .ToDictionary(g => g.Key, g => g.ToList());
+
+    var checkInByDate = checkIn
+        .ToDictionary(c => c.CreatedAt.InUtc().Date);
+
+    return dates.Select(date =>
+    {
+        var utcDate = date.InUtc().Date;
+        return new DailyEventResponse
+        {
+            Date = date,
+            CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
+            Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<Status>())
+        };
+    }).ToList();
+}
 }

@@ -50,3 +50,13 @@ public class FortuneTip
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;
 }
+
+/// <summary>
+/// This method should not be mapped. Used to generate the daily event calendar.
+/// </summary>
+public class DailyEventResponse
+{
+    public Instant Date { get; set; }
+    public CheckInResult? CheckInResult { get; set; }
+    public ICollection<Status> Statuses { get; set; } = new List<Status>();
+}
