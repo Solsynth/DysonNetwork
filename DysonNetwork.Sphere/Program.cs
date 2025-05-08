@@ -64,12 +64,8 @@ builder.Services.Configure<RequestLocalizationOptions>(options => {
         new CultureInfo("zh-hans"),
     };
 
-    options.DefaultRequestCulture = new RequestCulture("en-us");
     options.SupportedCultures = supportedCultures;
     options.SupportedUICultures = supportedCultures;
-    
-    // TODO parse user token
-    options.AddInitialRequestCultureProvider(new CustomRequestCultureProvider(async context => await Task.FromResult(new ProviderCultureResult("zh-hans"))));
 });
 
 // Other pipelines

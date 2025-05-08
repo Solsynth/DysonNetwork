@@ -1,3 +1,4 @@
+using System.Globalization;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Resources;
@@ -11,10 +12,10 @@ namespace DysonNetwork.Sphere.Account;
 
 public class AccountEventService(
     AppDatabase db,
-    AccountService acc,
     ActivityService act,
     WebSocketService ws,
-    IMemoryCache cache
+    IMemoryCache cache,
+    IStringLocalizer<Localization.AccountEventResource> localizer
 )
 {
     private static readonly Random Random = new();
@@ -120,8 +121,10 @@ public class AccountEventService(
 
     public async Task<CheckInResult> CheckInDaily(Account user)
     {
-        var localizer = AccountService.GetEventLocalizer(user.Language);
-
+        var cultureInfo = new CultureInfo(user.Language, false);
+        CultureInfo.CurrentCulture = cultureInfo;
+        CultureInfo.CurrentUICulture = cultureInfo;       
+        
         // Generate 2 positive tips
         var positiveIndices = Enumerable.Range(1, FortuneTipCount)
             .OrderBy(_ => Random.Next())

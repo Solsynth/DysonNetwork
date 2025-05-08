@@ -40,32 +40,4 @@ public class AccountService(
 
         return null;
     }
-
-    public static IStringLocalizer GetEventLocalizer(string language)
-    {
-        var culture = new CultureInfo(language, false);
-
-        var originalCulture = CultureInfo.CurrentCulture;
-
-        try
-        {
-            // Set the desired culture
-            CultureInfo.CurrentUICulture = culture;
-            CultureInfo.CurrentCulture = culture;
-
-            // Now create the localizer
-            var localizer = new ResourceManagerStringLocalizerFactory(
-                new Microsoft.Extensions.Options.OptionsWrapper<LocalizationOptions>(new LocalizationOptions
-                    { ResourcesPath = "Resources" }),
-                NullLoggerFactory.Instance
-            ).Create(typeof(AccountEventResource));
-
-            return localizer;
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = originalCulture;
-            CultureInfo.CurrentUICulture = originalCulture;
-        }
-    }
 }

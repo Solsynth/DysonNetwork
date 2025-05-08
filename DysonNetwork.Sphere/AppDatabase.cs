@@ -69,7 +69,7 @@ public class AppDatabase(
 
         optionsBuilder.UseNpgsql(
             dataSource,
-            opt => opt.UseNodaTime()
+            opt => opt.UseNodaTime().UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
         ).UseSnakeCaseNamingConvention();
 
         optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
