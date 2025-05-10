@@ -1,11 +1,9 @@
 using System.Globalization;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Resources;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
-using NodaTime;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
@@ -21,11 +19,20 @@ public class AccountEventService(
     private static readonly Random Random = new();
     private const string StatusCacheKey = "account_status_";
 
+    public void PurgeStatusCache(long userId)
+    {
+        var cacheKey = $"{StatusCacheKey}{userId}";
+        cache.Remove(cacheKey);
+    }
+
     public async Task<Status> GetStatus(long userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         if (cache.TryGetValue(cacheKey, out Status? cachedStatus))
-            return cachedStatus!;
+        {
+            cachedStatus!.IsOnline = !cachedStatus.IsInvisible && ws.GetAccountIsConnected(userId);
+            return cachedStatus;
+        }
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var status = await db.AccountStatuses
@@ -33,19 +40,21 @@ public class AccountEventService(
             .Where(e => e.ClearedAt == null || e.ClearedAt > now)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
+        var isOnline = ws.GetAccountIsConnected(userId);
         if (status is not null)
         {
+            status.IsOnline = !status.IsInvisible && isOnline;
             cache.Set(cacheKey, status, TimeSpan.FromMinutes(5));
             return status;
         }
 
-        var isOnline = ws.GetAccountIsConnected(userId);
         if (isOnline)
         {
             return new Status
             {
                 Attitude = StatusAttitude.Neutral,
                 IsOnline = true,
+                IsCustomized = false,
                 Label = "Online",
                 AccountId = userId,
             };
@@ -55,6 +64,7 @@ public class AccountEventService(
         {
             Attitude = StatusAttitude.Neutral,
             IsOnline = false,
+            IsCustomized = false,
             Label = "Offline",
             AccountId = userId,
         };
@@ -85,6 +95,7 @@ public class AccountEventService(
         status.ClearedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(status);
         await db.SaveChangesAsync();
+        PurgeStatusCache(user.Id);
     }
 
     private const int FortuneTipCount = 7; // This will be the max index for each type (positive/negative)
@@ -123,8 +134,8 @@ public class AccountEventService(
     {
         var cultureInfo = new CultureInfo(user.Language, false);
         CultureInfo.CurrentCulture = cultureInfo;
-        CultureInfo.CurrentUICulture = cultureInfo;       
-        
+        CultureInfo.CurrentUICulture = cultureInfo;
+
         // Generate 2 positive tips
         var positiveIndices = Enumerable.Range(1, FortuneTipCount)
             .OrderBy(_ => Random.Next())
@@ -168,44 +179,60 @@ public class AccountEventService(
         return result;
     }
 
-public async Task<List<DailyEventResponse>> GetEventCalendar(Account user, int month, int year = 0)
-{
-    if (year == 0)
-        year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
-
-    // Create start and end dates for the specified month
-    var startOfMonth = new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-    var endOfMonth = startOfMonth.Plus(Duration.FromDays(DateTime.DaysInMonth(year, month)));
-
-    var statuses = await db.AccountStatuses
-        .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
-        .OrderBy(x => x.CreatedAt)
-        .ToListAsync();
-        
-    var checkIn = await db.AccountCheckInResults
-        .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
-        .ToListAsync();
-
-    var dates = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
-        .Select(day => new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant())
-        .ToList();
-
-    var statusesByDate = statuses
-        .GroupBy(s => s.CreatedAt.InUtc().Date)
-        .ToDictionary(g => g.Key, g => g.ToList());
-
-    var checkInByDate = checkIn
-        .ToDictionary(c => c.CreatedAt.InUtc().Date);
-
-    return dates.Select(date =>
+    public async Task<List<DailyEventResponse>> GetEventCalendar(Account user, int month, int year = 0,
+        bool replaceInvisible = false)
     {
-        var utcDate = date.InUtc().Date;
-        return new DailyEventResponse
+        if (year == 0)
+            year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
+
+        // Create start and end dates for the specified month
+        var startOfMonth = new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var endOfMonth = startOfMonth.Plus(Duration.FromDays(DateTime.DaysInMonth(year, month)));
+
+        var statuses = await db.AccountStatuses
+            .AsNoTracking()
+            .TagWith("GetEventCalendar_Statuses")
+            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+            .Select(x => new Status
+            {
+                Id = x.Id,
+                Attitude = x.Attitude,
+                IsInvisible = !replaceInvisible && x.IsInvisible,
+                IsNotDisturb = x.IsNotDisturb,
+                Label = x.Label,
+                ClearedAt = x.ClearedAt,
+                AccountId = x.AccountId,
+                CreatedAt = x.CreatedAt
+            })
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
+
+        var checkIn = await db.AccountCheckInResults
+            .AsNoTracking()
+            .TagWith("GetEventCalendar_CheckIn")
+            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+            .ToListAsync();
+
+        var dates = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
+            .Select(day => new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant())
+            .ToList();
+
+        var statusesByDate = statuses
+            .GroupBy(s => s.CreatedAt.InUtc().Date)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var checkInByDate = checkIn
+            .ToDictionary(c => c.CreatedAt.InUtc().Date);
+
+        return dates.Select(date =>
         {
-            Date = date,
-            CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
-            Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<Status>())
-        };
-    }).ToList();
-}
+            var utcDate = date.InUtc().Date;
+            return new DailyEventResponse
+            {
+                Date = date,
+                CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
+                Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<Status>())
+            };
+        }).ToList();
+    }
 }

@@ -90,7 +90,8 @@ public class AppDatabase(
                         PermissionService.NewPermissionNode("group:default", "global", "chat.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "chat.messages.create", true),
                         PermissionService.NewPermissionNode("group:default", "global", "chat.realtime.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "accounts.statuses.create", true)
+                        PermissionService.NewPermissionNode("group:default", "global", "accounts.statuses.create", true),
+                        PermissionService.NewPermissionNode("group:default", "global", "accounts.statuses.update", true)
                     }
                 });
                 await context.SaveChangesAsync(cancellationToken);

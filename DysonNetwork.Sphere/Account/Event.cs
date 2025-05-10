@@ -16,6 +16,7 @@ public class Status : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public StatusAttitude Attitude { get; set; }
     [NotMapped] public bool IsOnline { get; set; }
+    [NotMapped] public bool IsCustomized { get; set; } = true;
     public bool IsInvisible { get; set; }
     public bool IsNotDisturb { get; set; }
     [MaxLength(1024)] public string? Label { get; set; }

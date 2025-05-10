@@ -224,6 +224,44 @@ public class AccountController(
         return Ok(status);
     }
 
+    [HttpGet("{name}/statuses")]
+    public async Task<ActionResult<Status>> GetOtherStatus(string name)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
+        if (account is null) return BadRequest();
+        var status = await events.GetStatus(account.Id);
+        status.IsInvisible = false; // Keep the invisible field not available for other users
+        return Ok(status);
+    }
+
+    [HttpPatch("me/statuses")]
+    [Authorize]
+    [RequiredPermission("global", "accounts.statuses.update")]
+    public async Task<ActionResult<Status>> UpdateStatus([FromBody] StatusRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var status = await db.AccountStatuses
+            .Where(e => e.AccountId == currentUser.Id)
+            .Where(e => e.ClearedAt == null || e.ClearedAt > now)
+            .OrderByDescending(e => e.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (status is null) return NotFound();
+        
+        status.Attitude = request.Attitude;
+        status.IsInvisible = request.IsInvisible;
+        status.IsNotDisturb = request.IsNotDisturb;
+        status.Label = request.Label;
+        status.ClearedAt = request.ClearedAt;
+        
+        db.Update(status);
+        await db.SaveChangesAsync();
+        events.PurgeStatusCache(currentUser.Id);
+        
+        return status;
+    }
+
     [HttpPost("me/statuses")]
     [Authorize]
     [RequiredPermission("global", "accounts.statuses.create")]
@@ -305,7 +343,8 @@ public class AccountController(
 
     [HttpGet("me/calendar")]
     [Authorize]
-    public async Task<ActionResult<List<DailyEventResponse>>> GetEventCalendar([FromQuery] int? month, [FromQuery] int? year)
+    public async Task<ActionResult<List<DailyEventResponse>>> GetEventCalendar([FromQuery] int? month,
+        [FromQuery] int? year)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -317,6 +356,27 @@ public class AccountController(
         if (year < 1) return BadRequest("Invalid year.");
 
         var calendar = await events.GetEventCalendar(currentUser, month.Value, year.Value);
+        return Ok(calendar);
+    }
+
+    [HttpGet("{name}/calendar")]
+    public async Task<ActionResult<List<DailyEventResponse>>> GetOtherEventCalendar(
+        string name,
+        [FromQuery] int? month,
+        [FromQuery] int? year
+    )
+    {
+        var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        month ??= currentDate.Month;
+        year ??= currentDate.Year;
+
+        if (month is < 1 or > 12) return BadRequest("Invalid month.");
+        if (year < 1) return BadRequest("Invalid year.");
+
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
+        if (account is null) return BadRequest();
+
+        var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
     }
 
