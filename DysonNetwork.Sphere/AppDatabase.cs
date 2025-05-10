@@ -59,6 +59,9 @@ public class AppDatabase(
     public DbSet<Chat.RealtimeCall> ChatRealtimeCall { get; set; }
     public DbSet<Chat.MessageStatus> ChatStatuses { get; set; }
     public DbSet<Chat.MessageReaction> ChatReactions { get; set; }
+    
+    public DbSet<Sticker.Sticker> Stickers { get; set; }
+    public DbSet<Sticker.StickerPack> StickerPacks { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -81,18 +84,22 @@ public class AppDatabase(
                 context.Set<PermissionGroup>().Add(new PermissionGroup
                 {
                     Key = "default",
-                    Nodes =
+                    Nodes = new List<string>
                     {
-                        PermissionService.NewPermissionNode("group:default", "global", "posts.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "posts.react", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "publishers.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "files.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "chat.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "chat.messages.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "chat.realtime.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "accounts.statuses.create", true),
-                        PermissionService.NewPermissionNode("group:default", "global", "accounts.statuses.update", true)
-                    }
+                        "posts.create",
+                        "posts.react", 
+                        "publishers.create",
+                        "files.create",
+                        "chat.create",
+                        "chat.messages.create",
+                        "chat.realtime.create",
+                        "accounts.statuses.create",
+                        "accounts.statuses.update",
+                        "stickers.pack.create",
+                        "stickers.create"
+                    }.Select(permission => 
+                        PermissionService.NewPermissionNode("group:default", "global", permission, true))
+                        .ToList()
                 });
                 await context.SaveChangesAsync(cancellationToken);
             }

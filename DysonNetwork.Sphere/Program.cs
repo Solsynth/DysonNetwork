@@ -15,6 +15,7 @@ using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Realm;
+using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
@@ -162,6 +163,7 @@ builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<RealmService>();
 builder.Services.AddScoped<ChatRoomService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<StickerService>();
 
 // Timed task
 
