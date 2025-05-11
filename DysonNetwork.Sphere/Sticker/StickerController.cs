@@ -165,16 +165,19 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [HttpGet("lookup/{identifier}")]
     public async Task<ActionResult<Sticker>> GetStickerByIdentifier(string identifier)
     {
-        IQueryable<Sticker> query = db.Stickers
-            .Include(e => e.Pack)
-            .Include(e => e.Image);
-        query = Guid.TryParse(identifier, out var guid)
-            ? query.Where(e => e.Id == guid)
-            : query.Where(e => e.Pack.Prefix + e.Slug == identifier);
-        var sticker = await query.FirstOrDefaultAsync();
-
+        var sticker = await st.LookupStickerByIdentifierAsync(identifier);
+    
         if (sticker is null) return NotFound();
         return Ok(sticker);
+    }
+    
+    [HttpGet("lookup/{identifier}/open")]
+    public async Task<ActionResult<Sticker>> OpenStickerByIdentifier(string identifier)
+    {
+        var sticker = await st.LookupStickerByIdentifierAsync(identifier);
+        
+        if (sticker is null) return NotFound();
+        return Redirect($"/files/{sticker.ImageId}");
     }
 
     [HttpGet("{packId:guid}/content/{id:guid}")]
