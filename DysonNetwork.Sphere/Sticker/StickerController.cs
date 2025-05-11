@@ -63,7 +63,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     }
 
     [HttpPost]
-    [RequiredPermission("global", "sticker.packs.create")]
+    [RequiredPermission("global", "stickers.packs.create")]
     public async Task<ActionResult<StickerPack>> CreateStickerPack([FromBody] StickerPackRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -104,16 +104,13 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         var pack = await db.StickerPacks
             .Include(p => p.Publisher)
             .FirstOrDefaultAsync(p => p.Id == id);
-        
         if (pack is null) 
             return NotFound();
 
         var member = await db.PublisherMembers
             .FirstOrDefaultAsync(m => m.AccountId == currentUser.Id && m.PublisherId == pack.PublisherId);
-        
         if (member is null) 
             return StatusCode(403, "You are not a member of this publisher");
-        
         if (member.Role < PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be at least an editor to update sticker packs");
 
@@ -151,26 +148,17 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         await st.DeleteStickerPackAsync(pack);
         return NoContent();
     }
-    
 
-    [HttpGet("{packId:guid}/stickers")]
-    public async Task<ActionResult<List<Sticker>>> ListStickers(Guid packId, [FromQuery] int offset = 0,
-        [FromQuery] int take = 20)
+    [HttpGet("{packId:guid}/content")]
+    public async Task<ActionResult<List<Sticker>>> ListStickers(Guid packId)
     {
-        var totalCount = await db.Stickers
-            .Where(s => s.Pack.Id == packId)
-            .CountAsync();
-
         var stickers = await db.Stickers
             .Where(s => s.Pack.Id == packId)
             .Include(e => e.Pack)
             .Include(e => e.Image)
             .OrderByDescending(e => e.CreatedAt)
-            .Skip(offset)
-            .Take(take)
             .ToListAsync();
 
-        Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(stickers);
     }
     
@@ -189,7 +177,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         return Ok(sticker);
     }
 
-    [HttpGet("{packId:guid}/stickers/{id:guid}")]
+    [HttpGet("{packId:guid}/content/{id:guid}")]
     public async Task<ActionResult<Sticker>> GetSticker(Guid packId, Guid id)
     {
         var sticker = await db.Stickers
@@ -208,7 +196,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         public string? ImageId { get; set; }
     }
 
-    [HttpPatch("{packId:guid}/stickers/{id:guid}")]
+    [HttpPatch("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> UpdateSticker(Guid packId, Guid id, [FromBody] StickerRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) 
@@ -219,6 +207,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
             return permissionCheck;
 
         var sticker = await db.Stickers
+            .Include(s => s.Image)
             .Include(s => s.Pack)
             .ThenInclude(p => p.Publisher)
             .FirstOrDefaultAsync(e => e.Id == id && e.Pack.Id == packId);
@@ -242,7 +231,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         return Ok(sticker);
     }
 
-    [HttpDelete("{packId:guid}/stickers/{id:guid}")]
+    [HttpDelete("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> DeleteSticker(Guid packId, Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) 
@@ -253,6 +242,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
             return permissionCheck;
 
         var sticker = await db.Stickers
+            .Include(s => s.Image)
             .Include(s => s.Pack)
             .ThenInclude(p => p.Publisher)
             .FirstOrDefaultAsync(e => e.Id == id && e.Pack.Id == packId);
@@ -264,7 +254,9 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         return NoContent();
     }
 
-    [HttpPost("{packId:guid}/stickers")]
+    public const int MaxStickersPerPack = 24;
+
+    [HttpPost("{packId:guid}/content")]
     [RequiredPermission("global", "stickers.create")]
     public async Task<IActionResult> CreateSticker(Guid packId, [FromBody] StickerRequest request)
     {
@@ -283,9 +275,12 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         var pack = await db.StickerPacks
             .Include(p => p.Publisher)
             .FirstOrDefaultAsync(e => e.Id == packId);
-        
         if (pack is null) 
             return BadRequest("Sticker pack was not found.");
+        
+        var stickersCount = await db.Stickers.CountAsync(s => s.PackId == packId);
+        if (stickersCount >= MaxStickersPerPack)
+            return BadRequest($"Sticker pack has reached maximum capacity of {MaxStickersPerPack} stickers.");
 
         var image = await db.Files.FirstOrDefaultAsync(e => e.Id == request.ImageId);
         if (image is null) 

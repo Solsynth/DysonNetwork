@@ -17,13 +17,13 @@ public class AccountService(
 {
     public async Task PurgeAccountCache(Account account)
     {
-        cache.Remove($"dyn_user_friends_{account.Id}");
+        cache.Remove($"UserFriends_{account.Id}");
 
         var sessions = await db.AuthSessions.Where(e => e.Account.Id == account.Id).Select(e => e.Id)
             .ToListAsync();
         foreach (var session in sessions)
         {
-            cache.Remove($"dyn_auth_{session}");
+            cache.Remove($"Auth_{session}");
         }
     }
 

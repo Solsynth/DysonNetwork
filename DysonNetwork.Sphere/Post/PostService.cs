@@ -174,7 +174,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
     /// <param name="post">Post that modifying</param>
     /// <param name="reaction">The new / target reaction adding / removing</param>
     /// <param name="isRemoving">Indicate this operation is adding / removing</param>
-    public async Task<bool> ModifyPostVotes(Post post, PostReaction reaction, bool isRemoving)
+    public async Task<bool> ModifyPostVotes(Post post, PostReaction reaction, bool isRemoving, bool isSelfReact)
     {
         var isExistingReaction = await db.Set<PostReaction>()
             .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId);
@@ -190,6 +190,12 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         {
             if (!isRemoving)
                 await db.SaveChangesAsync();
+            return isRemoving;
+        }
+
+        if (isSelfReact)
+        {
+            await db.SaveChangesAsync();
             return isRemoving;
         }
 

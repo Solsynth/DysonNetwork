@@ -51,8 +51,8 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
         await db.SaveChangesAsync();
         await ApplyRelationshipPermissions(relationship);
         
-        cache.Remove($"dyn_user_friends_{relationship.AccountId}");
-        cache.Remove($"dyn_user_friends_{relationship.RelatedId}");
+        cache.Remove($"UserFriends_{relationship.AccountId}");
+        cache.Remove($"UserFriends_{relationship.RelatedId}");
 
         return relationship;
     }
@@ -105,8 +105,8 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
             ApplyRelationshipPermissions(relationshipBackward)
         );
         
-        cache.Remove($"dyn_user_friends_{relationship.AccountId}");
-        cache.Remove($"dyn_user_friends_{relationship.RelatedId}");
+        cache.Remove($"UserFriends_{relationship.AccountId}");
+        cache.Remove($"UserFriends_{relationship.RelatedId}");
 
         return relationshipBackward;
     }
@@ -120,20 +120,20 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
         db.Update(relationship);
         await db.SaveChangesAsync();
         await ApplyRelationshipPermissions(relationship);
-        cache.Remove($"dyn_user_friends_{related.Id}");
+        cache.Remove($"UserFriends_{related.Id}");
         return relationship;
     }
 
     public async Task<List<long>> ListAccountFriends(Account account)
     {
-        if (!cache.TryGetValue($"dyn_user_friends_{account.Id}", out List<long>? friends))
+        if (!cache.TryGetValue($"UserFriends_{account.Id}", out List<long>? friends))
         {
             friends = await db.AccountRelationships
                 .Where(r => r.RelatedId == account.Id)
                 .Where(r => r.Status == RelationshipStatus.Friends)
                 .Select(r => r.AccountId)
                 .ToListAsync();
-            cache.Set($"dyn_user_friends_{account.Id}", friends, TimeSpan.FromHours(1));
+            cache.Set($"UserFriends_{account.Id}", friends, TimeSpan.FromHours(1));
         }
 
         return friends ?? [];

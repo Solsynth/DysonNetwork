@@ -26,6 +26,14 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         return Ok(publisher);
     }
 
+    [HttpGet("{name}/stats")]
+    public async Task<ActionResult<PublisherService.PublisherStats>> GetPublisherStats(string name)
+    {
+        var stats = await ps.GetPublisherStats(name);
+        if (stats is null) return NotFound();
+        return Ok(stats);
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()

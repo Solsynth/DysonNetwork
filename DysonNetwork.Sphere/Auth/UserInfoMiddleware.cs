@@ -10,7 +10,7 @@ public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
         var sessionIdClaim = context.User.FindFirst("session_id")?.Value;
         if (sessionIdClaim is not null && Guid.TryParse(sessionIdClaim, out var sessionId))
         {
-            if (!cache.TryGetValue($"dyn_auth_{sessionId}", out Session? session))
+            if (!cache.TryGetValue($"Auth_{sessionId}", out Session? session))
             {
                 session = await db.AuthSessions
                     .Include(e => e.Challenge)
@@ -21,7 +21,7 @@ public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
 
                 if (session is not null)
                 {
-                    cache.Set($"dyn_auth_{sessionId}", session, TimeSpan.FromHours(1));
+                    cache.Set($"Auth_{sessionId}", session, TimeSpan.FromHours(1));
                 }
             }
 

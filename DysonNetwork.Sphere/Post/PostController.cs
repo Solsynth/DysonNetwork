@@ -230,6 +230,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
+        var isSelfReact = post.Publisher.AccountId is not null && post.Publisher.AccountId == currentUser.Id;
+
         var isExistingReaction = await db.PostReactions
             .AnyAsync(r => r.PostId == post.Id &&
                            r.Symbol == request.Symbol &&
@@ -241,7 +243,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             PostId = post.Id,
             AccountId = currentUser.Id
         };
-        var isRemoving = await ps.ModifyPostVotes(post, reaction, isExistingReaction);
+        var isRemoving = await ps.ModifyPostVotes(post, reaction, isExistingReaction, isSelfReact);
 
         if (isRemoving) return NoContent();
         return Ok(reaction);
