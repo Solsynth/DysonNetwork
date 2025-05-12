@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -168,11 +169,11 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         public string? PictureId { get; set; }
         public string? BackgroundId { get; set; }
     }
-
+    
     [HttpPost("individual")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Publisher>> CreatePublisherIndividual(PublisherRequest request)
+    public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -212,6 +213,55 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
         return Ok(publisher);
     }
+    
+    [HttpPost("organization/{realmSlug}")]
+    [Authorize]
+    [RequiredPermission("global", "publishers.create")]
+    public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug, [FromBody] PublisherRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+    
+        var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmSlug);
+        if (realm == null) return NotFound("Realm not found");
+    
+        var isAdmin = await db.RealmMembers
+            .AnyAsync(m => m.RealmId == realm.Id && m.AccountId == currentUser.Id && m.Role >= RealmMemberRole.Moderator);
+        if (!isAdmin) return StatusCode(403, "You need to be a moderator of the realm to create an organization publisher");
+    
+        var takenName = request.Name ?? realm.Slug;
+        var duplicateNameCount = await db.Publishers
+            .Where(p => p.Name == takenName)
+            .CountAsync();
+        if (duplicateNameCount > 0)
+            return BadRequest("The name you requested has already been taken");
+    
+        CloudFile? picture = null, background = null;
+        if (request.PictureId is not null)
+        {
+            picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
+            if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+        }
+    
+        if (request.BackgroundId is not null)
+        {
+            background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
+            if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+        }
+    
+        var publisher = await ps.CreateOrganizationPublisher(
+            realm,
+            currentUser,
+            request.Name,
+            request.Nick,
+            request.Bio,
+            picture,
+            background
+        );
+    
+        return Ok(publisher);
+    }
+    
+    
 
     [HttpPatch("{name}")]
     [Authorize]

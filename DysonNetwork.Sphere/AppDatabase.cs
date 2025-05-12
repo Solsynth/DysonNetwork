@@ -44,6 +44,7 @@ public class AppDatabase(
 
     public DbSet<Post.Publisher> Publishers { get; set; }
     public DbSet<Post.PublisherMember> PublisherMembers { get; set; }
+    public DbSet<Post.PublisherSubscription> PublisherSubscriptions { get; set; }
     public DbSet<Post.Post> Posts { get; set; }
     public DbSet<Post.PostReaction> PostReactions { get; set; }
     public DbSet<Post.PostTag> PostTags { get; set; }
@@ -147,6 +148,16 @@ public class AppDatabase(
             .HasOne(pm => pm.Account)
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Post.PublisherSubscription>()
+            .HasOne(ps => ps.Publisher)
+            .WithMany(p => p.Subscriptions)
+            .HasForeignKey(ps => ps.PublisherId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Post.PublisherSubscription>()
+            .HasOne(ps => ps.Account)
+            .WithMany()
+            .HasForeignKey(ps => ps.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Post.Post>()

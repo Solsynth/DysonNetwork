@@ -11,7 +11,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/posts")]
-public class PostController(AppDatabase db, PostService ps, RelationshipService rels) : ControllerBase
+public class PostController(AppDatabase db, PostService ps, RelationshipService rels, IServiceScopeFactory factory) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20)
@@ -204,6 +204,13 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         {
             return BadRequest(err.Message);
         }
+
+        _ = Task.Run(async () =>
+        {
+            using var scope = factory.CreateScope();
+            var subs = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+            await subs.NotifySubscribersPostAsync(post);
+        });
 
         return post;
     }

@@ -157,6 +157,7 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PublisherService>();
+builder.Services.AddScoped<PublisherSubscriptionService>();
 builder.Services.AddScoped<ActivityService>();
 builder.Services.AddScoped<ActivityReaderService>();
 builder.Services.AddScoped<PostService>();

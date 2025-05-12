@@ -45,7 +45,44 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
         return publisher;
     }
 
-    // TODO Able to create organizational publisher when the realm system is completed
+    public async Task<Publisher> CreateOrganizationPublisher(
+        Realm.Realm realm,
+        Account.Account account,
+        string? name,
+        string? nick,
+        string? bio,
+        CloudFile? picture,
+        CloudFile? background
+    )
+    {
+        var publisher = new Publisher
+        {
+            PublisherType = PublisherType.Organizational,
+            Name = name ?? realm.Slug,
+            Nick = nick ?? realm.Name,
+            Bio = bio ?? realm.Description,
+            Picture = picture ?? realm.Picture,
+            Background = background ?? realm.Background,
+            RealmId = realm.Id,
+            Members = new List<PublisherMember>
+            {
+                new()
+                {
+                    AccountId = account.Id,
+                    Role = PublisherMemberRole.Owner,
+                    JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
+                }
+            }
+        };
+
+        db.Publishers.Add(publisher);
+        await db.SaveChangesAsync();
+
+        if (publisher.Picture is not null) await fs.MarkUsageAsync(publisher.Picture, 1);
+        if (publisher.Background is not null) await fs.MarkUsageAsync(publisher.Background, 1);
+
+        return publisher;
+    }
 
     public class PublisherStats
     {
@@ -54,19 +91,20 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
         public int StickersCreated { get; set; }
         public int UpvoteReceived { get; set; }
         public int DownvoteReceived { get; set; }
+        public int SubscribersCount { get; set; }
     }
 
     private const string PublisherStatsCacheKey = "PublisherStats_{0}";
-    
+
     public async Task<PublisherStats?> GetPublisherStats(string name)
     {
         var cacheKey = string.Format(PublisherStatsCacheKey, name);
         if (cache.TryGetValue(cacheKey, out PublisherStats? stats))
             return stats;
-    
+
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
         if (publisher is null) return null;
-        
+
         var postsCount = await db.Posts.Where(e => e.Publisher.Id == publisher.Id).CountAsync();
         var postsUpvotes = await db.PostReactions
             .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == PostReactionAttitude.Positive)
@@ -74,21 +112,25 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
         var postsDownvotes = await db.PostReactions
             .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == PostReactionAttitude.Negative)
             .CountAsync();
-        
-        var stickerPacksId = await db.StickerPacks.Where(e => e.Publisher.Id == publisher.Id).Select(e => e.Id).ToListAsync();
+
+        var stickerPacksId = await db.StickerPacks.Where(e => e.Publisher.Id == publisher.Id).Select(e => e.Id)
+            .ToListAsync();
         var stickerPacksCount = stickerPacksId.Count;
-    
+
         var stickersCount = await db.Stickers.Where(e => stickerPacksId.Contains(e.PackId)).CountAsync();
-        
+
+        var subscribersCount = await db.PublisherSubscriptions.Where(e => e.PublisherId == publisher.Id).CountAsync();
+
         stats = new PublisherStats
         {
             PostsCreated = postsCount,
             StickerPacksCreated = stickerPacksCount,
             StickersCreated = stickersCount,
             UpvoteReceived = postsUpvotes,
-            DownvoteReceived = postsDownvotes
+            DownvoteReceived = postsDownvotes,
+            SubscribersCount = subscribersCount,
         };
-    
+
         cache.Set(cacheKey, stats, TimeSpan.FromMinutes(5));
         return stats;
     }

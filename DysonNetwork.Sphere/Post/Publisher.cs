@@ -30,9 +30,14 @@ public class Publisher : ModelBase
     [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
     [JsonIgnore] public ICollection<PublisherMember> Members { get; set; } = new List<PublisherMember>();
-    
+
+    [JsonIgnore]
+    public ICollection<PublisherSubscription> Subscriptions { get; set; } = new List<PublisherSubscription>();
+
     public long? AccountId { get; set; }
     [JsonIgnore] public Account.Account? Account { get; set; }
+    public long? RealmId { get; set; }
+    [JsonIgnore] public Realm.Realm? Realm { get; set; }
 }
 
 public enum PublisherMemberRole
@@ -52,4 +57,24 @@ public class PublisherMember : ModelBase
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
+}
+
+public enum SubscriptionStatus
+{
+    Active,
+    Expired,
+    Cancelled
+}
+
+public class PublisherSubscription : ModelBase
+{
+    public Guid Id { get; set; }
+
+    public long PublisherId { get; set; }
+    [JsonIgnore] public Publisher Publisher { get; set; } = null!;
+    public long AccountId { get; set; }
+    [JsonIgnore] public Account.Account Account { get; set; } = null!;
+
+    public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
+    public int Tier { get; set; } = 0;
 }

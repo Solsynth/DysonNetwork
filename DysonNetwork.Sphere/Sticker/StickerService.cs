@@ -71,21 +71,21 @@ public class StickerService(AppDatabase db, FileService fs, IMemoryCache cache)
     
     public async Task<Sticker?> LookupStickerByIdentifierAsync(string identifier)
     {
-        // Try to get from cache first
-        string cacheKey = $"StickerLookup_{identifier}";
+        identifier = identifier.ToLower();
+        // Try to get from the cache first
+        var cacheKey = $"StickerLookup_{identifier}";
         if (cache.TryGetValue(cacheKey, out Sticker? cachedSticker))
         {
             return cachedSticker;
         }
         
-        // If not in cache, fetch from database
+        // If not in cache, fetch from the database
         IQueryable<Sticker> query = db.Stickers
             .Include(e => e.Pack)
             .Include(e => e.Image);
-            
         query = Guid.TryParse(identifier, out var guid)
             ? query.Where(e => e.Id == guid)
-            : query.Where(e => e.Pack.Prefix + e.Slug == identifier);
+            : query.Where(e => (e.Pack.Prefix + e.Slug).ToLower() == identifier);
             
         var sticker = await query.FirstOrDefaultAsync();
         

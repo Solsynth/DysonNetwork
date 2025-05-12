@@ -6,6 +6,7 @@ using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250512132355_AddPublisherSubscription")]
+    partial class AddPublisherSubscription
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1575,10 +1578,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("publisher_type");
 
-                    b.Property<long?>("RealmId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("realm_id");
-
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1598,9 +1597,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("PictureId")
                         .HasDatabaseName("ix_publishers_picture_id");
-
-                    b.HasIndex("RealmId")
-                        .HasDatabaseName("ix_publishers_realm_id");
 
                     b.ToTable("publishers", (string)null);
                 });
@@ -2496,18 +2492,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasForeignKey("PictureId")
                         .HasConstraintName("fk_publishers_files_picture_id");
 
-                    b.HasOne("DysonNetwork.Sphere.Realm.Realm", "Realm")
-                        .WithMany()
-                        .HasForeignKey("RealmId")
-                        .HasConstraintName("fk_publishers_realms_realm_id");
-
                     b.Navigation("Account");
 
                     b.Navigation("Background");
 
                     b.Navigation("Picture");
-
-                    b.Navigation("Realm");
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PublisherMember", b =>
