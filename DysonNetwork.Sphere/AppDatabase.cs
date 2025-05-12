@@ -34,6 +34,7 @@ public class AppDatabase(
     public DbSet<Account.CheckInResult> AccountCheckInResults { get; set; }
     public DbSet<Account.Notification> Notifications { get; set; }
     public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
+    public DbSet<Account.Badge> Badges { get; set; }
 
     public DbSet<Auth.Session> AuthSessions { get; set; }
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }

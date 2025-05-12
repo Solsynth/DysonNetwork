@@ -27,9 +27,8 @@ public class AccountController(
     public async Task<ActionResult<Account?>> GetByName(string name)
     {
         var account = await db.Accounts
+            .Include(e => e.Badges)
             .Include(e => e.Profile)
-            .Include(e => e.Profile.Picture)
-            .Include(e => e.Profile.Background)
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
         return account is null ? new NotFoundResult() : account;
@@ -116,9 +115,8 @@ public class AccountController(
         var userId = currentUser.Id;
 
         var account = await db.Accounts
+            .Include(e => e.Badges)
             .Include(e => e.Profile)
-            .Include(e => e.Profile.Picture)
-            .Include(e => e.Profile.Background)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
 
