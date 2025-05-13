@@ -11,19 +11,28 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/posts")]
-public class PostController(AppDatabase db, PostService ps, RelationshipService rels, IServiceScopeFactory factory) : ControllerBase
+public class PostController(AppDatabase db, PostService ps, RelationshipService rels, IServiceScopeFactory factory)
+    : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20)
+    public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20,
+        [FromQuery(Name = "pub")] string? pubName = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
-
-        var totalCount = await db.Posts
+        
+        var publisher = pubName == null ? null : 
+            await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+        
+        var query = db.Posts.AsQueryable();
+        if (publisher != null)
+            query = query.Where(p => p.Publisher.Id == publisher.Id);
+        
+        var totalCount = await query
             .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
-        var posts = await db.Posts
+        var posts = await query
             .Include(e => e.Publisher)
             .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
