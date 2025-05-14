@@ -1,9 +1,10 @@
+using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Post;
+namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache)
 {
@@ -18,7 +19,7 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
     {
         var publisher = new Publisher
         {
-            PublisherType = PublisherType.Individual,
+            Type = PublisherType.Individual,
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
             Bio = bio ?? account.Profile.Bio,
@@ -57,7 +58,7 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
     {
         var publisher = new Publisher
         {
-            PublisherType = PublisherType.Organizational,
+            Type = PublisherType.Organizational,
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
@@ -95,6 +96,7 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
     }
 
     private const string PublisherStatsCacheKey = "PublisherStats_{0}";
+    private const string PublisherFeatureCacheKey = "PublisherFeature_{0}_{1}";
 
     public async Task<PublisherStats?> GetPublisherStats(string name)
     {
@@ -133,5 +135,57 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
 
         cache.Set(cacheKey, stats, TimeSpan.FromMinutes(5));
         return stats;
+    }
+
+    public async Task SetFeatureFlag(Guid publisherId, string flag)
+    {
+        var featureFlag = await db.PublisherFeatures
+            .FirstOrDefaultAsync(f => f.PublisherId == publisherId && f.Flag == flag);
+
+        if (featureFlag == null)
+        {
+            featureFlag = new PublisherFeature
+            {
+                PublisherId = publisherId,
+                Flag = flag,
+            };
+            db.PublisherFeatures.Add(featureFlag);
+        }
+        else
+        {
+            featureFlag.ExpiredAt = SystemClock.Instance.GetCurrentInstant();
+        }
+
+        await db.SaveChangesAsync();
+        cache.Remove(string.Format(PublisherFeatureCacheKey, publisherId, flag));
+    }
+
+    public async Task<bool> HasFeature(Guid publisherId, string flag)
+    {
+        var cacheKey = string.Format(PublisherFeatureCacheKey, publisherId, flag);
+
+        if (cache.TryGetValue(cacheKey, out bool isEnabled))
+            return isEnabled;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var featureFlag = await db.PublisherFeatures
+            .FirstOrDefaultAsync(f =>
+                f.PublisherId == publisherId && f.Flag == flag &&
+                (f.ExpiredAt == null || f.ExpiredAt > now)
+            );
+        if (featureFlag is not null) isEnabled = true;
+
+        cache.Set(cacheKey, isEnabled, TimeSpan.FromMinutes(5));
+        return isEnabled;
+    }
+    
+    public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId, PublisherMemberRole requiredRole)
+    {
+        var member = await db.Publishers
+            .Where(p => p.Id == publisherId)
+            .SelectMany(p => p.Members)
+            .FirstOrDefaultAsync(m => m.AccountId == accountId);
+    
+        return member != null && member.Role >= requiredRole;
     }
 }

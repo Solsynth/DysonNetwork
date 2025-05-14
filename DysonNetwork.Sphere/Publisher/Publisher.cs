@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Post;
+namespace DysonNetwork.Sphere.Publisher;
 
 public enum PublisherType
 {
@@ -17,7 +17,7 @@ public enum PublisherType
 public class Publisher : ModelBase
 {
     public Guid Id { get; set; }
-    public PublisherType PublisherType { get; set; }
+    public PublisherType Type { get; set; }
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Bio { get; set; }
@@ -27,7 +27,7 @@ public class Publisher : ModelBase
     public string? BackgroundId { get; set; }
     public CloudFile? Background { get; set; }
 
-    [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
+    [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
     [JsonIgnore] public ICollection<PublisherMember> Members { get; set; } = new List<PublisherMember>();
 
@@ -77,4 +77,14 @@ public class PublisherSubscription : ModelBase
 
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
     public int Tier { get; set; } = 0;
+}
+
+public class PublisherFeature : ModelBase
+{
+    public Guid Id { get; set; }
+    [MaxLength(1024)] public string Flag { get; set; } = null!;
+    public Instant? ExpiredAt { get; set; }
+        
+    public Guid PublisherId { get; set; }
+    public Publisher Publisher { get; set; } = null!;
 }

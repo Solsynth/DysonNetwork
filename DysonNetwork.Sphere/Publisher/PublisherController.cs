@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Post;
+namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/publishers")]
@@ -15,7 +16,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     : ControllerBase
 {
     [HttpGet("{name}")]
-    public async Task<ActionResult<Publisher>> GetPublisher(string name)
+    public async Task<ActionResult<Sphere.Publisher.Publisher>> GetPublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -37,7 +38,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()
+    public async Task<ActionResult<List<Sphere.Publisher.Publisher>>> ListManagedPublishers()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -121,7 +122,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpPost("invites/{name}/accept")]
     [Authorize]
-    public async Task<ActionResult<Publisher>> AcceptMemberInvite(string name)
+    public async Task<ActionResult<Sphere.Publisher.Publisher>> AcceptMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -173,7 +174,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     [HttpPost("individual")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
+    public async Task<ActionResult<Sphere.Publisher.Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -217,7 +218,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     [HttpPost("organization/{realmSlug}")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug, [FromBody] PublisherRequest request)
+    public async Task<ActionResult<Sphere.Publisher.Publisher>> CreatePublisherOrganization(string realmSlug, [FromBody] PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
     
@@ -265,7 +266,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpPatch("{name}")]
     [Authorize]
-    public async Task<ActionResult<Publisher>> UpdatePublisher(string name, PublisherRequest request)
+    public async Task<ActionResult<Sphere.Publisher.Publisher>> UpdatePublisher(string name, PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -316,7 +317,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpDelete("{name}")]
     [Authorize]
-    public async Task<ActionResult<Publisher>> DeletePublisher(string name)
+    public async Task<ActionResult<Sphere.Publisher.Publisher>> DeletePublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;

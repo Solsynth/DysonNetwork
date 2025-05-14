@@ -1,8 +1,7 @@
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
-namespace DysonNetwork.Sphere.Post;
+namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherSubscriptionService(AppDatabase db, NotificationService nty)
 {
@@ -38,7 +37,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// </summary>
     /// <param name="post">The new post</param>
     /// <returns>The number of subscribers notified</returns>
-    public async Task<int> NotifySubscribersPostAsync(Post post)
+    public async Task<int> NotifySubscribersPostAsync(Post.Post post)
     {
         var subscribers = await db.PublisherSubscriptions
             .Include(ps => ps.Account)

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,13 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/posts")]
-public class PostController(AppDatabase db, PostService ps, RelationshipService rels, IServiceScopeFactory factory)
+public class PostController(
+    AppDatabase db,
+    PostService ps,
+    PublisherService pub,
+    RelationshipService rels,
+    IServiceScopeFactory factory
+)
     : ControllerBase
 {
     [HttpGet]
@@ -21,14 +28,13 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
-        
-        var publisher = pubName == null ? null : 
-            await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
-        
+
+        var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+
         var query = db.Posts.AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.Publisher.Id == publisher.Id);
-        
+
         var totalCount = await query
             .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
@@ -150,12 +156,12 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
-        Publisher? publisher;
+        Publisher.Publisher? publisher;
         if (publisherName is null)
         {
             // Use the first personal publisher
             publisher = await db.Publishers.FirstOrDefaultAsync(e =>
-                e.AccountId == currentUser.Id && e.PublisherType == PublisherType.Individual);
+                e.AccountId == currentUser.Id && e.Type == PublisherType.Individual);
         }
         else
         {
@@ -281,10 +287,7 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
-        var member = await db.PublisherMembers
-            .FirstOrDefaultAsync(e => e.AccountId == currentUser.Id && e.PublisherId == post.Publisher.Id);
-        if (member is null) return StatusCode(403, "You even wasn't a member of the publisher you specified.");
-        if (member.Role < PublisherMemberRole.Editor)
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (request.Title is not null) post.Title = request.Title;
@@ -324,14 +327,10 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
-        var member = await db.PublisherMembers
-            .FirstOrDefaultAsync(e => e.AccountId == currentUser.Id && e.PublisherId == post.Publisher.Id);
-        if (member is null) return StatusCode(403, "You even wasn't a member of the publisher you specified.");
-        if (member.Role < PublisherMemberRole.Editor)
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to delete the publisher's post.");
 
         await ps.DeletePostAsync(post);
-
         return NoContent();
     }
 }

@@ -14,9 +14,11 @@ using DysonNetwork.Sphere.Connection.Handlers;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Wallet;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
@@ -165,6 +167,8 @@ builder.Services.AddScoped<RealmService>();
 builder.Services.AddScoped<ChatRoomService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<StickerService>();
+builder.Services.AddScoped<WalletService>();
+builder.Services.AddScoped<PaymentService>();
 
 // Timed task
 

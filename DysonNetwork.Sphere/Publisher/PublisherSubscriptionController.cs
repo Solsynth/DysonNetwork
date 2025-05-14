@@ -1,8 +1,9 @@
+using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.Post;
+namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/publishers")]

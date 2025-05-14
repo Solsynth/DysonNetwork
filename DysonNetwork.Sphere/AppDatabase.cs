@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
@@ -43,9 +44,11 @@ public class AppDatabase(
 
     public DbSet<Activity.Activity> Activities { get; set; }
 
-    public DbSet<Post.Publisher> Publishers { get; set; }
-    public DbSet<Post.PublisherMember> PublisherMembers { get; set; }
-    public DbSet<Post.PublisherSubscription> PublisherSubscriptions { get; set; }
+    public DbSet<Publisher.Publisher> Publishers { get; set; }
+    public DbSet<PublisherMember> PublisherMembers { get; set; }
+    public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; }
+    public DbSet<PublisherFeature> PublisherFeatures { get; set; }
+    
     public DbSet<Post.Post> Posts { get; set; }
     public DbSet<Post.PostReaction> PostReactions { get; set; }
     public DbSet<Post.PostTag> PostTags { get; set; }
@@ -64,7 +67,14 @@ public class AppDatabase(
     
     public DbSet<Sticker.Sticker> Stickers { get; set; }
     public DbSet<Sticker.StickerPack> StickerPacks { get; set; }
+    
+    public DbSet<Wallet.Wallet> Wallets { get; set; }
+    public DbSet<Wallet.WalletPocket> WalletPockets { get; set; }
+    public DbSet<Wallet.Order> PaymentOrders { get; set; }
+    public DbSet<Wallet.Transaction> PaymentTransactions { get; set; }
 
+    public DbSet<Developer.CustomApp> CustomApps { get; set; }
+    
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(configuration.GetConnectionString("App"));
@@ -138,24 +148,24 @@ public class AppDatabase(
             .WithMany(a => a.IncomingRelationships)
             .HasForeignKey(r => r.RelatedId);
 
-        modelBuilder.Entity<Post.PublisherMember>()
+        modelBuilder.Entity<PublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
-        modelBuilder.Entity<Post.PublisherMember>()
+        modelBuilder.Entity<PublisherMember>()
             .HasOne(pm => pm.Publisher)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Post.PublisherMember>()
+        modelBuilder.Entity<PublisherMember>()
             .HasOne(pm => pm.Account)
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Post.PublisherSubscription>()
+        modelBuilder.Entity<PublisherSubscription>()
             .HasOne(ps => ps.Publisher)
             .WithMany(p => p.Subscriptions)
             .HasForeignKey(ps => ps.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Post.PublisherSubscription>()
+        modelBuilder.Entity<PublisherSubscription>()
             .HasOne(ps => ps.Account)
             .WithMany()
             .HasForeignKey(ps => ps.AccountId)

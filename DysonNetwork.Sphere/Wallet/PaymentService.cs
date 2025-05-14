@@ -1,0 +1,184 @@
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
+
+namespace DysonNetwork.Sphere.Wallet;
+
+public class PaymentService(AppDatabase db, WalletService wat)
+{
+    public async Task<Order> CreateOrderAsync(Guid payeeWalletId, string currency, decimal amount, Duration expiration)
+    {
+        var order = new Order
+        {
+            PayeeWalletId = payeeWalletId,
+            Currency = currency,
+            Amount = amount,
+            ExpiredAt = SystemClock.Instance.GetCurrentInstant().Plus(expiration)
+        };
+
+        db.PaymentOrders.Add(order);
+        await db.SaveChangesAsync();
+        return order;
+    }
+
+    public async Task<Transaction> CreateTransactionAsync(
+        Guid? payerWalletId,
+        Guid? payeeWalletId,
+        string currency,
+        decimal amount,
+        string? remarks = null,
+        TransactionType type = TransactionType.System
+    )
+    {
+        var transaction = new Transaction
+        {
+            PayerWalletId = payerWalletId,
+            PayeeWalletId = payeeWalletId,
+            Currency = currency,
+            Amount = amount,
+            Remarks = remarks,
+            Type = type
+        };
+
+        if (payerWalletId.HasValue)
+        {
+            var payerPocket = await wat.GetOrCreateWalletPocketAsync(
+                (await db.Wallets.FindAsync(payerWalletId.Value))!.AccountId,
+                currency);
+
+            if (payerPocket.Amount < amount)
+            {
+                throw new InvalidOperationException("Insufficient funds");
+            }
+
+            payerPocket.Amount -= amount;
+        }
+
+        if (payeeWalletId.HasValue)
+        {
+            var payeeWallet = await db.Wallets.FindAsync(payeeWalletId.Value);
+            var payeePocket = await wat.GetOrCreateWalletPocketAsync(
+                payeeWallet!.AccountId,
+                currency);
+
+            payeePocket.Amount += amount;
+        }
+
+        db.PaymentTransactions.Add(transaction);
+        await db.SaveChangesAsync();
+        return transaction;
+    }
+
+    public async Task<Order> PayOrderAsync(Guid orderId, Guid payerWalletId)
+    {
+        var order = await db.PaymentOrders
+            .Include(o => o.Transaction)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null)
+        {
+            throw new InvalidOperationException("Order not found");
+        }
+
+        if (order.Status != OrderStatus.Unpaid)
+        {
+            throw new InvalidOperationException($"Order is in invalid status: {order.Status}");
+        }
+
+        if (order.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
+        {
+            order.Status = OrderStatus.Expired;
+            await db.SaveChangesAsync();
+            throw new InvalidOperationException("Order has expired");
+        }
+
+        var transaction = await CreateTransactionAsync(
+            payerWalletId,
+            order.PayeeWalletId,
+            order.Currency,
+            order.Amount,
+            order.Remarks ?? $"Payment for Order #{order.Id}",
+            type: TransactionType.Order);
+
+        order.TransactionId = transaction.Id;
+        order.Transaction = transaction;
+        order.Status = OrderStatus.Paid;
+
+        await db.SaveChangesAsync();
+        return order;
+    }
+
+    public async Task<Order> CancelOrderAsync(Guid orderId)
+    {
+        var order = await db.PaymentOrders.FindAsync(orderId);
+        if (order == null)
+        {
+            throw new InvalidOperationException("Order not found");
+        }
+
+        if (order.Status != OrderStatus.Unpaid)
+        {
+            throw new InvalidOperationException($"Cannot cancel order in status: {order.Status}");
+        }
+
+        order.Status = OrderStatus.Cancelled;
+        await db.SaveChangesAsync();
+        return order;
+    }
+
+    public async Task<(Order Order, Transaction RefundTransaction)> RefundOrderAsync(Guid orderId)
+    {
+        var order = await db.PaymentOrders
+            .Include(o => o.Transaction)
+            .FirstOrDefaultAsync(o => o.Id == orderId);
+
+        if (order == null)
+        {
+            throw new InvalidOperationException("Order not found");
+        }
+
+        if (order.Status != OrderStatus.Paid)
+        {
+            throw new InvalidOperationException($"Cannot refund order in status: {order.Status}");
+        }
+
+        if (order.Transaction == null)
+        {
+            throw new InvalidOperationException("Order has no associated transaction");
+        }
+
+        var refundTransaction = await CreateTransactionAsync(
+            order.PayeeWalletId,
+            order.Transaction.PayerWalletId,
+            order.Currency,
+            order.Amount,
+            $"Refund for order {order.Id}");
+
+        order.Status = OrderStatus.Finished;
+        await db.SaveChangesAsync();
+
+        return (order, refundTransaction);
+    }
+    
+    public async Task<Transaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency, decimal amount)
+    {
+        var payerWallet = await wat.GetWalletAsync(payerAccountId);
+        if (payerWallet == null)
+        {
+            throw new InvalidOperationException($"Payer wallet not found for account {payerAccountId}");
+        }
+    
+        var payeeWallet = await wat.GetWalletAsync(payeeAccountId);
+        if (payeeWallet == null)
+        {
+            throw new InvalidOperationException($"Payee wallet not found for account {payeeAccountId}");
+        }
+    
+        return await CreateTransactionAsync(
+            payerWallet.Id,
+            payeeWallet.Id,
+            currency,
+            amount,
+            $"Transfer from account {payerAccountId} to {payeeAccountId}",
+            TransactionType.Transfer);
+    }
+}

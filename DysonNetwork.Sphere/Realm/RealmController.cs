@@ -78,15 +78,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
-        var member = await db.RealmMembers
-            .Where(m => m.AccountId == userId)
-            .Where(m => m.RealmId == realm.Id)
-            .FirstOrDefaultAsync();
-        if (member is null) return StatusCode(403, "You are not even a member of the targeted realm.");
-        if (member.Role < RealmMemberRole.Moderator)
-            return StatusCode(403,
-                "You need at least be a manager to invite other members to collaborate this realm.");
-        if (member.Role < request.Role)
+        if (!await rs.IsMemberWithRole(realm.Id, userId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
         var newMember = new RealmMember
@@ -145,8 +137,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         return NoContent();
     }
-    
-    
+
+
     [HttpGet("{slug}/members")]
     public async Task<ActionResult<List<RealmMember>>> ListMembers(
         string slug,
@@ -162,9 +154,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         if (!realm.IsPublic)
         {
             if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-            var isMember = await db.RealmMembers
-                .AnyAsync(m => m.AccountId == currentUser.Id && m.RealmId == realm.Id && m.JoinedAt != null);
-            if (!isMember) return StatusCode(403, "You must be a member to view this realm's members.");
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+                return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
         var query = db.RealmMembers
@@ -191,14 +182,14 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
-    
+
         var member = await db.RealmMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.Realm.Slug == slug)
             .Include(m => m.Account)
             .Include(m => m.Account.Profile)
             .FirstOrDefaultAsync();
-        
+
         if (member is null) return NotFound();
         return Ok(member);
     }

@@ -10,7 +10,7 @@ namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
 [Route("/chat")]
-public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService crs) : ControllerBase
+public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService crs, RealmService rs) : ControllerBase
 {
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ChatRoom>> GetChatRoom(Guid id)
@@ -21,7 +21,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
         if (chatRoom.Type != ChatRoomType.DirectMessage) return Ok(chatRoom);
-        
+
         // Preload members for direct messages
         var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
         var directMembers = await db.ChatMembers
@@ -168,13 +168,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
         if (request.RealmId is not null)
         {
-            var member = await db.RealmMembers
-                .Where(m => m.AccountId == currentUser.Id)
-                .Where(m => m.RealmId == request.RealmId)
-                .FirstOrDefaultAsync();
-            if (member is null || member.Role < RealmMemberRole.Moderator)
+            if (!await rs.IsMemberWithRole(request.RealmId.Value, currentUser.Id, RealmMemberRole.Moderator))
                 return StatusCode(403, "You need at least be a moderator to create chat linked to the realm.");
-            chatRoom.RealmId = member.RealmId;
+            chatRoom.RealmId = request.RealmId;
         }
 
         if (request.PictureId is not null)
@@ -216,22 +212,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
         if (chatRoom.RealmId is not null)
         {
-            var realmMember = await db.RealmMembers
-                .Where(m => m.AccountId == currentUser.Id)
-                .Where(m => m.RealmId == chatRoom.RealmId)
-                .FirstOrDefaultAsync();
-            if (realmMember is null || realmMember.Role < RealmMemberRole.Moderator)
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, currentUser.Id, RealmMemberRole.Moderator))
                 return StatusCode(403, "You need at least be a realm moderator to update the chat.");
         }
-        else
-        {
-            var chatMember = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id)
-                .Where(m => m.ChatRoomId == chatRoom.Id)
-                .FirstOrDefaultAsync();
-            if (chatMember is null || chatMember.Role < ChatMemberRole.Moderator)
-                return StatusCode(403, "You need at least be a moderator to update the chat.");
-        }
+        else if (!await crs.IsMemberWithRole(chatRoom.Id, currentUser.Id, ChatMemberRole.Moderator))
+            return StatusCode(403, "You need at least be a moderator to update the chat.");
 
         if (request.RealmId is not null)
         {
@@ -287,22 +272,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
         if (chatRoom.RealmId is not null)
         {
-            var realmMember = await db.RealmMembers
-                .Where(m => m.AccountId == currentUser.Id)
-                .Where(m => m.RealmId == chatRoom.RealmId)
-                .FirstOrDefaultAsync();
-            if (realmMember is null || realmMember.Role < RealmMemberRole.Moderator)
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, currentUser.Id, RealmMemberRole.Moderator))
                 return StatusCode(403, "You need at least be a realm moderator to delete the chat.");
         }
-        else
-        {
-            var chatMember = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id)
-                .Where(m => m.ChatRoomId == chatRoom.Id)
-                .FirstOrDefaultAsync();
-            if (chatMember is null || chatMember.Role < ChatMemberRole.Owner)
-                return StatusCode(403, "You need at least be the owner to delete the chat.");
-        }
+        else if (!await crs.IsMemberWithRole(chatRoom.Id, currentUser.Id, ChatMemberRole.Owner))
+            return StatusCode(403, "You need at least be the owner to delete the chat.");
 
         db.ChatRooms.Remove(chatRoom);
         await db.SaveChangesAsync();

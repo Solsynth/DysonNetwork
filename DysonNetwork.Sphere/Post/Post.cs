@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Storage;
 using NodaTime;
@@ -55,7 +54,7 @@ public class Post : ModelBase
 
     [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;
 
-    public Publisher Publisher { get; set; } = null!;
+    public Publisher.Publisher Publisher { get; set; } = null!;
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
     public ICollection<PostTag> Tags { get; set; } = new List<PostTag>();
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
@@ -88,7 +87,7 @@ public class PostCollection : ModelBase
     [MaxLength(256)] public string? Name { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
 
-    public Publisher Publisher { get; set; } = null!;
+    public Publisher.Publisher Publisher { get; set; } = null!;
 
     public ICollection<Post> Posts { get; set; } = new List<Post>();
 }

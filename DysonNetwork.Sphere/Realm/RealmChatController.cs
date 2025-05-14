@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Realm;
 
 [ApiController]
 [Route("/realm/{slug}")]
-public class RealmChatController(AppDatabase db) : ControllerBase
+public class RealmChatController(AppDatabase db, RealmService rs) : ControllerBase
 {
     [HttpGet("chat")]
     [Authorize]
@@ -22,17 +22,14 @@ public class RealmChatController(AppDatabase db) : ControllerBase
         if (!realm.IsPublic)
         {
             if (currentUser is null) return Unauthorized();
-            var member = await db.ChatMembers
-                .Where(m => m.ChatRoomId == realm.Id)
-                .Where(m => m.AccountId == currentUser.Id)
-                .FirstOrDefaultAsync();
-            if (member is null) return BadRequest("You need at least one member to view the realm's chat.");
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+                return StatusCode(403, "You need at least one member to view the realm's chat.");
         }
 
         var chatRooms = await db.ChatRooms
             .Where(c => c.RealmId == realm.Id)
             .ToListAsync();
-        
+
         return Ok(chatRooms);
     }
 }

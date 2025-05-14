@@ -6,6 +6,7 @@ using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250514142322_WalletAndPayment")]
+    partial class WalletAndPayment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1140,63 +1143,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("chat_realtime_call", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Developer.CustomApp", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("PublisherId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("publisher_id");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("slug");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("VerifiedAs")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("verified_as");
-
-                    b.Property<Instant?>("VerifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("verified_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_custom_apps");
-
-                    b.HasIndex("PublisherId")
-                        .HasDatabaseName("ix_custom_apps_publisher_id");
-
-                    b.ToTable("custom_apps", (string)null);
-                });
-
             modelBuilder.Entity("DysonNetwork.Sphere.Permission.PermissionGroup", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1622,7 +1568,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("post_tags", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.Publisher", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.Publisher", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1666,13 +1612,13 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("picture_id");
 
+                    b.Property<int>("PublisherType")
+                        .HasColumnType("integer")
+                        .HasColumnName("publisher_type");
+
                     b.Property<Guid?>("RealmId")
                         .HasColumnType("uuid")
                         .HasColumnName("realm_id");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1700,49 +1646,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("publishers", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.PublisherFeature", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<string>("Flag")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("flag");
-
-                    b.Property<Guid>("PublisherId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("publisher_id");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_publisher_features");
-
-                    b.HasIndex("PublisherId")
-                        .HasDatabaseName("ix_publisher_features_publisher_id");
-
-                    b.ToTable("publisher_features", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.PublisherMember", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PublisherMember", b =>
                 {
                     b.Property<Guid>("PublisherId")
                         .HasColumnType("uuid")
@@ -1781,7 +1685,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("publisher_members", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.PublisherSubscription", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PublisherSubscription", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -2730,18 +2634,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Sender");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Developer.CustomApp", b =>
-                {
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Developer")
-                        .WithMany()
-                        .HasForeignKey("PublisherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_custom_apps_publishers_publisher_id");
-
-                    b.Navigation("Developer");
-                });
-
             modelBuilder.Entity("DysonNetwork.Sphere.Permission.PermissionGroupMember", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Permission.PermissionGroup", "Group")
@@ -2772,7 +2664,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_posts_posts_forwarded_post_id");
 
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Publisher")
+                    b.HasOne("DysonNetwork.Sphere.Post.Publisher", "Publisher")
                         .WithMany("Posts")
                         .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2801,7 +2693,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostCollection", b =>
                 {
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Publisher")
+                    b.HasOne("DysonNetwork.Sphere.Post.Publisher", "Publisher")
                         .WithMany("Collections")
                         .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2832,7 +2724,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Post");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.Publisher", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.Publisher", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
                         .WithMany()
@@ -2863,19 +2755,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Realm");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.PublisherFeature", b =>
-                {
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Publisher")
-                        .WithMany()
-                        .HasForeignKey("PublisherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_publisher_features_publishers_publisher_id");
-
-                    b.Navigation("Publisher");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.PublisherMember", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PublisherMember", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
                         .WithMany()
@@ -2884,7 +2764,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_publisher_members_accounts_account_id");
 
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Publisher")
+                    b.HasOne("DysonNetwork.Sphere.Post.Publisher", "Publisher")
                         .WithMany("Members")
                         .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2896,7 +2776,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Publisher");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.PublisherSubscription", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.PublisherSubscription", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
                         .WithMany()
@@ -2905,7 +2785,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_publisher_subscriptions_accounts_account_id");
 
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Publisher")
+                    b.HasOne("DysonNetwork.Sphere.Post.Publisher", "Publisher")
                         .WithMany("Subscriptions")
                         .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2987,7 +2867,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Sticker.StickerPack", b =>
                 {
-                    b.HasOne("DysonNetwork.Sphere.Publisher.Publisher", "Publisher")
+                    b.HasOne("DysonNetwork.Sphere.Post.Publisher", "Publisher")
                         .WithMany()
                         .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -3178,7 +3058,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Reactions");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Publisher.Publisher", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Post.Publisher", b =>
                 {
                     b.Navigation("Collections");
 
