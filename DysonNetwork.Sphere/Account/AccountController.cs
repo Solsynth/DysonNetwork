@@ -33,6 +33,19 @@ public class AccountController(
             .FirstOrDefaultAsync();
         return account is null ? new NotFoundResult() : account;
     }
+    
+    [HttpGet("{name}/badges")]
+    [ProducesResponseType<List<Badge>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<Badge>>> GetBadgesByName(string name)
+    {
+        var account = await db.Accounts
+            .Include(e => e.Badges)
+            .Where(a => a.Name == name)
+            .FirstOrDefaultAsync();
+        return account is null ? NotFound() : account.Badges.ToList();
+    }
+    
 
     public class AccountCreateRequest
     {

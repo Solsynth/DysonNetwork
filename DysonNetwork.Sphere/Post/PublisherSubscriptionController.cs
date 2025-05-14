@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("/publishers")]
 public class PublisherSubscriptionController(
     PublisherSubscriptionService subs,
     AppDatabase db,
@@ -24,85 +25,69 @@ public class PublisherSubscriptionController(
         public int? Tier { get; set; }
     }
 
-    /// <summary>
-    /// Check if the current user is subscribed to a publisher
-    /// </summary>
-    /// <param name="publisherId">Publisher ID to check</param>
-    /// <returns>Subscription status</returns>
-    [HttpGet("{publisherId}/status")]
+    [HttpGet("{name}/subscription")]
     [Authorize]
-    public async Task<ActionResult<SubscriptionStatusResponse>> CheckSubscriptionStatus(long publisherId)
+    public async Task<ActionResult<SubscriptionStatusResponse>> CheckSubscriptionStatus(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-
+    
         // Check if the publisher exists
-        var publisher = await db.Publishers.FindAsync(publisherId);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
-
-        var isSubscribed = await subs.SubscriptionExistsAsync(currentUser.Id, publisherId);
-
+    
+        var isSubscribed = await subs.SubscriptionExistsAsync(currentUser.Id, publisher.Id);
+    
         return new SubscriptionStatusResponse
         {
             IsSubscribed = isSubscribed,
-            PublisherId = publisherId,
+            PublisherId = publisher.Id,
             PublisherName = publisher.Name
         };
     }
 
-    /// <summary>
-    /// Create or activate a subscription to a publisher
-    /// </summary>
-    /// <param name="publisherId">Publisher ID to subscribe to</param>
-    /// <param name="request">Subscription details</param>
-    /// <returns>The created or activated subscription</returns>
-    [HttpPost("{publisherId}/subscribe")]
+    [HttpPost("{name}/subscribe")]
     [Authorize]
     public async Task<ActionResult<PublisherSubscription>> Subscribe(
-        long publisherId,
+        string name,
         [FromBody] SubscribeRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-
+    
         // Check if the publisher exists
-        var publisher = await db.Publishers.FindAsync(publisherId);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
-
+    
         try
         {
             var subscription = await subs.CreateSubscriptionAsync(
                 currentUser.Id,
-                publisherId,
+                publisher.Id,
                 request.Tier ?? 0
             );
-
+    
             return subscription;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error subscribing to publisher {PublisherId}", publisherId);
+            logger.LogError(ex, "Error subscribing to publisher {PublisherName}", name);
             return StatusCode(500, "Failed to create subscription");
         }
     }
 
-    /// <summary>
-    /// Cancel a subscription to a publisher
-    /// </summary>
-    /// <param name="publisherId">Publisher ID to unsubscribe from</param>
-    /// <returns>Success status</returns>
-    [HttpPost("{publisherId}/unsubscribe")]
+    [HttpPost("{name}/unsubscribe")]
     [Authorize]
-    public async Task<ActionResult> Unsubscribe(long publisherId)
+    public async Task<ActionResult> Unsubscribe(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
         // Check if the publisher exists
-        var publisher = await db.Publishers.FindAsync(publisherId);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
 
-        var success = await subs.CancelSubscriptionAsync(currentUser.Id, publisherId);
+        var success = await subs.CancelSubscriptionAsync(currentUser.Id, publisher.Id);
 
         if (success)
             return Ok(new { message = "Subscription cancelled successfully" });
@@ -114,7 +99,7 @@ public class PublisherSubscriptionController(
     /// Get all subscriptions for the current user
     /// </summary>
     /// <returns>List of active subscriptions</returns>
-    [HttpGet("current")]
+    [HttpGet("subscriptions")]
     [Authorize]
     public async Task<ActionResult<List<PublisherSubscription>>> GetCurrentSubscriptions()
     {
