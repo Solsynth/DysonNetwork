@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.Account;
 [Index(nameof(Name), IsUnique = true)]
 public class Account : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(32)] public string Language { get; set; } = string.Empty;
@@ -30,7 +30,7 @@ public class Account : ModelBase
 
 public class Profile : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(256)] public string? FirstName { get; set; }
     [MaxLength(256)] public string? MiddleName { get; set; }
     [MaxLength(256)] public string? LastName { get; set; }
@@ -46,7 +46,7 @@ public class Profile : ModelBase
 
 public class AccountContact : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public AccountContactType Type { get; set; }
     public Instant? VerifiedAt { get; set; }
     [MaxLength(1024)] public string Content { get; set; } = string.Empty;
@@ -63,9 +63,9 @@ public enum AccountContactType
 
 public class AccountAuthFactor : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public AccountAuthFactorType Type { get; set; }
-    public string? Secret { get; set; } = null;
+    [MaxLength(8196)] public string? Secret { get; set; } = null;
 
     [JsonIgnore] public Account Account { get; set; } = null!;
 

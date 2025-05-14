@@ -22,7 +22,7 @@ public class StickerPack : ModelBase
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
     [MaxLength(128)] public string Prefix { get; set; } = null!;
     
-    public long PublisherId { get; set; }
+    public Guid PublisherId { get; set; }
     public Post.Publisher Publisher { get; set; } = null!;
 }
 

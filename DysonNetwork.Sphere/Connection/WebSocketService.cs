@@ -13,12 +13,12 @@ public class WebSocketService
     }
 
     private static readonly ConcurrentDictionary<
-        (long AccountId, string DeviceId),
+        (Guid AccountId, string DeviceId),
         (WebSocket Socket, CancellationTokenSource Cts)
     > ActiveConnections = new();
 
     public bool TryAdd(
-        (long AccountId, string DeviceId) key,
+        (Guid AccountId, string DeviceId) key,
         WebSocket socket,
         CancellationTokenSource cts
     )
@@ -29,7 +29,7 @@ public class WebSocketService
         return ActiveConnections.TryAdd(key, (socket, cts));
     }
 
-    public void Disconnect((long AccountId, string DeviceId) key, string? reason = null)
+    public void Disconnect((Guid AccountId, string DeviceId) key, string? reason = null)
     {
         if (!ActiveConnections.TryGetValue(key, out var data)) return;
         data.Socket.CloseAsync(
@@ -41,12 +41,12 @@ public class WebSocketService
         ActiveConnections.TryRemove(key, out _);
     }
 
-    public bool GetAccountIsConnected(long accountId)
+    public bool GetAccountIsConnected(Guid accountId)
     {
         return ActiveConnections.Any(c => c.Key.AccountId == accountId);
     }
 
-    public void SendPacketToAccount(long userId, WebSocketPacket packet)
+    public void SendPacketToAccount(Guid userId, WebSocketPacket packet)
     {
         var connections = ActiveConnections.Where(c => c.Key.AccountId == userId);
         var packetBytes = packet.ToBytes();

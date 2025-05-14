@@ -58,7 +58,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
     public class RealmMemberRequest
     {
-        [Required] public long RelatedUserId { get; set; }
+        [Required] public Guid RelatedUserId { get; set; }
         [Required] public RealmMemberRole Role { get; set; }
     }
 

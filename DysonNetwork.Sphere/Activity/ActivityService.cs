@@ -1,19 +1,18 @@
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
 namespace DysonNetwork.Sphere.Activity;
 
 public class ActivityReaderService(AppDatabase db, PostService ps)
 {
     public async Task<List<Activity>> LoadActivityData(List<Activity> input, Account.Account? currentUser,
-        List<long> userFriends)
+        List<Guid> userFriends)
     {
         if (input.Count == 0) return input;
 
         var postsId = input
             .Where(e => e.ResourceIdentifier.StartsWith("posts/"))
-            .Select(e => long.Parse(e.ResourceIdentifier.Split("/").Last()))
+            .Select(e => Guid.Parse(e.ResourceIdentifier.Split("/").Last()))
             .Distinct()
             .ToList();
         if (postsId.Count > 0)
@@ -40,7 +39,7 @@ public class ActivityReaderService(AppDatabase db, PostService ps)
             {
                 var resourceIdentifier = item.ResourceIdentifier;
                 if (!resourceIdentifier.StartsWith("posts/")) continue;
-                var postId = long.Parse(resourceIdentifier.Split("/").Last());
+                var postId = Guid.Parse(resourceIdentifier.Split("/").Last());
                 if (postsDict.TryGetValue(postId, out var post) && item.Data is null)
                 {
                     item.Data = post;
@@ -109,7 +108,7 @@ public class ActivityService(AppDatabase db)
         string type,
         string identifier,
         ActivityVisibility visibility = ActivityVisibility.Public,
-        List<long>? visibleUsers = null
+        List<Guid>? visibleUsers = null
     )
     {
         var activity = new Activity
@@ -158,7 +157,7 @@ public class ActivityService(AppDatabase db)
 public static class ActivityQueryExtensions
 {
     public static IQueryable<Activity> FilterWithVisibility(this IQueryable<Activity> source,
-        Account.Account? currentUser, List<long> userFriends)
+        Account.Account? currentUser, List<Guid> userFriends)
     {
         if (currentUser is null)
             return source.Where(e => e.Visibility == ActivityVisibility.Public);

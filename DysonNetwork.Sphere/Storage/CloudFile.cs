@@ -41,7 +41,7 @@ public class CloudFile : ModelBase
     public int UsedCount { get; set; } = 0;
 
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
 }
 
 public enum CloudFileSensitiveMark

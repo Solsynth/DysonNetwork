@@ -10,7 +10,7 @@ namespace DysonNetwork.Sphere.Realm;
 [Index(nameof(Slug), IsUnique = true)]
 public class Realm : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
@@ -27,7 +27,7 @@ public class Realm : ModelBase
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
     [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
 
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 }
 
@@ -40,9 +40,9 @@ public enum RealmMemberRole
 
 public class RealmMember : ModelBase
 {
-    public long RealmId { get; set; }
+    public Guid RealmId { get; set; }
     public Realm Realm { get; set; } = null!;
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
 
     public RealmMemberRole Role { get; set; } = RealmMemberRole.Normal;

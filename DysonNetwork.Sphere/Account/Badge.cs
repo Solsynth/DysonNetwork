@@ -14,6 +14,6 @@ public class Badge : ModelBase
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
     public Instant? ExpiredAt { get; set; }
 
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
 }

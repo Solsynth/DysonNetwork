@@ -32,9 +32,9 @@ public class RealtimeCallController(IConfiguration configuration, AppDatabase db
         public string Token { get; set; } = null!;
     }
 
-    [HttpGet("{roomId:long}")]
+    [HttpGet("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<RealtimeChatToken>> GetToken(long roomId)
+    public async Task<ActionResult<RealtimeChatToken>> GetToken(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -60,9 +60,9 @@ public class RealtimeCallController(IConfiguration configuration, AppDatabase db
         });
     }
 
-    [HttpPost("{roomId:long}")]
+    [HttpPost("{roomId:guid}")]
     [Authorize]
-    public async Task<IActionResult> StartCall(long roomId)
+    public async Task<IActionResult> StartCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -79,9 +79,9 @@ public class RealtimeCallController(IConfiguration configuration, AppDatabase db
         return Ok(call);
     }
 
-    [HttpDelete("{roomId:long}")]
+    [HttpDelete("{roomId:guid}")]
     [Authorize]
-    public async Task<IActionResult> EndCall(long roomId)
+    public async Task<IActionResult> EndCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 

@@ -16,7 +16,7 @@ public enum PublisherType
 [Index(nameof(Name), IsUnique = true)]
 public class Publisher : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public PublisherType PublisherType { get; set; }
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
@@ -34,9 +34,9 @@ public class Publisher : ModelBase
     [JsonIgnore]
     public ICollection<PublisherSubscription> Subscriptions { get; set; } = new List<PublisherSubscription>();
 
-    public long? AccountId { get; set; }
+    public Guid? AccountId { get; set; }
     [JsonIgnore] public Account.Account? Account { get; set; }
-    public long? RealmId { get; set; }
+    public Guid? RealmId { get; set; }
     [JsonIgnore] public Realm.Realm? Realm { get; set; }
 }
 
@@ -50,9 +50,9 @@ public enum PublisherMemberRole
 
 public class PublisherMember : ModelBase
 {
-    public long PublisherId { get; set; }
+    public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
@@ -70,9 +70,9 @@ public class PublisherSubscription : ModelBase
 {
     public Guid Id { get; set; }
 
-    public long PublisherId { get; set; }
+    public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;

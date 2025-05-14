@@ -12,8 +12,8 @@ namespace DysonNetwork.Sphere.Chat;
 [Route("/chat")]
 public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService crs) : ControllerBase
 {
-    [HttpGet("{id:long}")]
-    public async Task<ActionResult<ChatRoom>> GetChatRoom(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ChatRoom>> GetChatRoom(Guid id)
     {
         var chatRoom = await db.ChatRooms
             .Where(c => c.Id == id)
@@ -59,7 +59,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
                 .Include(m => m.Account)
                 .Include(m => m.Account.Profile)
                 .ToDictionaryAsync(m => m.ChatRoomId, m => m)
-            : new Dictionary<long, ChatMember>();
+            : new Dictionary<Guid, ChatMember>();
 
         // Map the results
         var result = chatRooms.Select(r =>
@@ -75,7 +75,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
     public class DirectMessageRequest
     {
-        [Required] public long RelatedUserId { get; set; }
+        [Required] public Guid RelatedUserId { get; set; }
     }
 
     [HttpPost("direct")]
@@ -139,7 +139,7 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         [MaxLength(4096)] public string? Description { get; set; }
         public string? PictureId { get; set; }
         public string? BackgroundId { get; set; }
-        public long? RealmId { get; set; }
+        public Guid? RealmId { get; set; }
     }
 
     [HttpPost]
@@ -202,8 +202,8 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
     }
 
 
-    [HttpPatch("{id:long}")]
-    public async Task<ActionResult<ChatRoom>> UpdateChatRoom(long id, [FromBody] ChatRoomRequest request)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<ChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -273,8 +273,8 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return Ok(chatRoom);
     }
 
-    [HttpDelete("{id:long}")]
-    public async Task<ActionResult> DeleteChatRoom(long id)
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> DeleteChatRoom(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -315,9 +315,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return NoContent();
     }
 
-    [HttpGet("{roomId:long}/members/me")]
+    [HttpGet("{roomId:guid}/members/me")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> GetRoomIdentity(long roomId)
+    public async Task<ActionResult<ChatMember>> GetRoomIdentity(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
             return Unauthorized();
@@ -334,8 +334,8 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return Ok(member);
     }
 
-    [HttpGet("{roomId:long}/members")]
-    public async Task<ActionResult<List<ChatMember>>> ListMembers(long roomId, [FromQuery] int take = 20,
+    [HttpGet("{roomId:guid}/members")]
+    public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId, [FromQuery] int take = 20,
         [FromQuery] int skip = 0)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
@@ -371,13 +371,13 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
     public class ChatMemberRequest
     {
-        [Required] public long RelatedUserId { get; set; }
+        [Required] public Guid RelatedUserId { get; set; }
         [Required] public ChatMemberRole Role { get; set; }
     }
 
-    [HttpPost("invites/{roomId:long}")]
+    [HttpPost("invites/{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> InviteMember(long roomId,
+    public async Task<ActionResult<ChatMember>> InviteMember(Guid roomId,
         [FromBody] ChatMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -448,9 +448,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return members.ToList();
     }
 
-    [HttpPost("invites/{roomId:long}/accept")]
+    [HttpPost("invites/{roomId:guid}/accept")]
     [Authorize]
-    public async Task<ActionResult<ChatRoom>> AcceptChatInvite(long roomId)
+    public async Task<ActionResult<ChatRoom>> AcceptChatInvite(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -469,9 +469,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return Ok(member);
     }
 
-    [HttpPost("invites/{roomId:long}/decline")]
+    [HttpPost("invites/{roomId:guid}/decline")]
     [Authorize]
-    public async Task<ActionResult> DeclineChatInvite(long roomId)
+    public async Task<ActionResult> DeclineChatInvite(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -489,9 +489,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return NoContent();
     }
 
-    [HttpPatch("{roomId:long}/members/{memberId:long}/role")]
+    [HttpPatch("{roomId:guid}/members/{memberId:guid}/role")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(long roomId, long memberId,
+    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId,
         [FromBody] ChatMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -542,9 +542,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return BadRequest();
     }
 
-    [HttpDelete("{roomId:long}/members/{memberId:long}")]
+    [HttpDelete("{roomId:guid}/members/{memberId:guid}")]
     [Authorize]
-    public async Task<ActionResult> RemoveChatMember(long roomId, long memberId)
+    public async Task<ActionResult> RemoveChatMember(Guid roomId, Guid memberId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -591,9 +591,9 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         return BadRequest();
     }
 
-    [HttpDelete("{roomId:long}/members/me")]
+    [HttpDelete("{roomId:guid}/members/me")]
     [Authorize]
-    public async Task<ActionResult> LeaveChat(long roomId)
+    public async Task<ActionResult> LeaveChat(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 

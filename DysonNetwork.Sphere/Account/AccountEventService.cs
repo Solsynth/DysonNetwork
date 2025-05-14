@@ -19,13 +19,13 @@ public class AccountEventService(
     private static readonly Random Random = new();
     private const string StatusCacheKey = "account_status_";
 
-    public void PurgeStatusCache(long userId)
+    public void PurgeStatusCache(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         cache.Remove(cacheKey);
     }
 
-    public async Task<Status> GetStatus(long userId)
+    public async Task<Status> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         if (cache.TryGetValue(cacheKey, out Status? cachedStatus))

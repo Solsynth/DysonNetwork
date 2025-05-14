@@ -58,8 +58,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         return Ok(posts);
     }
 
-    [HttpGet("{id:long}")]
-    public async Task<ActionResult<Post>> GetPost(long id)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<Post>> GetPost(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
@@ -83,8 +83,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         return Ok(post);
     }
 
-    [HttpGet("{id:long}/replies")]
-    public async Task<ActionResult<List<Post>>> ListReplies(long id, [FromQuery] int offset = 0,
+    [HttpGet("{id:guid}/replies")]
+    public async Task<ActionResult<List<Post>>> ListReplies(Guid id, [FromQuery] int offset = 0,
         [FromQuery] int take = 20)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -137,8 +137,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         [MaxLength(32)] public List<string>? Attachments { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Instant? PublishedAt { get; set; }
-        public long? RepliedPostId { get; set; }
-        public long? ForwardedPostId { get; set; }
+        public Guid? RepliedPostId { get; set; }
+        public Guid? ForwardedPostId { get; set; }
     }
 
     [HttpPost]
@@ -230,10 +230,10 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         public PostReactionAttitude Attitude { get; set; }
     }
 
-    [HttpPost("{id:long}/reactions")]
+    [HttpPost("{id:guid}/reactions")]
     [Authorize]
     [RequiredPermission("global", "posts.react")]
-    public async Task<ActionResult<PostReaction>> ReactPost(long id, [FromBody] PostReactionRequest request)
+    public async Task<ActionResult<PostReaction>> ReactPost(Guid id, [FromBody] PostReactionRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not Account.Account currentUser) return Unauthorized();
@@ -265,8 +265,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         return Ok(reaction);
     }
 
-    [HttpPatch("{id:long}")]
-    public async Task<ActionResult<Post>> UpdatePost(long id, [FromBody] PostRequest request)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<Post>> UpdatePost(Guid id, [FromBody] PostRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -312,8 +312,8 @@ public class PostController(AppDatabase db, PostService ps, RelationshipService 
         return Ok(post);
     }
 
-    [HttpDelete("{id:long}")]
-    public async Task<ActionResult<Post>> DeletePost(long id)
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<Post>> DeletePost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 

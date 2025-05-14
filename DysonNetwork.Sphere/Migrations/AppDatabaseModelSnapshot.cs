@@ -29,12 +29,10 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Account", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Instant?>("ActivatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -86,15 +84,13 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.AccountAuthFactor", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -106,7 +102,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<string>("Secret")
-                        .HasColumnType("text")
+                        .HasMaxLength(8196)
+                        .HasColumnType("character varying(8196)")
                         .HasColumnName("secret");
 
                     b.Property<int>("Type")
@@ -128,15 +125,13 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.AccountContact", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Content")
@@ -181,8 +176,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Caption")
@@ -238,8 +233,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -279,8 +274,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long?>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant?>("AffectedAt")
@@ -338,8 +333,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("Content")
@@ -403,8 +398,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -458,8 +453,8 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Profile", b =>
                 {
-                    b.Property<long>("Id")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
 
                     b.Property<string>("BackgroundId")
@@ -516,12 +511,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Relationship", b =>
                 {
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<long>("RelatedId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("RelatedId")
+                        .HasColumnType("uuid")
                         .HasColumnName("related_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -560,8 +555,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<int>("Attitude")
@@ -613,8 +608,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -646,7 +641,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<ICollection<long>>("UsersVisible")
+                    b.Property<ICollection<Guid>>("UsersVisible")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("users_visible");
@@ -671,8 +666,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<List<string>>("Audiences")
@@ -680,7 +675,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("audiences");
 
-                    b.Property<List<long>>("BlacklistFactors")
+                    b.Property<List<Guid>>("BlacklistFactors")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("blacklist_factors");
@@ -762,8 +757,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Guid>("ChallengeId")
@@ -814,12 +809,12 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<long>("ChatRoomId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ChatRoomId")
+                        .HasColumnType("uuid")
                         .HasColumnName("chat_room_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -869,12 +864,10 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Chat.ChatRoom", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("BackgroundId")
                         .HasColumnType("character varying(128)")
@@ -908,8 +901,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("picture_id");
 
-                    b.Property<long?>("RealmId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("RealmId")
+                        .HasColumnType("uuid")
                         .HasColumnName("realm_id");
 
                     b.Property<int>("Type")
@@ -942,8 +935,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("ChatRoomId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ChatRoomId")
+                        .HasColumnType("uuid")
                         .HasColumnName("chat_room_id");
 
                     b.Property<string>("Content")
@@ -1119,8 +1112,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ended_at");
 
-                    b.Property<long>("RoomId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid")
                         .HasColumnName("room_id");
 
                     b.Property<Guid>("SenderId")
@@ -1283,12 +1276,10 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.Post", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Content")
                         .HasColumnType("text")
@@ -1315,8 +1306,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("edited_at");
 
-                    b.Property<long?>("ForwardedPostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ForwardedPostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("forwarded_post_id");
 
                     b.Property<string>("Language")
@@ -1332,12 +1323,12 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
 
-                    b.Property<long>("PublisherId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
-                    b.Property<long?>("RepliedPostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("RepliedPostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("replied_post_id");
 
                     b.Property<NpgsqlTsVector>("SearchVector")
@@ -1348,8 +1339,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasAnnotation("Npgsql:TsVectorConfig", "simple")
                         .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Title", "Description", "Content" });
 
-                    b.Property<long?>("ThreadedPostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ThreadedPostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("threaded_post_id");
 
                     b.Property<string>("Title")
@@ -1407,12 +1398,10 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostCategory", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1445,12 +1434,10 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostCollection", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1470,8 +1457,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("name");
 
-                    b.Property<long>("PublisherId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
                     b.Property<string>("Slug")
@@ -1495,15 +1482,13 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostReaction", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<int>("Attitude")
@@ -1518,8 +1503,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
-                    b.Property<long>("PostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
                     b.Property<string>("Symbol")
@@ -1546,12 +1531,10 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PostTag", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1584,15 +1567,13 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.Publisher", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("BackgroundId")
@@ -1632,8 +1613,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("publisher_type");
 
-                    b.Property<long?>("RealmId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("RealmId")
+                        .HasColumnType("uuid")
                         .HasColumnName("realm_id");
 
                     b.Property<Instant>("UpdatedAt")
@@ -1664,12 +1645,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.PublisherMember", b =>
                 {
-                    b.Property<long>("PublisherId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -1708,8 +1689,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -1720,8 +1701,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
-                    b.Property<long>("PublisherId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
                     b.Property<int>("Status")
@@ -1750,15 +1731,13 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Realm.Realm", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<string>("BackgroundId")
@@ -1837,12 +1816,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Realm.RealmMember", b =>
                 {
-                    b.Property<long>("RealmId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("RealmId")
+                        .HasColumnType("uuid")
                         .HasColumnName("realm_id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -1953,8 +1932,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("prefix");
 
-                    b.Property<long>("PublisherId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
                     b.Property<Instant>("UpdatedAt")
@@ -1977,8 +1956,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("id");
 
-                    b.Property<long>("AccountId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -2026,8 +2005,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
-                    b.Property<long?>("PostId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
                     b.Property<long>("Size")
@@ -2072,12 +2051,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("PostPostCategory", b =>
                 {
-                    b.Property<long>("CategoriesId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("CategoriesId")
+                        .HasColumnType("uuid")
                         .HasColumnName("categories_id");
 
-                    b.Property<long>("PostsId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PostsId")
+                        .HasColumnType("uuid")
                         .HasColumnName("posts_id");
 
                     b.HasKey("CategoriesId", "PostsId")
@@ -2091,12 +2070,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("PostPostCollection", b =>
                 {
-                    b.Property<long>("CollectionsId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("CollectionsId")
+                        .HasColumnType("uuid")
                         .HasColumnName("collections_id");
 
-                    b.Property<long>("PostsId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PostsId")
+                        .HasColumnType("uuid")
                         .HasColumnName("posts_id");
 
                     b.HasKey("CollectionsId", "PostsId")
@@ -2110,12 +2089,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("PostPostTag", b =>
                 {
-                    b.Property<long>("PostsId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("PostsId")
+                        .HasColumnType("uuid")
                         .HasColumnName("posts_id");
 
-                    b.Property<long>("TagsId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("TagsId")
+                        .HasColumnType("uuid")
                         .HasColumnName("tags_id");
 
                     b.HasKey("PostsId", "TagsId")

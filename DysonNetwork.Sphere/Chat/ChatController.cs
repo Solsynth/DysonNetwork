@@ -16,7 +16,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
     public class MarkMessageReadRequest
     {
         public Guid MessageId { get; set; }
-        public long ChatRoomId { get; set; }
+        public Guid ChatRoomId { get; set; }
     }
 
     public class SendMessageRequest
@@ -29,8 +29,8 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         public Guid? ForwardedMessageId { get; set; }
     }
 
-    [HttpGet("{roomId:long}/messages")]
-    public async Task<ActionResult<List<Message>>> ListMessages(long roomId, [FromQuery] int offset, [FromQuery] int take = 20)
+    [HttpGet("{roomId:guid}/messages")]
+    public async Task<ActionResult<List<Message>>> ListMessages(Guid roomId, [FromQuery] int offset, [FromQuery] int take = 20)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
 
@@ -67,8 +67,8 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         return Ok(messages);
     }
     
-    [HttpGet("{roomId:long}/messages/{messageId:guid}")]
-    public async Task<ActionResult<Message>> GetMessage(long roomId, Guid messageId)
+    [HttpGet("{roomId:guid}/messages/{messageId:guid}")]
+    public async Task<ActionResult<Message>> GetMessage(Guid roomId, Guid messageId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
     
@@ -104,10 +104,10 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
     [GeneratedRegex("@([A-Za-z0-9_-]+)")]
     private static partial Regex MentionRegex();
 
-    [HttpPost("{roomId:long}/messages")]
+    [HttpPost("{roomId:guid}/messages")]
     [Authorize]
     [RequiredPermission("global", "chat.messages.create")]
-    public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, long roomId)
+    public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.Content) && (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
@@ -185,9 +185,9 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
     
     
 
-    [HttpPatch("{roomId:long}/messages/{messageId:guid}")]
+    [HttpPatch("{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]
-    public async Task<ActionResult> UpdateMessage([FromBody] SendMessageRequest request, long roomId, Guid messageId)
+    public async Task<ActionResult> UpdateMessage([FromBody] SendMessageRequest request, Guid roomId, Guid messageId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
     
@@ -254,9 +254,9 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         return Ok(message);
     }
     
-    [HttpDelete("{roomId:long}/messages/{messageId:guid}")]
+    [HttpDelete("{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]
-    public async Task<ActionResult> DeleteMessage(long roomId, Guid messageId)
+    public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
     
@@ -280,8 +280,8 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         public long LastSyncTimestamp { get; set; }
     }
 
-    [HttpPost("{roomId:long}/sync")]
-    public async Task<ActionResult<SyncResponse>> GetSyncData([FromBody] SyncRequest request, long roomId)
+    [HttpPost("{roomId:guid}/sync")]
+    public async Task<ActionResult<SyncResponse>> GetSyncData([FromBody] SyncRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
             return Unauthorized();

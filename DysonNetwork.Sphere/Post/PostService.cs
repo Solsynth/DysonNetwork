@@ -215,7 +215,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         return isRemoving;
     }
 
-    public async Task<Dictionary<string, int>> GetPostReactionMap(long postId)
+    public async Task<Dictionary<string, int>> GetPostReactionMap(Guid postId)
     {
         return await db.Set<PostReaction>()
             .Where(r => r.PostId == postId)
@@ -226,7 +226,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
             );
     }
 
-    public async Task<Dictionary<long, Dictionary<string, int>>> GetPostReactionMapBatch(List<long> postIds)
+    public async Task<Dictionary<Guid, Dictionary<string, int>>> GetPostReactionMapBatch(List<Guid> postIds)
     {
         return await db.Set<PostReaction>()
             .Where(r => postIds.Contains(r.PostId))
@@ -245,7 +245,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
 public static class PostQueryExtensions
 {
     public static IQueryable<Post> FilterWithVisibility(this IQueryable<Post> source, Account.Account? currentUser,
-        List<long> userFriends, bool isListing = false)
+        List<Guid> userFriends, bool isListing = false)
     {
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
 

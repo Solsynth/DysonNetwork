@@ -43,7 +43,7 @@ public class Challenge : ModelBase
     public int FailedAttempts { get; set; }
     public ChallengePlatform Platform { get; set; } = ChallengePlatform.Unidentified;
     public ChallengeType Type { get; set; } = ChallengeType.Login;
-    [Column(TypeName = "jsonb")] public List<long> BlacklistFactors { get; set; } = new();
+    [Column(TypeName = "jsonb")] public List<Guid> BlacklistFactors { get; set; } = new();
     [Column(TypeName = "jsonb")] public List<string> Audiences { get; set; } = new();
     [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = new();
     [MaxLength(128)] public string? IpAddress { get; set; }
@@ -51,7 +51,7 @@ public class Challenge : ModelBase
     [MaxLength(256)] public string? DeviceId { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
 
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
     public Challenge Normalize()

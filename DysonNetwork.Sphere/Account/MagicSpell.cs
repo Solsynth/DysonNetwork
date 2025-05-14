@@ -25,6 +25,6 @@ public class MagicSpell : ModelBase
     public Instant? AffectedAt { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; }
 
-    public long? AccountId { get; set; }
+    public Guid? AccountId { get; set; }
     public Account? Account { get; set; }
 }

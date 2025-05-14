@@ -10,6 +10,6 @@ public class RealtimeCall : ModelBase
     
     public Guid SenderId { get; set; }
     public ChatMember Sender { get; set; } = null!;
-    public long RoomId { get; set; }
+    public Guid RoomId { get; set; }
     public ChatRoom Room { get; set; } = null!;
 }

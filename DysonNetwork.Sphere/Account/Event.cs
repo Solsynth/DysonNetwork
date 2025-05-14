@@ -22,7 +22,7 @@ public class Status : ModelBase
     [MaxLength(1024)] public string? Label { get; set; }
     public Instant? ClearedAt { get; set; }
     
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
 }
 
@@ -41,7 +41,7 @@ public class CheckInResult : ModelBase
     public CheckInResultLevel Level { get; set; }
     [Column(TypeName = "jsonb")] public ICollection<FortuneTip> Tips { get; set; } = new List<FortuneTip>();
     
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
 }
 

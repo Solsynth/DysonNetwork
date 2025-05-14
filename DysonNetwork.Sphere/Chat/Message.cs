@@ -27,7 +27,7 @@ public class Message : ModelBase
 
     public Guid SenderId { get; set; }
     public ChatMember Sender { get; set; } = null!;
-    public long ChatRoomId { get; set; }
+    public Guid ChatRoomId { get; set; }
     [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
     
     public Message Clone()

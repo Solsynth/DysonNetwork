@@ -12,7 +12,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>True if a subscription exists, false otherwise</returns>
-    public async Task<bool> SubscriptionExistsAsync(long accountId, long publisherId)
+    public async Task<bool> SubscriptionExistsAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .AnyAsync(ps => ps.AccountId == accountId &&
@@ -26,7 +26,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>The subscription or null if not found</returns>
-    public async Task<PublisherSubscription?> GetSubscriptionAsync(long accountId, long publisherId)
+    public async Task<PublisherSubscription?> GetSubscriptionAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
@@ -95,7 +95,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// </summary>
     /// <param name="accountId">The account ID</param>
     /// <returns>A list of active subscriptions</returns>
-    public async Task<List<PublisherSubscription>> GetAccountSubscriptionsAsync(long accountId)
+    public async Task<List<PublisherSubscription>> GetAccountSubscriptionsAsync(Guid accountId)
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
@@ -108,7 +108,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// </summary>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>A list of active subscriptions</returns>
-    public async Task<List<PublisherSubscription>> GetPublisherSubscribersAsync(long publisherId)
+    public async Task<List<PublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Account)
@@ -124,8 +124,8 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// <param name="tier">Optional subscription tier</param>
     /// <returns>The created subscription</returns>
     public async Task<PublisherSubscription> CreateSubscriptionAsync(
-        long accountId,
-        long publisherId,
+        Guid accountId,
+        Guid publisherId,
         int tier = 0
     )
     {
@@ -166,7 +166,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>True if the subscription was cancelled, false if it wasn't found</returns>
-    public async Task<bool> CancelSubscriptionAsync(long accountId, long publisherId)
+    public async Task<bool> CancelSubscriptionAsync(Guid accountId, Guid publisherId)
     {
         var subscription = await GetSubscriptionAsync(accountId, publisherId);
         if (subscription is not { Status: SubscriptionStatus.Active })

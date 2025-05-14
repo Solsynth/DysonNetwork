@@ -16,7 +16,7 @@ public class PublisherSubscriptionController(
     public class SubscriptionStatusResponse
     {
         public bool IsSubscribed { get; set; }
-        public long PublisherId { get; set; }
+        public Guid PublisherId { get; set; }
         public string PublisherName { get; set; } = string.Empty;
     }
 

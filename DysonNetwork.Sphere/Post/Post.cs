@@ -25,7 +25,7 @@ public enum PostVisibility
 
 public class Post : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(1024)] public string? Title { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
     [MaxLength(128)] public string? Language { get; set; }
@@ -45,11 +45,11 @@ public class Post : ModelBase
     public int Downvotes { get; set; }
     [NotMapped] public Dictionary<string, int> ReactionsCount { get; set; } = new();
 
-    public long? ThreadedPostId { get; set; }
+    public Guid? ThreadedPostId { get; set; }
     public Post? ThreadedPost { get; set; }
-    public long? RepliedPostId { get; set; }
+    public Guid? RepliedPostId { get; set; }
     public Post? RepliedPost { get; set; }
-    public long? ForwardedPostId { get; set; }
+    public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
 
@@ -67,7 +67,7 @@ public class Post : ModelBase
 
 public class PostTag : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
     public ICollection<Post> Posts { get; set; } = new List<Post>();
@@ -75,7 +75,7 @@ public class PostTag : ModelBase
 
 public class PostCategory : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
     public ICollection<Post> Posts { get; set; } = new List<Post>();
@@ -83,7 +83,7 @@ public class PostCategory : ModelBase
 
 public class PostCollection : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
@@ -102,12 +102,12 @@ public enum PostReactionAttitude
 
 public class PostReaction : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(256)] public string Symbol { get; set; } = null!;
     public PostReactionAttitude Attitude { get; set; }
 
-    public long PostId { get; set; }
+    public Guid PostId { get; set; }
     [JsonIgnore] public Post Post { get; set; } = null!;
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
 }

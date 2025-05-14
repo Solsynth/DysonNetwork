@@ -17,7 +17,7 @@ public class Notification : ModelBase
     public int Priority { get; set; } = 10;
     public Instant? ViewedAt { get; set; }
 
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
 }
 
@@ -37,6 +37,6 @@ public class NotificationPushSubscription : ModelBase
     public NotificationPushProvider Provider { get; set; }
     public Instant? LastUsedAt { get; set; }
 
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
 }

@@ -124,9 +124,9 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
         return relationship;
     }
 
-    public async Task<List<long>> ListAccountFriends(Account account)
+    public async Task<List<Guid>> ListAccountFriends(Account account)
     {
-        if (!cache.TryGetValue($"UserFriends_{account.Id}", out List<long>? friends))
+        if (!cache.TryGetValue($"UserFriends_{account.Id}", out List<Guid>? friends))
         {
             friends = await db.AccountRelationships
                 .Where(r => r.RelatedId == account.Id)

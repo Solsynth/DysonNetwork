@@ -14,7 +14,7 @@ public enum ChatRoomType
 
 public class ChatRoom : ModelBase
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
     public ChatRoomType Type { get; set; }
@@ -27,7 +27,7 @@ public class ChatRoom : ModelBase
 
     [JsonIgnore] public ICollection<ChatMember> Members { get; set; } = new List<ChatMember>();
 
-    public long? RealmId { get; set; }
+    public Guid? RealmId { get; set; }
     public Realm.Realm? Realm { get; set; }
 
     [NotMapped]
@@ -53,9 +53,9 @@ public enum ChatMemberNotify
 public class ChatMember : ModelBase
 {
     public Guid Id { get; set; }
-    public long ChatRoomId { get; set; }
+    public Guid ChatRoomId { get; set; }
     public ChatRoom ChatRoom { get; set; } = null!;
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
@@ -69,8 +69,8 @@ public class ChatMember : ModelBase
 public class ChatMemberTransmissionObject : ModelBase
 {
     public Guid Id { get; set; }
-    public long ChatRoomId { get; set; }
-    public long AccountId { get; set; }
+    public Guid ChatRoomId { get; set; }
+    public Guid AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }

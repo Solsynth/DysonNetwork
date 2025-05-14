@@ -55,7 +55,7 @@ public class FileService(
             case "image":
                 stream.Position = 0;
                 // We still need ImageSharp for blurhash calculation
-                using (var imageSharp = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(stream))
+                using (var imageSharp = await Image.LoadAsync<Rgba32>(stream))
                 {
                     var blurhash = Blurhasher.Encode(imageSharp, 3, 3);
 

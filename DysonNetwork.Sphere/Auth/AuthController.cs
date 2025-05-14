@@ -78,8 +78,8 @@ public class AuthController(
             : challenge.Account.AuthFactors.ToList();
     }
 
-    [HttpPost("challenge/{id}/factors/{factorId:long}")]
-    public async Task<ActionResult> RequestFactorCode([FromRoute] Guid id, [FromRoute] long factorId)
+    [HttpPost("challenge/{id}/factors/{factorId:guid}")]
+    public async Task<ActionResult> RequestFactorCode([FromRoute] Guid id, [FromRoute] Guid factorId)
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)

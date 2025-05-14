@@ -59,7 +59,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         await Task.WhenAll(tasks);
     }
 
-    public async Task MarkMessageAsReadAsync(Guid messageId, long roomId, long userId)
+    public async Task MarkMessageAsReadAsync(Guid messageId, Guid roomId, Guid userId)
     {
         var existingStatus = await db.ChatStatuses
             .FirstOrDefaultAsync(x => x.MessageId == messageId && x.Sender.AccountId == userId);
@@ -81,13 +81,13 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         await db.SaveChangesAsync();
     }
 
-    public async Task<bool> GetMessageReadStatus(Guid messageId, long userId)
+    public async Task<bool> GetMessageReadStatus(Guid messageId, Guid userId)
     {
         return await db.ChatStatuses
             .AnyAsync(x => x.MessageId == messageId && x.Sender.AccountId == userId);
     }
 
-    public async Task<int> CountUnreadMessage(long userId, long chatRoomId)
+    public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
         var messages = await db.ChatMessages
             .Where(m => m.ChatRoomId == chatRoomId)
@@ -101,7 +101,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         return messages.Count(m => !m.IsRead);
     }
 
-    public async Task<Dictionary<long, int>> CountUnreadMessagesForJoinedRoomsAsync(long userId)
+    public async Task<Dictionary<Guid, int>> CountUnreadMessagesForJoinedRoomsAsync(Guid userId)
     {
         var userRooms = await db.ChatMembers
             .Where(m => m.AccountId == userId)
@@ -149,7 +149,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         return call;
     }
 
-    public async Task EndCallAsync(long roomId)
+    public async Task EndCallAsync(Guid roomId)
     {
         var call = await GetCallOngoingAsync(roomId);
         if (call is null) throw new InvalidOperationException("No ongoing call was not found.");
@@ -170,7 +170,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         }, call.Sender, call.Room);
     }
     
-    public async Task<RealtimeCall?> GetCallOngoingAsync(long roomId)
+    public async Task<RealtimeCall?> GetCallOngoingAsync(Guid roomId)
     {
         return await db.ChatRealtimeCall
             .Where(c => c.RoomId == roomId)
@@ -180,7 +180,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
             .FirstOrDefaultAsync();
     }
     
-    public async Task<SyncResponse> GetSyncDataAsync(long roomId, long lastSyncTimestamp)
+    public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, long lastSyncTimestamp)
     {
         var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
         var changes = await db.ChatMessages

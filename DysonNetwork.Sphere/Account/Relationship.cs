@@ -11,9 +11,9 @@ public enum RelationshipStatus
 
 public class Relationship : ModelBase
 {
-    public long AccountId { get; set; }
+    public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
-    public long RelatedId { get; set; }
+    public Guid RelatedId { get; set; }
     public Account Related { get; set; } = null!;
 
     public Instant? ExpiredAt { get; set; }
