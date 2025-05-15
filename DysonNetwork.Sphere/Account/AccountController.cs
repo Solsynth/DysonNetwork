@@ -318,17 +318,17 @@ public class AccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
-        var today = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
-        var localTime = new TimeOnly(0, 0);
-        var startOfDay = today.ToDateOnly().ToDateTime(localTime).ToUniversalTime().ToInstant();
-        var endOfDay = today.PlusDays(1).ToDateOnly().ToDateTime(localTime).ToUniversalTime().ToInstant();
-
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var today = now.InUtc().Date;
+        var startOfDay = today.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var endOfDay = today.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        
         var result = await db.AccountCheckInResults
             .Where(x => x.AccountId == userId)
             .Where(x => x.CreatedAt >= startOfDay && x.CreatedAt < endOfDay)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
-
+        
         return result is null ? NotFound() : Ok(result);
     }
 

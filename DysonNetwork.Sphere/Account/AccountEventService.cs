@@ -1,6 +1,7 @@
 using System.Globalization;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Connection;
+using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
@@ -13,6 +14,7 @@ public class AccountEventService(
     ActivityService act,
     WebSocketService ws,
     IMemoryCache cache,
+    PaymentService payment,
     IStringLocalizer<Localization.AccountEventResource> localizer
 )
 {
@@ -163,12 +165,29 @@ public class AccountEventService(
         {
             Tips = tips,
             Level = (CheckInResultLevel)Random.Next(Enum.GetValues<CheckInResultLevel>().Length),
-            AccountId = user.Id
+            AccountId = user.Id,
+            RewardExperience = 100,
+            RewardPoints = 10,
         };
 
-        db.AccountCheckInResults.Add(result);
-        await db.SaveChangesAsync();
+        var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        try
+        {
+            if (result.RewardPoints.HasValue)
+                await payment.CreateTransactionWithAccountAsync(
+                    null,
+                    user.Id,
+                    WalletCurrency.SourcePoint,
+                    result.RewardPoints.Value,
+                    $"Check-in reward on {now:yyyy/MM/dd}"
+                );
+        }
+        catch
+        {
+            result.RewardPoints = null;
+        }
 
+        db.AccountCheckInResults.Add(result);
         await act.CreateActivity(
             user,
             "accounts.check-in",

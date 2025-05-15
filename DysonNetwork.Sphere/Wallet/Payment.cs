@@ -1,7 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Developer;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet;
+
+public class WalletCurrency
+{
+    public const string SourcePoint = "points";
+}
 
 public enum OrderStatus
 {
@@ -25,6 +31,8 @@ public class Order : ModelBase
     public Wallet PayeeWallet { get; set; } = null!;
     public Guid? TransactionId { get; set; }
     public Transaction? Transaction { get; set; }
+    public Guid? IssuerAppId { get; set; }
+    public CustomApp? IssuerApp { get; set; }
 }
 
 public enum TransactionType

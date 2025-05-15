@@ -39,6 +39,8 @@ public class CheckInResult : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public CheckInResultLevel Level { get; set; }
+    public decimal? RewardPoints { get; set; }
+    public int? RewardExperience { get; set; }
     [Column(TypeName = "jsonb")] public ICollection<FortuneTip> Tips { get; set; } = new List<FortuneTip>();
     
     public Guid AccountId { get; set; }

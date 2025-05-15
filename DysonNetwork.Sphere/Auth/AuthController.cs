@@ -66,7 +66,7 @@ public class AuthController(
         return challenge;
     }
 
-    [HttpGet("challenge/{id}/factors")]
+    [HttpGet("challenge/{id:guid}/factors")]
     public async Task<ActionResult<List<AccountAuthFactor>>> GetChallengeFactors([FromRoute] Guid id)
     {
         var challenge = await db.AuthChallenges
@@ -78,7 +78,7 @@ public class AuthController(
             : challenge.Account.AuthFactors.ToList();
     }
 
-    [HttpPost("challenge/{id}/factors/{factorId:guid}")]
+    [HttpPost("challenge/{id:guid}/factors/{factorId:guid}")]
     public async Task<ActionResult> RequestFactorCode([FromRoute] Guid id, [FromRoute] Guid factorId)
     {
         var challenge = await db.AuthChallenges
@@ -97,11 +97,11 @@ public class AuthController(
 
     public class PerformChallengeRequest
     {
-        [Required] public long FactorId { get; set; }
+        [Required] public Guid FactorId { get; set; }
         [Required] public string Password { get; set; } = string.Empty;
     }
 
-    [HttpPatch("challenge/{id}")]
+    [HttpPatch("challenge/{id:guid}")]
     public async Task<ActionResult<Challenge>> DoChallenge(
         [FromRoute] Guid id,
         [FromBody] PerformChallengeRequest request

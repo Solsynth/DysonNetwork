@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet;
@@ -20,6 +21,36 @@ public class PaymentService(AppDatabase db, WalletService wat)
         return order;
     }
 
+    public async Task<Transaction> CreateTransactionWithAccountAsync(
+        Guid? payerAccountId,
+        Guid? payeeAccountId,
+        string currency,
+        decimal amount,
+        string? remarks = null,
+        TransactionType type = TransactionType.System
+    )
+    {
+        Wallet? payer = null, payee = null;
+        if (payerAccountId.HasValue)
+            payer = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payerAccountId.Value);
+        if (payeeAccountId.HasValue)
+            payee = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payeeAccountId.Value);
+
+        if (payer == null && payerAccountId.HasValue)
+            throw new ArgumentException("Payer account was specified, but wallet was not found");
+        if (payee == null && payeeAccountId.HasValue)
+            throw new ArgumentException("Payee account was specified, but wallet was not found");
+
+        return await CreateTransactionAsync(
+            payer?.Id,
+            payee?.Id,
+            currency,
+            amount,
+            remarks,
+            type
+        );
+    }
+
     public async Task<Transaction> CreateTransactionAsync(
         Guid? payerWalletId,
         Guid? payeeWalletId,
@@ -29,6 +60,10 @@ public class PaymentService(AppDatabase db, WalletService wat)
         TransactionType type = TransactionType.System
     )
     {
+        if (payerWalletId == null && payeeWalletId == null)
+            throw new ArgumentException("At least one wallet must be specified.");
+        if (amount <= 0) throw new ArgumentException("Cannot create transaction with negative or zero amount.");
+
         var transaction = new Transaction
         {
             PayerWalletId = payerWalletId,
@@ -41,26 +76,28 @@ public class PaymentService(AppDatabase db, WalletService wat)
 
         if (payerWalletId.HasValue)
         {
-            var payerPocket = await wat.GetOrCreateWalletPocketAsync(
-                (await db.Wallets.FindAsync(payerWalletId.Value))!.AccountId,
-                currency);
+            var (payerPocket, isNewlyCreated) =
+                await wat.GetOrCreateWalletPocketAsync(payerWalletId.Value, currency);
 
-            if (payerPocket.Amount < amount)
-            {
+            if (isNewlyCreated || payerPocket.Amount < amount)
                 throw new InvalidOperationException("Insufficient funds");
-            }
 
-            payerPocket.Amount -= amount;
+            await db.WalletPockets
+                .Where(p => p.Id == payerPocket.Id && p.Amount >= amount)
+                .ExecuteUpdateAsync(s =>
+                    s.SetProperty(p => p.Amount, p => p.Amount - amount));
         }
 
         if (payeeWalletId.HasValue)
         {
-            var payeeWallet = await db.Wallets.FindAsync(payeeWalletId.Value);
-            var payeePocket = await wat.GetOrCreateWalletPocketAsync(
-                payeeWallet!.AccountId,
-                currency);
+            var (payeePocket, isNewlyCreated) =
+                await wat.GetOrCreateWalletPocketAsync(payeeWalletId.Value, currency, amount);
 
-            payeePocket.Amount += amount;
+            if (!isNewlyCreated)
+                await db.WalletPockets
+                    .Where(p => p.Id == payeePocket.Id)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.Amount, p => p.Amount + amount));
         }
 
         db.PaymentTransactions.Add(transaction);
@@ -158,21 +195,22 @@ public class PaymentService(AppDatabase db, WalletService wat)
 
         return (order, refundTransaction);
     }
-    
-    public async Task<Transaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency, decimal amount)
+
+    public async Task<Transaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency,
+        decimal amount)
     {
         var payerWallet = await wat.GetWalletAsync(payerAccountId);
         if (payerWallet == null)
         {
             throw new InvalidOperationException($"Payer wallet not found for account {payerAccountId}");
         }
-    
+
         var payeeWallet = await wat.GetWalletAsync(payeeAccountId);
         if (payeeWallet == null)
         {
             throw new InvalidOperationException($"Payee wallet not found for account {payeeAccountId}");
         }
-    
+
         return await CreateTransactionAsync(
             payerWallet.Id,
             payeeWallet.Id,

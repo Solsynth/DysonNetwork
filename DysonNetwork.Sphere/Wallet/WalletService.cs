@@ -10,45 +10,40 @@ public class WalletService(AppDatabase db)
             .Include(w => w.Pockets)
             .FirstOrDefaultAsync(w => w.AccountId == accountId);
     }
-    
+
     public async Task<Wallet> CreateWalletAsync(Guid accountId)
     {
-        var wallet = new Wallet
+        var existingWallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == accountId);
+        if (existingWallet != null)
         {
-            AccountId = accountId
-        };
+            throw new InvalidOperationException($"Wallet already exists for account {accountId}");
+        }
+
+        var wallet = new Wallet { AccountId = accountId };
 
         db.Wallets.Add(wallet);
         await db.SaveChangesAsync();
-        
+
         return wallet;
     }
 
-    public async Task<WalletPocket> GetOrCreateWalletPocketAsync(Guid accountId, string currency)
+    public async Task<(WalletPocket wallet, bool isNewlyCreated)> GetOrCreateWalletPocketAsync(
+        Guid walletId,
+        string currency,
+        decimal? initialAmount = null
+    )
     {
-        var wallet = await db.Wallets
-            .Include(w => w.Pockets)
-            .FirstOrDefaultAsync(w => w.AccountId == accountId);
+        var pocket = await db.WalletPockets.FirstOrDefaultAsync(p => p.Currency == currency && p.WalletId == walletId);
+        if (pocket != null) return (pocket, false);
 
-        if (wallet == null)
-        {
-            throw new InvalidOperationException($"Wallet not found for account {accountId}");
-        }
-
-        var pocket = wallet.Pockets.FirstOrDefault(p => p.Currency == currency);
-
-        if (pocket != null) return pocket;
-        
         pocket = new WalletPocket
         {
             Currency = currency,
-            Amount = 0,
-            WalletId = wallet.Id
+            Amount = initialAmount ?? 0,
+            WalletId = walletId
         };
-            
-        wallet.Pockets.Add(pocket);
-        await db.SaveChangesAsync();
 
-        return pocket;
+        db.WalletPockets.Add(pocket);
+        return (pocket, true);
     }
 }

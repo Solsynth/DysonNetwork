@@ -6,6 +6,7 @@ using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250514164520_AddCustomAppsAndSecrets")]
+    partial class AddCustomAppsAndSecrets
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -248,14 +251,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<int>("Level")
                         .HasColumnType("integer")
                         .HasColumnName("level");
-
-                    b.Property<int?>("RewardExperience")
-                        .HasColumnType("integer")
-                        .HasColumnName("reward_experience");
-
-                    b.Property<decimal?>("RewardPoints")
-                        .HasColumnType("numeric")
-                        .HasColumnName("reward_points");
 
                     b.Property<ICollection<FortuneTip>>("Tips")
                         .IsRequired()

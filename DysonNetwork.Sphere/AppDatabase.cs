@@ -74,6 +74,7 @@ public class AppDatabase(
     public DbSet<Wallet.Transaction> PaymentTransactions { get; set; }
 
     public DbSet<Developer.CustomApp> CustomApps { get; set; }
+    public DbSet<Developer.CustomAppSecret> CustomAppSecrets { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
