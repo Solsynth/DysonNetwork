@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
 using NodaTime;
+using Point = NetTopologySuite.Geometries.Point;
 
 namespace DysonNetwork.Sphere.Auth;
 
@@ -50,6 +51,7 @@ public class Challenge : ModelBase
     [MaxLength(512)] public string? UserAgent { get; set; }
     [MaxLength(256)] public string? DeviceId { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
+    public Point? Location { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;

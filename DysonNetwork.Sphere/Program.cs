@@ -148,11 +148,14 @@ builder.Services.AddSingleton(tusDiskStore);
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
 
 // Services
+builder.Services.Configure<GeoIpOptions>(builder.Configuration.GetSection("GeoIP"));
+builder.Services.AddScoped<GeoIpService>();
 builder.Services.AddScoped<WebSocketService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<AccountEventService>();
+builder.Services.AddSingleton<ActionLogService>();
 builder.Services.AddScoped<RelationshipService>();
 builder.Services.AddScoped<MagicSpellService>();
 builder.Services.AddScoped<NotificationService>();
@@ -187,6 +190,16 @@ builder.Services.AddQuartz(q =>
         .ForJob(cloudFilesRecyclingJob)
         .WithIdentity("CloudFilesUnusedRecyclingTrigger")
         .WithSimpleSchedule(o => o.WithIntervalInHours(1).RepeatForever())
+    );
+    
+    var actionLogFlushJob = new JobKey("ActionLogFlush");
+    q.AddJob<ActionLogFlushJob>(opts => opts.WithIdentity(actionLogFlushJob));
+    q.AddTrigger(opts => opts
+        .ForJob(actionLogFlushJob)
+        .WithIdentity("ActionLogFlushTrigger")
+        .WithSimpleSchedule(o => o
+            .WithIntervalInMinutes(5)
+            .RepeatForever())
     );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

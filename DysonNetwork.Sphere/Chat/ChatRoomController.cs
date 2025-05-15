@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
@@ -10,7 +11,12 @@ namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
 [Route("/chat")]
-public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService crs, RealmService rs) : ControllerBase
+public class ChatRoomController(
+    AppDatabase db,
+    FileService fs,
+    ChatRoomService crs,
+    RealmService rs,
+    ActionLogService als) : ControllerBase
 {
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ChatRoom>> GetChatRoom(Guid id)
@@ -126,6 +132,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         db.ChatRooms.Add(dmRoom);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomCreate,
+            new Dictionary<string, object> { { "chatroom_id", dmRoom.Id } }, Request
+        );
+
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
         await crs.SendInviteNotify(invitedMember);
 
@@ -194,6 +205,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         if (chatRoom.Background is not null)
             await fs.MarkUsageAsync(chatRoom.Background, 1);
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomCreate,
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id } }, Request
+        );
+
         return Ok(chatRoom);
     }
 
@@ -255,6 +271,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         db.ChatRooms.Update(chatRoom);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomUpdate,
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id } }, Request
+        );
+
         return Ok(chatRoom);
     }
 
@@ -285,6 +306,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
             await fs.MarkUsageAsync(chatRoom.Picture, -1);
         if (chatRoom.Background is not null)
             await fs.MarkUsageAsync(chatRoom.Background, -1);
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomDelete,
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id } }, Request
+        );
 
         return NoContent();
     }
@@ -401,6 +427,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
 
         await crs.SendInviteNotify(newMember);
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomInvite,
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id }, { "account_id", relatedUser.Id } }, Request
+        );
+
         return Ok(newMember);
     }
 
@@ -440,6 +471,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         db.Update(member);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomJoin,
+            new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
+        );
+        
         return Ok(member);
     }
 
@@ -559,6 +595,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
             db.ChatMembers.Remove(targetMember);
             await db.SaveChangesAsync();
 
+            als.CreateActionLogFromRequest(
+                ActionLogType.ChatroomKick,
+                new Dictionary<string, object> { { "chatroom_id", roomId }, { "account_id", memberId } }, Request
+            );
+            
             return NoContent();
         }
 
@@ -593,6 +634,11 @@ public class ChatRoomController(AppDatabase db, FileService fs, ChatRoomService 
         db.ChatMembers.Remove(member);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomLeave,
+            new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
+        );
+        
         return NoContent();
     }
 }

@@ -17,7 +17,8 @@ public class PostController(
     PostService ps,
     PublisherService pub,
     RelationshipService rels,
-    IServiceScopeFactory factory
+    IServiceScopeFactory factory,
+    ActionLogService als
 )
     : ControllerBase
 {
@@ -227,6 +228,11 @@ public class PostController(
             await subs.NotifySubscribersPostAsync(post);
         });
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.PostCreate,
+            new Dictionary<string, object> { { "post_id", post.Id } }, Request
+        );
+
         return post;
     }
 
@@ -268,6 +274,12 @@ public class PostController(
         var isRemoving = await ps.ModifyPostVotes(post, reaction, isExistingReaction, isSelfReact);
 
         if (isRemoving) return NoContent();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.PostReact,
+            new Dictionary<string, object> { { "post_id", post.Id }, { "reaction", request.Symbol } }, Request
+        );
+
         return Ok(reaction);
     }
 
@@ -312,6 +324,11 @@ public class PostController(
             return BadRequest(err.Message);
         }
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.PostUpdate,
+            new Dictionary<string, object> { { "post_id", post.Id } }, Request
+        );
+
         return Ok(post);
     }
 
@@ -331,6 +348,12 @@ public class PostController(
             return StatusCode(403, "You need at least be an editor to delete the publisher's post.");
 
         await ps.DeletePostAsync(post);
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.PostDelete,
+            new Dictionary<string, object> { { "post_id", post.Id } }, Request
+        );
+
         return NoContent();
     }
 }

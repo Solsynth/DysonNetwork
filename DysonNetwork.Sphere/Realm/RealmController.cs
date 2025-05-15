@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace DysonNetwork.Sphere.Realm;
 
 [ApiController]
 [Route("/realms")]
-public class RealmController(AppDatabase db, RealmService rs, FileService fs) : Controller
+public class RealmController(AppDatabase db, RealmService rs, FileService fs, ActionLogService als) : Controller
 {
     [HttpGet("{slug}")]
     public async Task<ActionResult<Realm>> GetRealm(string slug)
@@ -91,6 +92,11 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         db.RealmMembers.Add(newMember);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmInvite,
+            new Dictionary<string, object> { { "realm_id", realm.Id }, { "account_id", newMember.AccountId } }, Request
+        );
+
         newMember.Account = relatedUser;
         await rs.SendInviteNotify(newMember);
 
@@ -115,6 +121,12 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         db.Update(member);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmJoin,
+            new Dictionary<string, object> { { "realm_id", member.RealmId }, { "account_id", member.AccountId } },
+            Request
+        );
+
         return Ok(member);
     }
 
@@ -134,6 +146,12 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         db.RealmMembers.Remove(member);
         await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmLeave,
+            new Dictionary<string, object> { { "realm_id", member.RealmId }, { "account_id", member.AccountId } },
+            Request
+        );
 
         return NoContent();
     }
@@ -214,6 +232,12 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
         db.RealmMembers.Remove(member);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmLeave,
+            new Dictionary<string, object> { { "realm_id", member.RealmId }, { "account_id", member.AccountId } },
+            Request
+        );
+
         return NoContent();
     }
 
@@ -272,6 +296,11 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         db.Realms.Add(realm);
         await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmCreate,
+            new Dictionary<string, object> { { "realm_id", realm.Id } }, Request
+        );
 
         if (realm.Picture is not null) await fs.MarkUsageAsync(realm.Picture, 1);
         if (realm.Background is not null) await fs.MarkUsageAsync(realm.Background, 1);
@@ -334,6 +363,12 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         db.Realms.Update(realm);
         await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmUpdate,
+            new Dictionary<string, object> { { "realm_id", realm.Id } }, Request
+        );
+
         return Ok(realm);
     }
 
@@ -358,6 +393,11 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs) : 
 
         db.Realms.Remove(realm);
         await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmDelete,
+            new Dictionary<string, object> { { "realm_id", realm.Id } }, Request
+        );
 
         if (realm.Picture is not null)
             await fs.MarkUsageAsync(realm.Picture, -1);

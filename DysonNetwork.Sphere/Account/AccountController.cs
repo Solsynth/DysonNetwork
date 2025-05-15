@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Extensions;
+using System.Collections.Generic;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -390,7 +391,30 @@ public class AccountController(
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
     }
-
+    
+    [Authorize]
+    [HttpGet("me/actions")]
+    [ProducesResponseType<List<ActionLog>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<List<ActionLog>>> GetActionLogs([FromQuery] int take = 20, [FromQuery] int offset = 0)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+    
+        var query = db.ActionLogs
+            .Where(log => log.AccountId == currentUser.Id)
+            .OrderByDescending(log => log.CreatedAt);
+    
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+    
+        var logs = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+    
+        return Ok(logs);
+    }
+    
     [HttpGet("search")]
     public async Task<List<Account>> Search([FromQuery] string query, [FromQuery] int take = 20)
     {

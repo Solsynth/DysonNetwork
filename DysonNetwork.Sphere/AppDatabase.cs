@@ -36,6 +36,7 @@ public class AppDatabase(
     public DbSet<Account.Notification> Notifications { get; set; }
     public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
     public DbSet<Account.Badge> Badges { get; set; }
+    public DbSet<Account.ActionLog> ActionLogs { get; set; }
 
     public DbSet<Auth.Session> AuthSessions { get; set; }
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
@@ -85,7 +86,10 @@ public class AppDatabase(
 
         optionsBuilder.UseNpgsql(
             dataSource,
-            opt => opt.UseNodaTime().UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+            opt => opt
+                .UseNodaTime()
+                .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+                .UseNetTopologySuite()
         ).UseSnakeCaseNamingConvention();
 
         optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>

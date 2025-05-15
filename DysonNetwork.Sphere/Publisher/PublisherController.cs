@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Realm;
@@ -12,11 +13,11 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/publishers")]
-public class PublisherController(AppDatabase db, PublisherService ps, FileService fs)
+public class PublisherController(AppDatabase db, PublisherService ps, FileService fs, ActionLogService als)
     : ControllerBase
 {
     [HttpGet("{name}")]
-    public async Task<ActionResult<Sphere.Publisher.Publisher>> GetPublisher(string name)
+    public async Task<ActionResult<Publisher>> GetPublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -38,7 +39,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Sphere.Publisher.Publisher>>> ListManagedPublishers()
+    public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -96,15 +97,7 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
-            .Where(m => m.PublisherId == publisher.Id)
-            .FirstOrDefaultAsync();
-        if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < PublisherMemberRole.Manager)
-            return StatusCode(403,
-                "You need at least be a manager to invite other members to collaborate this publisher.");
-        if (member.Role < request.Role)
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
         var newMember = new PublisherMember
@@ -117,12 +110,21 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         db.PublisherMembers.Add(newMember);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherMemberInvite,
+            new Dictionary<string, object>
+            {
+                { "publisher_id", publisher.Id },
+                { "account_id", relatedUser.Id }
+            }, Request
+        );
+
         return Ok(newMember);
     }
 
     [HttpPost("invites/{name}/accept")]
     [Authorize]
-    public async Task<ActionResult<Sphere.Publisher.Publisher>> AcceptMemberInvite(string name)
+    public async Task<ActionResult<Publisher>> AcceptMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -137,6 +139,11 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         member.JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
         await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherMemberJoin,
+            new Dictionary<string, object> { { "account_id", member.AccountId } }, Request
+        );
 
         return Ok(member);
     }
@@ -158,6 +165,45 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherMemberLeave,
+            new Dictionary<string, object> { { "account_id", member.AccountId } }, Request
+        );
+
+        return NoContent();
+    }
+
+    [HttpDelete("{name}/members/{memberId:guid}")]
+    [Authorize]
+    public async Task<ActionResult> RemoveMember(string name, Guid memberId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        var member = await db.PublisherMembers
+            .Where(m => m.AccountId == memberId)
+            .Where(m => m.PublisherId == publisher.Id)
+            .FirstOrDefaultAsync();
+        if (member is null) return NotFound("Member was not found");
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Manager))
+            return StatusCode(403, "You need at least be a manager to remove members from this publisher.");
+
+        db.PublisherMembers.Remove(member);
+        await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherMemberKick,
+            new Dictionary<string, object>
+            {
+                { "publisher_id", publisher.Id },
+                { "account_id", memberId }
+            }, Request
+        );
+
         return NoContent();
     }
 
@@ -170,11 +216,11 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         public string? PictureId { get; set; }
         public string? BackgroundId { get; set; }
     }
-    
+
     [HttpPost("individual")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Sphere.Publisher.Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
+    public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -212,43 +258,51 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             background
         );
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherCreate,
+            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
+        );
+
         return Ok(publisher);
     }
-    
+
     [HttpPost("organization/{realmSlug}")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Sphere.Publisher.Publisher>> CreatePublisherOrganization(string realmSlug, [FromBody] PublisherRequest request)
+    public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug,
+        [FromBody] PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-    
+
         var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmSlug);
         if (realm == null) return NotFound("Realm not found");
-    
+
         var isAdmin = await db.RealmMembers
-            .AnyAsync(m => m.RealmId == realm.Id && m.AccountId == currentUser.Id && m.Role >= RealmMemberRole.Moderator);
-        if (!isAdmin) return StatusCode(403, "You need to be a moderator of the realm to create an organization publisher");
-    
+            .AnyAsync(m =>
+                m.RealmId == realm.Id && m.AccountId == currentUser.Id && m.Role >= RealmMemberRole.Moderator);
+        if (!isAdmin)
+            return StatusCode(403, "You need to be a moderator of the realm to create an organization publisher");
+
         var takenName = request.Name ?? realm.Slug;
         var duplicateNameCount = await db.Publishers
             .Where(p => p.Name == takenName)
             .CountAsync();
         if (duplicateNameCount > 0)
             return BadRequest("The name you requested has already been taken");
-    
+
         CloudFile? picture = null, background = null;
         if (request.PictureId is not null)
         {
             picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
         }
-    
+
         if (request.BackgroundId is not null)
         {
             background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
         }
-    
+
         var publisher = await ps.CreateOrganizationPublisher(
             realm,
             currentUser,
@@ -258,15 +312,19 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
             picture,
             background
         );
-    
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherCreate,
+            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
+        );
+
         return Ok(publisher);
     }
-    
-    
+
 
     [HttpPatch("{name}")]
     [Authorize]
-    public async Task<ActionResult<Sphere.Publisher.Publisher>> UpdatePublisher(string name, PublisherRequest request)
+    public async Task<ActionResult<Publisher>> UpdatePublisher(string name, PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -312,12 +370,17 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         db.Update(publisher);
         await db.SaveChangesAsync();
 
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherUpdate,
+            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
+        );
+
         return Ok(publisher);
     }
 
     [HttpDelete("{name}")]
     [Authorize]
-    public async Task<ActionResult<Sphere.Publisher.Publisher>> DeletePublisher(string name)
+    public async Task<ActionResult<Publisher>> DeletePublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -344,6 +407,11 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
 
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.PublisherDelete,
+            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
+        );
 
         return NoContent();
     }

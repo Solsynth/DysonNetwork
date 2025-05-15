@@ -6,6 +6,7 @@ using NodaTime;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
+using DysonNetwork.Sphere.Connection;
 
 namespace DysonNetwork.Sphere.Auth;
 
@@ -15,14 +16,15 @@ public class AuthController(
     AppDatabase db,
     AccountService accounts,
     AuthService auth,
-    IConfiguration configuration
+    GeoIpService geo,
+    ActionLogService als
 ) : ControllerBase
 {
     public class ChallengeRequest
     {
         [Required] public ChallengePlatform Platform { get; set; }
-        [Required] [MaxLength(256)] public string Account { get; set; } = string.Empty;
-        [Required] [MaxLength(512)] public string DeviceId { get; set; }
+        [Required] [MaxLength(256)] public string Account { get; set; } = null!;
+        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         public List<string> Audiences { get; set; } = new();
         public List<string> Scopes { get; set; } = new();
     }
@@ -57,12 +59,18 @@ public class AuthController(
             Scopes = request.Scopes,
             IpAddress = ipAddress,
             UserAgent = userAgent,
+            Location = geo.GetPointFromIp(ipAddress),
             DeviceId = request.DeviceId,
             AccountId = account.Id
         }.Normalize();
 
         await db.AuthChallenges.AddAsync(challenge);
         await db.SaveChangesAsync();
+        
+        als.CreateActionLogFromRequest(ActionLogType.ChallengeAttempt,
+            new Dictionary<string, object> { { "challenge_id", challenge.Id } }, Request
+        );
+        
         return challenge;
     }
 
@@ -124,6 +132,12 @@ public class AuthController(
                 challenge.StepRemain--;
                 challenge.BlacklistFactors.Add(factor.Id);
                 db.Update(challenge);
+                als.CreateActionLogFromRequest(ActionLogType.ChallengeSuccess,
+                    new Dictionary<string, object> { 
+                        { "challenge_id", challenge.Id },
+                        { "factor_id", factor.Id }
+                    }, Request
+                );
             }
             else
             {
@@ -134,8 +148,24 @@ public class AuthController(
         {
             challenge.FailedAttempts++;
             db.Update(challenge);
+            als.CreateActionLogFromRequest(ActionLogType.ChallengeFailure,
+                new Dictionary<string, object> { 
+                    { "challenge_id", challenge.Id },
+                    { "factor_id", factor.Id }
+                }, Request
+            );
             await db.SaveChangesAsync();
             return BadRequest("Invalid password.");
+        }
+
+        if (challenge.StepRemain == 0)
+        {
+            als.CreateActionLogFromRequest(ActionLogType.NewLogin,
+                new Dictionary<string, object> { 
+                    { "challenge_id", challenge.Id },
+                    { "account_id", challenge.AccountId }
+                }, Request
+            );
         }
 
         await db.SaveChangesAsync();
@@ -208,20 +238,6 @@ public class AuthController(
             default:
                 return BadRequest("Unsupported grant type.");
         }
-    }
-
-    [Authorize]
-    [HttpGet("test")]
-    public async Task<ActionResult> Test()
-    {
-        var sessionIdClaim = HttpContext.User.FindFirst("session_id")?.Value;
-        if (!Guid.TryParse(sessionIdClaim, out var sessionId))
-            return Unauthorized();
-
-        var session = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
-        if (session is null) return NotFound();
-
-        return Ok(session);
     }
 
     [HttpPost("captcha")]
