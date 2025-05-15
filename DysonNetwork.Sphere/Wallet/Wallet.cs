@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace DysonNetwork.Sphere.Wallet;
 
@@ -19,5 +20,5 @@ public class WalletPocket : ModelBase
     public decimal Amount { get; set; }
     
     public Guid WalletId { get; set; }
-    public Wallet Wallet { get; set; } = null!;
+    [JsonIgnore] public Wallet Wallet { get; set; } = null!;
 }
