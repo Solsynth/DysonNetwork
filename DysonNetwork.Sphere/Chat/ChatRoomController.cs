@@ -450,6 +450,28 @@ public class ChatRoomController(
             .Include(e => e.Account.Profile)
             .ToListAsync();
 
+        var directRoomsId = members
+            .Where(m => m.ChatRoom.Type == ChatRoomType.DirectMessage)
+            .Select(m => m.ChatRoom.Id)
+            .ToList();
+    
+        var directMembers = directRoomsId.Count != 0
+            ? await db.ChatMembers
+                .Where(m => directRoomsId.Contains(m.ChatRoomId))
+                .Where(m => m.AccountId != userId)
+                .Include(m => m.Account)
+                .Include(m => m.Account.Profile)
+                .ToDictionaryAsync(m => m.ChatRoomId, m => m)
+            : new Dictionary<Guid, ChatMember>();
+    
+        // Map the results
+        members.ForEach(m =>
+        {
+            if (m.ChatRoom.Type == ChatRoomType.DirectMessage && directMembers.TryGetValue(m.ChatRoomId, out var otherMember))
+                m.ChatRoom.DirectMembers = new List<ChatMemberTransmissionObject>
+                    { ChatMemberTransmissionObject.FromEntity(otherMember) };
+        });
+    
         return members.ToList();
     }
 
