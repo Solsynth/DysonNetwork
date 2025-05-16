@@ -187,7 +187,13 @@ public class AccountEventService(
             result.RewardPoints = null;
         }
 
+        await db.AccountProfiles
+            .Where(p => p.AccountId == user.Id)
+            .ExecuteUpdateAsync(s =>
+                s.SetProperty(b => b.Experience, b => b.Experience + result.RewardExperience)
+            );
         db.AccountCheckInResults.Add(result);
+
         await act.CreateActivity(
             user,
             "accounts.check-in",

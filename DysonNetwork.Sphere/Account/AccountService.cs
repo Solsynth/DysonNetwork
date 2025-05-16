@@ -40,4 +40,12 @@ public class AccountService(
 
         return null;
     }
+
+    public async Task<int?> GetAccountLevel(Guid accountId)
+    {
+        var profile = await db.AccountProfiles
+            .Where(a => a.AccountId == accountId)
+            .FirstOrDefaultAsync();
+        return profile?.Level;
+    }
 }

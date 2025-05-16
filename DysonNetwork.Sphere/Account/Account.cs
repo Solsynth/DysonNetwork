@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +29,27 @@ public class Account : ModelBase
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
 }
 
+public abstract class Leveling
+{
+    public static readonly List<int> ExperiencePerLevel = [
+        0,      // Level 0
+        100,    // Level 1
+        250,    // Level 2
+        500,    // Level 3
+        1000,   // Level 4
+        2000,   // Level 5
+        4000,   // Level 6
+        8000,   // Level 7
+        16000,  // Level 8
+        32000,  // Level 9
+        64000,  // Level 10
+        128000, // Level 11
+        256000, // Level 12
+        512000, // Level 13
+        1024000 // Level 14
+    ];
+}
+
 public class Profile : ModelBase
 {
     public Guid Id { get; set; }
@@ -35,12 +57,18 @@ public class Profile : ModelBase
     [MaxLength(256)] public string? MiddleName { get; set; }
     [MaxLength(256)] public string? LastName { get; set; }
     [MaxLength(4096)] public string? Bio { get; set; }
+    public int Experience { get; set; } = 0;
+    [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;
+    [NotMapped] public double LevelingProgress => Level >= Leveling.ExperiencePerLevel.Count - 1 ? 100 : 
+        (Experience - Leveling.ExperiencePerLevel[Level]) * 100.0 / 
+        (Leveling.ExperiencePerLevel[Level + 1] - Leveling.ExperiencePerLevel[Level]);
 
     public string? PictureId { get; set; }
     public Storage.CloudFile? Picture { get; set; }
     public string? BackgroundId { get; set; }
     public Storage.CloudFile? Background { get; set; }
 
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
 }
 
