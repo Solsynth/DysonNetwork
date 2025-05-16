@@ -263,7 +263,7 @@ public static class PostQueryExtensions
                 .Where(e => e.Visibility == PostVisibility.Public);
 
         return source
-            .Where(e => e.PublishedAt != null && now >= e.PublishedAt && e.Publisher.AccountId == currentUser.Id)
+            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || e.Publisher.AccountId == currentUser.Id)
             .Where(e => e.Visibility != PostVisibility.Private || e.Publisher.AccountId == currentUser.Id)
             .Where(e => e.Visibility != PostVisibility.Friends ||
                         (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||

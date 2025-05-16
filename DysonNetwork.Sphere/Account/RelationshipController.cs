@@ -107,6 +107,11 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
         var relatedUser = await db.Accounts.FindAsync(userId);
         if (relatedUser is null) return NotFound("Account was not found.");
+        
+        var existing = await db.AccountRelationships.FirstOrDefaultAsync(r => 
+            (r.AccountId == currentUser.Id && r.RelatedId == userId) || 
+            (r.AccountId == userId && r.RelatedId == currentUser.Id));
+        if (existing != null) return BadRequest("Relationship already exists.");
 
         try
         {
