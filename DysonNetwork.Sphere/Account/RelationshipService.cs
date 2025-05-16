@@ -1,32 +1,31 @@
-using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCache cache)
+public class RelationshipService(AppDatabase db, IMemoryCache cache)
 {
-    public async Task<bool> HasExistingRelationship(Account userA, Account userB)
+    public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
     {
         var count = await db.AccountRelationships
-            .Where(r => (r.AccountId == userA.Id && r.AccountId == userB.Id) ||
-                        (r.AccountId == userB.Id && r.AccountId == userA.Id))
+            .Where(r => (r.AccountId == accountId && r.RelatedId == relatedId) ||
+                        (r.AccountId == relatedId && r.AccountId == accountId))
             .CountAsync();
         return count > 0;
     }
 
     public async Task<Relationship?> GetRelationship(
-        Account account,
-        Account related,
-        RelationshipStatus? status,
+        Guid accountId,
+        Guid relatedId,
+        RelationshipStatus? status = null,
         bool ignoreExpired = false
     )
     {
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var queries = db.AccountRelationships
-            .Where(r => r.AccountId == account.Id && r.AccountId == related.Id);
-        if (ignoreExpired) queries = queries.Where(r => r.ExpiredAt > now);
+        var queries = db.AccountRelationships.AsQueryable()
+            .Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
+        if (!ignoreExpired) queries = queries.Where(r => r.ExpiredAt > now);
         if (status is not null) queries = queries.Where(r => r.Status == status);
         var relationship = await queries.FirstOrDefaultAsync();
         return relationship;
@@ -37,7 +36,7 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
         if (status == RelationshipStatus.Pending)
             throw new InvalidOperationException(
                 "Cannot create relationship with pending status, use SendFriendRequest instead.");
-        if (await HasExistingRelationship(sender, target))
+        if (await HasExistingRelationship(sender.Id, target.Id))
             throw new InvalidOperationException("Found existing relationship between you and target user.");
 
         var relationship = new Relationship
@@ -49,17 +48,23 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
 
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
-        await ApplyRelationshipPermissions(relationship);
-        
+
         cache.Remove($"UserFriends_{relationship.AccountId}");
         cache.Remove($"UserFriends_{relationship.RelatedId}");
 
         return relationship;
     }
 
+    public async Task<Relationship> BlockAccount(Account sender, Account target)
+    {
+        if (await HasExistingRelationship(sender.Id, target.Id))
+            return await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
+        return await CreateRelationship(sender, target, RelationshipStatus.Blocked);
+    }
+
     public async Task<Relationship> SendFriendRequest(Account sender, Account target)
     {
-        if (await HasExistingRelationship(sender, target))
+        if (await HasExistingRelationship(sender.Id, target.Id))
             throw new InvalidOperationException("Found existing relationship between you and target user.");
 
         var relationship = new Relationship
@@ -81,7 +86,9 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
         RelationshipStatus status = RelationshipStatus.Friends
     )
     {
-        if (relationship.Status == RelationshipStatus.Pending)
+        if (relationship.Status != RelationshipStatus.Pending)
+            throw new ArgumentException("Cannot accept friend request that not in pending status.");
+        if (status == RelationshipStatus.Pending)
             throw new ArgumentException("Cannot accept friend request by setting the new status to pending.");
 
         // Whatever the receiver decides to apply which status to the relationship,
@@ -100,27 +107,22 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
 
         await db.SaveChangesAsync();
 
-        await Task.WhenAll(
-            ApplyRelationshipPermissions(relationship),
-            ApplyRelationshipPermissions(relationshipBackward)
-        );
-        
         cache.Remove($"UserFriends_{relationship.AccountId}");
         cache.Remove($"UserFriends_{relationship.RelatedId}");
 
         return relationshipBackward;
     }
 
-    public async Task<Relationship> UpdateRelationship(Account account, Account related, RelationshipStatus status)
+    public async Task<Relationship> UpdateRelationship(Guid accountId, Guid relatedId, RelationshipStatus status)
     {
-        var relationship = await GetRelationship(account, related, status);
+        var relationship = await GetRelationship(accountId, relatedId, status);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
         if (relationship.Status == status) return relationship;
         relationship.Status = status;
         db.Update(relationship);
         await db.SaveChangesAsync();
-        await ApplyRelationshipPermissions(relationship);
-        cache.Remove($"UserFriends_{related.Id}");
+        cache.Remove($"UserFriends_{accountId}");
+        cache.Remove($"UserFriends_{relatedId}");
         return relationship;
     }
 
@@ -139,27 +141,10 @@ public class RelationshipService(AppDatabase db, PermissionService pm, IMemoryCa
         return friends ?? [];
     }
 
-    private async Task ApplyRelationshipPermissions(Relationship relationship)
+    public async Task<bool> HasRelationshipWithStatus(Guid accountId, Guid relatedId,
+        RelationshipStatus status = RelationshipStatus.Friends)
     {
-        // Apply the relationship permissions to casbin enforcer
-        // domain: the user
-        // status is friends: all permissions are allowed by default, expect specially specified
-        // status is blocked: all permissions are disallowed by default, expect specially specified
-        // others: use the default permissions by design
-
-        var domain = $"user:{relationship.AccountId.ToString()}";
-        var target = $"user:{relationship.RelatedId.ToString()}";
-
-        await pm.RemovePermissionNode(target, domain, "*");
-
-        bool? value = relationship.Status switch
-        {
-            RelationshipStatus.Friends => true,
-            RelationshipStatus.Blocked => false,
-            _ => null,
-        };
-        if (value is null) return;
-
-        await pm.AddPermissionNode(target, domain, "*", value);
+        var relationship = await GetRelationship(accountId, relatedId, status);
+        return relationship is not null;
     }
 }

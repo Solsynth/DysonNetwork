@@ -54,13 +54,15 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-}).AddDataAnnotationsLocalization(options => {
+}).AddDataAnnotationsLocalization(options =>
+{
     options.DataAnnotationLocalizerProvider = (type, factory) =>
         factory.Create(typeof(SharedResource));
 });
 builder.Services.AddRazorPages();
 
-builder.Services.Configure<RequestLocalizationOptions>(options => {
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
     var supportedCultures = new[]
     {
         new CultureInfo("en-us"),
@@ -82,21 +84,12 @@ builder.Services.AddRateLimiter(o => o.AddFixedWindowLimiter(policyName: "fixed"
 }));
 builder.Services.AddCors();
 builder.Services.AddAuthorization();
-builder.Services.AddAuthentication("Bearer").AddJwtBearer(options =>
-{
-    var publicKey = File.ReadAllText(builder.Configuration["Jwt:PublicKeyPath"]!);
-    var rsa = RSA.Create();
-    rsa.ImportFromPem(publicKey);
-    options.TokenValidationParameters = new TokenValidationParameters
+builder.Services.AddAuthentication(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = "solar-network",
-        IssuerSigningKey = new RsaSecurityKey(rsa)
-    };
-});
+        options.DefaultAuthenticateScheme = AuthConstants.SchemeName;
+        options.DefaultChallengeScheme = AuthConstants.SchemeName;
+    })
+    .AddScheme<DysonTokenAuthOptions, DysonTokenAuthHandler>(AuthConstants.SchemeName, _ => { });
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -155,7 +148,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<AccountEventService>();
-builder.Services.AddSingleton<ActionLogService>();
+builder.Services.AddScoped<ActionLogService>();
 builder.Services.AddScoped<RelationshipService>();
 builder.Services.AddScoped<MagicSpellService>();
 builder.Services.AddScoped<NotificationService>();
@@ -191,7 +184,7 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("CloudFilesUnusedRecyclingTrigger")
         .WithSimpleSchedule(o => o.WithIntervalInHours(1).RepeatForever())
     );
-    
+
     var actionLogFlushJob = new JobKey("ActionLogFlush");
     q.AddJob<ActionLogFlushJob>(opts => opts.WithIdentity(actionLogFlushJob));
     q.AddTrigger(opts => opts
@@ -283,34 +276,30 @@ app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
         {
             using var scope = eventContext.HttpContext.RequestServices.CreateScope();
             var services = scope.ServiceProvider;
-            
-            try
-            {
-                var httpContext = eventContext.HttpContext;
-                if (httpContext.Items["CurrentUser"] is not Account user) return;
 
-                var file = await eventContext.GetFileAsync();
-                var metadata = await file.GetMetadataAsync(eventContext.CancellationToken);
-                var fileName = metadata.TryGetValue("filename", out var fn) ? fn.GetString(Encoding.UTF8) : "uploaded_file";
-                var contentType = metadata.TryGetValue("content-type", out var ct) ? ct.GetString(Encoding.UTF8) : null;
-                
-                var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
-                
-                var fileService = services.GetRequiredService<FileService>();
-                var info = await fileService.ProcessNewFileAsync(user, file.Id, fileStream, fileName, contentType);
+            var httpContext = eventContext.HttpContext;
+            if (httpContext.Items["CurrentUser"] is not Account user) return;
 
-                using var finalScope = eventContext.HttpContext.RequestServices.CreateScope();
-                var jsonOptions = finalScope.ServiceProvider.GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions;
-                var infoJson = JsonSerializer.Serialize(info, jsonOptions);
-                eventContext.HttpContext.Response.Headers.Append("X-FileInfo", infoJson);
+            var file = await eventContext.GetFileAsync();
+            var metadata = await file.GetMetadataAsync(eventContext.CancellationToken);
+            var fileName = metadata.TryGetValue("filename", out var fn)
+                ? fn.GetString(Encoding.UTF8)
+                : "uploaded_file";
+            var contentType = metadata.TryGetValue("content-type", out var ct) ? ct.GetString(Encoding.UTF8) : null;
 
-                // Dispose the stream after all processing is complete
-                await fileStream.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                throw;
-            }
+            var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
+
+            var fileService = services.GetRequiredService<FileService>();
+            var info = await fileService.ProcessNewFileAsync(user, file.Id, fileStream, fileName, contentType);
+
+            using var finalScope = eventContext.HttpContext.RequestServices.CreateScope();
+            var jsonOptions = finalScope.ServiceProvider.GetRequiredService<IOptions<JsonOptions>>().Value
+                .JsonSerializerOptions;
+            var infoJson = JsonSerializer.Serialize(info, jsonOptions);
+            eventContext.HttpContext.Response.Headers.Append("X-FileInfo", infoJson);
+
+            // Dispose the stream after all processing is complete
+            await fileStream.DisposeAsync();
         }
     }
 }));

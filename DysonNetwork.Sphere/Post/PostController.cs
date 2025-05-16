@@ -137,7 +137,7 @@ public class PostController(
         [MaxLength(1024)] public string? Title { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         public string? Content { get; set; }
-        public PostVisibility? Visibility { get; set; }
+        public PostVisibility? Visibility { get; set; } = PostVisibility.Public;
         public PostType? Type { get; set; }
         [MaxLength(16)] public List<string>? Tags { get; set; }
         [MaxLength(8)] public List<string>? Categories { get; set; }

@@ -20,28 +20,32 @@ public class ActionLogService(AppDatabase db, GeoIpService geo) : IDisposable
 
         _creationQueue.Enqueue(log);
     }
-    
-    public void CreateActionLogFromRequest(string action, Dictionary<string, object> meta, HttpRequest request)
+
+    public void CreateActionLogFromRequest(string action, Dictionary<string, object> meta, HttpRequest request,
+        Account? account = null)
     {
-        if (request.HttpContext.Items["CurrentUser"] is not Account currentUser)
-            throw new ArgumentException("No user context was found");
-        if (request.HttpContext.Items["CurrentSession"] is not Auth.Session currentSession)
-            throw new ArgumentException("No session context was found");
-        
         var log = new ActionLog
         {
             Action = action,
-            AccountId = currentUser.Id,
-            SessionId = currentSession.Id,
             Meta = meta,
             UserAgent = request.Headers.UserAgent,
             IpAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString(),
             Location = geo.GetPointFromIp(request.HttpContext.Connection.RemoteIpAddress?.ToString())
         };
-    
+        
+        if (request.HttpContext.Items["CurrentUser"] is Account currentUser)
+            log.AccountId = currentUser.Id;
+        else if (account != null)
+            log.AccountId = account.Id;
+        else
+            throw new ArgumentException("No user context was found");
+        
+        if (request.HttpContext.Items["CurrentSession"] is Auth.Session currentSession)
+            log.SessionId = currentSession.Id;
+
         _creationQueue.Enqueue(log);
     }
-    
+
     public async Task FlushQueue()
     {
         var workingQueue = new List<ActionLog>();

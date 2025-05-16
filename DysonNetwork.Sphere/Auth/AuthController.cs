@@ -66,11 +66,11 @@ public class AuthController(
 
         await db.AuthChallenges.AddAsync(challenge);
         await db.SaveChangesAsync();
-        
+
         als.CreateActionLogFromRequest(ActionLogType.ChallengeAttempt,
-            new Dictionary<string, object> { { "challenge_id", challenge.Id } }, Request
+            new Dictionary<string, object> { { "challenge_id", challenge.Id } }, Request, account
         );
-        
+
         return challenge;
     }
 
@@ -115,7 +115,7 @@ public class AuthController(
         [FromBody] PerformChallengeRequest request
     )
     {
-        var challenge = await db.AuthChallenges.FindAsync(id);
+        var challenge = await db.AuthChallenges.Include(e => e.Account).FirstOrDefaultAsync(e => e.Id == id);
         if (challenge is null) return NotFound("Auth challenge was not found.");
 
         var factor = await db.AccountAuthFactors.FindAsync(request.FactorId);
@@ -133,10 +133,11 @@ public class AuthController(
                 challenge.BlacklistFactors.Add(factor.Id);
                 db.Update(challenge);
                 als.CreateActionLogFromRequest(ActionLogType.ChallengeSuccess,
-                    new Dictionary<string, object> { 
+                    new Dictionary<string, object>
+                    {
                         { "challenge_id", challenge.Id },
                         { "factor_id", factor.Id }
-                    }, Request
+                    }, Request, challenge.Account
                 );
             }
             else
@@ -149,10 +150,11 @@ public class AuthController(
             challenge.FailedAttempts++;
             db.Update(challenge);
             als.CreateActionLogFromRequest(ActionLogType.ChallengeFailure,
-                new Dictionary<string, object> { 
+                new Dictionary<string, object>
+                {
                     { "challenge_id", challenge.Id },
                     { "factor_id", factor.Id }
-                }, Request
+                }, Request, challenge.Account
             );
             await db.SaveChangesAsync();
             return BadRequest("Invalid password.");
@@ -161,10 +163,11 @@ public class AuthController(
         if (challenge.StepRemain == 0)
         {
             als.CreateActionLogFromRequest(ActionLogType.NewLogin,
-                new Dictionary<string, object> { 
+                new Dictionary<string, object>
+                {
                     { "challenge_id", challenge.Id },
                     { "account_id", challenge.AccountId }
-                }, Request
+                }, Request, challenge.Account
             );
         }
 

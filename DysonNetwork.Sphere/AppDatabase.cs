@@ -81,15 +81,15 @@ public class AppDatabase(
     {
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(configuration.GetConnectionString("App"));
         dataSourceBuilder.EnableDynamicJson();
+        dataSourceBuilder.UseNetTopologySuite();
         dataSourceBuilder.UseNodaTime();
-        var dataSource = dataSourceBuilder.Build();
 
         optionsBuilder.UseNpgsql(
-            dataSource,
+            dataSourceBuilder.Build(),
             opt => opt
-                .UseNodaTime()
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
                 .UseNetTopologySuite()
+                .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
         optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>

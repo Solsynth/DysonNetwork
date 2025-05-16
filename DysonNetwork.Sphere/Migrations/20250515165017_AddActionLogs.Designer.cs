@@ -12,6 +12,7 @@ using NetTopologySuite.Geometries;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
+using Point = NetTopologySuite.Geometries.Point;
 
 #nullable disable
 
