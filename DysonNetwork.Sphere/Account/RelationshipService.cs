@@ -25,7 +25,7 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
         var queries = db.AccountRelationships.AsQueryable()
             .Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
-        if (!ignoreExpired) queries = queries.Where(r => r.ExpiredAt > now);
+        if (!ignoreExpired) queries = queries.Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
         if (status is not null) queries = queries.Where(r => r.Status == status);
         var relationship = await queries.FirstOrDefaultAsync();
         return relationship;
@@ -80,7 +80,19 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
 
         return relationship;
     }
-
+    
+    public async Task DeleteFriendRequest(Guid accountId, Guid relatedId)
+    {
+        var relationship = await GetRelationship(accountId, relatedId, RelationshipStatus.Pending);
+        if (relationship is null) throw new ArgumentException("Friend request was not found.");
+    
+        db.AccountRelationships.Remove(relationship);
+        await db.SaveChangesAsync();
+        
+        cache.Remove($"UserFriends_{accountId}");
+        cache.Remove($"UserFriends_{relatedId}");
+    }
+    
     public async Task<Relationship> AcceptFriendRelationship(
         Relationship relationship,
         RelationshipStatus status = RelationshipStatus.Friends
@@ -115,7 +127,7 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
 
     public async Task<Relationship> UpdateRelationship(Guid accountId, Guid relatedId, RelationshipStatus status)
     {
-        var relationship = await GetRelationship(accountId, relatedId, status);
+        var relationship = await GetRelationship(accountId, relatedId);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
         if (relationship.Status == status) return relationship;
         relationship.Status = status;

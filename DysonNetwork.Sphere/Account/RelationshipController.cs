@@ -29,6 +29,13 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             .Take(take)
             .ToListAsync();
 
+        var statuses = await db.AccountRelationships
+            .Where(r => r.AccountId == userId)
+            .ToDictionaryAsync(r => r.AccountId);
+        foreach (var relationship in relationships)
+            if (statuses.TryGetValue(relationship.RelatedId, out var status))
+                relationship.Status = status.Status;
+
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return relationships;
@@ -121,6 +128,23 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
         catch (InvalidOperationException err)
         {
             return BadRequest(err.Message);
+        }
+    }
+    
+    [HttpDelete("{userId:guid}/friends")]
+    [Authorize]
+    public async Task<ActionResult> DeleteFriendRequest(Guid userId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        
+        try
+        {
+            await rels.DeleteFriendRequest(currentUser.Id, userId);
+            return NoContent();
+        }
+        catch (ArgumentException err)
+        {
+            return NotFound(err.Message);
         }
     }
 
