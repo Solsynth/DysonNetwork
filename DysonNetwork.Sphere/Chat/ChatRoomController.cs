@@ -16,7 +16,8 @@ public class ChatRoomController(
     FileService fs,
     ChatRoomService crs,
     RealmService rs,
-    ActionLogService als) : ControllerBase
+    ActionLogService als
+) : ControllerBase
 {
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ChatRoom>> GetChatRoom(Guid id)
@@ -28,23 +29,18 @@ public class ChatRoomController(
         if (chatRoom is null) return NotFound();
         if (chatRoom.Type != ChatRoomType.DirectMessage) return Ok(chatRoom);
 
-        // Preload members for direct messages
-        var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
-        var directMembers = await db.ChatMembers
-            .Where(m => (currentUser != null && m.AccountId != currentUser!.Id))
-            .Include(m => m.Account)
-            .Include(m => m.Account.Profile)
-            .ToListAsync();
-        chatRoom.DirectMembers = directMembers.Select(ChatMemberTransmissionObject.FromEntity).ToList();
+        if (HttpContext.Items["CurrentUser"] is Account.Account currentUser)
+            chatRoom = await crs.LoadDirectMessageMembers(chatRoom, currentUser.Id);
+        
         return Ok(chatRoom);
     }
 
     [HttpGet]
+    [Authorize]
     public async Task<ActionResult<List<ChatRoom>>> ListJoinedChatRooms()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
             return Unauthorized();
-
         var userId = currentUser.Id;
 
         var chatRooms = await db.ChatMembers
@@ -53,30 +49,9 @@ public class ChatRoomController(
             .Include(m => m.ChatRoom)
             .Select(m => m.ChatRoom)
             .ToListAsync();
+        chatRooms = await crs.LoadDirectMessageMembers(chatRooms, userId);
 
-        var directRoomsId = chatRooms
-            .Where(r => r.Type == ChatRoomType.DirectMessage)
-            .Select(r => r.Id)
-            .ToList();
-        var directMembers = directRoomsId.Count != 0
-            ? await db.ChatMembers
-                .Where(m => directRoomsId.Contains(m.ChatRoomId))
-                .Where(m => m.AccountId != userId)
-                .Include(m => m.Account)
-                .Include(m => m.Account.Profile)
-                .ToDictionaryAsync(m => m.ChatRoomId, m => m)
-            : new Dictionary<Guid, ChatMember>();
-
-        // Map the results
-        var result = chatRooms.Select(r =>
-        {
-            if (r.Type == ChatRoomType.DirectMessage && directMembers.TryGetValue(r.Id, out var otherMember))
-                r.DirectMembers = new List<ChatMemberTransmissionObject>
-                    { ChatMemberTransmissionObject.FromEntity(otherMember) };
-            return r;
-        }).ToList();
-
-        return Ok(result);
+        return Ok(chatRooms);
     }
 
     public class DirectMessageRequest
@@ -454,7 +429,7 @@ public class ChatRoomController(
             .Where(m => m.ChatRoom.Type == ChatRoomType.DirectMessage)
             .Select(m => m.ChatRoom.Id)
             .ToList();
-    
+
         var directMembers = directRoomsId.Count != 0
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
@@ -463,15 +438,16 @@ public class ChatRoomController(
                 .Include(m => m.Account.Profile)
                 .ToDictionaryAsync(m => m.ChatRoomId, m => m)
             : new Dictionary<Guid, ChatMember>();
-    
+
         // Map the results
         members.ForEach(m =>
         {
-            if (m.ChatRoom.Type == ChatRoomType.DirectMessage && directMembers.TryGetValue(m.ChatRoomId, out var otherMember))
+            if (m.ChatRoom.Type == ChatRoomType.DirectMessage &&
+                directMembers.TryGetValue(m.ChatRoomId, out var otherMember))
                 m.ChatRoom.DirectMembers = new List<ChatMemberTransmissionObject>
                     { ChatMemberTransmissionObject.FromEntity(otherMember) };
         });
-    
+
         return members.ToList();
     }
 
@@ -497,7 +473,7 @@ public class ChatRoomController(
             ActionLogType.ChatroomJoin,
             new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
         );
-        
+
         return Ok(member);
     }
 
@@ -621,7 +597,7 @@ public class ChatRoomController(
                 ActionLogType.ChatroomKick,
                 new Dictionary<string, object> { { "chatroom_id", roomId }, { "account_id", memberId } }, Request
             );
-            
+
             return NoContent();
         }
 
@@ -660,7 +636,7 @@ public class ChatRoomController(
             ActionLogType.ChatroomLeave,
             new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
         );
-        
+
         return NoContent();
     }
 }
