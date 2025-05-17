@@ -11,13 +11,4 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
-    <data name="EmailFooter1" xml:space="preserve">
-        <value>此致</value>
-    </data>
-    <data name="EmailFooter2" xml:space="preserve">
-        <value>Solar Network 团队</value>
-    </data>
-    <data name="EmailLinkHint" xml:space="preserve">
-        <value>如果上方的按钮不起作用，你也可以复制下面的链接到浏览器。</value>
-    </data>
 </root>

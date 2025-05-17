@@ -1,4 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+
 <root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+            
+        </xsd:element>
+    </xsd:schema>
     <resheader name="resmimetype">
         <value>text/microsoft-resx</value>
     </resheader>
@@ -11,13 +18,4 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
-    <data name="EmailFooter1" xml:space="preserve">
-        <value>此致</value>
-    </data>
-    <data name="EmailFooter2" xml:space="preserve">
-        <value>Solar Network 团队</value>
-    </data>
-    <data name="EmailLinkHint" xml:space="preserve">
-        <value>如果上方的按钮不起作用，你也可以复制下面的链接到浏览器。</value>
-    </data>
 </root>

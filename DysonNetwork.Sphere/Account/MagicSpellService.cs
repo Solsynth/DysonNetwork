@@ -1,13 +1,23 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using DysonNetwork.Sphere.Account.Email;
 using DysonNetwork.Sphere.Pages.Emails;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Resources.Localization;
+using DysonNetwork.Sphere.Resources.Pages.Emails;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class MagicSpellService(AppDatabase db, EmailService email, IConfiguration configuration, ILogger<MagicSpellService> logger)
+public class MagicSpellService(
+    AppDatabase db,
+    EmailService email,
+    IConfiguration configuration,
+    ILogger<MagicSpellService> logger,
+    IStringLocalizer<Localization.EmailResource> localizer
+)
 {
     public async Task<MagicSpell> CreateMagicSpell(
         Account account,
@@ -48,6 +58,15 @@ public class MagicSpellService(AppDatabase db, EmailService email, IConfiguratio
 
         logger.LogInformation("Sending magic spell... {Link}", link);
 
+        var accountLanguage = await db.Accounts
+            .Where(a => a.Id == spell.AccountId)
+            .Select(a => a.Language)
+            .FirstOrDefaultAsync();
+
+        var cultureInfo = new CultureInfo(accountLanguage ?? "en-us", false);
+        CultureInfo.CurrentCulture = cultureInfo;
+        CultureInfo.CurrentUICulture = cultureInfo;
+
         try
         {
             switch (spell.Type)
@@ -56,7 +75,7 @@ public class MagicSpellService(AppDatabase db, EmailService email, IConfiguratio
                     await email.SendTemplatedEmailAsync<LandingEmail, LandingEmailModel>(
                         contact.Account.Name,
                         contact.Content,
-                        "Confirm your registration",
+                        localizer["EmailLandingTitle"],
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,

@@ -18,4 +18,13 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="EmailLinkHint" xml:space="preserve">
+        <value>If the button doesn't work, you can also copy and paste this link into your browser:</value>
+    </data>
+    <data name="EmailFooter1" xml:space="preserve">
+        <value>Best regards,</value>
+    </data>
+    <data name="EmailFooter2" xml:space="preserve">
+        <value>The Solar Network Team</value>
+    </data>
 </root>

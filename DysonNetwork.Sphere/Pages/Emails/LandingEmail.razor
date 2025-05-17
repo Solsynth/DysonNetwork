@@ -1,9 +1,13 @@
+@using DysonNetwork.Sphere.Localization
+@using Microsoft.Extensions.Localization
+@using EmailResource = DysonNetwork.Sphere.Localization.EmailResource
+
 <EmailLayout>
     <table class="container">
         <tr>
             <td class="columns">
                 <h1 style="font-size: 1.875rem; font-weight: 700; color: #111827; margin: 0; text-align: center;">
-                    Welcome to the Solar Network!
+                    @(Localizer["LandingHeader1"])
                 </h1>
             </td>
         </tr>
@@ -11,14 +15,13 @@
         <tr>
             <td class="columns">
                 <p style="color: #374151; margin: 0;">
-                    Dear @Name,
+                    @(Localizer["LandingPara1"]) @@@Name,
                 </p>
                 <p style="color: #374151; margin: 0;">
-                    Thank you for creating an account on the Solar Network. We're excited to have you join our community!
+                    @(Localizer["LandingPara2"])
                 </p>
                 <p style="color: #374151; margin: 0;">
-                    To access all features and ensure the security of your account, please confirm your registration by
-                    clicking the button below:
+                    @(Localizer["LandingPara3"])
                 </p>
             </td>
         </tr>
@@ -26,10 +29,10 @@
         <tr>
             <td class="columns">
                 <div style="text-align: center;">
-                    <button href="@VerificationLink"
-                            style="background-color: #2563eb; color: #ffffff; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; text-decoration: none;">
-                        Confirm Registration
-                    </button>
+                    <a href="@VerificationLink" target="_blank"
+                       style="background-color: #2563eb; color: #ffffff; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; text-decoration: none;">
+                        @(Localizer["LandingButton1"])
+                    </a>
                 </div>
             </td>
         </tr>
@@ -37,16 +40,16 @@
         <tr>
             <td class="columns">
                 <p style="color: #374151; margin: 0;">
-                    If the button doesn't work, you can also copy and paste this link into your browser:
+                    @(LocalizerShared["EmailLinkHint"])
                     <br>
                     <a href="@VerificationLink" style="color: #2563eb; word-break: break-all;">@VerificationLink</a>
                 </p>
                 <p style="color: #374151; margin: 0;">
-                    If you didn't create this account, please ignore this email.
+                    @(Localizer["LandingPara4"])
                 </p>
                 <p style="color: #374151; margin: 2rem 0 0 0;">
-                    Best regards,<br>
-                    The Solar Network Team
+                    @(LocalizerShared["EmailFooter1"]) <br />
+                    @(LocalizerShared["EmailFooter2"])
                 </p>
             </td>
         </tr>
@@ -56,4 +59,7 @@
 @code {
     [Parameter] public required string Name { get; set; }
     [Parameter] public required string VerificationLink { get; set; }
+
+    [Inject] IStringLocalizer<EmailResource> Localizer { get; set; } = null!;
+    [Inject] IStringLocalizer<SharedResource> LocalizerShared { get; set; } = null!;
 }

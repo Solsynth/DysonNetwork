@@ -7,28 +7,28 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DysonNetwork.Sphere.Resources {
+namespace DysonNetwork.Sphere.Resources.Pages.Emails {
     using System;
     
     
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class SharedResource {
+    internal class EmailResource {
         
         private static System.Resources.ResourceManager resourceMan;
         
         private static System.Globalization.CultureInfo resourceCulture;
         
         [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal SharedResource() {
+        internal EmailResource() {
         }
         
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Advanced)]
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.Localization.SharedResource", typeof(SharedResource).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.Localization.EmailResource", typeof(EmailResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -45,21 +45,45 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
-        internal static string EmailLinkHint {
+        internal static string LandingHeader1 {
             get {
-                return ResourceManager.GetString("EmailLinkHint", resourceCulture);
+                return ResourceManager.GetString("LandingHeader1", resourceCulture);
             }
         }
         
-        internal static string EmailFooter1 {
+        internal static string LandingPara1 {
             get {
-                return ResourceManager.GetString("EmailFooter1", resourceCulture);
+                return ResourceManager.GetString("LandingPara1", resourceCulture);
             }
         }
         
-        internal static string EmailFooter2 {
+        internal static string LandingPara2 {
             get {
-                return ResourceManager.GetString("EmailFooter2", resourceCulture);
+                return ResourceManager.GetString("LandingPara2", resourceCulture);
+            }
+        }
+        
+        internal static string LandingPara3 {
+            get {
+                return ResourceManager.GetString("LandingPara3", resourceCulture);
+            }
+        }
+        
+        internal static string LandingButton1 {
+            get {
+                return ResourceManager.GetString("LandingButton1", resourceCulture);
+            }
+        }
+        
+        internal static string LandingPara4 {
+            get {
+                return ResourceManager.GetString("LandingPara4", resourceCulture);
+            }
+        }
+        
+        internal static string EmailLandingTitle {
+            get {
+                return ResourceManager.GetString("EmailLandingTitle", resourceCulture);
             }
         }
     }
