@@ -31,7 +31,7 @@ public class ChatRoomController(
 
         if (HttpContext.Items["CurrentUser"] is Account.Account currentUser)
             chatRoom = await crs.LoadDirectMessageMembers(chatRoom, currentUser.Id);
-        
+
         return Ok(chatRoom);
     }
 
@@ -79,7 +79,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
 
         if (existingDm != null)
-            return Ok(existingDm); // Return existing DM if found
+            return BadRequest("You already have a DM with this user.");
 
         // Create new DM chat room
         var dmRoom = new ChatRoom
@@ -425,28 +425,12 @@ public class ChatRoomController(
             .Include(e => e.Account.Profile)
             .ToListAsync();
 
-        var directRoomsId = members
-            .Where(m => m.ChatRoom.Type == ChatRoomType.DirectMessage)
-            .Select(m => m.ChatRoom.Id)
-            .ToList();
-
-        var directMembers = directRoomsId.Count != 0
-            ? await db.ChatMembers
-                .Where(m => directRoomsId.Contains(m.ChatRoomId))
-                .Where(m => m.AccountId != userId)
-                .Include(m => m.Account)
-                .Include(m => m.Account.Profile)
-                .ToDictionaryAsync(m => m.ChatRoomId, m => m)
-            : new Dictionary<Guid, ChatMember>();
-
-        // Map the results
-        members.ForEach(m =>
-        {
-            if (m.ChatRoom.Type == ChatRoomType.DirectMessage &&
-                directMembers.TryGetValue(m.ChatRoomId, out var otherMember))
-                m.ChatRoom.DirectMembers = new List<ChatMemberTransmissionObject>
-                    { ChatMemberTransmissionObject.FromEntity(otherMember) };
-        });
+        var chatRooms = members.Select(m => m.ChatRoom).ToList();
+        var directMembers =
+            (await crs.LoadDirectMessageMembers(chatRooms, userId)).ToDictionary(c => c.Id, c => c.Members);
+        
+        foreach (var member in members.Where(member => member.ChatRoom.Type == ChatRoomType.DirectMessage))
+            member.ChatRoom.Members = directMembers[member.ChatRoom.Id];
 
         return members.ToList();
     }

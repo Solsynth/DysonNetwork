@@ -15,8 +15,8 @@ public enum ChatRoomType
 public class ChatRoom : ModelBase
 {
     public Guid Id { get; set; }
-    [MaxLength(1024)] public string Name { get; set; } = string.Empty;
-    [MaxLength(4096)] public string Description { get; set; } = string.Empty;
+    [MaxLength(1024)] public string? Name { get; set; }
+    [MaxLength(4096)] public string? Description { get; set; }
     public ChatRoomType Type { get; set; }
     public bool IsPublic { get; set; }
 
