@@ -18,6 +18,11 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         public Guid MessageId { get; set; }
         public Guid ChatRoomId { get; set; }
     }
+    
+    public class TypingMessageRequest
+    {
+        public Guid ChatRoomId { get; set; }
+    }
 
     public class SendMessageRequest
     {

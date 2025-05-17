@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Storage;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
@@ -78,6 +79,7 @@ public class MessageReaction : ModelBase
 }
 
 /// If the status is exist, means the user has read the message.
+[Index(nameof(MessageId), nameof(SenderId), IsUnique = true)]
 public class MessageStatus : ModelBase
 {
     public Guid MessageId { get; set; }

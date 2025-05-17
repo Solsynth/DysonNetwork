@@ -1,14 +1,35 @@
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class ChatRoomService(AppDatabase db, NotificationService nty)
+public class ChatRoomService(AppDatabase db, IMemoryCache cache)
 {
-    public async Task SendInviteNotify(ChatMember member)
+    private const string RoomMembersCacheKey = "ChatRoomMembers_{0}";
+    
+    public async Task<List<ChatMember>> ListRoomMembers(Guid roomId)
     {
-        await nty.SendNotification(member.Account, "invites.chats", "New Chat Invitation", null,
-            $"You just got invited to join {member.ChatRoom.Name}");
+        var cacheKey = string.Format(RoomMembersCacheKey, roomId);
+        if (cache.TryGetValue(cacheKey, out List<ChatMember>? cachedMembers))
+            return cachedMembers!;
+    
+        var members = await db.ChatMembers
+            .Where(m => m.ChatRoomId == roomId)
+            .Where(m => m.JoinedAt != null)
+            .ToListAsync();
+    
+        var cacheOptions = new MemoryCacheEntryOptions()
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+        cache.Set(cacheKey, members, cacheOptions);
+    
+        return members;
+    }
+    
+    public void PurgeRoomMembersCache(Guid roomId)
+    {
+        var cacheKey = string.Format(RoomMembersCacheKey, roomId);
+        cache.Remove(cacheKey);
     }
     
     public async Task<List<ChatRoom>> LoadDirectMessageMembers(List<ChatRoom> rooms, Guid userId)

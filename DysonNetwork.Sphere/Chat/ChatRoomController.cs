@@ -16,7 +16,8 @@ public class ChatRoomController(
     FileService fs,
     ChatRoomService crs,
     RealmService rs,
-    ActionLogService als
+    ActionLogService als,
+    NotificationService nty
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -113,7 +114,7 @@ public class ChatRoomController(
         );
 
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
-        await crs.SendInviteNotify(invitedMember);
+        await _SendInviteNotify(invitedMember);
 
         return Ok(dmRoom);
     }
@@ -400,7 +401,7 @@ public class ChatRoomController(
         db.ChatMembers.Add(newMember);
         await db.SaveChangesAsync();
 
-        await crs.SendInviteNotify(newMember);
+        await _SendInviteNotify(newMember);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomInvite,
@@ -428,7 +429,7 @@ public class ChatRoomController(
         var chatRooms = members.Select(m => m.ChatRoom).ToList();
         var directMembers =
             (await crs.LoadDirectMessageMembers(chatRooms, userId)).ToDictionary(c => c.Id, c => c.Members);
-        
+
         foreach (var member in members.Where(member => member.ChatRoom.Type == ChatRoomType.DirectMessage))
             member.ChatRoom.Members = directMembers[member.ChatRoom.Id];
 
@@ -452,6 +453,7 @@ public class ChatRoomController(
         member.JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
         await db.SaveChangesAsync();
+        crs.PurgeRoomMembersCache(roomId);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomJoin,
@@ -484,7 +486,7 @@ public class ChatRoomController(
     [HttpPatch("{roomId:guid}/members/{memberId:guid}/role")]
     [Authorize]
     public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId,
-        [FromBody] ChatMemberRequest request)
+        [FromBody] ChatMemberRole newRole)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -518,13 +520,13 @@ public class ChatRoomController(
                 .FirstOrDefaultAsync();
             if (targetMember is null) return NotFound();
 
-            // Check if current user has sufficient permissions
+            // Check if the current user has sufficient permissions
             if (currentMember.Role <= targetMember.Role)
                 return StatusCode(403, "You cannot modify the role of members with equal or higher roles.");
-            if (currentMember.Role <= request.Role)
+            if (currentMember.Role <= newRole)
                 return StatusCode(403, "You cannot assign a role equal to or higher than your own.");
 
-            targetMember.Role = request.Role;
+            targetMember.Role = newRole;
             db.ChatMembers.Update(targetMember);
             await db.SaveChangesAsync();
 
@@ -576,6 +578,7 @@ public class ChatRoomController(
 
             db.ChatMembers.Remove(targetMember);
             await db.SaveChangesAsync();
+            crs.PurgeRoomMembersCache(roomId);
 
             als.CreateActionLogFromRequest(
                 ActionLogType.ChatroomKick,
@@ -586,6 +589,45 @@ public class ChatRoomController(
         }
 
         return BadRequest();
+    }
+
+
+    [HttpPost("{roomId:guid}/members/me")]
+    [Authorize]
+    public async Task<ActionResult<ChatRoom>> JoinChatRoom(Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var chatRoom = await db.ChatRooms
+            .Where(r => r.Id == roomId)
+            .FirstOrDefaultAsync();
+        if (chatRoom is null) return NotFound();
+        if (!chatRoom.IsPublic)
+            return StatusCode(403, "This chat room is private. You need an invitation to join.");
+
+        var existingMember = await db.ChatMembers
+            .FirstOrDefaultAsync(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId);
+        if (existingMember != null)
+            return BadRequest("You are already a member of this chat room.");
+
+        var newMember = new ChatMember
+        {
+            AccountId = currentUser.Id,
+            ChatRoomId = roomId,
+            Role = ChatMemberRole.Member,
+            JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
+        };
+
+        db.ChatMembers.Add(newMember);
+        await db.SaveChangesAsync();
+        crs.PurgeRoomMembersCache(roomId);
+
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomJoin,
+            new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
+        );
+
+        return Ok(chatRoom);
     }
 
     [HttpDelete("{roomId:guid}/members/me")]
@@ -615,6 +657,7 @@ public class ChatRoomController(
 
         db.ChatMembers.Remove(member);
         await db.SaveChangesAsync();
+        crs.PurgeRoomMembersCache(roomId);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomLeave,
@@ -622,5 +665,11 @@ public class ChatRoomController(
         );
 
         return NoContent();
+    }
+    
+    private async Task _SendInviteNotify(ChatMember member)
+    {
+        await nty.SendNotification(member.Account, "invites.chats", "New Chat Invitation", null,
+            $"You just got invited to join {member.ChatRoom.Name}");
     }
 }

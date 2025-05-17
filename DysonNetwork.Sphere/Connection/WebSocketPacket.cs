@@ -37,13 +37,17 @@ public class WebSocketPacket
     /// <returns>Deserialized data of type T</returns>
     public T? GetData<T>()
     {
-        if (Data == null)
-            return default;
         if (Data is T typedData)
             return typedData;
 
+        var jsonOpts = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
+        };
         return JsonSerializer.Deserialize<T>(
-            JsonSerializer.Serialize(Data)
+            JsonSerializer.Serialize(Data, jsonOpts),
+            jsonOpts
         );
     }
 

@@ -2,16 +2,12 @@ using System.Net.WebSockets;
 using DysonNetwork.Sphere.Chat;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Internal;
-using SystemClock = NodaTime.SystemClock;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
-public class MessageReadHandler(AppDatabase db, IMemoryCache cache, ChatRoomService crs) : IWebSocketPacketHandler
+public class MessageTypingHandler(AppDatabase db, ChatRoomService crs, IMemoryCache cache) : IWebSocketPacketHandler
 {
-    public string PacketType => "messages.read";
-
-    public const string ChatMemberCacheKey = "ChatMember_{0}_{1}";
+    public string PacketType => "messages.typing";
 
     public async Task HandleAsync(
         Account.Account currentUser,
@@ -21,14 +17,14 @@ public class MessageReadHandler(AppDatabase db, IMemoryCache cache, ChatRoomServ
         WebSocketService srv
     )
     {
-        var request = packet.GetData<ChatController.MarkMessageReadRequest>();
+        var request = packet.GetData<ChatController.TypingMessageRequest>();
         if (request is null)
         {
             await socket.SendAsync(
                 new ArraySegment<byte>(new WebSocketPacket
                 {
                     Type = WebSocketPacketType.Error,
-                    ErrorMessage = "Mark message as read requires you provide the ChatRoomId and MessageId"
+                    ErrorMessage = "Mark message as read requires you provide the ChatRoomId"
                 }.ToBytes()),
                 WebSocketMessageType.Binary,
                 true,
@@ -38,7 +34,7 @@ public class MessageReadHandler(AppDatabase db, IMemoryCache cache, ChatRoomServ
         }
 
         ChatMember? sender = null;
-        var cacheKey = string.Format(ChatMemberCacheKey, currentUser.Id, request.ChatRoomId);
+        var cacheKey = string.Format(MessageReadHandler.ChatMemberCacheKey, currentUser.Id, request.ChatRoomId);
         if (cache.TryGetValue(cacheKey, out ChatMember? cachedMember))
             sender = cachedMember;
         else
@@ -70,25 +66,9 @@ public class MessageReadHandler(AppDatabase db, IMemoryCache cache, ChatRoomServ
             return;
         }
 
-        db.ChatStatuses.Add(new MessageStatus
-        {
-            MessageId = request.MessageId,
-            SenderId = sender.Id,
-            ReadAt = SystemClock.Instance.GetCurrentInstant(),
-        });
-
-        try
-        {
-            await db.SaveChangesAsync();
-            
-            // Broadcast read statuses
-            var otherMembers = (await crs.ListRoomMembers(request.ChatRoomId)).Select(m => m.AccountId).ToList();
-            foreach (var member in otherMembers)
-                srv.SendPacketToAccount(member, packet);
-        }
-        catch
-        {
-            // ignored
-        }
+        // Broadcast read statuses
+        var otherMembers = (await crs.ListRoomMembers(request.ChatRoomId)).Select(m => m.AccountId).ToList();
+        foreach (var member in otherMembers)
+            srv.SendPacketToAccount(member, packet);
     }
 }

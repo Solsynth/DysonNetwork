@@ -85,7 +85,7 @@ public class WebSocketService
     {
         if (_handlerMap.TryGetValue(packet.Type, out var handler))
         {
-            await handler.HandleAsync(currentUser, deviceId, packet, socket);
+            await handler.HandleAsync(currentUser, deviceId, packet, socket, this);
             return;
         }
 

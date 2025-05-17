@@ -137,6 +137,7 @@ builder.Services.AddSingleton(tusDiskStore);
 
 // The handlers for websocket
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
+builder.Services.AddScoped<IWebSocketPacketHandler, MessageTypingHandler>();
 
 // Services
 builder.Services.AddScoped<RazorViewRenderer>();
