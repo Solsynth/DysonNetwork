@@ -1,0 +1,18 @@
+@inherits LayoutComponentBase
+
+<div class="min-h-screen bg-gray-100 py-8 font-sans">
+    <div class="max-w-2xl mx-auto px-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            @ChildContent
+        </div>
+        
+        <div class="text-center mt-6 text-sm text-gray-500">
+            <p class="m-0">&copy; @DateTime.Now.Year DysonNetwork. All rights reserved.</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

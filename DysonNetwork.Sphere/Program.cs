@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Account.Email;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Chat;
@@ -20,12 +20,11 @@ using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -34,7 +33,6 @@ using tusdotnet;
 using tusdotnet.Models;
 using tusdotnet.Models.Configuration;
 using tusdotnet.Stores;
-using File = System.IO.File;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -141,6 +139,7 @@ builder.Services.AddSingleton(tusDiskStore);
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
 
 // Services
+builder.Services.AddScoped<RazorViewRenderer>();
 builder.Services.Configure<GeoIpOptions>(builder.Configuration.GetSection("GeoIP"));
 builder.Services.AddScoped<GeoIpService>();
 builder.Services.AddScoped<WebSocketService>();

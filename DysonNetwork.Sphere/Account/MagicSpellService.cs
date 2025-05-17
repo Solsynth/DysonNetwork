@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
+using DysonNetwork.Sphere.Account.Email;
+using DysonNetwork.Sphere.Pages.Emails;
 using DysonNetwork.Sphere.Permission;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class MagicSpellService(AppDatabase db, EmailService email, ILogger<MagicSpellService> logger)
+public class MagicSpellService(AppDatabase db, EmailService email, IConfiguration configuration, ILogger<MagicSpellService> logger)
 {
     public async Task<MagicSpell> CreateMagicSpell(
         Account account,
@@ -42,23 +44,25 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
             .FirstOrDefaultAsync();
         if (contact is null) throw new ArgumentException("Account has no contact method that can use");
 
-        // TODO replace the baseurl
-        var link = $"https://api.sn.solsynth.dev/spells/{Uri.EscapeDataString(spell.Spell)}";
+        var link = $"${configuration.GetValue<string>("BaseUrl")}/spells/{Uri.EscapeDataString(spell.Spell)}";
 
-        logger.LogError($"Sending magic spell... {link}");
+        logger.LogInformation($"Sending magic spell... {link}");
 
         try
         {
             switch (spell.Type)
             {
                 case MagicSpellType.AccountActivation:
-                    await email.SendEmailAsync(
+                    await email.SendTemplatedEmailAsync<LandingEmail, LandingEmailModel>(
                         contact.Account.Name,
                         contact.Content,
                         "Confirm your registration",
-                        "Thank you for creating an account.\n" +
-                        "For accessing all the features, confirm your registration with the link below:\n\n" +
-                        $"{link}"
+                        new LandingEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            VerificationLink = link
+                        },
+                        $"Thank you for creating an account.\nFor accessing all the features, confirm your registration with the link below:\n\n{link}"
                     );
                     break;
                 default:

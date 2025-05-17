@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <div style="max-width: 42rem; margin: 0 auto; padding: 2rem;">
+        <div style="background-color: #ffffff; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 1.5rem;">
+            @RenderBody()
+        </div>
+        
+        <div style="text-align: center; margin-top: 1.5rem; font-size: 0.875rem; color: #6b7280;">
+            <p style="margin: 0;">&copy; @DateTime.Now.Year DysonNetwork. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 
