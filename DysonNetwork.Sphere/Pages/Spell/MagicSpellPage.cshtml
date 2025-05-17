@@ -1,92 +1,76 @@
 @page "/spells/{spellWord}"
-@using DysonNetwork.Sphere.Account
 @model DysonNetwork.Sphere.Pages.Spell.MagicSpellPage
 
 @{
-    Layout = null;
-
-    var spell = ViewData["Spell"] as MagicSpell;
+    ViewData["Title"] = "Magic Spell";
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Solar Network Magic Spell</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap"
-        rel="stylesheet"
-    />
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #2d2d2d;
-            font-family: "Roboto Mono", monospace;
-            color: #c9d1d9;
-        }
+<div class="h-full flex items-center justify-center">
+    <div class="max-w-lg w-full mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Magic Spell</h1>
 
-        .parent {
-            padding: 20px;
-            max-width: 480px;
-            margin: 0 auto;
-        }
+            @if (Model.IsSuccess)
+            {
+                <div class="p-4 bg-green-100 dark:bg-green-900 rounded-lg mb-6">
+                    <p class="text-green-800 dark:text-green-200">The spell was applied successfully!</p>
+                    <p class="text-green-800 dark:text-green-200 opacity-80">Now you can close this page.</p>
+                </div>
+            }
+            else if (Model.CurrentSpell == null)
+            {
+                <div class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                    <p class="text-yellow-800 dark:text-yellow-200">The spell was expired or does not exist.</p>
+                </div>
+            }
+            else
+            {
+                <div class="px-4 py-12 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg rounded-lg mb-6">
+                    <div class="mb-2">
+                        <p>
+                            <span class="font-medium">The spell is for </span>
+                            <span class="font-bold">@System.Text.RegularExpressions.Regex.Replace(Model.CurrentSpell!.Type.ToString(), "([a-z])([A-Z])", "$1 $2")</span>
+                        </p>
+                        <p><span class="font-medium">for @@</span>@Model.CurrentSpell.Account?.Name</p>
+                    </div>
+                    <div class="text-sm opacity-80">
+                        @if (Model.CurrentSpell.ExpiresAt.HasValue)
+                        {
+                            <p>Available until @Model.CurrentSpell.ExpiresAt.Value.ToDateTimeUtc().ToString("g")</p>
+                        }
+                        @if (Model.CurrentSpell.AffectedAt.HasValue)
+                        {
+                            <p>Available after @Model.CurrentSpell.AffectedAt.Value.ToDateTimeUtc().ToString("g")</p>
+                        }
+                    </div>
+                    <p class="text-sm opacity-80">Would you like to apply this spell?</p>
+                </div>
 
-        h2 {
-            font-size: 18px;
-            font-weight: 300;
-            color: #ffffff;
-            margin-bottom: 15px;
-        }
+                <form method="post" class="mt-4">
+                    <input type="hidden" asp-for="CurrentSpell!.Id"/>
+                    <button type="submit"
+                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors
+                                   transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        Apply
+                    </button>
+                </form>
+            }
+        </div>
 
-        .footer {
-            margin-top: 20px;
-            font-size: 11px;
-            opacity: 0.6;
-        }
-
-        .footer-product {
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 5px;
-            opacity: 0.8;
-        }
-    </style>
-</head>
-<body>
-<div class="parent">
-    <div class="container">
-        <h1>Magic Spell</h1>
-        @if (spell == null)
-        {
-            <div>
-                <p style="color: yellow;">The spell was expired or not exists.</p>
+        <div class="mt-8 text-center text-sm">
+            <div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Solar Network</div>
+            <div class="text-gray-600 dark:text-gray-400">
+                <a href="https://solsynth.dev" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    Solsynth LLC
+                </a>
+                &copy; @DateTime.Now.Year
+                <br/>
+                Powered by
+                <a href="https://github.com/Solsynth/DysonNetwork"
+                   class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    DysonNetwork.Sphere
+                </a>
             </div>
-        }
-        else
-        {
-            <div>
-                <p style="color: green;">The spell was applied successfully!</p>
-            </div>
-        }
-    </div>
-    <div class="footer">
-        <div class="footer-product">Solar Network</div>
-        <a
-            href="https://solsynth.dev"
-            style="color: #c9d1d9; text-decoration: none"
-        >Solsynth LLC</a>
-        &copy; @DateTime.Now.Year<br/>
-        Powered by
-        <a
-            href="https://github.com/Solsynth/DysonNetwork"
-            style="color: #c9d1d9"
-        >DysonNetwork.Sphere</a>
+        </div>
     </div>
 </div>
-</body>
-</html>

@@ -1,12 +1,27 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-      <UserSecretsId>cfdec342-d2f2-4a86-800b-93f0a0e4abde</UserSecretsId>
-  </PropertyGroup>
+        <UserSecretsId>cfdec342-d2f2-4a86-800b-93f0a0e4abde</UserSecretsId>
+    </PropertyGroup>
+
+    <!-- NPM Configuration -->
+    <PropertyGroup>
+        <NpmInstallStampFile>node_modules/.install-stamp</NpmInstallStampFile>
+    </PropertyGroup>
+
+    <Target Name="NpmInstall" Inputs="package.json" Outputs="$(NpmInstallStampFile)">
+        <Exec Command="npm install" />
+        <Touch Files="$(NpmInstallStampFile)" AlwaysCreate="true" />
+    </Target>
+
+    <Target Name="NpmBuildTailwind" DependsOnTargets="NpmInstall" BeforeTargets="Build">
+        <Exec Command="npm run css:build" />
+    </Target>
 
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />

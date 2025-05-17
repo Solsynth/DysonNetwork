@@ -83,6 +83,9 @@ public class AppDatabase(
         dataSourceBuilder.EnableDynamicJson();
         dataSourceBuilder.UseNetTopologySuite();
         dataSourceBuilder.UseNodaTime();
+        
+        if (configuration.GetValue<bool>("Debug"))
+            optionsBuilder.EnableSensitiveDataLogging();
 
         optionsBuilder.UseNpgsql(
             dataSourceBuilder.Build(),

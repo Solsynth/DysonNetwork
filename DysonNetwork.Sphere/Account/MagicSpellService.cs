@@ -44,7 +44,7 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
 
         // TODO replace the baseurl
         var link = $"https://api.sn.solsynth.dev/spells/{Uri.EscapeDataString(spell.Spell)}";
-        
+
         logger.LogError($"Sending magic spell... {link}");
 
         try
@@ -76,9 +76,10 @@ public class MagicSpellService(AppDatabase db, EmailService email, ILogger<Magic
         switch (spell.Type)
         {
             case MagicSpellType.AccountActivation:
+                var contactMethod = spell.Meta["contact_method"] as string;
                 var contact = await
                     db.AccountContacts.FirstOrDefaultAsync(c =>
-                        c.Account.Id == spell.AccountId && c.Content == spell.Meta["contact_method"] as string
+                        c.Account.Id == spell.AccountId && c.Content == contactMethod
                     );
                 if (contact is not null)
                 {

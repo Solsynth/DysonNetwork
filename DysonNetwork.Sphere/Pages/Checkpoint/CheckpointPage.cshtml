@@ -2,157 +2,109 @@
 @model DysonNetwork.Sphere.Pages.Checkpoint.CheckpointPage
 
 @{
-    Layout = null;
-
+    ViewData["Title"] = "Security Checkpoint";
     var cfg = ViewData.Model.Configuration;
     var provider = cfg.GetSection("Captcha")["Provider"]?.ToLower();
     var apiKey = cfg.GetSection("Captcha")["ApiKey"];
 }
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Solar Network Captcha</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap"
-        rel="stylesheet"
-    />
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #2d2d2d;
-            font-family: "Roboto Mono", monospace;
-            color: #c9d1d9;
-        }
-
-        .parent {
-            padding: 20px;
-            max-width: 480px;
-            margin: 0 auto;
-        }
-
-        h2 {
-            font-size: 18px;
-            font-weight: 300;
-            color: #ffffff;
-            margin-bottom: 15px;
-        }
-
-        .footer {
-            margin-top: 20px;
-            font-size: 11px;
-            opacity: 0.6;
-        }
-
-        .footer-product {
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 5px;
-            opacity: 0.8;
-        }
-
-        .g-recaptcha {
-            display: inline-block; /* Adjust as needed */
-        }
-    </style>
+@section Scripts {
     @switch (provider)
     {
         case "recaptcha":
             <script src="https://www.recaptcha.net/recaptcha/api.js" async defer></script>
             break;
         case "cloudflare":
-            <script
-                src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-                async
-                defer
-            ></script>
+            <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
             break;
         case "hcaptcha":
             <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
             break;
     }
-</head>
-<body>
-<div class="parent">
-    <div class="container">
-        <h1>reCaptcha</h1>
-        @switch (provider)
-        {
-            case "cloudflare":
-                <div
-                    class="cf-turnstile"
-                    data-sitekey="@apiKey"
-                    data-callback="onSuccess"
-                ></div>
-                break;
-            case "recaptcha":
-                <div
-                    class="g-recaptcha"
-                    data-sitekey="@apiKey"
-                    data-callback="onSuccess"
-                ></div>
-                break;
-            case "hcaptcha":
-                <div
-                    class="h-captcha"
-                    data-sitekey="@apiKey"
-                    data-callback="onSuccess"
-                ></div>
-                break;
-            default:
-                <p style="color: yellow;">Captcha provider not configured correctly.</p>
-                break;
+
+    <script>
+        function getQueryParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
         }
-    </div>
-    <div class="footer">
-        <div class="footer-product">Solar Network Anti-Robot</div>
-        <a
-            href="https://solsynth.dev"
-            style="color: #c9d1d9; text-decoration: none"
-        >Solsynth LLC</a>
-        &copy; @DateTime.Now.Year<br/>
-        Powered by
-        @switch (provider)
-        {
-            case "cloudflare":
-                <a href="https://www.cloudflare.com/turnstile/" style="color: #c9d1d9"
-                >Cloudflare Turnstile</a>
-                break;
-            case "recaptcha":
-                <a href="https://www.google.com/recaptcha/" style="color: #c9d1d9"
-                >Google reCaptcha</a>
-                break;
-            default:
-                <span>Nothing</span>
-                break;
+
+        function onSuccess(token) {
+            window.parent.postMessage("captcha_tk=" + token, "*");
+            const redirectUri = getQueryParam("redirect_uri");
+            if (redirectUri) {
+                window.location.href = `${redirectUri}?captcha_tk=${encodeURIComponent(token)}`;
+            }
         }
-        <br/>
-        Hosted by
-        <a
-            href="https://github.com/Solsynth/DysonNetwork"
-            style="color: #c9d1d9"
-        >DysonNetwork.Sphere</a>
+    </script>
+}
+
+<div class="h-full flex items-center justify-center">
+    <div class="max-w-lg w-full mx-auto p-6">
+        <div class="text-center">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Security Check</h1>
+            <p class="mb-6 text-gray-900 dark:text-white">Please complete the contest below to confirm you're not a robot</p>
+
+            <div class="flex justify-center mb-8">
+                @switch (provider)
+                {
+                    case "cloudflare":
+                        <div class="cf-turnstile"
+                             data-sitekey="@apiKey"
+                             data-callback="onSuccess">
+                        </div>
+                        break;
+                    case "recaptcha":
+                        <div class="g-recaptcha"
+                             data-sitekey="@apiKey"
+                             data-callback="onSuccess">
+                        </div>
+                        break;
+                    case "hcaptcha":
+                        <div class="h-captcha"
+                             data-sitekey="@apiKey"
+                             data-callback="onSuccess">
+                        </div>
+                        break;
+                    default:
+                        <div class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                            <p class="text-yellow-800 dark:text-yellow-200">
+                                Captcha provider not configured correctly.
+                            </p>
+                        </div>
+                        break;
+                }
+            </div>
+        </div>
+
+        <div class="mt-8 text-center text-sm">
+            <div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Solar Network Anti-Robot</div>
+            <div class="text-gray-600 dark:text-gray-400">
+                Powered by
+                @switch (provider)
+                {
+                    case "cloudflare":
+                        <a href="https://www.cloudflare.com/turnstile/"
+                           class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            Cloudflare Turnstile
+                        </a>
+                        break;
+                    case "recaptcha":
+                        <a href="https://www.google.com/recaptcha/"
+                           class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            Google reCaptcha
+                        </a>
+                        break;
+                    default:
+                        <span>Nothing</span>
+                        break;
+                }
+                <br/>
+                Hosted by
+                <a href="https://github.com/Solsynth/DysonNetwork"
+                   class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    DysonNetwork.Sphere
+                </a>
+            </div>
+        </div>
     </div>
 </div>
-<script>
-    function getQueryParam(name) {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get(name);
-    }
-
-    function onSuccess(token) {
-        window.parent.postMessage("captcha_tk=" + token, "*");
-        const redirectUri = getQueryParam("redirect_uri");
-        if (redirectUri) {
-            window.location.href = `${redirectUri}?captcha_tk=${encodeURIComponent(token)}`;
-        }
-    }
-</script>
-</body>
-</html>

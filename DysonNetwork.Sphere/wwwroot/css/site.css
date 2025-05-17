@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@layer base {
+    html, body {
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
+    }
+
+    /* For Firefox. */
+    * {
+        scrollbar-width: none;
+    }
+
+    /* For WebKit (Chrome & Safari). */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.btn-primary {
+    @apply px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors dark:bg-blue-600 dark:hover:bg-blue-700;
+}
+
+.container-default {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}

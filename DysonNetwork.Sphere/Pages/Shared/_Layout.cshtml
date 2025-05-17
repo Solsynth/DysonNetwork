@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true"/>
+</head>
+<body class="h-[calc(100dvh-118px)] mt-[64px] bg-white dark:bg-gray-900">
+<header class="bg-white dark:bg-gray-800 shadow-sm fixed left-0 right-0 top-0 z-50">
+    <nav class="container-default">
+        <div class="flex justify-between h-16 items-center">
+            <div class="flex">
+                <a href="/" class="text-xl font-bold text-gray-900 dark:text-white">Solar Network</a>
+            </div>
+        </div>
+    </nav>
+</header>
+
+@* The header 64px + The footer 56px = 118px *@
+<main class="h-full">
+    @RenderBody()
+</main>
+
+<footer class="bg-white dark:bg-gray-800 fixed bottom-0 left-0 right-0 shadow-[0_-1px_3px_0_rgba(0,0,0,0.1)]">
+    <div class="container-default" style="padding: 1rem 0;">
+        <p class="text-center text-gray-500 dark:text-gray-400">
+            &copy; @DateTime.Now.Year Solsynth LLC. All
+            rights reserved.
+        </p>
+    </div>
+</footer>
+
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html> 
