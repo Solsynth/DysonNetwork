@@ -1,18 +1,29 @@
 @inherits LayoutComponentBase
 
-<div class="min-h-screen bg-gray-100 py-8 font-sans">
-    <div class="max-w-2xl mx-auto px-8">
-        <div class="bg-white rounded-lg shadow-md p-6">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "https://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="https://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport" content="width=device-width"/>
+    <link rel="stylesheet" href="https://unpkg.com/foundation-emails@2.4.0/dist/foundation-emails.min.css">
+    <style type="text/css">
+        .container {
+            padding: 2rem 1rem;
+        }
+    </style>
+</head>
+
+<body>
+<table class="body">
+    <tr>
+        <td class="float-center" align="center" valign="top" style="padding: 2rem 1rem;">
             @ChildContent
-        </div>
-        
-        <div class="text-center mt-6 text-sm text-gray-500">
-            <p class="m-0">&copy; @DateTime.Now.Year DysonNetwork. All rights reserved.</p>
-        </div>
-    </div>
-</div>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
 
 @code {
-    [Parameter]
-    public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
 }

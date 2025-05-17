@@ -62,19 +62,45 @@ public class EmailService
         await client.DisconnectAsync(true);
     }
 
+    private static string _ConvertHtmlToPlainText(string html)
+    {
+        // Remove style tags and their contents
+        html = System.Text.RegularExpressions.Regex.Replace(html, "<style[^>]*>.*?</style>", "", 
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+    
+        // Replace header tags with text + newlines
+        html = System.Text.RegularExpressions.Regex.Replace(html, "<h[1-6][^>]*>(.*?)</h[1-6]>", "$1\n\n",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    
+        // Replace line breaks
+        html = html.Replace("<br>", "\n").Replace("<br/>", "\n").Replace("<br />", "\n");
+    
+        // Remove all remaining HTML tags
+        html = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", "");
+    
+        // Decode HTML entities
+        html = System.Net.WebUtility.HtmlDecode(html);
+    
+        // Remove excess whitespace
+        html = System.Text.RegularExpressions.Regex.Replace(html, @"\s+", " ").Trim();
+    
+        return html;
+    }
+    
     public async Task SendTemplatedEmailAsync<TComponent, TModel>(string? recipientName, string recipientEmail,
-        string subject, TModel model, string fallbackTextBody)
+        string subject, TModel model)
         where TComponent : IComponent
     {
         try
         {
             var htmlBody = await _viewRenderer.RenderComponentToStringAsync<TComponent, TModel>(model);
+            var fallbackTextBody = _ConvertHtmlToPlainText(htmlBody);
             await SendEmailAsync(recipientName, recipientEmail, subject, fallbackTextBody, htmlBody);
         }
         catch (Exception err)
         {
             _logger.LogError(err, "Failed to render email template...");
-            await SendEmailAsync(recipientName, recipientEmail, subject, fallbackTextBody);
+            throw;
         }
     }
 }

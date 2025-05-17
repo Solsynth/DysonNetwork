@@ -17,23 +17,21 @@ public class RazorViewRenderer(
     ILogger<RazorViewRenderer> logger
 )
 {
-    public async Task<string> RenderComponentToStringAsync<TComponent, TModel>(TModel model) 
+    public async Task<string> RenderComponentToStringAsync<TComponent, TModel>(TModel? model) 
         where TComponent : IComponent
     {
         await using var htmlRenderer = new HtmlRenderer(serviceProvider, loggerFactory);
-        
-        var viewDictionary = new ViewDataDictionary<TModel>(
-            new EmptyModelMetadataProvider(),
-            new ModelStateDictionary())
-        {
-            Model = model
-        };
-        
+
         return await htmlRenderer.Dispatcher.InvokeAsync(async () =>
         {
             try 
             {
-                var parameterView = ParameterView.FromDictionary(viewDictionary);
+                var dictionary = model?.GetType().GetProperties()
+                    .ToDictionary(
+                        prop => prop.Name,
+                        prop => prop.GetValue(model, null)
+                    ) ?? new Dictionary<string, object?>();
+                var parameterView = ParameterView.FromDictionary(dictionary);
                 var output = await htmlRenderer.RenderComponentAsync<TComponent>(parameterView);
                 return output.ToHtmlString();
             }

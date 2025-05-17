@@ -44,9 +44,9 @@ public class MagicSpellService(AppDatabase db, EmailService email, IConfiguratio
             .FirstOrDefaultAsync();
         if (contact is null) throw new ArgumentException("Account has no contact method that can use");
 
-        var link = $"${configuration.GetValue<string>("BaseUrl")}/spells/{Uri.EscapeDataString(spell.Spell)}";
+        var link = $"{configuration.GetValue<string>("BaseUrl")}/spells/{Uri.EscapeDataString(spell.Spell)}";
 
-        logger.LogInformation($"Sending magic spell... {link}");
+        logger.LogInformation("Sending magic spell... {Link}", link);
 
         try
         {
@@ -61,8 +61,7 @@ public class MagicSpellService(AppDatabase db, EmailService email, IConfiguratio
                         {
                             Name = contact.Account.Name,
                             VerificationLink = link
-                        },
-                        $"Thank you for creating an account.\nFor accessing all the features, confirm your registration with the link below:\n\n{link}"
+                        }
                     );
                     break;
                 default:
