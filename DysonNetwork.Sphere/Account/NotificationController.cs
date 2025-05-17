@@ -60,4 +60,23 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
 
         return Ok(result);
     }
+
+    [HttpDelete("subscription")]
+    [Authorize]
+    public async Task<ActionResult<int>> UnsubscribeFromPushNotification()
+    {
+        HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account;
+        if (currentUser == null) return Unauthorized();
+        var currentSession = currentSessionValue as Session;
+        if (currentSession == null) return Unauthorized();
+
+        var affectedRows = await db.NotificationPushSubscriptions
+            .Where(s =>
+                s.AccountId == currentUser.Id &&
+                s.DeviceId == currentSession.Challenge.DeviceId
+            ).ExecuteDeleteAsync();
+        return Ok(affectedRows);
+    }
 }

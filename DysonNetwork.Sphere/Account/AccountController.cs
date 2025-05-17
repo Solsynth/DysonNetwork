@@ -63,7 +63,7 @@ public class AccountController(
         [MaxLength(128)]
         public string Password { get; set; } = string.Empty;
 
-        [MaxLength(128)] public string Language { get; set; } = "en";
+        [MaxLength(128)] [RegularExpression("^[a-z]{2,3}$")] public string Language { get; set; } = "en-us";
 
         [Required] public string CaptchaToken { get; set; } = string.Empty;
     }
@@ -140,22 +140,23 @@ public class AccountController(
     public class BasicInfoRequest
     {
         [MaxLength(256)] public string? Nick { get; set; }
-        [MaxLength(32)] public string? Language { get; set; }
+        [MaxLength(32)] [RegularExpression("^[a-z]{2,3}$")] public string? Language { get; set; }
     }
 
     [Authorize]
     [HttpPatch("me")]
     public async Task<ActionResult<Account>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account account) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var account = await db.Accounts.FirstAsync(a => a.Id == currentUser.Id);
+        
         if (request.Nick is not null) account.Nick = request.Nick;
         if (request.Language is not null) account.Language = request.Language;
 
-        await accounts.PurgeAccountCache(account);
-
         await db.SaveChangesAsync();
-        return account;
+        await accounts.PurgeAccountCache(currentUser);
+        return currentUser;
     }
 
     public class ProfileRequest
