@@ -17,6 +17,7 @@ public class ChatRoomService(AppDatabase db, IMemoryCache cache)
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.JoinedAt != null)
+            .Where(m => m.LeaveAt == null)
             .ToListAsync();
     
         var cacheOptions = new MemoryCacheEntryOptions()
@@ -44,6 +45,7 @@ public class ChatRoomService(AppDatabase db, IMemoryCache cache)
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
+                .Where(m => m.LeaveAt == null)
                 .Include(m => m.Account)
                 .Include(m => m.Account.Profile)
                 .GroupBy(m => m.ChatRoomId)
@@ -63,6 +65,7 @@ public class ChatRoomService(AppDatabase db, IMemoryCache cache)
         if (room.Type != ChatRoomType.DirectMessage) return room;
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == room.Id && m.AccountId != userId)
+            .Where(m => m.LeaveAt == null)
             .Include(m => m.Account)
             .Include(m => m.Account.Profile)
             .ToListAsync();

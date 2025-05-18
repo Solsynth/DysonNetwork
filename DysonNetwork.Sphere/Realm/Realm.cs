@@ -47,4 +47,5 @@ public class RealmMember : ModelBase
 
     public RealmMemberRole Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }
+    public Instant? LeaveAt { get; set; }
 }

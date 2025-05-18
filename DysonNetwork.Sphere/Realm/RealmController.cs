@@ -4,6 +4,7 @@ using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Realm;
 
@@ -34,6 +35,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
         var members = await db.RealmMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt != null)
+            .Where(m => m.LeaveAt == null)
             .Include(e => e.Realm)
             .Select(m => m.Realm)
             .ToListAsync();
@@ -144,7 +146,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        db.RealmMembers.Remove(member);
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
         als.CreateActionLogFromRequest(
@@ -177,7 +179,8 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
         }
 
         var query = db.RealmMembers
-            .Where(m => m.RealmId == realm.Id);
+            .Where(m => m.RealmId == realm.Id)
+            .Where(m => m.LeaveAt == null);
 
         var total = await query.CountAsync();
         Response.Headers["X-Total"] = total.ToString();
@@ -228,7 +231,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
         if (member.Role == RealmMemberRole.Owner)
             return StatusCode(403, "Owner cannot leave their own realm.");
 
-        db.RealmMembers.Remove(member);
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
         als.CreateActionLogFromRequest(
@@ -239,7 +242,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
 
         return NoContent();
     }
-    
+
     public class RealmRequest
     {
         [MaxLength(1024)] public string? Slug { get; set; }
@@ -376,21 +379,21 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
     public async Task<ActionResult<RealmMember>> JoinRealm(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-    
+
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
-        
+
         if (!realm.IsCommunity)
             return StatusCode(403, "Only community realms can be joined without invitation.");
-    
+
         var existingMember = await db.RealmMembers
             .Where(m => m.AccountId == currentUser.Id && m.RealmId == realm.Id)
             .FirstOrDefaultAsync();
-        if (existingMember is not null) 
+        if (existingMember is not null)
             return BadRequest("You are already a member of this realm.");
-    
+
         var member = new RealmMember
         {
             AccountId = currentUser.Id,
@@ -398,19 +401,19 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
             Role = RealmMemberRole.Normal,
             JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
-    
+
         db.RealmMembers.Add(member);
         await db.SaveChangesAsync();
-    
+
         als.CreateActionLogFromRequest(
             ActionLogType.RealmJoin,
             new Dictionary<string, object> { { "realm_id", realm.Id }, { "account_id", currentUser.Id } },
             Request
         );
-    
+
         return Ok(member);
     }
-    
+
     [HttpDelete("{slug}/members/{memberId:guid}")]
     [Authorize]
     public async Task<ActionResult> RemoveMember(string slug, Guid memberId)
@@ -422,21 +425,15 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
-        var currentMember = await db.RealmMembers
-            .Where(m => m.AccountId == currentUser.Id && m.RealmId == realm.Id && m.JoinedAt != null)
-            .FirstOrDefaultAsync();
-        if (currentMember is null || currentMember.Role < RealmMemberRole.Moderator)
-            return StatusCode(403, "You do not have permission to remove members from this realm.");
-
-        var memberToRemove = await db.RealmMembers
+        var member = await db.RealmMembers
             .Where(m => m.AccountId == memberId && m.RealmId == realm.Id)
             .FirstOrDefaultAsync();
-        if (memberToRemove is null) return NotFound();
+        if (member is null) return NotFound();
 
-        if (memberToRemove.Role >= currentMember.Role)
-            return StatusCode(403, "You cannot remove members with equal or higher roles.");
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role))
+            return StatusCode(403, "You do not have permission to remove members from this realm.");
 
-        db.RealmMembers.Remove(memberToRemove);
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
         als.CreateActionLogFromRequest(
@@ -453,6 +450,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
     public async Task<ActionResult<RealmMember>> UpdateMemberRole(string slug, Guid memberId,
         [FromBody] RealmMemberRole newRole)
     {
+        if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
         var realm = await db.Realms

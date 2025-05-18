@@ -64,6 +64,7 @@ public class ChatMember : ModelBase
     public ChatMemberRole Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
+    public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;
 }
 
@@ -79,6 +80,7 @@ public class ChatMemberTransmissionObject : ModelBase
     public ChatMemberRole Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
+    public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;
 
     public static ChatMemberTransmissionObject FromEntity(ChatMember member)
@@ -93,6 +95,7 @@ public class ChatMemberTransmissionObject : ModelBase
             Role = member.Role,
             Notify = member.Notify,
             JoinedAt = member.JoinedAt,
+            LeaveAt = member.LeaveAt,
             IsBot = member.IsBot,
             CreatedAt = member.CreatedAt,
             UpdatedAt = member.UpdatedAt,

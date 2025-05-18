@@ -6,6 +6,7 @@ using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -47,6 +48,7 @@ public class ChatRoomController(
         var chatRooms = await db.ChatMembers
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt != null)
+            .Where(m => m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .Select(m => m.ChatRoom)
             .ToListAsync();
@@ -338,6 +340,7 @@ public class ChatRoomController(
 
         var query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
+            .Where(m => m.LeaveAt == null) // Add this condition to exclude left members
             .Include(m => m.Account)
             .Include(m => m.Account.Profile);
 
@@ -398,6 +401,15 @@ public class ChatRoomController(
             if (chatMember.Role < request.Role)
                 return StatusCode(403, "You cannot invite member with higher permission than yours.");
         }
+
+        // Check if a user has previously left the chat
+        var hasExistingMember = await db.ChatMembers
+            .Where(m => m.AccountId == request.RelatedUserId)
+            .Where(m => m.ChatRoomId == roomId)
+            .AnyAsync();
+
+        if (hasExistingMember)
+            return BadRequest("This user has been joined the chat or leave cannot be invited again.");
 
         var newMember = new ChatMember
         {
@@ -485,7 +497,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        db.ChatMembers.Remove(member);
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
         return NoContent();
@@ -496,6 +508,7 @@ public class ChatRoomController(
     public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId,
         [FromBody] ChatMemberRole newRole)
     {
+        if (newRole >= ChatMemberRole.Owner) return BadRequest("Unable to set chat member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
         var chatRoom = await db.ChatRooms
@@ -572,16 +585,16 @@ public class ChatRoomController(
                 return StatusCode(403, "You need at least be a moderator to remove members.");
 
             // Find the target member
-            var targetMember = await db.ChatMembers
+            var member = await db.ChatMembers
                 .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
                 .FirstOrDefaultAsync();
-            if (targetMember is null) return NotFound();
+            if (member is null) return NotFound();
 
             // Check if the current user has sufficient permissions
-            if (!await crs.IsMemberWithRole(chatRoom.Id, memberId, targetMember.Role))
+            if (!await crs.IsMemberWithRole(chatRoom.Id, memberId, member.Role))
                 return StatusCode(403, "You cannot remove members with equal or higher roles.");
 
-            db.ChatMembers.Remove(targetMember);
+            member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
             await db.SaveChangesAsync();
             crs.PurgeRoomMembersCache(roomId);
 
@@ -660,7 +673,7 @@ public class ChatRoomController(
                 return BadRequest("The last owner cannot leave the chat. Transfer ownership first or delete the chat.");
         }
 
-        db.ChatMembers.Remove(member);
+        member.LeaveAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
         await db.SaveChangesAsync();
         crs.PurgeRoomMembersCache(roomId);
 
