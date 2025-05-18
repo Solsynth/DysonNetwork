@@ -18,6 +18,7 @@ using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Storage.Handlers;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -134,6 +135,10 @@ var tusDiskStore = new TusDiskStore(
     builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
 );
 builder.Services.AddSingleton(tusDiskStore);
+
+builder.Services.AddSingleton<FlushBufferService>();
+builder.Services.AddScoped<ActionLogFlushHandler>();
+builder.Services.AddScoped<ActionLogService>();
 
 // The handlers for websocket
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();

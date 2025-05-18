@@ -1,14 +1,12 @@
 using Quartz;
-using System.Collections.Concurrent;
 using DysonNetwork.Sphere.Connection;
-using Microsoft.AspNetCore.Http;
+using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Storage.Handlers;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class ActionLogService(AppDatabase db, GeoIpService geo) : IDisposable
+public class ActionLogService(AppDatabase db, GeoIpService geo, FlushBufferService fbs)
 {
-    private readonly ConcurrentQueue<ActionLog> _creationQueue = new();
-
     public void CreateActionLog(Guid accountId, string action, Dictionary<string, object> meta)
     {
         var log = new ActionLog
@@ -18,7 +16,7 @@ public class ActionLogService(AppDatabase db, GeoIpService geo) : IDisposable
             Meta = meta,
         };
 
-        _creationQueue.Enqueue(log);
+        fbs.Enqueue(log);
     }
 
     public void CreateActionLogFromRequest(string action, Dictionary<string, object> meta, HttpRequest request,
@@ -43,42 +41,14 @@ public class ActionLogService(AppDatabase db, GeoIpService geo) : IDisposable
         if (request.HttpContext.Items["CurrentSession"] is Auth.Session currentSession)
             log.SessionId = currentSession.Id;
 
-        _creationQueue.Enqueue(log);
-    }
-
-    public async Task FlushQueue()
-    {
-        var workingQueue = new List<ActionLog>();
-        while (_creationQueue.TryDequeue(out var log))
-            workingQueue.Add(log);
-
-        if (workingQueue.Count != 0)
-        {
-            try
-            {
-                await db.ActionLogs.AddRangeAsync(workingQueue);
-                await db.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                foreach (var log in workingQueue)
-                    _creationQueue.Enqueue(log);
-                throw;
-            }
-        }
-    }
-
-    public void Dispose()
-    {
-        FlushQueue().Wait();
-        GC.SuppressFinalize(this);
+        fbs.Enqueue(log);
     }
 }
 
-public class ActionLogFlushJob(ActionLogService als) : IJob
+public class ActionLogFlushJob(FlushBufferService fbs, ActionLogFlushHandler hdl) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        await als.FlushQueue();
+        await fbs.FlushAsync(hdl);
     }
 }

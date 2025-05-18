@@ -27,6 +27,8 @@
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
         <PackageReference Include="Blurhash.ImageSharp" Version="4.0.0" />
         <PackageReference Include="CorePush" Version="4.3.0" />
+        <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1" />
+        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
         <PackageReference Include="FFMpegCore" Version="5.2.0" />
         <PackageReference Include="MailKit" Version="4.11.0" />
