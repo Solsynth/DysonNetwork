@@ -61,7 +61,7 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 
     public async Task MarkMessageAsReadAsync(Guid messageId, Guid roomId, Guid userId)
     {
-        var existingStatus = await db.ChatStatuses
+        var existingStatus = await db.ChatReadReceipts
             .FirstOrDefaultAsync(x => x.MessageId == messageId && x.Sender.AccountId == userId);
         var sender = await db.ChatMembers
             .Where(m => m.AccountId == userId && m.ChatRoomId == roomId)
@@ -70,12 +70,12 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 
         if (existingStatus == null)
         {
-            existingStatus = new MessageStatus
+            existingStatus = new MessageReadReceipt
             {
                 MessageId = messageId,
                 SenderId = sender.Id,
             };
-            db.ChatStatuses.Add(existingStatus);
+            db.ChatReadReceipts.Add(existingStatus);
         }
 
         await db.SaveChangesAsync();
@@ -83,14 +83,16 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 
     public async Task<bool> GetMessageReadStatus(Guid messageId, Guid userId)
     {
-        return await db.ChatStatuses
+        return await db.ChatReadReceipts
             .AnyAsync(x => x.MessageId == messageId && x.Sender.AccountId == userId);
     }
 
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
+        var cutoff = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(30));
         var messages = await db.ChatMessages
             .Where(m => m.ChatRoomId == chatRoomId)
+            .Where(m => m.CreatedAt < cutoff)
             .Select(m => new MessageStatusResponse
             {
                 MessageId = m.Id,
@@ -103,12 +105,14 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
 
     public async Task<Dictionary<Guid, int>> CountUnreadMessagesForJoinedRoomsAsync(Guid userId)
     {
+        var cutoff = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(30));
         var userRooms = await db.ChatMembers
             .Where(m => m.AccountId == userId)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
 
         var messages = await db.ChatMessages
+            .Where(m => m.CreatedAt < cutoff)
             .Where(m => userRooms.Contains(m.ChatRoomId))
             .Select(m => new
             {

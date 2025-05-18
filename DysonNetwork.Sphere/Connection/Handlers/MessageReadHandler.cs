@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Internal;
@@ -7,7 +8,13 @@ using SystemClock = NodaTime.SystemClock;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
-public class MessageReadHandler(AppDatabase db, IMemoryCache cache, ChatRoomService crs) : IWebSocketPacketHandler
+public class MessageReadHandler(
+    AppDatabase db,
+    IMemoryCache cache,
+    ChatRoomService crs,
+    FlushBufferService buffer
+)
+    : IWebSocketPacketHandler
 {
     public string PacketType => "messages.read";
 
@@ -70,25 +77,16 @@ public class MessageReadHandler(AppDatabase db, IMemoryCache cache, ChatRoomServ
             return;
         }
 
-        db.ChatStatuses.Add(new MessageStatus
+        var readReceipt = new MessageReadReceipt
         {
             MessageId = request.MessageId,
             SenderId = sender.Id,
-            ReadAt = SystemClock.Instance.GetCurrentInstant(),
-        });
+        };
 
-        try
-        {
-            await db.SaveChangesAsync();
-            
-            // Broadcast read statuses
-            var otherMembers = (await crs.ListRoomMembers(request.ChatRoomId)).Select(m => m.AccountId).ToList();
-            foreach (var member in otherMembers)
-                srv.SendPacketToAccount(member, packet);
-        }
-        catch
-        {
-            // ignored
-        }
+        buffer.Enqueue(readReceipt);
+
+        var otherMembers = (await crs.ListRoomMembers(request.ChatRoomId)).Select(m => m.AccountId).ToList();
+        foreach (var member in otherMembers)
+            srv.SendPacketToAccount(member, packet);
     }
 }

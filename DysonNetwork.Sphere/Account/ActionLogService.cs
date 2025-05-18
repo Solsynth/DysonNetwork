@@ -44,11 +44,3 @@ public class ActionLogService(AppDatabase db, GeoIpService geo, FlushBufferServi
         fbs.Enqueue(log);
     }
 }
-
-public class ActionLogFlushJob(FlushBufferService fbs, ActionLogFlushHandler hdl) : IJob
-{
-    public async Task Execute(IJobExecutionContext context)
-    {
-        await fbs.FlushAsync(hdl);
-    }
-}

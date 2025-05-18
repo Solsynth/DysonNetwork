@@ -22,7 +22,6 @@ using DysonNetwork.Sphere.Storage.Handlers;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -138,6 +137,7 @@ builder.Services.AddSingleton(tusDiskStore);
 
 builder.Services.AddSingleton<FlushBufferService>();
 builder.Services.AddScoped<ActionLogFlushHandler>();
+builder.Services.AddScoped<MessageReadReceiptFlushHandler>();
 builder.Services.AddScoped<ActionLogService>();
 
 // The handlers for websocket
@@ -198,6 +198,24 @@ builder.Services.AddQuartz(q =>
         .WithSimpleSchedule(o => o
             .WithIntervalInMinutes(5)
             .RepeatForever())
+    );
+    
+    var readReceiptFlushJob = new JobKey("ReadReceiptFlush");
+    q.AddJob<ReadReceiptFlushJob>(opts => opts.WithIdentity(readReceiptFlushJob));
+    q.AddTrigger(opts => opts
+        .ForJob(readReceiptFlushJob)
+        .WithIdentity("ReadReceiptFlushTrigger")
+        .WithSimpleSchedule(o => o
+            .WithIntervalInSeconds(60)
+            .RepeatForever())
+    );
+
+    var readReceiptRecyclingJob = new JobKey("ReadReceiptRecycling");
+    q.AddJob<ReadReceiptRecyclingJob>(opts => opts.WithIdentity(readReceiptRecyclingJob));
+    q.AddTrigger(opts => opts
+            .ForJob(readReceiptRecyclingJob)
+            .WithIdentity("ReadReceiptRecyclingTrigger")
+            .WithCronSchedule("0 0 0 * * ?")
     );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

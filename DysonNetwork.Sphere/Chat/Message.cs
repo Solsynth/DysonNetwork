@@ -19,7 +19,7 @@ public class Message : ModelBase
 
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
-    public ICollection<MessageStatus> Statuses { get; set; } = new List<MessageStatus>();
+    public ICollection<MessageReadReceipt> Statuses { get; set; } = new List<MessageReadReceipt>();
 
     public Guid? RepliedMessageId { get; set; }
     public Message? RepliedMessage { get; set; }
@@ -43,7 +43,7 @@ public class Message : ModelBase
             EditedAt = EditedAt,
             Attachments = new List<CloudFile>(Attachments),
             Reactions = new List<MessageReaction>(Reactions),
-            Statuses = new List<MessageStatus>(Statuses),
+            Statuses = new List<MessageReadReceipt>(Statuses),
             RepliedMessageId = RepliedMessageId,
             RepliedMessage = RepliedMessage?.Clone() as Message,
             ForwardedMessageId = ForwardedMessageId,
@@ -78,16 +78,14 @@ public class MessageReaction : ModelBase
     public MessageReactionAttitude Attitude { get; set; }
 }
 
-/// If the status is exist, means the user has read the message.
+/// If the status exists, means the user has read the message.
 [Index(nameof(MessageId), nameof(SenderId), IsUnique = true)]
-public class MessageStatus : ModelBase
+public class MessageReadReceipt : ModelBase
 {
     public Guid MessageId { get; set; }
     public Message Message { get; set; } = null!;
     public Guid SenderId { get; set; }
     public ChatMember Sender { get; set; } = null!;
-
-    public Instant ReadAt { get; set; }
 }
 
 [NotMapped]
