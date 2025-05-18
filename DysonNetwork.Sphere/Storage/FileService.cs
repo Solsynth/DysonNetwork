@@ -31,7 +31,8 @@ public class FileService(
     )
     {
         var result = new List<(string filePath, string suffix)>();
-
+        
+        var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId);
         var fileSize = stream.Length;
         var hash = await HashFileAsync(stream, fileSize: fileSize);
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
@@ -49,9 +50,9 @@ public class FileService(
         switch (contentType.Split('/')[0])
         {
             case "image":
-                var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(xComponent: 3, yComponent: 3, stream);
+                var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(xComponent: 3, yComponent: 3, filename: ogFilePath);
 
-                // Reset stream position after bitmap read
+                // Rewind stream
                 stream.Position = 0;
 
                 // Use NetVips for the rest
@@ -62,14 +63,14 @@ public class FileService(
                     var format = vipsImage.Get("vips-loader") ?? "unknown";
 
                     // Try to get orientation from exif data
-                    ushort orientation = 1;
+                    int orientation = 1;
                     Dictionary<string, object> exif = [];
 
                     foreach (var field in vipsImage.GetFields())
                     {
                         var value = vipsImage.Get(field);
                         exif.Add(field, value);
-                        if (field == "orientation") orientation = (ushort)value;
+                        if (field == "orientation") orientation = (int)value;
                     }
 
                     if (orientation is 6 or 8)
@@ -129,10 +130,7 @@ public class FileService(
                 if (contentType.Split('/')[0] == "image")
                 {
                     file.MimeType = "image/webp";
-
-                    List<Task> tasks = [];
-
-                    var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), file.Id);
+                    
                     using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
                     vipsImage.WriteToFile(imagePath + ".webp");
@@ -151,8 +149,6 @@ public class FileService(
                         result.Add((imageCompressedPath + ".webp", ".compressed"));
                         file.HasCompression = true;
                     }
-
-                    await Task.WhenAll(tasks);
                 }
                 else
                 {

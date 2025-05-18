@@ -13,9 +13,7 @@ public class MessageReadReceiptFlushHandler(IServiceProvider serviceProvider) : 
         var distinctItems = items.DistinctBy(x => new { x.MessageId, x.SenderId }).ToList();
 
         using var scope = serviceProvider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-
-        await db.BulkInsertAsync(distinctItems);
+        var db = scope.ServiceProvider.GetRequiredService<AppDatabase>(); await db.BulkInsertAsync(distinctItems);
     }
 }
 
