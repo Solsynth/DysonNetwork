@@ -1,16 +1,12 @@
 using System.Globalization;
 using FFMpegCore;
 using System.Security.Cryptography;
-using Blurhash.ImageSharp;
 using Microsoft.EntityFrameworkCore;
 using Minio;
 using Minio.DataModel.Args;
 using NodaTime;
 using Quartz;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using tusdotnet.Stores;
-using ExifTag = SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag;
 
 namespace DysonNetwork.Sphere.Storage;
 
@@ -53,32 +49,28 @@ public class FileService(
         switch (contentType.Split('/')[0])
         {
             case "image":
+                var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(xComponent: 3, yComponent: 3, stream);
+
+                // Reset stream position after bitmap read
                 stream.Position = 0;
-                // We still need ImageSharp for blurhash calculation
-                using (var imageSharp = await Image.LoadAsync<Rgba32>(stream))
+
+                // Use NetVips for the rest
+                using (var vipsImage = NetVips.Image.NewFromStream(stream))
                 {
-                    var blurhash = Blurhasher.Encode(imageSharp, 3, 3);
-
-                    // Reset stream position after ImageSharp read
-                    stream.Position = 0;
-
-                    // Use NetVips for the rest
-                    using var vipsImage = NetVips.Image.NewFromStream(stream);
-
                     var width = vipsImage.Width;
                     var height = vipsImage.Height;
                     var format = vipsImage.Get("vips-loader") ?? "unknown";
 
                     // Try to get orientation from exif data
                     ushort orientation = 1;
-                    List<IExifValue> exif = [];
+                    Dictionary<string, object> exif = [];
 
-                    // NetVips supports reading exif with vipsImage.GetField("exif-ifd0-Orientation")
-                    // but we'll keep the ImageSharp exif handling for now
-                    var exifProfile = imageSharp.Metadata.ExifProfile;
-                    if (exifProfile?.Values.FirstOrDefault(e => e.Tag == ExifTag.Orientation)
-                            ?.GetValue() is ushort o)
-                        orientation = o;
+                    foreach (var field in vipsImage.GetFields())
+                    {
+                        var value = vipsImage.Get(field);
+                        exif.Add(field, value);
+                        if (field == "orientation") orientation = (ushort)value;
+                    }
 
                     if (orientation is 6 or 8)
                         (width, height) = (height, width);
