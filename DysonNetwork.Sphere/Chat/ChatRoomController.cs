@@ -127,6 +127,8 @@ public class ChatRoomController(
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
         public Guid? RealmId { get; set; }
+        public bool? IsCommunity { get; set; }
+        public bool? IsPublic { get; set; }
     }
 
     [HttpPost]
@@ -141,6 +143,8 @@ public class ChatRoomController(
         {
             Name = request.Name,
             Description = request.Description ?? string.Empty,
+            IsCommunity = request.IsCommunity ?? false,
+            IsPublic = request.IsPublic ?? false,
             Type = ChatRoomType.Group,
             Members = new List<ChatMember>
             {
@@ -243,6 +247,10 @@ public class ChatRoomController(
             chatRoom.Name = request.Name;
         if (request.Description is not null)
             chatRoom.Description = request.Description;
+        if (request.IsCommunity is not null)
+            chatRoom.IsCommunity = request.IsCommunity.Value;
+        if (request.IsPublic is not null)
+            chatRoom.IsPublic = request.IsPublic.Value;
 
         db.ChatRooms.Update(chatRoom);
         await db.SaveChangesAsync();
@@ -507,28 +515,33 @@ public class ChatRoomController(
         }
         else
         {
-            // Check if the current user has permission to change roles
-            var currentMember = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
-                .FirstOrDefaultAsync();
-            if (currentMember is null || currentMember.Role < ChatMemberRole.Moderator)
-                return StatusCode(403, "You need at least be a moderator to change member roles.");
-
-            // Find the target member
             var targetMember = await db.ChatMembers
                 .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
                 .FirstOrDefaultAsync();
             if (targetMember is null) return NotFound();
 
-            // Check if the current user has sufficient permissions
-            if (currentMember.Role <= targetMember.Role)
-                return StatusCode(403, "You cannot modify the role of members with equal or higher roles.");
-            if (currentMember.Role <= newRole)
-                return StatusCode(403, "You cannot assign a role equal to or higher than your own.");
+            // Check if the current user has permission to change roles
+            if (
+                !await crs.IsMemberWithRole(
+                    chatRoom.Id,
+                    currentUser.Id,
+                    ChatMemberRole.Moderator,
+                    targetMember.Role,
+                    newRole
+                )
+            )
+                return StatusCode(403, "You don't have enough permission to edit the roles of members.");
 
             targetMember.Role = newRole;
             db.ChatMembers.Update(targetMember);
             await db.SaveChangesAsync();
+
+            als.CreateActionLogFromRequest(
+                ActionLogType.RealmAdjustRole,
+                new Dictionary<string, object>
+                    { { "chatroom_id", roomId }, { "account_id", memberId }, { "new_role", newRole } },
+                Request
+            );
 
             return Ok(targetMember);
         }
@@ -550,20 +563,12 @@ public class ChatRoomController(
         // Check if the chat room is owned by a realm
         if (chatRoom.RealmId is not null)
         {
-            var realmMember = await db.RealmMembers
-                .Where(m => m.AccountId == currentUser.Id)
-                .Where(m => m.RealmId == chatRoom.RealmId)
-                .FirstOrDefaultAsync();
-            if (realmMember is null || realmMember.Role < RealmMemberRole.Moderator)
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, currentUser.Id, RealmMemberRole.Moderator))
                 return StatusCode(403, "You need at least be a realm moderator to remove members.");
         }
         else
         {
-            // Check if the current user has permission to remove members
-            var currentMember = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
-                .FirstOrDefaultAsync();
-            if (currentMember is null || currentMember.Role < ChatMemberRole.Moderator)
+            if (!await crs.IsMemberWithRole(chatRoom.Id, currentUser.Id, ChatMemberRole.Moderator))
                 return StatusCode(403, "You need at least be a moderator to remove members.");
 
             // Find the target member
@@ -572,8 +577,8 @@ public class ChatRoomController(
                 .FirstOrDefaultAsync();
             if (targetMember is null) return NotFound();
 
-            // Check if current user has sufficient permissions
-            if (currentMember.Role <= targetMember.Role)
+            // Check if the current user has sufficient permissions
+            if (!await crs.IsMemberWithRole(chatRoom.Id, memberId, targetMember.Role))
                 return StatusCode(403, "You cannot remove members with equal or higher roles.");
 
             db.ChatMembers.Remove(targetMember);
@@ -602,8 +607,8 @@ public class ChatRoomController(
             .Where(r => r.Id == roomId)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
-        if (!chatRoom.IsPublic)
-            return StatusCode(403, "This chat room is private. You need an invitation to join.");
+        if (!chatRoom.IsCommunity)
+            return StatusCode(403, "This chat room isn't a community. You need an invitation to join.");
 
         var existingMember = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId);
@@ -666,7 +671,7 @@ public class ChatRoomController(
 
         return NoContent();
     }
-    
+
     private async Task _SendInviteNotify(ChatMember member)
     {
         await nty.SendNotification(member.Account, "invites.chats", "New Chat Invitation", null,

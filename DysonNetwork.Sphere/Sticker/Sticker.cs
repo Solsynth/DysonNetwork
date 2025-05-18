@@ -1,20 +1,23 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Storage;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Sticker;
 
+[Index(nameof(Slug))] // The slug index shouldn't be unique, the sticker slug can be repeated across packs.
 public class Sticker : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(128)] public string Slug { get; set; } = null!;
 
-    public string ImageId { get; set; } = null!;
+    [MaxLength(32)] public string ImageId { get; set; } = null!;
     public CloudFile Image { get; set; } = null!;
     
     public Guid PackId { get; set; }
     public StickerPack Pack { get; set; } = null!;
 }
 
+[Index(nameof(Prefix), IsUnique = true)]
 public class StickerPack : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

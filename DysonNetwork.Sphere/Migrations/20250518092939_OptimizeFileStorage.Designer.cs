@@ -7,6 +7,7 @@ using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -18,9 +19,11 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250518092939_OptimizeFileStorage")]
+    partial class OptimizeFileStorage
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2107,7 +2110,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.Property<string>("ImageId")
                         .IsRequired()
-                        .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("image_id");
 
@@ -2133,9 +2135,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("PackId")
                         .HasDatabaseName("ix_stickers_pack_id");
-
-                    b.HasIndex("Slug")
-                        .HasDatabaseName("ix_stickers_slug");
 
                     b.ToTable("stickers", (string)null);
                 });
@@ -2183,10 +2182,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_sticker_packs");
-
-                    b.HasIndex("Prefix")
-                        .IsUnique()
-                        .HasDatabaseName("ix_sticker_packs_prefix");
 
                     b.HasIndex("PublisherId")
                         .HasDatabaseName("ix_sticker_packs_publisher_id");

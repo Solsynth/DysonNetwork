@@ -32,6 +32,7 @@ public class ActionLogType
     public const string RealmJoin = "realms.join";
     public const string RealmLeave = "realms.leave";
     public const string RealmKick = "realms.kick";
+    public const string RealmAdjustRole = "realms.role.edit";
     public const string ChatroomCreate = "chatrooms.create";
     public const string ChatroomUpdate = "chatrooms.update";
     public const string ChatroomDelete = "chatrooms.delete";
@@ -39,6 +40,7 @@ public class ActionLogType
     public const string ChatroomJoin = "chatrooms.join";
     public const string ChatroomLeave = "chatrooms.leave";
     public const string ChatroomKick = "chatrooms.kick";
+    public const string ChatroomAdjustRole = "chatrooms.role.edit";
 }
 
 public class ActionLog : ModelBase

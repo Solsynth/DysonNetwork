@@ -72,10 +72,14 @@ public class ChatRoomService(AppDatabase db, IMemoryCache cache)
         return room;
     }
     
-    public async Task<bool> IsMemberWithRole(Guid roomId, Guid accountId, ChatMemberRole requiredRole)
+    public async Task<bool> IsMemberWithRole(Guid roomId, Guid accountId, params ChatMemberRole[] requiredRoles)
     {
+        if (requiredRoles.Length == 0)
+            return false;
+            
+        var maxRequiredRole = requiredRoles.Max();
         var member = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == accountId);
-        return member?.Role >= requiredRole;
+        return member?.Role >= maxRequiredRole;
     }
 }

@@ -115,7 +115,7 @@ public class AppDatabase(
                         "chat.realtime.create",
                         "accounts.statuses.create",
                         "accounts.statuses.update",
-                        "stickers.pack.create",
+                        "stickers.packs.create",
                         "stickers.create"
                     }.Select(permission => 
                         PermissionService.NewPermissionNode("group:default", "global", permission, true))

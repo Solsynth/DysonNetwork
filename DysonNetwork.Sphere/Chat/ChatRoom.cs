@@ -18,6 +18,7 @@ public class ChatRoom : ModelBase
     [MaxLength(1024)] public string? Name { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
     public ChatRoomType Type { get; set; }
+    public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
 
     [MaxLength(32)] public string? PictureId { get; set; }

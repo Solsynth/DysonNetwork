@@ -34,7 +34,7 @@ public class StickerService(AppDatabase db, FileService fs, IMemoryCache cache)
         await db.SaveChangesAsync();
         
         // Invalidate cache for this sticker
-        InvalidateStickerCache(sticker);
+        PurgeStickerCache(sticker);
 
         return sticker;
     }
@@ -45,7 +45,7 @@ public class StickerService(AppDatabase db, FileService fs, IMemoryCache cache)
         await fs.MarkUsageAsync(sticker.Image, -1);
         
         // Invalidate cache for this sticker
-        InvalidateStickerCache(sticker);
+        PurgeStickerCache(sticker);
     }
     public async Task DeleteStickerPackAsync(StickerPack pack)
     {
@@ -65,7 +65,7 @@ public class StickerService(AppDatabase db, FileService fs, IMemoryCache cache)
         // Invalidate cache for all stickers in this pack
         foreach (var sticker in stickers)
         {
-            InvalidateStickerCache(sticker);
+            PurgeStickerCache(sticker);
         }
     }
     
@@ -91,14 +91,12 @@ public class StickerService(AppDatabase db, FileService fs, IMemoryCache cache)
         
         // Store in cache if found
         if (sticker != null)
-        {
             cache.Set(cacheKey, sticker, CacheDuration);
-        }
         
         return sticker;
     }
     
-    private void InvalidateStickerCache(Sticker sticker)
+    private void PurgeStickerCache(Sticker sticker)
     {
         // Remove both possible cache entries
         cache.Remove($"StickerLookup_{sticker.Id}");
