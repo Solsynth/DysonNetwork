@@ -63,9 +63,9 @@ public class Profile : ModelBase
         (Experience - Leveling.ExperiencePerLevel[Level]) * 100.0 / 
         (Leveling.ExperiencePerLevel[Level + 1] - Leveling.ExperiencePerLevel[Level]);
 
-    public string? PictureId { get; set; }
+    [MaxLength(32)] public string? PictureId { get; set; }
     public Storage.CloudFile? Picture { get; set; }
-    public string? BackgroundId { get; set; }
+    [MaxLength(32)] public string? BackgroundId { get; set; }
     public Storage.CloudFile? Background { get; set; }
 
     public Guid AccountId { get; set; }

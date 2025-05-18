@@ -166,8 +166,8 @@ public class AccountController(
         [MaxLength(256)] public string? LastName { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
 
-        public string? PictureId { get; set; }
-        public string? BackgroundId { get; set; }
+        [MaxLength(32)] public string? PictureId { get; set; }
+        [MaxLength(32)] public string? BackgroundId { get; set; }
     }
 
     [Authorize]

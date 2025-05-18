@@ -124,8 +124,8 @@ public class ChatRoomController(
     {
         [Required] [MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
-        public string? PictureId { get; set; }
-        public string? BackgroundId { get; set; }
+        [MaxLength(32)] public string? PictureId { get; set; }
+        [MaxLength(32)] public string? BackgroundId { get; set; }
         public Guid? RealmId { get; set; }
     }
 

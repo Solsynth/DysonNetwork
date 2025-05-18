@@ -2,6 +2,7 @@ using System.Globalization;
 using FFMpegCore;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Minio;
 using Minio.DataModel.Args;
 using NodaTime;
@@ -15,9 +16,36 @@ public class FileService(
     IConfiguration configuration,
     TusDiskStore store,
     ILogger<FileService> logger,
-    IServiceScopeFactory scopeFactory
+    IServiceScopeFactory scopeFactory,
+    IMemoryCache cache
 )
 {
+    private const string CacheKeyPrefix = "cloudfile_";
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
+    
+    /// <summary>
+    /// The api for getting file meta with cache,
+    /// the best use case is for accessing the file data.
+    ///
+    /// <b>This function won't load uploader's information, only keep minimal file meta</b>
+    /// </summary>
+    /// <param name="fileId">The id of the cloud file requested</param>
+    /// <returns>The minimal file meta</returns>
+    public async Task<CloudFile?> GetFileAsync(string fileId)
+    {
+        var cacheKey = $"{CacheKeyPrefix}{fileId}";
+        
+        if (cache.TryGetValue(cacheKey, out CloudFile? cachedFile))
+            return cachedFile;
+    
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
+        
+        if (file != null)
+            cache.Set(cacheKey, file, CacheDuration);
+            
+        return file;
+    }
+    
     private static readonly string TempFilePrefix = "dyn-cloudfile";
 
     // The analysis file method no longer will remove the GPS EXIF data
@@ -31,7 +59,7 @@ public class FileService(
     )
     {
         var result = new List<(string filePath, string suffix)>();
-        
+
         var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId);
         var fileSize = stream.Length;
         var hash = await HashFileAsync(stream, fileSize: fileSize);
@@ -47,10 +75,25 @@ public class FileService(
             AccountId = account.Id
         };
 
+        var existingFile = await db.Files.FirstOrDefaultAsync(f => f.Hash == hash);
+        file.StorageId = existingFile is not null ? existingFile.StorageId : file.Id;
+
+        if (existingFile is not null)
+        {
+            file.FileMeta = existingFile.FileMeta;
+            file.HasCompression = existingFile.HasCompression;
+            file.SensitiveMarks = existingFile.SensitiveMarks;
+            
+            db.Files.Add(file);
+            await db.SaveChangesAsync();
+            return file;
+        }
+
         switch (contentType.Split('/')[0])
         {
             case "image":
-                var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(xComponent: 3, yComponent: 3, filename: ogFilePath);
+                var blurhash =
+                    BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(xComponent: 3, yComponent: 3, filename: ogFilePath);
 
                 // Rewind stream
                 stream.Position = 0;
@@ -130,7 +173,7 @@ public class FileService(
                 if (contentType.Split('/')[0] == "image")
                 {
                     file.MimeType = "image/webp";
-                    
+
                     using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
                     vipsImage.WriteToFile(imagePath + ".webp");
@@ -278,7 +321,14 @@ public class FileService(
 
     public async Task DeleteFileDataAsync(CloudFile file)
     {
+        if (file.StorageId is null) return;
         if (file.UploadedTo is null) return;
+
+        var repeatedStorageId = await db.Files
+            .Where(f => f.StorageId == file.StorageId && f.Id != file.Id && f.UsedCount > 0)
+            .AnyAsync();
+        if (repeatedStorageId) return;
+
         var dest = GetRemoteStorageConfig(file.UploadedTo);
         var client = CreateMinioClient(dest);
         if (client is null)
@@ -287,12 +337,27 @@ public class FileService(
             );
 
         var bucket = dest.Bucket;
+        var objectId = file.StorageId ?? file.Id; // Use StorageId if available, otherwise fall back to Id
+
         await client.RemoveObjectAsync(
-            new RemoveObjectArgs().WithBucket(bucket).WithObject(file.Id)
+            new RemoveObjectArgs().WithBucket(bucket).WithObject(objectId)
         );
 
-        db.Remove(file);
-        await db.SaveChangesAsync();
+        if (file.HasCompression)
+        {
+            // Also remove the compressed version if it exists
+            try
+            {
+                await client.RemoveObjectAsync(
+                    new RemoveObjectArgs().WithBucket(bucket).WithObject(objectId + ".compressed")
+                );
+            }
+            catch
+            {
+                // Ignore errors when deleting compressed version
+                logger.LogWarning("Failed to delete compressed version of file {fileId}", file.Id);
+            }
+        }
     }
 
     public RemoteStorageConfig GetRemoteStorageConfig(string destination)
@@ -345,20 +410,88 @@ public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger
 
         var cutoff = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
         var now = SystemClock.Instance.GetCurrentInstant();
-        var files = db.Files
+
+        // Get files to delete along with their storage IDs
+        var files = await db.Files
             .Where(f =>
                 (f.ExpiredAt == null && f.UsedCount == 0 && f.CreatedAt < cutoff) ||
                 (f.ExpiredAt != null && f.ExpiredAt >= now)
             )
+            .ToListAsync();
+
+        if (files.Count == 0)
+        {
+            logger.LogInformation("No files to delete");
+            return;
+        }
+
+        logger.LogInformation($"Found {files.Count} files to process...");
+
+        // Group files by StorageId and find which ones are safe to delete
+        var storageIds = files.Where(f => f.StorageId != null)
+            .Select(f => f.StorageId!)
+            .Distinct()
             .ToList();
 
-        logger.LogInformation($"Deleting {files.Count} unused cloud files...");
+        var usedStorageIds = await db.Files
+            .Where(f => f.StorageId != null &&
+                        storageIds.Contains(f.StorageId) &&
+                        !files.Select(ff => ff.Id).Contains(f.Id))
+            .Select(f => f.StorageId!)
+            .Distinct()
+            .ToListAsync();
 
-        var tasks = files.Select(fs.DeleteFileDataAsync);
-        await Task.WhenAll(tasks);
+        // Group files for deletion
+        var filesToDelete = files.Where(f => f.StorageId == null || !usedStorageIds.Contains(f.StorageId))
+            .GroupBy(f => f.UploadedTo)
+            .ToDictionary(grouping => grouping.Key!, grouping => grouping.ToList());
 
+        // Delete files by remote storage
+        foreach (var group in filesToDelete)
+        {
+            if (string.IsNullOrEmpty(group.Key)) continue;
+
+            try
+            {
+                var dest = fs.GetRemoteStorageConfig(group.Key);
+                var client = fs.CreateMinioClient(dest);
+                if (client == null) continue;
+
+                // Create delete tasks for each file in the group
+                var deleteTasks = group.Value.Select(file =>
+                {
+                    var objectId = file.StorageId ?? file.Id;
+                    var tasks = new List<Task>
+                    {
+                        client.RemoveObjectAsync(new RemoveObjectArgs()
+                            .WithBucket(dest.Bucket)
+                            .WithObject(objectId))
+                    };
+
+                    if (file.HasCompression)
+                    {
+                        tasks.Add(client.RemoveObjectAsync(new RemoveObjectArgs()
+                            .WithBucket(dest.Bucket)
+                            .WithObject(objectId + ".compressed")));
+                    }
+
+                    return Task.WhenAll(tasks);
+                });
+
+                await Task.WhenAll(deleteTasks);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error deleting files from remote storage {remote}", group.Key);
+            }
+        }
+
+        // Delete all file records from the database
+        var fileIds = files.Select(f => f.Id).ToList();
         await db.Files
-            .Where(f => f.UsedCount == 0 && f.CreatedAt < cutoff)
+            .Where(f => fileIds.Contains(f.Id))
             .ExecuteDeleteAsync();
+
+        logger.LogInformation($"Completed deleting {files.Count} files");
     }
 }

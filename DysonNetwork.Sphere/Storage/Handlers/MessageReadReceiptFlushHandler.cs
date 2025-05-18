@@ -10,7 +10,15 @@ public class MessageReadReceiptFlushHandler(IServiceProvider serviceProvider) : 
 {
     public async Task FlushAsync(IReadOnlyList<MessageReadReceipt> items)
     {
-        var distinctItems = items.DistinctBy(x => new { x.MessageId, x.SenderId }).ToList();
+        var distinctItems = items
+            .DistinctBy(x => new { x.MessageId, x.SenderId })
+            .Select(x =>
+            {
+                x.CreatedAt = SystemClock.Instance.GetCurrentInstant();
+                x.UpdatedAt = x.CreatedAt;
+                return x;
+            })
+            .ToList();
 
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>(); await db.BulkInsertAsync(distinctItems);

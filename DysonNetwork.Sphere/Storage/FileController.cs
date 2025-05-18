@@ -17,9 +17,11 @@ public class FileController(
     [HttpGet("{id}")]
     public async Task<ActionResult> OpenFile(string id, [FromQuery] bool original = false)
     {
-        var file = await db.Files.FindAsync(id);
+        var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
-
+        
+        if (file.StorageUrl is not null) return Redirect(file.StorageUrl);
+        
         if (file.UploadedTo is null)
         {
             var tusStorePath = configuration.GetValue<string>("Tus:StorePath")!;
@@ -29,7 +31,7 @@ public class FileController(
         }
 
         var dest = fs.GetRemoteStorageConfig(file.UploadedTo);
-        var fileName = file.Id;
+        var fileName = file.StorageId;
 
         if (!original && file.HasCompression)
         {

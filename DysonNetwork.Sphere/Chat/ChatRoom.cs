@@ -20,9 +20,9 @@ public class ChatRoom : ModelBase
     public ChatRoomType Type { get; set; }
     public bool IsPublic { get; set; }
 
-    public string? PictureId { get; set; }
+    [MaxLength(32)] public string? PictureId { get; set; }
     public CloudFile? Picture { get; set; }
-    public string? BackgroundId { get; set; }
+    [MaxLength(32)] public string? BackgroundId { get; set; }
     public CloudFile? Background { get; set; }
 
     [JsonIgnore] public ICollection<ChatMember> Members { get; set; } = new List<ChatMember>();
