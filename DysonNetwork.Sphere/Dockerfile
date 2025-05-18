@@ -6,24 +6,18 @@ EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 # Install Node.js
-RUN apt-get update && apt-get install -y curl
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g npm@latest
+RUN apt-get update && apt-get install -y nodejs npm
 
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["DysonNetwork.Sphere/DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
+COPY ["DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
 RUN dotnet restore "DysonNetwork.Sphere/DysonNetwork.Sphere.csproj"
-COPY . .
 WORKDIR "/src/DysonNetwork.Sphere"
+COPY . .
 
 # Install npm packages and build Tailwind CSS
-COPY ["DysonNetwork.Sphere/package*.json", "./"]
 RUN npm install
-COPY ["DysonNetwork.Sphere/postcss.config.js", "./"]
-COPY ["DysonNetwork.Sphere/wwwroot/css/site.css", "./wwwroot/css/"]
-RUN npx @tailwindcss/cli -i ./wwwroot/css/site.css -o ./wwwroot/css/styles.css
+RUN npm run css:build
 
 RUN dotnet build "DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
