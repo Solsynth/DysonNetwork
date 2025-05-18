@@ -82,6 +82,8 @@
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FAccountEventResource_002Ezh_002DCN/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FAccountEventResource_002Ezh_002DCN/@EntryIndexRemoved">True</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FAccountEventResource/@EntryIndexedValue">True</s:Boolean>
+	
+	
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FEmails_002FEmail_002ELandingResource/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FEmails_002FLandingEmailResource/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FEmails_002FLandingEmailResource/@EntryIndexRemoved">True</s:Boolean>
@@ -89,8 +91,10 @@
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FEmails_002FEmail_002ELandingResource/@EntryIndexRemoved">True</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FEmail_002ELandingResource/@EntryIndexRemoved">True</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FEmailResource/@EntryIndexedValue">True</s:Boolean>
-	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FNotificationResource/@EntryIndexedValue">False</s:Boolean>
-	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FSharedResource/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FNotificationResource/@EntryIndexedValue">True</s:Boolean>
+	
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FLocalization_002FSharedResource/@EntryIndexedValue">True</s:Boolean>
+	
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FPages_002FEmails_002FLandingEmail/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FPages_002FEmails_002FLandingEmail/@EntryIndexRemoved">True</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FResources_002FPages_002FEmails_002FLandingEmailResource/@EntryIndexedValue">False</s:Boolean>
