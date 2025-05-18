@@ -4,9 +4,9 @@ namespace DysonNetwork.Sphere.Account;
 
 public enum RelationshipStatus
 {
-    Pending,
-    Friends,
-    Blocked
+    Friends = 100,
+    Pending = 0,
+    Blocked = -100
 }
 
 public class Relationship : ModelBase

@@ -18,7 +18,8 @@ public class ChatRoomController(
     ChatRoomService crs,
     RealmService rs,
     ActionLogService als,
-    NotificationService nty
+    NotificationService nty,
+    RelationshipService rels
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -72,6 +73,9 @@ public class ChatRoomController(
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
         if (relatedUser is null)
             return BadRequest("Related user was not found");
+        
+        if (await rels.HasRelationshipWithStatus(currentUser.Id, relatedUser.Id, RelationshipStatus.Blocked))
+            return StatusCode(403, "You cannot create direct message with a user that blocked you.");
 
         // Check if DM already exists between these users
         var existingDm = await db.ChatRooms
@@ -372,6 +376,9 @@ public class ChatRoomController(
 
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
         if (relatedUser is null) return BadRequest("Related user was not found");
+        
+        if (await rels.HasRelationshipWithStatus(currentUser.Id, relatedUser.Id, RelationshipStatus.Blocked))
+            return StatusCode(403, "You cannot invite a user that blocked you.");
 
         var chatRoom = await db.ChatRooms
             .Where(p => p.Id == roomId)
@@ -402,14 +409,13 @@ public class ChatRoomController(
                 return StatusCode(403, "You cannot invite member with higher permission than yours.");
         }
 
-        // Check if a user has previously left the chat
         var hasExistingMember = await db.ChatMembers
             .Where(m => m.AccountId == request.RelatedUserId)
             .Where(m => m.ChatRoomId == roomId)
+            .Where(m => m.LeaveAt == null)
             .AnyAsync();
-
         if (hasExistingMember)
-            return BadRequest("This user has been joined the chat or leave cannot be invited again.");
+            return BadRequest("This user has been joined the chat cannot be invited again.");
 
         var newMember = new ChatMember
         {

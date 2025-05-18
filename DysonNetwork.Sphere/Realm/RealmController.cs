@@ -10,7 +10,7 @@ namespace DysonNetwork.Sphere.Realm;
 
 [ApiController]
 [Route("/realms")]
-public class RealmController(AppDatabase db, RealmService rs, FileService fs, ActionLogService als) : Controller
+public class RealmController(AppDatabase db, RealmService rs, FileService fs, RelationshipService rels, ActionLogService als) : Controller
 {
     [HttpGet("{slug}")]
     public async Task<ActionResult<Realm>> GetRealm(string slug)
@@ -76,6 +76,9 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
         if (relatedUser is null) return BadRequest("Related user was not found");
 
+        if (await rels.HasRelationshipWithStatus(currentUser.Id, relatedUser.Id, RelationshipStatus.Blocked))
+            return StatusCode(403, "You cannot invite a user that blocked you.");
+
         var realm = await db.Realms
             .Where(p => p.Slug == slug)
             .FirstOrDefaultAsync();
@@ -84,25 +87,33 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Ac
         if (!await rs.IsMemberWithRole(realm.Id, userId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
-        var newMember = new RealmMember
+        var hasExistingMember = await db.RealmMembers
+            .Where(m => m.AccountId == request.RelatedUserId)
+            .Where(m => m.RealmId == realm.Id)
+            .Where(m => m.LeaveAt == null)
+            .AnyAsync();
+        if (hasExistingMember)
+            return BadRequest("This user has been joined the realm or leave cannot be invited again.");
+
+        var member = new RealmMember
         {
             AccountId = relatedUser.Id,
             RealmId = realm.Id,
             Role = request.Role,
         };
 
-        db.RealmMembers.Add(newMember);
+        db.RealmMembers.Add(member);
         await db.SaveChangesAsync();
 
         als.CreateActionLogFromRequest(
             ActionLogType.RealmInvite,
-            new Dictionary<string, object> { { "realm_id", realm.Id }, { "account_id", newMember.AccountId } }, Request
+            new Dictionary<string, object> { { "realm_id", realm.Id }, { "account_id", member.AccountId } }, Request
         );
 
-        newMember.Account = relatedUser;
-        await rs.SendInviteNotify(newMember);
+        member.Account = relatedUser;
+        await rs.SendInviteNotify(member);
 
-        return Ok(newMember);
+        return Ok(member);
     }
 
     [HttpPost("invites/{slug}/accept")]
