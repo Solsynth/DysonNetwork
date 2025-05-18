@@ -1,11 +1,12 @@
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Connection;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
+public class ChatService(AppDatabase db, FileService fs, IServiceScopeFactory scopeFactory)
 {
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
@@ -15,6 +16,9 @@ public class ChatService(AppDatabase db, IServiceScopeFactory scopeFactory)
         // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
+
+        var files = message.Attachments.Distinct().ToList();
+        if (files.Count != 0) await fs.MarkUsageRangeAsync(files, 1);
 
         // Then start the delivery process
         // Using ConfigureAwait(false) is correct here since we don't need context to flow
