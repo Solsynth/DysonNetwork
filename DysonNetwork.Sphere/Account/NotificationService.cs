@@ -140,6 +140,18 @@ public class NotificationService
         await Task.WhenAll(tasks);
     }
 
+    public async Task MarkNotificationsViewed(ICollection<Notification> notifications)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var id = notifications.Where(n => n.ViewedAt == null).Select(n => n.Id).ToList();
+        if (id.Count == 0) return;
+
+        await _db.Notifications
+            .Where(n => id.Contains(n.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now)
+            );
+    }
+
     private async Task _PushSingleNotification(Notification notification, NotificationPushSubscription subscription)
     {
         switch (subscription.Provider)

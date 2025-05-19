@@ -11,14 +11,30 @@ namespace DysonNetwork.Sphere.Account;
 [Route("/notifications")]
 public class NotificationController(AppDatabase db, NotificationService nty) : ControllerBase
 {
-    [HttpGet]
+    [HttpGet("count")]
     [Authorize]
-    public async Task<ActionResult<List<Notification>>> ListNotifications([FromQuery] int offset = 0,
-        [FromQuery] int take = 20)
+    public async Task<ActionResult<int>> CountUnreadNotifications()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
-        if (currentUser == null) return Unauthorized();
+        if (currentUserValue is not Account currentUser) return Unauthorized();
+        
+        var count = await db.Notifications
+            .Where(s => s.AccountId == currentUser.Id && s.ViewedAt == null)
+            .CountAsync();
+        return Ok(count);
+    }
+
+    [HttpGet]
+    [Authorize]
+    public async Task<ActionResult<List<Notification>>> ListNotifications(
+        [FromQuery] int offset = 0,
+        // The page size set to 5 is to avoid the client pulled the notification
+        // but didn't render it in the screen-viewable region.
+        [FromQuery] int take = 5
+    )
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not Account currentUser) return Unauthorized();
 
         var totalCount = await db.Notifications
             .Where(s => s.AccountId == currentUser.Id)
@@ -31,6 +47,7 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
             .ToListAsync();
 
         Response.Headers["X-Total"] = totalCount.ToString();
+        await nty.MarkNotificationsViewed(notifications);
 
         return Ok(notifications);
     }
