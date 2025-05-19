@@ -19,9 +19,9 @@
         <Touch Files="$(NpmInstallStampFile)" AlwaysCreate="true" />
     </Target>
 
-    <Target Name="NpmBuildTailwind" DependsOnTargets="NpmInstall" BeforeTargets="Build">
-        <Exec Command="npm run css:build" />
-    </Target>
+<!--    <Target Name="NpmBuildTailwind" DependsOnTargets="NpmInstall" BeforeTargets="Build">-->
+<!--        <Exec Command="npm run css:build" />-->
+<!--    </Target>-->
 
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
@@ -40,7 +40,6 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.4" />
-        <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
         <PackageReference Include="MimeTypes" Version="2.5.2">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -102,12 +101,12 @@
         <Generator>ResXFileCodeGenerator</Generator>
         <LastGenOutput>Email.LandingResource.Designer.cs</LastGenOutput>
       </EmbeddedResource>
-      <EmbeddedResource Update="Resources\Localization\SharedResource.zh-hans.resx">
-        <DependentUpon>SharedResource.resx</DependentUpon>
-      </EmbeddedResource>
-      <EmbeddedResource Update="Resources\Localization\AccountEventResource.zh-hans.resx">
-        <DependentUpon>AccountEventResource.resx</DependentUpon>
-      </EmbeddedResource>
+<!--      <EmbeddedResource Update="Resources\Localization\SharedResource.zh-hans.resx">-->
+<!--        <DependentUpon>SharedResource.resx</DependentUpon>-->
+<!--      </EmbeddedResource>-->
+<!--      <EmbeddedResource Update="Resources\Localization\AccountEventResource.zh-hans.resx">-->
+<!--        <DependentUpon>AccountEventResource.resx</DependentUpon>-->
+<!--      </EmbeddedResource>-->
     </ItemGroup>
 
     <ItemGroup>
@@ -131,6 +130,16 @@
         <AutoGen>True</AutoGen>
         <DependentUpon>NotificationResource.resx</DependentUpon>
       </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="app\publish\appsettings.json" />
+      <_ContentIncludedByDefault Remove="app\publish\DysonNetwork.Sphere.deps.json" />
+      <_ContentIncludedByDefault Remove="app\publish\DysonNetwork.Sphere.runtimeconfig.json" />
+      <_ContentIncludedByDefault Remove="app\publish\DysonNetwork.Sphere.staticwebassets.endpoints.json" />
+      <_ContentIncludedByDefault Remove="app\publish\Keys\Solian.json" />
+      <_ContentIncludedByDefault Remove="app\publish\package-lock.json" />
+      <_ContentIncludedByDefault Remove="app\publish\package.json" />
     </ItemGroup>
 
 </Project>

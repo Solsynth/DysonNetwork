@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Developer;
