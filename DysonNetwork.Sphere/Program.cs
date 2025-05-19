@@ -63,8 +63,8 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 {
     var supportedCultures = new[]
     {
-        new CultureInfo("en-us"),
-        new CultureInfo("zh-hans"),
+        new CultureInfo("en-US"),
+        new CultureInfo("zh-Hans"),
     };
 
     options.SupportedCultures = supportedCultures;
