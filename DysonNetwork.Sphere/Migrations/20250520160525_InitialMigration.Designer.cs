@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -12,15 +13,14 @@ using NetTopologySuite.Geometries;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
-using Point = NetTopologySuite.Geometries.Point;
 
 #nullable disable
 
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250515165017_AddActionLogs")]
-    partial class AddActionLogs
+    [Migration("20250520160525_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -535,8 +535,13 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
                     b.Property<string>("BackgroundId")
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("background_id");
 
                     b.Property<string>("Bio")
@@ -551,6 +556,10 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<Instant?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
+
+                    b.Property<int>("Experience")
+                        .HasColumnType("integer")
+                        .HasColumnName("experience");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(256)
@@ -568,7 +577,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("middle_name");
 
                     b.Property<string>("PictureId")
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("picture_id");
 
                     b.Property<Instant>("UpdatedAt")
@@ -915,6 +925,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("joined_at");
 
+                    b.Property<Instant?>("LeaveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("leave_at");
+
                     b.Property<string>("Nick")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
@@ -952,7 +966,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("BackgroundId")
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("background_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -964,23 +979,26 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
+
+                    b.Property<bool>("IsCommunity")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_community");
 
                     b.Property<bool>("IsPublic")
                         .HasColumnType("boolean")
                         .HasColumnName("is_public");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
                     b.Property<string>("PictureId")
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("picture_id");
 
                     b.Property<Guid?>("RealmId")
@@ -1140,7 +1158,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("chat_reactions", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Chat.MessageStatus", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.MessageReadReceipt", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .HasColumnType("uuid")
@@ -1158,21 +1176,21 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
-                    b.Property<Instant>("ReadAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("read_at");
-
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
                     b.HasKey("MessageId", "SenderId")
-                        .HasName("pk_chat_statuses");
+                        .HasName("pk_chat_read_receipts");
 
                     b.HasIndex("SenderId")
-                        .HasDatabaseName("ix_chat_statuses_sender_id");
+                        .HasDatabaseName("ix_chat_read_receipts_sender_id");
 
-                    b.ToTable("chat_statuses", (string)null);
+                    b.HasIndex("MessageId", "SenderId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_chat_read_receipts_message_id_sender_id");
+
+                    b.ToTable("chat_read_receipts", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Chat.RealtimeCall", b =>
@@ -1763,7 +1781,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("account_id");
 
                     b.Property<string>("BackgroundId")
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("background_id");
 
                     b.Property<string>("Bio")
@@ -1792,7 +1810,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("nick");
 
                     b.Property<string>("PictureId")
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("picture_id");
 
                     b.Property<Guid?>("RealmId")
@@ -1969,7 +1987,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("account_id");
 
                     b.Property<string>("BackgroundId")
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("background_id");
 
                     b.Property<Instant>("CreatedAt")
@@ -2001,7 +2020,8 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("name");
 
                     b.Property<string>("PictureId")
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("picture_id");
 
                     b.Property<string>("Slug")
@@ -2064,6 +2084,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("joined_at");
 
+                    b.Property<Instant?>("LeaveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("leave_at");
+
                     b.Property<int>("Role")
                         .HasColumnType("integer")
                         .HasColumnName("role");
@@ -2098,7 +2122,8 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.Property<string>("ImageId")
                         .IsRequired()
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("image_id");
 
                     b.Property<Guid>("PackId")
@@ -2123,6 +2148,9 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("PackId")
                         .HasDatabaseName("ix_stickers_pack_id");
+
+                    b.HasIndex("Slug")
+                        .HasDatabaseName("ix_stickers_slug");
 
                     b.ToTable("stickers", (string)null);
                 });
@@ -2171,6 +2199,10 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_sticker_packs");
 
+                    b.HasIndex("Prefix")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sticker_packs_prefix");
+
                     b.HasIndex("PublisherId")
                         .HasDatabaseName("ix_sticker_packs_publisher_id");
 
@@ -2180,8 +2212,8 @@ namespace DysonNetwork.Sphere.Migrations
             modelBuilder.Entity("DysonNetwork.Sphere.Storage.CloudFile", b =>
                 {
                     b.Property<string>("Id")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
                         .HasColumnName("id");
 
                     b.Property<Guid>("AccountId")
@@ -2237,9 +2269,23 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
+                    b.Property<List<CloudFileSensitiveMark>>("SensitiveMarks")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("sensitive_marks");
+
                     b.Property<long>("Size")
                         .HasColumnType("bigint")
                         .HasColumnName("size");
+
+                    b.Property<string>("StorageId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("storage_id");
+
+                    b.Property<string>("StorageUrl")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("storage_url");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -2843,21 +2889,21 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Sender");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Sphere.Chat.MessageStatus", b =>
+            modelBuilder.Entity("DysonNetwork.Sphere.Chat.MessageReadReceipt", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Chat.Message", "Message")
                         .WithMany("Statuses")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_chat_statuses_chat_messages_message_id");
+                        .HasConstraintName("fk_chat_read_receipts_chat_messages_message_id");
 
                     b.HasOne("DysonNetwork.Sphere.Chat.ChatMember", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_chat_statuses_chat_members_sender_id");
+                        .HasConstraintName("fk_chat_read_receipts_chat_members_sender_id");
 
                     b.Navigation("Message");
 

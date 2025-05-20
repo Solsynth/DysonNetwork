@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore.Migrations;
+using NetTopologySuite.Geometries;
 using NodaTime;
 using NpgsqlTypes;
 
@@ -16,6 +18,9 @@ namespace DysonNetwork.Sphere.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:postgis", ",,");
+
             migrationBuilder.CreateTable(
                 name: "accounts",
                 columns: table => new
@@ -111,6 +116,8 @@ namespace DysonNetwork.Sphere.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     level = table.Column<int>(type: "integer", nullable: false),
+                    reward_points = table.Column<decimal>(type: "numeric", nullable: true),
+                    reward_experience = table.Column<int>(type: "integer", nullable: true),
                     tips = table.Column<ICollection<FortuneTip>>(type: "jsonb", nullable: false),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -251,6 +258,7 @@ namespace DysonNetwork.Sphere.Migrations
                     user_agent = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     device_id = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     nonce = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
+                    location = table.Column<Point>(type: "geometry", nullable: true),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -372,6 +380,27 @@ namespace DysonNetwork.Sphere.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "wallets",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_wallets", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_wallets_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "permission_group_members",
                 columns: table => new
                 {
@@ -452,6 +481,91 @@ namespace DysonNetwork.Sphere.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "payment_transactions",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    currency = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    remarks = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
+                    type = table.Column<int>(type: "integer", nullable: false),
+                    payer_wallet_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    payee_wallet_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_payment_transactions", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_payment_transactions_wallets_payee_wallet_id",
+                        column: x => x.payee_wallet_id,
+                        principalTable: "wallets",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "fk_payment_transactions_wallets_payer_wallet_id",
+                        column: x => x.payer_wallet_id,
+                        principalTable: "wallets",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "wallet_pockets",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    currency = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    wallet_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_wallet_pockets", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_wallet_pockets_wallets_wallet_id",
+                        column: x => x.wallet_id,
+                        principalTable: "wallets",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "action_logs",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    action = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
+                    meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: false),
+                    user_agent = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
+                    ip_address = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
+                    location = table.Column<Point>(type: "geometry", nullable: true),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    session_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_action_logs", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_action_logs_accounts_account_id",
+                        column: x => x.account_id,
+                        principalTable: "accounts",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_action_logs_auth_sessions_session_id",
+                        column: x => x.session_id,
+                        principalTable: "auth_sessions",
+                        principalColumn: "id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "account_profiles",
                 columns: table => new
                 {
@@ -460,8 +574,10 @@ namespace DysonNetwork.Sphere.Migrations
                     middle_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     last_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     bio = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
-                    picture_id = table.Column<string>(type: "character varying(128)", nullable: true),
-                    background_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    experience = table.Column<int>(type: "integer", nullable: false),
+                    picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
+                    background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
@@ -488,6 +604,7 @@ namespace DysonNetwork.Sphere.Migrations
                     role = table.Column<int>(type: "integer", nullable: false),
                     notify = table.Column<int>(type: "integer", nullable: false),
                     joined_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    leave_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     is_bot = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -578,27 +695,26 @@ namespace DysonNetwork.Sphere.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "chat_statuses",
+                name: "chat_read_receipts",
                 columns: table => new
                 {
                     message_id = table.Column<Guid>(type: "uuid", nullable: false),
                     sender_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    read_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_chat_statuses", x => new { x.message_id, x.sender_id });
+                    table.PrimaryKey("pk_chat_read_receipts", x => new { x.message_id, x.sender_id });
                     table.ForeignKey(
-                        name: "fk_chat_statuses_chat_members_sender_id",
+                        name: "fk_chat_read_receipts_chat_members_sender_id",
                         column: x => x.sender_id,
                         principalTable: "chat_members",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "fk_chat_statuses_chat_messages_message_id",
+                        name: "fk_chat_read_receipts_chat_messages_message_id",
                         column: x => x.message_id,
                         principalTable: "chat_messages",
                         principalColumn: "id",
@@ -634,12 +750,13 @@ namespace DysonNetwork.Sphere.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
-                    description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
+                    name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
+                    description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     type = table.Column<int>(type: "integer", nullable: false),
+                    is_community = table.Column<bool>(type: "boolean", nullable: false),
                     is_public = table.Column<bool>(type: "boolean", nullable: false),
-                    picture_id = table.Column<string>(type: "character varying(128)", nullable: true),
-                    background_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
+                    background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     realm_id = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -651,14 +768,91 @@ namespace DysonNetwork.Sphere.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "custom_app_secrets",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    secret = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    remarks = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
+                    expired_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    app_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_custom_app_secrets", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "custom_apps",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    slug = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    verified_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    verified_as = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
+                    publisher_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_custom_apps", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "payment_orders",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    currency = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    remarks = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
+                    amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    expired_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    payee_wallet_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    transaction_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    issuer_app_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_payment_orders", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_payment_orders_custom_apps_issuer_app_id",
+                        column: x => x.issuer_app_id,
+                        principalTable: "custom_apps",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "fk_payment_orders_payment_transactions_transaction_id",
+                        column: x => x.transaction_id,
+                        principalTable: "payment_transactions",
+                        principalColumn: "id");
+                    table.ForeignKey(
+                        name: "fk_payment_orders_wallets_payee_wallet_id",
+                        column: x => x.payee_wallet_id,
+                        principalTable: "wallets",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "files",
                 columns: table => new
                 {
-                    id = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     file_meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
                     user_meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
+                    sensitive_marks = table.Column<List<CloudFileSensitiveMark>>(type: "jsonb", nullable: true),
                     mime_type = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     hash = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     size = table.Column<long>(type: "bigint", nullable: false),
@@ -666,6 +860,8 @@ namespace DysonNetwork.Sphere.Migrations
                     expired_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     uploaded_to = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     has_compression = table.Column<bool>(type: "boolean", nullable: false),
+                    storage_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
+                    storage_url = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     used_count = table.Column<int>(type: "integer", nullable: false),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     message_id = table.Column<Guid>(type: "uuid", nullable: true),
@@ -702,8 +898,8 @@ namespace DysonNetwork.Sphere.Migrations
                     verified_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     is_community = table.Column<bool>(type: "boolean", nullable: false),
                     is_public = table.Column<bool>(type: "boolean", nullable: false),
-                    picture_id = table.Column<string>(type: "character varying(128)", nullable: true),
-                    background_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
+                    background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -735,12 +931,12 @@ namespace DysonNetwork.Sphere.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    publisher_type = table.Column<int>(type: "integer", nullable: false),
+                    type = table.Column<int>(type: "integer", nullable: false),
                     name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     nick = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     bio = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
-                    picture_id = table.Column<string>(type: "character varying(128)", nullable: true),
-                    background_id = table.Column<string>(type: "character varying(128)", nullable: true),
+                    picture_id = table.Column<string>(type: "character varying(32)", nullable: true),
+                    background_id = table.Column<string>(type: "character varying(32)", nullable: true),
                     account_id = table.Column<Guid>(type: "uuid", nullable: true),
                     realm_id = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -780,6 +976,7 @@ namespace DysonNetwork.Sphere.Migrations
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     role = table.Column<int>(type: "integer", nullable: false),
                     joined_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    leave_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
@@ -876,6 +1073,29 @@ namespace DysonNetwork.Sphere.Migrations
                         principalColumn: "id");
                     table.ForeignKey(
                         name: "fk_posts_publishers_publisher_id",
+                        column: x => x.publisher_id,
+                        principalTable: "publishers",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "publisher_features",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    flag = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
+                    expired_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    publisher_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_publisher_features", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_publisher_features_publishers_publisher_id",
                         column: x => x.publisher_id,
                         principalTable: "publishers",
                         principalColumn: "id",
@@ -1073,7 +1293,7 @@ namespace DysonNetwork.Sphere.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     slug = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    image_id = table.Column<string>(type: "character varying(128)", nullable: false),
+                    image_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     pack_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -1138,6 +1358,16 @@ namespace DysonNetwork.Sphere.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_action_logs_account_id",
+                table: "action_logs",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_action_logs_session_id",
+                table: "action_logs",
+                column: "session_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_activities_account_id",
                 table: "activities",
                 column: "account_id");
@@ -1198,6 +1428,17 @@ namespace DysonNetwork.Sphere.Migrations
                 column: "sender_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_chat_read_receipts_message_id_sender_id",
+                table: "chat_read_receipts",
+                columns: new[] { "message_id", "sender_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_chat_read_receipts_sender_id",
+                table: "chat_read_receipts",
+                column: "sender_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_chat_realtime_call_room_id",
                 table: "chat_realtime_call",
                 column: "room_id");
@@ -1223,9 +1464,14 @@ namespace DysonNetwork.Sphere.Migrations
                 column: "realm_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_chat_statuses_sender_id",
-                table: "chat_statuses",
-                column: "sender_id");
+                name: "ix_custom_app_secrets_app_id",
+                table: "custom_app_secrets",
+                column: "app_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_custom_apps_publisher_id",
+                table: "custom_apps",
+                column: "publisher_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_files_account_id",
@@ -1274,6 +1520,31 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "ix_notifications_account_id",
                 table: "notifications",
                 column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_orders_issuer_app_id",
+                table: "payment_orders",
+                column: "issuer_app_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_orders_payee_wallet_id",
+                table: "payment_orders",
+                column: "payee_wallet_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_orders_transaction_id",
+                table: "payment_orders",
+                column: "transaction_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_transactions_payee_wallet_id",
+                table: "payment_transactions",
+                column: "payee_wallet_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_payment_transactions_payer_wallet_id",
+                table: "payment_transactions",
+                column: "payer_wallet_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_permission_nodes_group_id",
@@ -1343,6 +1614,11 @@ namespace DysonNetwork.Sphere.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_publisher_features_publisher_id",
+                table: "publisher_features",
+                column: "publisher_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_publisher_members_account_id",
                 table: "publisher_members",
                 column: "account_id");
@@ -1410,6 +1686,12 @@ namespace DysonNetwork.Sphere.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_sticker_packs_prefix",
+                table: "sticker_packs",
+                column: "prefix",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ix_sticker_packs_publisher_id",
                 table: "sticker_packs",
                 column: "publisher_id");
@@ -1423,6 +1705,21 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "ix_stickers_pack_id",
                 table: "stickers",
                 column: "pack_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stickers_slug",
+                table: "stickers",
+                column: "slug");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_wallet_pockets_wallet_id",
+                table: "wallet_pockets",
+                column: "wallet_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_wallets_account_id",
+                table: "wallets",
+                column: "account_id");
 
             migrationBuilder.AddForeignKey(
                 name: "fk_account_profiles_files_background_id",
@@ -1482,6 +1779,22 @@ namespace DysonNetwork.Sphere.Migrations
                 column: "realm_id",
                 principalTable: "realms",
                 principalColumn: "id");
+
+            migrationBuilder.AddForeignKey(
+                name: "fk_custom_app_secrets_custom_apps_app_id",
+                table: "custom_app_secrets",
+                column: "app_id",
+                principalTable: "custom_apps",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "fk_custom_apps_publishers_publisher_id",
+                table: "custom_apps",
+                column: "publisher_id",
+                principalTable: "publishers",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "fk_files_posts_post_id",
@@ -1553,10 +1866,10 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "account_statuses");
 
             migrationBuilder.DropTable(
-                name: "activities");
+                name: "action_logs");
 
             migrationBuilder.DropTable(
-                name: "auth_sessions");
+                name: "activities");
 
             migrationBuilder.DropTable(
                 name: "badges");
@@ -1565,10 +1878,13 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "chat_reactions");
 
             migrationBuilder.DropTable(
+                name: "chat_read_receipts");
+
+            migrationBuilder.DropTable(
                 name: "chat_realtime_call");
 
             migrationBuilder.DropTable(
-                name: "chat_statuses");
+                name: "custom_app_secrets");
 
             migrationBuilder.DropTable(
                 name: "magic_spells");
@@ -1578,6 +1894,9 @@ namespace DysonNetwork.Sphere.Migrations
 
             migrationBuilder.DropTable(
                 name: "notifications");
+
+            migrationBuilder.DropTable(
+                name: "payment_orders");
 
             migrationBuilder.DropTable(
                 name: "permission_group_members");
@@ -1598,6 +1917,9 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "post_tag_links");
 
             migrationBuilder.DropTable(
+                name: "publisher_features");
+
+            migrationBuilder.DropTable(
                 name: "publisher_members");
 
             migrationBuilder.DropTable(
@@ -1610,7 +1932,16 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "stickers");
 
             migrationBuilder.DropTable(
-                name: "auth_challenges");
+                name: "wallet_pockets");
+
+            migrationBuilder.DropTable(
+                name: "auth_sessions");
+
+            migrationBuilder.DropTable(
+                name: "custom_apps");
+
+            migrationBuilder.DropTable(
+                name: "payment_transactions");
 
             migrationBuilder.DropTable(
                 name: "permission_groups");
@@ -1626,6 +1957,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             migrationBuilder.DropTable(
                 name: "sticker_packs");
+
+            migrationBuilder.DropTable(
+                name: "auth_challenges");
+
+            migrationBuilder.DropTable(
+                name: "wallets");
 
             migrationBuilder.DropTable(
                 name: "accounts");
