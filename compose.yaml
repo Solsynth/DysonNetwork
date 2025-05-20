@@ -1,6 +1,7 @@
 ﻿services:
-  dysonnetwork.sphere:
-    image: dysonnetwork.sphere
-    build:
-      context: .
-      dockerfile: DysonNetwork.Sphere/Dockerfile
+  sphere:
+    image: xsheep2010/dyson-sphere:latest
+    ports:
+      - "8001:8080"
+    volumes:
+      - "./keys:/app/keys"

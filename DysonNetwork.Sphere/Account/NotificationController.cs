@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Auth;
-using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

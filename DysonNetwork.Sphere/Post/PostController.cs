@@ -125,7 +125,8 @@ public class PostController(
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
         foreach (var post in posts)
-            post.ReactionsCount = reactionMaps[post.Id];
+            post.ReactionsCount =
+                reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
