@@ -428,4 +428,13 @@ public class AccountController(
             .Take(take)
             .ToListAsync();
     }
+    
+    [HttpPost("/maintenance/ensureProfileCreated")]
+    [Authorize]
+    [RequiredPermission("maintenance", "accounts.profiles")]
+    public async Task<ActionResult> EnsureProfileCreated()
+    {
+        await accounts.EnsureAccountProfileCreated();
+        return Ok();
+    }
 }

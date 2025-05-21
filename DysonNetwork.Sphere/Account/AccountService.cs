@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Reflection;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
@@ -47,5 +48,20 @@ public class AccountService(
             .Where(a => a.AccountId == accountId)
             .FirstOrDefaultAsync();
         return profile?.Level;
+    }
+
+    /// Maintenance methods for server administrator
+
+    public async Task EnsureAccountProfileCreated()
+    {
+        var accountsId = await db.Accounts.Select(a => a.Id).ToListAsync();
+        var existingId = await db.AccountProfiles.Select(p => p.AccountId).ToListAsync();
+        var missingId = accountsId.Except(existingId).ToList();
+    
+        if (missingId.Count != 0)
+        {
+            var newProfiles = missingId.Select(id => new Profile { AccountId = id }).ToList();
+            await db.BulkInsertAsync(newProfiles);
+        }
     }
 }
