@@ -31,7 +31,7 @@ public class FileController(
         }
 
         var dest = fs.GetRemoteStorageConfig(file.UploadedTo);
-        var fileName = file.StorageId;
+        var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
         if (!original && file.HasCompression)
         {
@@ -65,7 +65,7 @@ public class FileController(
             var openUrl = await client.PresignedGetObjectAsync(
                 new PresignedGetObjectArgs()
                     .WithBucket(bucket)
-                    .WithObject(file.Id)
+                    .WithObject(fileName)
                     .WithExpiry(3600)
             );
 
