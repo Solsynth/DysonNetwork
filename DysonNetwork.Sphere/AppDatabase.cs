@@ -140,11 +140,6 @@ public class AppDatabase(
             .HasForeignKey(pg => pg.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Account.Account>()
-            .HasOne(a => a.Profile)
-            .WithOne(p => p.Account)
-            .HasForeignKey<Account.Profile>(p => p.Id);
-
         modelBuilder.Entity<Account.Relationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
         modelBuilder.Entity<Account.Relationship>()

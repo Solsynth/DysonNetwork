@@ -54,16 +54,13 @@ public class AccountService(
     public async Task EnsureAccountProfileCreated()
     {
         var accountsId = await db.Accounts.Select(a => a.Id).ToListAsync();
-        var missingId = await db.AccountProfiles
-            .IgnoreAutoIncludes()
-            .Where(p => !accountsId.Contains(p.AccountId))
-            .Select(p => p.AccountId)
-            .ToListAsync();
+        var existingId = await db.AccountProfiles.Select(p => p.AccountId).ToListAsync();
+        var missingId = accountsId.Except(existingId).ToList();
 
         if (missingId.Count != 0)
         {
-            var newProfiles = missingId.Select(id => new Profile { AccountId = id }).ToList();
-            await db.BulkInsertAsync(newProfiles, config => config.ConflictOption = ConflictOption.Ignore);
+            var newProfiles = missingId.Select(id => new Profile { Id = Guid.NewGuid(), AccountId = id }).ToList();
+            await db.BulkInsertAsync(newProfiles);
         }
     }
 }
