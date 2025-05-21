@@ -55,6 +55,7 @@ public class AccountService(
     {
         var accountsId = await db.Accounts.Select(a => a.Id).ToListAsync();
         var missingId = await db.AccountProfiles
+            .IgnoreAutoIncludes()
             .Where(p => !accountsId.Contains(p.AccountId))
             .Select(p => p.AccountId)
             .ToListAsync();
