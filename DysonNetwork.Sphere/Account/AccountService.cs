@@ -51,13 +51,14 @@ public class AccountService(
     }
 
     /// Maintenance methods for server administrator
-
     public async Task EnsureAccountProfileCreated()
     {
         var accountsId = await db.Accounts.Select(a => a.Id).ToListAsync();
-        var existingId = await db.AccountProfiles.Select(p => p.AccountId).ToListAsync();
-        var missingId = accountsId.Except(existingId).ToList();
-    
+        var missingId = await db.AccountProfiles
+            .Where(p => !accountsId.Contains(p.AccountId))
+            .Select(p => p.AccountId)
+            .ToListAsync();
+
         if (missingId.Count != 0)
         {
             var newProfiles = missingId.Select(id => new Profile { AccountId = id }).ToList();

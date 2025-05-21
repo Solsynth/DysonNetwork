@@ -20,7 +20,7 @@ public class FileController(
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
         
-        if (file.StorageUrl is not null) return Redirect(file.StorageUrl);
+        if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
         
         if (file.UploadedTo is null)
         {
