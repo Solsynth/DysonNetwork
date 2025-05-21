@@ -20,7 +20,7 @@ public class Account : ModelBase
     public Profile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
     public ICollection<Badge> Badges { get; set; } = new List<Badge>();
-
+    
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
     [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
     [JsonIgnore] public ICollection<Auth.Challenge> Challenges { get; set; } = new List<Auth.Challenge>();
@@ -57,6 +57,11 @@ public class Profile : ModelBase
     [MaxLength(256)] public string? MiddleName { get; set; }
     [MaxLength(256)] public string? LastName { get; set; }
     [MaxLength(4096)] public string? Bio { get; set; }
+    [MaxLength(1024)] public string? Gender { get; set; }
+    [MaxLength(1024)] public string? Pronouns { get; set; }
+    public Instant? Birthday { get; set; }
+    public Instant? LastSeenAt { get; set; }
+    
     public int Experience { get; set; } = 0;
     [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;
     [NotMapped] public double LevelingProgress => Level >= Leveling.ExperiencePerLevel.Count - 1 ? 100 : 
