@@ -62,7 +62,7 @@ public class AccountService(
         if (missingId.Count != 0)
         {
             var newProfiles = missingId.Select(id => new Profile { AccountId = id }).ToList();
-            await db.BulkInsertAsync(newProfiles);
+            await db.BulkInsertAsync(newProfiles, config => config.ConflictOption = ConflictOption.Ignore);
         }
     }
 }

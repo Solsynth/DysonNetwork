@@ -11,7 +11,7 @@ public class ActionLogFlushHandler(IServiceProvider serviceProvider) : IFlushHan
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
-        await db.BulkInsertAsync(items);
+        await db.BulkInsertAsync(items, config => config.ConflictOption = ConflictOption.Ignore);
     }
 }
 
