@@ -130,9 +130,10 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddOpenApi();
 
-var tusDiskStore = new TusDiskStore(
-    builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!
-);
+var tusStorePath = builder.Configuration.GetSection("Tus").GetValue<string>("StorePath")!;
+Directory.CreateDirectory(tusStorePath);
+var tusDiskStore = new TusDiskStore(tusStorePath);
+
 builder.Services.AddSingleton(tusDiskStore);
 
 builder.Services.AddSingleton<FlushBufferService>();
