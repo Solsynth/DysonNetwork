@@ -15,17 +15,8 @@
         <NpmInstallStampFile>node_modules/.install-stamp</NpmInstallStampFile>
     </PropertyGroup>
 
-    <Target Name="NpmInstall" Inputs="package.json" Outputs="$(NpmInstallStampFile)">
-        <Exec Command="npm install"/>
-        <Touch Files="$(NpmInstallStampFile)" AlwaysCreate="true"/>
-    </Target>
-
-    <Target Name="NpmBuildTailwind" DependsOnTargets="NpmInstall" BeforeTargets="Build">
-        <Exec Command="npm run css:build"/>
-    </Target>
-
-    <Target Name="CopyFilesAfterPublish" AfterTargets="PostBuildEvent">
-        <Copy SourceFiles="$(TargetDir)runtimes\linux-x64\native\libSkiaSharp.so" DestinationFolder="$(PublishDir)\bin\" />
+    <Target Name="CopyFilesAfterPublish" AfterTargets="AfterPublish">
+        <Copy SourceFiles="$(TargetDir)runtimes/linux-x64/native/libSkiaSharp.so" DestinationFolder="$([System.IO.Path]::GetFullPath('$(PublishDir)'))/bin/" />
     </Target>
 
     <ItemGroup>
