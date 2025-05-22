@@ -44,7 +44,7 @@ public class MessageReadHandler(
             return;
         }
 
-        ChatMember? sender = null;
+        ChatMember? sender;
         var cacheKey = string.Format(ChatMemberCacheKey, currentUser.Id, request.ChatRoomId);
         if (cache.TryGetValue(cacheKey, out ChatMember? cachedMember))
             sender = cachedMember;

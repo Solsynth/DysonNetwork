@@ -20,9 +20,13 @@
         <Touch Files="$(NpmInstallStampFile)" AlwaysCreate="true"/>
     </Target>
 
-    <!--    <Target Name="NpmBuildTailwind" DependsOnTargets="NpmInstall" BeforeTargets="Build">-->
-    <!--        <Exec Command="npm run css:build" />-->
-    <!--    </Target>-->
+    <Target Name="NpmBuildTailwind" DependsOnTargets="NpmInstall" BeforeTargets="Build">
+        <Exec Command="npm run css:build"/>
+    </Target>
+
+    <Target Name="CopyFilesAfterPublish" AfterTargets="PostBuildEvent">
+        <Copy SourceFiles="$(TargetDir)runtimes\linux-x64\native\libSkiaSharp.so" DestinationFolder="$(PublishDir)\bin\" />
+    </Target>
 
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3"/>
@@ -58,8 +62,8 @@
         <PackageReference Include="Quartz" Version="3.14.0"/>
         <PackageReference Include="Quartz.AspNetCore" Version="3.14.0"/>
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0"/>
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.0" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.0"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.0"/>
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.0"/>
         <PackageReference Include="tusdotnet" Version="2.8.1"/>
@@ -72,8 +76,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Migrations\" />
-        <Folder Include="Uploads\"/>
+        <Folder Include="Migrations\"/>
     </ItemGroup>
 
     <ItemGroup>
