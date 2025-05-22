@@ -21,7 +21,8 @@ public class MessageReadReceiptFlushHandler(IServiceProvider serviceProvider) : 
             .ToList();
 
         using var scope = serviceProvider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDatabase>(); await db.BulkInsertAsync(distinctItems);
+        var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        await db.BulkInsertAsync(distinctItems, config => config.ConflictOption = ConflictOption.Ignore);
     }
 }
 

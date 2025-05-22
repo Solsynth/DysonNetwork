@@ -51,7 +51,6 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             );
             
         return Ok(result);
-        
     }
         
     public class SendMessageRequest

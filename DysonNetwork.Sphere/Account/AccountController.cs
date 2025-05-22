@@ -63,7 +63,7 @@ public class AccountController(
         [MaxLength(128)]
         public string Password { get; set; } = string.Empty;
 
-        [MaxLength(128)] [RegularExpression("^[a-z]{2,3}$")] public string Language { get; set; } = "en-us";
+        [MaxLength(128)] public string Language { get; set; } = "en-us";
 
         [Required] public string CaptchaToken { get; set; } = string.Empty;
     }
@@ -140,7 +140,7 @@ public class AccountController(
     public class BasicInfoRequest
     {
         [MaxLength(256)] public string? Nick { get; set; }
-        [MaxLength(32)] [RegularExpression("^[a-z]{2,3}$")] public string? Language { get; set; }
+        [MaxLength(32)] public string? Language { get; set; }
     }
 
     [Authorize]
