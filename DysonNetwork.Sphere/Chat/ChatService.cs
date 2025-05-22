@@ -107,7 +107,7 @@ public class ChatService(AppDatabase db, FileService fs, IServiceScopeFactory sc
         return messages.Count(m => !m.IsRead);
     }
 
-    public async Task<Dictionary<Guid, int>> CountUnreadMessagesForJoinedRoomsAsync(Guid userId)
+    public async Task<Dictionary<Guid, int>> CountUnreadMessageForUser(Guid userId)
     {
         var cutoff = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(30));
         var userRooms = await db.ChatMembers
@@ -131,6 +131,29 @@ public class ChatService(AppDatabase db, FileService fs, IServiceScopeFactory sc
                 g => g.Key,
                 g => g.Count(m => !m.IsRead)
             );
+    }
+
+    public async Task<Dictionary<Guid, Message?>> ListLastMessageForUser(Guid userId)
+    {
+        var userRooms = await db.ChatMembers
+            .Where(m => m.AccountId == userId)
+            .Select(m => m.ChatRoomId)
+            .ToListAsync();
+        
+        var messages = await db.ChatMessages
+            .IgnoreQueryFilters()
+            .Include(m => m.Sender)
+            .Include(m => m.Sender.Account)
+            .Include(m => m.Sender.Account.Profile)
+            .Where(m => userRooms.Contains(m.ChatRoomId))
+            .GroupBy(m => m.ChatRoomId)
+            .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
+            .ToDictionaryAsync(
+                m => m!.ChatRoomId,
+                m => m
+            );
+    
+        return messages;
     }
 
     public async Task<RealtimeCall> CreateCallAsync(ChatRoom room, ChatMember sender)

@@ -24,6 +24,36 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
         public Guid ChatRoomId { get; set; }
     }
 
+    public class ChatSummaryResponse
+    {
+        public int UnreadCount { get; set; }
+        public Message? LastMessage { get; set; }
+    }
+
+    [HttpGet("summary")]
+    [Authorize]
+    public async Task<ActionResult<Dictionary<Guid, ChatSummaryResponse>>> GetChatSummary()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var unreadMessages = await cs.CountUnreadMessageForUser(currentUser.Id);
+        var lastMessages = await cs.ListLastMessageForUser(currentUser.Id);
+        
+        var result = unreadMessages.Keys
+            .Union(lastMessages.Keys)
+            .ToDictionary(
+                roomId => roomId,
+                roomId => new ChatSummaryResponse
+                {
+                    UnreadCount = unreadMessages.GetValueOrDefault(roomId),
+                    LastMessage = lastMessages.GetValueOrDefault(roomId)
+                }
+            );
+            
+        return Ok(result);
+        
+    }
+        
     public class SendMessageRequest
     {
         [MaxLength(4096)] public string? Content { get; set; }
