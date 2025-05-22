@@ -22,7 +22,10 @@ public class MessageReadReceiptFlushHandler(IServiceProvider serviceProvider) : 
 
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        await db.BulkInsertAsync(distinctItems, config => config.ConflictOption = ConflictOption.Ignore);
+        await db.BulkInsertAsync(distinctItems, config => {
+            config.ConflictOption = ConflictOption.Ignore;
+            config.UpdateByProperties = [nameof(MessageReadReceipt.MessageId), nameof(MessageReadReceipt.SenderId)];
+        });
     }
 }
 
