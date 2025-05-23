@@ -18,7 +18,11 @@ public class ChatService(AppDatabase db, FileService fs, IServiceScopeFactory sc
         await db.SaveChangesAsync();
 
         var files = message.Attachments.Distinct().ToList();
-        if (files.Count != 0) await fs.MarkUsageRangeAsync(files, 1);
+        if (files.Count != 0)
+        {
+            await fs.MarkUsageRangeAsync(files, 1);
+            await fs.SetExpiresRangeAsync(files, Duration.FromDays(30));
+        }
 
         // Then start the delivery process
         // Using ConfigureAwait(false) is correct here since we don't need context to flow

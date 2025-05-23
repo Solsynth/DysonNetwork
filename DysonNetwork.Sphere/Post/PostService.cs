@@ -111,22 +111,7 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
 
         if (attachments is not null)
         {
-            var records = await db.Files.Where(e => attachments.Contains(e.Id)).ToListAsync();
-
-            var previous = post.Attachments.ToDictionary(f => f.Id);
-            var current = records.ToDictionary(f => f.Id);
-
-            // Detect added files
-            var added = current.Keys.Except(previous.Keys).Select(id => current[id]).ToList();
-            // Detect removed files
-            var removed = previous.Keys.Except(current.Keys).Select(id => previous[id]).ToList();
-
-            // Update attachments
-            post.Attachments = attachments.Select(id => current[id]).ToList();
-
-            // Call mark usage
-            await fs.MarkUsageRangeAsync(added, 1);
-            await fs.MarkUsageRangeAsync(removed, -1);
+            post.Attachments = (await fs.DiffAndMarkFilesAsync(attachments, post.Attachments)).current;
         }
 
         if (tags is not null)

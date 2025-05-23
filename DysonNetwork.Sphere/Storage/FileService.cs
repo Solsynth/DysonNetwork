@@ -399,6 +399,64 @@ public class FileService(
                 )
             );
     }
+    
+    
+
+    public async Task SetExpiresRangeAsync(ICollection<CloudFile> files, Duration? duration)
+    {
+        var ids = files.Select(f => f.Id).ToArray();
+        await db.Files.Where(o => ids.Contains(o.Id))
+            .ExecuteUpdateAsync(setter => setter.SetProperty(
+                    b => b.ExpiredAt,
+                    duration.HasValue 
+                        ? b => SystemClock.Instance.GetCurrentInstant() + duration.Value
+                        : _ => null
+                )
+            );
+    }
+    
+    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)> DiffAndMarkFilesAsync(
+        ICollection<string>? newFileIds,
+        ICollection<CloudFile>? previousFiles = null
+    )
+    {
+        if (newFileIds == null) return ([], [], previousFiles ?? []);
+        
+        var records = await db.Files.Where(f => newFileIds.Contains(f.Id)).ToListAsync();
+        var previous = previousFiles?.ToDictionary(f => f.Id) ?? new Dictionary<string, CloudFile>();
+        var current = records.ToDictionary(f => f.Id);
+    
+        var added = current.Keys.Except(previous.Keys).Select(id => current[id]).ToList();
+        var removed = previous.Keys.Except(current.Keys).Select(id => previous[id]).ToList();
+    
+        if (added.Count > 0) await MarkUsageRangeAsync(added, 1);
+        if (removed.Count > 0) await MarkUsageRangeAsync(removed, -1);
+    
+        return (newFileIds.Select(id => current[id]).ToList(), added, removed);
+    }
+    
+    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)> DiffAndSetExpiresAsync(
+        ICollection<string>? newFileIds,
+        Duration? duration,
+        ICollection<CloudFile>? previousFiles = null
+    )
+    {
+        if (newFileIds == null) return ([], [], previousFiles ?? []);
+        
+        var records = await db.Files.Where(f => newFileIds.Contains(f.Id)).ToListAsync();
+        var previous = previousFiles?.ToDictionary(f => f.Id) ?? new Dictionary<string, CloudFile>();
+        var current = records.ToDictionary(f => f.Id);
+    
+        var added = current.Keys.Except(previous.Keys).Select(id => current[id]).ToList();
+        var removed = previous.Keys.Except(current.Keys).Select(id => previous[id]).ToList();
+    
+        if (added.Count > 0) await SetExpiresRangeAsync(added, duration);
+        if (removed.Count > 0) await SetExpiresRangeAsync(removed, null);
+    
+        return (newFileIds.Select(id => current[id]).ToList(), added, removed);
+    }
+    
+    
 }
 
 public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger<CloudFileUnusedRecyclingJob> logger)
