@@ -15,10 +15,6 @@
         <NpmInstallStampFile>node_modules/.install-stamp</NpmInstallStampFile>
     </PropertyGroup>
 
-    <Target Name="CopyFilesAfterPublish" AfterTargets="AfterPublish">
-        <Copy SourceFiles="$(TargetDir)runtimes/linux-x64/native/libSkiaSharp.so" DestinationFolder="$([System.IO.Path]::GetFullPath('$(PublishDir)'))/bin/" />
-    </Target>
-
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3"/>
         <PackageReference Include="BlurHashSharp.SkiaSharp" Version="1.3.4"/>
