@@ -10,22 +10,17 @@ public class MessageReadReceiptFlushHandler(IServiceProvider serviceProvider) : 
 {
     public async Task FlushAsync(IReadOnlyList<MessageReadReceipt> items)
     {
-        var distinctItems = items
-            .DistinctBy(x => new { x.MessageId, x.SenderId })
-            .Select(x =>
-            {
-                x.CreatedAt = SystemClock.Instance.GetCurrentInstant();
-                x.UpdatedAt = x.CreatedAt;
-                return x;
-            })
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var distinctId = items
+            .DistinctBy(x => x.SenderId)
+            .Select(x => x.SenderId)
             .ToList();
 
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        await db.BulkInsertAsync(distinctItems, config => {
-            config.ConflictOption = ConflictOption.Ignore;
-            config.UpdateByProperties = [nameof(MessageReadReceipt.MessageId), nameof(MessageReadReceipt.SenderId)];
-        });
+        await db.ChatMembers.Where(r => distinctId.Contains(r.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.LastReadAt, now)
+            );
     }
 }
 
@@ -34,16 +29,5 @@ public class ReadReceiptFlushJob(FlushBufferService fbs, MessageReadReceiptFlush
     public async Task Execute(IJobExecutionContext context)
     {
         await fbs.FlushAsync(hdl);
-    }
-}
-
-public class ReadReceiptRecyclingJob(AppDatabase db) : IJob
-{
-    public async Task Execute(IJobExecutionContext context)
-    {
-        var cutoff = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(30));
-        await db.ChatReadReceipts
-            .Where(r => r.CreatedAt < cutoff)
-            .ExecuteDeleteAsync();
     }
 }

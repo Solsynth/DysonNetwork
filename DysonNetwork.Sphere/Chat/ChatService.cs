@@ -63,73 +63,54 @@ public class ChatService(AppDatabase db, FileService fs, IServiceScopeFactory sc
         await Task.WhenAll(tasks);
     }
 
-    public async Task MarkMessageAsReadAsync(Guid messageId, Guid roomId, Guid userId)
+    /// <summary>
+    /// This method will instant update the LastReadAt field for chat member,
+    /// for better performance, using the flush buffer one instead
+    /// </summary>
+    /// <param name="roomId">The user chat room</param>
+    /// <param name="userId">The user id</param>
+    /// <exception cref="ArgumentException"></exception>
+    public async Task ReadChatRoomAsync(Guid roomId, Guid userId)
     {
-        var existingStatus = await db.ChatReadReceipts
-            .FirstOrDefaultAsync(x => x.MessageId == messageId && x.Sender.AccountId == userId);
         var sender = await db.ChatMembers
             .Where(m => m.AccountId == userId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
         if (sender is null) throw new ArgumentException("User is not a member of the chat room.");
 
-        if (existingStatus == null)
-        {
-            existingStatus = new MessageReadReceipt
-            {
-                MessageId = messageId,
-                SenderId = sender.Id,
-            };
-            db.ChatReadReceipts.Add(existingStatus);
-        }
-
+        sender.LastReadAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
-    }
-
-    public async Task<bool> GetMessageReadStatus(Guid messageId, Guid userId)
-    {
-        return await db.ChatReadReceipts
-            .AnyAsync(x => x.MessageId == messageId && x.Sender.AccountId == userId);
     }
 
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
-        var cutoff = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(30));
-        var messages = await db.ChatMessages
-            .Where(m => m.ChatRoomId == chatRoomId)
-            .Where(m => m.CreatedAt < cutoff)
-            .Select(m => new MessageStatusResponse
-            {
-                MessageId = m.Id,
-                IsRead = m.Statuses.Any(rs => rs.Sender.AccountId == userId)
-            })
-            .ToListAsync();
+        var sender = await db.ChatMembers
+            .Where(m => m.AccountId == userId && m.ChatRoomId == chatRoomId)
+            .Select(m => new { m.LastReadAt })
+            .FirstOrDefaultAsync();
+        if (sender?.LastReadAt is null) return 0;
 
-        return messages.Count(m => !m.IsRead);
+        return await db.ChatMessages
+            .Where(m => m.ChatRoomId == chatRoomId)
+            .Where(m => m.CreatedAt > sender.LastReadAt)
+            .CountAsync();
     }
 
     public async Task<Dictionary<Guid, int>> CountUnreadMessageForUser(Guid userId)
     {
-        var cutoff = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(30));
-        var userRooms = await db.ChatMembers
+        var members = await db.ChatMembers
             .Where(m => m.AccountId == userId)
-            .Select(m => m.ChatRoomId)
+            .Select(m => new { m.ChatRoomId, m.LastReadAt })
             .ToListAsync();
-
-        var messages = await db.ChatMessages
-            .Where(m => m.CreatedAt < cutoff)
-            .Where(m => userRooms.Contains(m.ChatRoomId))
-            .Select(m => new
-            {
-                m.ChatRoomId,
-                IsRead = m.Statuses.Any(rs => rs.Sender.AccountId == userId)
-            })
-            .ToListAsync();
-
-        return messages
+    
+        var lastReadAt = members.ToDictionary(m => m.ChatRoomId, m => m.LastReadAt);
+        var roomsId = lastReadAt.Keys.ToList();
+        
+        return await db.ChatMessages
+            .Where(m => roomsId.Contains(m.ChatRoomId))
             .GroupBy(m => m.ChatRoomId)
-            .ToDictionary(
+            .ToDictionaryAsync(
                 g => g.Key,
-                g => g.Count(m => !m.IsRead)
+                g => g.Count(m => lastReadAt[g.Key] == null || m.CreatedAt > lastReadAt[g.Key])
             );
     }
 

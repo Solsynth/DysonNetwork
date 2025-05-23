@@ -63,7 +63,6 @@ public class AppDatabase(
     public DbSet<Chat.ChatMember> ChatMembers { get; set; }
     public DbSet<Chat.Message> ChatMessages { get; set; }
     public DbSet<Chat.RealtimeCall> ChatRealtimeCall { get; set; }
-    public DbSet<Chat.MessageReadReceipt> ChatReadReceipts { get; set; }
     public DbSet<Chat.MessageReaction> ChatReactions { get; set; }
     
     public DbSet<Sticker.Sticker> Stickers { get; set; }
@@ -232,8 +231,6 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Chat.MessageReadReceipt>()
-            .HasKey(e => new { e.MessageId, e.SenderId });
         modelBuilder.Entity<Chat.Message>()
             .HasOne(m => m.ForwardedMessage)
             .WithMany()

@@ -210,14 +210,6 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInSeconds(60)
             .RepeatForever())
     );
-
-    var readReceiptRecyclingJob = new JobKey("ReadReceiptRecycling");
-    q.AddJob<ReadReceiptRecyclingJob>(opts => opts.WithIdentity(readReceiptRecyclingJob));
-    q.AddTrigger(opts => opts
-            .ForJob(readReceiptRecyclingJob)
-            .WithIdentity("ReadReceiptRecyclingTrigger")
-            .WithCronSchedule("0 0 0 * * ?")
-    );
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

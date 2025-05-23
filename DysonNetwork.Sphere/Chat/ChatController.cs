@@ -15,7 +15,6 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
 {
     public class MarkMessageReadRequest
     {
-        public Guid MessageId { get; set; }
         public Guid ChatRoomId { get; set; }
     }
     

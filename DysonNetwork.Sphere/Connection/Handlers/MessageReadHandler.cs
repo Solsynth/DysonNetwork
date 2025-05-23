@@ -79,7 +79,6 @@ public class MessageReadHandler(
 
         var readReceipt = new MessageReadReceipt
         {
-            MessageId = request.MessageId,
             SenderId = sender.Id,
         };
 

@@ -63,6 +63,7 @@ public class ChatMember : ModelBase
 
     public ChatMemberRole Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
+    public Instant? LastReadAt { get; set; }
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;

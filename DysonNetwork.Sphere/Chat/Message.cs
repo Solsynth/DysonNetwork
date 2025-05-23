@@ -10,7 +10,7 @@ namespace DysonNetwork.Sphere.Chat;
 public class Message : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Type { get; set; } = null!;
+    [MaxLength(1024)] public string Type { get; set; } = null!;
     [MaxLength(4096)] public string? Content { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     [Column(TypeName = "jsonb")] public List<Guid>? MembersMentioned { get; set; }
@@ -19,7 +19,6 @@ public class Message : ModelBase
 
     public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
-    public ICollection<MessageReadReceipt> Statuses { get; set; } = new List<MessageReadReceipt>();
 
     public Guid? RepliedMessageId { get; set; }
     public Message? RepliedMessage { get; set; }
@@ -43,7 +42,6 @@ public class Message : ModelBase
             EditedAt = EditedAt,
             Attachments = new List<CloudFile>(Attachments),
             Reactions = new List<MessageReaction>(Reactions),
-            Statuses = new List<MessageReadReceipt>(Statuses),
             RepliedMessageId = RepliedMessageId,
             RepliedMessage = RepliedMessage?.Clone() as Message,
             ForwardedMessageId = ForwardedMessageId,
@@ -78,19 +76,13 @@ public class MessageReaction : ModelBase
     public MessageReactionAttitude Attitude { get; set; }
 }
 
-/// If the status exists, means the user has read the message.
-[Index(nameof(MessageId), nameof(SenderId), IsUnique = true)]
-public class MessageReadReceipt : ModelBase
-{
-    public Guid MessageId { get; set; }
-    public Message Message { get; set; } = null!;
-    public Guid SenderId { get; set; }
-    public ChatMember Sender { get; set; } = null!;
-}
-
+/// <summary>
+/// The data model for updating the last read at field for chat member,
+/// after the refactor of the unread system, this no longer stored in the database.
+/// Not only used for the data transmission object
+/// </summary>
 [NotMapped]
-public class MessageStatusResponse
+public class MessageReadReceipt
 {
-    public Guid MessageId { get; set; }
-    public bool IsRead { get; set; }
+    public Guid SenderId { get; set; }
 }
