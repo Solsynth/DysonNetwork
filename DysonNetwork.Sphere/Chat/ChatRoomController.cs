@@ -54,6 +54,7 @@ public class ChatRoomController(
             .Select(m => m.ChatRoom)
             .ToListAsync();
         chatRooms = await crs.LoadDirectMessageMembers(chatRooms, userId);
+        chatRooms = await crs.SortChatRoomByLastMessage(chatRooms);
 
         return Ok(chatRooms);
     }

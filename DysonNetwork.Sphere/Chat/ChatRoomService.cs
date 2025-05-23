@@ -1,6 +1,7 @@
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -31,6 +32,23 @@ public class ChatRoomService(AppDatabase db, IMemoryCache cache)
     {
         var cacheKey = string.Format(RoomMembersCacheKey, roomId);
         cache.Remove(cacheKey);
+    }
+
+    public async Task<List<ChatRoom>> SortChatRoomByLastMessage(List<ChatRoom> rooms)
+    {
+        var roomIds = rooms.Select(r => r.Id).ToList();
+        var lastMessages = await db.ChatMessages
+            .Where(m => roomIds.Contains(m.ChatRoomId))
+            .GroupBy(m => m.ChatRoomId)
+            .Select(g => new { RoomId = g.Key, CreatedAt = g.Max(m => m.CreatedAt) })
+            .ToDictionaryAsync(g => g.RoomId, m => m.CreatedAt);
+    
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var sortedRooms = rooms
+            .OrderByDescending(r => lastMessages.TryGetValue(r.Id, out var time) ? time : now)
+            .ToList();
+            
+        return sortedRooms;
     }
     
     public async Task<List<ChatRoom>> LoadDirectMessageMembers(List<ChatRoom> rooms, Guid userId)
