@@ -196,12 +196,18 @@ public class CacheServiceRedis : ICacheService
     {
         var rds = redis ?? throw new ArgumentNullException(nameof(redis));
         _database = rds.GetDatabase();
+        
+        // Configure Newtonsoft.Json with proper NodaTime serialization
         _serializerSettings = new JsonSerializerSettings
         {
             ContractResolver = new CamelCasePropertyNamesContractResolver(),
             PreserveReferencesHandling = PreserveReferencesHandling.Objects,
             NullValueHandling = NullValueHandling.Include,
-        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+            DateParseHandling = DateParseHandling.None
+        };
+        
+        // Configure NodaTime serializers
+        _serializerSettings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
     }
 
     public async Task<bool> SetAsync<T>(string key, T value, TimeSpan? expiry = null)
@@ -223,6 +229,7 @@ public class CacheServiceRedis : ICacheService
         if (value.IsNullOrEmpty)
             return default;
 
+        // For NodaTime serialization, use the configured serializer settings
         return JsonConvert.DeserializeObject<T>(value!, _serializerSettings);
     }
 
