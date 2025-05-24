@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,7 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not Account currentUser) return Unauthorized();
-        
+
         var count = await db.Notifications
             .Where(s => s.AccountId == currentUser.Id && s.ViewedAt == null)
             .CountAsync();
@@ -94,5 +95,67 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
                 s.DeviceId == currentSession.Challenge.DeviceId
             ).ExecuteDeleteAsync();
         return Ok(affectedRows);
+    }
+
+    public class NotificationRequest
+    {
+        [Required] [MaxLength(1024)] public string Topic { get; set; } = null!;
+        [Required] [MaxLength(1024)] public string Title { get; set; } = null!;
+        [MaxLength(2048)] public string? Subtitle { get; set; }
+        [Required] [MaxLength(4096)] public string Content { get; set; } = null!;
+        public Dictionary<string, object>? Meta { get; set; }
+        public int Priority { get; set; } = 10;
+    }
+
+    [HttpPost("broadcast")]
+    [Authorize]
+    [RequiredPermission("global", "notifications.broadcast")]
+    public async Task<ActionResult> BroadcastNotification(
+        [FromBody] NotificationRequest request,
+        [FromQuery] bool save = false
+    )
+    {
+        await nty.BroadcastNotification(
+            new Notification
+            {
+                Topic = request.Topic,
+                Title = request.Title,
+                Subtitle = request.Subtitle,
+                Content = request.Content,
+                Meta = request.Meta,
+                Priority = request.Priority,
+            },
+            save
+        );
+        return Ok();
+    }
+
+    public class NotificationWithAimRequest : NotificationRequest
+    {
+        [Required] public List<Guid> AccountId { get; set; } = null!;
+    }
+    
+    [HttpPost("send")]
+    [Authorize]
+    [RequiredPermission("global", "notifications.send")]
+    public async Task<ActionResult> SendNotification(
+        [FromBody] NotificationWithAimRequest request,
+        [FromQuery] bool save = false
+    )
+    {
+        var accounts = await db.Accounts.Where(a => request.AccountId.Contains(a.Id)).ToListAsync();
+        await nty.SendNotificationBatch(
+            new Notification
+            {
+                Topic = request.Topic,
+                Title = request.Title,
+                Subtitle = request.Subtitle,
+                Content = request.Content,
+                Meta = request.Meta,
+            },
+            accounts,
+            save
+        );
+        return Ok();
     }
 }

@@ -1,6 +1,7 @@
 using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Sphere.Connection;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -150,6 +151,57 @@ public class NotificationService
             .Where(n => id.Contains(n.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now)
             );
+    }
+
+    public async Task BroadcastNotification(Notification notification, bool save = false)
+    {
+        if (save)
+        {
+            var accounts = await _db.Accounts.ToListAsync();
+            var notifications = accounts.Select(x =>
+            {
+                notification.Account = x;
+                notification.AccountId = x.Id;
+                return notification;
+            }).ToList();
+            await _db.BulkInsertAsync(notifications);
+        }
+        
+        var subscribers = await _db.NotificationPushSubscriptions
+            .ToListAsync();
+        var tasks = new List<Task>();
+        foreach (var subscriber in subscribers)
+        {
+            notification.AccountId = subscriber.AccountId;
+            tasks.Add(_PushSingleNotification(notification, subscriber));
+        }
+        await Task.WhenAll(tasks);
+    }
+
+    public async Task SendNotificationBatch(Notification notification, List<Account> accounts, bool save = false)
+    {
+        if (save)
+        {
+            var notifications = accounts.Select(x =>
+            {
+                notification.Account = x;
+                notification.AccountId = x.Id;
+                return notification;
+            }).ToList();
+            await _db.BulkInsertAsync(notifications);
+        }
+        
+        var accountsId = accounts.Select(x => x.Id).ToList();
+        var subscribers = await _db.NotificationPushSubscriptions
+            .Where(s => accountsId.Contains(s.AccountId))
+            .ToListAsync();
+        var tasks = new List<Task>();
+        foreach (var subscriber in subscribers)
+        {
+            notification.AccountId = subscriber.AccountId;
+            tasks.Add(_PushSingleNotification(notification, subscriber));
+        }
+        await Task.WhenAll(tasks);
     }
 
     private async Task _PushSingleNotification(Notification notification, NotificationPushSubscription subscription)
