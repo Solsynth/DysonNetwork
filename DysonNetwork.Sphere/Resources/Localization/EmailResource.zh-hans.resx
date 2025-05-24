@@ -32,4 +32,25 @@
     <data name="EmailLandingTitle" xml:space="preserve">
         <value>确认你的注册</value>
     </data>
+    <data name="AccountDeletionHeader" xml:space="preserve">
+        <value>账户删除确认</value>
+    </data>
+    <data name="AccountDeletionPara1" xml:space="preserve">
+        <value>尊敬的 </value>
+    </data>
+    <data name="AccountDeletionPara2" xml:space="preserve">
+        <value>我们收到了删除您 Solar Network 账户的请求。我们很遗憾看到您的离开。</value>
+    </data>
+    <data name="AccountDeletionPara3" xml:space="preserve">
+        <value>请点击下方按钮确认删除您的账户。请注意，此操作是永久性的，无法撤销。</value>
+    </data>
+    <data name="AccountDeletionButton" xml:space="preserve">
+        <value>确认删除账户</value>
+    </data>
+    <data name="AccountDeletionPara4" xml:space="preserve">
+        <value>如果您并未请求删除账户，请忽略此邮件或立即联系我们的支持团队。</value>
+    </data>
+    <data name="EmailAccountDeletionTitle" xml:space="preserve">
+        <value>确认删除您的账户</value>
+    </data>
 </root>

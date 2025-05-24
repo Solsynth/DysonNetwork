@@ -2,7 +2,7 @@ using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Components;
 using MimeKit;
 
-namespace DysonNetwork.Sphere.Account.Email;
+namespace DysonNetwork.Sphere.Email;
 
 public class EmailServiceConfiguration
 {

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using RouteData = Microsoft.AspNetCore.Routing.RouteData;
 
-namespace DysonNetwork.Sphere.Account.Email;
+namespace DysonNetwork.Sphere.Email;
 
 public class RazorViewRenderer(
     IServiceProvider serviceProvider,

@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Threading.RateLimiting;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Account.Email;
+using DysonNetwork.Sphere.Email;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Chat;

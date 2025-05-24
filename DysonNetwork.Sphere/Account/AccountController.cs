@@ -219,6 +219,24 @@ public class AccountController(
         return profile;
     }
 
+    [HttpDelete("me")]
+    [Authorize]
+    public async Task<ActionResult> RequestDeleteAccount()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.RequestAccountDeletion(currentUser);
+        }
+        catch (InvalidOperationException)
+        {
+            return BadRequest("You already requested account deletion within 24 hours.");
+        }
+
+        return Ok();
+    }
+
     public class StatusRequest
     {
         public StatusAttitude Attitude { get; set; }

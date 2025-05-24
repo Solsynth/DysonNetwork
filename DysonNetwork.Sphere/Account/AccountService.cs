@@ -8,17 +8,18 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
 public class AccountService(
     AppDatabase db,
-    ICacheService cache,
-    IStringLocalizerFactory factory
+    MagicSpellService spells,
+    ICacheService cache
 )
 {
     public const string AccountCachePrefix = "Account_";
-    
+
     public async Task PurgeAccountCache(Account account)
     {
         await cache.RemoveGroupAsync($"{AccountCachePrefix}{account.Id}");
@@ -44,6 +45,18 @@ public class AccountService(
             .Where(a => a.AccountId == accountId)
             .FirstOrDefaultAsync();
         return profile?.Level;
+    }
+
+    public async Task RequestAccountDeletion(Account account)
+    {
+        var spell = await spells.CreateMagicSpell(
+            account,
+            MagicSpellType.AccountRemoval,
+            new Dictionary<string, object>(),
+            SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24)),
+            preventRepeat: true
+        );
+        await spells.NotifyMagicSpell(spell);
     }
 
     /// Maintenance methods for server administrator

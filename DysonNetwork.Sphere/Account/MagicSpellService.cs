@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
-using DysonNetwork.Sphere.Account.Email;
+using DysonNetwork.Sphere.Email;
 using DysonNetwork.Sphere.Pages.Emails;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Resources.Localization;
@@ -24,9 +24,25 @@ public class MagicSpellService(
         MagicSpellType type,
         Dictionary<string, object> meta,
         Instant? expiredAt = null,
-        Instant? affectedAt = null
+        Instant? affectedAt = null,
+        bool preventRepeat = false
     )
     {
+        if (preventRepeat)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var existingSpell = await db.MagicSpells
+                .Where(s => s.AccountId == account.Id)
+                .Where(s => s.Type == type)
+                .Where(s => s.ExpiresAt == null || s.ExpiresAt > now)
+                .FirstOrDefaultAsync();
+                
+            if (existingSpell != null)
+            {
+                throw new InvalidOperationException($"Account already has an active magic spell of type {type}");
+            }
+        }
+        
         var spellWord = _GenerateRandomString(128);
         var spell = new MagicSpell
         {
@@ -79,7 +95,19 @@ public class MagicSpellService(
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,
-                            VerificationLink = link
+                            Link = link
+                        }
+                    );
+                    break;
+                case MagicSpellType.AccountRemoval:
+                    await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
+                        contact.Account.Name,
+                        contact.Content,
+                        localizer["EmailAccountDeletionTitle"],
+                        new AccountDeletionEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
                         }
                     );
                     break;
