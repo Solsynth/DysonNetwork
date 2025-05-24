@@ -45,13 +45,12 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
 builder.Services.AddDbContext<AppDatabase>();
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => 
 {
     var connection = builder.Configuration.GetConnectionString("FastRetrieve")!;
     return ConnectionMultiplexer.Connect(connection);
 });
-
-builder.Services.AddScoped<ICacheService, CacheServiceRedis>();
+builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
 
 builder.Services.AddHttpClient();
 builder.Services.AddControllers().AddJsonOptions(options =>

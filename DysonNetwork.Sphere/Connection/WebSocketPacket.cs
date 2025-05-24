@@ -61,7 +61,7 @@ public class WebSocketPacket
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);;
+        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
         var json = JsonSerializer.Serialize(this, jsonOpts);
         return System.Text.Encoding.UTF8.GetBytes(json);
     }

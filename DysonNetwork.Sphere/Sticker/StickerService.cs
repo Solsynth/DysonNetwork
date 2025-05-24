@@ -67,9 +67,7 @@ public class StickerService(AppDatabase db, FileService fs, ICacheService cache)
 
         // Invalidate cache for all stickers in this pack
         foreach (var sticker in stickers)
-        {
-            PurgeStickerCache(sticker);
-        }
+            await PurgeStickerCache(sticker);
     }
 
     public async Task<Sticker?> LookupStickerByIdentifierAsync(string identifier)

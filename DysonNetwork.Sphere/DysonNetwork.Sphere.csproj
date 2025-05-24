@@ -40,7 +40,9 @@
         <PackageReference Include="NetVips" Version="3.0.1"/>
         <PackageReference Include="NetVips.Native.linux-x64" Version="8.16.1"/>
         <PackageReference Include="NetVips.Native.osx-arm64" Version="8.16.1"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
         <PackageReference Include="NodaTime" Version="3.2.2"/>
+        <PackageReference Include="NodaTime.Serialization.JsonNet" Version="3.2.0" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.0"/>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4"/>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0"/>

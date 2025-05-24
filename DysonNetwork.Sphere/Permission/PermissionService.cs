@@ -11,17 +11,17 @@ public class PermissionService(
     ILogger<PermissionService> logger)
 {
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(1);
-    
+
     private const string PermCacheKeyPrefix = "Perm_";
     private const string PermGroupCacheKeyPrefix = "PermCacheGroup_";
     private const string PermissionGroupPrefix = "PermGroup_";
 
-    private static string _GetPermissionCacheKey(string actor, string area, string key) => 
+    private static string _GetPermissionCacheKey(string actor, string area, string key) =>
         PermCacheKeyPrefix + actor + ":" + area + ":" + key;
 
-    private static string _GetGroupsCacheKey(string actor) => 
+    private static string _GetGroupsCacheKey(string actor) =>
         PermGroupCacheKeyPrefix + actor;
-        
+
     private static string _GetPermissionGroupKey(string actor) =>
         PermissionGroupPrefix + actor;
 
@@ -68,8 +68,8 @@ public class PermissionService(
 
         var result = permission is not null ? _DeserializePermissionValue<T>(permission.Value) : default;
 
-        await cache.SetWithGroupsAsync(cacheKey, result, 
-            new[] { _GetPermissionGroupKey(actor) }, 
+        await cache.SetWithGroupsAsync(cacheKey, result,
+            [_GetPermissionGroupKey(actor)],
             CacheExpiration);
         
         return result;

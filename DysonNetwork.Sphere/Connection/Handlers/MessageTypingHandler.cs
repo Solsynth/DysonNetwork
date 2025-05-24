@@ -2,7 +2,6 @@ using System.Net.WebSockets;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
