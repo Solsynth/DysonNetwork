@@ -27,8 +27,7 @@ public enum NotificationPushProvider
     Google
 }
 
-[Index(nameof(DeviceId), IsUnique = true)]
-[Index(nameof(DeviceToken), IsUnique = true)]
+[Index(nameof(DeviceToken), nameof(DeviceId), IsUnique = true)]
 public class NotificationPushSubscription : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

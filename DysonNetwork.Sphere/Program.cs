@@ -9,6 +9,7 @@ using DysonNetwork.Sphere.Email;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Sphere.Chat.Realtime;
 using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Connection.Handlers;
 using DysonNetwork.Sphere.Localization;
@@ -178,6 +179,7 @@ builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<StickerService>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<IRealtimeService, LivekitRealtimeService>();
 
 // Timed task
 
