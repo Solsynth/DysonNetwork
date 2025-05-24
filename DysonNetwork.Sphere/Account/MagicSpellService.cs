@@ -101,7 +101,7 @@ public class MagicSpellService(
                 var contactMethod = spell.Meta["contact_method"] as string;
                 var contact = await
                     db.AccountContacts.FirstOrDefaultAsync(c =>
-                        c.Account.Id == spell.AccountId && c.Content == contactMethod
+                        c.Content == contactMethod
                     );
                 if (contact is not null)
                 {
