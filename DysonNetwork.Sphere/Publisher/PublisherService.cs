@@ -6,7 +6,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
-public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache)
+public class PublisherService(AppDatabase db, FileService fs, ICacheService cache)
 {
     public async Task<Publisher> CreateIndividualPublisher(
         Account.Account account,
@@ -101,7 +101,8 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
     public async Task<PublisherStats?> GetPublisherStats(string name)
     {
         var cacheKey = string.Format(PublisherStatsCacheKey, name);
-        if (cache.TryGetValue(cacheKey, out PublisherStats? stats))
+        var stats = await cache.GetAsync<PublisherStats>(cacheKey);
+        if (stats is not null)
             return stats;
 
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
@@ -133,7 +134,7 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
             SubscribersCount = subscribersCount,
         };
 
-        cache.Set(cacheKey, stats, TimeSpan.FromMinutes(5));
+        await cache.SetAsync(cacheKey, stats, TimeSpan.FromMinutes(5));
         return stats;
     }
 
@@ -157,15 +158,16 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
         }
 
         await db.SaveChangesAsync();
-        cache.Remove(string.Format(PublisherFeatureCacheKey, publisherId, flag));
+        await cache.RemoveAsync(string.Format(PublisherFeatureCacheKey, publisherId, flag));
     }
 
     public async Task<bool> HasFeature(Guid publisherId, string flag)
     {
         var cacheKey = string.Format(PublisherFeatureCacheKey, publisherId, flag);
 
-        if (cache.TryGetValue(cacheKey, out bool isEnabled))
-            return isEnabled;
+        var isEnabled = await cache.GetAsync<bool?>(cacheKey);
+        if (isEnabled.HasValue)
+            return isEnabled.Value;
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var featureFlag = await db.PublisherFeatures
@@ -175,17 +177,17 @@ public class PublisherService(AppDatabase db, FileService fs, IMemoryCache cache
             );
         if (featureFlag is not null) isEnabled = true;
 
-        cache.Set(cacheKey, isEnabled, TimeSpan.FromMinutes(5));
-        return isEnabled;
+        await cache.SetAsync(cacheKey, isEnabled!.Value, TimeSpan.FromMinutes(5));
+        return isEnabled.Value;
     }
-    
+
     public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId, PublisherMemberRole requiredRole)
     {
         var member = await db.Publishers
             .Where(p => p.Id == publisherId)
             .SelectMany(p => p.Members)
             .FirstOrDefaultAsync(m => m.AccountId == accountId);
-    
+
         return member != null && member.Role >= requiredRole;
     }
 }

@@ -1,11 +1,13 @@
 using System.Globalization;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Connection;
+using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using Org.BouncyCastle.Asn1.X509;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -13,24 +15,25 @@ public class AccountEventService(
     AppDatabase db,
     ActivityService act,
     WebSocketService ws,
-    IMemoryCache cache,
+    ICacheService cache,
     PaymentService payment,
     IStringLocalizer<Localization.AccountEventResource> localizer
 )
 {
     private static readonly Random Random = new();
-    private const string StatusCacheKey = "account_status_";
+    private const string StatusCacheKey = "AccountStatus_";
 
     public void PurgeStatusCache(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
-        cache.Remove(cacheKey);
+        cache.RemoveAsync(cacheKey);
     }
 
     public async Task<Status> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
-        if (cache.TryGetValue(cacheKey, out Status? cachedStatus))
+        var cachedStatus = await cache.GetAsync<Status>(cacheKey);
+        if (cachedStatus is not null)
         {
             cachedStatus!.IsOnline = !cachedStatus.IsInvisible && ws.GetAccountIsConnected(userId);
             return cachedStatus;
@@ -46,7 +49,8 @@ public class AccountEventService(
         if (status is not null)
         {
             status.IsOnline = !status.IsInvisible && isOnline;
-            cache.Set(cacheKey, status, TimeSpan.FromMinutes(5));
+            await cache.SetWithGroupsAsync(cacheKey, status, [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
+                TimeSpan.FromMinutes(5));
             return status;
         }
 
@@ -101,17 +105,18 @@ public class AccountEventService(
     }
 
     private const int FortuneTipCount = 7; // This will be the max index for each type (positive/negative)
-    private const string CaptchaCacheKey = "checkin_captcha_";
+    private const string CaptchaCacheKey = "CheckInCaptcha_";
     private const int CaptchaProbabilityPercent = 20;
 
-    public bool CheckInDailyDoAskCaptcha(Account user)
+    public async Task<bool> CheckInDailyDoAskCaptcha(Account user)
     {
         var cacheKey = $"{CaptchaCacheKey}{user.Id}";
-        if (cache.TryGetValue(cacheKey, out bool? needsCaptcha))
+        var needsCaptcha = await cache.GetAsync<bool?>(cacheKey);
+        if (needsCaptcha is not null)
             return needsCaptcha!.Value;
 
         var result = Random.Next(100) < CaptchaProbabilityPercent;
-        cache.Set(cacheKey, result, TimeSpan.FromHours(24));
+        await cache.SetAsync(cacheKey, result, TimeSpan.FromHours(24));
         return result;
     }
 
@@ -132,8 +137,14 @@ public class AccountEventService(
         return lastDate < currentDate;
     }
 
+    public const string CheckInLockKey = "CheckInLock_";
+
     public async Task<CheckInResult> CheckInDaily(Account user)
     {
+        var lockKey = $"{CheckInLockKey}{user.Id}";
+        var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(10), TimeSpan.Zero);
+        if (lk is null) throw new InvalidOperationException("Check-in was in progress.");
+
         var cultureInfo = new CultureInfo(user.Language, false);
         CultureInfo.CurrentCulture = cultureInfo;
         CultureInfo.CurrentUICulture = cultureInfo;
@@ -201,6 +212,7 @@ public class AccountEventService(
             ActivityVisibility.Friends
         );
 
+        await lk.ReleaseAsync();
         return result;
     }
 

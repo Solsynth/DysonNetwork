@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Reflection;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -12,20 +13,15 @@ namespace DysonNetwork.Sphere.Account;
 
 public class AccountService(
     AppDatabase db,
-    IMemoryCache cache,
+    ICacheService cache,
     IStringLocalizerFactory factory
 )
 {
+    public const string AccountCachePrefix = "Account_";
+    
     public async Task PurgeAccountCache(Account account)
     {
-        cache.Remove($"UserFriends_{account.Id}");
-
-        var sessions = await db.AuthSessions.Where(e => e.Account.Id == account.Id).Select(e => e.Id)
-            .ToListAsync();
-        foreach (var session in sessions)
-        {
-            cache.Remove($"Auth_{session}");
-        }
+        await cache.RemoveGroupAsync($"{AccountCachePrefix}{account.Id}");
     }
 
     public async Task<Account?> LookupAccount(string probe)

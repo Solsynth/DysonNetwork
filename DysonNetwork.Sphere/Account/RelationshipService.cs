@@ -1,11 +1,13 @@
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class RelationshipService(AppDatabase db, IMemoryCache cache)
+public class RelationshipService(AppDatabase db, ICacheService cache)
 {
+    private const string UserFriendsCacheKeyPrefix = "UserFriends_";
+    
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
     {
         var count = await db.AccountRelationships
@@ -49,8 +51,8 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
 
-        cache.Remove($"UserFriends_{relationship.AccountId}");
-        cache.Remove($"UserFriends_{relationship.RelatedId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.AccountId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.RelatedId}");
 
         return relationship;
     }
@@ -89,8 +91,8 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
         db.AccountRelationships.Remove(relationship);
         await db.SaveChangesAsync();
         
-        cache.Remove($"UserFriends_{accountId}");
-        cache.Remove($"UserFriends_{relatedId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relatedId}");
     }
     
     public async Task<Relationship> AcceptFriendRelationship(
@@ -119,8 +121,8 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
 
         await db.SaveChangesAsync();
 
-        cache.Remove($"UserFriends_{relationship.AccountId}");
-        cache.Remove($"UserFriends_{relationship.RelatedId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.AccountId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.RelatedId}");
 
         return relationshipBackward;
     }
@@ -133,21 +135,27 @@ public class RelationshipService(AppDatabase db, IMemoryCache cache)
         relationship.Status = status;
         db.Update(relationship);
         await db.SaveChangesAsync();
-        cache.Remove($"UserFriends_{accountId}");
-        cache.Remove($"UserFriends_{relatedId}");
+        
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relatedId}");
+        
         return relationship;
     }
 
     public async Task<List<Guid>> ListAccountFriends(Account account)
     {
-        if (!cache.TryGetValue($"UserFriends_{account.Id}", out List<Guid>? friends))
+        string cacheKey = $"{UserFriendsCacheKeyPrefix}{account.Id}";
+        var friends = await cache.GetAsync<List<Guid>>(cacheKey);
+        
+        if (friends == null)
         {
             friends = await db.AccountRelationships
                 .Where(r => r.RelatedId == account.Id)
                 .Where(r => r.Status == RelationshipStatus.Friends)
                 .Select(r => r.AccountId)
                 .ToListAsync();
-            cache.Set($"UserFriends_{account.Id}", friends, TimeSpan.FromHours(1));
+                
+            await cache.SetAsync(cacheKey, friends, TimeSpan.FromHours(1));
         }
 
         return friends ?? [];

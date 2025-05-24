@@ -344,7 +344,7 @@ public class AccountController(
         if (!isAvailable)
             return BadRequest("Check-in is not available for today.");
 
-        var needsCaptcha = events.CheckInDailyDoAskCaptcha(currentUser);
+        var needsCaptcha = await events.CheckInDailyDoAskCaptcha(currentUser);
         return needsCaptcha switch
         {
             true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,

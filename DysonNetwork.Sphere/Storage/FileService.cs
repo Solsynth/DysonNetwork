@@ -17,12 +17,12 @@ public class FileService(
     TusDiskStore store,
     ILogger<FileService> logger,
     IServiceScopeFactory scopeFactory,
-    IMemoryCache cache
+    ICacheService cache
 )
 {
     private const string CacheKeyPrefix = "cloudfile_";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
-    
+
     /// <summary>
     /// The api for getting file meta with cache,
     /// the best use case is for accessing the file data.
@@ -34,18 +34,19 @@ public class FileService(
     public async Task<CloudFile?> GetFileAsync(string fileId)
     {
         var cacheKey = $"{CacheKeyPrefix}{fileId}";
-        
-        if (cache.TryGetValue(cacheKey, out CloudFile? cachedFile))
+
+        var cachedFile = await cache.GetAsync<CloudFile>(cacheKey);
+        if (cachedFile is not null)
             return cachedFile;
-    
+
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
-        
+
         if (file != null)
-            cache.Set(cacheKey, file, CacheDuration);
-            
+            await cache.SetAsync(cacheKey, file, CacheDuration);
+
         return file;
     }
-    
+
     private static readonly string TempFilePrefix = "dyn-cloudfile";
 
     // The analysis file method no longer will remove the GPS EXIF data
@@ -83,7 +84,7 @@ public class FileService(
             file.FileMeta = existingFile.FileMeta;
             file.HasCompression = existingFile.HasCompression;
             file.SensitiveMarks = existingFile.SensitiveMarks;
-            
+
             db.Files.Add(file);
             await db.SaveChangesAsync();
             return file;
@@ -399,8 +400,7 @@ public class FileService(
                 )
             );
     }
-    
-    
+
 
     public async Task SetExpiresRangeAsync(ICollection<CloudFile> files, Duration? duration)
     {
@@ -408,55 +408,55 @@ public class FileService(
         await db.Files.Where(o => ids.Contains(o.Id))
             .ExecuteUpdateAsync(setter => setter.SetProperty(
                     b => b.ExpiredAt,
-                    duration.HasValue 
+                    duration.HasValue
                         ? b => SystemClock.Instance.GetCurrentInstant() + duration.Value
                         : _ => null
                 )
             );
     }
-    
-    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)> DiffAndMarkFilesAsync(
-        ICollection<string>? newFileIds,
-        ICollection<CloudFile>? previousFiles = null
-    )
+
+    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)>
+        DiffAndMarkFilesAsync(
+            ICollection<string>? newFileIds,
+            ICollection<CloudFile>? previousFiles = null
+        )
     {
         if (newFileIds == null) return ([], [], previousFiles ?? []);
-        
+
         var records = await db.Files.Where(f => newFileIds.Contains(f.Id)).ToListAsync();
         var previous = previousFiles?.ToDictionary(f => f.Id) ?? new Dictionary<string, CloudFile>();
         var current = records.ToDictionary(f => f.Id);
-    
+
         var added = current.Keys.Except(previous.Keys).Select(id => current[id]).ToList();
         var removed = previous.Keys.Except(current.Keys).Select(id => previous[id]).ToList();
-    
+
         if (added.Count > 0) await MarkUsageRangeAsync(added, 1);
         if (removed.Count > 0) await MarkUsageRangeAsync(removed, -1);
-    
+
         return (newFileIds.Select(id => current[id]).ToList(), added, removed);
     }
-    
-    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)> DiffAndSetExpiresAsync(
-        ICollection<string>? newFileIds,
-        Duration? duration,
-        ICollection<CloudFile>? previousFiles = null
-    )
+
+    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)>
+        DiffAndSetExpiresAsync(
+            ICollection<string>? newFileIds,
+            Duration? duration,
+            ICollection<CloudFile>? previousFiles = null
+        )
     {
         if (newFileIds == null) return ([], [], previousFiles ?? []);
-        
+
         var records = await db.Files.Where(f => newFileIds.Contains(f.Id)).ToListAsync();
         var previous = previousFiles?.ToDictionary(f => f.Id) ?? new Dictionary<string, CloudFile>();
         var current = records.ToDictionary(f => f.Id);
-    
+
         var added = current.Keys.Except(previous.Keys).Select(id => current[id]).ToList();
         var removed = previous.Keys.Except(current.Keys).Select(id => previous[id]).ToList();
-    
+
         if (added.Count > 0) await SetExpiresRangeAsync(added, duration);
         if (removed.Count > 0) await SetExpiresRangeAsync(removed, null);
-    
+
         return (newFileIds.Select(id => current[id]).ToList(), added, removed);
     }
-    
-    
 }
 
 public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger<CloudFileUnusedRecyclingJob> logger)

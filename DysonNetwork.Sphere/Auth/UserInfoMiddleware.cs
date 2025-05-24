@@ -1,27 +1,30 @@
+using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace DysonNetwork.Sphere.Auth;
 
-public class UserInfoMiddleware(RequestDelegate next, IMemoryCache cache)
+public class UserInfoMiddleware(RequestDelegate next, ICacheService cache)
 {
     public async Task InvokeAsync(HttpContext context, AppDatabase db)
     {
         var sessionIdClaim = context.User.FindFirst("session_id")?.Value;
         if (sessionIdClaim is not null && Guid.TryParse(sessionIdClaim, out var sessionId))
         {
-            if (!cache.TryGetValue($"Auth_{sessionId}", out Session? session))
+            var session = await cache.GetAsync<Session>($"Auth_{sessionId}");
+            if (session is null)
             {
                 session = await db.AuthSessions
+                    .Where(e => e.Id == sessionId)
                     .Include(e => e.Challenge)
                     .Include(e => e.Account)
-                    .Include(e => e.Account.Profile)
-                    .Where(e => e.Id == sessionId)
+                    .ThenInclude(e => e.Profile)
                     .FirstOrDefaultAsync();
 
                 if (session is not null)
                 {
-                    cache.Set($"Auth_{sessionId}", session, TimeSpan.FromHours(1));
+                    await cache.SetWithGroupsAsync($"Auth_{sessionId}", session,
+                        [$"{AccountService.AccountCachePrefix}{session.Account.Id}"], TimeSpan.FromHours(1));
                 }
             }
 

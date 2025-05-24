@@ -1,11 +1,12 @@
 using System.Net.WebSockets;
 using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
-public class MessageTypingHandler(AppDatabase db, ChatRoomService crs, IMemoryCache cache) : IWebSocketPacketHandler
+public class MessageTypingHandler(AppDatabase db, ChatRoomService crs, ICacheService cache) : IWebSocketPacketHandler
 {
     public string PacketType => "messages.typing";
 
@@ -33,11 +34,9 @@ public class MessageTypingHandler(AppDatabase db, ChatRoomService crs, IMemoryCa
             return;
         }
 
-        ChatMember? sender = null;
         var cacheKey = string.Format(MessageReadHandler.ChatMemberCacheKey, currentUser.Id, request.ChatRoomId);
-        if (cache.TryGetValue(cacheKey, out ChatMember? cachedMember))
-            sender = cachedMember;
-        else
+        var sender = await cache.GetAsync<ChatMember?>(cacheKey);
+        if (sender is null)
         {
             sender = await db.ChatMembers
                 .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == request.ChatRoomId)
@@ -45,9 +44,10 @@ public class MessageTypingHandler(AppDatabase db, ChatRoomService crs, IMemoryCa
 
             if (sender != null)
             {
-                var cacheOptions = new MemoryCacheEntryOptions()
-                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
-                cache.Set(cacheKey, sender, cacheOptions);
+                var chatRoomGroup = ChatRoomService.ChatRoomGroupPrefix + request.ChatRoomId;
+                await cache.SetWithGroupsAsync(cacheKey, sender,
+                    [chatRoomGroup], 
+                    TimeSpan.FromMinutes(5));
             }
         }
 

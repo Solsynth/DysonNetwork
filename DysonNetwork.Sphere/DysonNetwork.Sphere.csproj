@@ -53,6 +53,8 @@
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.9" />
         <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.9" />
+        <PackageReference Include="StackExchange.Redis" Version="2.8.37" />
+        <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="11.0.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.0"/>
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.0"/>
         <PackageReference Include="tusdotnet" Version="2.8.1"/>

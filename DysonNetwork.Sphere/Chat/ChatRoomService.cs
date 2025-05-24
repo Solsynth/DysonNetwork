@@ -1,37 +1,40 @@
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class ChatRoomService(AppDatabase db, IMemoryCache cache)
+public class ChatRoomService(AppDatabase db, ICacheService cache)
 {
-    private const string RoomMembersCacheKey = "ChatRoomMembers_{0}";
+    public const string ChatRoomGroupPrefix = "ChatRoom_";
+    private const string RoomMembersCacheKeyPrefix = "ChatRoomMembers_";
     
     public async Task<List<ChatMember>> ListRoomMembers(Guid roomId)
     {
-        var cacheKey = string.Format(RoomMembersCacheKey, roomId);
-        if (cache.TryGetValue(cacheKey, out List<ChatMember>? cachedMembers))
-            return cachedMembers!;
+        var cacheKey = RoomMembersCacheKeyPrefix + roomId;
+        var cachedMembers = await cache.GetAsync<List<ChatMember>>(cacheKey);
+        if (cachedMembers != null)
+            return cachedMembers;
     
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.JoinedAt != null)
             .Where(m => m.LeaveAt == null)
             .ToListAsync();
-    
-        var cacheOptions = new MemoryCacheEntryOptions()
-            .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
-        cache.Set(cacheKey, members, cacheOptions);
+
+        var chatRoomGroup = ChatRoomGroupPrefix + roomId;
+        await cache.SetWithGroupsAsync(cacheKey, members, 
+            new[] { chatRoomGroup }, 
+            TimeSpan.FromMinutes(5));
     
         return members;
     }
     
-    public void PurgeRoomMembersCache(Guid roomId)
+    public async Task PurgeRoomMembersCache(Guid roomId)
     {
-        var cacheKey = string.Format(RoomMembersCacheKey, roomId);
-        cache.Remove(cacheKey);
+        var chatRoomGroup = ChatRoomGroupPrefix + roomId;
+        await cache.RemoveGroupAsync(chatRoomGroup);
     }
 
     public async Task<List<ChatRoom>> SortChatRoomByLastMessage(List<ChatRoom> rooms)
