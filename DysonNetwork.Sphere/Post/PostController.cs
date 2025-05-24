@@ -156,6 +156,8 @@ public class PostController(
         [FromHeader(Name = "X-Pub")] string? publisherName
     )
     {
+        if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
+            return BadRequest("Content is required.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
         Publisher.Publisher? publisher;
@@ -287,6 +289,8 @@ public class PostController(
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<Post>> UpdatePost(Guid id, [FromBody] PostRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
+            return BadRequest("Content is required.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
         var post = await db.Posts
