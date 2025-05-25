@@ -97,18 +97,32 @@ public class RealtimeCallController(
         var endpoint = _config.Endpoint ??
                    throw new InvalidOperationException("LiveKit endpoint configuration is missing");
 
+        // Inject the ChatRoomService
+        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
+
         // Get current participants from the LiveKit service
         var participants = new List<CallParticipant>();
         if (realtime is LivekitRealtimeService livekitService)
         {
             var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
-            participants = roomParticipants.Select(p => new CallParticipant
+            participants = new List<CallParticipant>();
+            
+            foreach (var p in roomParticipants)
             {
-                Identity = p.Identity,
-                Name = p.Name,
-                AccountId = p.AccountId,
-                JoinedAt = p.JoinedAt
-            }).ToList();
+                var participant = new CallParticipant
+                {
+                    Identity = p.Identity,
+                    Name = p.Name,
+                    AccountId = p.AccountId,
+                    JoinedAt = p.JoinedAt
+                };
+            
+                // Fetch the ChatMember profile if we have an account ID
+                if (p.AccountId.HasValue)
+                    participant.Profile = await chatRoomService.GetChannelMember(p.AccountId.Value, roomId);
+            
+                participants.Add(participant);
+            }
         }
 
         // Create the response model

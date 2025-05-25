@@ -315,32 +315,49 @@ public class LivekitRealtimeService : IRealtimeService
                 .Where(c => c.SessionId == roomName && c.EndedAt == null)
                 .Select(c => new { c.RoomId, c.Id })
                 .FirstOrDefaultAsync();
-            
+        
             if (roomInfo == null)
             {
                 _logger.LogWarning("Could not find room info for session: {SessionName}", roomName);
                 return;
             }
-            
+        
             // Get current participants
-            var participants = await GetRoomParticipantsAsync(roomName);
-            
+            var livekitParticipants = await GetRoomParticipantsAsync(roomName);
+        
             // Get all room members who should receive this update
             var roomMembers = await _db.ChatMembers
                 .Where(m => m.ChatRoomId == roomInfo.RoomId && m.LeaveAt == null)
                 .Select(m => m.AccountId)
                 .ToListAsync();
-            
-            // Create the update packet
-            var participantsDto = participants.Select(p => new
+        
+            // Get member profiles for participants who have account IDs
+            var accountIds = livekitParticipants
+                .Where(p => p.AccountId.HasValue)
+                .Select(p => p.AccountId!.Value)
+                .ToList();
+        
+            var memberProfiles = new Dictionary<Guid, ChatMember>();
+            if (accountIds.Any())
             {
-                p.Identity,
-                p.Name,
-                p.AccountId,
-                State = p.State.ToString(),
-                p.JoinedAt
+                memberProfiles = await _db.ChatMembers
+                    .Where(m => m.ChatRoomId == roomInfo.RoomId && accountIds.Contains(m.AccountId))
+                    .ToDictionaryAsync(m => m.AccountId, m => m);
+            }
+        
+            // Convert to CallParticipant objects
+            var participants = livekitParticipants.Select(p => new CallParticipant
+            {
+                Identity = p.Identity,
+                Name = p.Name,
+                AccountId = p.AccountId,
+                JoinedAt = p.JoinedAt,
+                Profile = p.AccountId.HasValue && memberProfiles.TryGetValue(p.AccountId.Value, out var profile) 
+                    ? profile 
+                    : null
             }).ToList();
-            
+        
+            // Create the update packet with CallParticipant objects
             var updatePacket = new WebSocketPacket
             {
                 Type = WebSocketPacketType.CallParticipantsUpdate,
@@ -348,10 +365,10 @@ public class LivekitRealtimeService : IRealtimeService
                 {
                     { "room_id", roomInfo.RoomId },
                     { "call_id", roomInfo.Id },
-                    { "participants", participantsDto }
+                    { "participants", participants }
                 }
             };
-            
+        
             // Send the update to all members
             foreach (var accountId in roomMembers)
             {
