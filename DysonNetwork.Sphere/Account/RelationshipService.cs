@@ -88,8 +88,9 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
         var relationship = await GetRelationship(accountId, relatedId, RelationshipStatus.Pending);
         if (relationship is null) throw new ArgumentException("Friend request was not found.");
     
-        db.AccountRelationships.Remove(relationship);
-        await db.SaveChangesAsync();
+        await db.AccountRelationships
+            .Where(r => r.AccountId == accountId && r.RelatedId == relatedId && r.Status == RelationshipStatus.Pending)
+            .ExecuteDeleteAsync();
         
         await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
         await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relatedId}");

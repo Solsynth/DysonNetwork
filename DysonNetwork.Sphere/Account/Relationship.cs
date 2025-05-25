@@ -2,7 +2,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public enum RelationshipStatus
+public enum RelationshipStatus : short
 {
     Friends = 100,
     Pending = 0,

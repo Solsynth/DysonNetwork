@@ -37,6 +37,15 @@ public interface IRealtimeService
     /// <param name="isAdmin">The user is the admin of session</param>
     /// <returns>User-specific token for the session</returns>
     string GetUserToken(Account.Account account, string sessionId, bool isAdmin = false);
+    
+    /// <summary>
+    /// Processes incoming webhook requests from the realtime service provider
+    /// </summary>
+    /// <param name="body">The webhook request body content</param>
+    /// <param name="authHeader">The authentication header value</param>
+    /// <returns>Task representing the asynchronous operation</returns>
+    Task ReceiveWebhook(string body, string authHeader);
+    
 }
 
 /// <summary>

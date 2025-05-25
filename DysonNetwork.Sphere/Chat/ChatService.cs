@@ -39,7 +39,12 @@ public class ChatService(
         return message;
     }
 
-    public async Task DeliverMessageAsync(Message message, ChatMember sender, ChatRoom room)
+    public async Task DeliverMessageAsync(
+        Message message,
+        ChatMember sender,
+        ChatRoom room,
+        string type = WebSocketPacketType.MessageNew
+    )
     {
         using var scope = scopeFactory.CreateScope();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
@@ -60,7 +65,7 @@ public class ChatService(
         {
             scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
             {
-                Type = "messages.new",
+                Type = type,
                 Data = message
             });
             tasks.Add(scopedNty.DeliveryNotification(new Notification
@@ -185,7 +190,7 @@ public class ChatService(
             SenderId = sender.Id,
             Meta = new Dictionary<string, object>
             {
-                { "call", call.Id }
+                { "call_id", call.Id },
             }
         }, sender, room);
 
@@ -228,7 +233,8 @@ public class ChatService(
             SenderId = call.SenderId,
             Meta = new Dictionary<string, object>
             {
-                { "call", call.Id }
+                { "call_id", call.Id },
+                { "duration", (call.EndedAt!.Value - call.CreatedAt).TotalSeconds }
             }
         }, call.Sender, call.Room);
     }

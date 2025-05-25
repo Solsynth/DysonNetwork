@@ -230,6 +230,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
             .Include(m => m.Sender.Account.Profile).Include(message => message.Attachments)
+            .Include(message => message.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
         if (message == null) return NotFound();
 
@@ -270,6 +271,12 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
         message.EditedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(message);
         await db.SaveChangesAsync();
+        _ = cs.DeliverMessageAsync(
+            message,
+            message.Sender,
+            message.ChatRoom,
+            WebSocketPacketType.MessageUpdate
+        );
 
         return Ok(message);
     }
@@ -282,6 +289,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
 
         var message = await db.ChatMessages
             .Include(m => m.Sender)
+            .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
         if (message == null) return NotFound();
 
@@ -290,6 +298,12 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
 
         db.ChatMessages.Remove(message);
         await db.SaveChangesAsync();
+        _ = cs.DeliverMessageAsync(
+            message,
+            message.Sender,
+            message.ChatRoom,
+            WebSocketPacketType.MessageDelete
+        );
 
         return Ok();
     }
