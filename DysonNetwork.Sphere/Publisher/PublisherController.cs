@@ -19,8 +19,6 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     [HttpGet("{name}")]
     public async Task<ActionResult<Publisher>> GetPublisher(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-
         var publisher = await db.Publishers
             .Where(e => e.Name == name)
             .FirstOrDefaultAsync();

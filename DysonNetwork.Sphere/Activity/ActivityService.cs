@@ -133,9 +133,11 @@ public class ActivityService(AppDatabase db)
         var identifier = $"posts/{post.Id}";
         if (post.RepliedPostId is not null)
         {
-            var ogPost = await db.Posts.Where(e => e.Id == post.RepliedPostId).Include(e => e.Publisher)
+            var ogPost = await db.Posts
+                .Where(e => e.Id == post.RepliedPostId)
+                .Include(e => e.Publisher)
                 .FirstOrDefaultAsync();
-            if (ogPost == null) return;
+            if (ogPost?.Publisher.AccountId == null) return;
             await CreateActivity(
                 user,
                 "posts.new.replies",
@@ -143,6 +145,7 @@ public class ActivityService(AppDatabase db)
                 ActivityVisibility.Selected,
                 [ogPost.Publisher.AccountId!.Value]
             );
+            return;
         }
 
         await CreateActivity(
