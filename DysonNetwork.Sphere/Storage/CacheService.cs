@@ -117,8 +117,6 @@ public class RedisDistributedLock : IDistributedLock
     private readonly IDatabase _database;
     private bool _disposed;
 
-    private const string LockKeyPrefix = "Lock_";
-
     public string Resource { get; }
     public string LockId { get; }
 
@@ -144,7 +142,7 @@ public class RedisDistributedLock : IDistributedLock
 
         var result = await _database.ScriptEvaluateAsync(
             script,
-            [$"{LockKeyPrefix}{Resource}"],
+            [$"{CacheServiceRedis.LockKeyPrefix}{Resource}"],
             [LockId, (long)timeSpan.TotalMilliseconds]
         );
 
@@ -166,7 +164,7 @@ public class RedisDistributedLock : IDistributedLock
 
         await _database.ScriptEvaluateAsync(
             script,
-            [$"{LockKeyPrefix}{Resource}"],
+            [$"{CacheServiceRedis.LockKeyPrefix}{Resource}"],
             [LockId]
         );
 
@@ -186,11 +184,11 @@ public class CacheServiceRedis : ICacheService
     private readonly JsonSerializerSettings _serializerSettings;
 
     // Global prefix for all cache keys
-    private const string GlobalKeyPrefix = "dyson:";
+    public const string GlobalKeyPrefix = "dyson:";
 
     // Using prefixes for different types of keys
-    private const string GroupKeyPrefix = GlobalKeyPrefix + "cg:";
-    private const string LockKeyPrefix = GlobalKeyPrefix + "lock:";
+    public const string GroupKeyPrefix = GlobalKeyPrefix + "cg:";
+    public const string LockKeyPrefix = GlobalKeyPrefix + "lock:";
 
     public CacheServiceRedis(IConnectionMultiplexer redis)
     {

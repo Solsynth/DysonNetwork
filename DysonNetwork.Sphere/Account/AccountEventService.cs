@@ -143,8 +143,21 @@ public class AccountEventService(
     {
         var lockKey = $"{CheckInLockKey}{user.Id}";
         
-        await using var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(10), TimeSpan.Zero);
-        if (lk is null) throw new InvalidOperationException("Check-in was in progress.");
+        try
+        {
+            var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(100));
+            
+            if (lk != null)
+                await lk.ReleaseAsync();
+        }
+        catch
+        {
+            // Ignore errors from this pre-check
+        }
+        
+        // Now try to acquire the lock properly
+        await using var lockObj = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5));
+        if (lockObj is null) throw new InvalidOperationException("Check-in was in progress.");
 
         var cultureInfo = new CultureInfo(user.Language, false);
         CultureInfo.CurrentCulture = cultureInfo;
@@ -205,6 +218,7 @@ public class AccountEventService(
                 s.SetProperty(b => b.Experience, b => b.Experience + result.RewardExperience)
             );
         db.AccountCheckInResults.Add(result);
+        await db.SaveChangesAsync();  // Don't forget to save changes to the database
 
         await act.CreateActivity(
             user,
