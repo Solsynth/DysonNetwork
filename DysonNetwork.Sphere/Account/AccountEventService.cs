@@ -142,7 +142,8 @@ public class AccountEventService(
     public async Task<CheckInResult> CheckInDaily(Account user)
     {
         var lockKey = $"{CheckInLockKey}{user.Id}";
-        var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(10), TimeSpan.Zero);
+        
+        await using var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(10), TimeSpan.Zero);
         if (lk is null) throw new InvalidOperationException("Check-in was in progress.");
 
         var cultureInfo = new CultureInfo(user.Language, false);
@@ -212,7 +213,7 @@ public class AccountEventService(
             ActivityVisibility.Friends
         );
 
-        await lk.ReleaseAsync();
+        // The lock will be automatically released by the await using statement
         return result;
     }
 

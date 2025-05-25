@@ -362,14 +362,21 @@ public class AccountController(
         if (!isAvailable)
             return BadRequest("Check-in is not available for today.");
 
-        var needsCaptcha = await events.CheckInDailyDoAskCaptcha(currentUser);
-        return needsCaptcha switch
+        try
         {
-            true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,
-                "Captcha is required for this check-in."),
-            true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest("Invalid captcha token."),
-            _ => await events.CheckInDaily(currentUser)
-        };
+            var needsCaptcha = await events.CheckInDailyDoAskCaptcha(currentUser);
+            return needsCaptcha switch
+            {
+                true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,
+                    "Captcha is required for this check-in."),
+                true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest("Invalid captcha token."),
+                _ => await events.CheckInDaily(currentUser)
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpGet("me/calendar")]
