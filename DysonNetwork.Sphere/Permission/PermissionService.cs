@@ -34,7 +34,7 @@ public class PermissionService(
     public async Task<T?> GetPermissionAsync<T>(string actor, string area, string key)
     {
         var cacheKey = _GetPermissionCacheKey(actor, area, key);
-        
+
         var cachedValue = await cache.GetAsync<T>(cacheKey);
         if (cachedValue != null)
         {
@@ -43,19 +43,19 @@ public class PermissionService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var groupsKey = _GetGroupsCacheKey(actor);
-        
+
         var groupsId = await cache.GetAsync<List<Guid>>(groupsKey);
         if (groupsId == null)
         {
             groupsId = await db.PermissionGroupMembers
-                .Where(n => n.Actor == actor)
+                .Where(n => n.Actor == "user:" + actor)
                 .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
                 .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
                 .Select(e => e.GroupId)
                 .ToListAsync();
-                
-            await cache.SetWithGroupsAsync(groupsKey, groupsId, 
-                new[] { _GetPermissionGroupKey(actor) }, 
+
+            await cache.SetWithGroupsAsync(groupsKey, groupsId,
+                [_GetPermissionGroupKey(actor)],
                 CacheExpiration);
         }
 
@@ -71,7 +71,7 @@ public class PermissionService(
         await cache.SetWithGroupsAsync(cacheKey, result,
             [_GetPermissionGroupKey(actor)],
             CacheExpiration);
-        
+
         return result;
     }
 

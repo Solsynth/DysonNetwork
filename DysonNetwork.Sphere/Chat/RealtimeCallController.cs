@@ -19,7 +19,7 @@ public class RealtimeCallController(IConfiguration configuration, AppDatabase db
 
     [HttpGet("{roomId:guid}/join")]
     [Authorize]
-    public async Task<IActionResult> JoinCall(Guid roomId)
+    public async Task<ActionResult<JoinCallResponse>> JoinCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
         
