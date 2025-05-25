@@ -48,7 +48,7 @@ public class PermissionService(
         if (groupsId == null)
         {
             groupsId = await db.PermissionGroupMembers
-                .Where(n => n.Actor == "user:" + actor)
+                .Where(n => n.Actor == actor)
                 .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
                 .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
                 .Select(e => e.GroupId)
@@ -61,7 +61,7 @@ public class PermissionService(
 
         var permission = await db.PermissionNodes
             .Where(n => n.GroupId == null || groupsId.Contains(n.GroupId.Value))
-            .Where(n => (n.Key == key || n.Key == "*") && (n.GroupId != null || n.Actor == actor) && n.Area == area)
+            .Where(n => n.Key == key && (n.GroupId != null || n.Actor == actor) && n.Area == area)
             .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
             .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
             .FirstOrDefaultAsync();

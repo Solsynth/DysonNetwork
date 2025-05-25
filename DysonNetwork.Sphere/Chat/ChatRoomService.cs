@@ -9,6 +9,7 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
 {
     public const string ChatRoomGroupPrefix = "ChatRoom_";
     private const string RoomMembersCacheKeyPrefix = "ChatRoomMembers_";
+    private const string ChatMemberCacheKey = "ChatMember_{0}_{1}";
     
     public async Task<List<ChatMember>> ListRoomMembers(Guid roomId)
     {
@@ -29,6 +30,25 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
             TimeSpan.FromMinutes(5));
     
         return members;
+    }
+    
+    public async Task<ChatMember?> GetChannelMember(Guid accountId, Guid chatRoomId)
+    {
+        var cacheKey = string.Format(ChatMemberCacheKey, accountId, chatRoomId);
+        var member = await cache.GetAsync<ChatMember?>(cacheKey);
+        if (member is not null) return member;
+        
+        member = await db.ChatMembers
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId)
+            .FirstOrDefaultAsync();
+
+        if (member == null) return member;
+        var chatRoomGroup = ChatRoomGroupPrefix + chatRoomId;
+        await cache.SetWithGroupsAsync(cacheKey, member,
+            [chatRoomGroup], 
+            TimeSpan.FromMinutes(5));
+
+        return member;
     }
     
     public async Task PurgeRoomMembersCache(Guid roomId)

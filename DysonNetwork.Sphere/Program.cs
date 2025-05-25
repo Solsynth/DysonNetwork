@@ -46,7 +46,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
 builder.Services.AddDbContext<AppDatabase>();
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ => 
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
     var connection = builder.Configuration.GetConnectionString("FastRetrieve")!;
     return ConnectionMultiplexer.Connect(connection);
@@ -209,7 +209,7 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInMinutes(5)
             .RepeatForever())
     );
-    
+
     var readReceiptFlushJob = new JobKey("ReadReceiptFlush");
     q.AddJob<ReadReceiptFlushJob>(opts => opts.WithIdentity(readReceiptFlushJob));
     q.AddTrigger(opts => opts
@@ -286,15 +286,13 @@ app.MapTus("/files/tus", _ => Task.FromResult<DefaultTusConfiguration>(new()
                 return;
             }
 
-            var userId = httpContext.User.FindFirst("user_id")?.Value;
-            if (userId == null) return;
-
-            using var scope = httpContext.RequestServices.CreateScope();
-            var pm = scope.ServiceProvider.GetRequiredService<PermissionService>();
-            var allowed = await pm.HasPermissionAsync($"user:{userId}", "global", "files.create");
-            if (!allowed)
+            if (!user.IsSuperuser)
             {
-                eventContext.FailRequest(HttpStatusCode.Forbidden);
+                using var scope = httpContext.RequestServices.CreateScope();
+                var pm = scope.ServiceProvider.GetRequiredService<PermissionService>();
+                var allowed = await pm.HasPermissionAsync($"user:{user.Id}", "global", "files.create");
+                if (!allowed)
+                    eventContext.FailRequest(HttpStatusCode.Forbidden);
             }
         },
         OnFileCompleteAsync = async eventContext =>

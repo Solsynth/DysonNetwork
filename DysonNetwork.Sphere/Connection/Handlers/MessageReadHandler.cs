@@ -44,23 +44,7 @@ public class MessageReadHandler(
             return;
         }
 
-        var cacheKey = string.Format(ChatMemberCacheKey, currentUser.Id, request.ChatRoomId);
-        var sender = await cache.GetAsync<ChatMember?>(cacheKey);
-        if (sender is null)
-        {
-            sender = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == request.ChatRoomId)
-                .FirstOrDefaultAsync();
-
-            if (sender != null)
-            {
-                var chatRoomGroup = ChatRoomService.ChatRoomGroupPrefix + request.ChatRoomId;
-                await cache.SetWithGroupsAsync(cacheKey, sender,
-                    [chatRoomGroup], 
-                    TimeSpan.FromMinutes(5));
-            }
-        }
-
+        var sender = await crs.GetChannelMember(currentUser.Id, request.ChatRoomId);
         if (sender is null)
         {
             await socket.SendAsync(

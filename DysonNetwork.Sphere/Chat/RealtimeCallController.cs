@@ -229,6 +229,11 @@ public class CallParticipant
     public Guid? AccountId { get; set; }
     
     /// <summary>
+    /// The participant's profile in the chat
+    /// </summary>
+    public ChatMember? Profile { get; set; }
+    
+    /// <summary>
     /// When the participant joined the call
     /// </summary>
     public DateTime JoinedAt { get; set; }
