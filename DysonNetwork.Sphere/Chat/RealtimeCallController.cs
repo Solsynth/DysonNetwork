@@ -173,7 +173,7 @@ public class RealtimeCallController(
 
         try
         {
-            await cs.EndCallAsync(roomId);
+            await cs.EndCallAsync(roomId, member);
             return NoContent();
         }
         catch (Exception exception)

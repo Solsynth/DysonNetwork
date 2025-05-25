@@ -197,10 +197,12 @@ public class ChatService(
         return call;
     }
 
-    public async Task EndCallAsync(Guid roomId)
+    public async Task EndCallAsync(Guid roomId, ChatMember sender)
     {
         var call = await GetCallOngoingAsync(roomId);
         if (call is null) throw new InvalidOperationException("No ongoing call was not found.");
+        if (sender.Role < ChatMemberRole.Moderator && call.SenderId != sender.Id)
+            throw new InvalidOperationException("You are not the call initiator either the chat room moderator.");
 
         // End the realtime session if it exists
         if (!string.IsNullOrEmpty(call.SessionId) && !string.IsNullOrEmpty(call.ProviderName))
@@ -230,7 +232,7 @@ public class ChatService(
         {
             Type = "call.ended",
             ChatRoomId = call.RoomId,
-            SenderId = call.SenderId,
+            SenderId = sender.Id,
             Meta = new Dictionary<string, object>
             {
                 { "call_id", call.Id },
