@@ -16,6 +16,7 @@ public class ChatService(
 {
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
+        if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
         message.CreatedAt = SystemClock.Instance.GetCurrentInstant();
         message.UpdatedAt = message.CreatedAt;
 
