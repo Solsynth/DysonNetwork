@@ -35,11 +35,9 @@ public class PermissionService(
     {
         var cacheKey = _GetPermissionCacheKey(actor, area, key);
 
-        var cachedValue = await cache.GetAsync<T>(cacheKey);
-        if (cachedValue != null)
-        {
+        var (hit, cachedValue) = await cache.GetAsyncWithStatus<T>(cacheKey);
+        if (hit)
             return cachedValue;
-        }
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var groupsKey = _GetGroupsCacheKey(actor);
@@ -49,8 +47,8 @@ public class PermissionService(
         {
             groupsId = await db.PermissionGroupMembers
                 .Where(n => n.Actor == actor)
-                .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
-                .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
+                .Where(n => n.ExpiredAt == null || n.ExpiredAt > now)
+                .Where(n => n.AffectedAt == null || n.AffectedAt <= now)
                 .Select(e => e.GroupId)
                 .ToListAsync();
 
@@ -60,10 +58,11 @@ public class PermissionService(
         }
 
         var permission = await db.PermissionNodes
-            .Where(n => n.GroupId == null || groupsId.Contains(n.GroupId.Value))
-            .Where(n => n.Key == key && (n.GroupId != null || n.Actor == actor) && n.Area == area)
-            .Where(n => n.ExpiredAt == null || n.ExpiredAt < now)
-            .Where(n => n.AffectedAt == null || n.AffectedAt >= now)
+            .Where(n => (n.GroupId == null && n.Actor == actor) ||
+                        (n.GroupId != null && groupsId.Contains(n.GroupId.Value)))
+            .Where(n => n.Key == key && n.Area == area)
+            .Where(n => n.ExpiredAt == null || n.ExpiredAt > now)
+            .Where(n => n.AffectedAt == null || n.AffectedAt <= now)
             .FirstOrDefaultAsync();
 
         var result = permission is not null ? _DeserializePermissionValue<T>(permission.Value) : default;

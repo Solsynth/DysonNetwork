@@ -43,6 +43,11 @@ public interface ICacheService
     /// Gets a value from the cache
     /// </summary>
     Task<T?> GetAsync<T>(string key);
+    
+    /// <summary>
+    /// Get a value from the cache with the found status
+    /// </summary>
+    Task<(bool found, T? value)> GetAsyncWithStatus<T>(string key);
 
     /// <summary>
     /// Removes a specific key from the cache
@@ -229,6 +234,20 @@ public class CacheServiceRedis : ICacheService
 
         // For NodaTime serialization, use the configured serializer settings
         return JsonConvert.DeserializeObject<T>(value!, _serializerSettings);
+    }
+
+    public async Task<(bool found, T? value)> GetAsyncWithStatus<T>(string key)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentException("Key cannot be null or empty", nameof(key));
+
+        var value = await _database.StringGetAsync(key);
+
+        if (value.IsNullOrEmpty)
+            return (false, default);
+
+        // For NodaTime serialization, use the configured serializer settings
+        return (true, JsonConvert.DeserializeObject<T>(value!, _serializerSettings));
     }
 
     public async Task<bool> RemoveAsync(string key)
