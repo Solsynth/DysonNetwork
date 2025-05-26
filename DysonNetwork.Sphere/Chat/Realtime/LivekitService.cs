@@ -15,7 +15,6 @@ public class LivekitRealtimeService : IRealtimeService
     private readonly AppDatabase _db;
     private readonly ICacheService _cache;
     private readonly WebSocketService _ws;
-    private readonly ChatService _cs;
 
     private readonly ILogger<LivekitRealtimeService> _logger;
     private readonly RoomServiceClient _roomService;
@@ -27,8 +26,7 @@ public class LivekitRealtimeService : IRealtimeService
         ILogger<LivekitRealtimeService> logger,
         AppDatabase db,
         ICacheService cache,
-        WebSocketService ws,
-        ChatService cs
+        WebSocketService ws
     )
     {
         _logger = logger;
@@ -48,7 +46,6 @@ public class LivekitRealtimeService : IRealtimeService
         _db = db;
         _cache = cache;
         _ws = ws;
-        _cs = cs;
     }
 
     /// <inheritdoc />
@@ -143,29 +140,10 @@ public class LivekitRealtimeService : IRealtimeService
         {
             case "room_finished":
                 var now = SystemClock.Instance.GetCurrentInstant();
-                var call = await _db.ChatRealtimeCall
+                await _db.ChatRealtimeCall
                     .Where(c => c.SessionId == evt.Room.Name)
-                    .Include(c => c.Room)
-                    .Include(c => c.Sender)
-                    .FirstOrDefaultAsync();
-                if (call is not null)
-                {
-                    await _cs.SendMessageAsync(new Message
-                    {
-                        Type = "call.ended",
-                        ChatRoomId = call.RoomId,
-                        SenderId = call.SenderId,
-                        Meta = new Dictionary<string, object>
-                        {
-                            { "call_id", call.Id },
-                            { "duration", (call.EndedAt!.Value - call.CreatedAt).TotalSeconds }
-                        }
-                    }, call.Sender, call.Room);
-                    await _db.ChatRealtimeCall
-                        .Where(c => c.SessionId == evt.Room.Name)
-                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.EndedAt, now)
-                        );
-                }
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.EndedAt, now)
+                    );
 
                 // Also clean up participants list when the room is finished
                 await _cache.RemoveAsync(_GetParticipantsKey(evt.Room.Name));
