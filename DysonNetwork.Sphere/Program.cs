@@ -39,7 +39,12 @@ using tusdotnet.Stores;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue);
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = long.MaxValue;
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
+});
 
 // Add services to the container.
 
