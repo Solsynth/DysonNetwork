@@ -30,6 +30,8 @@ using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using Prometheus;
+using Prometheus.DotNetRuntime;
+using Prometheus.SystemMetrics;
 using Quartz;
 using StackExchange.Redis;
 using tusdotnet;
@@ -51,6 +53,10 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.UseHttpClientMetrics();
 builder.Services.AddHealthChecks();
+builder.Services.AddSystemMetrics();
+builder.Services.AddPrometheusEntityFrameworkMetrics();
+builder.Services.AddPrometheusAspNetCoreMetrics();
+builder.Services.AddPrometheusHttpClientMetrics();
 
 // Add services to the container.
 
