@@ -36,7 +36,6 @@ RUN mkdir -p /app/publish/zh-Hans
 
 # Trim, ReadyToRun, single-file (optional), no self-contained to keep image small
 RUN dotnet publish -c $BUILD_CONFIGURATION -o /app/publish \
-  -p:PublishTrimmed=true \
   -p:PublishReadyToRun=true \
   -p:TieredPGO=true \
   -p:SuppressTrimAnalysisWarnings=true
