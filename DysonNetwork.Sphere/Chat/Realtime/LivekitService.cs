@@ -298,25 +298,28 @@ public class LivekitRealtimeService : IRealtimeService
         Guid? accountId = null;
         var metadata = new Dictionary<string, string>();
 
-        if (!string.IsNullOrEmpty(participant.Metadata))
+        if (string.IsNullOrEmpty(participant.Metadata))
+            return new ParticipantCacheItem
+            {
+                Identity = participant.Identity,
+                Name = participant.Name,
+                AccountId = accountId,
+                State = participant.State,
+                Metadata = metadata,
+                JoinedAt = DateTime.UtcNow
+            };
+        try
         {
-            try
-            {
-                metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(participant.Metadata) ??
-                           new Dictionary<string, string>();
+            metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(participant.Metadata) ??
+                       new Dictionary<string, string>();
 
-                if (metadata.TryGetValue("account_id", out var accountIdStr))
-                {
-                    if (Guid.TryParse(accountIdStr, out var parsedId))
-                    {
-                        accountId = parsedId;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to parse participant metadata");
-            }
+            if (metadata.TryGetValue("account_id", out var accountIdStr))
+                if (Guid.TryParse(accountIdStr, out var parsedId))
+                    accountId = parsedId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse participant metadata");
         }
 
         return new ParticipantCacheItem
@@ -363,10 +366,12 @@ public class LivekitRealtimeService : IRealtimeService
                 .ToList();
 
             var memberProfiles = new Dictionary<Guid, ChatMember>();
-            if (accountIds.Any())
+            if (accountIds.Count != 0)
             {
                 memberProfiles = await _db.ChatMembers
                     .Where(m => m.ChatRoomId == roomInfo.RoomId && accountIds.Contains(m.AccountId))
+                    .Include(m => m.Account)
+                    .ThenInclude(m => m.Profile)
                     .ToDictionaryAsync(m => m.AccountId, m => m);
             }
 
