@@ -29,6 +29,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
+using Prometheus;
 using Quartz;
 using StackExchange.Redis;
 using tusdotnet;
@@ -45,6 +46,11 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
 });
+
+// Configure metrics
+
+builder.Services.UseHttpClientMetrics();
+builder.Services.AddHealthChecks();
 
 // Add services to the container.
 
@@ -236,6 +242,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+app.MapMetrics();
 app.MapOpenApi();
 
 app.UseSwagger();

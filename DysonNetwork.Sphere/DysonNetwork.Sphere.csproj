@@ -49,6 +49,7 @@
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0"/>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="9.0.4"/>
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="9.0.4"/>
+        <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
         <PackageReference Include="Quartz" Version="3.14.0"/>
         <PackageReference Include="Quartz.AspNetCore" Version="3.14.0"/>
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0"/>
