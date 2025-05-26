@@ -125,7 +125,7 @@ public class LivekitRealtimeService : IRealtimeService
                 RoomAdmin = isAdmin,
                 Room = sessionId
             })
-            .WithAttributes(new Dictionary<string, string> { { "account_id", account.Id.ToString() } })
+            .WithMetadata(JsonSerializer.Serialize(new Dictionary<string, string> { { "account_id", account.Id.ToString() } }))
             .WithTtl(TimeSpan.FromHours(1));
         return token.ToJwt();
     }
@@ -199,7 +199,7 @@ public class LivekitRealtimeService : IRealtimeService
 
         // Get the current participants list
         var participants = await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ??
-                           new List<ParticipantCacheItem>();
+                           [];
 
         // Check if the participant already exists
         var existingIndex = participants.FindIndex(p => p.Identity == participant.Identity);
@@ -253,7 +253,7 @@ public class LivekitRealtimeService : IRealtimeService
     public async Task<List<ParticipantCacheItem>> GetRoomParticipantsAsync(string roomName)
     {
         var participantsKey = _GetParticipantsKey(roomName);
-        return await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ?? new List<ParticipantCacheItem>();
+        return await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ?? [];
     }
 
     // Class to represent a participant in the cache
