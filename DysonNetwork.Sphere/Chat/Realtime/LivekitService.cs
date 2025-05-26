@@ -15,6 +15,7 @@ public class LivekitRealtimeService : IRealtimeService
     private readonly AppDatabase _db;
     private readonly ICacheService _cache;
     private readonly WebSocketService _ws;
+    private readonly ChatService _cs;
 
     private readonly ILogger<LivekitRealtimeService> _logger;
     private readonly RoomServiceClient _roomService;
@@ -26,7 +27,8 @@ public class LivekitRealtimeService : IRealtimeService
         ILogger<LivekitRealtimeService> logger,
         AppDatabase db,
         ICacheService cache,
-        WebSocketService ws
+        WebSocketService ws,
+        ChatService cs
     )
     {
         _logger = logger;
@@ -46,6 +48,7 @@ public class LivekitRealtimeService : IRealtimeService
         _db = db;
         _cache = cache;
         _ws = ws;
+        _cs = cs;
     }
 
     /// <inheritdoc />
@@ -125,7 +128,8 @@ public class LivekitRealtimeService : IRealtimeService
                 RoomAdmin = isAdmin,
                 Room = sessionId
             })
-            .WithMetadata(JsonSerializer.Serialize(new Dictionary<string, string> { { "account_id", account.Id.ToString() } }))
+            .WithMetadata(JsonSerializer.Serialize(new Dictionary<string, string>
+                { { "account_id", account.Id.ToString() } }))
             .WithTtl(TimeSpan.FromHours(1));
         return token.ToJwt();
     }
@@ -139,10 +143,29 @@ public class LivekitRealtimeService : IRealtimeService
         {
             case "room_finished":
                 var now = SystemClock.Instance.GetCurrentInstant();
-                await _db.ChatRealtimeCall
+                var call = await _db.ChatRealtimeCall
                     .Where(c => c.SessionId == evt.Room.Name)
-                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.EndedAt, now)
-                    );
+                    .Include(c => c.Room)
+                    .Include(c => c.Sender)
+                    .FirstOrDefaultAsync();
+                if (call is not null)
+                {
+                    await _cs.SendMessageAsync(new Message
+                    {
+                        Type = "call.ended",
+                        ChatRoomId = call.RoomId,
+                        SenderId = call.SenderId,
+                        Meta = new Dictionary<string, object>
+                        {
+                            { "call_id", call.Id },
+                            { "duration", (call.EndedAt!.Value - call.CreatedAt).TotalSeconds }
+                        }
+                    }, call.Sender, call.Room);
+                    await _db.ChatRealtimeCall
+                        .Where(c => c.SessionId == evt.Room.Name)
+                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.EndedAt, now)
+                        );
+                }
 
                 // Also clean up participants list when the room is finished
                 await _cache.RemoveAsync(_GetParticipantsKey(evt.Room.Name));
@@ -160,6 +183,7 @@ public class LivekitRealtimeService : IRealtimeService
                     // Broadcast participant list update to all participants
                     await _BroadcastParticipantUpdate(evt.Room.Name);
                 }
+
                 break;
 
             case "participant_left":
@@ -174,6 +198,7 @@ public class LivekitRealtimeService : IRealtimeService
                     // Broadcast participant list update to all participants
                     await _BroadcastParticipantUpdate(evt.Room.Name);
                 }
+
                 break;
         }
     }
@@ -272,14 +297,14 @@ public class LivekitRealtimeService : IRealtimeService
         // Try to parse account ID from metadata
         Guid? accountId = null;
         var metadata = new Dictionary<string, string>();
-        
+
         if (!string.IsNullOrEmpty(participant.Metadata))
         {
             try
             {
-                metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(participant.Metadata) ?? 
+                metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(participant.Metadata) ??
                            new Dictionary<string, string>();
-                
+
                 if (metadata.TryGetValue("account_id", out var accountIdStr))
                 {
                     if (Guid.TryParse(accountIdStr, out var parsedId))
@@ -304,7 +329,7 @@ public class LivekitRealtimeService : IRealtimeService
             JoinedAt = DateTime.UtcNow
         };
     }
-    
+
     // Broadcast participant update to all participants in a room
     private async Task _BroadcastParticipantUpdate(string roomName)
     {
@@ -315,28 +340,28 @@ public class LivekitRealtimeService : IRealtimeService
                 .Where(c => c.SessionId == roomName && c.EndedAt == null)
                 .Select(c => new { c.RoomId, c.Id })
                 .FirstOrDefaultAsync();
-        
+
             if (roomInfo == null)
             {
                 _logger.LogWarning("Could not find room info for session: {SessionName}", roomName);
                 return;
             }
-        
+
             // Get current participants
             var livekitParticipants = await GetRoomParticipantsAsync(roomName);
-        
+
             // Get all room members who should receive this update
             var roomMembers = await _db.ChatMembers
                 .Where(m => m.ChatRoomId == roomInfo.RoomId && m.LeaveAt == null)
                 .Select(m => m.AccountId)
                 .ToListAsync();
-        
+
             // Get member profiles for participants who have account IDs
             var accountIds = livekitParticipants
                 .Where(p => p.AccountId.HasValue)
                 .Select(p => p.AccountId!.Value)
                 .ToList();
-        
+
             var memberProfiles = new Dictionary<Guid, ChatMember>();
             if (accountIds.Any())
             {
@@ -344,7 +369,7 @@ public class LivekitRealtimeService : IRealtimeService
                     .Where(m => m.ChatRoomId == roomInfo.RoomId && accountIds.Contains(m.AccountId))
                     .ToDictionaryAsync(m => m.AccountId, m => m);
             }
-        
+
             // Convert to CallParticipant objects
             var participants = livekitParticipants.Select(p => new CallParticipant
             {
@@ -352,11 +377,11 @@ public class LivekitRealtimeService : IRealtimeService
                 Name = p.Name,
                 AccountId = p.AccountId,
                 JoinedAt = p.JoinedAt,
-                Profile = p.AccountId.HasValue && memberProfiles.TryGetValue(p.AccountId.Value, out var profile) 
-                    ? profile 
+                Profile = p.AccountId.HasValue && memberProfiles.TryGetValue(p.AccountId.Value, out var profile)
+                    ? profile
                     : null
             }).ToList();
-        
+
             // Create the update packet with CallParticipant objects
             var updatePacket = new WebSocketPacket
             {
@@ -368,7 +393,7 @@ public class LivekitRealtimeService : IRealtimeService
                     { "participants", participants }
                 }
             };
-        
+
             // Send the update to all members
             foreach (var accountId in roomMembers)
             {
