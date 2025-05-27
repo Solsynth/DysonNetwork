@@ -132,11 +132,9 @@ public class NotificationService
             .Where(s => s.AccountId == notification.AccountId)
             .ToListAsync();
 
-        var tasks = new List<Task>();
-        foreach (var subscriber in subscribers)
-        {
-            tasks.Add(_PushSingleNotification(notification, subscriber));
-        }
+        var tasks = subscribers
+            .Select(subscriber => _PushSingleNotification(notification, subscriber))
+            .ToList();
 
         await Task.WhenAll(tasks);
     }
@@ -166,7 +164,7 @@ public class NotificationService
             }).ToList();
             await _db.BulkInsertAsync(notifications);
         }
-        
+
         var subscribers = await _db.NotificationPushSubscriptions
             .ToListAsync();
         var tasks = new List<Task>();
@@ -175,6 +173,7 @@ public class NotificationService
             notification.AccountId = subscriber.AccountId;
             tasks.Add(_PushSingleNotification(notification, subscriber));
         }
+
         await Task.WhenAll(tasks);
     }
 
@@ -190,7 +189,7 @@ public class NotificationService
             }).ToList();
             await _db.BulkInsertAsync(notifications);
         }
-        
+
         var accountsId = accounts.Select(x => x.Id).ToList();
         var subscribers = await _db.NotificationPushSubscriptions
             .Where(s => accountsId.Contains(s.AccountId))
@@ -201,54 +200,76 @@ public class NotificationService
             notification.AccountId = subscriber.AccountId;
             tasks.Add(_PushSingleNotification(notification, subscriber));
         }
+
         await Task.WhenAll(tasks);
     }
 
     private async Task _PushSingleNotification(Notification notification, NotificationPushSubscription subscription)
     {
-        switch (subscription.Provider)
+        try
         {
-            case NotificationPushProvider.Google:
-                if (_fcm == null)
-                    throw new InvalidOperationException("The firebase cloud messaging is not initialized.");
-                await _fcm.SendAsync(new
-                {
-                    message = new
+            var body = string.Empty;
+            switch (subscription.Provider)
+            {
+                case NotificationPushProvider.Google:
+                    if (_fcm == null)
+                        throw new InvalidOperationException("The firebase cloud messaging is not initialized.");
+
+                    if (!string.IsNullOrEmpty(notification.Subtitle) || !string.IsNullOrEmpty(notification.Content))
                     {
-                        token = subscription.DeviceToken,
-                        notification = new
-                        {
-                            title = notification.Title,
-                            body = string.Join("\n", notification.Subtitle, notification.Content),
-                        },
-                        data = notification.Meta
+                        body = string.Join("\n",
+                            notification.Subtitle ?? string.Empty,
+                            notification.Content ?? string.Empty).Trim();
                     }
-                });
-                break;
-            case NotificationPushProvider.Apple:
-                if (_apns == null)
-                    throw new InvalidOperationException("The apple notification push service is not initialized.");
-                await _apns.SendAsync(new
+
+                    await _fcm.SendAsync(new
                     {
-                        apns = new
+                        message = new
                         {
-                            alert = new
+                            token = subscription.DeviceToken,
+                            notification = new
                             {
-                                title = notification.Title,
-                                subtitle = notification.Subtitle,
-                                content = notification.Content,
-                            }
+                                title = notification.Title ?? string.Empty, body
+                            },
+                            data = notification.Meta ?? new Dictionary<string, object>()
+                        }
+                    });
+                    break;
+
+                case NotificationPushProvider.Apple:
+                    if (_apns == null)
+                        throw new InvalidOperationException("The apple notification push service is not initialized.");
+
+                    await _apns.SendAsync(new
+                        {
+                            aps = new
+                            {
+                                alert = new
+                                {
+                                    title = notification.Title ?? string.Empty,
+                                    subtitle = notification.Subtitle ?? string.Empty,
+                                    body = notification.Content ?? string.Empty
+                                }
+                            },
+                            meta = notification.Meta ?? new Dictionary<string, object>()
                         },
-                        meta = notification.Meta,
-                    },
-                    deviceToken: subscription.DeviceToken,
-                    apnsId: notification.Id.ToString(),
-                    apnsPriority: notification.Priority,
-                    apnPushType: ApnPushType.Alert
-                );
-                break;
-            default:
-                throw new InvalidOperationException($"Provider not supported: {subscription.Provider}");
+                        deviceToken: subscription.DeviceToken,
+                        apnsId: notification.Id.ToString(),
+                        apnsPriority: notification.Priority,
+                        apnPushType: ApnPushType.Alert
+                    );
+                    break;
+
+                default:
+                    throw new InvalidOperationException($"Provider not supported: {subscription.Provider}");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log the exception
+            // Consider implementing a retry mechanism
+            // Rethrow or handle as needed
+            throw new Exception($"Failed to send notification to {subscription.Provider}: {ex.Message}", ex);
         }
     }
 }
