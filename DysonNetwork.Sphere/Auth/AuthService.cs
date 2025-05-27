@@ -18,6 +18,8 @@ public class AuthService(IConfiguration config, IHttpClientFactory httpClientFac
 {
     public async Task<bool> ValidateCaptcha(string token)
     {
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        
         var provider = config.GetSection("Captcha")["Provider"]?.ToLower();
         var apiSecret = config.GetSection("Captcha")["ApiSecret"];
 

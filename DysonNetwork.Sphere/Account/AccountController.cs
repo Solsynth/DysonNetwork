@@ -34,7 +34,7 @@ public class AccountController(
             .FirstOrDefaultAsync();
         return account is null ? new NotFoundResult() : account;
     }
-    
+
     [HttpGet("{name}/badges")]
     [ProducesResponseType<List<Badge>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -46,7 +46,7 @@ public class AccountController(
             .FirstOrDefaultAsync();
         return account is null ? NotFound() : account.Badges.ToList();
     }
-    
+
 
     public class AccountCreateRequest
     {
@@ -150,7 +150,7 @@ public class AccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var account = await db.Accounts.FirstAsync(a => a.Id == currentUser.Id);
-        
+
         if (request.Nick is not null) account.Nick = request.Nick;
         if (request.Language is not null) account.Language = request.Language;
 
@@ -237,6 +237,32 @@ public class AccountController(
         return Ok();
     }
 
+    public class RecoveryPasswordRequest
+    {
+        [Required] public string Account { get; set; } = null!;
+        [Required] public string CaptchaToken { get; set; } = null!;
+    }
+
+    [HttpPost("recovery/password")]
+    public async Task<ActionResult> RequestResetPassword([FromBody] RecoveryPasswordRequest request)
+    {
+        if (!await auth.ValidateCaptcha(request.CaptchaToken)) return BadRequest("Invalid captcha token.");
+
+        var account = await accounts.LookupAccount(request.Account);
+        if (account is null) return BadRequest("Unable to find the account.");
+
+        try
+        {
+            await accounts.RequestPasswordReset(account);
+        }
+        catch (InvalidOperationException)
+        {
+            return BadRequest("You already requested password reset within 24 hours.");
+        }
+
+        return Ok();
+    }
+
     public class StatusRequest
     {
         public StatusAttitude Attitude { get; set; }
@@ -279,17 +305,17 @@ public class AccountController(
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
         if (status is null) return NotFound();
-        
+
         status.Attitude = request.Attitude;
         status.IsInvisible = request.IsInvisible;
         status.IsNotDisturb = request.IsNotDisturb;
         status.Label = request.Label;
         status.ClearedAt = request.ClearedAt;
-        
+
         db.Update(status);
         await db.SaveChangesAsync();
         events.PurgeStatusCache(currentUser.Id);
-        
+
         return status;
     }
 
@@ -342,13 +368,13 @@ public class AccountController(
         var today = now.InUtc().Date;
         var startOfDay = today.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
         var endOfDay = today.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-        
+
         var result = await db.AccountCheckInResults
             .Where(x => x.AccountId == userId)
             .Where(x => x.CreatedAt >= startOfDay && x.CreatedAt < endOfDay)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
-        
+
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -417,30 +443,31 @@ public class AccountController(
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
     }
-    
+
     [Authorize]
     [HttpGet("me/actions")]
     [ProducesResponseType<List<ActionLog>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<ActionLog>>> GetActionLogs([FromQuery] int take = 20, [FromQuery] int offset = 0)
+    public async Task<ActionResult<List<ActionLog>>> GetActionLogs([FromQuery] int take = 20,
+        [FromQuery] int offset = 0)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-    
+
         var query = db.ActionLogs
             .Where(log => log.AccountId == currentUser.Id)
             .OrderByDescending(log => log.CreatedAt);
-    
+
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
-    
+
         var logs = await query
             .Skip(offset)
             .Take(take)
             .ToListAsync();
-    
+
         return Ok(logs);
     }
-    
+
     [HttpGet("search")]
     public async Task<List<Account>> Search([FromQuery] string query, [FromQuery] int take = 20)
     {
@@ -453,7 +480,7 @@ public class AccountController(
             .Take(take)
             .ToListAsync();
     }
-    
+
     [HttpPost("/maintenance/ensureProfileCreated")]
     [Authorize]
     [RequiredPermission("maintenance", "accounts.profiles")]

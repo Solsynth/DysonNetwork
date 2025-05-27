@@ -60,4 +60,25 @@
     <data name="EmailAccountDeletionTitle" xml:space="preserve">
         <value>Confirm your account deletion</value>
     </data>
+    <data name="EmailPasswordResetTitle" xml:space="preserve">
+        <value>Reset your password</value>
+    </data>
+    <data name="PasswordResetButton" xml:space="preserve">
+        <value>Reset Password</value>
+    </data>
+    <data name="PasswordResetHeader" xml:space="preserve">
+        <value>Password Reset Request</value>
+    </data>
+    <data name="PasswordResetPara1" xml:space="preserve">
+        <value>Dear,</value>
+    </data>
+    <data name="PasswordResetPara2" xml:space="preserve">
+        <value>We recieved a request to reset your Solar Network account password.</value>
+    </data>
+    <data name="PasswordResetPara3" xml:space="preserve">
+        <value>You can click the button below to continue reset your password.</value>
+    </data>
+    <data name="PasswordResetPara4" xml:space="preserve">
+        <value>If you didn't request this, you can ignore this email safety.</value>
+    </data>
 </root>

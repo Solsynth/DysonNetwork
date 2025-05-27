@@ -53,4 +53,25 @@
     <data name="EmailAccountDeletionTitle" xml:space="preserve">
         <value>确认删除您的账户</value>
     </data>
+    <data name="PasswordResetHeader" xml:space="preserve">
+        <value>密码重置请求</value>
+    </data>
+    <data name="PasswordResetPara1" xml:space="preserve">
+        <value>尊敬的 </value>
+    </data>
+    <data name="PasswordResetPara2" xml:space="preserve">
+        <value>我们收到了重置您 Solar Network 账户密码的请求。</value>
+    </data>
+    <data name="PasswordResetPara3" xml:space="preserve">
+        <value>请点击下方按钮重置您的密码。此链接将在24小时后失效。</value>
+    </data>
+    <data name="PasswordResetButton" xml:space="preserve">
+        <value>重置密码</value>
+    </data>
+    <data name="PasswordResetPara4" xml:space="preserve">
+        <value>如果您并未请求重置密码，你可以安全地忽略此邮件。</value>
+    </data>
+    <data name="EmailPasswordResetTitle" xml:space="preserve">
+        <value>重置您的密码</value>
+    </data>
 </root>

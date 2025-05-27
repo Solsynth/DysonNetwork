@@ -11,7 +11,7 @@ public enum MagicSpellType
     AccountActivation,
     AccountDeactivation,
     AccountRemoval,
-    AuthFactorReset,
+    AuthPasswordReset,
     ContactVerification,
 }
 

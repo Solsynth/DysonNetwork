@@ -8,8 +8,8 @@ namespace DysonNetwork.Sphere.Pages.Spell;
 
 public class MagicSpellPage(AppDatabase db, MagicSpellService spells) : PageModel
 {
-    [BindProperty]
-    public MagicSpell? CurrentSpell { get; set; }
+    [BindProperty] public MagicSpell? CurrentSpell { get; set; }
+    [BindProperty] public string? NewPassword { get; set; }
 
     public bool IsSuccess { get; set; }
 
@@ -39,10 +39,13 @@ public class MagicSpellPage(AppDatabase db, MagicSpellService spells) : PageMode
             .Where(e => e.AffectedAt == null || now >= e.AffectedAt)
             .FirstOrDefaultAsync();
 
-        if (spell == null)
+        if (spell == null || spell.Type == MagicSpellType.AuthPasswordReset && string.IsNullOrWhiteSpace(NewPassword))
             return Page();
 
-        await spells.ApplyMagicSpell(spell);
+        if (spell.Type == MagicSpellType.AuthPasswordReset)
+            await spells.ApplyPasswordReset(spell, NewPassword!);
+        else
+            await spells.ApplyMagicSpell(spell);
         IsSuccess = true;
         return Page();
     }

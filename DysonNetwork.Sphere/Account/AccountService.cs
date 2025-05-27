@@ -1,13 +1,6 @@
-using System.Globalization;
-using System.Reflection;
-using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Logging.Abstractions;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
@@ -52,6 +45,18 @@ public class AccountService(
         var spell = await spells.CreateMagicSpell(
             account,
             MagicSpellType.AccountRemoval,
+            new Dictionary<string, object>(),
+            SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24)),
+            preventRepeat: true
+        );
+        await spells.NotifyMagicSpell(spell);
+    }
+
+    public async Task RequestPasswordReset(Account account)
+    {
+        var spell = await spells.CreateMagicSpell(
+            account,
+            MagicSpellType.AuthPasswordReset,
             new Dictionary<string, object>(),
             SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24)),
             preventRepeat: true

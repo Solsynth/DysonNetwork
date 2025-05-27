@@ -1,4 +1,5 @@
 @page "/spells/{spellWord}"
+@using DysonNetwork.Sphere.Account
 @model DysonNetwork.Sphere.Pages.Spell.MagicSpellPage
 
 @{
@@ -25,11 +26,13 @@
             }
             else
             {
-                <div class="px-4 py-12 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg rounded-lg mb-6">
+                <div
+                    class="px-4 py-12 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg rounded-lg mb-6">
                     <div class="mb-2">
                         <p>
                             <span class="font-medium">The spell is for </span>
-                            <span class="font-bold">@System.Text.RegularExpressions.Regex.Replace(Model.CurrentSpell!.Type.ToString(), "([a-z])([A-Z])", "$1 $2")</span>
+                            <span
+                                class="font-bold">@System.Text.RegularExpressions.Regex.Replace(Model.CurrentSpell!.Type.ToString(), "([a-z])([A-Z])", "$1 $2")</span>
                         </p>
                         <p><span class="font-medium">for @@</span>@Model.CurrentSpell.Account?.Name</p>
                     </div>
@@ -48,6 +51,28 @@
 
                 <form method="post" class="mt-4">
                     <input type="hidden" asp-for="CurrentSpell!.Id"/>
+
+                    @if (Model.CurrentSpell?.Type == MagicSpellType.AuthPasswordReset)
+                    {
+                        <div class="mb-4">
+                            <label
+                                asp-for="NewPassword"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                            >
+                                New Password
+                            </label>
+                            <input type="password"
+                                   asp-for="NewPassword"
+                                   required
+                                   minlength="8"
+                                   style="padding: 0.5rem 1rem"
+                                   placeholder="Your new password"
+                                   class="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg 
+                                          focus:ring-2 focus:ring-blue-400
+                                          dark:text-white bg-gray-100 dark:bg-gray-800"/>
+                        </div>
+                    }
+
                     <button type="submit"
                             class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors
                                    transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400">

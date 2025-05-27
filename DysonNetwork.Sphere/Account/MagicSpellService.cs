@@ -36,13 +36,13 @@ public class MagicSpellService(
                 .Where(s => s.Type == type)
                 .Where(s => s.ExpiresAt == null || s.ExpiresAt > now)
                 .FirstOrDefaultAsync();
-                
+
             if (existingSpell != null)
             {
                 throw new InvalidOperationException($"Account already has an active magic spell of type {type}");
             }
         }
-        
+
         var spellWord = _GenerateRandomString(128);
         var spell = new MagicSpell
         {
@@ -111,6 +111,18 @@ public class MagicSpellService(
                         }
                     );
                     break;
+                case MagicSpellType.AuthPasswordReset:
+                    await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
+                        contact.Account.Name,
+                        contact.Content,
+                        localizer["EmailAccountDeletionTitle"],
+                        new PasswordResetEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
+                        }
+                    );
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -125,6 +137,16 @@ public class MagicSpellService(
     {
         switch (spell.Type)
         {
+            case MagicSpellType.AuthPasswordReset:
+                throw new ArgumentException(
+                    "For password reset spell, please use the ApplyPasswordReset method instead."
+                );
+            case MagicSpellType.AccountRemoval:
+                var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
+                if (account is null) break;
+                db.Accounts.Remove(account);
+                await db.SaveChangesAsync();
+                break;
             case MagicSpellType.AccountActivation:
                 var contactMethod = spell.Meta["contact_method"] as string;
                 var contact = await
@@ -137,7 +159,7 @@ public class MagicSpellService(
                     db.Update(contact);
                 }
 
-                var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
+                account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
                 if (account is not null)
                 {
                     account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
@@ -160,6 +182,37 @@ public class MagicSpellService(
             default:
                 throw new ArgumentOutOfRangeException();
         }
+    }
+
+    public async Task ApplyPasswordReset(MagicSpell spell, string newPassword)
+    {
+        if (spell.Type != MagicSpellType.AuthPasswordReset)
+            throw new ArgumentException("This spell is not a password reset spell.");
+
+        var passwordFactor = await db.AccountAuthFactors
+            .Include(f => f.Account)
+            .Where(f => f.Type == AccountAuthFactorType.Password && f.Account.Id == spell.AccountId)
+            .FirstOrDefaultAsync();
+        if (passwordFactor is null)
+        {
+            var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
+            if (account is null) throw new InvalidOperationException("Both account and auth factor was not found.");
+            passwordFactor = new AccountAuthFactor
+            {
+                Type = AccountAuthFactorType.Password,
+                Account = account,
+                Secret = newPassword
+            }.HashSecret();
+            db.AccountAuthFactors.Add(passwordFactor);
+        }
+        else
+        {
+            passwordFactor.Secret = newPassword;
+            passwordFactor.HashSecret();
+            db.Update(passwordFactor);
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static string _GenerateRandomString(int length)
