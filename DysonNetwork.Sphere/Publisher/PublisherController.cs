@@ -20,10 +20,16 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
     public async Task<ActionResult<Publisher>> GetPublisher(string name)
     {
         var publisher = await db.Publishers
-            .Include(e => e.Account)
             .Where(e => e.Name == name)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
+        if (publisher.AccountId is null) return Ok(publisher);
+        
+        var account = await db.Accounts
+            .Where(a => a.Id == publisher.AccountId)
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync();
+        publisher.Account = account;
 
         return Ok(publisher);
     }
