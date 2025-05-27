@@ -11,4 +11,31 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="ChatInviteTitle" xml:space="preserve">
+        <value>新聊天邀请</value>
+    </data>
+    <data name="ChatInviteBody" xml:space="preserve">
+        <value>你刚被邀请加入聊天 {}</value>
+    </data>
+    <data name="ChatInviteDirectBody" xml:space="preserve">
+        <value>{0} 向你发送了一个私聊邀请</value>
+    </data>
+    <data name="RealmInviteTitle" xml:space="preserve">
+        <value>新加入领域邀请</value>
+    </data>
+    <data name="RealmInviteBody" xml:space="preserve">
+        <value>你刚被邀请加入领域 {0}</value>
+    </data>
+    <data name="PostSubscriptionTitle" xml:space="preserve">
+        <value>{0} 有新帖子</value>
+    </data>
+    <data name="PostReactTitle" xml:space="preserve">
+        <value>{0} 反应了你的帖子</value>
+    </data>
+    <data name="PostReactBody" xml:space="preserve">
+        <value>{0} 给你的帖子添加了一个 {1} 的反应</value>
+    </data>
+    <data name="PostReactContentBody" xml:space="preserve">
+        <value>{0} 给你的帖子添加了一个 {1} 的反应 {2}</value>
+    </data>
 </root>

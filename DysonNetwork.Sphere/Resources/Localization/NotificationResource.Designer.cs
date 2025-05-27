@@ -44,5 +44,59 @@ namespace DysonNetwork.Sphere.Resources.Localization {
                 resourceCulture = value;
             }
         }
+        
+        internal static string ChatInviteTitle {
+            get {
+                return ResourceManager.GetString("ChatInviteTitle", resourceCulture);
+            }
+        }
+        
+        internal static string ChatInviteBody {
+            get {
+                return ResourceManager.GetString("ChatInviteBody", resourceCulture);
+            }
+        }
+        
+        internal static string ChatInviteDirectBody {
+            get {
+                return ResourceManager.GetString("ChatInviteDirectBody", resourceCulture);
+            }
+        }
+        
+        internal static string RealmInviteTitle {
+            get {
+                return ResourceManager.GetString("RealmInviteTitle", resourceCulture);
+            }
+        }
+        
+        internal static string RealmInviteBody {
+            get {
+                return ResourceManager.GetString("RealmInviteBody", resourceCulture);
+            }
+        }
+        
+        internal static string PostSubscriptionTitle {
+            get {
+                return ResourceManager.GetString("PostSubscriptionTitle", resourceCulture);
+            }
+        }
+        
+        internal static string PostReactTitle {
+            get {
+                return ResourceManager.GetString("PostReactTitle", resourceCulture);
+            }
+        }
+        
+        internal static string PostReactBody {
+            get {
+                return ResourceManager.GetString("PostReactBody", resourceCulture);
+            }
+        }
+        
+        internal static string PostReactContentBody {
+            get {
+                return ResourceManager.GetString("PostReactContentBody", resourceCulture);
+            }
+        }
     }
 }

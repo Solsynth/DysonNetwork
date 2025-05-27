@@ -111,6 +111,7 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Re
         );
 
         member.Account = relatedUser;
+        member.Realm = realm;
         await rs.SendInviteNotify(member);
 
         return Ok(member);

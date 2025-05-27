@@ -1,9 +1,13 @@
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace DysonNetwork.Sphere.Publisher;
 
-public class PublisherSubscriptionService(AppDatabase db, NotificationService nty)
+public class PublisherSubscriptionService(
+    AppDatabase db,
+    NotificationService nty,
+    IStringLocalizer<Notification> localizer)
 {
     /// <summary>
     /// Checks if a subscription exists between the account and publisher
@@ -48,12 +52,11 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
             return 0;
 
         // Create notification data
-        var title = $"@{post.Publisher.Name} Posted";
-        var message = !string.IsNullOrEmpty(post.Title)
-            ? post.Title
-            : (post.Content?.Length > 100
+        var message = !string.IsNullOrEmpty(post.Description)
+            ? post.Description?.Length > 40 ? post.Description[..37] + "..." : post.Description
+            : post.Content?.Length > 100
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
-                : post.Content);
+                : post.Content;
 
         // Data to include with the notification
         var data = new Dictionary<string, object>
@@ -71,8 +74,8 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
                 await nty.SendNotification(
                     subscription.Account,
                     "posts.new",
-                    title,
-                    post.Description?.Length > 40 ? post.Description[..37] + "..." : post.Description,
+                    localizer["New post from {0}", post.Publisher.Name],
+                    string.IsNullOrWhiteSpace(post.Title) ? null : post.Title,
                     message,
                     data
                 );
@@ -169,9 +172,7 @@ public class PublisherSubscriptionService(AppDatabase db, NotificationService nt
     {
         var subscription = await GetSubscriptionAsync(accountId, publisherId);
         if (subscription is not { Status: SubscriptionStatus.Active })
-        {
             return false;
-        }
 
         subscription.Status = SubscriptionStatus.Cancelled;
         await db.SaveChangesAsync();

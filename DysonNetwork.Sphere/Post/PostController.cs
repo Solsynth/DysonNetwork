@@ -257,6 +257,7 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
+            .ThenInclude(e => e.Account)
             .FilterWithVisibility(currentUser, userFriends)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
@@ -274,7 +275,14 @@ public class PostController(
             PostId = post.Id,
             AccountId = currentUser.Id
         };
-        var isRemoving = await ps.ModifyPostVotes(post, reaction, isExistingReaction, isSelfReact);
+        var isRemoving = await ps.ModifyPostVotes(
+            post,
+            reaction,
+            currentUser,
+            post.Publisher.Account,
+            isExistingReaction,
+            isSelfReact
+        );
 
         if (isRemoving) return NoContent();
 

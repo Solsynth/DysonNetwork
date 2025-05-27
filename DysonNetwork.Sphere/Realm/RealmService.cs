@@ -1,21 +1,28 @@
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Localization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 namespace DysonNetwork.Sphere.Realm;
 
-public class RealmService(AppDatabase db, NotificationService nty)
+public class RealmService(AppDatabase db, NotificationService nty, IStringLocalizer<NotificationResource> localizer)
 {
     public async Task SendInviteNotify(RealmMember member)
     {
-        await nty.SendNotification(member.Account, "invites.realms", "New Realm Invitation", null,
-            $"You just got invited to join {member.Realm.Name}");
+        await nty.SendNotification(
+            member.Account,
+            "invites.realms",
+            localizer["RealmInviteTitle"],
+            null,
+            localizer["RealmInviteBody", member.Realm.Name]
+        );
     }
-    
+
     public async Task<bool> IsMemberWithRole(Guid realmId, Guid accountId, params RealmMemberRole[] requiredRoles)
     {
         if (requiredRoles.Length == 0)
             return false;
-            
+
         var maxRequiredRole = requiredRoles.Max();
         var member = await db.RealmMembers
             .FirstOrDefaultAsync(m => m.RealmId == realmId && m.AccountId == accountId);

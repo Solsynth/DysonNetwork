@@ -18,4 +18,31 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="ChatInviteTitle" xml:space="preserve">
+        <value>New Chat Invitation</value>
+    </data>
+    <data name="ChatInviteBody" xml:space="preserve">
+        <value>You just got invited to join {0}</value>
+    </data>
+    <data name="ChatInviteDirectBody" xml:space="preserve">
+        <value>{0} sent an direct message invitation to you</value>
+    </data>
+    <data name="RealmInviteTitle" xml:space="preserve">
+        <value>New Realm Invitation</value>
+    </data>
+    <data name="RealmInviteBody" xml:space="preserve">
+        <value>You just got invited to join {0}</value>
+    </data>
+    <data name="PostSubscriptionTitle" xml:space="preserve">
+        <value>{0} just posted</value>
+    </data>
+    <data name="PostReactTitle" xml:space="preserve">
+        <value>{0} reacted your post</value>
+    </data>
+    <data name="PostReactBody" xml:space="preserve">
+        <value>{0} added a reaction {1} to your post</value>
+    </data>
+    <data name="PostReactContentBody" xml:space="preserve">
+        <value>{0} added a reaction {1} to your post {2}</value>
+    </data>
 </root>

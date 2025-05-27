@@ -1,12 +1,21 @@
 using System.Text.Json;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Activity;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostService(AppDatabase db, FileService fs, ActivityService act)
+public class PostService(
+    AppDatabase db,
+    FileService fs,
+    ActivityService act,
+    IStringLocalizer<NotificationResource> localizer,
+    NotificationService nty
+)
 {
     public static List<Post> TruncatePostContent(List<Post> input)
     {
@@ -158,8 +167,18 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
     /// </summary>
     /// <param name="post">Post that modifying</param>
     /// <param name="reaction">The new / target reaction adding / removing</param>
+    /// <param name="op">The original poster account of this post</param>
     /// <param name="isRemoving">Indicate this operation is adding / removing</param>
-    public async Task<bool> ModifyPostVotes(Post post, PostReaction reaction, bool isRemoving, bool isSelfReact)
+    /// <param name="isSelfReact">Indicate this reaction is by the original post himself</param>
+    /// <param name="sender">The account that creates this reaction</param>
+    public async Task<bool> ModifyPostVotes(
+        Post post,
+        PostReaction reaction,
+        Account.Account sender,
+        Account.Account? op,
+        bool isRemoving,
+        bool isSelfReact
+    )
     {
         var isExistingReaction = await db.Set<PostReaction>()
             .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId);
@@ -197,6 +216,21 @@ public class PostService(AppDatabase db, FileService fs, ActivityService act)
         }
 
         await db.SaveChangesAsync();
+
+        if (!isSelfReact && op is not null)
+        {
+            await nty.SendNotification(
+                op,
+                "posts.reactions.new",
+                localizer["PostReactTitle", sender.Nick],
+                null,
+                string.IsNullOrWhiteSpace(post.Title)
+                    ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
+                    : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
+                        post.Title]
+            );
+        }
+
         return isRemoving;
     }
 

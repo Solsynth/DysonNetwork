@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
@@ -19,7 +21,8 @@ public class ChatRoomController(
     RealmService rs,
     ActionLogService als,
     NotificationService nty,
-    RelationshipService rels
+    RelationshipService rels,
+    IStringLocalizer<NotificationResource> localizer
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -74,7 +77,7 @@ public class ChatRoomController(
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
         if (relatedUser is null)
             return BadRequest("Related user was not found");
-        
+
         if (await rels.HasRelationshipWithStatus(currentUser.Id, relatedUser.Id, RelationshipStatus.Blocked))
             return StatusCode(403, "You cannot create direct message with a user that blocked you.");
 
@@ -121,7 +124,8 @@ public class ChatRoomController(
         );
 
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
-        await _SendInviteNotify(invitedMember);
+        invitedMember.ChatRoom = dmRoom;
+        await _SendInviteNotify(invitedMember, currentUser);
 
         return Ok(dmRoom);
     }
@@ -377,7 +381,7 @@ public class ChatRoomController(
 
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
         if (relatedUser is null) return BadRequest("Related user was not found");
-        
+
         if (await rels.HasRelationshipWithStatus(currentUser.Id, relatedUser.Id, RelationshipStatus.Blocked))
             return StatusCode(403, "You cannot invite a user that blocked you.");
 
@@ -428,7 +432,8 @@ public class ChatRoomController(
         db.ChatMembers.Add(newMember);
         await db.SaveChangesAsync();
 
-        await _SendInviteNotify(newMember);
+        newMember.ChatRoom = chatRoom;
+        await _SendInviteNotify(newMember, currentUser);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomInvite,
@@ -680,9 +685,9 @@ public class ChatRoomController(
                 return BadRequest("The last owner cannot leave the chat. Transfer ownership first or delete the chat.");
         }
 
-        member.LeaveAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+        member.LeaveAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
         await db.SaveChangesAsync();
-        crs.PurgeRoomMembersCache(roomId);
+        await crs.PurgeRoomMembersCache(roomId);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomLeave,
@@ -692,9 +697,14 @@ public class ChatRoomController(
         return NoContent();
     }
 
-    private async Task _SendInviteNotify(ChatMember member)
+    private async Task _SendInviteNotify(ChatMember member, Account.Account sender)
     {
-        await nty.SendNotification(member.Account, "invites.chats", "New Chat Invitation", null,
-            $"You just got invited to join {member.ChatRoom.Name}");
+        string title = localizer["ChatInviteTitle"];
+
+        string body = member.ChatRoom.Type == ChatRoomType.DirectMessage
+            ? localizer["ChatInviteDirectBody", sender.Nick]
+            : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
+
+        await nty.SendNotification(member.Account, "invites.chats", title, null, body);
     }
 }

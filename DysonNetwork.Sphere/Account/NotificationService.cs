@@ -114,7 +114,7 @@ public class NotificationService
         _db.Add(notification);
         await _db.SaveChangesAsync();
 
-        if (!isSilent) _ = DeliveryNotification(notification).ConfigureAwait(false);
+        if (!isSilent) _ = DeliveryNotification(notification);
 
         return notification;
     }
