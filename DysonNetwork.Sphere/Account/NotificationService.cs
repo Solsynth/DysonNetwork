@@ -240,18 +240,20 @@ public class NotificationService
                     if (_apns == null)
                         throw new InvalidOperationException("The apple notification push service is not initialized.");
 
-                    await _apns.SendAsync(new
+                    await _apns.SendAsync(new Dictionary<string, object>
                         {
-                            aps = new
+                            ["aps"] = new Dictionary<string, object>
                             {
-                                alert = new
+                                ["alert"] = new Dictionary<string, object>
                                 {
-                                    title = notification.Title ?? string.Empty,
-                                    subtitle = notification.Subtitle ?? string.Empty,
-                                    body = notification.Content ?? string.Empty
+                                    ["title"] = notification.Title ?? string.Empty,
+                                    ["subtitle"] = notification.Subtitle ?? string.Empty,
+                                    ["body"] = notification.Content ?? string.Empty
                                 }
                             },
-                            meta = notification.Meta ?? new Dictionary<string, object>()
+                            ["sound"] = (notification.Priority > 0 ? "default" : null) ?? string.Empty,
+                            ["mutable-content"] = 1,
+                            ["meta"] = notification.Meta ?? new Dictionary<string, object>()
                         },
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
