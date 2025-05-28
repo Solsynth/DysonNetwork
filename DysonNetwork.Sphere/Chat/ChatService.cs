@@ -14,6 +14,8 @@ public class ChatService(
     IRealtimeService realtime
 )
 {
+    private const string ChatFileUsageIdentifier = "chat";
+
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
@@ -29,12 +31,11 @@ public class ChatService(
         {
             await fs.MarkUsageRangeAsync(files, 1);
             await fs.SetExpiresRangeAsync(files, Duration.FromDays(30));
+            await fs.SetUsageRangeAsync(files, ChatFileUsageIdentifier);
         }
 
         // Then start the delivery process
-        // Using ConfigureAwait(false) is correct here since we don't need context to flow
-        _ = Task.Run(() => DeliverMessageAsync(message, sender, room))
-            .ConfigureAwait(false);
+        _ = Task.Run(() => DeliverMessageAsync(message, sender, room));
 
         return message;
     }
@@ -275,6 +276,69 @@ public class ChatService(
             Changes = changes,
             CurrentTimestamp = SystemClock.Instance.GetCurrentInstant()
         };
+    }
+
+    public async Task<Message> UpdateMessageAsync(
+        Message message,
+        Dictionary<string, object>? meta = null,
+        string? content = null,
+        Guid? repliedMessageId = null,
+        Guid? forwardedMessageId = null,
+        List<string>? attachmentsId = null
+    )
+    {
+        if (content is not null)
+            message.Content = content;
+
+        if (meta is not null)
+            message.Meta = meta;
+
+        if (repliedMessageId.HasValue)
+            message.RepliedMessageId = repliedMessageId;
+
+        if (forwardedMessageId.HasValue)
+            message.ForwardedMessageId = forwardedMessageId;
+
+        if (attachmentsId is not null)
+        {
+            message.Attachments = (await fs.DiffAndMarkFilesAsync(attachmentsId, message.Attachments)).current;
+            await fs.DiffAndSetExpiresAsync(attachmentsId, Duration.FromDays(30), message.Attachments);
+            await fs.DiffAndSetUsageAsync(attachmentsId, ChatFileUsageIdentifier, message.Attachments);
+        }
+
+        message.EditedAt = SystemClock.Instance.GetCurrentInstant();
+        db.Update(message);
+        await db.SaveChangesAsync();
+
+        _ = DeliverMessageAsync(
+            message,
+            message.Sender,
+            message.ChatRoom,
+            WebSocketPacketType.MessageUpdate
+        );
+
+        return message;
+    }
+
+    /// <summary>
+    /// Deletes a message and notifies other chat members
+    /// </summary>
+    /// <param name="message">The message to delete</param>
+    public async Task DeleteMessageAsync(Message message)
+    {
+        var files = message.Attachments.Distinct().ToList();
+        if (files.Count != 0)
+            await fs.MarkUsageRangeAsync(files, -1);
+
+        db.ChatMessages.Remove(message);
+        await db.SaveChangesAsync();
+
+        _ = DeliverMessageAsync(
+            message,
+            message.Sender,
+            message.ChatRoom,
+            WebSocketPacketType.MessageDelete
+        );
     }
 }
 

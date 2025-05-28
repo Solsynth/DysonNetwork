@@ -229,18 +229,15 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
         var message = await db.ChatMessages
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
-            .Include(m => m.Sender.Account.Profile).Include(message => message.Attachments)
+            .Include(m => m.Sender.Account.Profile)
+            .Include(message => message.Attachments)
             .Include(message => message.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
+            
         if (message == null) return NotFound();
 
         if (message.Sender.AccountId != currentUser.Id)
             return StatusCode(403, "You can only edit your own messages.");
-
-        if (request.Content is not null)
-            message.Content = request.Content;
-        if (request.Meta is not null)
-            message.Meta = request.Meta;
 
         if (request.RepliedMessageId.HasValue)
         {
@@ -248,8 +245,6 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
                 .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
             if (repliedMessage == null)
                 return BadRequest("The message you're replying to does not exist.");
-
-            message.RepliedMessageId = repliedMessage.Id;
         }
 
         if (request.ForwardedMessageId.HasValue)
@@ -258,24 +253,16 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
                 .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
             if (forwardedMessage == null)
                 return BadRequest("The message you're forwarding does not exist.");
-
-            message.ForwardedMessageId = forwardedMessage.Id;
         }
 
-        if (request.AttachmentsId is not null)
-        {
-            message.Attachments = (await fs.DiffAndMarkFilesAsync(request.AttachmentsId, message.Attachments)).current;
-            await fs.DiffAndSetExpiresAsync(request.AttachmentsId, Duration.FromDays(30), message.Attachments);
-        }
-
-        message.EditedAt = SystemClock.Instance.GetCurrentInstant();
-        db.Update(message);
-        await db.SaveChangesAsync();
-        _ = cs.DeliverMessageAsync(
-            message,
-            message.Sender,
-            message.ChatRoom,
-            WebSocketPacketType.MessageUpdate
+        // Call service method to update the message
+        await cs.UpdateMessageAsync(
+            message, 
+            request.Meta, 
+            request.Content,
+            request.RepliedMessageId,
+            request.ForwardedMessageId,
+            request.AttachmentsId
         );
 
         return Ok(message);
@@ -290,20 +277,16 @@ public partial class ChatController(AppDatabase db, ChatService cs, FileService 
         var message = await db.ChatMessages
             .Include(m => m.Sender)
             .Include(m => m.ChatRoom)
+            .Include(m => m.Attachments)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
+            
         if (message == null) return NotFound();
 
         if (message.Sender.AccountId != currentUser.Id)
             return StatusCode(403, "You can only delete your own messages.");
 
-        db.ChatMessages.Remove(message);
-        await db.SaveChangesAsync();
-        _ = cs.DeliverMessageAsync(
-            message,
-            message.Sender,
-            message.ChatRoom,
-            WebSocketPacketType.MessageDelete
-        );
+        // Call service method to delete the message
+        await cs.DeleteMessageAsync(message);
 
         return Ok();
     }
