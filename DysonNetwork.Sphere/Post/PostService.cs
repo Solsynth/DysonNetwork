@@ -2,6 +2,7 @@ using System.Text.Json;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Localization;
+using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -14,9 +15,12 @@ public class PostService(
     FileService fs,
     ActivityService act,
     IStringLocalizer<NotificationResource> localizer,
-    NotificationService nty
+    NotificationService nty,
+    IServiceScopeFactory factory
 )
 {
+    private const string PostFileUsageIdentifier = "post";
+
     public static List<Post> TruncatePostContent(List<Post> input)
     {
         const int maxLength = 256;
@@ -85,13 +89,20 @@ public class PostService(
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
         }
 
-        // TODO Notify the subscribers
-
         db.Posts.Add(post);
         await db.SaveChangesAsync();
         await fs.MarkUsageRangeAsync(post.Attachments, 1);
+        await fs.SetUsageRangeAsync(post.Attachments, PostFileUsageIdentifier);
 
         await act.CreateNewPostActivity(user, post);
+
+        if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow)
+            _ = Task.Run(async () =>
+            {
+                using var scope = factory.CreateScope();
+                var pubSub = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+                await pubSub.NotifySubscribersPostAsync(post);
+            });
 
         return post;
     }
@@ -121,6 +132,7 @@ public class PostService(
         if (attachments is not null)
         {
             post.Attachments = (await fs.DiffAndMarkFilesAsync(attachments, post.Attachments)).current;
+            await fs.DiffAndSetUsageAsync(attachments, PostFileUsageIdentifier);
         }
 
         if (tags is not null)
