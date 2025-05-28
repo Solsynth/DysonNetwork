@@ -51,6 +51,8 @@ public class CloudFile : ModelBase
     /// Metrics
     /// When this used count keep zero, it means it's not used by anybody, so it can be recycled
     public int UsedCount { get; set; } = 0;
+    /// An optional package identifier that indicates the cloud file's usage
+    [MaxLength(1024)] public string? Usage { get; set; }
 
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
     public Guid AccountId { get; set; }
