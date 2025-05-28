@@ -1,18 +1,7 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
-using Microsoft.IdentityModel.Tokens;
-using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth;
-
-public class SignedTokenPair
-{
-    public string AccessToken { get; set; } = null!;
-    public string RefreshToken { get; set; } = null!;
-    public Instant ExpiredAt { get; set; }
-}
 
 public class AuthService(IConfiguration config, IHttpClientFactory httpClientFactory)
 {
@@ -69,47 +58,88 @@ public class AuthService(IConfiguration config, IHttpClientFactory httpClientFac
         }
     }
 
-    public SignedTokenPair CreateToken(Session session)
+    public string CreateToken(Session session)
     {
+        // Load the private key for signing
         var privateKeyPem = File.ReadAllText(config["Jwt:PrivateKeyPath"]!);
-        var rsa = RSA.Create();
+        using var rsa = RSA.Create();
         rsa.ImportFromPem(privateKeyPem);
-        var key = new RsaSecurityKey(rsa);
+        
+        // Create and return a single token
+        return CreateCompactToken(session.Id, rsa);
+    }
 
-        var creds = new SigningCredentials(key, SecurityAlgorithms.RsaSha256);
-        var claims = new List<Claim>
+    private string CreateCompactToken(Guid sessionId, RSA rsa)
+    {
+        // Create the payload: just the session ID
+        var payloadBytes = sessionId.ToByteArray();
+        
+        // Base64Url encode the payload
+        var payloadBase64 = Base64UrlEncode(payloadBytes);
+        
+        // Sign the payload with RSA-SHA256
+        var signature = rsa.SignData(payloadBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        
+        // Base64Url encode the signature
+        var signatureBase64 = Base64UrlEncode(signature);
+        
+        // Combine payload and signature with a dot
+        return $"{payloadBase64}.{signatureBase64}";
+    }
+    
+    public bool ValidateToken(string token, out Guid sessionId)
+    {
+        sessionId = Guid.Empty;
+        
+        try
         {
-            new("user_id", session.Account.Id.ToString()),
-            new("session_id", session.Id.ToString())
-        };
-
-        var refreshTokenClaims = new JwtSecurityToken(
-            issuer: "solar-network",
-            audience: string.Join(',', session.Challenge.Audiences),
-            claims: claims,
-            expires: DateTime.Now.AddDays(30),
-            signingCredentials: creds
-        );
-
-        session.Challenge.Scopes.ForEach(c => claims.Add(new Claim("scope", c)));
-        if (session.Account.IsSuperuser) claims.Add(new Claim("is_superuser", "1"));
-        var accessTokenClaims = new JwtSecurityToken(
-            issuer: "solar-network",
-            audience: string.Join(',', session.Challenge.Audiences),
-            claims: claims,
-            expires: DateTime.Now.AddMinutes(30),
-            signingCredentials: creds
-        );
-
-        var handler = new JwtSecurityTokenHandler();
-        var accessToken = handler.WriteToken(accessTokenClaims);
-        var refreshToken = handler.WriteToken(refreshTokenClaims);
-
-        return new SignedTokenPair
+            // Split the token
+            var parts = token.Split('.');
+            if (parts.Length != 2)
+                return false;
+            
+            // Decode the payload
+            var payloadBytes = Base64UrlDecode(parts[0]);
+            
+            // Extract session ID
+            sessionId = new Guid(payloadBytes);
+            
+            // Load public key for verification
+            var publicKeyPem = File.ReadAllText(config["Jwt:PublicKeyPath"]!);
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(publicKeyPem);
+            
+            // Verify signature
+            var signature = Base64UrlDecode(parts[1]);
+            return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        }
+        catch
         {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddMinutes(30))
-        };
+            return false;
+        }
+    }
+    
+    // Helper methods for Base64Url encoding/decoding
+    private static string Base64UrlEncode(byte[] data)
+    {
+        return Convert.ToBase64String(data)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+    
+    private static byte[] Base64UrlDecode(string base64Url)
+    {
+        string padded = base64Url
+            .Replace('-', '+')
+            .Replace('_', '/');
+            
+        switch (padded.Length % 4)
+        {
+            case 2: padded += "=="; break;
+            case 3: padded += "="; break;
+        }
+        
+        return Convert.FromBase64String(padded);
     }
 }

@@ -11,7 +11,7 @@ public class AccountService(
     ICacheService cache
 )
 {
-    public const string AccountCachePrefix = "Account_";
+    public const string AccountCachePrefix = "account:";
 
     public async Task PurgeAccountCache(Account account)
     {

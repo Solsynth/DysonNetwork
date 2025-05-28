@@ -182,8 +182,13 @@ public class AuthController(
         public string? Code { get; set; }
     }
 
+    public class TokenExchangeResponse
+    {
+        public string Token { get; set; } = string.Empty;
+    }
+
     [HttpPost("token")]
-    public async Task<ActionResult<SignedTokenPair>> ExchangeToken([FromBody] TokenExchangeRequest request)
+    public async Task<ActionResult<TokenExchangeResponse>> ExchangeToken([FromBody] TokenExchangeRequest request)
     {
         Session? session;
         switch (request.GrantType)
@@ -218,26 +223,11 @@ public class AuthController(
                 db.AuthSessions.Add(session);
                 await db.SaveChangesAsync();
 
-                return auth.CreateToken(session);
+                var tk = auth.CreateToken(session);
+                return Ok(new TokenExchangeResponse { Token = tk });
             case "refresh_token":
-                var handler = new JwtSecurityTokenHandler();
-                var token = handler.ReadJwtToken(request.RefreshToken);
-                var sessionIdClaim = token.Claims.FirstOrDefault(c => c.Type == "session_id")?.Value;
-
-                if (!Guid.TryParse(sessionIdClaim, out var sessionId))
-                    return Unauthorized("Invalid or missing session_id claim in refresh token.");
-
-                session = await db.AuthSessions
-                    .Include(e => e.Account)
-                    .Include(e => e.Challenge)
-                    .FirstOrDefaultAsync(s => s.Id == sessionId);
-                if (session is null)
-                    return NotFound("Session not found or expired.");
-
-                session.LastGrantedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-                await db.SaveChangesAsync();
-
-                return auth.CreateToken(session);
+                // Since we no longer need the refresh token
+                // This case is blank for now, thinking to mock it if the OIDC standard requires it
             default:
                 return BadRequest("Unsupported grant type.");
         }

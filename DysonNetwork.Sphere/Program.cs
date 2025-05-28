@@ -171,6 +171,7 @@ builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageTypingHandler>();
 
 // Services
+builder.Services.AddScoped<CompactTokenService>();
 builder.Services.AddScoped<RazorViewRenderer>();
 builder.Services.Configure<GeoIpOptions>(builder.Configuration.GetSection("GeoIP"));
 builder.Services.AddScoped<GeoIpService>();
@@ -274,7 +275,6 @@ app.UseWebSockets();
 app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthorization();
-app.UseMiddleware<UserInfoMiddleware>();
 app.UseMiddleware<PermissionMiddleware>();
 
 app.MapControllers().RequireRateLimiting("fixed");
