@@ -187,6 +187,15 @@ public class DysonTokenAuthHandler(
         var authHeader = request.Headers.Authorization.ToString();
         if (!string.IsNullOrEmpty(authHeader))
         {
+            if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                return new TokenInfo
+                {
+                    Token = authHeader["Bearer ".Length..].Trim(),
+                    Type = TokenType.AuthKey
+                };
+            }
+            
             if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo

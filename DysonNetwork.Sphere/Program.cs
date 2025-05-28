@@ -129,14 +129,14 @@ builder.Services.AddSwaggerGen(options =>
             Url = new Uri("https://www.gnu.org/licenses/agpl-3.0.html")
         }
     });
-    options.AddSecurityDefinition("Access token security field", new OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
         Description = "Please enter a valid token",
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
         BearerFormat = "JWT",
-        Scheme = "AtField"
+        Scheme = "Bearer"
     });
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
