@@ -20,7 +20,7 @@ public class FileService(
     ICacheService cache
 )
 {
-    private const string CacheKeyPrefix = "cloudfile_";
+    private const string CacheKeyPrefix = "file:";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     /// <summary>
@@ -318,6 +318,7 @@ public class FileService(
 
         db.Remove(file);
         await db.SaveChangesAsync();
+        await _PurgeCacheAsync(file.Id);
     }
 
     public async Task DeleteFileDataAsync(CloudFile file)
@@ -388,6 +389,8 @@ public class FileService(
                     b => b.UsedCount + delta
                 )
             );
+
+        await _PurgeCacheAsync(file.Id);
     }
 
     public async Task MarkUsageRangeAsync(ICollection<CloudFile> files, int delta)
@@ -399,6 +402,8 @@ public class FileService(
                     b => b.UsedCount + delta
                 )
             );
+        
+        await _PurgeCacheRangeAsync(files.Select(x => x.Id).ToList());
     }
 
 
@@ -413,6 +418,55 @@ public class FileService(
                         : _ => null
                 )
             );
+        
+        await _PurgeCacheRangeAsync(files.Select(x => x.Id).ToList());
+    }
+
+    public async Task SetUsageAsync(CloudFile file, string? usage)
+    {
+        await db.Files.Where(o => o.Id == file.Id)
+            .ExecuteUpdateAsync(setter => setter.SetProperty(
+                    b => b.Usage,
+                    _ => usage
+                )
+            );
+        
+        await _PurgeCacheAsync(file.Id);
+    }
+
+    public async Task SetUsageRangeAsync(ICollection<CloudFile> files, string? usage)
+    {
+        var ids = files.Select(f => f.Id).ToArray();
+        await db.Files.Where(o => ids.Contains(o.Id))
+            .ExecuteUpdateAsync(setter => setter.SetProperty(
+                    b => b.Usage,
+                    _ => usage
+                )
+            );
+        
+        await _PurgeCacheRangeAsync(files.Select(x => x.Id).ToList());
+    }
+
+    public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)>
+        DiffAndSetUsageAsync(
+            ICollection<string>? newFileIds,
+            string? usage,
+            ICollection<CloudFile>? previousFiles = null
+        )
+    {
+        if (newFileIds == null) return ([], [], previousFiles ?? []);
+
+        var records = await db.Files.Where(f => newFileIds.Contains(f.Id)).ToListAsync();
+        var previous = previousFiles?.ToDictionary(f => f.Id) ?? new Dictionary<string, CloudFile>();
+        var current = records.ToDictionary(f => f.Id);
+
+        var added = current.Keys.Except(previous.Keys).Select(id => current[id]).ToList();
+        var removed = previous.Keys.Except(current.Keys).Select(id => previous[id]).ToList();
+
+        if (added.Count > 0) await SetUsageRangeAsync(added, usage);
+        if (removed.Count > 0) await SetUsageRangeAsync(removed, null);
+
+        return (newFileIds.Select(id => current[id]).ToList(), added, removed);
     }
 
     public async Task<(ICollection<CloudFile> current, ICollection<CloudFile> added, ICollection<CloudFile> removed)>
@@ -456,6 +510,20 @@ public class FileService(
         if (removed.Count > 0) await SetExpiresRangeAsync(removed, null);
 
         return (newFileIds.Select(id => current[id]).ToList(), added, removed);
+    }
+
+    // Add this helper method to purge the cache for a specific file
+    private async Task _PurgeCacheAsync(string fileId)
+    {
+        var cacheKey = $"{CacheKeyPrefix}{fileId}";
+        await cache.RemoveAsync(cacheKey);
+    }
+
+    // Add this helper method to purge cache for multiple files
+    private async Task _PurgeCacheRangeAsync(ICollection<string> fileIds)
+    {
+        var tasks = fileIds.Select(_PurgeCacheAsync);
+        await Task.WhenAll(tasks);
     }
 }
 
