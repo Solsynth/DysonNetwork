@@ -75,9 +75,6 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .Include(e => e.RepliedPost)
-            .Include(e => e.ThreadedPost)
-            .Include(e => e.ForwardedPost)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.Attachments)
