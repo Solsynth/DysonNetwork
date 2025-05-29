@@ -25,8 +25,8 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
             .ToListAsync();
 
         var chatRoomGroup = ChatRoomGroupPrefix + roomId;
-        await cache.SetWithGroupsAsync(cacheKey, members, 
-            new[] { chatRoomGroup }, 
+        await cache.SetWithGroupsAsync(cacheKey, members,
+            [chatRoomGroup], 
             TimeSpan.FromMinutes(5));
     
         return members;

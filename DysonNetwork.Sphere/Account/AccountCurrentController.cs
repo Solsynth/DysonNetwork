@@ -291,4 +291,42 @@ public class AccountCurrentController(
 
         return Ok(logs);
     }
+
+    [HttpGet("factors")]
+    public async Task<ActionResult<List<AccountAuthFactor>>> GetAuthFactors()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var factors = await db.AccountAuthFactors
+            .Include(f => f.Account)
+            .Where(f => f.Account.Id == currentUser.Id)
+            .ToListAsync();
+
+        return Ok(factors);
+    }
+
+    [HttpGet("sessions")]
+    public async Task<ActionResult<List<Auth.Session>>> GetSessions(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var query = db.AuthSessions
+            .Include(session => session.Account)
+            .Include(session => session.Challenge)
+            .Where(session => session.Account.Id == currentUser.Id)
+            .OrderByDescending(session => session.CreatedAt);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var sessions = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(sessions);
+    }
 }

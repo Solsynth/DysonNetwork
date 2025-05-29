@@ -40,7 +40,7 @@ public class ChatService(
         return message;
     }
 
-    public async Task DeliverMessageAsync(
+    private async Task DeliverMessageAsync(
         Message message,
         ChatMember sender,
         ChatRoom room,
@@ -48,20 +48,22 @@ public class ChatService(
     )
     {
         using var scope = scopeFactory.CreateScope();
-        var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
         var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService>();
         var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
+        var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
         var roomSubject = room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
         var tasks = new List<Task>();
 
-        var members = await scopedDb.ChatMembers
-            .Where(m => m.ChatRoomId == message.ChatRoomId && m.AccountId != sender.AccountId)
-            .Where(m => m.Notify != ChatMemberNotify.None)
-            .Where(m => m.Notify != ChatMemberNotify.Mentions ||
-                        (message.MembersMentioned != null && message.MembersMentioned.Contains(m.Id)))
-            .ToListAsync();
+        var members = await scopedCrs.ListRoomMembers(room.Id);
 
+        var notification = new Notification
+        {
+            Topic = "messages.new",
+            Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
+        };
+
+        List<Account.Account> accountsToNotify = [];
         foreach (var member in members)
         {
             scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
@@ -69,13 +71,10 @@ public class ChatService(
                 Type = type,
                 Data = message
             });
-            tasks.Add(scopedNty.DeliveryNotification(new Notification
-            {
-                AccountId = member.AccountId,
-                Topic = "messages.new",
-                Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
-            }));
+            accountsToNotify.Add(member.Account);
         }
+
+        tasks.Add(scopedNty.SendNotificationBatch(notification, accountsToNotify, save: false));
 
         await Task.WhenAll(tasks);
     }
