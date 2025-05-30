@@ -73,7 +73,7 @@ public class ChatService(
         var notification = new Notification
         {
             Topic = "messages.new",
-            Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
+            Title = $"{sender.Nick ?? sender.Account?.Nick ?? "Unknown"} ({roomSubject})",
             Content = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<attachments>",
@@ -90,17 +90,25 @@ public class ChatService(
         List<Account.Account> accountsToNotify = [];
         foreach (var member in members)
         {
+            // Send WebSocket packet
             scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
             {
                 Type = type,
                 Data = message
             });
-            accountsToNotify.Add(member.Account);
+        
+            // Only add accounts that aren't null
+            if (member.AccountId != sender.AccountId)
+                accountsToNotify.Add(member.Account);
         }
 
-        tasks.Add(scopedNty.SendNotificationBatch(notification, accountsToNotify, save: false));
+        logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
+        // Only send notifications if there are accounts to notify
+        if (accountsToNotify.Count > 0)
+            tasks.Add(scopedNty.SendNotificationBatch(notification, accountsToNotify, save: false));
 
         await Task.WhenAll(tasks);
+        logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
     }
 
     /// <summary>

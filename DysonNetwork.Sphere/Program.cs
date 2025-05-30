@@ -44,7 +44,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = long.MaxValue;
+    options.Limits.MaxRequestBodySize = 50 * 1024 * 1024;
     options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
     options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
 });
