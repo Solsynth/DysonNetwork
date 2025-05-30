@@ -541,7 +541,7 @@ public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger
         var files = await db.Files
             .Where(f =>
                 (f.ExpiredAt == null && f.UsedCount == 0 && f.CreatedAt < cutoff) ||
-                (f.ExpiredAt != null && f.ExpiredAt >= now)
+                (f.ExpiredAt != null && now >= f.ExpiredAt)
             )
             .ToListAsync();
 
@@ -573,10 +573,8 @@ public class CloudFileUnusedRecyclingJob(AppDatabase db, FileService fs, ILogger
             .ToDictionary(grouping => grouping.Key!, grouping => grouping.ToList());
 
         // Delete files by remote storage
-        foreach (var group in filesToDelete)
+        foreach (var group in filesToDelete.Where(group => !string.IsNullOrEmpty(group.Key)))
         {
-            if (string.IsNullOrEmpty(group.Key)) continue;
-
             try
             {
                 var dest = fs.GetRemoteStorageConfig(group.Key);
