@@ -181,12 +181,19 @@ public class NotificationService
     {
         if (save)
         {
-            var notifications = accounts.Select(x =>
+            // Create new notification objects for each account instead of reusing
+            var notifications = accounts.Select(x => new Notification
             {
-                notification.Account = x;
-                notification.AccountId = x.Id;
-                return notification;
+                Topic = notification.Topic,
+                Title = notification.Title,
+                Subtitle = notification.Subtitle,
+                Content = notification.Content,
+                Meta = notification.Meta != null ? new Dictionary<string, object>(notification.Meta) : null,
+                Priority = notification.Priority,
+                Account = x,
+                AccountId = x.Id
             }).ToList();
+
             await _db.BulkInsertAsync(notifications);
         }
 
@@ -194,12 +201,20 @@ public class NotificationService
         var subscribers = await _db.NotificationPushSubscriptions
             .Where(s => accountsId.Contains(s.AccountId))
             .ToListAsync();
-        var tasks = new List<Task>();
-        foreach (var subscriber in subscribers)
-        {
-            notification.AccountId = subscriber.AccountId;
-            tasks.Add(_PushSingleNotification(notification, subscriber));
-        }
+
+        var tasks = (from subscriber in subscribers
+            let notificationCopy = new Notification
+            {
+                Id = notification.Id,
+                Topic = notification.Topic,
+                Title = notification.Title,
+                Subtitle = notification.Subtitle,
+                Content = notification.Content,
+                Meta = notification.Meta != null ? new Dictionary<string, object>(notification.Meta) : null,
+                Priority = notification.Priority,
+                AccountId = subscriber.AccountId
+            }
+            select _PushSingleNotification(notificationCopy, subscriber)).ToList();
 
         await Task.WhenAll(tasks);
     }

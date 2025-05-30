@@ -46,7 +46,7 @@ public class ChatService(
             {
                 // Log the exception properly
                 // Consider using ILogger or your logging framework
-                logger.LogError($"Error when delivering message: {ex.Message}");
+                logger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
             }
         });
 
