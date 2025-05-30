@@ -19,6 +19,8 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
             return cachedMembers;
     
         var members = await db.ChatMembers
+            .Include(m => m.Account)
+            .ThenInclude(m => m.Profile)
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.JoinedAt != null)
             .Where(m => m.LeaveAt == null)

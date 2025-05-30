@@ -98,7 +98,7 @@ public class ChatService(
             });
         
             // Only add accounts that aren't null
-            if (member.AccountId != sender.AccountId)
+            if (member.Account.Id != sender.AccountId)
                 accountsToNotify.Add(member.Account);
         }
 
