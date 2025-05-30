@@ -11,7 +11,8 @@ public class ChatService(
     AppDatabase db,
     FileService fs,
     IServiceScopeFactory scopeFactory,
-    IRealtimeService realtime
+    IRealtimeService realtime,
+    ILogger<ChatService> logger
 )
 {
     private const string ChatFileUsageIdentifier = "chat";
@@ -35,7 +36,19 @@ public class ChatService(
         }
 
         // Then start the delivery process
-        _ = Task.Run(() => DeliverMessageAsync(message, sender, room));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await DeliverMessageAsync(message, sender, room);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception properly
+                // Consider using ILogger or your logging framework
+                logger.LogError($"Error when delivering message: {ex.Message}");
+            }
+        });
 
         return message;
     }
@@ -61,6 +74,17 @@ public class ChatService(
         {
             Topic = "messages.new",
             Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
+            Content = !string.IsNullOrEmpty(message.Content)
+                ? message.Content[..Math.Min(message.Content.Length, 100)]
+                : "<attachments>",
+            Meta = new Dictionary<string, object>
+            {
+                ["message_id"] = message.Id,
+                ["room_id"] = room.Id,
+                ["images"] = message.Attachments
+                    .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
+                    .Select(a => a.Id).ToList()
+            }
         };
 
         List<Account.Account> accountsToNotify = [];
