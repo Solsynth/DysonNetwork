@@ -84,7 +84,8 @@ public class ChatService(
                 ["images"] = message.Attachments
                     .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
                     .Select(a => a.Id).ToList()
-            }
+            },
+            Priority = 10,
         };
 
         List<Account.Account> accountsToNotify = [];
