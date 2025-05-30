@@ -40,6 +40,8 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
         if (member is not null) return member;
         
         member = await db.ChatMembers
+            .Include(m => m.Account)
+            .ThenInclude(m => m.Profile)
             .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId)
             .FirstOrDefaultAsync();
 

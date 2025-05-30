@@ -105,7 +105,7 @@ public class RealtimeCallController(
         if (realtime is LivekitRealtimeService livekitService)
         {
             var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
-            participants = new List<CallParticipant>();
+            participants = [];
             
             foreach (var p in roomParticipants)
             {
