@@ -215,6 +215,7 @@ public class NotificationService(
                 ["meta"] = notification.Meta ?? new Dictionary<string, object>(),
             },
             ["mutable_content"] = true,
+            ["priority"] = notification.Priority >= 10 ? "high" : "normal",
         };
 
         if (!string.IsNullOrWhiteSpace(notification.Title))
@@ -237,7 +238,7 @@ public class NotificationService(
 
         if (notification.Priority >= 5)
         {
-            dict["sound"] = new Dictionary<string, object> { ["name"] = "default" };
+            dict["sound"] = new Dictionary<string, object> { ["name"] = "default", ["volume"] = 1.0 };
         }
 
         dict["platform"] = platformCode;
