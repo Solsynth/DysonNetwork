@@ -184,8 +184,8 @@ public class NotificationService(
         {
             int platformCode = value.Key switch
             {
-                NotificationPushProvider.Google => 1,
-                NotificationPushProvider.Apple => 2,
+                NotificationPushProvider.Apple => 1,
+                NotificationPushProvider.Google => 2,
                 _ => throw new InvalidOperationException($"Unknown push provider: {value.Key}")
             };
 
