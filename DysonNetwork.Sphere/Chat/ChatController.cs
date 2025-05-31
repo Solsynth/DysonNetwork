@@ -12,7 +12,7 @@ namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
 [Route("/chat")]
-public partial class ChatController(AppDatabase db, ChatService cs) : ControllerBase
+public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomService crs) : ControllerBase
 {
     public class MarkMessageReadRequest
     {
@@ -148,13 +148,7 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
             (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
             return BadRequest("You cannot send an empty message.");
 
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
-            .Include(m => m.ChatRoom)
-            .Include(m => m.ChatRoom.Realm)
-            .Include(m => m.Account)
-            .Include(m => m.Account.Profile)
-            .FirstOrDefaultAsync();
+        var member = await crs.GetRoomMember(currentUser.Id, roomId);
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to send messages here.");
 
@@ -218,7 +212,6 @@ public partial class ChatController(AppDatabase db, ChatService cs) : Controller
 
         return Ok(result);
     }
-
 
     [HttpPatch("{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]

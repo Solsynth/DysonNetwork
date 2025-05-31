@@ -206,12 +206,10 @@ public class NotificationService(
             ["notif_id"] = notification.Id.ToString(),
             ["apns_id"] = notification.Id.ToString(),
             ["topic"] = _notifyTopic,
-            ["category"] = notification.Topic,
             ["tokens"] = deviceTokens,
-            ["alert"] = new Dictionary<string, object>(),
             ["data"] = new Dictionary<string, object>
             {
-                ["d_topic"] = notification.Topic,
+                ["type"] = notification.Topic,
                 ["meta"] = notification.Meta ?? new Dictionary<string, object>(),
             },
             ["mutable_content"] = true,
@@ -237,7 +235,7 @@ public class NotificationService(
         }
 
         if (notification.Priority >= 5)
-            dict["sound"] = "default";
+            dict["name"] = "default";
 
         dict["platform"] = platformCode;
         dict["alert"] = alertDict;

@@ -119,7 +119,7 @@ public class RealtimeCallController(
             
                 // Fetch the ChatMember profile if we have an account ID
                 if (p.AccountId.HasValue)
-                    participant.Profile = await chatRoomService.GetChannelMember(p.AccountId.Value, roomId);
+                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
             
                 participants.Add(participant);
             }

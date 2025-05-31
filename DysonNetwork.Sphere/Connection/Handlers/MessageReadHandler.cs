@@ -42,7 +42,7 @@ public class MessageReadHandler(
             return;
         }
 
-        var sender = await crs.GetChannelMember(currentUser.Id, request.ChatRoomId);
+        var sender = await crs.GetRoomMember(currentUser.Id, request.ChatRoomId);
         if (sender is null)
         {
             await socket.SendAsync(

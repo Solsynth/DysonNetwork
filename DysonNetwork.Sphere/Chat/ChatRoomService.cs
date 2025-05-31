@@ -33,7 +33,7 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
         return members;
     }
     
-    public async Task<ChatMember?> GetChannelMember(Guid accountId, Guid chatRoomId)
+    public async Task<ChatMember?> GetRoomMember(Guid accountId, Guid chatRoomId)
     {
         var cacheKey = string.Format(ChatMemberCacheKey, accountId, chatRoomId);
         var member = await cache.GetAsync<ChatMember?>(cacheKey);
@@ -42,6 +42,8 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
         member = await db.ChatMembers
             .Include(m => m.Account)
             .ThenInclude(m => m.Profile)
+            .Include(m => m.ChatRoom)
+            .ThenInclude(m => m.Realm)
             .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId)
             .FirstOrDefaultAsync();
 
