@@ -1,5 +1,5 @@
-using CorePush.Apple;
-using CorePush.Firebase;
+using System.Text;
+using System.Text.Json;
 using DysonNetwork.Sphere.Connection;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
@@ -7,46 +7,15 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class NotificationService
+public class NotificationService(
+    AppDatabase db,
+    WebSocketService ws,
+    ILogger<NotificationService> logger,
+    IHttpClientFactory httpFactory,
+    IConfiguration config)
 {
-    private readonly AppDatabase _db;
-    private readonly WebSocketService _ws;
-    private readonly ILogger<NotificationService> _logger;
-    private readonly FirebaseSender? _fcm;
-    private readonly ApnSender? _apns;
-
-    public NotificationService(
-        AppDatabase db,
-        WebSocketService ws,
-        IConfiguration cfg,
-        IHttpClientFactory clientFactory,
-        ILogger<NotificationService> logger
-    )
-    {
-        _db = db;
-        _ws = ws;
-        _logger = logger;
-
-        var cfgSection = cfg.GetSection("Notifications:Push");
-
-        // Set up the firebase push notification
-        var fcmConfig = cfgSection.GetValue<string>("Google");
-        if (fcmConfig != null)
-            _fcm = new FirebaseSender(File.ReadAllText(fcmConfig), clientFactory.CreateClient());
-        // Set up the apple push notification service
-        var apnsCert = cfgSection.GetValue<string>("Apple:PrivateKey");
-        if (apnsCert != null)
-            _apns = new ApnSender(new ApnSettings
-            {
-                P8PrivateKey = File.ReadAllText(apnsCert),
-                P8PrivateKeyId = cfgSection.GetValue<string>("Apple:PrivateKeyId"),
-                TeamId = cfgSection.GetValue<string>("Apple:TeamId"),
-                AppBundleIdentifier = cfgSection.GetValue<string>("Apple:BundleIdentifier"),
-                ServerType = cfgSection.GetValue<bool>("Production")
-                    ? ApnServerType.Production
-                    : ApnServerType.Development
-            }, clientFactory.CreateClient());
-    }
+    private readonly string _notifyTopic = config["Notifications:Topic"]!;
+    private readonly Uri _notifyEndpoint = new(config["Notifications:Endpoint"]!);
 
     // TODO remove all push notification with this device id when this device is logged out
 
@@ -57,7 +26,7 @@ public class NotificationService
         string deviceToken
     )
     {
-        var existingSubscription = await _db.NotificationPushSubscriptions
+        var existingSubscription = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == account.Id)
             .Where(s => s.DeviceId == deviceId || s.DeviceToken == deviceToken)
             .FirstOrDefaultAsync();
@@ -67,8 +36,8 @@ public class NotificationService
             // Reset these audit fields to renew the lifecycle of this device token
             existingSubscription.CreatedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
             existingSubscription.UpdatedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-            _db.Update(existingSubscription);
-            await _db.SaveChangesAsync();
+            db.Update(existingSubscription);
+            await db.SaveChangesAsync();
             return existingSubscription;
         }
 
@@ -80,8 +49,8 @@ public class NotificationService
             AccountId = account.Id,
         };
 
-        _db.NotificationPushSubscriptions.Add(subscription);
-        await _db.SaveChangesAsync();
+        db.NotificationPushSubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
 
         return subscription;
     }
@@ -111,8 +80,8 @@ public class NotificationService
             AccountId = account.Id,
         };
 
-        _db.Add(notification);
-        await _db.SaveChangesAsync();
+        db.Add(notification);
+        await db.SaveChangesAsync();
 
         if (!isSilent) _ = DeliveryNotification(notification);
 
@@ -121,22 +90,18 @@ public class NotificationService
 
     public async Task DeliveryNotification(Notification notification)
     {
-        _ws.SendPacketToAccount(notification.AccountId, new WebSocketPacket
+        ws.SendPacketToAccount(notification.AccountId, new WebSocketPacket
         {
             Type = "notifications.new",
             Data = notification
         });
 
         // Pushing the notification
-        var subscribers = await _db.NotificationPushSubscriptions
+        var subscribers = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == notification.AccountId)
             .ToListAsync();
 
-        var tasks = subscribers
-            .Select(subscriber => _PushSingleNotification(notification, subscriber))
-            .ToList();
-
-        await Task.WhenAll(tasks);
+        await _PushNotification(notification, subscribers);
     }
 
     public async Task MarkNotificationsViewed(ICollection<Notification> notifications)
@@ -145,7 +110,7 @@ public class NotificationService
         var id = notifications.Where(n => n.ViewedAt == null).Select(n => n.Id).ToList();
         if (id.Count == 0) return;
 
-        await _db.Notifications
+        await db.Notifications
             .Where(n => id.Contains(n.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now)
             );
@@ -155,7 +120,7 @@ public class NotificationService
     {
         if (save)
         {
-            var accounts = await _db.Accounts.ToListAsync();
+            var accounts = await db.Accounts.ToListAsync();
             var notifications = accounts.Select(x =>
             {
                 var newNotification = new Notification
@@ -171,19 +136,12 @@ public class NotificationService
                 };
                 return newNotification;
             }).ToList();
-            await _db.BulkInsertAsync(notifications);
+            await db.BulkInsertAsync(notifications);
         }
 
-        var subscribers = await _db.NotificationPushSubscriptions
+        var subscribers = await db.NotificationPushSubscriptions
             .ToListAsync();
-        var tasks = new List<Task>();
-        foreach (var subscriber in subscribers)
-        {
-            notification.AccountId = subscriber.AccountId;
-            tasks.Add(_PushSingleNotification(notification, subscriber));
-        }
-
-        await Task.WhenAll(tasks);
+        await _PushNotification(notification, subscribers);
     }
 
     public async Task SendNotificationBatch(Notification notification, List<Account> accounts, bool save = false)
@@ -205,113 +163,103 @@ public class NotificationService
                 };
                 return newNotification;
             }).ToList();
-            await _db.BulkInsertAsync(notifications);
+            await db.BulkInsertAsync(notifications);
         }
 
         var accountsId = accounts.Select(x => x.Id).ToList();
-        var subscribers = await _db.NotificationPushSubscriptions
+        var subscribers = await db.NotificationPushSubscriptions
             .Where(s => accountsId.Contains(s.AccountId))
             .ToListAsync();
-        var tasks = new List<Task>();
-        foreach (var subscriber in subscribers)
-        {
-            notification.AccountId = subscriber.AccountId;
-            tasks.Add(_PushSingleNotification(notification, subscriber));
-        }
-
-        await Task.WhenAll(tasks);
+        await _PushNotification(notification, subscribers);
     }
 
-    private async Task _PushSingleNotification(Notification notification, NotificationPushSubscription subscription)
+    private List<Dictionary<string, object>> _BuildNotificationPayload(Notification notification,
+        IEnumerable<NotificationPushSubscription> subscriptions)
     {
-        try
+        var subDict = subscriptions
+            .GroupBy(x => x.Provider)
+            .ToDictionary(x => x.Key, x => x.ToList());
+
+        var notifications = subDict.Select(value =>
         {
-            _logger.LogDebug(
-                $"Pushing notification {notification.Topic} #{notification.Id} to device #{subscription.DeviceId}");
-            
-            var body = string.Empty;
-            switch (subscription.Provider)
+            int platformCode = value.Key switch
             {
-                case NotificationPushProvider.Google:
-                    if (_fcm == null)
-                        throw new InvalidOperationException("The firebase cloud messaging is not initialized.");
+                NotificationPushProvider.Google => 1,
+                NotificationPushProvider.Apple => 2,
+                _ => throw new InvalidOperationException($"Unknown push provider: {value.Key}")
+            };
 
-                    if (!string.IsNullOrEmpty(notification.Subtitle) || !string.IsNullOrEmpty(notification.Content))
-                    {
-                        body = string.Join("\n",
-                            notification.Subtitle ?? string.Empty,
-                            notification.Content ?? string.Empty).Trim();
-                    }
+            var tokens = value.Value.Select(x => x.DeviceToken).ToList();
+            return _BuildNotificationPayload(notification, platformCode, tokens);
+        }).ToList();
 
-                    await _fcm.SendAsync(new Dictionary<string, object>
-                    {
-                        ["message"] = new Dictionary<string, object>
-                        {
-                            ["token"] = subscription.DeviceToken,
-                            ["notification"] = new Dictionary<string, object>
-                            {
-                                ["title"] = notification.Title ?? string.Empty,
-                                ["body"] = body
-                            },
-                            ["data"] = new Dictionary<string, object>
-                            {
-                                ["id"] = notification.Id,
-                                ["topic"] = notification.Topic,
-                                ["meta"] = notification.Meta ?? new Dictionary<string, object>()
-                            }
-                        }
-                    });
-                    break;
+        return notifications.ToList();
+    }
 
-                case NotificationPushProvider.Apple:
-                    if (_apns == null)
-                        throw new InvalidOperationException("The apple notification push service is not initialized.");
-
-                    var alertDict = new Dictionary<string, object>();
-
-                    if (!string.IsNullOrEmpty(notification.Title))
-                        alertDict["title"] = notification.Title;
-                    if (!string.IsNullOrEmpty(notification.Subtitle))
-                        alertDict["subtitle"] = notification.Subtitle;
-                    if (!string.IsNullOrEmpty(notification.Content))
-                        alertDict["body"] = notification.Content;
-
-                    var payload = new Dictionary<string, object>
-                    {
-                        ["topic"] = notification.Topic,
-                        ["aps"] = new Dictionary<string, object>
-                        {
-                            ["alert"] = alertDict
-                        },
-                        ["sound"] = (notification.Priority > 0 ? "default" : null) ?? string.Empty,
-                        ["mutable-content"] = 1,
-                        ["meta"] = notification.Meta ?? new Dictionary<string, object>()
-                    };
-
-                    await _apns.SendAsync(
-                        payload,
-                        deviceToken: subscription.DeviceToken,
-                        apnsId: notification.Id.ToString(),
-                        apnsPriority: notification.Priority,
-                        apnPushType: ApnPushType.Alert
-                    );
-                    break;
-
-                default:
-                    throw new InvalidOperationException($"Provider not supported: {subscription.Provider}");
-            }
-        }
-        catch (Exception ex)
+    private Dictionary<string, object> _BuildNotificationPayload(Notification notification, int platformCode,
+        IEnumerable<string> deviceTokens)
+    {
+        var alertDict = new Dictionary<string, object>();
+        var dict = new Dictionary<string, object>
         {
-            // Log the exception
-            // Consider implementing a retry mechanism
-            // Rethrow or handle as needed
-            _logger.LogError(
-                $"Failed to push notification #{notification.Id} to device... {ex.Message} {ex.StackTrace}");
-            throw new Exception($"Failed to send notification to {subscription.Provider}: {ex.Message}", ex);
+            ["notif_id"] = notification.Id.ToString(),
+            ["apns_id"] = notification.Id.ToString(),
+            ["topic"] = _notifyTopic,
+            ["category"] = notification.Topic,
+            ["tokens"] = deviceTokens,
+            ["alert"] = new Dictionary<string, object>(),
+            ["data"] = new Dictionary<string, object>
+            {
+                ["d_topic"] = notification.Topic,
+                ["meta"] = notification.Meta ?? new Dictionary<string, object>(),
+            },
+            ["mutable_content"] = true,
+        };
+
+        if (!string.IsNullOrWhiteSpace(notification.Title))
+        {
+            dict["title"] = notification.Title;
+            alertDict["title"] = notification.Title;
         }
 
-        _logger.LogInformation(
-            $"Pushed notification #{notification.Id} to device #{subscription.DeviceId}");
+        if (!string.IsNullOrWhiteSpace(notification.Content))
+        {
+            dict["message"] = notification.Content;
+            alertDict["body"] = notification.Content;
+        }
+
+        if (!string.IsNullOrWhiteSpace(notification.Subtitle))
+        {
+            dict["message"] = $"{notification.Subtitle}\n{dict["message"]}";
+            alertDict["subtitle"] = notification.Subtitle;
+        }
+
+        if (notification.Priority >= 5)
+        {
+            dict["sound"] = new Dictionary<string, object> { ["name"] = "default" };
+        }
+
+        dict["platform"] = platformCode;
+        dict["alert"] = alertDict;
+
+        return dict;
+    }
+
+    private async Task _PushNotification(Notification notification,
+        IEnumerable<NotificationPushSubscription> subscriptions)
+    {
+        var requestDict = new Dictionary<string, object>
+        {
+            ["notifications"] = _BuildNotificationPayload(notification, subscriptions)
+        };
+
+        var client = httpFactory.CreateClient();
+        client.BaseAddress = _notifyEndpoint;
+        var request = await client.PostAsync("/api/push", new StringContent(
+            JsonSerializer.Serialize(requestDict),
+            Encoding.UTF8,
+            "application/json"
+        ));
+        request.EnsureSuccessStatusCode();
     }
 }

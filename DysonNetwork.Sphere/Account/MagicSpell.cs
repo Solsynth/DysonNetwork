@@ -23,7 +23,7 @@ public class MagicSpell : ModelBase
     public MagicSpellType Type { get; set; }
     public Instant? ExpiresAt { get; set; }
     public Instant? AffectedAt { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
 
     public Guid? AccountId { get; set; }
     public Account? Account { get; set; }

@@ -91,8 +91,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
                 );
 
                 var packet = WebSocketPacket.FromBytes(buffer[..receiveResult.Count]);
-                if (packet is null) continue;
-                ws.HandlePacket(currentUser, connectionKey.DeviceId, packet, webSocket);
+                _ = ws.HandlePacket(currentUser, connectionKey.DeviceId, packet, webSocket);
             }
         }
         catch (OperationCanceledException)

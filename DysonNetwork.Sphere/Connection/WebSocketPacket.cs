@@ -14,7 +14,7 @@ public class WebSocketPacketType
 public class WebSocketPacket
 {
     public string Type { get; set; } = null!;
-    public object Data { get; set; }
+    public object Data { get; set; } = null!;
     public string? ErrorMessage { get; set; }
 
     /// <summary>

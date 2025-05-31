@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
-public class MessageTypingHandler(AppDatabase db, ChatRoomService crs, ICacheService cache) : IWebSocketPacketHandler
+public class MessageTypingHandler(ChatRoomService crs) : IWebSocketPacketHandler
 {
     public string PacketType => "messages.typing";
 

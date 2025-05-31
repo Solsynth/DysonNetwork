@@ -178,7 +178,7 @@ public class DysonTokenAuthHandler(
         {
             return new TokenInfo
             {
-                Token = queryToken,
+                Token = queryToken.ToString(),
                 Type = TokenType.AuthKey
             };
         }

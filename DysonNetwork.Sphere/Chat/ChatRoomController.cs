@@ -484,7 +484,7 @@ public class ChatRoomController(
         member.JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
         await db.SaveChangesAsync();
-        crs.PurgeRoomMembersCache(roomId);
+        _ = crs.PurgeRoomMembersCache(roomId);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomJoin,
@@ -607,7 +607,7 @@ public class ChatRoomController(
 
             member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
             await db.SaveChangesAsync();
-            crs.PurgeRoomMembersCache(roomId);
+            _ = crs.PurgeRoomMembersCache(roomId);
 
             als.CreateActionLogFromRequest(
                 ActionLogType.ChatroomKick,
@@ -649,7 +649,7 @@ public class ChatRoomController(
 
         db.ChatMembers.Add(newMember);
         await db.SaveChangesAsync();
-        crs.PurgeRoomMembersCache(roomId);
+        _ = crs.PurgeRoomMembersCache(roomId);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomJoin,

@@ -1,10 +1,5 @@
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace DysonNetwork.Sphere.Sticker;
 

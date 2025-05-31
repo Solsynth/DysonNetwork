@@ -7,8 +7,8 @@ namespace DysonNetwork.Sphere.Permission;
 
 public class PermissionService(
     AppDatabase db,
-    ICacheService cache,
-    ILogger<PermissionService> logger)
+    ICacheService cache
+)
 {
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(1);
 

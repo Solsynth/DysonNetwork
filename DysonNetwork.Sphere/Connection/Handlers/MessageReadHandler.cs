@@ -9,8 +9,6 @@ using SystemClock = NodaTime.SystemClock;
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
 public class MessageReadHandler(
-    AppDatabase db,
-    ICacheService cache,
     ChatRoomService crs,
     FlushBufferService buffer
 )

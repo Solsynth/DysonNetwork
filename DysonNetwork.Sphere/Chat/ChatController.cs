@@ -12,7 +12,7 @@ namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
 [Route("/chat")]
-public partial class ChatController(AppDatabase db, ChatService cs, FileService fs) : ControllerBase
+public partial class ChatController(AppDatabase db, ChatService cs) : ControllerBase
 {
     public class MarkMessageReadRequest
     {

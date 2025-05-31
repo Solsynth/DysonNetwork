@@ -5,7 +5,7 @@ using DysonNetwork.Sphere.Storage.Handlers;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class ActionLogService(AppDatabase db, GeoIpService geo, FlushBufferService fbs)
+public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
 {
     public void CreateActionLog(Guid accountId, string action, Dictionary<string, object> meta)
     {
