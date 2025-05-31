@@ -69,21 +69,31 @@ public class ChatService(
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
+        var metaDict =
+            new Dictionary<string, object>
+            {
+                ["sender_name"] = sender.Nick ?? sender.Account.Nick,
+                ["user_id"] = sender.AccountId,
+                ["sender_id"] = sender.Id,
+                ["message_id"] = message.Id,
+                ["room_id"] = room.Id,
+                ["images"] = message.Attachments
+                    .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
+                    .Select(a => a.Id).ToList()
+            };
+        if (sender.Account.Profile is not { PictureId: null })
+            metaDict["pfp"] = sender.Account.Profile.PictureId;
+        if (!string.IsNullOrEmpty(room.Name))
+            metaDict["room_name"] = room.Name;
+
         var notification = new Notification
         {
             Topic = "messages.new",
             Title = $"{sender.Nick ?? sender.Account.Nick ?? "Unknown"} ({roomSubject})",
             Content = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
-                : "<attachments>",
-            Meta = new Dictionary<string, object>
-            {
-                ["message_id"] = message.Id,
-                ["room_id"] = room.Id,
-                ["images"] = message.Attachments
-                    .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
-                    .Select(a => a.Id).ToList()
-            },
+                : "<no content>",
+            Meta = metaDict,
             Priority = 10,
         };
 
@@ -96,7 +106,7 @@ public class ChatService(
                 Type = type,
                 Data = message
             });
-        
+
             // Only add accounts that aren't null
             if (member.Account.Id != sender.AccountId)
                 accountsToNotify.Add(member.Account);

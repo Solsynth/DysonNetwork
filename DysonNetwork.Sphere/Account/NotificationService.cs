@@ -226,6 +226,9 @@ public class NotificationService
     {
         try
         {
+            _logger.LogDebug(
+                $"Pushing notification {notification.Topic} #{notification.Id} to device #{subscription.DeviceId}");
+            
             var body = string.Empty;
             switch (subscription.Provider)
             {
@@ -245,7 +248,7 @@ public class NotificationService
                         ["message"] = new Dictionary<string, object>
                         {
                             ["token"] = subscription.DeviceToken,
-                            ["notification"] = new Dictionary<string, object> 
+                            ["notification"] = new Dictionary<string, object>
                             {
                                 ["title"] = notification.Title ?? string.Empty,
                                 ["body"] = body
@@ -265,14 +268,14 @@ public class NotificationService
                         throw new InvalidOperationException("The apple notification push service is not initialized.");
 
                     var alertDict = new Dictionary<string, object>();
-                    
+
                     if (!string.IsNullOrEmpty(notification.Title))
                         alertDict["title"] = notification.Title;
                     if (!string.IsNullOrEmpty(notification.Subtitle))
                         alertDict["subtitle"] = notification.Subtitle;
                     if (!string.IsNullOrEmpty(notification.Content))
                         alertDict["body"] = notification.Content;
-                    
+
                     var payload = new Dictionary<string, object>
                     {
                         ["topic"] = notification.Topic,
@@ -303,7 +306,12 @@ public class NotificationService
             // Log the exception
             // Consider implementing a retry mechanism
             // Rethrow or handle as needed
+            _logger.LogError(
+                $"Failed to push notification #{notification.Id} to device... {ex.Message} {ex.StackTrace}");
             throw new Exception($"Failed to send notification to {subscription.Provider}: {ex.Message}", ex);
         }
+
+        _logger.LogInformation(
+            $"Pushed notification #{notification.Id} to device #{subscription.DeviceId}");
     }
 }
