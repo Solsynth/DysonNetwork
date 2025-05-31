@@ -248,9 +248,12 @@ public class NotificationService(
     private async Task _PushNotification(Notification notification,
         IEnumerable<NotificationPushSubscription> subscriptions)
     {
+        var subList = subscriptions.ToList();
+        if (subList.Count == 0) return;
+        
         var requestDict = new Dictionary<string, object>
         {
-            ["notifications"] = _BuildNotificationPayload(notification, subscriptions)
+            ["notifications"] = _BuildNotificationPayload(notification, subList)
         };
 
         var client = httpFactory.CreateClient();
