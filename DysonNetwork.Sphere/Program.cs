@@ -29,6 +29,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Prometheus;
 using Prometheus.DotNetRuntime;
 using Prometheus.SystemMetrics;
@@ -51,12 +53,31 @@ builder.WebHost.ConfigureKestrel(options =>
 
 // Configure metrics
 
+// Prometheus
 builder.Services.UseHttpClientMetrics();
 builder.Services.AddHealthChecks();
 builder.Services.AddSystemMetrics();
 builder.Services.AddPrometheusEntityFrameworkMetrics();
 builder.Services.AddPrometheusAspNetCoreMetrics();
 builder.Services.AddPrometheusHttpClientMetrics();
+
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter();
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddOtlpExporter();
+    });
 
 // Add services to the container.
 
