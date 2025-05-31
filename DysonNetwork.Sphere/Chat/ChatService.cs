@@ -65,7 +65,8 @@ public class ChatService(
         var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
-        var roomSubject = room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
+        var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
+            room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
@@ -89,7 +90,7 @@ public class ChatService(
         var notification = new Notification
         {
             Topic = "messages.new",
-            Title = $"{sender.Nick ?? sender.Account.Nick ?? "Unknown"} ({roomSubject})",
+            Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
             Content = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<no content>",

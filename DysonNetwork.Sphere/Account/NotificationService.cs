@@ -215,7 +215,7 @@ public class NotificationService(
                 ["meta"] = notification.Meta ?? new Dictionary<string, object>(),
             },
             ["mutable_content"] = true,
-            ["priority"] = notification.Priority >= 10 ? "high" : "normal",
+            ["priority"] = notification.Priority >= 5 ? "high" : "normal",
         };
 
         if (!string.IsNullOrWhiteSpace(notification.Title))
