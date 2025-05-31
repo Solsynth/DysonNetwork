@@ -95,7 +95,6 @@ public class ChatRoomController(
         // Create new DM chat room
         var dmRoom = new ChatRoom
         {
-            Name = $"DM between #{currentUser.Id} and #{request.RelatedUserId}",
             Type = ChatRoomType.DirectMessage,
             IsPublic = false,
             Members = new List<ChatMember>
