@@ -28,14 +28,15 @@ public class NotificationService(
     {
         var existingSubscription = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == account.Id)
-            .Where(s => s.DeviceId == deviceId || s.DeviceToken == deviceToken)
+            .Where(s => (s.DeviceId == deviceId || s.DeviceToken == deviceToken) && s.Provider == provider)
             .FirstOrDefaultAsync();
 
-        if (existingSubscription != null)
+        if (existingSubscription is not null)
         {
             // Reset these audit fields to renew the lifecycle of this device token
-            existingSubscription.CreatedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-            existingSubscription.UpdatedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+            existingSubscription.DeviceId = deviceId;
+            existingSubscription.DeviceToken = deviceToken;
+            existingSubscription.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
             db.Update(existingSubscription);
             await db.SaveChangesAsync();
             return existingSubscription;
@@ -250,7 +251,7 @@ public class NotificationService(
     {
         var subList = subscriptions.ToList();
         if (subList.Count == 0) return;
-        
+
         var requestDict = new Dictionary<string, object>
         {
             ["notifications"] = _BuildNotificationPayload(notification, subList)
