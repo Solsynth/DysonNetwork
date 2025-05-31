@@ -50,6 +50,8 @@ public class ChatService(
             }
         });
 
+        message.Sender = sender;
+        message.ChatRoom = room;
         return message;
     }
 
@@ -60,6 +62,9 @@ public class ChatService(
         string type = WebSocketPacketType.MessageNew
     )
     {
+        message.Sender = sender;
+        message.ChatRoom = room;
+        
         using var scope = scopeFactory.CreateScope();
         var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService>();
         var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
@@ -101,16 +106,15 @@ public class ChatService(
         List<Account.Account> accountsToNotify = [];
         foreach (var member in members)
         {
-            // Send WebSocket packet
+            if (member.Account.Id == sender.AccountId) continue;
+
             scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
             {
                 Type = type,
                 Data = message
             });
 
-            // Only add accounts that aren't null
-            if (member.Account.Id != sender.AccountId)
-                accountsToNotify.Add(member.Account);
+            accountsToNotify.Add(member.Account);
         }
 
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
