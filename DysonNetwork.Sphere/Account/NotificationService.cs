@@ -237,9 +237,7 @@ public class NotificationService(
         }
 
         if (notification.Priority >= 5)
-        {
-            dict["sound"] = new Dictionary<string, object> { ["name"] = "default", ["volume"] = 1.0 };
-        }
+            dict["sound"] = "default";
 
         dict["platform"] = platformCode;
         dict["alert"] = alertDict;
