@@ -84,6 +84,7 @@ public class AccountContact : ModelBase
     public Instant? VerifiedAt { get; set; }
     [MaxLength(1024)] public string Content { get; set; } = string.Empty;
 
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
 }
 
@@ -100,6 +101,7 @@ public class AccountAuthFactor : ModelBase
     public AccountAuthFactorType Type { get; set; }
     [MaxLength(8196)] public string? Secret { get; set; } = null;
 
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
 
     public AccountAuthFactor HashSecret(int cost = 12)

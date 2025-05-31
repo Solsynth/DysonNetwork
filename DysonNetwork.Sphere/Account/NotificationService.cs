@@ -264,22 +264,29 @@ public class NotificationService
                     if (_apns == null)
                         throw new InvalidOperationException("The apple notification push service is not initialized.");
 
-                    await _apns.SendAsync(new Dictionary<string, object>
+                    var alertDict = new Dictionary<string, object>();
+                    
+                    if (!string.IsNullOrEmpty(notification.Title))
+                        alertDict["title"] = notification.Title;
+                    if (!string.IsNullOrEmpty(notification.Subtitle))
+                        alertDict["subtitle"] = notification.Subtitle;
+                    if (!string.IsNullOrEmpty(notification.Content))
+                        alertDict["body"] = notification.Content;
+                    
+                    var payload = new Dictionary<string, object>
+                    {
+                        ["topic"] = notification.Topic,
+                        ["aps"] = new Dictionary<string, object>
                         {
-                            ["topic"] = notification.Topic,
-                            ["aps"] = new Dictionary<string, object>
-                            {
-                                ["alert"] = new Dictionary<string, object>
-                                {
-                                    ["title"] = notification.Title ?? string.Empty,
-                                    ["subtitle"] = notification.Subtitle ?? string.Empty,
-                                    ["body"] = notification.Content ?? string.Empty
-                                }
-                            },
-                            ["sound"] = (notification.Priority > 0 ? "default" : null) ?? string.Empty,
-                            ["mutable-content"] = 1,
-                            ["meta"] = notification.Meta ?? new Dictionary<string, object>()
+                            ["alert"] = alertDict
                         },
+                        ["sound"] = (notification.Priority > 0 ? "default" : null) ?? string.Empty,
+                        ["mutable-content"] = 1,
+                        ["meta"] = notification.Meta ?? new Dictionary<string, object>()
+                    };
+
+                    await _apns.SendAsync(
+                        payload,
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
                         apnsPriority: notification.Priority,

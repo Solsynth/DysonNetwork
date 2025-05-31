@@ -18,7 +18,6 @@ public class ActivityReaderService(AppDatabase db, PostService ps)
         if (postsId.Count > 0)
         {
             var posts = await db.Posts.Where(e => postsId.Contains(e.Id))
-                .Include(e => e.Publisher)
                 .Include(e => e.ThreadedPost)
                 .Include(e => e.ForwardedPost)
                 .Include(e => e.Attachments)
@@ -27,6 +26,7 @@ public class ActivityReaderService(AppDatabase db, PostService ps)
                 .FilterWithVisibility(currentUser, userFriends)
                 .ToListAsync();
             posts = PostService.TruncatePostContent(posts);
+            posts = await ps.LoadPublishers(posts);
 
             var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
             foreach (var post in posts)

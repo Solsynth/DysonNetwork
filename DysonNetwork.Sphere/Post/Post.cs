@@ -54,7 +54,9 @@ public class Post : ModelBase
 
     [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;
 
+    public Guid PublisherId { get; set; }
     public Publisher.Publisher Publisher { get; set; } = null!;
+    
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
     public ICollection<PostTag> Tags { get; set; } = new List<PostTag>();
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
