@@ -158,9 +158,18 @@ public class NotificationService
             var accounts = await _db.Accounts.ToListAsync();
             var notifications = accounts.Select(x =>
             {
-                notification.Account = x;
-                notification.AccountId = x.Id;
-                return notification;
+                var newNotification = new Notification
+                {
+                    Topic = notification.Topic,
+                    Title = notification.Title,
+                    Subtitle = notification.Subtitle,
+                    Content = notification.Content,
+                    Meta = notification.Meta,
+                    Priority = notification.Priority,
+                    Account = x,
+                    AccountId = x.Id
+                };
+                return newNotification;
             }).ToList();
             await _db.BulkInsertAsync(notifications);
         }
@@ -183,9 +192,18 @@ public class NotificationService
         {
             var notifications = accounts.Select(x =>
             {
-                notification.Account = x;
-                notification.AccountId = x.Id;
-                return notification;
+                var newNotification = new Notification
+                {
+                    Topic = notification.Topic,
+                    Title = notification.Title,
+                    Subtitle = notification.Subtitle,
+                    Content = notification.Content,
+                    Meta = notification.Meta,
+                    Priority = notification.Priority,
+                    Account = x,
+                    AccountId = x.Id
+                };
+                return newNotification;
             }).ToList();
             await _db.BulkInsertAsync(notifications);
         }
@@ -222,16 +240,22 @@ public class NotificationService
                             notification.Content ?? string.Empty).Trim();
                     }
 
-                    await _fcm.SendAsync(new
+                    await _fcm.SendAsync(new Dictionary<string, object>
                     {
-                        message = new
+                        ["message"] = new Dictionary<string, object>
                         {
-                            token = subscription.DeviceToken,
-                            notification = new
+                            ["token"] = subscription.DeviceToken,
+                            ["notification"] = new Dictionary<string, object> 
                             {
-                                title = notification.Title ?? string.Empty, body
+                                ["title"] = notification.Title ?? string.Empty,
+                                ["body"] = body
                             },
-                            data = notification.Meta ?? new Dictionary<string, object>()
+                            ["data"] = new Dictionary<string, object>
+                            {
+                                ["id"] = notification.Id,
+                                ["topic"] = notification.Topic,
+                                ["meta"] = notification.Meta ?? new Dictionary<string, object>()
+                            }
                         }
                     });
                     break;
@@ -242,6 +266,7 @@ public class NotificationService
 
                     await _apns.SendAsync(new Dictionary<string, object>
                         {
+                            ["topic"] = notification.Topic,
                             ["aps"] = new Dictionary<string, object>
                             {
                                 ["alert"] = new Dictionary<string, object>

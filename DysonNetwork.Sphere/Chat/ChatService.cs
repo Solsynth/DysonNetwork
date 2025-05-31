@@ -66,14 +66,13 @@ public class ChatService(
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
         var roomSubject = room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
-        var tasks = new List<Task>();
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
         var notification = new Notification
         {
             Topic = "messages.new",
-            Title = $"{sender.Nick ?? sender.Account?.Nick ?? "Unknown"} ({roomSubject})",
+            Title = $"{sender.Nick ?? sender.Account.Nick ?? "Unknown"} ({roomSubject})",
             Content = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<attachments>",
@@ -106,9 +105,8 @@ public class ChatService(
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
         // Only send notifications if there are accounts to notify
         if (accountsToNotify.Count > 0)
-            tasks.Add(scopedNty.SendNotificationBatch(notification, accountsToNotify, save: false));
+            await scopedNty.SendNotificationBatch(notification, accountsToNotify, save: false);
 
-        await Task.WhenAll(tasks);
         logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
     }
 
