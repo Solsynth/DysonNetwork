@@ -3,6 +3,7 @@ using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Query;
 using NodaTime;
 using Npgsql;
 using Quartz;
@@ -49,7 +50,7 @@ public class AppDatabase(
     public DbSet<PublisherMember> PublisherMembers { get; set; }
     public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; }
     public DbSet<PublisherFeature> PublisherFeatures { get; set; }
-    
+
     public DbSet<Post.Post> Posts { get; set; }
     public DbSet<Post.PostReaction> PostReactions { get; set; }
     public DbSet<Post.PostTag> PostTags { get; set; }
@@ -64,10 +65,10 @@ public class AppDatabase(
     public DbSet<Chat.Message> ChatMessages { get; set; }
     public DbSet<Chat.RealtimeCall> ChatRealtimeCall { get; set; }
     public DbSet<Chat.MessageReaction> ChatReactions { get; set; }
-    
+
     public DbSet<Sticker.Sticker> Stickers { get; set; }
     public DbSet<Sticker.StickerPack> StickerPacks { get; set; }
-    
+
     public DbSet<Wallet.Wallet> Wallets { get; set; }
     public DbSet<Wallet.WalletPocket> WalletPockets { get; set; }
     public DbSet<Wallet.Order> PaymentOrders { get; set; }
@@ -75,14 +76,14 @@ public class AppDatabase(
 
     public DbSet<Developer.CustomApp> CustomApps { get; set; }
     public DbSet<Developer.CustomAppSecret> CustomAppSecrets { get; set; }
-    
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(configuration.GetConnectionString("App"));
         dataSourceBuilder.EnableDynamicJson();
         dataSourceBuilder.UseNetTopologySuite();
         dataSourceBuilder.UseNodaTime();
-        
+
         if (configuration.GetValue<bool>("Debug"))
             optionsBuilder.EnableSensitiveDataLogging();
 
@@ -104,20 +105,20 @@ public class AppDatabase(
                 {
                     Key = "default",
                     Nodes = new List<string>
-                    {
-                        "posts.create",
-                        "posts.react", 
-                        "publishers.create",
-                        "files.create",
-                        "chat.create",
-                        "chat.messages.create",
-                        "chat.realtime.create",
-                        "accounts.statuses.create",
-                        "accounts.statuses.update",
-                        "stickers.packs.create",
-                        "stickers.create"
-                    }.Select(permission => 
-                        PermissionService.NewPermissionNode("group:default", "global", permission, true))
+                        {
+                            "posts.create",
+                            "posts.react",
+                            "publishers.create",
+                            "files.create",
+                            "chat.create",
+                            "chat.messages.create",
+                            "chat.realtime.create",
+                            "accounts.statuses.create",
+                            "accounts.statuses.update",
+                            "stickers.packs.create",
+                            "stickers.create"
+                        }.Select(permission =>
+                            PermissionService.NewPermissionNode("group:default", "global", permission, true))
                         .ToList()
                 });
                 await context.SaveChangesAsync(cancellationToken);
@@ -358,5 +359,37 @@ public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDatabase>();
         return new AppDatabase(optionsBuilder.Options, configuration);
+    }
+}
+
+public static class OptionalQueryExtensions
+{
+    public static IQueryable<T> If<T>(
+        this IQueryable<T> source,
+        bool condition,
+        Func<IQueryable<T>, IQueryable<T>> transform
+    )
+    {
+        return condition ? transform(source) : source;
+    }
+    
+    public static IQueryable<T> If<T, TP>(
+        this IIncludableQueryable<T, TP> source,
+        bool condition,
+        Func<IIncludableQueryable<T, TP>, IQueryable<T>> transform
+    )
+        where T : class
+    {
+        return condition ? transform(source) : source;
+    }
+
+    public static IQueryable<T> If<T, TP>(
+        this IIncludableQueryable<T, IEnumerable<TP>> source,
+        bool condition,
+        Func<IIncludableQueryable<T, IEnumerable<TP>>, IQueryable<T>> transform
+    )
+        where T : class
+    {
+        return condition ? transform(source) : source;
     }
 }

@@ -271,6 +271,47 @@ public class PostService(
                     )
             );
     }
+
+    public async Task<List<Post>> LoadPublishers(List<Post> posts)
+    {
+        var publisherIds = posts
+            .Where(e => e.Publisher.AccountId != null)
+            .SelectMany<Post, Guid?>(e =>
+            [
+                e.Publisher.Id,
+                e.RepliedPost?.Publisher.Id,
+                e.ForwardedPost?.Publisher.Id,
+                e.ThreadedPost?.Publisher.Id
+            ])
+            .Where(e => e != null)
+            .Distinct()
+            .ToList();
+        if (publisherIds.Count == 0) return posts;
+
+        var publishers = await db.Publishers
+            .Where(e => e.AccountId != null && publisherIds.Contains(e.AccountId.Value))
+            .ToDictionaryAsync(e => e.AccountId!.Value);
+
+        foreach (var post in posts)
+        {
+            if (publishers.TryGetValue(post.Publisher.Id, out var publisher))
+                post.Publisher = publisher;
+
+            if (post.RepliedPost?.Publisher.Id != null &&
+                publishers.TryGetValue(post.RepliedPost.Publisher.Id, out var repliedPublisher))
+                post.RepliedPost.Publisher = repliedPublisher;
+
+            if (post.ForwardedPost?.Publisher.Id != null && 
+                publishers.TryGetValue(post.ForwardedPost.Publisher.Id, out var forwardedPublisher))
+                post.ForwardedPost.Publisher = forwardedPublisher;
+
+            if (post.ThreadedPost?.Publisher.Id != null &&
+                publishers.TryGetValue(post.ThreadedPost.Publisher.Id, out var threadedPublisher))
+                post.ThreadedPost.Publisher = threadedPublisher;
+        }
+
+        return posts;
+    }
 }
 
 public static class PostQueryExtensions

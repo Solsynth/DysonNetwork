@@ -40,7 +40,7 @@ public class PostController(
             .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
         var posts = await query
-            .Include(e => e.Publisher)
+            .Include(e => e.RepliedPost)
             .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Attachments)
@@ -53,6 +53,7 @@ public class PostController(
             .Take(take)
             .ToListAsync();
         posts = PostService.TruncatePostContent(posts);
+        posts = await ps.LoadPublishers(posts);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
@@ -106,7 +107,6 @@ public class PostController(
             .CountAsync();
         var posts = await db.Posts
             .Where(e => e.RepliedPostId == id)
-            .Include(e => e.Publisher)
             .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Attachments)
@@ -118,6 +118,7 @@ public class PostController(
             .Take(take)
             .ToListAsync();
         posts = PostService.TruncatePostContent(posts);
+        posts = await ps.LoadPublishers(posts);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
