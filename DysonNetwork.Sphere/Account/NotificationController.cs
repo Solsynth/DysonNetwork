@@ -4,6 +4,7 @@ using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -118,6 +119,8 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
         await nty.BroadcastNotification(
             new Notification
             {
+                CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
                 Topic = request.Topic,
                 Title = request.Title,
                 Subtitle = request.Subtitle,
@@ -147,6 +150,8 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
         await nty.SendNotificationBatch(
             new Notification
             {
+                CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
                 Topic = request.Topic,
                 Title = request.Title,
                 Subtitle = request.Subtitle,
