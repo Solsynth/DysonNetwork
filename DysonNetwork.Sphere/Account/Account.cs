@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -68,10 +69,8 @@ public class Profile : ModelBase
         (Experience - Leveling.ExperiencePerLevel[Level]) * 100.0 / 
         (Leveling.ExperiencePerLevel[Level + 1] - Leveling.ExperiencePerLevel[Level]);
 
-    [MaxLength(32)] public string? PictureId { get; set; }
-    public Storage.CloudFile? Picture { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-    public Storage.CloudFile? Background { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;

@@ -17,6 +17,7 @@ namespace DysonNetwork.Sphere.Chat;
 public class ChatRoomController(
     AppDatabase db,
     FileService fs,
+    FileReferenceService fileRefService,
     ChatRoomService crs,
     RealmService rs,
     ActionLogService als,
@@ -176,13 +177,13 @@ public class ChatRoomController(
 
         if (request.PictureId is not null)
         {
-            chatRoom.Picture = await db.Files.FindAsync(request.PictureId);
+            chatRoom.Picture = (await db.Files.FindAsync(request.PictureId))?.ToReferenceObject();
             if (chatRoom.Picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
         }
 
         if (request.BackgroundId is not null)
         {
-            chatRoom.Background = await db.Files.FindAsync(request.BackgroundId);
+            chatRoom.Background = (await db.Files.FindAsync(request.BackgroundId))?.ToReferenceObject();
             if (chatRoom.Background is null)
                 return BadRequest("Invalid background id, unable to find the file on cloud.");
         }
@@ -190,10 +191,21 @@ public class ChatRoomController(
         db.ChatRooms.Add(chatRoom);
         await db.SaveChangesAsync();
 
+        var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
+
         if (chatRoom.Picture is not null)
-            await fs.MarkUsageAsync(chatRoom.Picture, 1);
+            await fileRefService.CreateReferenceAsync(
+                chatRoom.Picture.Id, 
+                "chat.room.picture", 
+                chatRoomResourceId
+            );
+
         if (chatRoom.Background is not null)
-            await fs.MarkUsageAsync(chatRoom.Background, 1);
+            await fileRefService.CreateReferenceAsync(
+                chatRoom.Background.Id, 
+                "chat.room.background", 
+                chatRoomResourceId
+            );
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomCreate,
@@ -235,22 +247,50 @@ public class ChatRoomController(
             chatRoom.RealmId = member.RealmId;
         }
 
+        var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
+
         if (request.PictureId is not null)
         {
             var picture = await db.Files.FindAsync(request.PictureId);
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
-            await fs.MarkUsageAsync(picture, 1);
-            if (chatRoom.Picture is not null) await fs.MarkUsageAsync(chatRoom.Picture, -1);
-            chatRoom.Picture = picture;
+
+            // Remove old references for pictures
+            var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.picture");
+            foreach (var oldRef in oldPictureRefs)
+            {
+                await fileRefService.DeleteReferenceAsync(oldRef.Id);
+            }
+
+            // Add a new reference
+            await fileRefService.CreateReferenceAsync(
+                picture.Id, 
+                "chat.room.picture", 
+                chatRoomResourceId
+            );
+
+            chatRoom.Picture = picture.ToReferenceObject();
         }
 
         if (request.BackgroundId is not null)
         {
             var background = await db.Files.FindAsync(request.BackgroundId);
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-            await fs.MarkUsageAsync(background, 1);
-            if (chatRoom.Background is not null) await fs.MarkUsageAsync(chatRoom.Background, -1);
-            chatRoom.Background = background;
+
+            // Remove old references for backgrounds
+            var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.background");
+            foreach (var oldRef in oldBackgroundRefs)
+            {
+                await fileRefService.DeleteReferenceAsync(oldRef.Id);
+            }
+
+            // Add a new reference
+            await fileRefService.CreateReferenceAsync(
+                background.Id, 
+                "chat.room.background", 
+                chatRoomResourceId
+            );
+
+            chatRoom.Background = background.ToReferenceObject();
         }
 
         if (request.Name is not null)
@@ -293,13 +333,13 @@ public class ChatRoomController(
         else if (!await crs.IsMemberWithRole(chatRoom.Id, currentUser.Id, ChatMemberRole.Owner))
             return StatusCode(403, "You need at least be the owner to delete the chat.");
 
+        var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
+
+        // Delete all file references for this chat room
+        await fileRefService.DeleteResourceReferencesAsync(chatRoomResourceId);
+
         db.ChatRooms.Remove(chatRoom);
         await db.SaveChangesAsync();
-
-        if (chatRoom.Picture is not null)
-            await fs.MarkUsageAsync(chatRoom.Picture, -1);
-        if (chatRoom.Background is not null)
-            await fs.MarkUsageAsync(chatRoom.Background, -1);
 
         als.CreateActionLogFromRequest(
             ActionLogType.ChatroomDelete,

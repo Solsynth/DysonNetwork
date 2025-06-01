@@ -3,8 +3,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Sticker;
 
-public class StickerService(AppDatabase db, FileService fs, ICacheService cache)
+public class StickerService(AppDatabase db, FileService fs, FileReferenceService fileRefService, ICacheService cache)
 {
+    public const string StickerFileUsageIdentifier = "sticker";
+    
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     public async Task<Sticker> CreateStickerAsync(Sticker sticker)
@@ -12,18 +14,37 @@ public class StickerService(AppDatabase db, FileService fs, ICacheService cache)
         db.Stickers.Add(sticker);
         await db.SaveChangesAsync();
 
-        await fs.MarkUsageAsync(sticker.Image, 1);
+        var stickerResourceId = $"sticker:{sticker.Id}";
+        await fileRefService.CreateReferenceAsync(
+            sticker.Image.Id,
+            StickerFileUsageIdentifier,
+            stickerResourceId
+        );
 
         return sticker;
     }
 
     public async Task<Sticker> UpdateStickerAsync(Sticker sticker, CloudFile? newImage)
     {
-        if (newImage != null)
+        if (newImage is not null)
         {
-            await fs.MarkUsageAsync(sticker.Image, -1);
-            sticker.Image = newImage;
-            await fs.MarkUsageAsync(sticker.Image, 1);
+            var stickerResourceId = $"sticker:{sticker.Id}";
+
+            // Delete old references
+            var oldRefs = await fileRefService.GetResourceReferencesAsync(stickerResourceId, StickerFileUsageIdentifier);
+            foreach (var oldRef in oldRefs)
+            {
+                await fileRefService.DeleteReferenceAsync(oldRef.Id);
+            }
+
+            sticker.Image = newImage.ToReferenceObject();
+
+            // Create new reference
+            await fileRefService.CreateReferenceAsync(
+                newImage.Id,
+                StickerFileUsageIdentifier,
+                stickerResourceId
+            );
         }
 
         db.Stickers.Update(sticker);
@@ -37,9 +58,13 @@ public class StickerService(AppDatabase db, FileService fs, ICacheService cache)
 
     public async Task DeleteStickerAsync(Sticker sticker)
     {
+        var stickerResourceId = $"sticker:{sticker.Id}";
+
+        // Delete all file references for this sticker
+        await fileRefService.DeleteResourceReferencesAsync(stickerResourceId);
+
         db.Stickers.Remove(sticker);
         await db.SaveChangesAsync();
-        await fs.MarkUsageAsync(sticker.Image, -1);
 
         // Invalidate cache for this sticker
         await PurgeStickerCache(sticker);
@@ -54,11 +79,20 @@ public class StickerService(AppDatabase db, FileService fs, ICacheService cache)
 
         var images = stickers.Select(s => s.Image).ToList();
 
+        // Delete all file references for each sticker in the pack
+        foreach (var sticker in stickers)
+        {
+            var stickerResourceId = $"sticker:{sticker.Id}";
+            await fileRefService.DeleteResourceReferencesAsync(stickerResourceId);
+        }
+
+        // Delete any references for the pack itself
+        var packResourceId = $"stickerpack:{pack.Id}";
+        await fileRefService.DeleteResourceReferencesAsync(packResourceId);
+
         db.Stickers.RemoveRange(stickers);
         db.StickerPacks.Remove(pack);
         await db.SaveChangesAsync();
-
-        await fs.MarkUsageRangeAsync(images, -1);
 
         // Invalidate cache for all stickers in this pack
         foreach (var sticker in stickers)

@@ -294,7 +294,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         {
             Slug = request.Slug,
             ImageId = image.Id,
-            Image = image,
+            Image = image.ToReferenceObject(),
             Pack = pack
         };
 

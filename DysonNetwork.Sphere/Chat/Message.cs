@@ -7,7 +7,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class Message : ModelBase
+public class Message : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string Type { get; set; } = null!;
@@ -17,7 +17,7 @@ public class Message : ModelBase
     [MaxLength(36)] public string Nonce { get; set; } = null!;
     public Instant? EditedAt { get; set; }
 
-    public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
+    [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
 
     public Guid? RepliedMessageId { get; set; }
@@ -29,32 +29,8 @@ public class Message : ModelBase
     public ChatMember Sender { get; set; } = null!;
     public Guid ChatRoomId { get; set; }
     [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
-    
-    public Message Clone()
-    {
-        return new Message
-        {
-            Id = Id,
-            Content = Content,
-            Meta = Meta?.ToDictionary(entry => entry.Key, entry => entry.Value),
-            MembersMentioned = MembersMentioned?.ToList(),
-            Nonce = Nonce,
-            EditedAt = EditedAt,
-            Attachments = new List<CloudFile>(Attachments),
-            Reactions = new List<MessageReaction>(Reactions),
-            RepliedMessageId = RepliedMessageId,
-            RepliedMessage = RepliedMessage?.Clone() as Message,
-            ForwardedMessageId = ForwardedMessageId,
-            ForwardedMessage = ForwardedMessage?.Clone() as Message,
-            SenderId = SenderId,
-            Sender = Sender,
-            ChatRoomId = ChatRoomId,
-            ChatRoom = ChatRoom,
-            CreatedAt = CreatedAt,
-            UpdatedAt = UpdatedAt,
-            DeletedAt = DeletedAt
-        };
-    }
+
+    public string ResourceIdentifier => $"message/{Id}";
 }
 
 public enum MessageReactionAttitude

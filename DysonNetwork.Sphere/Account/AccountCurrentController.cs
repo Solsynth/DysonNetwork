@@ -16,10 +16,13 @@ public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
     FileService fs,
+    FileReferenceService fileRefService,
     AccountEventService events,
     AuthService auth
 ) : ControllerBase
 {
+    private const string ProfilePictureFileUsageIdentifier = "profile";
+    
     [HttpGet]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
     public async Task<ActionResult<Account>> GetCurrentIdentity()
@@ -90,22 +93,52 @@ public class AccountCurrentController(
         {
             var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
-            if (profile.Picture is not null)
-                await fs.MarkUsageAsync(profile.Picture, -1);
 
-            profile.Picture = picture;
-            await fs.MarkUsageAsync(picture, 1);
+            var profileResourceId = $"profile:{profile.Id}";
+
+            // Remove old references for the profile picture
+            if (profile.Picture is not null) {
+                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, ProfilePictureFileUsageIdentifier);
+                foreach (var oldRef in oldPictureRefs)
+                {
+                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                }
+            }
+
+            profile.Picture = picture.ToReferenceObject();
+
+            // Create new reference
+            await fileRefService.CreateReferenceAsync(
+                picture.Id, 
+                ProfilePictureFileUsageIdentifier, 
+                profileResourceId
+            );
         }
 
         if (request.BackgroundId is not null)
         {
             var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-            if (profile.Background is not null)
-                await fs.MarkUsageAsync(profile.Background, -1);
 
-            profile.Background = background;
-            await fs.MarkUsageAsync(background, 1);
+            var profileResourceId = $"profile:{profile.Id}";
+
+            // Remove old references for the profile background
+            if (profile.Background is not null) {
+                var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, ProfilePictureFileUsageIdentifier);
+                foreach (var oldRef in oldBackgroundRefs)
+                {
+                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                }
+            }
+
+            profile.Background = background.ToReferenceObject();
+
+            // Create new reference
+            await fileRefService.CreateReferenceAsync(
+                background.Id, 
+                ProfilePictureFileUsageIdentifier, 
+                profileResourceId
+            );
         }
 
         db.Update(profile);

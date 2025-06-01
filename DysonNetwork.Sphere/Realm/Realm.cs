@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Storage;
@@ -8,7 +9,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Realm;
 
 [Index(nameof(Slug), IsUnique = true)]
-public class Realm : ModelBase
+public class Realm : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
@@ -19,16 +20,16 @@ public class Realm : ModelBase
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
 
-    [MaxLength(32)] public string? PictureId { get; set; }
-    public CloudFile? Picture { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-    public CloudFile? Background { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
     [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
+
+    public string ResourceIdentifier => $"realm/{Id}";
 }
 
 public enum RealmMemberRole

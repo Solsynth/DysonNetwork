@@ -92,7 +92,6 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
             .Include(m => m.Sender.Account.Profile)
-            .Include(m => m.Attachments)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -169,6 +168,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
                 .ToListAsync();
             message.Attachments = attachments
                 .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
+                .Select(f => f.ToReferenceObject())
                 .ToList();
         }
 
@@ -270,7 +270,6 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
         var message = await db.ChatMessages
             .Include(m => m.Sender)
             .Include(m => m.ChatRoom)
-            .Include(m => m.Attachments)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
             
         if (message == null) return NotFound();

@@ -41,9 +41,7 @@ public class PostController(
             .CountAsync();
         var posts = await query
             .Include(e => e.RepliedPost)
-            .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
-            .Include(e => e.Attachments)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Where(e => e.RepliedPostId == null)
@@ -107,9 +105,7 @@ public class PostController(
             .CountAsync();
         var posts = await db.Posts
             .Where(e => e.RepliedPostId == id)
-            .Include(e => e.ThreadedPost)
             .Include(e => e.ForwardedPost)
-            .Include(e => e.Attachments)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .FilterWithVisibility(currentUser, userFriends, isListing: true)
@@ -351,7 +347,6 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .Include(e => e.Attachments)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 

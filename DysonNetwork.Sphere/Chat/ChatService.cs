@@ -10,6 +10,7 @@ namespace DysonNetwork.Sphere.Chat;
 public class ChatService(
     AppDatabase db,
     FileService fs,
+    FileReferenceService fileRefService,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
     ILogger<ChatService> logger
@@ -30,9 +31,16 @@ public class ChatService(
         var files = message.Attachments.Distinct().ToList();
         if (files.Count != 0)
         {
-            await fs.MarkUsageRangeAsync(files, 1);
-            await fs.SetExpiresRangeAsync(files, Duration.FromDays(30));
-            await fs.SetUsageRangeAsync(files, ChatFileUsageIdentifier);
+            var messageResourceId = $"message:{message.Id}";
+            foreach (var file in files)
+            {
+                await fileRefService.CreateReferenceAsync(
+                    file.Id,
+                    ChatFileUsageIdentifier,
+                    messageResourceId,
+                    duration: Duration.FromDays(30)
+                );
+            }
         }
 
         // Then start the delivery process
@@ -64,7 +72,7 @@ public class ChatService(
     {
         message.Sender = sender;
         message.ChatRoom = room;
-        
+
         using var scope = scopeFactory.CreateScope();
         var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService>();
         var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
@@ -87,8 +95,8 @@ public class ChatService(
                     .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
                     .Select(a => a.Id).ToList()
             };
-        if (sender.Account.Profile is not { PictureId: null })
-            metaDict["pfp"] = sender.Account.Profile.PictureId;
+        if (sender.Account.Profile is not { Picture: null })
+            metaDict["pfp"] = sender.Account.Profile.Picture.Id;
         if (!string.IsNullOrEmpty(room.Name))
             metaDict["room_name"] = room.Name;
 
@@ -346,9 +354,28 @@ public class ChatService(
 
         if (attachmentsId is not null)
         {
-            message.Attachments = (await fs.DiffAndMarkFilesAsync(attachmentsId, message.Attachments)).current;
-            await fs.DiffAndSetExpiresAsync(attachmentsId, Duration.FromDays(30), message.Attachments);
-            await fs.DiffAndSetUsageAsync(attachmentsId, ChatFileUsageIdentifier, message.Attachments);
+            var messageResourceId = $"message:{message.Id}";
+
+            // Delete existing references for this message
+            await fileRefService.DeleteResourceReferencesAsync(messageResourceId);
+
+            // Create new references for each attachment
+            foreach (var fileId in attachmentsId)
+            {
+                await fileRefService.CreateReferenceAsync(
+                    fileId,
+                    ChatFileUsageIdentifier,
+                    messageResourceId,
+                    duration: Duration.FromDays(30)
+                );
+            }
+
+            // Update message attachments by getting files from database
+            var files = await db.Files
+                .Where(f => attachmentsId.Contains(f.Id))
+                .ToListAsync();
+
+            message.Attachments = files.Select(x => x.ToReferenceObject()).ToList();
         }
 
         message.EditedAt = SystemClock.Instance.GetCurrentInstant();
@@ -371,9 +398,9 @@ public class ChatService(
     /// <param name="message">The message to delete</param>
     public async Task DeleteMessageAsync(Message message)
     {
-        var files = message.Attachments.Distinct().ToList();
-        if (files.Count != 0)
-            await fs.MarkUsageRangeAsync(files, -1);
+        // Remove all file references for this message
+        var messageResourceId = $"message:{message.Id}";
+        await fileRefService.DeleteResourceReferencesAsync(messageResourceId);
 
         db.ChatMessages.Remove(message);
         await db.SaveChangesAsync();

@@ -6,7 +6,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
-public class PublisherService(AppDatabase db, FileService fs, ICacheService cache)
+public class PublisherService(AppDatabase db, FileService fs, FileReferenceService fileRefService, ICacheService cache)
 {
     public async Task<Publisher> CreateIndividualPublisher(
         Account.Account account,
@@ -23,8 +23,8 @@ public class PublisherService(AppDatabase db, FileService fs, ICacheService cach
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
             Bio = bio ?? account.Profile.Bio,
-            Picture = picture ?? account.Profile.Picture,
-            Background = background ?? account.Profile.Background,
+            Picture = picture?.ToReferenceObject() ?? account.Profile.Picture,
+            Background = background?.ToReferenceObject() ?? account.Profile.Background,
             AccountId = account.Id,
             Members = new List<PublisherMember>
             {
@@ -40,8 +40,23 @@ public class PublisherService(AppDatabase db, FileService fs, ICacheService cach
         db.Publishers.Add(publisher);
         await db.SaveChangesAsync();
 
-        if (publisher.Picture is not null) await fs.MarkUsageAsync(publisher.Picture, 1);
-        if (publisher.Background is not null) await fs.MarkUsageAsync(publisher.Background, 1);
+        var publisherResourceId = $"publisher:{publisher.Id}";
+
+        if (publisher.Picture is not null) {
+            await fileRefService.CreateReferenceAsync(
+                publisher.Picture.Id,
+                "publisher.picture",
+                publisherResourceId
+            );
+        }
+
+        if (publisher.Background is not null) {
+            await fileRefService.CreateReferenceAsync(
+                publisher.Background.Id,
+                "publisher.background",
+                publisherResourceId
+            );
+        }
 
         return publisher;
     }
@@ -62,8 +77,8 @@ public class PublisherService(AppDatabase db, FileService fs, ICacheService cach
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
-            Picture = picture ?? realm.Picture,
-            Background = background ?? realm.Background,
+            Picture = picture?.ToReferenceObject() ?? realm.Picture,
+            Background = background?.ToReferenceObject() ?? realm.Background,
             RealmId = realm.Id,
             Members = new List<PublisherMember>
             {
@@ -79,8 +94,23 @@ public class PublisherService(AppDatabase db, FileService fs, ICacheService cach
         db.Publishers.Add(publisher);
         await db.SaveChangesAsync();
 
-        if (publisher.Picture is not null) await fs.MarkUsageAsync(publisher.Picture, 1);
-        if (publisher.Background is not null) await fs.MarkUsageAsync(publisher.Background, 1);
+        var publisherResourceId = $"publisher:{publisher.Id}";
+
+        if (publisher.Picture is not null) {
+            await fileRefService.CreateReferenceAsync(
+                publisher.Picture.Id,
+                "publisher.picture",
+                publisherResourceId
+            );
+        }
+
+        if (publisher.Background is not null) {
+            await fileRefService.CreateReferenceAsync(
+                publisher.Background.Id,
+                "publisher.background",
+                publisherResourceId
+            );
+        }
 
         return publisher;
     }

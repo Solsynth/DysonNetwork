@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
@@ -22,10 +23,8 @@ public class Publisher : ModelBase
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Bio { get; set; }
 
-    [MaxLength(32)] public string? PictureId { get; set; }
-    public CloudFile? Picture { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-    public CloudFile? Background { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
     [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();

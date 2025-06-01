@@ -215,6 +215,7 @@ public class CacheServiceRedis : ICacheService
 
     public async Task<bool> SetAsync<T>(string key, T value, TimeSpan? expiry = null)
     {
+        key = $"{GlobalKeyPrefix}{key}";
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
@@ -224,6 +225,7 @@ public class CacheServiceRedis : ICacheService
 
     public async Task<T?> GetAsync<T>(string key)
     {
+        key = $"{GlobalKeyPrefix}{key}";
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
@@ -238,6 +240,7 @@ public class CacheServiceRedis : ICacheService
 
     public async Task<(bool found, T? value)> GetAsyncWithStatus<T>(string key)
     {
+        key = $"{GlobalKeyPrefix}{key}";
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
@@ -252,6 +255,7 @@ public class CacheServiceRedis : ICacheService
 
     public async Task<bool> RemoveAsync(string key)
     {
+        key = $"{GlobalKeyPrefix}{key}";
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
@@ -281,6 +285,7 @@ public class CacheServiceRedis : ICacheService
             throw new ArgumentException(@"Group cannot be null or empty.", nameof(group));
 
         var groupKey = $"{GroupKeyPrefix}{group}";
+        key = $"{GlobalKeyPrefix}{key}";
         await _database.SetAddAsync(groupKey, key);
     }
 
@@ -319,6 +324,7 @@ public class CacheServiceRedis : ICacheService
     public async Task<bool> SetWithGroupsAsync<T>(string key, T value, IEnumerable<string>? groups = null,
         TimeSpan? expiry = null)
     {
+        key = $"{GlobalKeyPrefix}{key}";
         // First, set the value in the cache
         var setResult = await SetAsync(key, value, expiry);
 

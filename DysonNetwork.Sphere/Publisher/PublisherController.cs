@@ -13,7 +13,7 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/publishers")]
-public class PublisherController(AppDatabase db, PublisherService ps, FileService fs, ActionLogService als)
+    public class PublisherController(AppDatabase db, PublisherService ps, FileService fs, FileReferenceService fileRefService, ActionLogService als)
     : ControllerBase
 {
     [HttpGet("{name}")]
@@ -356,20 +356,52 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         {
             var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
             if (picture is null) return BadRequest("Invalid picture id.");
-            if (publisher.Picture is not null) await fs.MarkUsageAsync(publisher.Picture, -1);
 
-            publisher.Picture = picture;
-            await fs.MarkUsageAsync(picture, 1);
+            var publisherResourceId = $"publisher:{publisher.Id}";
+
+            // Remove old references for the publisher picture
+            if (publisher.Picture is not null) {
+                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(publisherResourceId, "publisher.picture");
+                foreach (var oldRef in oldPictureRefs)
+                {
+                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                }
+            }
+
+            publisher.Picture = picture.ToReferenceObject();
+
+            // Create a new reference
+            await fileRefService.CreateReferenceAsync(
+                picture.Id, 
+                "publisher.picture", 
+                publisherResourceId
+            );
         }
 
         if (request.BackgroundId is not null)
         {
             var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
             if (background is null) return BadRequest("Invalid background id.");
-            if (publisher.Background is not null) await fs.MarkUsageAsync(publisher.Background, -1);
 
-            publisher.Background = background;
-            await fs.MarkUsageAsync(background, 1);
+            var publisherResourceId = $"publisher:{publisher.Id}";
+
+            // Remove old references for the publisher background
+            if (publisher.Background is not null) {
+                var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(publisherResourceId, "publisher.background");
+                foreach (var oldRef in oldBackgroundRefs)
+                {
+                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                }
+            }
+
+            publisher.Background = background.ToReferenceObject();
+
+            // Create a new reference
+            await fileRefService.CreateReferenceAsync(
+                background.Id, 
+                "publisher.background", 
+                publisherResourceId
+            );
         }
 
         db.Update(publisher);
@@ -405,10 +437,10 @@ public class PublisherController(AppDatabase db, PublisherService ps, FileServic
         if (member.Role < PublisherMemberRole.Owner)
             return StatusCode(403, "You need to be the owner to delete the publisher.");
 
-        if (publisher.Picture is not null)
-            await fs.MarkUsageAsync(publisher.Picture, -1);
-        if (publisher.Background is not null)
-            await fs.MarkUsageAsync(publisher.Background, -1);
+        var publisherResourceId = $"publisher:{publisher.Id}";
+
+        // Delete all file references for this publisher
+        await fileRefService.DeleteResourceReferencesAsync(publisherResourceId);
 
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();

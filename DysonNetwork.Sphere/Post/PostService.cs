@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Localization;
@@ -13,6 +12,7 @@ namespace DysonNetwork.Sphere.Post;
 public class PostService(
     AppDatabase db,
     FileService fs,
+    FileReferenceService fileRefService,
     ActivityService act,
     IStringLocalizer<NotificationResource> localizer,
     NotificationService nty,
@@ -57,7 +57,8 @@ public class PostService(
 
         if (attachments is not null)
         {
-            post.Attachments = await db.Files.Where(e => attachments.Contains(e.Id)).ToListAsync();
+            post.Attachments = (await db.Files.Where(e => attachments.Contains(e.Id)).ToListAsync())
+                .Select(x => x.ToReferenceObject()).ToList();
             // Re-order the list to match the id list places
             post.Attachments = attachments
                 .Select(id => post.Attachments.First(a => a.Id == id))
@@ -91,8 +92,20 @@ public class PostService(
 
         db.Posts.Add(post);
         await db.SaveChangesAsync();
-        await fs.MarkUsageRangeAsync(post.Attachments, 1);
-        await fs.SetUsageRangeAsync(post.Attachments, PostFileUsageIdentifier);
+
+        // Create file references for each attachment
+        if (post.Attachments.Any())
+        {
+            var postResourceId = $"post:{post.Id}";
+            foreach (var file in post.Attachments)
+            {
+                await fileRefService.CreateReferenceAsync(
+                    file.Id,
+                    PostFileUsageIdentifier,
+                    postResourceId
+                );
+            }
+        }
 
         await act.CreateNewPostActivity(user, post);
 
@@ -131,8 +144,21 @@ public class PostService(
 
         if (attachments is not null)
         {
-            post.Attachments = (await fs.DiffAndMarkFilesAsync(attachments, post.Attachments)).current;
-            await fs.DiffAndSetUsageAsync(attachments, PostFileUsageIdentifier);
+            var postResourceId = $"post:{post.Id}";
+
+            // Update resource references using the new file list
+            await fileRefService.UpdateResourceFilesAsync(
+                postResourceId,
+                attachments,
+                PostFileUsageIdentifier
+            );
+
+            // Update post attachments by getting files from database
+            var files = await db.Files
+                .Where(f => attachments.Contains(f.Id))
+                .ToListAsync();
+
+            post.Attachments = files.Select(x => x.ToReferenceObject()).ToList();
         }
 
         if (tags is not null)
@@ -168,9 +194,13 @@ public class PostService(
 
     public async Task DeletePostAsync(Post post)
     {
+        var postResourceId = $"post:{post.Id}";
+
+        // Delete all file references for this post
+        await fileRefService.DeleteResourceReferencesAsync(postResourceId);
+
         db.Posts.Remove(post);
         await db.SaveChangesAsync();
-        await fs.MarkUsageRangeAsync(post.Attachments, -1);
     }
 
     /// <summary>
@@ -279,8 +309,7 @@ public class PostService(
             [
                 e.PublisherId,
                 e.RepliedPost?.PublisherId,
-                e.ForwardedPost?.PublisherId,
-                e.ThreadedPost?.PublisherId
+                e.ForwardedPost?.PublisherId
             ])
             .Where(e => e != null)
             .Distinct()
@@ -300,13 +329,9 @@ public class PostService(
                 publishers.TryGetValue(post.RepliedPost.PublisherId, out var repliedPublisher))
                 post.RepliedPost.Publisher = repliedPublisher;
 
-            if (post.ForwardedPost?.PublisherId != null && 
+            if (post.ForwardedPost?.PublisherId != null &&
                 publishers.TryGetValue(post.ForwardedPost.PublisherId, out var forwardedPublisher))
                 post.ForwardedPost.Publisher = forwardedPublisher;
-
-            if (post.ThreadedPost?.PublisherId != null &&
-                publishers.TryGetValue(post.ThreadedPost.PublisherId, out var threadedPublisher))
-                post.ThreadedPost.Publisher = threadedPublisher;
         }
 
         return posts;

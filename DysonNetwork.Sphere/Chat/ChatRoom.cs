@@ -12,7 +12,7 @@ public enum ChatRoomType
     DirectMessage
 }
 
-public class ChatRoom : ModelBase
+public class ChatRoom : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string? Name { get; set; }
@@ -21,10 +21,8 @@ public class ChatRoom : ModelBase
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
 
-    [MaxLength(32)] public string? PictureId { get; set; }
-    public CloudFile? Picture { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-    public CloudFile? Background { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
+    [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
     [JsonIgnore] public ICollection<ChatMember> Members { get; set; } = new List<ChatMember>();
 
@@ -35,6 +33,8 @@ public class ChatRoom : ModelBase
     [JsonPropertyName("members")]
     public ICollection<ChatMemberTransmissionObject> DirectMembers { get; set; } =
         new List<ChatMemberTransmissionObject>();
+
+    public string ResourceIdentifier => $"chatroom/{Id}";
 }
 
 public enum ChatMemberRole

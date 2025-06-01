@@ -22,7 +22,7 @@ public enum PostVisibility
     Private
 }
 
-public class Post : ModelBase
+public class Post : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string? Title { get; set; }
@@ -31,7 +31,7 @@ public class Post : ModelBase
     public Instant? EditedAt { get; set; }
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
-    
+
     // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
     public string? Content { get; set; }
 
@@ -44,19 +44,17 @@ public class Post : ModelBase
     public int Downvotes { get; set; }
     [NotMapped] public Dictionary<string, int> ReactionsCount { get; set; } = new();
 
-    public Guid? ThreadedPostId { get; set; }
-    public Post? ThreadedPost { get; set; }
     public Guid? RepliedPostId { get; set; }
     public Post? RepliedPost { get; set; }
     public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
-    public ICollection<CloudFile> Attachments { get; set; } = new List<CloudFile>();
+    [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
 
     [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;
 
     public Guid PublisherId { get; set; }
     public Publisher.Publisher Publisher { get; set; } = null!;
-    
+
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
     public ICollection<PostTag> Tags { get; set; } = new List<PostTag>();
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
@@ -64,6 +62,8 @@ public class Post : ModelBase
 
     [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
     [NotMapped] public bool IsTruncated = false;
+
+    public string ResourceIdentifier => $"post/{Id}";
 }
 
 public class PostTag : ModelBase

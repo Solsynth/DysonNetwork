@@ -10,6 +10,11 @@ using Quartz;
 
 namespace DysonNetwork.Sphere;
 
+public interface IIdentifiedResource
+{
+    public string ResourceIdentifier { get; }
+}
+
 public abstract class ModelBase
 {
     public Instant CreatedAt { get; set; }
@@ -43,6 +48,7 @@ public class AppDatabase(
     public DbSet<Auth.Challenge> AuthChallenges { get; set; }
 
     public DbSet<Storage.CloudFile> Files { get; set; }
+    public DbSet<Storage.CloudFileReference> FileReferences { get; set; }
 
     public DbSet<Activity.Activity> Activities { get; set; }
 
@@ -178,10 +184,6 @@ public class AppDatabase(
             .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
             .HasIndex(p => p.SearchVector)
             .HasMethod("GIN");
-        modelBuilder.Entity<Post.Post>()
-            .HasOne(p => p.ThreadedPost)
-            .WithOne()
-            .HasForeignKey<Post.Post>(p => p.ThreadedPostId);
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.RepliedPost)
             .WithMany()

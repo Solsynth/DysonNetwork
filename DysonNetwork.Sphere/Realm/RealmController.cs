@@ -10,7 +10,14 @@ namespace DysonNetwork.Sphere.Realm;
 
 [ApiController]
 [Route("/realms")]
-public class RealmController(AppDatabase db, RealmService rs, FileService fs, RelationshipService rels, ActionLogService als) : Controller
+public class RealmController(
+    AppDatabase db,
+    RealmService rs,
+    FileService fs,
+    FileReferenceService fileRefService,
+    RelationshipService rels,
+    ActionLogService als
+) : Controller
 {
     [HttpGet("{slug}")]
     public async Task<ActionResult<Realm>> GetRealm(string slug)
@@ -298,13 +305,13 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Re
 
         if (request.PictureId is not null)
         {
-            realm.Picture = await db.Files.FindAsync(request.PictureId);
+            realm.Picture = (await db.Files.FindAsync(request.PictureId))?.ToReferenceObject();
             if (realm.Picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
         }
 
         if (request.BackgroundId is not null)
         {
-            realm.Background = await db.Files.FindAsync(request.BackgroundId);
+            realm.Background = (await db.Files.FindAsync(request.BackgroundId))?.ToReferenceObject();
             if (realm.Background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
         }
 
@@ -316,8 +323,25 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Re
             new Dictionary<string, object> { { "realm_id", realm.Id } }, Request
         );
 
-        if (realm.Picture is not null) await fs.MarkUsageAsync(realm.Picture, 1);
-        if (realm.Background is not null) await fs.MarkUsageAsync(realm.Background, 1);
+        var realmResourceId = $"realm:{realm.Id}";
+
+        if (realm.Picture is not null)
+        {
+            await fileRefService.CreateReferenceAsync(
+                realm.Picture.Id,
+                "realm.picture",
+                realmResourceId
+            );
+        }
+
+        if (realm.Background is not null)
+        {
+            await fileRefService.CreateReferenceAsync(
+                realm.Background.Id,
+                "realm.background",
+                realmResourceId
+            );
+        }
 
         return Ok(realm);
     }
@@ -357,22 +381,57 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Re
         if (request.IsPublic is not null)
             realm.IsPublic = request.IsPublic.Value;
 
+        var realmResourceId = $"realm:{realm.Id}";
+
         if (request.PictureId is not null)
         {
             var picture = await db.Files.FindAsync(request.PictureId);
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
-            await fs.MarkUsageAsync(picture, 1);
-            if (realm.Picture is not null) await fs.MarkUsageAsync(realm.Picture, -1);
-            realm.Picture = picture;
+
+            // Remove old references for the realm picture
+            if (realm.Picture is not null)
+            {
+                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(realmResourceId, "realm.picture");
+                foreach (var oldRef in oldPictureRefs)
+                {
+                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                }
+            }
+
+            realm.Picture = picture.ToReferenceObject();
+
+            // Create a new reference
+            await fileRefService.CreateReferenceAsync(
+                picture.Id,
+                "realm.picture",
+                realmResourceId
+            );
         }
 
         if (request.BackgroundId is not null)
         {
             var background = await db.Files.FindAsync(request.BackgroundId);
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-            await fs.MarkUsageAsync(background, 1);
-            if (realm.Background is not null) await fs.MarkUsageAsync(realm.Background, -1);
-            realm.Background = background;
+
+            // Remove old references for the realm background
+            if (realm.Background is not null)
+            {
+                var oldBackgroundRefs =
+                    await fileRefService.GetResourceReferencesAsync(realmResourceId, "realm.background");
+                foreach (var oldRef in oldBackgroundRefs)
+                {
+                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                }
+            }
+
+            realm.Background = background.ToReferenceObject();
+
+            // Create a new reference
+            await fileRefService.CreateReferenceAsync(
+                background.Id,
+                "realm.background",
+                realmResourceId
+            );
         }
 
         db.Realms.Update(realm);
@@ -517,10 +576,9 @@ public class RealmController(AppDatabase db, RealmService rs, FileService fs, Re
             new Dictionary<string, object> { { "realm_id", realm.Id } }, Request
         );
 
-        if (realm.Picture is not null)
-            await fs.MarkUsageAsync(realm.Picture, -1);
-        if (realm.Background is not null)
-            await fs.MarkUsageAsync(realm.Background, -1);
+        // Delete all file references for this realm
+        var realmResourceId = $"realm:{realm.Id}";
+        await fileRefService.DeleteResourceReferencesAsync(realmResourceId);
 
         return NoContent();
     }
