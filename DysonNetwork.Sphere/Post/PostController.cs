@@ -297,8 +297,6 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .Include(e => e.Publisher.Picture)
-            .Include(e => e.Publisher.Background)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .FirstOrDefaultAsync();

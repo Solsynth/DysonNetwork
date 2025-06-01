@@ -77,8 +77,6 @@ public class AccountCurrentController(
 
         var profile = await db.AccountProfiles
             .Where(p => p.Account.Id == userId)
-            .Include(profile => profile.Background)
-            .Include(profile => profile.Picture)
             .FirstOrDefaultAsync();
         if (profile is null) return BadRequest("Unable to get your account.");
 
