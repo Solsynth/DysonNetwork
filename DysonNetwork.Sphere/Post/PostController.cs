@@ -76,7 +76,6 @@ public class PostController(
             .Include(e => e.Publisher)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
-            .Include(e => e.Attachments)
             .FilterWithVisibility(currentUser, userFriends)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
@@ -300,7 +299,6 @@ public class PostController(
             .Include(e => e.Publisher)
             .Include(e => e.Publisher.Picture)
             .Include(e => e.Publisher.Background)
-            .Include(e => e.Attachments)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .FirstOrDefaultAsync();
