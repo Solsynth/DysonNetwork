@@ -48,6 +48,9 @@ public class Post : ModelBase, IIdentifiedResource
     public Post? RepliedPost { get; set; }
     public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
+    
+    // Outdated fields, keep for backward compability
+    public ICollection<CloudFile> OutdatedAttachments { get; set; } = new List<CloudFile>();
     [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
 
     [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;

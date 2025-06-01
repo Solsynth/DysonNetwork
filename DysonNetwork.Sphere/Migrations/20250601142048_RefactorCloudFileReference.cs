@@ -31,14 +31,6 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "chat_rooms");
 
             migrationBuilder.DropForeignKey(
-                name: "fk_files_chat_messages_message_id",
-                table: "files");
-
-            migrationBuilder.DropForeignKey(
-                name: "fk_files_posts_post_id",
-                table: "files");
-
-            migrationBuilder.DropForeignKey(
                 name: "fk_posts_posts_threaded_post_id",
                 table: "posts");
 
@@ -87,14 +79,6 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "posts");
 
             migrationBuilder.DropIndex(
-                name: "ix_files_message_id",
-                table: "files");
-
-            migrationBuilder.DropIndex(
-                name: "ix_files_post_id",
-                table: "files");
-
-            migrationBuilder.DropIndex(
                 name: "ix_chat_rooms_background_id",
                 table: "chat_rooms");
 
@@ -111,67 +95,38 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "account_profiles");
 
             migrationBuilder.DropColumn(
-                name: "background_id",
-                table: "realms");
-
-            migrationBuilder.DropColumn(
-                name: "picture_id",
-                table: "realms");
-
-            migrationBuilder.DropColumn(
-                name: "background_id",
-                table: "publishers");
-
-            migrationBuilder.DropColumn(
-                name: "picture_id",
-                table: "publishers");
-
-            migrationBuilder.DropColumn(
                 name: "threaded_post_id",
                 table: "posts");
 
-            // TODO Move these following changes to next migrations after migrated all the attachments data
-            // migrationBuilder.DropColumn(
-            //     name: "expired_at",
-            //     table: "files");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "message_id",
-            //     table: "files");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "post_id",
-            //     table: "files");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "usage",
-            //     table: "files");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "used_count",
-            //     table: "files");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "background_id",
-            //     table: "chat_rooms");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "picture_id",
-            //     table: "chat_rooms");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "background_id",
-            //     table: "account_profiles");
-            //
-            // migrationBuilder.DropColumn(
-            //     name: "picture_id",
-            //     table: "account_profiles");
+            migrationBuilder.DropColumn(
+                name: "expired_at",
+                table: "files");
+
+            migrationBuilder.DropColumn(
+                name: "usage",
+                table: "files");
+
+            migrationBuilder.DropColumn(
+                name: "used_count",
+                table: "files");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "image_id",
+                table: "stickers",
+                type: "character varying(32)",
+                maxLength: 32,
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "character varying(32)",
+                oldMaxLength: 32);
 
             migrationBuilder.AddColumn<CloudFileReferenceObject>(
                 name: "image",
                 table: "stickers",
                 type: "jsonb",
-                nullable: false);
+                nullable: true,
+                defaultValueSql: "'[]'::jsonb"
+                );
 
             migrationBuilder.AddColumn<CloudFileReferenceObject>(
                 name: "background",
@@ -201,7 +156,9 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "attachments",
                 table: "posts",
                 type: "jsonb",
-                nullable: false);
+                nullable: false,
+                defaultValueSql: "'[]'::jsonb"
+                );
 
             migrationBuilder.AddColumn<CloudFileReferenceObject>(
                 name: "background",
@@ -219,7 +176,9 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "attachments",
                 table: "chat_messages",
                 type: "jsonb",
-                nullable: false);
+                nullable: false,
+                defaultValueSql: "'[]'::jsonb"
+                );
 
             migrationBuilder.AddColumn<CloudFileReferenceObject>(
                 name: "background",
@@ -313,33 +272,17 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "picture",
                 table: "account_profiles");
 
-            migrationBuilder.AddColumn<string>(
-                name: "background_id",
-                table: "realms",
+            migrationBuilder.AlterColumn<string>(
+                name: "image_id",
+                table: "stickers",
                 type: "character varying(32)",
                 maxLength: 32,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "picture_id",
-                table: "realms",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "background_id",
-                table: "publishers",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "picture_id",
-                table: "publishers",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
+                nullable: false,
+                defaultValue: "",
+                oldClrType: typeof(string),
+                oldType: "character varying(32)",
+                oldMaxLength: 32,
+                oldNullable: true);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "threaded_post_id",
@@ -351,18 +294,6 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "expired_at",
                 table: "files",
                 type: "timestamp with time zone",
-                nullable: true);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "message_id",
-                table: "files",
-                type: "uuid",
-                nullable: true);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "post_id",
-                table: "files",
-                type: "uuid",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
@@ -378,34 +309,6 @@ namespace DysonNetwork.Sphere.Migrations
                 type: "integer",
                 nullable: false,
                 defaultValue: 0);
-
-            migrationBuilder.AddColumn<string>(
-                name: "background_id",
-                table: "chat_rooms",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "picture_id",
-                table: "chat_rooms",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "background_id",
-                table: "account_profiles",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "picture_id",
-                table: "account_profiles",
-                type: "character varying(32)",
-                maxLength: 32,
-                nullable: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_stickers_image_id",
@@ -437,16 +340,6 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "posts",
                 column: "threaded_post_id",
                 unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "ix_files_message_id",
-                table: "files",
-                column: "message_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_files_post_id",
-                table: "files",
-                column: "post_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_chat_rooms_background_id",
@@ -494,20 +387,6 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "chat_rooms",
                 column: "picture_id",
                 principalTable: "files",
-                principalColumn: "id");
-
-            migrationBuilder.AddForeignKey(
-                name: "fk_files_chat_messages_message_id",
-                table: "files",
-                column: "message_id",
-                principalTable: "chat_messages",
-                principalColumn: "id");
-
-            migrationBuilder.AddForeignKey(
-                name: "fk_files_posts_post_id",
-                table: "files",
-                column: "post_id",
-                principalTable: "posts",
                 principalColumn: "id");
 
             migrationBuilder.AddForeignKey(

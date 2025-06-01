@@ -28,7 +28,7 @@ public class NotificationService(
     {
         var existingSubscription = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == account.Id)
-            .Where(s => (s.DeviceId == deviceId || s.DeviceToken == deviceToken) && s.Provider == provider)
+            .Where(s => s.DeviceId == deviceId || s.DeviceToken == deviceToken)
             .FirstOrDefaultAsync();
 
         if (existingSubscription is not null)

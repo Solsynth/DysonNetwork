@@ -21,8 +21,6 @@ public class AccountCurrentController(
     AuthService auth
 ) : ControllerBase
 {
-    private const string ProfilePictureFileUsageIdentifier = "profile";
-    
     [HttpGet]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
     public async Task<ActionResult<Account>> GetCurrentIdentity()
@@ -98,7 +96,7 @@ public class AccountCurrentController(
 
             // Remove old references for the profile picture
             if (profile.Picture is not null) {
-                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, ProfilePictureFileUsageIdentifier);
+                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.picture");
                 foreach (var oldRef in oldPictureRefs)
                 {
                     await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -110,7 +108,7 @@ public class AccountCurrentController(
             // Create new reference
             await fileRefService.CreateReferenceAsync(
                 picture.Id, 
-                ProfilePictureFileUsageIdentifier, 
+                "profile.picture", 
                 profileResourceId
             );
         }
@@ -124,7 +122,7 @@ public class AccountCurrentController(
 
             // Remove old references for the profile background
             if (profile.Background is not null) {
-                var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, ProfilePictureFileUsageIdentifier);
+                var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.background");
                 foreach (var oldRef in oldBackgroundRefs)
                 {
                     await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -136,7 +134,7 @@ public class AccountCurrentController(
             // Create new reference
             await fileRefService.CreateReferenceAsync(
                 background.Id, 
-                ProfilePictureFileUsageIdentifier, 
+                "profile.background", 
                 profileResourceId
             );
         }

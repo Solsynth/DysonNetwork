@@ -19,6 +19,10 @@ public class Realm : ModelBase, IIdentifiedResource
     public Instant? VerifiedAt { get; set; }
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
+    
+    // Outdated fields, for backward compability
+    [MaxLength(32)] public string? PictureId { get; set; }
+    [MaxLength(32)] public string? BackgroundId { get; set; }
 
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }

@@ -1,3 +1,4 @@
+using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,8 @@ public class FileController(
     AppDatabase db,
     FileService fs,
     IConfiguration configuration,
-    IWebHostEnvironment env
+    IWebHostEnvironment env,
+    FileReferenceMigrationService rms
 ) : ControllerBase
 {
     [HttpGet("{id}")]
@@ -106,5 +108,14 @@ public class FileController(
         await db.SaveChangesAsync();
 
         return NoContent();
+    }
+    
+    [HttpPost("/maintenance/migrateReferences")]
+    [Authorize]
+    [RequiredPermission("maintenance", "files.references")]
+    public async Task<ActionResult> MigrateFileReferences()
+    {
+        await rms.ScanAndMigrateReferences();
+        return Ok();
     }
 }

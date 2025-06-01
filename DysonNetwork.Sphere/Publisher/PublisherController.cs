@@ -53,8 +53,6 @@ namespace DysonNetwork.Sphere.Publisher;
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Publisher)
-            .Include(e => e.Publisher.Picture)
-            .Include(e => e.Publisher.Background)
             .ToListAsync();
 
         return members.Select(m => m.Publisher).ToList();
@@ -71,8 +69,6 @@ namespace DysonNetwork.Sphere.Publisher;
             .Where(m => m.AccountId == userId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.Publisher)
-            .Include(e => e.Publisher.Picture)
-            .Include(e => e.Publisher.Background)
             .ToListAsync();
 
         return members.ToList();

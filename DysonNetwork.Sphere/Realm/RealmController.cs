@@ -24,8 +24,6 @@ public class RealmController(
     {
         var realm = await db.Realms
             .Where(e => e.Slug == slug)
-            .Include(e => e.Picture)
-            .Include(e => e.Background)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 

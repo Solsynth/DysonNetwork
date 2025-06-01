@@ -537,6 +537,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
+                    b.Property<string>("BackgroundId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("background_id");
+
                     b.Property<string>("Bio")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
@@ -585,6 +590,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<CloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
+
+                    b.Property<string>("PictureId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("picture_id");
 
                     b.Property<string>("Pronouns")
                         .HasMaxLength(1024)
@@ -981,6 +991,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
+                    b.Property<string>("BackgroundId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("background_id");
+
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1010,6 +1025,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<CloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
+
+                    b.Property<string>("PictureId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("picture_id");
 
                     b.Property<Guid?>("RealmId")
                         .HasColumnType("uuid")
@@ -1764,6 +1784,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
+                    b.Property<string>("BackgroundId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("background_id");
+
                     b.Property<string>("Bio")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
@@ -1792,6 +1817,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<CloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
+
+                    b.Property<string>("PictureId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("picture_id");
 
                     b.Property<Guid?>("RealmId")
                         .HasColumnType("uuid")
@@ -1964,6 +1994,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
+                    b.Property<string>("BackgroundId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("background_id");
+
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1995,6 +2030,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<CloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
+
+                    b.Property<string>("PictureId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("picture_id");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -2087,12 +2127,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<CloudFileReferenceObject>("Image")
-                        .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("image");
 
                     b.Property<string>("ImageId")
-                        .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("image_id");
@@ -2214,6 +2252,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("hash");
 
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
                     b.Property<string>("MimeType")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -2224,6 +2266,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
+
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("post_id");
 
                     b.Property<List<CloudFileSensitiveMark>>("SensitiveMarks")
                         .HasColumnType("jsonb")
@@ -2265,6 +2311,12 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("AccountId")
                         .HasDatabaseName("ix_files_account_id");
+
+                    b.HasIndex("MessageId")
+                        .HasDatabaseName("ix_files_message_id");
+
+                    b.HasIndex("PostId")
+                        .HasDatabaseName("ix_files_post_id");
 
                     b.ToTable("files", (string)null);
                 });
@@ -3122,6 +3174,16 @@ namespace DysonNetwork.Sphere.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_files_accounts_account_id");
 
+                    b.HasOne("DysonNetwork.Sphere.Chat.Message", null)
+                        .WithMany("OutdatedAttachments")
+                        .HasForeignKey("MessageId")
+                        .HasConstraintName("fk_files_chat_messages_message_id");
+
+                    b.HasOne("DysonNetwork.Sphere.Post.Post", null)
+                        .WithMany("OutdatedAttachments")
+                        .HasForeignKey("PostId")
+                        .HasConstraintName("fk_files_posts_post_id");
+
                     b.Navigation("Account");
                 });
 
@@ -3282,6 +3344,8 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Chat.Message", b =>
                 {
+                    b.Navigation("OutdatedAttachments");
+
                     b.Navigation("Reactions");
                 });
 
@@ -3294,6 +3358,8 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Post.Post", b =>
                 {
+                    b.Navigation("OutdatedAttachments");
+
                     b.Navigation("Reactions");
                 });
 

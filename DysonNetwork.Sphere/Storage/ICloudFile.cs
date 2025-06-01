@@ -1,3 +1,5 @@
+using NodaTime;
+
 namespace DysonNetwork.Sphere.Storage;
 
 /// <summary>
@@ -7,6 +9,10 @@ namespace DysonNetwork.Sphere.Storage;
 /// </summary>
 public interface ICloudFile
 {
+    public Instant CreatedAt { get; }
+    public Instant UpdatedAt { get; }
+    public Instant? DeletedAt { get; }
+    
     /// <summary>
     /// Gets the unique identifier of the cloud file.
     /// </summary>

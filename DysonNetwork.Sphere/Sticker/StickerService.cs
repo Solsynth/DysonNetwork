@@ -73,7 +73,6 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
     public async Task DeleteStickerPackAsync(StickerPack pack)
     {
         var stickers = await db.Stickers
-            .Include(s => s.Image)
             .Where(s => s.PackId == pack.Id)
             .ToListAsync();
 
@@ -110,8 +109,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
 
         // If not in cache, fetch from the database
         IQueryable<Sticker> query = db.Stickers
-            .Include(e => e.Pack)
-            .Include(e => e.Image);
+            .Include(e => e.Pack);
         query = Guid.TryParse(identifier, out var guid)
             ? query.Where(e => e.Id == guid)
             : query.Where(e => (e.Pack.Prefix + e.Slug).ToLower() == identifier);

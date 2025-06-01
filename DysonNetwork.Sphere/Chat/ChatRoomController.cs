@@ -223,7 +223,6 @@ public class ChatRoomController(
 
         var chatRoom = await db.ChatRooms
             .Where(e => e.Id == id)
-            .Include(c => c.Picture)
             .Include(c => c.Background)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
@@ -320,8 +319,6 @@ public class ChatRoomController(
 
         var chatRoom = await db.ChatRooms
             .Where(e => e.Id == id)
-            .Include(c => c.Picture)
-            .Include(c => c.Background)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 

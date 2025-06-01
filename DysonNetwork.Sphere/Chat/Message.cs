@@ -16,8 +16,11 @@ public class Message : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public List<Guid>? MembersMentioned { get; set; }
     [MaxLength(36)] public string Nonce { get; set; } = null!;
     public Instant? EditedAt { get; set; }
+    
+    [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = []; 
 
-    [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
+    // Outdated fields, keep for backward compability
+    public ICollection<CloudFile> OutdatedAttachments { get; set; } = new List<CloudFile>();
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
 
     public Guid? RepliedMessageId { get; set; }

@@ -69,6 +69,10 @@ public class Profile : ModelBase
         (Experience - Leveling.ExperiencePerLevel[Level]) * 100.0 / 
         (Leveling.ExperiencePerLevel[Level + 1] - Leveling.ExperiencePerLevel[Level]);
 
+    // Outdated fields, for backward compability
+    [MaxLength(32)] public string? PictureId { get; set; }
+    [MaxLength(32)] public string? BackgroundId { get; set; }
+    
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
