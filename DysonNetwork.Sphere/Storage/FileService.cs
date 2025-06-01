@@ -240,6 +240,7 @@ public class FileService(
 
             await stream.DisposeAsync();
             await store.DeleteFileAsync(file.Id, CancellationToken.None);
+            await nfs._PurgeCacheAsync(file.Id);
         });
 
         return file;

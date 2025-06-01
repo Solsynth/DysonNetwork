@@ -10,7 +10,7 @@ using tusdotnet.Models.Configuration;
 
 namespace DysonNetwork.Sphere.Storage;
 
-public class TusService
+public abstract class TusService
 {
     public static DefaultTusConfiguration BuildConfiguration(ITusStore store) => new()
     {
