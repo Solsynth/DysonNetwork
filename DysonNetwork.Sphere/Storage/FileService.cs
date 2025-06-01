@@ -176,6 +176,16 @@ public class FileService(
 
                 if (contentType.Split('/')[0] == "image")
                 {
+                    // Skip compression for animated image types
+                    var animatedMimeTypes = new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
+                    if (animatedMimeTypes.Contains(contentType))
+                    {
+                        logger.LogInformation("File {fileId} is an animated image (MIME: {mime}), skipping WebP conversion.", fileId, contentType);
+                        var tempFilePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
+                        result.Add((tempFilePath, string.Empty));
+                        return;
+                    }
+
                     file.MimeType = "image/webp";
 
                     using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
