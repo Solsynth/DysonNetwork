@@ -34,33 +34,41 @@ public class FileReferenceMigrationService(AppDatabase db)
     {
         var posts = await db.Posts
             .Include(p => p.OutdatedAttachments)
+            .Where(p => p.OutdatedAttachments.Any())
             .ToListAsync();
 
         var attachmentsId = posts.SelectMany(p => p.OutdatedAttachments.Select(a => a.Id)).ToList();
-        var attachments = await db.Files.Where(f => attachmentsId.Contains(f.Id)).ToListAsync();
-        var attachmentsDict = attachments
-            .GroupBy(a => posts.First(p => p.OutdatedAttachments.Any(oa => oa.Id == a.Id)).Id)
-            .ToDictionary(g => g.Key, g => g.ToList());
+        var attachments =
+            await db.Files.Where(f => attachmentsId.Contains(f.Id)).ToDictionaryAsync(x => x.Id);
 
-        var fileReferences = posts.SelectMany(post =>
-            attachmentsDict.TryGetValue(post.Id, out var value) 
-                ? value.Select(attachment =>
-                    new CloudFileReference
-                    {
-                        FileId = attachment.Id,
-                        File = attachment,
-                        Usage = "post",
-                        ResourceId = post.Id.ToString(),
-                        CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-                        UpdatedAt = SystemClock.Instance.GetCurrentInstant() 
-                    })
-                : []
-            )
-            .ToList();
+        var fileReferences = posts.SelectMany(post => post.Attachments.Select(attachment =>
+            {
+                var value = attachments.TryGetValue(attachment.Id, out var file) ? file : null;
+                if (value is null) return null;
+                return new CloudFileReference
+                {
+                    FileId = value.Id,
+                    File = value,
+                    Usage = "post",
+                    ResourceId = post.Id.ToString(),
+                    CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                    UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+                };
+            }).Where(x => x != null).Select(x => x!)
+        ).ToList();
 
         foreach (var post in posts)
         {
-            post.Attachments = post.OutdatedAttachments.Select(a => a.ToReferenceObject()).ToList();
+            var updatedAttachments = new List<CloudFileReferenceObject>();
+            foreach (var attachment in post.OutdatedAttachments)
+            {
+                if (await db.Files.AnyAsync(f => f.Id == attachment.Id))
+                    updatedAttachments.Add(attachment.ToReferenceObject());
+                else
+                    updatedAttachments.Add(attachment.ToReferenceObject());
+            }
+
+            post.Attachments = updatedAttachments;
             db.Posts.Update(post);
         }
 
