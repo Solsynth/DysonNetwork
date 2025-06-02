@@ -1,4 +1,6 @@
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Storage;
 
@@ -35,38 +37,33 @@ public class FileReferenceMigrationService(AppDatabase db)
             .Where(p => p.OutdatedAttachments.Any())
             .ToListAsync();
 
+        var attachmentsId = posts.SelectMany(p => p.OutdatedAttachments.Select(a => a.Id)).ToList();
+        var attachments = await db.Files.Where(f => attachmentsId.Contains(f.Id)).ToListAsync();
+        var attachmentsDict = attachments
+            .GroupBy(a => posts.First(p => p.OutdatedAttachments.Any(oa => oa.Id == a.Id)).Id)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var fileReferences = posts.SelectMany(post =>
+            attachmentsDict[post.Id].Select(attachment =>
+                new CloudFileReference
+                {
+                    FileId = attachment.Id,
+                    File = attachment,
+                    Usage = "post", 
+                    ResourceId = post.Id.ToString(),
+                    CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                    UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+                })
+            )
+            .ToList();
+
         foreach (var post in posts)
         {
-            var updatedAttachments = new List<CloudFileReferenceObject>();
-
-            foreach (var attachment in post.OutdatedAttachments)
-            {
-                var file = await db.Files.FirstOrDefaultAsync(f => f.Id == attachment.Id);
-                if (file != null)
-                {
-                    // Create a reference for the file
-                    var reference = new CloudFileReference
-                    {
-                        FileId = file.Id,
-                        File = file,
-                        Usage = "post",
-                        ResourceId = post.Id.ToString()
-                    };
-
-                    await db.FileReferences.AddAsync(reference);
-                    updatedAttachments.Add(file.ToReferenceObject());
-                }
-                else
-                {
-                    // Keep the existing reference object if file not found
-                    updatedAttachments.Add(attachment.ToReferenceObject());
-                }
-            }
-
-            post.Attachments = updatedAttachments;
+            post.Attachments = post.OutdatedAttachments.Select(a => a.ToReferenceObject()).ToList();
             db.Posts.Update(post);
         }
 
+        await db.BulkInsertAsync(fileReferences);
         await db.SaveChangesAsync();
     }
 
@@ -74,41 +71,28 @@ public class FileReferenceMigrationService(AppDatabase db)
     {
         var messages = await db.ChatMessages
             .Include(m => m.OutdatedAttachments)
-            .Where(m => m.OutdatedAttachments.Any() && m.DeletedAt == null)
+            .Where(m => m.OutdatedAttachments.Any())
             .ToListAsync();
+
+        var fileReferences = messages.SelectMany(message => message.OutdatedAttachments.Select(attachment =>
+            new CloudFileReference
+            {
+                FileId = attachment.Id,
+                File = attachment,
+                Usage = "chat",
+                ResourceId = message.Id.ToString(),
+                CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+            })
+        ).ToList();
 
         foreach (var message in messages)
         {
-            var updatedAttachments = new List<CloudFileReferenceObject>();
-
-            foreach (var attachment in message.OutdatedAttachments)
-            {
-                var file = await db.Files.FirstOrDefaultAsync(f => f.Id == attachment.Id);
-                if (file != null)
-                {
-                    // Create a reference for the file
-                    var reference = new CloudFileReference
-                    {
-                        FileId = file.Id,
-                        File = file,
-                        Usage = "chat",
-                        ResourceId = message.Id.ToString()
-                    };
-
-                    await db.FileReferences.AddAsync(reference);
-                    updatedAttachments.Add(file.ToReferenceObject());
-                }
-                else
-                {
-                    // Keep the existing reference object if file not found
-                    updatedAttachments.Add(attachment.ToReferenceObject());
-                }
-            }
-
-            message.Attachments = updatedAttachments;
+            message.Attachments = message.OutdatedAttachments.Select(a => a.ToReferenceObject()).ToList();
             db.ChatMessages.Update(message);
         }
 
+        await db.BulkInsertAsync(fileReferences);
         await db.SaveChangesAsync();
     }
 

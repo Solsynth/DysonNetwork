@@ -25,11 +25,9 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         Duration? duration = null)
     {
         // Calculate expiration time if needed
-        Instant? finalExpiration = expiredAt;
+        var finalExpiration = expiredAt;
         if (duration.HasValue)
-        {
             finalExpiration = SystemClock.Instance.GetCurrentInstant() + duration.Value;
-        }
 
         var reference = new CloudFileReference
         {
@@ -42,8 +40,6 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         db.FileReferences.Add(reference);
 
         await db.SaveChangesAsync();
-
-        // Purge cache for the file since its usage count has effectively changed
         await fileService._PurgeCacheAsync(fileId);
 
         return reference;
