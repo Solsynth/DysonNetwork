@@ -24,6 +24,9 @@ public class FileReferenceMigrationService(AppDatabase db)
 
         // Scan Publishers for file references
         await ScanPublishers();
+
+        // Scan Stickers for file references
+        await ScanStickers();
     }
 
     private async Task ScanPosts()
@@ -312,6 +315,35 @@ public class FileReferenceMigrationService(AppDatabase db)
             }
 
             db.Publishers.Update(publisher);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private async Task ScanStickers()
+    {
+        var stickers = await db.Stickers
+            .Where(s => s.ImageId != null && s.Image == null)
+            .ToListAsync();
+
+        foreach (var sticker in stickers)
+        {
+            var imageFile = await db.Files.FirstOrDefaultAsync(f => f.Id == sticker.ImageId);
+            if (imageFile != null)
+            {
+                // Create a reference for the sticker image file
+                var reference = new CloudFileReference
+                {
+                    FileId = imageFile.Id,
+                    File = imageFile,
+                    Usage = "sticker.image",
+                    ResourceId = sticker.Id.ToString()
+                };
+
+                await db.FileReferences.AddAsync(reference);
+                sticker.Image = imageFile.ToReferenceObject();
+                db.Stickers.Update(sticker);
+            }
         }
 
         await db.SaveChangesAsync();
