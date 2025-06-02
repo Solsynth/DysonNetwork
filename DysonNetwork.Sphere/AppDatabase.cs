@@ -85,17 +85,10 @@ public class AppDatabase(
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        var dataSourceBuilder = new NpgsqlDataSourceBuilder(configuration.GetConnectionString("App"));
-        dataSourceBuilder.EnableDynamicJson();
-        dataSourceBuilder.UseNetTopologySuite();
-        dataSourceBuilder.UseNodaTime();
-
-        if (configuration.GetValue<bool>("Debug"))
-            optionsBuilder.EnableSensitiveDataLogging();
-
         optionsBuilder.UseNpgsql(
-            dataSourceBuilder.Build(),
+            configuration.GetConnectionString("App"),
             opt => opt
+                .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
                 .UseNetTopologySuite()
                 .UseNodaTime()
@@ -374,7 +367,7 @@ public static class OptionalQueryExtensions
     {
         return condition ? transform(source) : source;
     }
-    
+
     public static IQueryable<T> If<T, TP>(
         this IIncludableQueryable<T, TP> source,
         bool condition,
