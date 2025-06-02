@@ -43,16 +43,18 @@ public class FileReferenceMigrationService(AppDatabase db)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var fileReferences = posts.SelectMany(post =>
-            attachmentsDict[post.Id].Select(attachment =>
-                new CloudFileReference
-                {
-                    FileId = attachment.Id,
-                    File = attachment,
-                    Usage = "post", 
-                    ResourceId = post.Id.ToString(),
-                    CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-                    UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                })
+            attachmentsDict.TryGetValue(post.Id, out var value) 
+                ? value.Select(attachment =>
+                    new CloudFileReference
+                    {
+                        FileId = attachment.Id,
+                        File = attachment,
+                        Usage = "post",
+                        ResourceId = post.Id.ToString(),
+                        CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                        UpdatedAt = SystemClock.Instance.GetCurrentInstant() 
+                    })
+                : []
             )
             .ToList();
 
