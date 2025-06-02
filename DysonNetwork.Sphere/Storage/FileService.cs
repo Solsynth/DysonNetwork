@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Minio;
 using Minio.DataModel.Args;
+using NetVips;
 using NodaTime;
 using Quartz;
 using tusdotnet.Stores;
@@ -51,6 +52,7 @@ public class FileService(
     }
 
     private static readonly string TempFilePrefix = "dyn-cloudfile";
+    private static readonly string[] function = new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
 
     // The analysis file method no longer will remove the GPS EXIF data
     // It should be handled on the client side, and for some specific cases it should be keep
@@ -110,7 +112,7 @@ public class FileService(
                     var format = vipsImage.Get("vips-loader") ?? "unknown";
 
                     // Try to get orientation from exif data
-                    int orientation = 1;
+                    var orientation = 1;
                     Dictionary<string, object> exif = [];
 
                     foreach (var field in vipsImage.GetFields())
@@ -177,10 +179,12 @@ public class FileService(
                 if (contentType.Split('/')[0] == "image")
                 {
                     // Skip compression for animated image types
-                    var animatedMimeTypes = new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
+                    var animatedMimeTypes = function;
                     if (animatedMimeTypes.Contains(contentType))
                     {
-                        logger.LogInformation("File {fileId} is an animated image (MIME: {mime}), skipping WebP conversion.", fileId, contentType);
+                        logger.LogInformation(
+                            "File {fileId} is an animated image (MIME: {mime}), skipping WebP conversion.", fileId,
+                            contentType);
                         var tempFilePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
                         result.Add((tempFilePath, string.Empty));
                         return;
@@ -190,7 +194,8 @@ public class FileService(
 
                     using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    vipsImage.WriteToFile(imagePath + ".webp");
+                    vipsImage.WriteToFile(imagePath + ".webp",
+                        new VOption { { "lossless", true } });
                     result.Add((imagePath + ".webp", string.Empty));
 
                     if (vipsImage.Width * vipsImage.Height >= 1024 * 1024)
@@ -201,7 +206,8 @@ public class FileService(
 
                         // Create and save image within the same synchronous block to avoid disposal issues
                         using var compressedImage = vipsImage.Resize(scale);
-                        compressedImage.WriteToFile(imageCompressedPath + ".webp");
+                        compressedImage.WriteToFile(imageCompressedPath + ".webp",
+                            new VOption { { "Q", 80 } });
 
                         result.Add((imageCompressedPath + ".webp", ".compressed"));
                         file.HasCompression = true;
@@ -408,7 +414,7 @@ public class FileService(
 
         return client.Build();
     }
-    
+
     // Helper method to purge the cache for a specific file
     // Made internal to allow FileReferenceService to use it
     internal async Task _PurgeCacheAsync(string fileId)
