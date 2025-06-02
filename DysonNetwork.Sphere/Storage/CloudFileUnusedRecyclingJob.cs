@@ -88,27 +88,27 @@ public class CloudFileUnusedRecyclingJob(
                 if (client == null) continue;
 
                 // Create delete tasks for each file in the group
-                var deleteTasks = group.Value.Select(file =>
-                {
-                    var objectId = file.StorageId ?? file.Id;
-                    var tasks = new List<Task>
-                    {
-                        client.RemoveObjectAsync(new Minio.DataModel.Args.RemoveObjectArgs()
-                            .WithBucket(dest.Bucket)
-                            .WithObject(objectId))
-                    };
-
-                    if (file.HasCompression)
-                    {
-                        tasks.Add(client.RemoveObjectAsync(new Minio.DataModel.Args.RemoveObjectArgs()
-                            .WithBucket(dest.Bucket)
-                            .WithObject(objectId + ".compressed")));
-                    }
-
-                    return Task.WhenAll(tasks);
-                });
-
-                await Task.WhenAll(deleteTasks);
+                // var deleteTasks = group.Value.Select(file =>
+                // {
+                //     var objectId = file.StorageId ?? file.Id;
+                //     var tasks = new List<Task>
+                //     {
+                //         client.RemoveObjectAsync(new Minio.DataModel.Args.RemoveObjectArgs()
+                //             .WithBucket(dest.Bucket)
+                //             .WithObject(objectId))
+                //     };
+                //
+                //     if (file.HasCompression)
+                //     {
+                //         tasks.Add(client.RemoveObjectAsync(new Minio.DataModel.Args.RemoveObjectArgs()
+                //             .WithBucket(dest.Bucket)
+                //             .WithObject(objectId + ".compressed")));
+                //     }
+                //
+                //     return Task.WhenAll(tasks);
+                // });
+                //
+                // await Task.WhenAll(deleteTasks);
             }
             catch (Exception ex)
             {
