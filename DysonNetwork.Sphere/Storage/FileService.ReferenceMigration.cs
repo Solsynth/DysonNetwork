@@ -34,7 +34,6 @@ public class FileReferenceMigrationService(AppDatabase db)
     {
         var posts = await db.Posts
             .Include(p => p.OutdatedAttachments)
-            .Where(p => p.OutdatedAttachments.Any())
             .ToListAsync();
 
         var attachmentsId = posts.SelectMany(p => p.OutdatedAttachments.Select(a => a.Id)).ToList();
