@@ -36,7 +36,6 @@ public class NotificationService(
             // Reset these audit fields to renew the lifecycle of this device token
             existingSubscription.DeviceId = deviceId;
             existingSubscription.DeviceToken = deviceToken;
-            existingSubscription.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
             db.Update(existingSubscription);
             await db.SaveChangesAsync();
             return existingSubscription;
