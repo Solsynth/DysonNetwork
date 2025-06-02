@@ -15,7 +15,7 @@ public enum PublisherType
 }
 
 [Index(nameof(Name), IsUnique = true)]
-public class Publisher : ModelBase
+public class Publisher : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
     public PublisherType Type { get; set; }
@@ -41,6 +41,8 @@ public class Publisher : ModelBase
     public Account.Account? Account { get; set; }
     public Guid? RealmId { get; set; }
     [JsonIgnore] public Realm.Realm? Realm { get; set; }
+
+    public string ResourceIdentifier => $"publisher/{Id}";
 }
 
 public enum PublisherMemberRole

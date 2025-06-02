@@ -13,7 +13,12 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/publishers")]
-    public class PublisherController(AppDatabase db, PublisherService ps, FileService fs, FileReferenceService fileRefService, ActionLogService als)
+public class PublisherController(
+    AppDatabase db,
+    PublisherService ps,
+    FileService fs,
+    FileReferenceService fileRefService,
+    ActionLogService als)
     : ControllerBase
 {
     [HttpGet("{name}")]
@@ -24,7 +29,7 @@ namespace DysonNetwork.Sphere.Publisher;
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
         if (publisher.AccountId is null) return Ok(publisher);
-        
+
         var account = await db.Accounts
             .Where(a => a.Id == publisher.AccountId)
             .Include(a => a.Profile)
@@ -349,24 +354,24 @@ namespace DysonNetwork.Sphere.Publisher;
             var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
             if (picture is null) return BadRequest("Invalid picture id.");
 
-            var publisherResourceId = $"publisher:{publisher.Id}";
-
             // Remove old references for the publisher picture
-            if (publisher.Picture is not null) {
-                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(publisherResourceId, "publisher.picture");
+            if (publisher.Picture is not null)
+            {
+                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(
+                    publisher.ResourceIdentifier,
+                    "publisher.picture"
+                );
                 foreach (var oldRef in oldPictureRefs)
-                {
                     await fileRefService.DeleteReferenceAsync(oldRef.Id);
-                }
             }
 
             publisher.Picture = picture.ToReferenceObject();
 
             // Create a new reference
             await fileRefService.CreateReferenceAsync(
-                picture.Id, 
-                "publisher.picture", 
-                publisherResourceId
+                picture.Id,
+                "publisher.picture",
+                publisher.ResourceIdentifier
             );
         }
 
@@ -378,8 +383,10 @@ namespace DysonNetwork.Sphere.Publisher;
             var publisherResourceId = $"publisher:{publisher.Id}";
 
             // Remove old references for the publisher background
-            if (publisher.Background is not null) {
-                var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(publisherResourceId, "publisher.background");
+            if (publisher.Background is not null)
+            {
+                var oldBackgroundRefs =
+                    await fileRefService.GetResourceReferencesAsync(publisherResourceId, "publisher.background");
                 foreach (var oldRef in oldBackgroundRefs)
                 {
                     await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -390,8 +397,8 @@ namespace DysonNetwork.Sphere.Publisher;
 
             // Create a new reference
             await fileRefService.CreateReferenceAsync(
-                background.Id, 
-                "publisher.background", 
+                background.Id,
+                "publisher.background",
                 publisherResourceId
             );
         }

@@ -223,7 +223,6 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
             .Include(m => m.Sender.Account.Profile)
-            .Include(message => message.Attachments)
             .Include(message => message.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
             
