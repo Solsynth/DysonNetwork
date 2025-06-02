@@ -125,7 +125,6 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
             .Include(m => m.Sender.Account.Profile)
-            .Include(m => m.Attachments)
             .FirstOrDefaultAsync();
 
         if (message is null) return NotFound();
