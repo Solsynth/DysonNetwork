@@ -33,7 +33,6 @@ public class FileReferenceMigrationService(AppDatabase db)
     private async Task ScanPosts()
     {
         var posts = await db.Posts
-            .Include(p => p.OutdatedAttachments)
             .ToListAsync();
 
         var attachmentsId = posts.SelectMany(p => p.Attachments.Select(a => a.Id)).ToList();
@@ -56,23 +55,7 @@ public class FileReferenceMigrationService(AppDatabase db)
             }).Where(x => x != null).Select(x => x!)
         ).ToList();
 
-        foreach (var post in posts)
-        {
-            var updatedAttachments = new List<CloudFileReferenceObject>();
-            foreach (var attachment in post.OutdatedAttachments)
-            {
-                if (await db.Files.AnyAsync(f => f.Id == attachment.Id))
-                    updatedAttachments.Add(attachment.ToReferenceObject());
-                else
-                    updatedAttachments.Add(attachment.ToReferenceObject());
-            }
-
-            post.Attachments = updatedAttachments;
-            db.Posts.Update(post);
-        }
-
         await db.BulkInsertAsync(fileReferences);
-        await db.SaveChangesAsync();
     }
 
     private async Task ScanMessages()
