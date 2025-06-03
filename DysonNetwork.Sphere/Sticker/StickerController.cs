@@ -167,7 +167,6 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         var stickers = await db.Stickers
             .Where(s => s.Pack.Id == packId)
             .Include(e => e.Pack)
-            .Include(e => e.Image)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync();
 
@@ -198,7 +197,6 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         var sticker = await db.Stickers
             .Where(s => s.Pack.Id == packId && s.Id == id)
             .Include(e => e.Pack)
-            .Include(e => e.Image)
             .FirstOrDefaultAsync();
         if (sticker is null) return NotFound();
 
