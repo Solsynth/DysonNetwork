@@ -194,6 +194,7 @@ public class FileService(
 
                     using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
+                    vipsImage.Autorot();
                     vipsImage.WriteToFile(imagePath + ".webp",
                         new VOption { { "lossless", true } });
                     result.Add((imagePath + ".webp", string.Empty));
