@@ -187,15 +187,15 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     {
         var sticker = await st.LookupStickerByIdentifierAsync(identifier);
 
-        if (sticker is null) return NotFound();
-        return Redirect($"/files/{sticker.ImageId}");
+        if (sticker?.Image is null) return NotFound();
+        return Redirect($"/files/{sticker.Image.Id}");
     }
 
     [HttpGet("{packId:guid}/content/{id:guid}")]
     public async Task<ActionResult<Sticker>> GetSticker(Guid packId, Guid id)
     {
         var sticker = await db.Stickers
-            .Where(s => s.Pack.Id == packId && s.Id == id)
+            .Where(s => s.PackId == packId && s.Id == id)
             .Include(e => e.Pack)
             .FirstOrDefaultAsync();
         if (sticker is null) return NotFound();

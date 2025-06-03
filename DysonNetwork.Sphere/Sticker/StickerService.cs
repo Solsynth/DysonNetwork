@@ -6,11 +6,13 @@ namespace DysonNetwork.Sphere.Sticker;
 public class StickerService(AppDatabase db, FileService fs, FileReferenceService fileRefService, ICacheService cache)
 {
     public const string StickerFileUsageIdentifier = "sticker";
-    
+
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     public async Task<Sticker> CreateStickerAsync(Sticker sticker)
     {
+        if (sticker.Image is null) throw new ArgumentNullException(nameof(sticker.Image));
+
         db.Stickers.Add(sticker);
         await db.SaveChangesAsync();
 
@@ -31,7 +33,8 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
             var stickerResourceId = $"sticker:{sticker.Id}";
 
             // Delete old references
-            var oldRefs = await fileRefService.GetResourceReferencesAsync(stickerResourceId, StickerFileUsageIdentifier);
+            var oldRefs =
+                await fileRefService.GetResourceReferencesAsync(stickerResourceId, StickerFileUsageIdentifier);
             foreach (var oldRef in oldRefs)
             {
                 await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -79,9 +82,8 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
         var images = stickers.Select(s => s.Image).ToList();
 
         // Delete all file references for each sticker in the pack
-        foreach (var sticker in stickers)
+        foreach (var stickerResourceId in stickers.Select(sticker => $"sticker:{sticker.Id}"))
         {
-            var stickerResourceId = $"sticker:{sticker.Id}";
             await fileRefService.DeleteResourceReferencesAsync(stickerResourceId);
         }
 
@@ -102,7 +104,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
     {
         identifier = identifier.ToLower();
         // Try to get from the cache first
-        var cacheKey = $"StickerLookup_{identifier}";
+        var cacheKey = $"stickerlookup:{identifier}";
         var cachedSticker = await cache.GetAsync<Sticker>(cacheKey);
         if (cachedSticker is not null)
             return cachedSticker;
@@ -112,7 +114,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
             .Include(e => e.Pack);
         query = Guid.TryParse(identifier, out var guid)
             ? query.Where(e => e.Id == guid)
-            : query.Where(e => (e.Pack.Prefix + e.Slug).ToLower() == identifier);
+            : query.Where(e => EF.Functions.ILike(e.Pack.Prefix + e.Slug, identifier));
 
         var sticker = await query.FirstOrDefaultAsync();
 
@@ -126,7 +128,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
     private async Task PurgeStickerCache(Sticker sticker)
     {
         // Remove both possible cache entries
-        await cache.RemoveAsync($"StickerLookup_{sticker.Id}");
-        await cache.RemoveAsync($"StickerLookup_{sticker.Pack.Prefix}{sticker.Slug}");
+        await cache.RemoveAsync($"stickerlookup:{sticker.Id}");
+        await cache.RemoveAsync($"stickerlookup:{sticker.Pack.Prefix}{sticker.Slug}");
     }
 }
