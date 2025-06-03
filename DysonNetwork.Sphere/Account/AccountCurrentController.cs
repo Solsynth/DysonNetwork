@@ -15,7 +15,6 @@ namespace DysonNetwork.Sphere.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
-    FileService fs,
     FileReferenceService fileRefService,
     AccountEventService events,
     AuthService auth
@@ -93,8 +92,10 @@ public class AccountCurrentController(
             var profileResourceId = $"profile:{profile.Id}";
 
             // Remove old references for the profile picture
-            if (profile.Picture is not null) {
-                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.picture");
+            if (profile.Picture is not null)
+            {
+                var oldPictureRefs =
+                    await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.picture");
                 foreach (var oldRef in oldPictureRefs)
                 {
                     await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -105,8 +106,8 @@ public class AccountCurrentController(
 
             // Create new reference
             await fileRefService.CreateReferenceAsync(
-                picture.Id, 
-                "profile.picture", 
+                picture.Id,
+                "profile.picture",
                 profileResourceId
             );
         }
@@ -119,8 +120,10 @@ public class AccountCurrentController(
             var profileResourceId = $"profile:{profile.Id}";
 
             // Remove old references for the profile background
-            if (profile.Background is not null) {
-                var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.background");
+            if (profile.Background is not null)
+            {
+                var oldBackgroundRefs =
+                    await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.background");
                 foreach (var oldRef in oldBackgroundRefs)
                 {
                     await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -131,8 +134,8 @@ public class AccountCurrentController(
 
             // Create new reference
             await fileRefService.CreateReferenceAsync(
-                background.Id, 
-                "profile.background", 
+                background.Id,
+                "profile.background",
                 profileResourceId
             );
         }
@@ -334,8 +337,48 @@ public class AccountCurrentController(
         return Ok(factors);
     }
 
+    public class AuthFactorRequest
+    {
+        public AccountAuthFactorType Type { get; set; }
+        public string? Secret { get; set; }
+    }
+
+    [HttpPost("factors")]
+    [Authorize]
+    public async Task<ActionResult<AccountAuthFactor>> CreateAuthFactor([FromBody] AuthFactorRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (await accounts.CheckAuthFactorExists(currentUser, request.Type))
+            return BadRequest($"Auth factor with type {request.Type} is already exists.");
+        
+        var factor = await accounts.CreateAuthFactor(currentUser, request.Type, request.Secret);
+        return Ok(factor);
+    }
+
+    [HttpPost("factors/{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<AccountAuthFactor>> CreateAuthFactor(Guid id, [FromBody] string code)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        
+        var factor = await db.AccountAuthFactors
+            .Where(f => f.AccountId == id && f.Id == id)
+            .FirstOrDefaultAsync();
+        if(factor is null) return NotFound();
+
+        try
+        {
+            factor = await accounts.EnableAuthFactor(factor, code);
+            return Ok(factor);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpGet("sessions")]
-    public async Task<ActionResult<List<Auth.Session>>> GetSessions(
+    public async Task<ActionResult<List<Session>>> GetSessions(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
