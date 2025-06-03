@@ -17,7 +17,12 @@ public class NotificationService(
     private readonly string _notifyTopic = config["Notifications:Topic"]!;
     private readonly Uri _notifyEndpoint = new(config["Notifications:Endpoint"]!);
 
-    // TODO remove all push notification with this device id when this device is logged out
+    public async Task UnsubscribePushNotifications(string deviceId)
+    {
+        await db.NotificationPushSubscriptions
+            .Where(s => s.DeviceId == deviceId)
+            .ExecuteDeleteAsync();
+    }
 
     public async Task<NotificationPushSubscription> SubscribePushNotification(
         Account account,

@@ -1,3 +1,4 @@
+using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Sphere.Account;
 public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
+    NotificationService nty,
     ICacheService cache
 )
 {
@@ -28,9 +30,7 @@ public class AccountService(
             .Where(c => c.Content == probe)
             .Include(c => c.Account)
             .FirstOrDefaultAsync();
-        if (contact is not null) return contact.Account;
-
-        return null;
+        return contact?.Account;
     }
 
     public async Task<int?> GetAccountLevel(Guid accountId)
@@ -142,12 +142,63 @@ public class AccountService(
             throw new InvalidOperationException(
                 "Invalid code, you need to enter the correct code to enable the factor."
             );
-        
+
         factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(factor);
         await db.SaveChangesAsync();
 
         return factor;
+    }
+
+    public async Task<AccountAuthFactor> DisableAuthFactor(AccountAuthFactor factor)
+    {
+        if (factor.EnabledAt is null) throw new ArgumentException("The factor has been disabled.");
+
+        var count = await db.AccountAuthFactors
+            .Where(f => f.AccountId == factor.Id && f.EnabledAt != null)
+            .CountAsync();
+        if (count <= 1)
+            throw new InvalidOperationException(
+                "Disabling this auth factor will cause you have no active auth factors.");
+
+        factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
+        return factor;
+    }
+
+    public async Task DeleteAuthFactor(AccountAuthFactor factor)
+    {
+        var count = await db.AccountAuthFactors
+            .Where(f => f.AccountId == factor.Id)
+            .CountAsync();
+        if (count <= 1)
+            throw new InvalidOperationException("Deleting this auth factor will cause you have no auth factor.");
+
+        db.AccountAuthFactors.Remove(factor);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteSession(Account account, Guid sessionId)
+    {
+        var session = await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.Id == sessionId && s.AccountId == account.Id)
+            .FirstOrDefaultAsync();
+        if (session is null) throw new InvalidOperationException("Session was not found.");
+
+        var sessions = await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
+            .ToListAsync();
+        
+        if(session.Challenge.DeviceId is not null)
+            await nty.UnsubscribePushNotifications(session.Challenge.DeviceId);
+        
+        // The current session should be included in the sessions' list
+        db.AuthSessions.RemoveRange(sessions);
+        await db.SaveChangesAsync();
+
+        foreach (var item in sessions)
+            await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
     }
 
     /// Maintenance methods for server administrator

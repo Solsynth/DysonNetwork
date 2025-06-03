@@ -41,7 +41,7 @@ public class DysonTokenAuthHandler(
 )
     : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
-    private const string AuthCachePrefix = "auth:";
+    public const string AuthCachePrefix = "auth:";
     
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {

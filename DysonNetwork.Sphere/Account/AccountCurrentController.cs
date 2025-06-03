@@ -350,21 +350,21 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         if (await accounts.CheckAuthFactorExists(currentUser, request.Type))
             return BadRequest($"Auth factor with type {request.Type} is already exists.");
-        
+
         var factor = await accounts.CreateAuthFactor(currentUser, request.Type, request.Secret);
         return Ok(factor);
     }
 
-    [HttpPost("factors/{id:guid}")]
+    [HttpPost("factors/{id:guid}/enable")]
     [Authorize]
-    public async Task<ActionResult<AccountAuthFactor>> CreateAuthFactor(Guid id, [FromBody] string code)
+    public async Task<ActionResult<AccountAuthFactor>> EnableAuthFactor(Guid id, [FromBody] string code)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        
+
         var factor = await db.AccountAuthFactors
             .Where(f => f.AccountId == id && f.Id == id)
             .FirstOrDefaultAsync();
-        if(factor is null) return NotFound();
+        if (factor is null) return NotFound();
 
         try
         {
@@ -377,7 +377,52 @@ public class AccountCurrentController(
         }
     }
 
+    [HttpPost("factors/{id:guid}/disable")]
+    [Authorize]
+    public async Task<ActionResult<AccountAuthFactor>> DisableAuthFactor(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var factor = await db.AccountAuthFactors
+            .Where(f => f.AccountId == id && f.Id == id)
+            .FirstOrDefaultAsync();
+        if (factor is null) return NotFound();
+
+        try
+        {
+            factor = await accounts.DisableAuthFactor(factor);
+            return Ok(factor);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("factors/{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<AccountAuthFactor>> DeleteAuthFactor(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var factor = await db.AccountAuthFactors
+            .Where(f => f.AccountId == id && f.Id == id)
+            .FirstOrDefaultAsync();
+        if (factor is null) return NotFound();
+
+        try
+        {
+            await accounts.DeleteAuthFactor(factor);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpGet("sessions")]
+    [Authorize]
     public async Task<ActionResult<List<Session>>> GetSessions(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
@@ -400,5 +445,40 @@ public class AccountCurrentController(
             .ToListAsync();
 
         return Ok(sessions);
+    }
+
+    [HttpDelete("sessions/{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<Session>> DeleteSession(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.DeleteSession(currentUser, id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("sessions/current")]
+    [Authorize]
+    public async Task<ActionResult<Session>> DeleteCurrentSession()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+
+        try
+        {
+            await accounts.DeleteSession(currentUser, currentSession.Id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }

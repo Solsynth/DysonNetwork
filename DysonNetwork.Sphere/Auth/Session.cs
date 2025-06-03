@@ -13,7 +13,9 @@ public class Session : ModelBase
     public Instant? LastGrantedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
 
+    public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
+    public Guid ChallengeId { get; set; }
     [JsonIgnore] public Challenge Challenge { get; set; } = null!;
 }
 
