@@ -143,6 +143,7 @@ public class AccountService(
         }
 
         if (factor is null) throw new InvalidOperationException("Unable to create auth factor.");
+        factor.AccountId = account.Id;
         db.AccountAuthFactors.Add(factor);
         await db.SaveChangesAsync();
         return factor;
