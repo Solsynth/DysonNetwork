@@ -9,6 +9,7 @@ public class RealmService(AppDatabase db, NotificationService nty, IStringLocali
 {
     public async Task SendInviteNotify(RealmMember member)
     {
+        AccountService.SetCultureInfo(member.Account);
         await nty.SendNotification(
             member.Account,
             "invites.realms",

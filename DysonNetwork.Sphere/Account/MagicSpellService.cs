@@ -78,10 +78,7 @@ public class MagicSpellService(
             .Where(a => a.Id == spell.AccountId)
             .Select(a => a.Language)
             .FirstOrDefaultAsync();
-
-        var cultureInfo = new CultureInfo(accountLanguage ?? "en-us", false);
-        CultureInfo.CurrentCulture = cultureInfo;
-        CultureInfo.CurrentUICulture = cultureInfo;
+        AccountService.SetCultureInfo(accountLanguage);
 
         try
         {

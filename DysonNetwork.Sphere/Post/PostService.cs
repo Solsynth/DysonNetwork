@@ -261,6 +261,7 @@ public class PostService(
 
         if (!isSelfReact && op is not null)
         {
+            AccountService.SetCultureInfo(op);
             await nty.SendNotification(
                 op,
                 "posts.reactions.new",

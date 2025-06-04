@@ -741,6 +741,7 @@ public class ChatRoomController(
             ? localizer["ChatInviteDirectBody", sender.Nick]
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
+        AccountService.SetCultureInfo(member.Account);
         await nty.SendNotification(member.Account, "invites.chats", title, null, body);
     }
 }

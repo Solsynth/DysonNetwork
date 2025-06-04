@@ -1,3 +1,4 @@
+using System.Globalization;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
@@ -14,6 +15,18 @@ public class AccountService(
     ICacheService cache
 )
 {
+    public static void SetCultureInfo(Account account)
+    {
+        SetCultureInfo(account.Language);
+    }
+
+    public static void SetCultureInfo(string? languageCode)
+    {
+        var info = new CultureInfo(languageCode ?? "en-us", false);
+        CultureInfo.CurrentCulture = info;
+        CultureInfo.CurrentUICulture = info;
+    }
+    
     public const string AccountCachePrefix = "account:";
 
     public async Task PurgeAccountCache(Account account)

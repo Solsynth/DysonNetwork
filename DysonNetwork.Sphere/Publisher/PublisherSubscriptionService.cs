@@ -71,6 +71,7 @@ public class PublisherSubscriptionService(
         {
             try
             {
+                AccountService.SetCultureInfo(subscription.Account);
                 await nty.SendNotification(
                     subscription.Account,
                     "posts.new",
