@@ -107,8 +107,8 @@ public class AccountAuthFactor : ModelBase
 {
     public Guid Id { get; set; }
     public AccountAuthFactorType Type { get; set; }
-    [MaxLength(8196)] public string? Secret { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Config { get; set; } = new();
+    [JsonIgnore] [MaxLength(8196)] public string? Secret { get; set; }
+    [JsonIgnore] [Column(TypeName = "jsonb")] public Dictionary<string, object>? Config { get; set; } = new();
 
     /// <summary>
     /// The trustworthy stands for how safe is this auth factor.
