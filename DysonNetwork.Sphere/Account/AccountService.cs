@@ -169,7 +169,7 @@ public class AccountService(
         if (factor.EnabledAt is null) throw new ArgumentException("The factor has been disabled.");
 
         var count = await db.AccountAuthFactors
-            .Where(f => f.AccountId == factor.Id && f.EnabledAt != null)
+            .Where(f => f.AccountId == factor.AccountId && f.EnabledAt != null)
             .CountAsync();
         if (count <= 1)
             throw new InvalidOperationException(
@@ -182,7 +182,8 @@ public class AccountService(
     public async Task DeleteAuthFactor(AccountAuthFactor factor)
     {
         var count = await db.AccountAuthFactors
-            .Where(f => f.AccountId == factor.Id)
+            .Where(f => f.AccountId == factor.AccountId)
+            .If(factor.EnabledAt is not null, q => q.Where(f => f.EnabledAt != null))
             .CountAsync();
         if (count <= 1)
             throw new InvalidOperationException("Deleting this auth factor will cause you have no auth factor.");
