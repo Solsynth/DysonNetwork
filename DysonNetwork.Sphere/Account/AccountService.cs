@@ -124,7 +124,7 @@ public class AccountService(
                 factor = new AccountAuthFactor
                 {
                     Secret = skOtp32,
-                    Type = AccountAuthFactorType.InAppCode,
+                    Type = AccountAuthFactorType.TimedCode,
                     Trustworthy = 2,
                     EnabledAt = null, // It needs to be tired once to enable
                     CreatedResponse = new Dictionary<string, object>
