@@ -33,29 +33,43 @@ public class FileReferenceMigrationService(AppDatabase db)
     private async Task ScanPosts()
     {
         var posts = await db.Posts
+            .Include(p => p.OutdatedAttachments)
+            .Where(p => p.OutdatedAttachments.Any())
             .ToListAsync();
 
-        var attachmentsId = posts.SelectMany(p => p.Attachments.Select(a => a.Id)).ToList();
-        var attachments =
-            await db.Files.Where(f => attachmentsId.Contains(f.Id)).ToDictionaryAsync(x => x.Id);
+        foreach (var post in posts)
+        {
+            var updatedAttachments = new List<CloudFileReferenceObject>();
 
-        var fileReferences = posts.SelectMany(post => post.Attachments.Select(attachment =>
+            foreach (var attachment in post.OutdatedAttachments)
             {
-                var value = attachments.TryGetValue(attachment.Id, out var file) ? file : null;
-                if (value is null) return null;
-                return new CloudFileReference
+                var file = await db.Files.FirstOrDefaultAsync(f => f.Id == attachment.Id);
+                if (file != null)
                 {
-                    FileId = value.Id,
-                    File = value,
-                    Usage = "post",
-                    ResourceId = post.Id.ToString(),
-                    CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-                    UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                };
-            }).Where(x => x != null).Select(x => x!)
-        ).ToList();
+                    // Create a reference for the file
+                    var reference = new CloudFileReference
+                    {
+                        FileId = file.Id,
+                        File = file,
+                        Usage = "post",
+                        ResourceId = post.ResourceIdentifier
+                    };
 
-        await db.BulkInsertAsync(fileReferences);
+                    await db.FileReferences.AddAsync(reference);
+                    updatedAttachments.Add(file.ToReferenceObject());
+                }
+                else
+                {
+                    // Keep the existing reference object if file not found
+                    updatedAttachments.Add(attachment.ToReferenceObject());
+                }
+            }
+
+            post.Attachments = updatedAttachments;
+            db.Posts.Update(post);
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private async Task ScanMessages()
@@ -71,7 +85,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                 FileId = attachment.Id,
                 File = attachment,
                 Usage = "chat",
-                ResourceId = message.Id.ToString(),
+                ResourceId = message.ResourceIdentifier,
                 CreatedAt = SystemClock.Instance.GetCurrentInstant(),
                 UpdatedAt = SystemClock.Instance.GetCurrentInstant()
             })
@@ -157,7 +171,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                         FileId = avatarFile.Id,
                         File = avatarFile,
                         Usage = "chatroom.picture",
-                        ResourceId = chatRoom.Id.ToString()
+                        ResourceId = chatRoom.ResourceIdentifier
                     };
 
                     await db.FileReferences.AddAsync(reference);
@@ -176,7 +190,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                     FileId = bannerFile.Id,
                     File = bannerFile,
                     Usage = "chatroom.background",
-                    ResourceId = chatRoom.Id.ToString()
+                    ResourceId = chatRoom.ResourceIdentifier
                 };
 
                 await db.FileReferences.AddAsync(reference);
@@ -208,7 +222,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                         FileId = avatarFile.Id,
                         File = avatarFile,
                         Usage = "realm.picture",
-                        ResourceId = realm.Id.ToString()
+                        ResourceId = realm.ResourceIdentifier
                     };
 
                     await db.FileReferences.AddAsync(reference);
@@ -228,7 +242,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                         FileId = bannerFile.Id,
                         File = bannerFile,
                         Usage = "realm.background",
-                        ResourceId = realm.Id.ToString()
+                        ResourceId = realm.ResourceIdentifier
                     };
 
                     await db.FileReferences.AddAsync(reference);
@@ -280,7 +294,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                         FileId = backgroundFile.Id,
                         File = backgroundFile,
                         Usage = "publisher.background",
-                        ResourceId = publisher.Id.ToString()
+                        ResourceId = publisher.ResourceIdentifier
                     };
 
                     await db.FileReferences.AddAsync(reference);
@@ -311,7 +325,7 @@ public class FileReferenceMigrationService(AppDatabase db)
                     FileId = imageFile.Id,
                     File = imageFile,
                     Usage = "sticker.image",
-                    ResourceId = sticker.Id.ToString()
+                    ResourceId = sticker.ResourceIdentifier
                 };
 
                 await db.FileReferences.AddAsync(reference);
