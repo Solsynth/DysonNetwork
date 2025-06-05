@@ -362,7 +362,7 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var factor = await db.AccountAuthFactors
-            .Where(f => f.AccountId == id && f.Id == id)
+            .Where(f => f.AccountId == currentUser.Id && f.Id == id)
             .FirstOrDefaultAsync();
         if (factor is null) return NotFound();
 
@@ -384,7 +384,7 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var factor = await db.AccountAuthFactors
-            .Where(f => f.AccountId == id && f.Id == id)
+            .Where(f => f.AccountId == currentUser.Id && f.Id == id)
             .FirstOrDefaultAsync();
         if (factor is null) return NotFound();
 
@@ -406,7 +406,7 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var factor = await db.AccountAuthFactors
-            .Where(f => f.AccountId == id && f.Id == id)
+            .Where(f => f.AccountId == currentUser.Id && f.Id == id)
             .FirstOrDefaultAsync();
         if (factor is null) return NotFound();
 
