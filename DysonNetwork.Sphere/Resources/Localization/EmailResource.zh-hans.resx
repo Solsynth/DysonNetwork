@@ -74,4 +74,25 @@
     <data name="EmailPasswordResetTitle" xml:space="preserve">
         <value>重置您的密码</value>
     </data>
+    <data name="VerificationHeader1" xml:space="preserve">
+        <value>验证您的电子邮箱</value>
+    </data>
+    <data name="VerificationPara1" xml:space="preserve">
+        <value>尊敬的 </value>
+    </data>
+    <data name="VerificationPara2" xml:space="preserve">
+        <value>感谢您在 Solar Network 上注册账号，我们很高兴您即将加入我们的社区！</value>
+    </data>
+    <data name="VerificationPara3" xml:space="preserve">
+        <value>请使用以下验证码来验证您的电子邮箱并获取账号的所有功能：</value>
+    </data>
+    <data name="VerificationPara4" xml:space="preserve">
+        <value>此验证码将在30分钟后失效。请在验证页面输入此验证码以完成注册。</value>
+    </data>
+    <data name="VerificationPara5" xml:space="preserve">
+        <value>如果您并未创建此账号，请忽略此邮件。</value>
+    </data>
+    <data name="EmailVerificationTitle" xml:space="preserve">
+        <value>验证您的电子邮箱</value>
+    </data>
 </root>

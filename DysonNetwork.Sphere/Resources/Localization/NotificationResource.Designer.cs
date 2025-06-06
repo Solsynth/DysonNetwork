@@ -98,5 +98,17 @@ namespace DysonNetwork.Sphere.Resources.Localization {
                 return ResourceManager.GetString("PostReactContentBody", resourceCulture);
             }
         }
+        
+        internal static string AuthCodeTitle {
+            get {
+                return ResourceManager.GetString("AuthCodeTitle", resourceCulture);
+            }
+        }
+        
+        internal static string AuthCodeBody {
+            get {
+                return ResourceManager.GetString("AuthCodeBody", resourceCulture);
+            }
+        }
     }
 }

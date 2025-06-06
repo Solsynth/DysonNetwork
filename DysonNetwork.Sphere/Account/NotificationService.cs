@@ -67,13 +67,12 @@ public class NotificationService(
         string? subtitle = null,
         string? content = null,
         Dictionary<string, object>? meta = null,
-        bool isSilent = false
+        bool isSilent = false,
+        bool save = true
     )
     {
         if (title is null && subtitle is null && content is null)
-        {
             throw new ArgumentException("Unable to send notification that completely empty.");
-        }
 
         var notification = new Notification
         {
@@ -85,8 +84,11 @@ public class NotificationService(
             AccountId = account.Id,
         };
 
-        db.Add(notification);
-        await db.SaveChangesAsync();
+        if (save)
+        {
+            db.Add(notification);
+            await db.SaveChangesAsync();
+        }
 
         if (!isSilent) _ = DeliveryNotification(notification);
 

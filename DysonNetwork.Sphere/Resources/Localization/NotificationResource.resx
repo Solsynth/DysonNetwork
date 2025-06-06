@@ -45,4 +45,10 @@
     <data name="PostReactContentBody" xml:space="preserve">
         <value>{0} added a reaction {1} to your post {2}</value>
     </data>
+    <data name="AuthCodeTitle" xml:space="preserve">
+        <value>Disposable Verification Code</value>
+    </data>
+    <data name="AuthCodeBody" xml:space="preserve">
+        <value>{0} is your disposable code, it will expires in 5 minutes</value>
+    </data>
 </root>

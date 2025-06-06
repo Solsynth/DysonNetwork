@@ -38,4 +38,10 @@
     <data name="PostReactContentBody" xml:space="preserve">
         <value>{0} 给你的帖子添加了一个 {1} 的反应 {2}</value>
     </data>
+    <data name="AuthCodeTitle" xml:space="preserve">
+        <value>一次性验证码</value>
+    </data>
+    <data name="AuthCodeBody" xml:space="preserve">
+        <value>{0} 是你的一次性验证码，它将会在五分钟内过期</value>
+    </data>
 </root>

@@ -87,7 +87,11 @@ public class AuthController(
     }
 
     [HttpPost("challenge/{id:guid}/factors/{factorId:guid}")]
-    public async Task<ActionResult> RequestFactorCode([FromRoute] Guid id, [FromRoute] Guid factorId)
+    public async Task<ActionResult> RequestFactorCode(
+        [FromRoute] Guid id,
+        [FromRoute] Guid factorId,
+        [FromBody] string? hint
+    )
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
@@ -98,7 +102,14 @@ public class AuthController(
             .Where(e => e.Account == challenge.Account).FirstOrDefaultAsync();
         if (factor is null) return NotFound("Auth factor was not found.");
 
-        // TODO do the logic here
+        try
+        {
+            await accounts.SendFactorCode(challenge.Account, factor, hint);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
 
         return Ok();
     }
@@ -127,7 +138,7 @@ public class AuthController(
 
         try
         {
-            if (factor.VerifyPassword(request.Password))
+            if (await accounts.VerifyFactorCode(factor, request.Password))
             {
                 challenge.StepRemain--;
                 challenge.BlacklistFactors.Add(factor.Id);
@@ -226,8 +237,8 @@ public class AuthController(
                 var tk = auth.CreateToken(session);
                 return Ok(new TokenExchangeResponse { Token = tk });
             case "refresh_token":
-                // Since we no longer need the refresh token
-                // This case is blank for now, thinking to mock it if the OIDC standard requires it
+            // Since we no longer need the refresh token
+            // This case is blank for now, thinking to mock it if the OIDC standard requires it
             default:
                 return BadRequest("Unsupported grant type.");
         }

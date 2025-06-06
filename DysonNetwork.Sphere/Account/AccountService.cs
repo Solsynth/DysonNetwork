@@ -1,9 +1,14 @@
 using System.Globalization;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Email;
+using DysonNetwork.Sphere.Localization;
+using DysonNetwork.Sphere.Pages.Emails;
 using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using NodaTime;
+using Org.BouncyCastle.Utilities;
 using OtpNet;
 
 namespace DysonNetwork.Sphere.Account;
@@ -12,7 +17,10 @@ public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
     NotificationService nty,
-    ICacheService cache
+    EmailService email,
+    IStringLocalizer<NotificationResource> localizer,
+    ICacheService cache,
+    ILogger<AccountService> logger
 )
 {
     public static void SetCultureInfo(Account account)
@@ -26,7 +34,7 @@ public class AccountService(
         CultureInfo.CurrentCulture = info;
         CultureInfo.CurrentUICulture = info;
     }
-    
+
     public const string AccountCachePrefix = "account:";
 
     public async Task PurgeAccountCache(Account account)
@@ -192,6 +200,119 @@ public class AccountService(
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Send the auth factor verification code to users, for factors like in-app code and email.
+    /// Sometimes it requires a hint, like a part of the user's email address to ensure the user is who own the account.
+    /// </summary>
+    /// <param name="account">The owner of the auth factor</param>
+    /// <param name="factor">The auth factor needed to send code</param>
+    /// <param name="hint">The part of the contact method for verification</param>
+    public async Task SendFactorCode(Account account, AccountAuthFactor factor, string? hint = null)
+    {
+        var code = new Random().Next(100000, 999999).ToString("000000");
+
+        switch (factor.Type)
+        {
+            case AccountAuthFactorType.InAppCode:
+                if (await _GetFactorCode(factor) is not null)
+                    throw new InvalidOperationException("A factor code has been sent and in active duration.");
+                
+                await nty.SendNotification(
+                    account,
+                    "auth.verification",
+                    localizer["AuthCodeTitle"],
+                    null,
+                    localizer["AuthCodeBody", code],
+                    save: true
+                );
+                await _SetFactorCode(factor, code, TimeSpan.FromMinutes(5));
+                break;
+            case AccountAuthFactorType.EmailCode:
+                if (await _GetFactorCode(factor) is not null)
+                    throw new InvalidOperationException("A factor code has been sent and in active duration.");
+                
+                ArgumentNullException.ThrowIfNull(hint);
+                hint = hint.Replace("@", "").Replace(".", "").Replace("+", "").Replace("%", "");
+                if (string.IsNullOrWhiteSpace(hint))
+                {
+                    logger.LogWarning(
+                        "Unable to send factor code to #{FactorId} with hint {Hint}, due to invalid hint...",
+                        factor.Id,
+                        hint
+                    );
+                    return;
+                }
+
+                var contact = await db.AccountContacts
+                    .Where(c => c.Type == AccountContactType.Email)
+                    .Where(c => c.VerifiedAt != null)
+                    .Where(c => EF.Functions.ILike(c.Content, $"%{hint}%"))
+                    .Include(c => c.Account)
+                    .FirstOrDefaultAsync();
+                if (contact is null)
+                {
+                    logger.LogWarning(
+                        "Unable to send factor code to #{FactorId} with hint {Hint}, due to no contact method found according to hint...",
+                        factor.Id,
+                        hint
+                    );
+                    return;
+                }
+
+                await email.SendTemplatedEmailAsync<VerificationEmail, VerificationEmailModel>(
+                    contact.Content,
+                    localizer["EmailVerificationTitle"],
+                    localizer["VerificationEmail"],
+                    new VerificationEmailModel
+                    {
+                        Name = account.Name,
+                        Code = code
+                    }
+                );
+
+                await _SetFactorCode(factor, code, TimeSpan.FromMinutes(30));
+                break;
+            case AccountAuthFactorType.Password:
+            case AccountAuthFactorType.TimedCode:
+            default:
+                // No need to send, such as password etc...
+                return;
+        }
+    }
+
+    public async Task<bool> VerifyFactorCode(AccountAuthFactor factor, string code)
+    {
+        switch (factor.Type)
+        {
+            case AccountAuthFactorType.EmailCode:
+            case AccountAuthFactorType.InAppCode:
+                var correctCode = await _GetFactorCode(factor);
+                return correctCode is not null && string.Equals(correctCode, code, StringComparison.OrdinalIgnoreCase);
+            case AccountAuthFactorType.Password:
+            case AccountAuthFactorType.TimedCode:
+            default:
+                return factor.VerifyPassword(code);
+        }
+    }
+
+    private const string AuthFactorCachePrefix = "authfactor:";
+
+    private async Task _SetFactorCode(AccountAuthFactor factor, string code, TimeSpan expires)
+    {
+        await cache.SetAsync(
+            $"{AuthFactorCachePrefix}{factor.Id}:code",
+            code,
+            expires
+        );
+    }
+
+    private async Task<string?> _GetFactorCode(AccountAuthFactor factor)
+    {
+        return await cache.GetAsync<string?>(
+            $"{AuthFactorCachePrefix}{factor.Id}:code"
+        );
+    }
+
     public async Task DeleteSession(Account account, Guid sessionId)
     {
         var session = await db.AuthSessions
@@ -204,10 +325,10 @@ public class AccountService(
             .Include(s => s.Challenge)
             .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
             .ToListAsync();
-        
-        if(session.Challenge.DeviceId is not null)
+
+        if (session.Challenge.DeviceId is not null)
             await nty.UnsubscribePushNotifications(session.Challenge.DeviceId);
-        
+
         // The current session should be included in the sessions' list
         db.AuthSessions.RemoveRange(sessions);
         await db.SaveChangesAsync();

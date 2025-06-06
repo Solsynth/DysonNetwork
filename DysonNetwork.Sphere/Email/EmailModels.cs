@@ -17,3 +17,9 @@ public class PasswordResetEmailModel
     public required string Name { get; set; }
     public required string Link { get; set; } 
 }
+
+public class VerificationEmailModel
+{
+    public required string Name { get; set; }
+    public required string Code { get; set; }
+}
