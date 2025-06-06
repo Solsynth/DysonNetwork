@@ -184,6 +184,9 @@ public class AccountService(
                 "Disabling this auth factor will cause you have no active auth factors.");
 
         factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
+        db.Update(factor);
+        await db.SaveChangesAsync();
+        
         return factor;
     }
 
