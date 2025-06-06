@@ -183,7 +183,7 @@ public class AccountService(
             throw new InvalidOperationException(
                 "Disabling this auth factor will cause you have no active auth factors.");
 
-        factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
+        factor.EnabledAt = null;
         db.Update(factor);
         await db.SaveChangesAsync();
         
