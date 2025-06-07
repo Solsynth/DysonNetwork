@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Org.BouncyCastle.Utilities;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -421,6 +422,43 @@ public class AccountCurrentController(
         }
     }
 
+    public class AuthorizedDevice
+    {
+        public string? Label { get; set; }
+        public string UserAgent { get; set; } = null!;
+        public string DeviceId { get; set; } = null!;
+        public List<Session> Sessions { get; set; } = new();
+    }
+
+    [HttpGet("devices")]
+    [Authorize]
+    public async Task<ActionResult<List<AuthorizedDevice>>> GetDevices()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        {
+            return Unauthorized();
+        }
+
+        // Group sessions by the related DeviceId, then create an AuthorizedDevice for each group.
+        var deviceGroups = await db.AuthSessions
+            .Where(s => s.Account.Id == currentUser.Id)
+            // Include the challenge if you need it to access DeviceId
+            .Include(s => s.Challenge)
+            .GroupBy(s => s.Challenge.DeviceId!)
+            .Select(g => new AuthorizedDevice
+            {
+                DeviceId = g.Key!,
+                UserAgent = g.First(x => x.Challenge.UserAgent != null).Challenge.UserAgent!,
+                Label = g.Where(x => string.IsNullOrWhiteSpace(x.Label)).Select(x => x.Label).FirstOrDefault(),
+                Sessions = g
+                    .OrderByDescending(x => x.LastGrantedAt)
+                    .ToList()
+            })
+            .ToListAsync();
+
+        return Ok(deviceGroups);
+    }
+
     [HttpGet("sessions")]
     [Authorize]
     public async Task<ActionResult<List<Session>>> GetSessions(
@@ -434,8 +472,7 @@ public class AccountCurrentController(
         var query = db.AuthSessions
             .Include(session => session.Account)
             .Include(session => session.Challenge)
-            .Where(session => session.Account.Id == currentUser.Id)
-            .OrderByDescending(session => session.CreatedAt);
+            .Where(session => session.Account.Id == currentUser.Id);
 
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
