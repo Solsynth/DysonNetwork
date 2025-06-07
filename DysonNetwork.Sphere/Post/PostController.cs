@@ -3,6 +3,7 @@ using System.Text.Json;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -149,6 +150,7 @@ public class PostController(
         [FromHeader(Name = "X-Pub")] string? publisherName
     )
     {
+        request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
             return BadRequest("Content is required.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -290,6 +292,7 @@ public class PostController(
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<Post>> UpdatePost(Guid id, [FromBody] PostRequest request)
     {
+        request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
             return BadRequest("Content is required.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();

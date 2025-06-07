@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
@@ -142,6 +144,8 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) &&
             (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
             return BadRequest("You cannot send an empty message.");
@@ -218,17 +222,23 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
+        request.Content = TextSanitizer.Sanitize(request.Content);
+
         var message = await db.ChatMessages
             .Include(m => m.Sender)
             .Include(m => m.Sender.Account)
             .Include(m => m.Sender.Account.Profile)
             .Include(message => message.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
-            
+
         if (message == null) return NotFound();
 
         if (message.Sender.AccountId != currentUser.Id)
             return StatusCode(403, "You can only edit your own messages.");
+
+        if (string.IsNullOrWhiteSpace(request.Content) &&
+            (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
+            return BadRequest("You cannot send an empty message.");
 
         if (request.RepliedMessageId.HasValue)
         {
@@ -248,8 +258,8 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
 
         // Call service method to update the message
         await cs.UpdateMessageAsync(
-            message, 
-            request.Meta, 
+            message,
+            request.Meta,
             request.Content,
             request.RepliedMessageId,
             request.ForwardedMessageId,
@@ -269,7 +279,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
             .Include(m => m.Sender)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
-            
+
         if (message == null) return NotFound();
 
         if (message.Sender.AccountId != currentUser.Id)
