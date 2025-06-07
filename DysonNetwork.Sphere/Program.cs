@@ -261,6 +261,17 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInSeconds(60)
             .RepeatForever())
     );
+    
+    var lastActiveFlushJob = new JobKey("LastActiveFlush");
+    q.AddJob<LastActiveFlushJob>(opts => opts.WithIdentity(lastActiveFlushJob));
+    q.AddTrigger(opts => opts
+        .ForJob(lastActiveFlushJob)
+        .WithIdentity("LastActiveFlushTrigger")
+        .WithSimpleSchedule(o => o
+            .WithIntervalInMinutes(5)
+            .RepeatForever())
+    );
+    
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
