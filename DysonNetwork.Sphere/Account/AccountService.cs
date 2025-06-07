@@ -328,11 +328,17 @@ public class AccountService(
              .Where(s => s.Id == sessionId && s.AccountId == account.Id)
              .FirstOrDefaultAsync();
          if (session is null) throw new InvalidOperationException("Session was not found.");
-       
-         session.Label = label;
-         await db.SaveChangesAsync();
 
-         await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{session.Id}");
+         await db.AuthChallenges
+             .Where(s => s.DeviceId == session.Challenge.DeviceId)
+             .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeviceId, label));
+
+         var sessions = await db.AuthSessions
+             .Include(s => s.Challenge)
+             .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
+             .ToListAsync();
+         foreach(var item in sessions)
+            await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
 
          return session;
     }
