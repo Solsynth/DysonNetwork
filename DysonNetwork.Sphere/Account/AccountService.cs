@@ -157,13 +157,16 @@ public class AccountService(
         return factor;
     }
 
-    public async Task<AccountAuthFactor> EnableAuthFactor(AccountAuthFactor factor, string code)
+    public async Task<AccountAuthFactor> EnableAuthFactor(AccountAuthFactor factor, string? code)
     {
         if (factor.EnabledAt is not null) throw new ArgumentException("The factor has been enabled.");
-        if (!factor.VerifyPassword(code))
-            throw new InvalidOperationException(
-                "Invalid code, you need to enter the correct code to enable the factor."
-            );
+        if (factor.Type is AccountAuthFactorType.Password or AccountAuthFactorType.TimedCode)
+        {
+            if (code is null || !factor.VerifyPassword(code))
+                throw new InvalidOperationException(
+                    "Invalid code, you need to enter the correct code to enable the factor."
+                );
+        }
 
         factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(factor);
@@ -186,7 +189,7 @@ public class AccountService(
         factor.EnabledAt = null;
         db.Update(factor);
         await db.SaveChangesAsync();
-        
+
         return factor;
     }
 
@@ -219,7 +222,7 @@ public class AccountService(
             case AccountAuthFactorType.InAppCode:
                 if (await _GetFactorCode(factor) is not null)
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
-                
+
                 await nty.SendNotification(
                     account,
                     "auth.verification",
@@ -233,7 +236,7 @@ public class AccountService(
             case AccountAuthFactorType.EmailCode:
                 if (await _GetFactorCode(factor) is not null)
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
-                
+
                 ArgumentNullException.ThrowIfNull(hint);
                 hint = hint.Replace("@", "").Replace(".", "").Replace("+", "").Replace("%", "");
                 if (string.IsNullOrWhiteSpace(hint))
@@ -263,8 +266,8 @@ public class AccountService(
                 }
 
                 await email.SendTemplatedEmailAsync<VerificationEmail, VerificationEmailModel>(
+                    account.Nick,
                     contact.Content,
-                    localizer["EmailVerificationTitle"],
                     localizer["VerificationEmail"],
                     new VerificationEmailModel
                     {

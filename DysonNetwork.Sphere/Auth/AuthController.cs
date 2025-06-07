@@ -53,7 +53,7 @@ public class AuthController(
         var challenge = new Challenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
-            StepTotal = 1,
+            StepTotal = 3,
             Platform = request.Platform,
             Audiences = request.Audiences,
             Scopes = request.Scopes,
@@ -80,10 +80,11 @@ public class AuthController(
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
             .Include(e => e.Account.AuthFactors)
-            .Where(e => e.Id == id).FirstOrDefaultAsync();
+            .Where(e => e.Id == id)
+            .FirstOrDefaultAsync();
         return challenge is null
             ? NotFound("Auth challenge was not found.")
-            : challenge.Account.AuthFactors.ToList();
+            : challenge.Account.AuthFactors.Where(e => e.EnabledAt != null).ToList();
     }
 
     [HttpPost("challenge/{id:guid}/factors/{factorId:guid}")]
@@ -131,6 +132,8 @@ public class AuthController(
 
         var factor = await db.AccountAuthFactors.FindAsync(request.FactorId);
         if (factor is null) return NotFound("Auth factor was not found.");
+        if (factor.EnabledAt is null) return BadRequest("Auth factor is not enabled.");
+        if (factor.Trustworthy <= 0) return BadRequest("Auth factor is not trustworthy.");
 
         if (challenge.StepRemain == 0) return challenge;
         if (challenge.ExpiredAt.HasValue && challenge.ExpiredAt.Value < Instant.FromDateTimeUtc(DateTime.UtcNow))
@@ -140,7 +143,8 @@ public class AuthController(
         {
             if (await accounts.VerifyFactorCode(factor, request.Password))
             {
-                challenge.StepRemain--;
+                challenge.StepRemain -= factor.Trustworthy;
+                challenge.StepRemain = Math.Max(0, challenge.StepRemain);
                 challenge.BlacklistFactors.Add(factor.Id);
                 db.Update(challenge);
                 als.CreateActionLogFromRequest(ActionLogType.ChallengeSuccess,

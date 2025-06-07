@@ -357,7 +357,7 @@ public class AccountCurrentController(
 
     [HttpPost("factors/{id:guid}/enable")]
     [Authorize]
-    public async Task<ActionResult<AccountAuthFactor>> EnableAuthFactor(Guid id, [FromBody] string code)
+    public async Task<ActionResult<AccountAuthFactor>> EnableAuthFactor(Guid id, [FromBody] string? code)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 

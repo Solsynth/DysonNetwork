@@ -141,6 +141,8 @@ public class AccountAuthFactor : ModelBase
             case AccountAuthFactorType.TimedCode:
                 var otp = new Totp(Base32Encoding.ToBytes(Secret));
                 return otp.VerifyTotp(DateTime.UtcNow, password, out _, new VerificationWindow(previous: 5, future: 5));
+            case AccountAuthFactorType.EmailCode:
+            case AccountAuthFactorType.InAppCode:
             default:
                 throw new InvalidOperationException("Unsupported verification type, use CheckDeliveredCode instead.");
         }
