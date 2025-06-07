@@ -50,10 +50,18 @@ public class AccountController(
 
     public class AccountCreateRequest
     {
-        [Required] [MaxLength(256)] public string Name { get; set; } = string.Empty;
+        [Required]
+        [MinLength(2)]
+        [MaxLength(256)]
+        [RegularExpression(@"^[A-Za-z0-9_-]+$",
+            ErrorMessage = "Name can only contain letters, numbers, underscores, and hyphens.")
+        ]
+        public string Name { get; set; } = string.Empty;
+
         [Required] [MaxLength(256)] public string Nick { get; set; } = string.Empty;
 
         [EmailAddress]
+        [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
         [Required]
         [MaxLength(1024)]
         public string Email { get; set; } = string.Empty;

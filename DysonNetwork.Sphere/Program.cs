@@ -185,7 +185,7 @@ builder.Services.AddSingleton(tusDiskStore);
 builder.Services.AddSingleton<FlushBufferService>();
 builder.Services.AddScoped<ActionLogFlushHandler>();
 builder.Services.AddScoped<MessageReadReceiptFlushHandler>();
-builder.Services.AddScoped<ActionLogService>();
+builder.Services.AddScoped<LastActiveFlushHandler>();
 
 // The handlers for websocket
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
@@ -199,6 +199,7 @@ builder.Services.AddScoped<GeoIpService>();
 builder.Services.AddScoped<WebSocketService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<ActionLogService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<AccountEventService>();
 builder.Services.AddScoped<ActionLogService>();

@@ -16,7 +16,7 @@ public class Session : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
     public Guid ChallengeId { get; set; }
-    [JsonIgnore] public Challenge Challenge { get; set; } = null!;
+    public Challenge Challenge { get; set; } = null!;
 }
 
 public enum ChallengeType

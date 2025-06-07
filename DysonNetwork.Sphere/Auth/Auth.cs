@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Storage.Handlers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -37,7 +38,8 @@ public class DysonTokenAuthHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     AppDatabase database,
-    ICacheService cache
+    ICacheService cache,
+    FlushBufferService fbs
 )
     : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
@@ -116,6 +118,15 @@ public class DysonTokenAuthHandler(
             var principal = new ClaimsPrincipal(identity);
 
             var ticket = new AuthenticationTicket(principal, AuthConstants.SchemeName);
+
+            var lastInfo = new LastActiveInfo
+            {
+                Account = session.Account,
+                Session = session,
+                SeenAt = SystemClock.Instance.GetCurrentInstant(),
+            };
+            fbs.Enqueue(lastInfo);
+            
             return AuthenticateResult.Success(ticket);
         }
         catch (Exception ex)
