@@ -428,7 +428,8 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
 
         var query = db.AuthSessions
             .Include(session => session.Account)
@@ -438,8 +439,10 @@ public class AccountCurrentController(
 
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
+        Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
         var sessions = await query
+            .OrderByDescending(x => x.LastGrantedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -474,6 +477,39 @@ public class AccountCurrentController(
         try
         {
             await accounts.DeleteSession(currentUser, currentSession.Id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("sessions/{id:guid}/label")]
+    public async Task<ActionResult<Session>> UpdateSessionLabel(Guid id, [FromBody] string label)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.UpdateSessionLabel(currentUser, id, label);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("sessions/current/label")]
+    public async Task<ActionResult<Session>> UpdateCurrentSessionLabel([FromBody] string label)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+
+        try
+        {
+            await accounts.UpdateSessionLabel(currentUser, currentSession.Id, label);
             return NoContent();
         }
         catch (Exception ex)

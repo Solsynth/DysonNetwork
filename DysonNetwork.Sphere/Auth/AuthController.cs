@@ -53,7 +53,7 @@ public class AuthController(
         var challenge = new Challenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
-            StepTotal = 3,
+            StepTotal = await auth.DetectChallengeRisk(Request, account),
             Platform = request.Platform,
             Audiences = request.Audiences,
             Scopes = request.Scopes,
@@ -205,7 +205,6 @@ public class AuthController(
     [HttpPost("token")]
     public async Task<ActionResult<TokenExchangeResponse>> ExchangeToken([FromBody] TokenExchangeRequest request)
     {
-        Session? session;
         switch (request.GrantType)
         {
             case "authorization_code":
@@ -221,7 +220,7 @@ public class AuthController(
                 if (challenge.StepRemain != 0)
                     return BadRequest("Challenge not yet completed.");
 
-                session = await db.AuthSessions
+                var session = await db.AuthSessions
                     .Where(e => e.Challenge == challenge)
                     .FirstOrDefaultAsync();
                 if (session is not null)

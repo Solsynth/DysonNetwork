@@ -293,7 +293,9 @@ public class AccountService(
             case AccountAuthFactorType.EmailCode:
             case AccountAuthFactorType.InAppCode:
                 var correctCode = await _GetFactorCode(factor);
-                return correctCode is not null && string.Equals(correctCode, code, StringComparison.OrdinalIgnoreCase);
+                var isCorrect = correctCode is not null && string.Equals(correctCode, code, StringComparison.OrdinalIgnoreCase);
+                await cache.RemoveAsync($"{AuthFactorCachePrefix}{factor.Id}:code");
+                return isCorrect;
             case AccountAuthFactorType.Password:
             case AccountAuthFactorType.TimedCode:
             default:
@@ -317,6 +319,22 @@ public class AccountService(
         return await cache.GetAsync<string?>(
             $"{AuthFactorCachePrefix}{factor.Id}:code"
         );
+    }
+    
+    public async Task<Session> UpdateSessionLabel(Account account, Guid sessionId, string label)
+    {
+         var session = await db.AuthSessions
+             .Include(s => s.Challenge)
+             .Where(s => s.Id == sessionId && s.AccountId == account.Id)
+             .FirstOrDefaultAsync();
+         if (session is null) throw new InvalidOperationException("Session was not found.");
+       
+         session.Label = label;
+         await db.SaveChangesAsync();
+
+         await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{session.Id}");
+
+         return session;
     }
 
     public async Task DeleteSession(Account account, Guid sessionId)
