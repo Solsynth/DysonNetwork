@@ -55,11 +55,9 @@ public class AuthService(AppDatabase db, IConfiguration config, IHttpClientFacto
             riskScore += 1;
 
         // 4) Combine base “maxSteps” (the number of enabled factors) with any accumulated risk score.
-        // You might choose to make “maxSteps + riskScore” your total required steps,
-        // or clamp it to maxSteps if you only want to require existing available factors.
-        var totalRequiredSteps = maxSteps + riskScore;
-
-        // Clamp the step
+        const int totalRiskScore = 3;
+        var totalRequiredSteps = (int)Math.Round((float)maxSteps * riskScore / 3);
+        // Clamp the steps
         totalRequiredSteps = Math.Max(Math.Min(totalRequiredSteps, maxSteps), 1);
 
         return totalRequiredSteps;
