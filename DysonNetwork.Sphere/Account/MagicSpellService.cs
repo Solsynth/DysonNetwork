@@ -66,6 +66,7 @@ public class MagicSpellService(
             .Where(c => c.Account.Id == spell.AccountId)
             .Where(c => c.Type == AccountContactType.Email)
             .Where(c => c.VerifiedAt != null || bypassVerify)
+            .OrderByDescending(c => c.IsPrimary)
             .Include(c => c.Account)
             .FirstOrDefaultAsync();
         if (contact is null) throw new ArgumentException("Account has no contact method that can use");

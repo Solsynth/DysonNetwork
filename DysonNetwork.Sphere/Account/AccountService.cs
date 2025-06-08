@@ -376,7 +376,8 @@ public class AccountService(
         var contact = new AccountContact
         {
             Type = type,
-            Content = content
+            Content = content,
+            AccountId = account.Id,
         };
 
         db.AccountContacts.Add(contact);
