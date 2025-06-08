@@ -86,7 +86,7 @@ public class MagicSpellService(
             {
                 case MagicSpellType.AccountActivation:
                     await email.SendTemplatedEmailAsync<LandingEmail, LandingEmailModel>(
-                        contact.Account.Name,
+                        contact.Account.Nick,
                         contact.Content,
                         localizer["EmailLandingTitle"],
                         new LandingEmailModel
@@ -98,7 +98,7 @@ public class MagicSpellService(
                     break;
                 case MagicSpellType.AccountRemoval:
                     await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
-                        contact.Account.Name,
+                        contact.Account.Nick,
                         contact.Content,
                         localizer["EmailAccountDeletionTitle"],
                         new AccountDeletionEmailModel
@@ -110,10 +110,24 @@ public class MagicSpellService(
                     break;
                 case MagicSpellType.AuthPasswordReset:
                     await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
-                        contact.Account.Name,
+                        contact.Account.Nick,
                         contact.Content,
                         localizer["EmailAccountDeletionTitle"],
                         new PasswordResetEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
+                        }
+                    );
+                    break;
+                case MagicSpellType.ContactVerification:
+                    if (spell.Meta["contact_method"] is not string contactMethod)
+                        throw new InvalidOperationException("Contact method is not found.");
+                    await email.SendTemplatedEmailAsync<ContactVerificationEmail, ContactVerificationEmailModel>(
+                        contact.Account.Nick,
+                        contactMethod!,
+                        localizer["EmailContactVerificationTitle"],
+                        new ContactVerificationEmailModel
                         {
                             Name = contact.Account.Name,
                             Link = link
@@ -142,7 +156,6 @@ public class MagicSpellService(
                 var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
                 if (account is null) break;
                 db.Accounts.Remove(account);
-                await db.SaveChangesAsync();
                 break;
             case MagicSpellType.AccountActivation:
                 var contactMethod = spell.Meta["contact_method"] as string;
@@ -173,12 +186,24 @@ public class MagicSpellService(
                     });
                 }
 
-                db.Remove(spell);
-                await db.SaveChangesAsync();
+                break;
+            case MagicSpellType.ContactVerification:
+                var verifyContactMethod = spell.Meta["contact_method"] as string;
+                var verifyContact = await db.AccountContacts
+                    .FirstOrDefaultAsync(c => c.Content == verifyContactMethod);
+                if (verifyContact is not null)
+                {
+                    verifyContact.VerifiedAt = SystemClock.Instance.GetCurrentInstant();
+                    db.Update(verifyContact);
+                }
+
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
         }
+
+        db.Remove(spell);
+        await db.SaveChangesAsync();
     }
 
     public async Task ApplyPasswordReset(MagicSpell spell, string newPassword)

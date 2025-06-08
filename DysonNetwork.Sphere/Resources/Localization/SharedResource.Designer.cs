@@ -44,23 +44,5 @@ namespace DysonNetwork.Sphere.Resources {
                 resourceCulture = value;
             }
         }
-        
-        internal static string EmailLinkHint {
-            get {
-                return ResourceManager.GetString("EmailLinkHint", resourceCulture);
-            }
-        }
-        
-        internal static string EmailFooter1 {
-            get {
-                return ResourceManager.GetString("EmailFooter1", resourceCulture);
-            }
-        }
-        
-        internal static string EmailFooter2 {
-            get {
-                return ResourceManager.GetString("EmailFooter2", resourceCulture);
-            }
-        }
     }
 }

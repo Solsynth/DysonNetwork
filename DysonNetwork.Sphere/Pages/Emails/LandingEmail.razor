@@ -3,57 +3,36 @@
 @using EmailResource = DysonNetwork.Sphere.Localization.EmailResource
 
 <EmailLayout>
-    <table class="container">
-        <tr>
-            <td class="columns">
-                <h1 style="font-size: 1.875rem; font-weight: 700; color: #111827; margin: 0; text-align: center;">
-                    @(Localizer["LandingHeader1"])
-                </h1>
-            </td>
-        </tr>
+    <tr>
+        <td class="wrapper">
+            <p class="font-bold">@(Localizer["LandingHeader1"])</p>
+            <p>@(Localizer["LandingPara1"]) @@@Name,</p>
+            <p>@(Localizer["LandingPara2"])</p>
+            <p>@(Localizer["LandingPara3"])</p>
 
-        <tr>
-            <td class="columns">
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["LandingPara1"]) @@@Name,
-                </p>
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["LandingPara2"])
-                </p>
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["LandingPara3"])
-                </p>
-            </td>
-        </tr>
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary">
+                <tbody>
+                <tr>
+                    <td align="left">
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                            <tbody>
+                            <tr>
+                                <td>
+                                    <a href="@Link" target="_blank">
+                                        @(Localizer["LandingButton1"])
+                                    </a>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
 
-        <tr>
-            <td class="columns">
-                <div style="text-align: center;">
-                    <a href="@Link" target="_blank"
-                       style="background-color: #2563eb; color: #ffffff; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; text-decoration: none;">
-                        @(Localizer["LandingButton1"])
-                    </a>
-                </div>
-            </td>
-        </tr>
-
-        <tr>
-            <td class="columns">
-                <p style="color: #374151; margin: 0;">
-                    @(LocalizerShared["EmailLinkHint"])
-                    <br>
-                    <a href="@Link" style="color: #2563eb; word-break: break-all;">@Link</a>
-                </p>
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["LandingPara4"])
-                </p>
-                <p style="color: #374151; margin: 2rem 0 0 0;">
-                    @(LocalizerShared["EmailFooter1"]) <br />
-                    @(LocalizerShared["EmailFooter2"])
-                </p>
-            </td>
-        </tr>
-    </table>
+            <p>@(Localizer["LandingPara4"])</p>
+        </td>
+    </tr>
 </EmailLayout>
 
 @code {
@@ -61,5 +40,4 @@
     [Parameter] public required string Link { get; set; }
 
     [Inject] IStringLocalizer<EmailResource> Localizer { get; set; } = null!;
-    [Inject] IStringLocalizer<SharedResource> LocalizerShared { get; set; } = null!;
 }

@@ -90,6 +90,7 @@ public class AccountContact : ModelBase
     public Guid Id { get; set; }
     public AccountContactType Type { get; set; }
     public Instant? VerifiedAt { get; set; }
+    public bool IsPrimary { get; set; } = false;
     [MaxLength(1024)] public string Content { get; set; } = string.Empty;
 
     public Guid AccountId { get; set; }

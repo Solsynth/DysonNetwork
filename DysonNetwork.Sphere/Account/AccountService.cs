@@ -293,7 +293,8 @@ public class AccountService(
             case AccountAuthFactorType.EmailCode:
             case AccountAuthFactorType.InAppCode:
                 var correctCode = await _GetFactorCode(factor);
-                var isCorrect = correctCode is not null && string.Equals(correctCode, code, StringComparison.OrdinalIgnoreCase);
+                var isCorrect = correctCode is not null &&
+                                string.Equals(correctCode, code, StringComparison.OrdinalIgnoreCase);
                 await cache.RemoveAsync($"{AuthFactorCachePrefix}{factor.Id}:code");
                 return isCorrect;
             case AccountAuthFactorType.Password:
@@ -320,27 +321,28 @@ public class AccountService(
             $"{AuthFactorCachePrefix}{factor.Id}:code"
         );
     }
-    
+
     public async Task<Session> UpdateSessionLabel(Account account, Guid sessionId, string label)
     {
-         var session = await db.AuthSessions
-             .Include(s => s.Challenge)
-             .Where(s => s.Id == sessionId && s.AccountId == account.Id)
-             .FirstOrDefaultAsync();
-         if (session is null) throw new InvalidOperationException("Session was not found.");
+        var session = await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.Id == sessionId && s.AccountId == account.Id)
+            .FirstOrDefaultAsync();
+        if (session is null) throw new InvalidOperationException("Session was not found.");
 
-         await db.AuthChallenges
-             .Where(s => s.DeviceId == session.Challenge.DeviceId)
-             .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeviceId, label));
+        await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.Challenge.DeviceId == session.Challenge.DeviceId)
+            .ExecuteUpdateAsync(p => p.SetProperty(s => s.Label, label));
 
-         var sessions = await db.AuthSessions
-             .Include(s => s.Challenge)
-             .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
-             .ToListAsync();
-         foreach(var item in sessions)
+        var sessions = await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
+            .ToListAsync();
+        foreach (var item in sessions)
             await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
 
-         return session;
+        return session;
     }
 
     public async Task DeleteSession(Account account, Guid sessionId)
@@ -367,6 +369,72 @@ public class AccountService(
 
         foreach (var item in sessions)
             await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
+    }
+
+    public async Task<AccountContact> CreateContactMethod(Account account, AccountContactType type, string content)
+    {
+        var contact = new AccountContact
+        {
+            Type = type,
+            Content = content
+        };
+
+        db.AccountContacts.Add(contact);
+        await db.SaveChangesAsync();
+
+        return contact;
+    }
+
+    public async Task VerifyContactMethod(Account account, AccountContact contact)
+    {
+        var spell = await spells.CreateMagicSpell(
+            account,
+            MagicSpellType.ContactVerification,
+            new Dictionary<string, object> { { "contact_method", contact.Content } },
+            expiredAt: SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24)),
+            preventRepeat: true
+        );
+        await spells.NotifyMagicSpell(spell);
+    }
+
+    public async Task<AccountContact> SetContactMethodPrimary(Account account, AccountContact contact)
+    {
+        if (contact.AccountId != account.Id)
+            throw new InvalidOperationException("Contact method does not belong to this account.");
+        if (contact.VerifiedAt is null)
+            throw new InvalidOperationException("Cannot set unverified contact method as primary.");
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            await db.AccountContacts
+                .Where(c => c.AccountId == account.Id && c.Type == contact.Type)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsPrimary, false));
+
+            contact.IsPrimary = true;
+            db.AccountContacts.Update(contact);
+            await db.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+            return contact;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task DeleteContactMethod(Account account, AccountContact contact)
+    {
+        if (contact.AccountId != account.Id)
+            throw new InvalidOperationException("Contact method does not belong to this account.");
+        if (contact.IsPrimary)
+            throw new InvalidOperationException("Cannot delete primary contact method.");
+
+        db.AccountContacts.Remove(contact);
+        await db.SaveChangesAsync();
     }
 
     /// Maintenance methods for server administrator

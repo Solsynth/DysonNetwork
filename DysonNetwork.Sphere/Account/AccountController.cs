@@ -97,7 +97,8 @@ public class AccountController(
                 new()
                 {
                     Type = AccountContactType.Email,
-                    Content = request.Email
+                    Content = request.Email,
+                    IsPrimary = true
                 }
             },
             AuthFactors = new List<AccountAuthFactor>

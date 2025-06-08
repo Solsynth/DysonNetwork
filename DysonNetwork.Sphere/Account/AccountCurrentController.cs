@@ -437,7 +437,7 @@ public class AccountCurrentController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
             HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
-        
+
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
         // Group sessions by the related DeviceId, then create an AuthorizedDevice for each group.
@@ -551,6 +551,108 @@ public class AccountCurrentController(
         try
         {
             await accounts.UpdateSessionLabel(currentUser, currentSession.Id, label);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpGet("contacts")]
+    [Authorize]
+    public async Task<ActionResult<List<AccountContact>>> GetContacts()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var contacts = await db.AccountContacts
+            .Where(c => c.AccountId == currentUser.Id)
+            .ToListAsync();
+
+        return Ok(contacts);
+    }
+
+    public class AccountContactRequest
+    {
+        [Required] public AccountContactType Type { get; set; }
+        [Required] public string Content { get; set; } = null!;
+    }
+
+    [HttpPost("contacts")]
+    [Authorize]
+    public async Task<ActionResult<AccountContact>> CreateContact([FromBody] AccountContactRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            var contact = await accounts.CreateContactMethod(currentUser, request.Type, request.Content);
+            return Ok(contact);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("contacts/{id:guid}/verify")]
+    [Authorize]
+    public async Task<ActionResult<AccountContact>> VerifyContact(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var contact = await db.AccountContacts
+            .Where(c => c.AccountId == currentUser.Id && c.Id == id)
+            .FirstOrDefaultAsync();
+        if (contact is null) return NotFound();
+
+        try
+        {
+            await accounts.VerifyContactMethod(currentUser, contact);
+            return Ok(contact);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("contacts/{id:guid}/primary")]
+    [Authorize]
+    public async Task<ActionResult<AccountContact>> SetPrimaryContact(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var contact = await db.AccountContacts
+            .Where(c => c.AccountId == currentUser.Id && c.Id == id)
+            .FirstOrDefaultAsync();
+        if (contact is null) return NotFound();
+
+        try
+        {
+            contact = await accounts.SetContactMethodPrimary(currentUser, contact);
+            return Ok(contact);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("contacts/{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<AccountContact>> DeleteContact(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        
+        var contact = await db.AccountContacts
+            .Where(c => c.AccountId == currentUser.Id && c.Id == id)
+            .FirstOrDefaultAsync();
+        if (contact is null) return NotFound();
+
+        try
+        {
+            await accounts.DeleteContactMethod(currentUser, contact);
             return NoContent();
         }
         catch (Exception ex)

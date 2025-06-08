@@ -5,10 +5,9 @@
 <EmailLayout>
     <tr>
         <td class="wrapper">
-            <p class="font-bold">@(Localizer["PasswordResetHeader"])</p>
-            <p>@(Localizer["PasswordResetPara1"]) @@@Name,</p>
-            <p>@(Localizer["PasswordResetPara2"])</p>
-            <p>@(Localizer["PasswordResetPara3"])</p>
+            <p class="font-bold">@(Localizer["ContactVerificationHeader"])</p>
+            <p>@(Localizer["ContactVerificationPara1"]) @Name,</p>
+            <p>@(Localizer["ContactVerificationPara2"])</p>
 
             <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary">
                 <tbody>
@@ -19,7 +18,7 @@
                             <tr>
                                 <td>
                                     <a href="@Link" target="_blank">
-                                        @(Localizer["PasswordResetButton"])
+                                        @(Localizer["ContactVerificationButton"])
                                     </a>
                                 </td>
                             </tr>
@@ -30,7 +29,8 @@
                 </tbody>
             </table>
 
-            <p>@(Localizer["PasswordResetPara4"])</p>
+            <p>@(Localizer["ContactVerificationPara3"])</p>
+            <p>@(Localizer["ContactVerificationPara4"])</p>
         </td>
     </tr>
 </EmailLayout>
@@ -40,5 +40,4 @@
     [Parameter] public required string Link { get; set; }
 
     [Inject] IStringLocalizer<EmailResource> Localizer { get; set; } = null!;
-    [Inject] IStringLocalizer<SharedResource> LocalizerShared { get; set; } = null!;
 }

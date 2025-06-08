@@ -95,4 +95,25 @@
     <data name="EmailVerificationTitle" xml:space="preserve">
         <value>验证您的电子邮箱</value>
     </data>
+    <data name="ContactVerificationHeader" xml:space="preserve">
+        <value>验证您的联系信息</value>
+    </data>
+    <data name="ContactVerificationPara1" xml:space="preserve">
+        <value>尊敬的 </value>
+    </data>
+    <data name="ContactVerificationPara2" xml:space="preserve">
+        <value>感谢您更新 Solar Network 上的联系信息。为确保您的账户安全，我们需要验证此更改。</value>
+    </data>
+    <data name="ContactVerificationPara3" xml:space="preserve">
+        <value>请点击下方按钮验证您的联系信息：</value>
+    </data>
+    <data name="ContactVerificationButton" xml:space="preserve">
+        <value>验证联系信息</value>
+    </data>
+    <data name="ContactVerificationPara4" xml:space="preserve">
+        <value>如果您没有请求此更改，请立即联系我们的支持团队。</value>
+    </data>
+    <data name="EmailContactVerificationTitle" xml:space="preserve">
+        <value>验证您的联系信息</value>
+    </data>
 </root>

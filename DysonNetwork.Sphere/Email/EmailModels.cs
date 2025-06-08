@@ -23,3 +23,9 @@ public class VerificationEmailModel
     public required string Name { get; set; }
     public required string Code { get; set; }
 }
+
+public class ContactVerificationEmailModel
+{
+    public required string Name { get; set; }
+    public required string Link { get; set; }
+}

@@ -102,4 +102,25 @@
     <data name="EmailVerificationTitle" xml:space="preserve">
         <value>Verify your email address</value>
     </data>
+    <data name="ContactVerificationHeader" xml:space="preserve">
+        <value>Verify Your Contact Information</value>
+    </data>
+    <data name="ContactVerificationPara1" xml:space="preserve">
+        <value>Dear, </value>
+    </data>
+    <data name="ContactVerificationPara2" xml:space="preserve">
+        <value>Thank you for updating your contact information on the Solar Network. To ensure your account security, we need to verify this change.</value>
+    </data>
+    <data name="ContactVerificationPara3" xml:space="preserve">
+        <value>Please click the button below to verify your contact information:</value>
+    </data>
+    <data name="ContactVerificationButton" xml:space="preserve">
+        <value>Verify Contact Information</value>
+    </data>
+    <data name="ContactVerificationPara4" xml:space="preserve">
+        <value>If you didn't request this change, please contact our support team immediately.</value>
+    </data>
+    <data name="EmailContactVerificationTitle" xml:space="preserve">
+        <value>Verify your contact information</value>
+    </data>
 </root>

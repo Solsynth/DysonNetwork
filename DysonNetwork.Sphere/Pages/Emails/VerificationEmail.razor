@@ -3,54 +3,19 @@
 @using EmailResource = DysonNetwork.Sphere.Localization.EmailResource
 
 <EmailLayout>
-    <table class="container">
-        <tr>
-            <td class="columns">
-                <h1 style="font-size: 1.875rem; font-weight: 700; color: #111827; margin: 0; text-align: center;">
-                    @(Localizer["VerificationHeader1"])
-                </h1>
-            </td>
-        </tr>
+    <tr>
+        <td class="wrapper">
+            <p class="font-bold">@(Localizer["VerificationHeader1"])</p>
+            <p>@(Localizer["VerificationPara1"]) @@@Name,</p>
+            <p>@(Localizer["VerificationPara2"])</p>
+            <p>@(Localizer["VerificationPara3"])</p>
 
-        <tr>
-            <td class="columns">
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["VerificationPara1"]) @Name,
-                </p>
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["VerificationPara2"])
-                </p>
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["VerificationPara3"])
-                </p>
-            </td>
-        </tr>
+            <p class="verification-code">@Code</p>
 
-        <tr>
-            <td class="columns">
-                <div style="text-align: center;">
-                    <div style="background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; display: inline-block; margin: 1rem 0;">
-                        <span style="font-size: 1.5rem; font-weight: 600; color: #111827; letter-spacing: 0.1em;">@Code</span>
-                    </div>
-                </div>
-            </td>
-        </tr>
-
-        <tr>
-            <td class="columns">
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["VerificationPara4"])
-                </p>
-                <p style="color: #374151; margin: 0;">
-                    @(Localizer["VerificationPara5"])
-                </p>
-                <p style="color: #374151; margin: 2rem 0 0 0;">
-                    @(LocalizerShared["EmailFooter1"]) <br />
-                    @(LocalizerShared["EmailFooter2"])
-                </p>
-            </td>
-        </tr>
-    </table>
+            <p>@(Localizer["VerificationPara4"])</p>
+            <p>@(Localizer["VerificationPara5"])</p>
+        </td>
+    </tr>
 </EmailLayout>
 
 @code {
