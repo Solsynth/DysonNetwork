@@ -2,6 +2,7 @@ using DysonNetwork.Sphere.Account;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Text;
 
 namespace DysonNetwork.Sphere.Activity;
 
@@ -23,11 +24,21 @@ public class ActivityController(
     /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<Activity>>> ListActivities([FromQuery] int? cursor, [FromQuery] int take = 20)
+    public async Task<ActionResult<List<Activity>>> ListActivities([FromQuery] string? cursor, [FromQuery] int take = 20)
     {
-        var cursorTimestamp = cursor is <= 1000
-            ? SystemClock.Instance.GetCurrentInstant()
-            : Instant.FromUnixTimeMilliseconds(cursor!.Value);
+        Instant? cursorTimestamp = null;
+        if (!string.IsNullOrEmpty(cursor))
+        {
+            try
+            {
+                cursorTimestamp = InstantPattern.ExtendedIso.Parse(cursor).GetValueOrThrow();
+            }
+            catch
+            {
+                return BadRequest("Invalid cursor format");
+            }
+        }
+
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not Account.Account currentUser)

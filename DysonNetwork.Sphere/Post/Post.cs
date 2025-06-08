@@ -79,7 +79,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
             Id = Id,
             Type = RepliedPostId is null ? "posts.new" : "posts.new.replies",
             ResourceIdentifier = ResourceIdentifier,
-            Data = null
+            Data = this
         };
     }
 }
