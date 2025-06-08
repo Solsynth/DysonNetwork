@@ -291,8 +291,8 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseCors(opts =>
     opts.SetIsOriginAllowed(_ => true)
-        .WithExposedHeaders("X-Total")
-        .WithHeaders("X-Total")
+        .WithExposedHeaders("X-Total", "Location")
+        .WithHeaders()
         .AllowCredentials()
         .AllowAnyHeader()
         .AllowAnyMethod()
