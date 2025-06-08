@@ -52,7 +52,7 @@ public class FileService(
     }
 
     private static readonly string TempFilePrefix = "dyn-cloudfile";
-    private static readonly string[] function = new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
+    private static readonly string[] AnimatedImageTypes = new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
 
     // The analysis file method no longer will remove the GPS EXIF data
     // It should be handled on the client side, and for some specific cases it should be keep
@@ -66,7 +66,7 @@ public class FileService(
     {
         var result = new List<(string filePath, string suffix)>();
 
-        var ogFilePath = Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId);
+        var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
         var fileSize = stream.Length;
         var hash = await HashFileAsync(stream, fileSize: fileSize);
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
@@ -144,7 +144,7 @@ public class FileService(
             case "audio":
                 try
                 {
-                    var mediaInfo = await FFProbe.AnalyseAsync(stream);
+                    var mediaInfo = await FFProbe.AnalyseAsync(ogFilePath);
                     file.FileMeta = new Dictionary<string, object>
                     {
                         ["duration"] = mediaInfo.Duration.TotalSeconds,
@@ -156,9 +156,10 @@ public class FileService(
                         ["chapters"] = mediaInfo.Chapters,
                     };
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ignored
+                    logger.LogError("File analyzed failed, unable collect video / audio information: {Message}",
+                        ex.Message);
                 }
 
                 break;
@@ -179,7 +180,7 @@ public class FileService(
                 if (contentType.Split('/')[0] == "image")
                 {
                     // Skip compression for animated image types
-                    var animatedMimeTypes = function;
+                    var animatedMimeTypes = AnimatedImageTypes;
                     if (animatedMimeTypes.Contains(contentType))
                     {
                         logger.LogInformation(
@@ -192,7 +193,7 @@ public class FileService(
 
                     file.MimeType = "image/webp";
 
-                    using var vipsImage = NetVips.Image.NewFromFile(ogFilePath);
+                    using var vipsImage = Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
                     vipsImage.Autorot();
                     vipsImage.WriteToFile(imagePath + ".webp",
@@ -216,11 +217,8 @@ public class FileService(
                 }
                 else
                 {
-                    var tempFilePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    await using var fileStream = File.Create(tempFilePath);
-                    stream.Position = 0;
-                    await stream.CopyToAsync(fileStream);
-                    result.Add((tempFilePath, string.Empty));
+                    // No extra process for video, add it to the upload queue.
+                    result.Add((ogFilePath, string.Empty));
                 }
 
                 logger.LogInformation("Optimized file {fileId}, now uploading...", fileId);

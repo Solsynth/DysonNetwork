@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.Json;
 using DysonNetwork.Sphere.Email;
 using DysonNetwork.Sphere.Pages.Emails;
 using DysonNetwork.Sphere.Permission;
@@ -159,7 +160,7 @@ public class MagicSpellService(
                 db.Accounts.Remove(account);
                 break;
             case MagicSpellType.AccountActivation:
-                var contactMethod = spell.Meta["contact_method"] as string;
+                var contactMethod = (spell.Meta["contact_method"] as JsonElement? ?? default).ToString();
                 var contact = await
                     db.AccountContacts.FirstOrDefaultAsync(c =>
                         c.Content == contactMethod
@@ -189,7 +190,7 @@ public class MagicSpellService(
 
                 break;
             case MagicSpellType.ContactVerification:
-                var verifyContactMethod = spell.Meta["contact_method"] as string;
+                var verifyContactMethod = (spell.Meta["contact_method"] as JsonElement? ?? default).ToString();
                 var verifyContact = await db.AccountContacts
                     .FirstOrDefaultAsync(c => c.Content == verifyContactMethod);
                 if (verifyContact is not null)
