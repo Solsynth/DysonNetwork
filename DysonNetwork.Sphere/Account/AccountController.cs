@@ -106,7 +106,8 @@ public class AccountController(
                 new AccountAuthFactor
                 {
                     Type = AccountAuthFactorType.Password,
-                    Secret = request.Password
+                    Secret = request.Password,
+                    EnabledAt = SystemClock.Instance.GetCurrentInstant()
                 }.HashSecret()
             },
             Profile = new Profile()
