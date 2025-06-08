@@ -1,26 +1,37 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Activity;
 
-public enum ActivityVisibility
+public interface IActivity
 {
-    Public,
-    Friends,
-    Selected
+    public Activity ToActivity();
 }
 
+[NotMapped]
 public class Activity : ModelBase
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; set; }
     [MaxLength(1024)] public string Type { get; set; } = null!;
     [MaxLength(4096)] public string ResourceIdentifier { get; set; } = null!;
-    public ActivityVisibility Visibility { get; set; } = ActivityVisibility.Public;
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
-    [Column(TypeName = "jsonb")] public ICollection<Guid> UsersVisible { get; set; } = new List<Guid>();
 
-    public Guid AccountId { get; set; }
-    public Account.Account Account { get; set; } = null!;
+    public object? Data { get; set; }
 
-    [NotMapped] public object? Data { get; set; }
+    // Outdated fields, for backward compability
+    public int Visibility => 0;
+
+    public static Activity Empty()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        return new Activity
+        {
+            CreatedAt = now,
+            UpdatedAt = now,
+            Id = Guid.NewGuid(),
+            Type = "empty",
+            ResourceIdentifier = "none"
+        };
+    }
 }

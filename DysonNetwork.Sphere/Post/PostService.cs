@@ -13,7 +13,6 @@ public class PostService(
     AppDatabase db,
     FileService fs,
     FileReferenceService fileRefService,
-    ActivityService act,
     IStringLocalizer<NotificationResource> localizer,
     NotificationService nty,
     IServiceScopeFactory factory
@@ -106,8 +105,6 @@ public class PostService(
                 );
             }
         }
-
-        await act.CreateNewPostActivity(user, post);
 
         if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow)
             _ = Task.Run(async () =>
@@ -341,8 +338,12 @@ public class PostService(
 
 public static class PostQueryExtensions
 {
-    public static IQueryable<Post> FilterWithVisibility(this IQueryable<Post> source, Account.Account? currentUser,
-        List<Guid> userFriends, bool isListing = false)
+    public static IQueryable<Post> FilterWithVisibility(
+        this IQueryable<Post> source,
+        Account.Account? currentUser,
+        List<Guid> userFriends,
+        bool isListing = false
+    )
     {
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
 

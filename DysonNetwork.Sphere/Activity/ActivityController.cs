@@ -1,38 +1,38 @@
 using DysonNetwork.Sphere.Account;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Activity;
 
+/// <summary>
+/// Activity is a universal feed that contains multiple kinds of data. Personalized and generated dynamically.
+/// </summary>
 [ApiController]
 [Route("/activities")]
 public class ActivityController(
-    AppDatabase db,
-    ActivityReaderService reader,
-    RelationshipService rels) : ControllerBase
+    ActivityService acts
+) : ControllerBase
 {
+    /// <summary>
+    /// Listing the activities for the user, users may be logged in or not to use this API.
+    /// When the users are not logged in, this API will return the posts that are public.
+    /// When the users are logged in,
+    /// the API will personalize the user's experience
+    /// by ranking up the people they like and the posts they like.
+    /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
+    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<Activity>>> ListActivities([FromQuery] int offset, [FromQuery] int take = 20)
+    public async Task<ActionResult<List<Activity>>> ListActivities([FromQuery] int? cursor, [FromQuery] int take = 20)
     {
+        var cursorTimestamp = cursor is <= 1000
+            ? SystemClock.Instance.GetCurrentInstant()
+            : Instant.FromUnixTimeMilliseconds(cursor!.Value);
+
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account.Account;
-        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
+        if (currentUserValue is not Account.Account currentUser)
+            return Ok(await acts.GetActivitiesForAnyone(take, cursorTimestamp));
 
-        var totalCount = await db.Activities
-            .FilterWithVisibility(currentUser, userFriends)
-            .CountAsync();
-        var activities = await db.Activities
-            .Include(e => e.Account)
-            .Include(e => e.Account.Profile)
-            .FilterWithVisibility(currentUser, userFriends)
-            .OrderByDescending(e => e.CreatedAt)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
-        activities = await reader.LoadActivityData(activities, currentUser, userFriends);
-
-        Response.Headers["X-Total"] = totalCount.ToString();
-
-        return Ok(activities);
+        return Ok(await acts.GetActivities(take, cursorTimestamp, currentUser));
     }
 }

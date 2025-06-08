@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Activity;
 using DysonNetwork.Sphere.Storage;
 using NodaTime;
 using NpgsqlTypes;
@@ -22,7 +23,7 @@ public enum PostVisibility
     Private
 }
 
-public class Post : ModelBase, IIdentifiedResource
+public class Post : ModelBase, IIdentifiedResource, IActivity
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string? Title { get; set; }
@@ -48,7 +49,7 @@ public class Post : ModelBase, IIdentifiedResource
     public Post? RepliedPost { get; set; }
     public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
-    
+
     // Outdated fields, keep for backward compability
     public ICollection<CloudFile> OutdatedAttachments { get; set; } = new List<CloudFile>();
     [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
@@ -67,6 +68,20 @@ public class Post : ModelBase, IIdentifiedResource
     [NotMapped] public bool IsTruncated = false;
 
     public string ResourceIdentifier => $"post/{Id}";
+
+    public Activity.Activity ToActivity()
+    {
+        return new Activity.Activity()
+        {
+            CreatedAt = CreatedAt,
+            UpdatedAt = UpdatedAt,
+            DeletedAt = DeletedAt,
+            Id = Id,
+            Type = RepliedPostId is null ? "posts.new" : "posts.new.replies",
+            ResourceIdentifier = ResourceIdentifier,
+            Data = null
+        };
+    }
 }
 
 public class PostTag : ModelBase

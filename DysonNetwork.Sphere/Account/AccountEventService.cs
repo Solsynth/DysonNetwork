@@ -13,7 +13,6 @@ namespace DysonNetwork.Sphere.Account;
 
 public class AccountEventService(
     AppDatabase db,
-    ActivityService act,
     WebSocketService ws,
     ICacheService cache,
     PaymentService payment,
@@ -85,13 +84,6 @@ public class AccountEventService(
 
         db.AccountStatuses.Add(status);
         await db.SaveChangesAsync();
-
-        await act.CreateActivity(
-            user,
-            "accounts.status",
-            $"account.statuses/{status.Id}",
-            ActivityVisibility.Friends
-        );
 
         return status;
     }
@@ -219,13 +211,6 @@ public class AccountEventService(
             );
         db.AccountCheckInResults.Add(result);
         await db.SaveChangesAsync();  // Don't forget to save changes to the database
-
-        await act.CreateActivity(
-            user,
-            "accounts.check-in",
-            $"account.check-in/{result.Id}",
-            ActivityVisibility.Friends
-        );
 
         // The lock will be automatically released by the await using statement
         return result;

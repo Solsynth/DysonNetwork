@@ -50,8 +50,6 @@ public class AppDatabase(
     public DbSet<Storage.CloudFile> Files { get; set; }
     public DbSet<Storage.CloudFileReference> FileReferences { get; set; }
 
-    public DbSet<Activity.Activity> Activities { get; set; }
-
     public DbSet<Publisher.Publisher> Publishers { get; set; }
     public DbSet<PublisherMember> PublisherMembers { get; set; }
     public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; }
