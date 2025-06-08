@@ -114,14 +114,13 @@ public class ChatService(
         List<Account.Account> accountsToNotify = [];
         foreach (var member in members)
         {
-            if (member.Account.Id == sender.AccountId) continue;
-
             scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
             {
                 Type = type,
                 Data = message
             });
 
+            if (member.Account.Id == sender.AccountId) continue;
             accountsToNotify.Add(member.Account);
         }
 
