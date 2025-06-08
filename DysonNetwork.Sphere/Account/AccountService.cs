@@ -360,8 +360,10 @@ public class AccountService(
             await nty.UnsubscribePushNotifications(session.Challenge.DeviceId);
 
         // The current session should be included in the sessions' list
-        db.AuthSessions.RemoveRange(sessions);
-        await db.SaveChangesAsync();
+        await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.Challenge.DeviceId == session.Challenge.DeviceId)
+            .ExecuteDeleteAsync();
 
         foreach (var item in sessions)
             await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");

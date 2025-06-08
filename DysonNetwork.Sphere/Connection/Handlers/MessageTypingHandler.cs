@@ -49,9 +49,20 @@ public class MessageTypingHandler(ChatRoomService crs) : IWebSocketPacketHandler
             return;
         }
 
+        var responsePacket = new WebSocketPacket
+        {
+            Type = "messages.typing",
+            Data = new Dictionary<string, object>()
+            {
+                ["room_id"] = sender.ChatRoomId,
+                ["sender_id"] = sender.Id,
+                ["sender"] = sender
+            }
+        };
+
         // Broadcast read statuses
         var otherMembers = (await crs.ListRoomMembers(request.ChatRoomId)).Select(m => m.AccountId).ToList();
         foreach (var member in otherMembers)
-            srv.SendPacketToAccount(member, packet);
+            srv.SendPacketToAccount(member, responsePacket);
     }
 }
