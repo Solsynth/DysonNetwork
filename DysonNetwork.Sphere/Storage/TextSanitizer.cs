@@ -9,14 +9,23 @@ public abstract class TextSanitizer
     {
         if (string.IsNullOrEmpty(text)) return text;
 
+        // List of control characters to preserve
+        var preserveControlChars = new[] { '\n', '\r', '\t', ' ' };
+        
         var filtered = new StringBuilder();
-        foreach (var ch in from ch in text
-                 let category = CharUnicodeInfo.GetUnicodeCategory(ch)
-                 where category is not (UnicodeCategory.Control or UnicodeCategory.Format
-                     or UnicodeCategory.NonSpacingMark)
-                 select ch)
+        foreach (var ch in text)
         {
-            filtered.Append(ch);
+            var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+            
+            // Keep whitespace and other specified control characters
+            if (category is not UnicodeCategory.Control || preserveControlChars.Contains(ch))
+            {
+                // Still filter out Format and NonSpacingMark categories
+                if (category is not (UnicodeCategory.Format or UnicodeCategory.NonSpacingMark))
+                {
+                    filtered.Append(ch);
+                }
+            }
         }
         
         return filtered.ToString(); 
