@@ -121,6 +121,14 @@ public class ChatService(
             });
 
             if (member.Account.Id == sender.AccountId) continue;
+            if (member.Notify == ChatMemberNotify.None) continue;
+            if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.Account.Id))
+            {
+                var now = SystemClock.Instance.GetCurrentInstant();
+                if (member.BreakUntil is not null && member.BreakUntil > now) continue;
+            }
+            else if (member.Notify == ChatMemberNotify.Mentions) continue;
+
             accountsToNotify.Add(member.Account);
         }
 
