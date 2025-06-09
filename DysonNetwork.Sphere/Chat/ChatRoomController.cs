@@ -520,7 +520,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        member.JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+        member.JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
@@ -563,7 +563,6 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<ChatMember>> UpdateChatMemberNotify(
         Guid roomId,
-        Guid memberId,
         [FromBody] ChatMemberNotifyRequest request
     )
     {
@@ -575,7 +574,7 @@ public class ChatRoomController(
         if (chatRoom is null) return NotFound();
 
         var targetMember = await db.ChatMembers
-            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
         if (targetMember is null) return BadRequest("You have not joined this chat room.");
         if (request.NotifyLevel is not null)
