@@ -19,7 +19,7 @@ public class RealmService(AppDatabase db, NotificationService nty, IStringLocali
         );
     }
 
-    public async Task<bool> IsMemberWithRole(Guid realmId, Guid accountId, params RealmMemberRole[] requiredRoles)
+    public async Task<bool> IsMemberWithRole(Guid realmId, Guid accountId, params int[] requiredRoles)
     {
         if (requiredRoles.Length == 0)
             return false;

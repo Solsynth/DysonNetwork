@@ -41,11 +41,11 @@ public class ChatRoom : ModelBase, IIdentifiedResource
     public string ResourceIdentifier => $"chatroom/{Id}";
 }
 
-public enum ChatMemberRole
+public abstract class ChatMemberRole
 {
-    Owner = 100,
-    Moderator = 50,
-    Member = 0
+    public const int Owner = 100;
+    public const int Moderator = 50;
+    public const int Member = 0;
 }
 
 public enum ChatMemberNotify
@@ -53,6 +53,18 @@ public enum ChatMemberNotify
     All,
     Mentions,
     None
+}
+
+public enum ChatTimeoutCauseType
+{
+    ByModerator = 0,
+    BySlowMode = 1,
+}
+
+public class ChatTimeoutCause
+{
+    public ChatTimeoutCauseType Type { get; set; }
+    public Guid? SenderId { get; set; }
 }
 
 public class ChatMember : ModelBase
@@ -65,12 +77,27 @@ public class ChatMember : ModelBase
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
-    public ChatMemberRole Role { get; set; } = ChatMemberRole.Member;
+    public int Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? LastReadAt { get; set; }
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;
+    
+    /// <summary>
+    /// The break time is the user doesn't receive any message from this member for a while.
+    /// Expect mentioned him or her.
+    /// </summary>
+    public Instant? BreakUntil { get; set; }
+    /// <summary>
+    /// The timeout is the user can't send any message.
+    /// Set by the moderator of the chat room.
+    /// </summary>
+    public Instant? TimeoutUntil { get; set; }
+    /// <summary>
+    /// The timeout cause is the reason why the user is timeout.
+    /// </summary>
+    [Column(TypeName = "jsonb")] public ChatTimeoutCause? TimeoutCause { get; set; }
 }
 
 public class ChatMemberTransmissionObject : ModelBase
@@ -82,11 +109,15 @@ public class ChatMemberTransmissionObject : ModelBase
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
-    public ChatMemberRole Role { get; set; } = ChatMemberRole.Member;
+    public int Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;
+    
+    public Instant? BreakUntil { get; set; }
+    public Instant? TimeoutUntil { get; set; }
+    public ChatTimeoutCause? TimeoutCause { get; set; }
 
     public static ChatMemberTransmissionObject FromEntity(ChatMember member)
     {
@@ -102,6 +133,9 @@ public class ChatMemberTransmissionObject : ModelBase
             JoinedAt = member.JoinedAt,
             LeaveAt = member.LeaveAt,
             IsBot = member.IsBot,
+            BreakUntil = member.BreakUntil,
+            TimeoutUntil = member.TimeoutUntil,
+            TimeoutCause = member.TimeoutCause,
             CreatedAt = member.CreatedAt,
             UpdatedAt = member.UpdatedAt,
             DeletedAt = member.DeletedAt

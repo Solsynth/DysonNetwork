@@ -67,7 +67,7 @@ public class RealmController(
     public class RealmMemberRequest
     {
         [Required] public Guid RelatedUserId { get; set; }
-        [Required] public RealmMemberRole Role { get; set; }
+        [Required] public int Role { get; set; }
     }
 
     [HttpPost("invites/{slug}")]
@@ -516,8 +516,7 @@ public class RealmController(
 
     [HttpPatch("{slug}/members/{memberId:guid}/role")]
     [Authorize]
-    public async Task<ActionResult<RealmMember>> UpdateMemberRole(string slug, Guid memberId,
-        [FromBody] RealmMemberRole newRole)
+    public async Task<ActionResult<RealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();

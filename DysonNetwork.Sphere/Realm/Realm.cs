@@ -36,11 +36,11 @@ public class Realm : ModelBase, IIdentifiedResource
     public string ResourceIdentifier => $"realm/{Id}";
 }
 
-public enum RealmMemberRole
+public abstract class RealmMemberRole
 {
-    Owner = 100,
-    Moderator = 50,
-    Normal = 0
+    public const int Owner = 100;
+    public const int Moderator = 50;
+    public const int Normal = 0;
 }
 
 public class RealmMember : ModelBase
@@ -50,7 +50,7 @@ public class RealmMember : ModelBase
     public Guid AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
 
-    public RealmMemberRole Role { get; set; } = RealmMemberRole.Normal;
+    public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
 }

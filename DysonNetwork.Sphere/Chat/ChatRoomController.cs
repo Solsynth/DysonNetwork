@@ -195,15 +195,15 @@ public class ChatRoomController(
 
         if (chatRoom.Picture is not null)
             await fileRefService.CreateReferenceAsync(
-                chatRoom.Picture.Id, 
-                "chat.room.picture", 
+                chatRoom.Picture.Id,
+                "chat.room.picture",
                 chatRoomResourceId
             );
 
         if (chatRoom.Background is not null)
             await fileRefService.CreateReferenceAsync(
-                chatRoom.Background.Id, 
-                "chat.room.background", 
+                chatRoom.Background.Id,
+                "chat.room.background",
                 chatRoomResourceId
             );
 
@@ -254,7 +254,8 @@ public class ChatRoomController(
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
             // Remove old references for pictures
-            var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.picture");
+            var oldPictureRefs =
+                await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.picture");
             foreach (var oldRef in oldPictureRefs)
             {
                 await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -262,8 +263,8 @@ public class ChatRoomController(
 
             // Add a new reference
             await fileRefService.CreateReferenceAsync(
-                picture.Id, 
-                "chat.room.picture", 
+                picture.Id,
+                "chat.room.picture",
                 chatRoomResourceId
             );
 
@@ -276,7 +277,8 @@ public class ChatRoomController(
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
 
             // Remove old references for backgrounds
-            var oldBackgroundRefs = await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.background");
+            var oldBackgroundRefs =
+                await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.background");
             foreach (var oldRef in oldBackgroundRefs)
             {
                 await fileRefService.DeleteReferenceAsync(oldRef.Id);
@@ -284,8 +286,8 @@ public class ChatRoomController(
 
             // Add a new reference
             await fileRefService.CreateReferenceAsync(
-                background.Id, 
-                "chat.room.background", 
+                background.Id,
+                "chat.room.background",
                 chatRoomResourceId
             );
 
@@ -404,7 +406,7 @@ public class ChatRoomController(
     public class ChatMemberRequest
     {
         [Required] public Guid RelatedUserId { get; set; }
-        [Required] public ChatMemberRole Role { get; set; }
+        [Required] public int Role { get; set; }
     }
 
     [HttpPost("invites/{roomId:guid}")]
@@ -551,10 +553,47 @@ public class ChatRoomController(
         return NoContent();
     }
 
+    public class ChatMemberNotifyRequest
+    {
+        public ChatMemberNotify? NotifyLevel { get; set; }
+        public Instant? BreakUntil { get; set; }
+    }
+
+    [HttpPatch("{roomId:guid}/members/me/notify")]
+    [Authorize]
+    public async Task<ActionResult<ChatMember>> UpdateChatMemberNotify(
+        Guid roomId,
+        Guid memberId,
+        [FromBody] ChatMemberNotifyRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var chatRoom = await db.ChatRooms
+            .Where(r => r.Id == roomId)
+            .FirstOrDefaultAsync();
+        if (chatRoom is null) return NotFound();
+
+        var targetMember = await db.ChatMembers
+            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
+            .FirstOrDefaultAsync();
+        if (targetMember is null) return BadRequest("You have not joined this chat room.");
+        if (request.NotifyLevel is not null)
+            targetMember.Notify = request.NotifyLevel.Value;
+        if (request.BreakUntil is not null)
+            targetMember.BreakUntil = request.BreakUntil.Value;
+
+        db.ChatMembers.Update(targetMember);
+        await db.SaveChangesAsync();
+
+        await crs.PurgeRoomMembersCache(roomId);
+
+        return Ok(targetMember);
+    }
+
     [HttpPatch("{roomId:guid}/members/{memberId:guid}/role")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId,
-        [FromBody] ChatMemberRole newRole)
+    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= ChatMemberRole.Owner) return BadRequest("Unable to set chat member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
@@ -596,6 +635,8 @@ public class ChatRoomController(
             targetMember.Role = newRole;
             db.ChatMembers.Update(targetMember);
             await db.SaveChangesAsync();
+
+            await crs.PurgeRoomMembersCache(roomId);
 
             als.CreateActionLogFromRequest(
                 ActionLogType.RealmAdjustRole,
