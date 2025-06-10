@@ -47,7 +47,6 @@ public class AccountController(
         return account is null ? NotFound() : account.Badges.ToList();
     }
 
-
     public class AccountCreateRequest
     {
         [Required]

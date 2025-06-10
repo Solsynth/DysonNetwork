@@ -644,7 +644,7 @@ public class AccountCurrentController(
     public async Task<ActionResult<AccountContact>> DeleteContact(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        
+
         var contact = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id && c.Id == id)
             .FirstOrDefaultAsync();
@@ -654,6 +654,36 @@ public class AccountCurrentController(
         {
             await accounts.DeleteContactMethod(currentUser, contact);
             return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpGet("badges")]
+    [ProducesResponseType<List<Badge>>(StatusCodes.Status200OK)]
+    [Authorize]
+    public async Task<ActionResult<List<Badge>>> GetBadges()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        
+        var badges = await db.Badges
+            .Where(b => b.AccountId == currentUser.Id)
+            .ToListAsync();
+        return Ok(badges);
+    }
+
+    [HttpPost("badges/{id:guid}/active")]
+    [Authorize]
+    public async Task<ActionResult<Badge>> ActivateBadge(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.ActiveBadge(currentUser, id);
+            return Ok();
         }
         catch (Exception ex)
         {

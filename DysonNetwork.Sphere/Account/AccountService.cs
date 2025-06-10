@@ -438,7 +438,78 @@ public class AccountService(
         await db.SaveChangesAsync();
     }
 
-    /// Maintenance methods for server administrator
+    /// <summary>
+    /// This method will grant a badge to the account.
+    /// Shouldn't be exposed to normal user and the user itself.
+    /// </summary>
+    public async Task<Badge> GrantBadge(Account account, Badge badge)
+    {
+        badge.AccountId = account.Id;
+        db.Badges.Add(badge);
+        await db.SaveChangesAsync();
+        return badge;
+    }
+
+    /// <summary>
+    /// This method will revoke a badge from the account.
+    /// Shouldn't be exposed to normal user and the user itself.
+    /// </summary>
+    public async Task RevokeBadge(Account account, Guid badgeId)
+    {
+        var badge = await db.Badges
+            .Where(b => b.AccountId == account.Id && b.Id == badgeId)
+            .OrderByDescending(b => b.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (badge is null) throw new InvalidOperationException("Badge was not found.");
+
+        var profile = await db.AccountProfiles
+            .Where(p => p.AccountId == account.Id)
+            .FirstOrDefaultAsync();
+        if (profile?.ActiveBadge is not null && profile.ActiveBadge.Id == badge.Id)
+            profile.ActiveBadge = null;
+
+        db.Remove(badge);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task ActiveBadge(Account account, Guid badgeId)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var badge = await db.Badges
+                .Where(b => b.AccountId == account.Id && b.Id == badgeId)
+                .OrderByDescending(b => b.CreatedAt)
+                .FirstOrDefaultAsync();
+            if (badge is null) throw new InvalidOperationException("Badge was not found.");
+
+            await db.Badges
+                .Where(b => b.AccountId == account.Id && b.Id != badgeId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.ActivatedAt, p => null));
+
+            badge.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
+            db.Update(badge);
+            await db.SaveChangesAsync();
+
+            await db.AccountProfiles
+                .Where(p => p.AccountId == account.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.ActiveBadge, badge.ToReference()));
+            await PurgeAccountCache(account);
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The maintenance method for server administrator.
+    /// To check every user has an account profile and to create them if it isn't having one.
+    /// </summary>
     public async Task EnsureAccountProfileCreated()
     {
         var accountsId = await db.Accounts.Select(a => a.Id).ToListAsync();
