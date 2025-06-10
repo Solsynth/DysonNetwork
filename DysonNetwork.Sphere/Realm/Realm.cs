@@ -26,6 +26,8 @@ public class Realm : ModelBase, IIdentifiedResource
 
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
+    
+    [Column(TypeName = "jsonb")] public Account.VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
     [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();

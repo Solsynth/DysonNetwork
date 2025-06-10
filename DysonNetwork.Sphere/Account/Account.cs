@@ -65,7 +65,8 @@ public class Profile : ModelBase
     public Instant? Birthday { get; set; }
     public Instant? LastSeenAt { get; set; }
 
-    [Column(TypeName = "jsonb")] public BadgeReferenceObject? ActiveBadge { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
+    [Column(TypeName = "jsonb")] public BadgeReferenceObject? ActiveBadge { get; set; }
 
     public int Experience { get; set; } = 0;
     [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;

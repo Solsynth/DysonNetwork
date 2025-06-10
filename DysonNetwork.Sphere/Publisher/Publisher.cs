@@ -29,6 +29,8 @@ public class Publisher : ModelBase, IIdentifiedResource
     
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
+    
+    [Column(TypeName = "jsonb")] public Account.VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
