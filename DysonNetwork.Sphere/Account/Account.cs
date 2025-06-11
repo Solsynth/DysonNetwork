@@ -72,6 +72,7 @@ public class Profile : ModelBase
 
     [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
     [Column(TypeName = "jsonb")] public BadgeReferenceObject? ActiveBadge { get; set; }
+    [Column(TypeName = "jsonb")] public SubscriptionReferenceObject? StellarMembership { get; set; }
 
     public int Experience { get; set; } = 0;
     [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;

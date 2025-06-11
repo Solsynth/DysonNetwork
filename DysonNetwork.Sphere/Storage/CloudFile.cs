@@ -53,6 +53,12 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public Instant? UploadedAt { get; set; }
     [MaxLength(128)] public string? UploadedTo { get; set; }
     public bool HasCompression { get; set; } = false;
+    
+    /// <summary>
+    /// The field is set to true if the recycling job plans to delete the file.
+    /// Due to the unstable of the recycling job, this doesn't really delete the file until a human verifies it.
+    /// </summary>
+    public bool IsMarkedRecycle { get; set; } = false;
 
     /// The object name which stored remotely,
     /// multiple cloud file may have same storage id to indicate they are the same file
