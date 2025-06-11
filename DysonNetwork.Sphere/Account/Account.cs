@@ -62,6 +62,8 @@ public class Profile : ModelBase
     [MaxLength(4096)] public string? Bio { get; set; }
     [MaxLength(1024)] public string? Gender { get; set; }
     [MaxLength(1024)] public string? Pronouns { get; set; }
+    [MaxLength(1024)] public string? TimeZone { get; set; }
+    [MaxLength(1024)] public string? Location { get; set; }
     public Instant? Birthday { get; set; }
     public Instant? LastSeenAt { get; set; }
 

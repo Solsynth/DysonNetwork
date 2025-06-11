@@ -63,7 +63,12 @@ public class AccountCurrentController(
         [MaxLength(256)] public string? FirstName { get; set; }
         [MaxLength(256)] public string? MiddleName { get; set; }
         [MaxLength(256)] public string? LastName { get; set; }
+        [MaxLength(1024)] public string? Gender { get; set; }
+        [MaxLength(1024)] public string? Pronouns { get; set; }
+        [MaxLength(1024)] public string? TimeZone { get; set; }
+        [MaxLength(1024)] public string? Location { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
+        public Instant? Birthday { get; set; }
 
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -84,6 +89,11 @@ public class AccountCurrentController(
         if (request.MiddleName is not null) profile.MiddleName = request.MiddleName;
         if (request.LastName is not null) profile.LastName = request.LastName;
         if (request.Bio is not null) profile.Bio = request.Bio;
+        if (request.Gender is not null) profile.Gender = request.Gender;
+        if (request.Pronouns is not null) profile.Pronouns = request.Pronouns;
+        if (request.Birthday is not null) profile.Birthday = request.Birthday;
+        if (request.Location is not null) profile.Location = request.Location;
+        if (request.TimeZone is not null) profile.TimeZone = request.TimeZone;
 
         if (request.PictureId is not null)
         {
@@ -667,7 +677,7 @@ public class AccountCurrentController(
     public async Task<ActionResult<List<Badge>>> GetBadges()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        
+
         var badges = await db.Badges
             .Where(b => b.AccountId == currentUser.Id)
             .ToListAsync();
