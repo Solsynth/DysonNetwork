@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using OtpNet;
@@ -22,13 +23,15 @@ public class Account : ModelBase
     public Profile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
     public ICollection<Badge> Badges { get; set; } = new List<Badge>();
-
+    
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
     [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
     [JsonIgnore] public ICollection<Auth.Challenge> Challenges { get; set; } = new List<Auth.Challenge>();
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
+    
+    [JsonIgnore] public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
 }
 
 public abstract class Leveling

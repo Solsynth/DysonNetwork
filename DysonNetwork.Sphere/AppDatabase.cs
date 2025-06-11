@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -80,6 +81,9 @@ public class AppDatabase(
 
     public DbSet<Developer.CustomApp> CustomApps { get; set; }
     public DbSet<Developer.CustomAppSecret> CustomAppSecrets { get; set; }
+
+    public DbSet<Subscription> WalletSubscriptions { get; set; }
+    public DbSet<Coupon> WalletCoupons { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

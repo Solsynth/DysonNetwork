@@ -54,6 +54,7 @@ public class WalletController(AppDatabase db, WalletService ws) : ControllerBase
         var transactions = await query
             .Skip(offset)
             .Take(take)
+            .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         Response.Headers["X-Total"] = transactionCount.ToString();

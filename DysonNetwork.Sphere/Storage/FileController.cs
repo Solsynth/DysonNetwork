@@ -36,9 +36,7 @@ public class FileController(
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
         if (!original && file.HasCompression)
-        {
             fileName += ".compressed";
-        }
 
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
         {
