@@ -73,7 +73,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     {
         return new Activity.Activity()
         {
-            CreatedAt = CreatedAt,
+            CreatedAt = PublishedAt ?? CreatedAt,
             UpdatedAt = UpdatedAt,
             DeletedAt = DeletedAt,
             Id = Id,
