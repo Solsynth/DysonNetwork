@@ -8,6 +8,56 @@ namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherService(AppDatabase db, FileService fs, FileReferenceService fileRefService, ICacheService cache)
 {
+    private const string UserPublishersCacheKey = "accounts:{0}:publishers";
+
+    public async Task<List<Publisher>> GetUserPublishers(Guid userId)
+    {
+        var cacheKey = string.Format(UserPublishersCacheKey, userId);
+        
+        // Try to get publishers from the cache first
+        var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
+        if (publishers is not null)
+            return publishers;
+        
+        // If not in cache, fetch from a database
+        var publishersId = await db.PublisherMembers
+            .Where(p => p.AccountId == userId)
+            .Select(p => p.PublisherId)
+            .ToListAsync();
+        publishers = await db.Publishers
+            .Where(p => publishersId.Contains(p.Id))
+            .ToListAsync();
+        
+        // Store in a cache for 5 minutes
+        await cache.SetAsync(cacheKey, publishers, TimeSpan.FromMinutes(5));
+        
+        return publishers;
+    }
+
+    private const string PublisherMembersCacheKey = "publishers:{0}:members";
+
+    public async Task<List<PublisherMember>> GetPublisherMembers(Guid publisherId)
+    {
+        var cacheKey = string.Format(PublisherMembersCacheKey, publisherId);
+        
+        // Try to get members from the cache first
+        var members = await cache.GetAsync<List<PublisherMember>>(cacheKey);
+        if (members is not null)
+            return members;
+        
+        // If not in cache, fetch from a database
+        members = await db.PublisherMembers
+            .Where(p => p.PublisherId == publisherId)
+            .Include(p => p.Account)
+            .ThenInclude(p => p.Profile)
+            .ToListAsync();
+        
+        // Store in cache for 5 minutes (consistent with other cache durations in the class)
+        await cache.SetAsync(cacheKey, members, TimeSpan.FromMinutes(5));
+        
+        return members;
+    }
+    
     public async Task<Publisher> CreateIndividualPublisher(
         Account.Account account,
         string? name,

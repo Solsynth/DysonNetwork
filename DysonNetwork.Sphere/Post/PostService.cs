@@ -11,10 +11,8 @@ namespace DysonNetwork.Sphere.Post;
 
 public class PostService(
     AppDatabase db,
-    FileService fs,
     FileReferenceService fileRefService,
     IStringLocalizer<NotificationResource> localizer,
-    NotificationService nty,
     IServiceScopeFactory factory
 )
 {
@@ -31,6 +29,21 @@ public class PostService(
         }
 
         return input;
+    }
+
+    public (string title, string content) ChopPostForNotification(Post post)
+    {
+        var content = !string.IsNullOrEmpty(post.Description)
+            ? post.Description?.Length >= 40 ? post.Description[..37] + "..." : post.Description
+            : post.Content?.Length >= 100
+                ? string.Concat(post.Content.AsSpan(0, 97), "...")
+                : post.Content;
+        var title = post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
+        if (content is null)
+            content = localizer["PostOnlyMedia"];
+        if (title is null)
+            title = localizer["PostOnlyMedia"];
+        return (title, content);
     }
 
     public async Task<Post> PostAsync(
@@ -111,8 +124,43 @@ public class PostService(
             {
                 using var scope = factory.CreateScope();
                 var pubSub = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
-                await pubSub.NotifySubscribersPostAsync(post);
+                await pubSub.NotifySubscriberPost(post);
             });
+
+        if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow &&
+            post.RepliedPost is not null)
+        {
+            _ = Task.Run(async () =>
+            {
+                var sender = post.Publisher;
+                using var scope = factory.CreateScope();
+                var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
+                var nty = scope.ServiceProvider.GetRequiredService<NotificationService>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<PostService>>();
+                try
+                {
+                    var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId);
+                    foreach (var member in members)
+                    {
+                        AccountService.SetCultureInfo(member.Account);
+                        var (_, content) = ChopPostForNotification(post);
+                        await nty.SendNotification(
+                            member.Account,
+                            "post.replies",
+                            localizer["PostReplyTitle", sender.Nick],
+                            null,
+                            string.IsNullOrWhiteSpace(post.Title)
+                                ? localizer["PostReplyBody", sender.Nick, content]
+                                : localizer["PostReplyContentBody", sender.Nick, post.Title, content]
+                        );
+                    }
+                }
+                catch (Exception err)
+                {
+                    logger.LogError($"Error when sending post reactions notification: {err.Message} {err.StackTrace}");
+                }
+            });
+        }
 
         return post;
     }
@@ -214,7 +262,6 @@ public class PostService(
         Post post,
         PostReaction reaction,
         Account.Account sender,
-        Account.Account? op,
         bool isRemoving,
         bool isSelfReact
     )
@@ -256,20 +303,36 @@ public class PostService(
 
         await db.SaveChangesAsync();
 
-        if (!isSelfReact && op is not null)
-        {
-            AccountService.SetCultureInfo(op);
-            await nty.SendNotification(
-                op,
-                "posts.reactions.new",
-                localizer["PostReactTitle", sender.Nick],
-                null,
-                string.IsNullOrWhiteSpace(post.Title)
-                    ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
-                    : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
-                        post.Title]
-            );
-        }
+        if (!isSelfReact)
+            _ = Task.Run(async () =>
+            {
+                using var scope = factory.CreateScope();
+                var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
+                var nty = scope.ServiceProvider.GetRequiredService<NotificationService>();
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<PostService>>();
+                try
+                {
+                    var members = await pub.GetPublisherMembers(post.PublisherId);
+                    foreach (var member in members)
+                    {
+                        AccountService.SetCultureInfo(member.Account);
+                        await nty.SendNotification(
+                            member.Account,
+                            "posts.reactions.new",
+                            localizer["PostReactTitle", sender.Nick],
+                            null,
+                            string.IsNullOrWhiteSpace(post.Title)
+                                ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
+                                : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
+                                    post.Title]
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError($"Error when sending post reactions notification: {ex.Message} {ex.StackTrace}");
+                }
+            });
 
         return isRemoving;
     }
@@ -342,15 +405,17 @@ public static class PostQueryExtensions
         this IQueryable<Post> source,
         Account.Account? currentUser,
         List<Guid> userFriends,
+        List<Publisher.Publisher> publishers,
         bool isListing = false
     )
     {
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var publishersId = publishers.Select(e => e.Id).ToList();
 
         source = isListing switch
         {
             true when currentUser is not null => source.Where(e =>
-                e.Visibility != PostVisibility.Unlisted || e.Publisher.AccountId == currentUser.Id),
+                e.Visibility != PostVisibility.Unlisted || publishersId.Contains(e.PublisherId)),
             true => source.Where(e => e.Visibility != PostVisibility.Unlisted),
             _ => source
         };
@@ -361,10 +426,11 @@ public static class PostQueryExtensions
                 .Where(e => e.Visibility == PostVisibility.Public);
 
         return source
-            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || e.Publisher.AccountId == currentUser.Id)
-            .Where(e => e.Visibility != PostVisibility.Private || e.Publisher.AccountId == currentUser.Id)
+            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || publishersId.Contains(e.PublisherId))
+            .Where(e => e.Visibility != PostVisibility.Private || publishersId.Contains(e.PublisherId))
             .Where(e => e.Visibility != PostVisibility.Friends ||
                         (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
-                        e.Publisher.AccountId == currentUser.Id);
+                        publishersId.Contains(e.PublisherId));
+        ;
     }
 }

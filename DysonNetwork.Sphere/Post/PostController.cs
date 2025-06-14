@@ -30,15 +30,17 @@ public class PostController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
 
         var query = db.Posts.AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.Publisher.Id == publisher.Id);
+        query = query
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true);
 
         var totalCount = await query
-            .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .CountAsync();
         var posts = await query
             .Include(e => e.RepliedPost)
@@ -46,7 +48,6 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Where(e => e.RepliedPostId == null)
-            .FilterWithVisibility(currentUser, userFriends, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -71,13 +72,14 @@ public class PostController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
-            .FilterWithVisibility(currentUser, userFriends)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
@@ -93,6 +95,7 @@ public class PostController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
         var parent = await db.Posts
             .Where(e => e.Id == id)
@@ -101,14 +104,14 @@ public class PostController(
 
         var totalCount = await db.Posts
             .Where(e => e.RepliedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
             .CountAsync();
         var posts = await db.Posts
             .Where(e => e.RepliedPostId == id)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
-            .FilterWithVisibility(currentUser, userFriends, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -223,7 +226,7 @@ public class PostController(
         {
             using var scope = factory.CreateScope();
             var subs = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
-            await subs.NotifySubscribersPostAsync(post);
+            await subs.NotifySubscriberPost(post);
         });
 
         als.CreateActionLogFromRequest(
@@ -248,12 +251,13 @@ public class PostController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not Account.Account currentUser) return Unauthorized();
         var userFriends = await rels.ListAccountFriends(currentUser);
+        var userPublishers = await pub.GetUserPublishers(currentUser.Id);
 
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
             .ThenInclude(e => e.Account)
-            .FilterWithVisibility(currentUser, userFriends)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
@@ -274,7 +278,6 @@ public class PostController(
             post,
             reaction,
             currentUser,
-            post.Publisher.Account,
             isExistingReaction,
             isSelfReact
         );

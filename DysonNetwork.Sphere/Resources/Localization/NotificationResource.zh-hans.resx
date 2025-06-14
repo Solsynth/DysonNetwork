@@ -38,6 +38,18 @@
     <data name="PostReactContentBody" xml:space="preserve">
         <value>{0} 给你的帖子添加了一个 {1} 的反应 {2}</value>
     </data>
+    <data name="PostReplyTitle" xml:space="preserve">
+        <value>{0} 回复了你的帖子</value>
+    </data>
+    <data name="PostReplyBody">
+        <value>{0}：{1}</value>
+    </data>
+    <data name="PostReplyContentBody">
+        <value>{0} 回复了帖子 {1}: {2}</value>
+    </data>
+    <data name="PostOnlyMedia" xml:space="preserve">
+        <value>分享媒体</value>
+    </data>
     <data name="AuthCodeTitle" xml:space="preserve">
         <value>一次性验证码</value>
     </data>

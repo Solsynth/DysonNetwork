@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
@@ -7,6 +8,7 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherSubscriptionService(
     AppDatabase db,
     NotificationService nty,
+    PostService ps,
     IStringLocalizer<Notification> localizer)
 {
     /// <summary>
@@ -41,7 +43,7 @@ public class PublisherSubscriptionService(
     /// </summary>
     /// <param name="post">The new post</param>
     /// <returns>The number of subscribers notified</returns>
-    public async Task<int> NotifySubscribersPostAsync(Post.Post post)
+    public async Task<int> NotifySubscriberPost(Post.Post post)
     {
         var subscribers = await db.PublisherSubscriptions
             .Include(ps => ps.Account)
@@ -52,11 +54,7 @@ public class PublisherSubscriptionService(
             return 0;
 
         // Create notification data
-        var message = !string.IsNullOrEmpty(post.Description)
-            ? post.Description?.Length > 40 ? post.Description[..37] + "..." : post.Description
-            : post.Content?.Length > 100
-                ? string.Concat(post.Content.AsSpan(0, 97), "...")
-                : post.Content;
+        var (title, message) = ps.ChopPostForNotification(post);
 
         // Data to include with the notification
         var data = new Dictionary<string, object>
@@ -75,8 +73,8 @@ public class PublisherSubscriptionService(
                 await nty.SendNotification(
                     subscription.Account,
                     "posts.new",
-                    localizer["New post from {0}", post.Publisher.Name],
-                    string.IsNullOrWhiteSpace(post.Title) ? null : post.Title,
+                    localizer["PostSubscriptionTitle", post.Publisher.Name, title],
+                    null,
                     message,
                     data
                 );

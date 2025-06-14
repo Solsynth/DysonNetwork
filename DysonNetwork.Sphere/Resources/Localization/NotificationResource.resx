@@ -34,7 +34,7 @@
         <value>You just got invited to join {0}</value>
     </data>
     <data name="PostSubscriptionTitle" xml:space="preserve">
-        <value>{0} just posted</value>
+        <value>{0} just posted {1}</value>
     </data>
     <data name="PostReactTitle" xml:space="preserve">
         <value>{0} reacted your post</value>
@@ -44,6 +44,18 @@
     </data>
     <data name="PostReactContentBody" xml:space="preserve">
         <value>{0} added a reaction {1} to your post {2}</value>
+    </data>
+    <data name="PostReplyTitle" xml:space="preserve">
+        <value>{0} replied your post</value>
+    </data>
+    <data name="PostReplyBody">
+        <value>{0} replied: {1}</value>
+    </data>
+    <data name="PostReplyContentBody">
+        <value>{0} replied post {1}: {2}</value>
+    </data>
+    <data name="PostOnlyMedia" xml:space="preserve">
+        <value>shared media</value>
     </data>
     <data name="AuthCodeTitle" xml:space="preserve">
         <value>Disposable Verification Code</value>
