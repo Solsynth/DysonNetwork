@@ -67,12 +67,16 @@ public class NotificationService(
         string? subtitle = null,
         string? content = null,
         Dictionary<string, object>? meta = null,
+        string? actionUri = null,
         bool isSilent = false,
         bool save = true
     )
     {
         if (title is null && subtitle is null && content is null)
             throw new ArgumentException("Unable to send notification that completely empty.");
+
+        meta ??= new Dictionary<string, object>();
+        if (actionUri is not null) meta["action_uri"] = actionUri;
 
         var notification = new Notification
         {

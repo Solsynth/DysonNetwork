@@ -151,7 +151,8 @@ public class PostService(
                             null,
                             string.IsNullOrWhiteSpace(post.Title)
                                 ? localizer["PostReplyBody", sender.Nick, content]
-                                : localizer["PostReplyContentBody", sender.Nick, post.Title, content]
+                                : localizer["PostReplyContentBody", sender.Nick, post.Title, content],
+                            actionUri: $"/posts/{post.Id}"
                         );
                     }
                 }
@@ -324,7 +325,8 @@ public class PostService(
                             string.IsNullOrWhiteSpace(post.Title)
                                 ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
                                 : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
-                                    post.Title]
+                                    post.Title],
+                            actionUri: $"/posts/{post.Id}"
                         );
                     }
                 }

@@ -799,6 +799,6 @@ public class ChatRoomController(
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
         AccountService.SetCultureInfo(member.Account);
-        await nty.SendNotification(member.Account, "invites.chats", title, null, body);
+        await nty.SendNotification(member.Account, "invites.chats", title, null, body, actionUri: "/chat");
     }
 }

@@ -76,7 +76,8 @@ public class PublisherSubscriptionService(
                     localizer["PostSubscriptionTitle", post.Publisher.Name, title],
                     null,
                     message,
-                    data
+                    data,
+                    actionUri: $"/posts/{post.Id}"
                 );
 
                 notifiedCount++;

@@ -15,7 +15,8 @@ public class RealmService(AppDatabase db, NotificationService nty, IStringLocali
             "invites.realms",
             localizer["RealmInviteTitle"],
             null,
-            localizer["RealmInviteBody", member.Realm.Name]
+            localizer["RealmInviteBody", member.Realm.Name],
+            actionUri: "/realms"
         );
     }
 
