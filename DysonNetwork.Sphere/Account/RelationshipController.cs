@@ -40,13 +40,13 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
         return relationships;
     }
-    
+
     [HttpGet("requests")]
     [Authorize]
     public async Task<ActionResult<List<Relationship>>> ListSentRequests()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-    
+
         var relationships = await db.AccountRelationships
             .Where(r => r.AccountId == currentUser.Id && r.Status == RelationshipStatus.Pending)
             .Include(r => r.Related)
@@ -54,7 +54,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             .Include(r => r.Account)
             .Include(r => r.Account.Profile)
             .ToListAsync();
-    
+
         return relationships;
     }
 
@@ -65,7 +65,8 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
     [HttpPost("{userId:guid}")]
     [Authorize]
-    public async Task<ActionResult<Relationship>> CreateRelationship(Guid userId, [FromBody] RelationshipRequest request)
+    public async Task<ActionResult<Relationship>> CreateRelationship(Guid userId,
+        [FromBody] RelationshipRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -84,13 +85,14 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             return BadRequest(err.Message);
         }
     }
-    
+
     [HttpPatch("{userId:guid}")]
     [Authorize]
-    public async Task<ActionResult<Relationship>> UpdateRelationship(Guid userId, [FromBody] RelationshipRequest request)
+    public async Task<ActionResult<Relationship>> UpdateRelationship(Guid userId,
+        [FromBody] RelationshipRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-    
+
         try
         {
             var relationship = await rels.UpdateRelationship(currentUser.Id, userId, request.Status);
@@ -105,7 +107,19 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             return BadRequest(err.Message);
         }
     }
-    
+
+    [HttpGet("{userId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<Relationship>> GetRelationship(Guid userId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var relationship = await rels.GetRelationship(currentUser.Id, userId);
+        if (relationship is null) return NotFound();
+
+        return relationship;
+    }
+
     [HttpPost("{userId:guid}/friends")]
     [Authorize]
     public async Task<ActionResult<Relationship>> SendFriendRequest(Guid userId)
@@ -114,9 +128,9 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
         var relatedUser = await db.Accounts.FindAsync(userId);
         if (relatedUser is null) return NotFound("Account was not found.");
-        
-        var existing = await db.AccountRelationships.FirstOrDefaultAsync(r => 
-            (r.AccountId == currentUser.Id && r.RelatedId == userId) || 
+
+        var existing = await db.AccountRelationships.FirstOrDefaultAsync(r =>
+            (r.AccountId == currentUser.Id && r.RelatedId == userId) ||
             (r.AccountId == userId && r.RelatedId == currentUser.Id));
         if (existing != null) return BadRequest("Relationship already exists.");
 
@@ -130,13 +144,13 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             return BadRequest(err.Message);
         }
     }
-    
+
     [HttpDelete("{userId:guid}/friends")]
     [Authorize]
     public async Task<ActionResult> DeleteFriendRequest(Guid userId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        
+
         try
         {
             await rels.DeleteFriendRequest(currentUser.Id, userId);
@@ -156,7 +170,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
         var relationship = await rels.GetRelationship(userId, currentUser.Id, RelationshipStatus.Pending);
         if (relationship is null) return NotFound("Friend request was not found.");
-        
+
         try
         {
             relationship = await rels.AcceptFriendRelationship(relationship);
@@ -176,7 +190,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
         var relationship = await rels.GetRelationship(userId, currentUser.Id, RelationshipStatus.Pending);
         if (relationship is null) return NotFound("Friend request was not found.");
-        
+
         try
         {
             relationship = await rels.AcceptFriendRelationship(relationship, status: RelationshipStatus.Blocked);
@@ -187,16 +201,16 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             return BadRequest(err.Message);
         }
     }
-    
+
     [HttpPost("{userId:guid}/block")]
     [Authorize]
     public async Task<ActionResult<Relationship>> BlockUser(Guid userId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-    
+
         var relatedUser = await db.Accounts.FindAsync(userId);
         if (relatedUser is null) return NotFound("Account was not found.");
-    
+
         try
         {
             var relationship = await rels.BlockAccount(currentUser, relatedUser);
