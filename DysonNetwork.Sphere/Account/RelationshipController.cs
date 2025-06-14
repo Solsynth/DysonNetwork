@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Account;
 
@@ -114,10 +115,18 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var relationship = await rels.GetRelationship(currentUser.Id, userId);
+        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var queries = db.AccountRelationships.AsQueryable()
+            .Where(r => r.AccountId == currentUser.Id && r.RelatedId == userId)
+            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
+        var relationship = await queries
+            .Include(r => r.Related)
+            .Include(r => r.Related.Profile)
+            .FirstOrDefaultAsync();
         if (relationship is null) return NotFound();
 
-        return relationship;
+        relationship.Account = currentUser;
+        return Ok(relationship);
     }
 
     [HttpPost("{userId:guid}/friends")]
