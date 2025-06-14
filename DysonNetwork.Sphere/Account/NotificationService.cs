@@ -125,9 +125,10 @@ public class NotificationService(
 
     public async Task BroadcastNotification(Notification notification, bool save = false)
     {
+        var accounts = await db.Accounts.ToListAsync();
+
         if (save)
         {
-            var accounts = await db.Accounts.ToListAsync();
             var notifications = accounts.Select(x =>
             {
                 var newNotification = new Notification
@@ -144,6 +145,17 @@ public class NotificationService(
                 return newNotification;
             }).ToList();
             await db.BulkInsertAsync(notifications);
+        }
+
+        foreach (var account in accounts)
+        {
+            notification.Account = account;
+            notification.AccountId = account.Id;
+            ws.SendPacketToAccount(account.Id, new WebSocketPacket
+            {
+                Type = "notifications.new",
+                Data = notification
+            });
         }
 
         var subscribers = await db.NotificationPushSubscriptions
@@ -171,6 +183,17 @@ public class NotificationService(
                 return newNotification;
             }).ToList();
             await db.BulkInsertAsync(notifications);
+        }
+
+        foreach (var account in accounts)
+        {
+            notification.Account = account;
+            notification.AccountId = account.Id;
+            ws.SendPacketToAccount(account.Id, new WebSocketPacket
+            {
+                Type = "notifications.new",
+                Data = notification
+            });
         }
 
         var accountsId = accounts.Select(x => x.Id).ToList();
