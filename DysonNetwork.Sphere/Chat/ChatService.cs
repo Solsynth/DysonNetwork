@@ -93,7 +93,8 @@ public class ChatService(
                 ["room_id"] = room.Id,
                 ["images"] = message.Attachments
                     .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
-                    .Select(a => a.Id).ToList()
+                    .Select(a => a.Id).ToList(),
+                ["action_uri"] = $"/chat/{room.Id}"
             };
         if (sender.Account.Profile is not { Picture: null })
             metaDict["pfp"] = sender.Account.Profile.Picture.Id;
