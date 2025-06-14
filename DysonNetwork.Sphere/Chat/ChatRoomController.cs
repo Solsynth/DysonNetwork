@@ -130,6 +130,23 @@ public class ChatRoomController(
         return Ok(dmRoom);
     }
 
+    [HttpGet("direct/{userId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<ChatRoom>> GetDirectChatRoom(Guid userId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+            return Unauthorized();
+
+        var room = await db.ChatRooms
+            .Include(c => c.Members)
+            .Where(c => c.Type == ChatRoomType.DirectMessage && c.Members.Count == 2)
+            .Where(c => c.Members.Any(m => m.AccountId == currentUser.Id))
+            .Where(c => c.Members.Any(m => m.AccountId == userId))
+            .FirstOrDefaultAsync();
+        if (room is null) return NotFound();
+
+        return Ok(room);
+    }
 
     public class ChatRoomRequest
     {
