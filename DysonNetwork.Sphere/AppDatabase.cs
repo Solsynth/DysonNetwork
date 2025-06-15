@@ -1,6 +1,15 @@
 using System.Linq.Expressions;
+using System.Reflection;
+using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Realm;
+using DysonNetwork.Sphere.Sticker;
+using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -32,24 +41,25 @@ public class AppDatabase(
     public DbSet<PermissionGroup> PermissionGroups { get; set; }
     public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; }
 
-    public DbSet<Account.MagicSpell> MagicSpells { get; set; }
+    public DbSet<MagicSpell> MagicSpells { get; set; }
     public DbSet<Account.Account> Accounts { get; set; }
-    public DbSet<Account.Profile> AccountProfiles { get; set; }
-    public DbSet<Account.AccountContact> AccountContacts { get; set; }
-    public DbSet<Account.AccountAuthFactor> AccountAuthFactors { get; set; }
-    public DbSet<Account.Relationship> AccountRelationships { get; set; }
-    public DbSet<Account.Status> AccountStatuses { get; set; }
-    public DbSet<Account.CheckInResult> AccountCheckInResults { get; set; }
-    public DbSet<Account.Notification> Notifications { get; set; }
-    public DbSet<Account.NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
-    public DbSet<Account.Badge> Badges { get; set; }
-    public DbSet<Account.ActionLog> ActionLogs { get; set; }
+    public DbSet<AccountConnection> AccountConnections { get; set; }
+    public DbSet<Profile> AccountProfiles { get; set; }
+    public DbSet<AccountContact> AccountContacts { get; set; }
+    public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; }
+    public DbSet<Relationship> AccountRelationships { get; set; }
+    public DbSet<Status> AccountStatuses { get; set; }
+    public DbSet<CheckInResult> AccountCheckInResults { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
+    public DbSet<Badge> Badges { get; set; }
+    public DbSet<ActionLog> ActionLogs { get; set; }
 
-    public DbSet<Auth.Session> AuthSessions { get; set; }
-    public DbSet<Auth.Challenge> AuthChallenges { get; set; }
+    public DbSet<Session> AuthSessions { get; set; }
+    public DbSet<Challenge> AuthChallenges { get; set; }
 
-    public DbSet<Storage.CloudFile> Files { get; set; }
-    public DbSet<Storage.CloudFileReference> FileReferences { get; set; }
+    public DbSet<CloudFile> Files { get; set; }
+    public DbSet<CloudFileReference> FileReferences { get; set; }
 
     public DbSet<Publisher.Publisher> Publishers { get; set; }
     public DbSet<PublisherMember> PublisherMembers { get; set; }
@@ -57,30 +67,30 @@ public class AppDatabase(
     public DbSet<PublisherFeature> PublisherFeatures { get; set; }
 
     public DbSet<Post.Post> Posts { get; set; }
-    public DbSet<Post.PostReaction> PostReactions { get; set; }
-    public DbSet<Post.PostTag> PostTags { get; set; }
-    public DbSet<Post.PostCategory> PostCategories { get; set; }
-    public DbSet<Post.PostCollection> PostCollections { get; set; }
+    public DbSet<PostReaction> PostReactions { get; set; }
+    public DbSet<PostTag> PostTags { get; set; }
+    public DbSet<PostCategory> PostCategories { get; set; }
+    public DbSet<PostCollection> PostCollections { get; set; }
 
     public DbSet<Realm.Realm> Realms { get; set; }
-    public DbSet<Realm.RealmMember> RealmMembers { get; set; }
+    public DbSet<RealmMember> RealmMembers { get; set; }
 
-    public DbSet<Chat.ChatRoom> ChatRooms { get; set; }
-    public DbSet<Chat.ChatMember> ChatMembers { get; set; }
-    public DbSet<Chat.Message> ChatMessages { get; set; }
-    public DbSet<Chat.RealtimeCall> ChatRealtimeCall { get; set; }
-    public DbSet<Chat.MessageReaction> ChatReactions { get; set; }
+    public DbSet<ChatRoom> ChatRooms { get; set; }
+    public DbSet<ChatMember> ChatMembers { get; set; }
+    public DbSet<Message> ChatMessages { get; set; }
+    public DbSet<RealtimeCall> ChatRealtimeCall { get; set; }
+    public DbSet<MessageReaction> ChatReactions { get; set; }
 
     public DbSet<Sticker.Sticker> Stickers { get; set; }
-    public DbSet<Sticker.StickerPack> StickerPacks { get; set; }
+    public DbSet<StickerPack> StickerPacks { get; set; }
 
     public DbSet<Wallet.Wallet> Wallets { get; set; }
-    public DbSet<Wallet.WalletPocket> WalletPockets { get; set; }
-    public DbSet<Wallet.Order> PaymentOrders { get; set; }
-    public DbSet<Wallet.Transaction> PaymentTransactions { get; set; }
+    public DbSet<WalletPocket> WalletPockets { get; set; }
+    public DbSet<Order> PaymentOrders { get; set; }
+    public DbSet<Transaction> PaymentTransactions { get; set; }
 
-    public DbSet<Developer.CustomApp> CustomApps { get; set; }
-    public DbSet<Developer.CustomAppSecret> CustomAppSecrets { get; set; }
+    public DbSet<CustomApp> CustomApps { get; set; }
+    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
 
     public DbSet<Subscription> WalletSubscriptions { get; set; }
     public DbSet<Coupon> WalletCoupons { get; set; }
@@ -141,13 +151,13 @@ public class AppDatabase(
             .HasForeignKey(pg => pg.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Account.Relationship>()
+        modelBuilder.Entity<Relationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
-        modelBuilder.Entity<Account.Relationship>()
+        modelBuilder.Entity<Relationship>()
             .HasOne(r => r.Account)
             .WithMany(a => a.OutgoingRelationships)
             .HasForeignKey(r => r.AccountId);
-        modelBuilder.Entity<Account.Relationship>()
+        modelBuilder.Entity<Relationship>()
             .HasOne(r => r.Related)
             .WithMany(a => a.IncomingRelationships)
             .HasForeignKey(r => r.RelatedId);
@@ -202,49 +212,49 @@ public class AppDatabase(
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_collection_links"));
 
-        modelBuilder.Entity<Realm.RealmMember>()
+        modelBuilder.Entity<RealmMember>()
             .HasKey(pm => new { pm.RealmId, pm.AccountId });
-        modelBuilder.Entity<Realm.RealmMember>()
+        modelBuilder.Entity<RealmMember>()
             .HasOne(pm => pm.Realm)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Realm.RealmMember>()
+        modelBuilder.Entity<RealmMember>()
             .HasOne(pm => pm.Account)
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Chat.ChatMember>()
+        modelBuilder.Entity<ChatMember>()
             .HasKey(pm => new { pm.Id });
-        modelBuilder.Entity<Chat.ChatMember>()
+        modelBuilder.Entity<ChatMember>()
             .HasAlternateKey(pm => new { pm.ChatRoomId, pm.AccountId });
-        modelBuilder.Entity<Chat.ChatMember>()
+        modelBuilder.Entity<ChatMember>()
             .HasOne(pm => pm.ChatRoom)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.ChatRoomId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Chat.ChatMember>()
+        modelBuilder.Entity<ChatMember>()
             .HasOne(pm => pm.Account)
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Chat.Message>()
+        modelBuilder.Entity<Message>()
             .HasOne(m => m.ForwardedMessage)
             .WithMany()
             .HasForeignKey(m => m.ForwardedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Chat.Message>()
+        modelBuilder.Entity<Message>()
             .HasOne(m => m.RepliedMessage)
             .WithMany()
             .HasForeignKey(m => m.RepliedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Chat.RealtimeCall>()
+        modelBuilder.Entity<RealtimeCall>()
             .HasOne(m => m.Room)
             .WithMany()
             .HasForeignKey(m => m.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Chat.RealtimeCall>()
+        modelBuilder.Entity<RealtimeCall>()
             .HasOne(m => m.Sender)
             .WithMany()
             .HasForeignKey(m => m.SenderId)
@@ -256,7 +266,7 @@ public class AppDatabase(
             if (!typeof(ModelBase).IsAssignableFrom(entityType.ClrType)) continue;
             var method = typeof(AppDatabase)
                 .GetMethod(nameof(SetSoftDeleteFilter),
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+                    BindingFlags.NonPublic | BindingFlags.Static)!
                 .MakeGenericMethod(entityType.ClrType);
 
             method.Invoke(null, [modelBuilder]);

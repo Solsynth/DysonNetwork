@@ -147,6 +147,7 @@
             <AutoGen>True</AutoGen>
             <DependentUpon>NotificationResource.resx</DependentUpon>
         </Compile>
+        <Compile Remove="Auth\AppleAuthController.cs" />
     </ItemGroup>
 
     <ItemGroup>

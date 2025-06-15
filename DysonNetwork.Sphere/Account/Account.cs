@@ -173,3 +173,17 @@ public enum AccountAuthFactorType
     InAppCode,
     TimedCode
 }
+
+public class AccountConnection : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(4096)] public string Provider { get; set; } = null!;
+    [MaxLength(8192)] public string ProvidedIdentifier { get; set; } = null!;
+    
+    [MaxLength(4096)] public string? AccessToken { get; set; }
+    [MaxLength(4096)] public string? RefreshToken { get; set; }
+    public Instant? LastUsedAt { get; set; }
+    
+    public Guid AccountId { get; set; }
+    public Account Account { get; set; } = null!;
+}
