@@ -102,8 +102,11 @@ public class AppleOidcService(
         return ValidateAndExtractIdToken(idToken, validationParameters);
     }
 
-    protected override Dictionary<string, string> BuildTokenRequestParameters(string code, ProviderConfiguration config,
-        string? codeVerifier)
+    protected override Dictionary<string, string> BuildTokenRequestParameters(
+        string code,
+        ProviderConfiguration config,
+        string? codeVerifier
+    )
     {
         var parameters = new Dictionary<string, string>
         {

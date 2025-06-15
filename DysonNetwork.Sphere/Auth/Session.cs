@@ -22,7 +22,8 @@ public class Session : ModelBase
 public enum ChallengeType
 {
     Login,
-    OAuth
+    OAuth, // Trying to authorize other platforms
+    Oidc // Trying to connect other platforms
 }
 
 public enum ChallengePlatform

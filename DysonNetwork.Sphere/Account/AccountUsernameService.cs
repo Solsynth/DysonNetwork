@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.Account;
 /// </summary>
 public class AccountUsernameService(AppDatabase db)
 {
-    private readonly Random _random = new Random();
+    private readonly Random _random = new();
 
     /// <summary>
     /// Generates a unique username based on the provided base name
@@ -47,31 +47,6 @@ public class AccountUsernameService(AppDatabase db)
         // If all attempts fail, use a timestamp
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         return $"{sanitized}{timestamp}";
-    }
-
-    /// <summary>
-    /// Generates a display name, adding numbers if needed
-    /// </summary>
-    /// <param name="baseName">The preferred display name</param>
-    /// <returns>A display name with optional suffix</returns>
-    public Task<string> GenerateUniqueDisplayNameAsync(string baseName)
-    {
-        // If the base name is empty, use a default
-        if (string.IsNullOrEmpty(baseName))
-        {
-            baseName = "User";
-        }
-
-        // Truncate if too long
-        if (baseName.Length > 50)
-        {
-            baseName = baseName.Substring(0, 50);
-        }
-
-        // Since display names can be duplicated, just return the base name
-        // But add a random suffix to make it more unique visually
-        var suffix = _random.Next(1000, 9999);
-        return Task.FromResult($"{baseName}{suffix}");
     }
 
     /// <summary>
@@ -126,27 +101,5 @@ public class AccountUsernameService(AppDatabase db)
 
         // Use the local part as the base for username generation
         return await GenerateUniqueUsernameAsync(localPart);
-    }
-
-    /// <summary>
-    /// Generates a display name from an email address
-    /// </summary>
-    /// <param name="email">The email address to generate a display name from</param>
-    /// <returns>A display name derived from the email</returns>
-    public async Task<string> GenerateDisplayNameFromEmailAsync(string email)
-    {
-        if (string.IsNullOrEmpty(email))
-            return await GenerateUniqueDisplayNameAsync("User");
-
-        // Extract the local part of the email (before the @)
-        var localPart = email.Split('@')[0];
-
-        // Capitalize first letter and replace dots/underscores with spaces
-        var displayName = Regex.Replace(localPart, @"[._-]+", " ");
-
-        // Capitalize words
-        displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(displayName);
-
-        return await GenerateUniqueDisplayNameAsync(displayName);
     }
 }

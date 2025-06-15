@@ -1,10 +1,9 @@
 using DysonNetwork.Sphere.Account;
 using Microsoft.AspNetCore.Mvc;
-using DysonNetwork.Sphere.Auth.OpenId;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Auth;
+namespace DysonNetwork.Sphere.Auth.OpenId;
 
 /// <summary>
 /// This controller is designed to handle the OAuth callback.
@@ -69,43 +68,8 @@ public class AuthCallbackController(
             var account = await accounts.LookupAccount(userInfo.Email);
             if (account == null)
             {
-                // Generate username and display name from email
-                var username = await accountUsernameService.GenerateUsernameFromEmailAsync(userInfo.Email);
-                var displayName = await accountUsernameService.GenerateDisplayNameFromEmailAsync(userInfo.Email);
-
-                // Create a new account
-                account = new Account.Account
-                {
-                    Name = username,
-                    Nick = displayName,
-                    Contacts = new List<AccountContact>
-                    {
-                        new()
-                        {
-                            Type = AccountContactType.Email,
-                            Content = userInfo.Email,
-                            VerifiedAt = userInfo.EmailVerified ? SystemClock.Instance.GetCurrentInstant() : null,
-                            IsPrimary = true
-                        }
-                    },
-                    Profile = new Profile()
-                };
-
-                // Save the account
-                await db.Accounts.AddAsync(account);
-                await db.SaveChangesAsync();
-                
-                // Do the usual steps
-                var spell = await spells.CreateMagicSpell(
-                    account,
-                    MagicSpellType.AccountActivation,
-                    new Dictionary<string, object>
-                    {
-                        { "contact_method", account.Contacts.First().Content }
-                    },
-                    expiredAt: SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromDays(7))
-                );
-                await spells.NotifyMagicSpell(spell, true);
+                // Create a new account using the AccountService
+                account = await accounts.CreateAccount(userInfo);
             }
 
             // Create a session for the user

@@ -1,8 +1,10 @@
 using System.Globalization;
 using DysonNetwork.Sphere.Auth;
+using DysonNetwork.Sphere.Auth.OpenId;
 using DysonNetwork.Sphere.Email;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Pages.Emails;
+using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
@@ -16,8 +18,9 @@ namespace DysonNetwork.Sphere.Account;
 public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
+    AccountUsernameService uname,
     NotificationService nty,
-    EmailService email,
+    EmailService mailer,
     IStringLocalizer<NotificationResource> localizer,
     ICacheService cache,
     ILogger<AccountService> logger
@@ -60,6 +63,114 @@ public class AccountService(
             .Where(a => a.AccountId == accountId)
             .FirstOrDefaultAsync();
         return profile?.Level;
+    }
+
+    public async Task<Account> CreateAccount(
+        string name,
+        string nick,
+        string email,
+        string? password,
+        string language = "en-US",
+        bool isEmailVerified = false,
+        bool isActivated = false
+    )
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            var dupeNameCount = await db.Accounts.Where(a => a.Name == name).CountAsync();
+            if (dupeNameCount > 0)
+                throw new InvalidOperationException("Account name has already been taken.");
+
+            var account = new Account
+            {
+                Name = name,
+                Nick = nick,
+                Language = language,
+                Contacts = new List<AccountContact>
+                {
+                    new()
+                    {
+                        Type = AccountContactType.Email,
+                        Content = email,
+                        VerifiedAt = isEmailVerified ? SystemClock.Instance.GetCurrentInstant() : null,
+                        IsPrimary = true
+                    }
+                },
+                AuthFactors = password is not null
+                    ? new List<AccountAuthFactor>
+                    {
+                        new AccountAuthFactor
+                        {
+                            Type = AccountAuthFactorType.Password,
+                            Secret = password,
+                            EnabledAt = SystemClock.Instance.GetCurrentInstant()
+                        }.HashSecret()
+                    }
+                    : [],
+                Profile = new Profile()
+            };
+
+            if (isActivated)
+            {
+                account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
+                var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
+                if (defaultGroup is not null)
+                {
+                    db.PermissionGroupMembers.Add(new PermissionGroupMember
+                    {
+                        Actor = $"user:{account.Id}",
+                        Group = defaultGroup
+                    });
+                }
+            }
+            else
+            {
+                var spell = await spells.CreateMagicSpell(
+                    account,
+                    MagicSpellType.AccountActivation,
+                    new Dictionary<string, object>
+                    {
+                        { "contact_method", account.Contacts.First().Content }
+                    }
+                );
+                await spells.NotifyMagicSpell(spell, true);
+            }
+
+            db.Accounts.Add(account);
+            await db.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+            return account;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<Account> CreateAccount(OidcUserInfo userInfo)
+    {
+        if (string.IsNullOrEmpty(userInfo.Email))
+            throw new ArgumentException("Email is required for account creation");
+
+        var displayName = !string.IsNullOrEmpty(userInfo.DisplayName)
+            ? userInfo.DisplayName
+            : $"{userInfo.FirstName} {userInfo.LastName}".Trim();
+
+        // Generate username from email
+        var username = await uname.GenerateUsernameFromEmailAsync(userInfo.Email);
+
+        return await CreateAccount(
+            username,
+            displayName,
+            userInfo.Email,
+            null,
+            "en-US",
+            userInfo.EmailVerified,
+            userInfo.EmailVerified
+        );
     }
 
     public async Task RequestAccountDeletion(Account account)
@@ -265,7 +376,7 @@ public class AccountService(
                     return;
                 }
 
-                await email.SendTemplatedEmailAsync<VerificationEmail, VerificationEmailModel>(
+                await mailer.SendTemplatedEmailAsync<VerificationEmail, VerificationEmailModel>(
                     account.Nick,
                     contact.Content,
                     localizer["VerificationEmail"],

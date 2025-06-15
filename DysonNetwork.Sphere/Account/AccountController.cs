@@ -82,51 +82,21 @@ public class AccountController(
     {
         if (!await auth.ValidateCaptcha(request.CaptchaToken)) return BadRequest("Invalid captcha token.");
 
-        var dupeNameCount = await db.Accounts.Where(a => a.Name == request.Name).CountAsync();
-        if (dupeNameCount > 0)
-            return BadRequest("The name is already taken.");
-
-        var account = new Account
+        try
         {
-            Name = request.Name,
-            Nick = request.Nick,
-            Language = request.Language,
-            Contacts = new List<AccountContact>
-            {
-                new()
-                {
-                    Type = AccountContactType.Email,
-                    Content = request.Email,
-                    IsPrimary = true
-                }
-            },
-            AuthFactors = new List<AccountAuthFactor>
-            {
-                new AccountAuthFactor
-                {
-                    Type = AccountAuthFactorType.Password,
-                    Secret = request.Password,
-                    EnabledAt = SystemClock.Instance.GetCurrentInstant()
-                }.HashSecret()
-            },
-            Profile = new Profile()
-        };
-
-        await db.Accounts.AddAsync(account);
-        await db.SaveChangesAsync();
-
-        var spell = await spells.CreateMagicSpell(
-            account,
-            MagicSpellType.AccountActivation,
-            new Dictionary<string, object>
-            {
-                { "contact_method", account.Contacts.First().Content }
-            },
-            expiredAt: SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromDays(7))
-        );
-        await spells.NotifyMagicSpell(spell, true);
-
-        return account;
+            var account = await accounts.CreateAccount(
+                request.Name,
+                request.Nick,
+                request.Email,
+                request.Password,
+                request.Language
+            );
+            return Ok(account);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     public class RecoveryPasswordRequest

@@ -49,7 +49,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
         {
             ClientId = configuration[$"Oidc:{ConfigSectionName}:ClientId"] ?? "",
             ClientSecret = configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
-            RedirectUri = configuration[$"Oidc:{ConfigSectionName}:RedirectUri"] ?? ""
+            RedirectUri = configuration["BaseUrl"] + "/auth/callback/" + ProviderName
         };
     }
 
@@ -177,7 +177,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
                 ProvidedIdentifier = userInfo.UserId ?? "",
                 AccessToken = userInfo.AccessToken,
                 RefreshToken = userInfo.RefreshToken,
-                LastUsedAt = NodaTime.SystemClock.Instance.GetCurrentInstant(),
+                LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
                 AccountId = account.Id
             };
             await db.AccountConnections.AddAsync(connection);
@@ -190,6 +190,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
             ExpiredAt = now.Plus(Duration.FromHours(1)),
             StepTotal = 1,
             StepRemain = 0, // Already verified by provider
+            Type = ChallengeType.Oidc,
             Platform = ChallengePlatform.Unidentified,
             Audiences = [ProviderName],
             Scopes = ["*"],
@@ -202,8 +203,8 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
         var session = new Session
         {
             LastGrantedAt = now,
-            Account = account,
-            Challenge = challenge,
+            AccountId = account.Id,
+            ChallengeId = challenge.Id,
         };
 
         await db.AuthSessions.AddAsync(session);

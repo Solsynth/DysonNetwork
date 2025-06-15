@@ -25,6 +25,7 @@ public class Account : ModelBase
     public ICollection<Badge> Badges { get; set; } = new List<Badge>();
     
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
+    [JsonIgnore] public ICollection<AccountConnection> Connections { get; set; } = new List<AccountConnection>();
     [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
     [JsonIgnore] public ICollection<Auth.Challenge> Challenges { get; set; } = new List<Auth.Challenge>();
 
