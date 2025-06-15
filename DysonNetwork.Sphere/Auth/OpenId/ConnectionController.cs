@@ -2,12 +2,13 @@ using DysonNetwork.Sphere.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Sphere.Auth.OpenId;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
 [ApiController]
-[Route("/api/accounts/me/connections")]
+[Route("/accounts/me/connections")]
 [Authorize]
 public class ConnectionController(
     AppDatabase db,
@@ -24,7 +25,17 @@ public class ConnectionController(
 
         var connections = await db.AccountConnections
             .Where(c => c.AccountId == currentUser.Id)
-            .Select(c => new { c.Id, c.AccountId, c.Provider, c.ProvidedIdentifier, c.Meta, c.LastUsedAt })
+            .Select(c => new
+            {
+                c.Id,
+                c.AccountId,
+                c.Provider,
+                c.ProvidedIdentifier, 
+                c.Meta,
+                c.LastUsedAt,
+                c.CreatedAt,
+                c.UpdatedAt,
+            })
             .ToListAsync();
         return Ok(connections);
     }
@@ -47,6 +58,63 @@ public class ConnectionController(
         return Ok();
     }
 
+    [HttpPost("/auth/connect/apple/mobile")]
+    public async Task<ActionResult> ConnectAppleMobile([FromBody] AppleMobileConnectRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+            return Unauthorized();
+
+        if (GetOidcService("apple") is not AppleOidcService appleService)
+            return StatusCode(503, "Apple OIDC service not available");
+
+        var callbackData = new OidcCallbackData
+        {
+            IdToken = request.IdentityToken,
+            Code = request.AuthorizationCode,
+        };
+
+        OidcUserInfo userInfo;
+        try
+        {
+            userInfo = await appleService.ProcessCallbackAsync(callbackData);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Error processing Apple token: {ex.Message}");
+        }
+
+        var existingConnection = await db.AccountConnections
+            .FirstOrDefaultAsync(c =>
+                c.Provider == "apple" &&
+                c.ProvidedIdentifier == userInfo.UserId);
+
+        if (existingConnection != null)
+        {
+            return BadRequest(
+                $"This Apple account is already linked to {(existingConnection.AccountId == currentUser.Id ? "your account" : "another user")}.");
+        }
+
+        db.AccountConnections.Add(new AccountConnection
+        {
+            AccountId = currentUser.Id,
+            Provider = "apple",
+            ProvidedIdentifier = userInfo.UserId!,
+            AccessToken = userInfo.AccessToken,
+            RefreshToken = userInfo.RefreshToken,
+            LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
+            Meta = userInfo.ToMetadata(),
+        });
+
+        await db.SaveChangesAsync();
+
+        return Ok(new { message = "Successfully connected Apple account." });
+    }
+
+    private OidcService? GetOidcService(string provider)
+    {
+        return oidcServices.FirstOrDefault(s => s.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase));
+    }
+
     public class ConnectProviderRequest
     {
         public string Provider { get; set; } = null!;
@@ -62,8 +130,7 @@ public class ConnectionController(
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
             return Unauthorized();
 
-        var oidcService = oidcServices.FirstOrDefault(s =>
-            s.ProviderName.Equals(request.Provider, StringComparison.OrdinalIgnoreCase));
+        var oidcService = GetOidcService(request.Provider);
         if (oidcService == null)
             return BadRequest($"Provider '{request.Provider}' is not supported");
 
@@ -94,8 +161,7 @@ public class ConnectionController(
     [HttpGet, HttpPost]
     public async Task<IActionResult> HandleCallback([FromRoute] string provider)
     {
-        var oidcService =
-            oidcServices.FirstOrDefault(s => s.ProviderName.Equals(provider, StringComparison.OrdinalIgnoreCase));
+        var oidcService = GetOidcService(provider);
         if (oidcService == null)
             return BadRequest($"Provider '{provider}' is not supported.");
 
