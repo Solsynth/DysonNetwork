@@ -180,9 +180,10 @@ public class AccountConnection : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(4096)] public string Provider { get; set; } = null!;
     [MaxLength(8192)] public string ProvidedIdentifier { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; } = new();
     
-    [MaxLength(4096)] public string? AccessToken { get; set; }
-    [MaxLength(4096)] public string? RefreshToken { get; set; }
+    [JsonIgnore] [MaxLength(4096)] public string? AccessToken { get; set; }
+    [JsonIgnore] [MaxLength(4096)] public string? RefreshToken { get; set; }
     public Instant? LastUsedAt { get; set; }
     
     public Guid AccountId { get; set; }

@@ -105,7 +105,7 @@ public class OidcController(
         if (string.IsNullOrEmpty(userInfo.Email))
             throw new ArgumentException("Email is required for account creation");
 
-        // Check if account exists by email
+        // Check if an account exists by email
         var existingAccount = await accounts.LookupAccount(userInfo.Email);
         if (existingAccount != null)
         {
@@ -116,12 +116,28 @@ public class OidcController(
                                           c.ProvidedIdentifier == userInfo.UserId);
 
             // If no connection exists, create one
-            if (existingConnection != null) return existingAccount;
+            if (existingConnection != null)
+            {
+                await db.AccountConnections
+                    .Where(c => c.AccountId == existingAccount.Id &&
+                                c.Provider == provider &&
+                                c.ProvidedIdentifier == userInfo.UserId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(c => c.LastUsedAt, SystemClock.Instance.GetCurrentInstant())
+                        .SetProperty(c => c.Meta, userInfo.ToMetadata()));
+
+                return existingAccount;
+            }
+
             var connection = new AccountConnection
             {
                 AccountId = existingAccount.Id,
                 Provider = provider,
                 ProvidedIdentifier = userInfo.UserId!,
+                AccessToken = userInfo.AccessToken,
+                RefreshToken = userInfo.RefreshToken,
+                LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
+                Meta = userInfo.ToMetadata()
             };
 
             db.AccountConnections.Add(connection);
@@ -139,6 +155,10 @@ public class OidcController(
             AccountId = newAccount.Id,
             Provider = provider,
             ProvidedIdentifier = userInfo.UserId!,
+            AccessToken = userInfo.AccessToken,
+            RefreshToken = userInfo.RefreshToken,
+            LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
+            Meta = userInfo.ToMetadata()
         };
 
         db.AccountConnections.Add(newConnection);
