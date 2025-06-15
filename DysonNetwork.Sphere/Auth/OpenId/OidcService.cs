@@ -11,9 +11,18 @@ namespace DysonNetwork.Sphere.Auth.OpenId;
 /// <summary>
 /// Base service for OpenID Connect authentication providers
 /// </summary>
-public abstract class OidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
+public abstract class OidcService
 {
-    protected readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    protected readonly IConfiguration _configuration;
+    protected readonly IHttpClientFactory _httpClientFactory;
+    protected readonly AppDatabase _db;
+
+    protected OidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
+    {
+        _configuration = configuration;
+        _httpClientFactory = httpClientFactory;
+        _db = db;
+    }
 
     /// <summary>
     /// Gets the unique identifier for this provider
@@ -47,9 +56,9 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
     {
         return new ProviderConfiguration
         {
-            ClientId = configuration[$"Oidc:{ConfigSectionName}:ClientId"] ?? "",
-            ClientSecret = configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
-            RedirectUri = configuration["BaseUrl"] + "/auth/callback/" + ProviderName
+                        ClientId = _configuration[$"Oidc:{ConfigSectionName}:ClientId"] ?? "",
+                        ClientSecret = _configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
+                        RedirectUri = _configuration["BaseUrl"] + "/auth/callback/" + ProviderName
         };
     }
 
@@ -58,7 +67,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
     /// </summary>
     protected async Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
     {
-        var client = httpClientFactory.CreateClient();
+        var client = _httpClientFactory.CreateClient();
         var response = await client.GetAsync(DiscoveryEndpoint);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<OidcDiscoveryDocument>();
@@ -78,7 +87,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
             throw new InvalidOperationException("Token endpoint not found in discovery document");
         }
 
-        var client = httpClientFactory.CreateClient();
+        var client = _httpClientFactory.CreateClient();
         var content = new FormUrlEncodedContent(BuildTokenRequestParameters(code, config, codeVerifier));
 
         var response = await client.PostAsync(discoveryDocument.TokenEndpoint, content);
@@ -169,7 +178,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
     )
     {
         // Create or update the account connection
-        var connection = await db.AccountConnections
+                var connection = await _db.AccountConnections
             .FirstOrDefaultAsync(c => c.Provider == ProviderName &&
                                       c.ProvidedIdentifier == userInfo.UserId &&
                                       c.AccountId == account.Id
@@ -186,7 +195,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
                 LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
                 AccountId = account.Id
             };
-            await db.AccountConnections.AddAsync(connection);
+                        await _db.AccountConnections.AddAsync(connection);
         }
 
         // Create a challenge that's already completed
@@ -206,7 +215,7 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
             UserAgent = request.Request.Headers.UserAgent,
         };
 
-        await db.AuthChallenges.AddAsync(challenge);
+                await _db.AuthChallenges.AddAsync(challenge);
 
         // Create a session
         var session = new Session
@@ -217,8 +226,8 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
             Challenge = challenge
         };
 
-        await db.AuthSessions.AddAsync(session);
-        await db.SaveChangesAsync();
+                await _db.AuthSessions.AddAsync(session);
+                await _db.SaveChangesAsync();
 
         return session;
     }

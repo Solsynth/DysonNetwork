@@ -205,7 +205,7 @@ public class ConnectionController(
             // Login existing user
             var session = await auth.CreateSessionAsync(connection.Account, clock.GetCurrentInstant());
             var token = auth.CreateToken(session);
-            return Redirect($"/?token={token}");
+            return Redirect($"/auth/token?token={token}");
         }
 
         // Register new user
@@ -228,7 +228,7 @@ public class ConnectionController(
 
         var loginSession = await auth.CreateSessionAsync(account, clock.GetCurrentInstant());
         var loginToken = auth.CreateToken(loginSession);
-        return Redirect($"/?token={loginToken}");
+        return Redirect($"/auth/token?token={loginToken}");
     }
 
     private static async Task<OidcCallbackData> ExtractCallbackData(HttpRequest request)
