@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libharfbuzz0b \
   libgif7 \
   libvips \
+  ffmpeg \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
