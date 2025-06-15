@@ -2,8 +2,8 @@ using System.Globalization;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Auth.OpenId;
 using DysonNetwork.Sphere.Email;
+
 using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Pages.Emails;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using EFCore.BulkExtensions;
@@ -376,7 +376,7 @@ public class AccountService(
                     return;
                 }
 
-                await mailer.SendTemplatedEmailAsync<VerificationEmail, VerificationEmailModel>(
+                                await mailer.SendTemplatedEmailAsync<DysonNetwork.Sphere.Pages.Emails.VerificationEmail, VerificationEmailModel>(
                     account.Nick,
                     contact.Content,
                     localizer["VerificationEmail"],

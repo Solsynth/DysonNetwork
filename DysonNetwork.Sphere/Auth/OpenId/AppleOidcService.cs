@@ -140,8 +140,14 @@ public class AppleOidcService(
         var keyId = _configuration["Oidc:Apple:KeyId"];
         var privateKeyPath = _configuration["Oidc:Apple:PrivateKeyPath"];
 
+        if (string.IsNullOrEmpty(teamId) || string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(keyId) ||
+            string.IsNullOrEmpty(privateKeyPath))
+        {
+            throw new InvalidOperationException("Apple OIDC configuration is missing required values (TeamId, ClientId, KeyId, PrivateKeyPath).");
+        }
+        
         // Read the private key
-        var privateKey = File.ReadAllText(privateKeyPath!);
+        var privateKey = File.ReadAllText(privateKeyPath);
 
         // Create the JWT header
         var header = new Dictionary<string, object>

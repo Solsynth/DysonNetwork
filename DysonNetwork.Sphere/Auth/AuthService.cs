@@ -5,8 +5,10 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth;
 
-public class AuthService(AppDatabase db, IConfiguration config, IHttpClientFactory httpClientFactory)
+public class AuthService(AppDatabase db, IConfiguration config, IHttpClientFactory httpClientFactory, IHttpContextAccessor httpContextAccessor)
 {
+    private HttpContext HttpContext => httpContextAccessor.HttpContext!;
+
     /// <summary>
     /// Detect the risk of the current request to login
     /// and returns the required steps to login.
@@ -61,6 +63,33 @@ public class AuthService(AppDatabase db, IConfiguration config, IHttpClientFacto
         totalRequiredSteps = Math.Max(Math.Min(totalRequiredSteps, maxSteps), 1);
 
         return totalRequiredSteps;
+    }
+
+    public async Task<Session> CreateSessionAsync(Account.Account account, Instant time)
+    {
+        var challenge = new Challenge
+        {
+            AccountId = account.Id,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            UserAgent = HttpContext.Request.Headers.UserAgent,
+            StepRemain = 1,
+            StepTotal = 1,
+            Type = ChallengeType.Oidc
+        };
+
+        var session = new Session
+        {
+            AccountId = account.Id,
+            CreatedAt = time,
+            LastGrantedAt = time,
+            Challenge = challenge
+        };
+
+        db.AuthChallenges.Add(challenge);
+        db.AuthSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        return session;
     }
 
     public async Task<bool> ValidateCaptcha(string token)

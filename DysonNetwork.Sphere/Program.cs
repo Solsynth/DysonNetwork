@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using DysonNetwork.Sphere;
@@ -83,9 +84,17 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     var connection = builder.Configuration.GetConnectionString("FastRetrieve")!;
     return ConnectionMultiplexer.Connect(connection);
 });
+builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
 
 builder.Services.AddHttpClient();
+
+// Register OIDC services
+builder.Services.AddScoped<OidcService, GoogleOidcService>();
+builder.Services.AddScoped<OidcService, AppleOidcService>();
+builder.Services.AddScoped<OidcService, GitHubOidcService>();
+builder.Services.AddScoped<OidcService, DiscordOidcService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -113,6 +122,12 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 
 // Other pipelines
 
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = !builder.Configuration["BaseUrl"]!.StartsWith("https");
+    options.Cookie.IsEssential = true;
+});
 builder.Services.AddRateLimiter(o => o.AddFixedWindowLimiter(policyName: "fixed", opts =>
 {
     opts.Window = TimeSpan.FromMinutes(1);
@@ -257,7 +272,7 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInSeconds(60)
             .RepeatForever())
     );
-    
+
     var lastActiveFlushJob = new JobKey("LastActiveFlush");
     q.AddJob<LastActiveFlushJob>(opts => opts.WithIdentity(lastActiveFlushJob));
     q.AddTrigger(opts => opts
@@ -267,7 +282,6 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInMinutes(5)
             .RepeatForever())
     );
-    
 });
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
@@ -288,11 +302,29 @@ app.UseSwaggerUI();
 
 app.UseRequestLocalization();
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// Configure forwarded headers with known proxies from configuration
 {
-    ForwardedHeaders = ForwardedHeaders.All
-});
+    var knownProxiesSection = builder.Configuration.GetSection("KnownProxies");
+    var forwardedHeadersOptions = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.All };
 
+    if (knownProxiesSection.Exists())
+    {
+        var proxyAddresses = knownProxiesSection.Get<string[]>();
+        if (proxyAddresses != null)
+            foreach (var proxy in proxyAddresses)
+                if (IPAddress.TryParse(proxy, out var ipAddress))
+                    forwardedHeadersOptions.KnownProxies.Add(ipAddress);
+    }
+    else
+    {
+        forwardedHeadersOptions.KnownProxies.Add(IPAddress.Any);
+        forwardedHeadersOptions.KnownProxies.Add(IPAddress.IPv6Any);
+    }
+
+    app.UseForwardedHeaders(forwardedHeadersOptions);
+}
+
+app.UseSession();
 app.UseCors(opts =>
     opts.SetIsOriginAllowed(_ => true)
         .WithExposedHeaders("*")

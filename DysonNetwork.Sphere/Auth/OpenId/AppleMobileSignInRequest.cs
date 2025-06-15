@@ -10,4 +10,6 @@ public class AppleMobileSignInRequest
     public required string IdentityToken { get; set; }
     [Required]
     public required string AuthorizationCode { get; set; }
+    [Required]
+    public required string DeviceId { get; set; }
 }

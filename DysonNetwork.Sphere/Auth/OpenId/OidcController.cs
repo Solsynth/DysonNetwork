@@ -29,7 +29,7 @@ public class OidcController(
             var nonce = Guid.NewGuid().ToString();
 
             // Get the authorization URL and redirect the user
-            var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
+            var authUrl = oidcService.GetAuthorizationUrl(state ?? "/", nonce);
             return Redirect(authUrl);
         }
         catch (Exception ex)
@@ -43,7 +43,8 @@ public class OidcController(
     /// Handles Apple authentication directly from mobile apps
     /// </summary>
     [HttpPost("apple/mobile")]
-    public async Task<ActionResult<AuthController.TokenExchangeResponse>> AppleMobileSignIn([FromBody] AppleMobileSignInRequest request)
+    public async Task<ActionResult<AuthController.TokenExchangeResponse>> AppleMobileSignIn(
+        [FromBody] AppleMobileSignInRequest request)
     {
         try
         {
@@ -65,7 +66,12 @@ public class OidcController(
             var account = await FindOrCreateAccount(userInfo, "apple");
 
             // Create session using the OIDC service
-            var session = await appleService.CreateSessionForUserAsync(userInfo, account);
+            var session = await appleService.CreateSessionForUserAsync(
+                userInfo,
+                account,
+                HttpContext,
+                request.DeviceId
+            );
 
             // Generate token using existing auth service
             var token = authService.CreateToken(session);

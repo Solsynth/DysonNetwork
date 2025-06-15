@@ -1,7 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +13,8 @@ namespace DysonNetwork.Sphere.Auth.OpenId;
 /// </summary>
 public abstract class OidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
 {
+    protected readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+
     /// <summary>
     /// Gets the unique identifier for this provider
     /// </summary>
@@ -67,7 +67,8 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
     /// <summary>
     /// Exchange the authorization code for tokens
     /// </summary>
-    protected async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code, string? codeVerifier = null)
+    protected virtual async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code,
+        string? codeVerifier = null)
     {
         var config = GetProviderConfig();
         var discoveryDocument = await GetDiscoveryDocumentAsync();
@@ -160,7 +161,12 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
     /// Creates a challenge and session for an authenticated user
     /// Also creates or updates the account connection
     /// </summary>
-    public async Task<Session> CreateSessionForUserAsync(OidcUserInfo userInfo, Account.Account account)
+    public async Task<Session> CreateSessionForUserAsync(
+        OidcUserInfo userInfo,
+        Account.Account account,
+        HttpContext request,
+        string deviceId
+    )
     {
         // Create or update the account connection
         var connection = await db.AccountConnections
@@ -194,7 +200,10 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
             Platform = ChallengePlatform.Unidentified,
             Audiences = [ProviderName],
             Scopes = ["*"],
-            AccountId = account.Id
+            AccountId = account.Id,
+            DeviceId = deviceId,
+            IpAddress = request.Connection.RemoteIpAddress?.ToString() ?? null,
+            UserAgent = request.Request.Headers.UserAgent,
         };
 
         await db.AuthChallenges.AddAsync(challenge);
@@ -202,9 +211,10 @@ public abstract class OidcService(IConfiguration configuration, IHttpClientFacto
         // Create a session
         var session = new Session
         {
-            LastGrantedAt = now,
             AccountId = account.Id,
-            ChallengeId = challenge.Id,
+            CreatedAt = now,
+            LastGrantedAt = now,
+            Challenge = challenge
         };
 
         await db.AuthSessions.AddAsync(session);
