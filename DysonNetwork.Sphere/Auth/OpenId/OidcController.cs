@@ -109,7 +109,9 @@ public class OidcController(
         {
             "apple" => serviceProvider.GetRequiredService<AppleOidcService>(),
             "google" => serviceProvider.GetRequiredService<GoogleOidcService>(),
-            // Add more providers as needed
+            "microsoft" => serviceProvider.GetRequiredService<MicrosoftOidcService>(),
+            "discord" => serviceProvider.GetRequiredService<DiscordOidcService>(),
+            "github" => serviceProvider.GetRequiredService<GitHubOidcService>(),
             _ => throw new ArgumentException($"Unsupported provider: {provider}")
         };
     }
