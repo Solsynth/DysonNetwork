@@ -94,6 +94,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<OidcService, GoogleOidcService>();
 builder.Services.AddScoped<OidcService, AppleOidcService>();
 builder.Services.AddScoped<OidcService, GitHubOidcService>();
+builder.Services.AddScoped<OidcService, MicrosoftOidcService>();
 builder.Services.AddScoped<OidcService, DiscordOidcService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
