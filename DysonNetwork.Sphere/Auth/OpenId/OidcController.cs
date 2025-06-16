@@ -23,7 +23,7 @@ public class OidcController(
         {
             var oidcService = GetOidcService(provider);
 
-            // If user is already authenticated, treat as an account connection request
+            // If the user is already authenticated, treat as an account connection request
             if (HttpContext.Items["CurrentUser"] is Account.Account currentUser)
             {
                 var state = Guid.NewGuid().ToString();

@@ -192,32 +192,51 @@ public class ConnectionController(
         }
         catch (Exception ex)
         {
-            return BadRequest($"Error processing callback: {ex.Message}");
+            return BadRequest($"Error processing {provider} authentication: {ex.Message}");
         }
 
+        if (string.IsNullOrEmpty(userInfo.UserId))
+        {
+            return BadRequest($"{provider} did not return a valid user identifier.");
+        }
+
+        // Check if this provider account is already connected to any user
         var existingConnection = await db.AccountConnections
             .FirstOrDefaultAsync(c =>
                 c.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase) &&
                 c.ProvidedIdentifier == userInfo.UserId);
 
+        // If it's connected to a different user, return error
         if (existingConnection != null && existingConnection.AccountId != accountId)
         {
             return BadRequest($"This {provider} account is already linked to another user.");
         }
 
-        var userConnection = await db.AccountConnections
-            .FirstOrDefaultAsync(c =>
-                c.AccountId == accountId && c.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
+        // Check if the current user already has this provider connected
+        var userHasProvider = await db.AccountConnections
+            .AnyAsync(c => 
+                c.AccountId == accountId && 
+                c.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
 
-        var clock = SystemClock.Instance;
-        if (userConnection != null)
+        if (userHasProvider)
         {
-            userConnection.AccessToken = userInfo.AccessToken;
-            userConnection.RefreshToken = userInfo.RefreshToken;
-            userConnection.LastUsedAt = clock.GetCurrentInstant();
+            // Update existing connection with new tokens
+            var connection = await db.AccountConnections
+                .FirstOrDefaultAsync(c =>
+                    c.AccountId == accountId && 
+                    c.Provider.Equals(provider, StringComparison.OrdinalIgnoreCase));
+
+            if (connection != null)
+            {
+                connection.AccessToken = userInfo.AccessToken;
+                connection.RefreshToken = userInfo.RefreshToken;
+                connection.LastUsedAt = SystemClock.Instance.GetCurrentInstant();
+                connection.Meta = userInfo.ToMetadata();
+            }
         }
         else
         {
+            // Create new connection
             db.AccountConnections.Add(new AccountConnection
             {
                 AccountId = accountId,
@@ -225,17 +244,26 @@ public class ConnectionController(
                 ProvidedIdentifier = userInfo.UserId!,
                 AccessToken = userInfo.AccessToken,
                 RefreshToken = userInfo.RefreshToken,
-                LastUsedAt = clock.GetCurrentInstant(),
+                LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
                 Meta = userInfo.ToMetadata(),
             });
         }
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            return StatusCode(500, $"Failed to save {provider} connection. Please try again.");
+        }
 
+        // Clean up and redirect
         var returnUrl = HttpContext.Session.GetString($"oidc_return_url_{callbackData.State}");
         HttpContext.Session.Remove($"oidc_return_url_{callbackData.State}");
+        HttpContext.Session.Remove($"oidc_state_{callbackData.State}");
 
-        return Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+        return Redirect(string.IsNullOrEmpty(returnUrl) ? "/settings/connections" : returnUrl);
     }
 
     private async Task<IActionResult> HandleLoginOrRegistration(
