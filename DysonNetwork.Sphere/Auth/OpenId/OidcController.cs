@@ -21,16 +21,30 @@ public class OidcController(
     {
         try
         {
-            // Get the appropriate provider service
             var oidcService = GetOidcService(provider);
 
-            // Generate state (containing return URL) and nonce
-            var state = returnUrl;
-            var nonce = Guid.NewGuid().ToString();
+            // If user is already authenticated, treat as an account connection request
+            if (HttpContext.Items["CurrentUser"] is Account.Account currentUser)
+            {
+                var state = Guid.NewGuid().ToString();
+                var nonce = Guid.NewGuid().ToString();
 
-            // Get the authorization URL and redirect the user
-            var authUrl = oidcService.GetAuthorizationUrl(state ?? "/", nonce);
-            return Redirect(authUrl);
+                // Store user's ID, provider, and nonce in session. The callback will use this.
+                HttpContext.Session.SetString($"oidc_state_{state}", $"{currentUser.Id}|{provider}|{nonce}");
+
+                // The state parameter sent to the provider is the GUID key for the session state.
+                var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
+                return Redirect(authUrl);
+            }
+            else // Otherwise, proceed with login/registration flow
+            {
+                var state = returnUrl;
+                var nonce = Guid.NewGuid().ToString();
+
+                // The state parameter is the returnUrl. The callback will not find a session state and will treat it as a login.
+                var authUrl = oidcService.GetAuthorizationUrl(state ?? "/", nonce);
+                return Redirect(authUrl);
+            }
         }
         catch (Exception ex)
         {

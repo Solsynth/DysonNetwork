@@ -180,8 +180,6 @@ public class ConnectionController(
 
         var accountId = Guid.Parse(stateParts[0]);
         return await HandleManualConnection(provider, oidcService, callbackData, accountId);
-
-        // Otherwise, it's a login or registration flow.
     }
 
     private async Task<IActionResult> HandleManualConnection(string provider, OidcService oidcService,
