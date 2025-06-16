@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NodaTime;
@@ -11,18 +12,16 @@ namespace DysonNetwork.Sphere.Auth.OpenId;
 /// <summary>
 /// Base service for OpenID Connect authentication providers
 /// </summary>
-public abstract class OidcService
+public abstract class OidcService(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    AppDatabase db,
+    ICacheService cache
+)
 {
-    protected readonly IConfiguration _configuration;
-    protected readonly IHttpClientFactory _httpClientFactory;
-    protected readonly AppDatabase _db;
-
-    protected OidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
-    {
-        _configuration = configuration;
-        _httpClientFactory = httpClientFactory;
-        _db = db;
-    }
+    protected readonly IConfiguration Configuration = configuration;
+    protected readonly IHttpClientFactory HttpClientFactory = httpClientFactory;
+    protected readonly AppDatabase Db = db;
 
     /// <summary>
     /// Gets the unique identifier for this provider
@@ -56,9 +55,9 @@ public abstract class OidcService
     {
         return new ProviderConfiguration
         {
-                        ClientId = _configuration[$"Oidc:{ConfigSectionName}:ClientId"] ?? "",
-                        ClientSecret = _configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
-                        RedirectUri = _configuration["BaseUrl"] + "/auth/callback/" + ProviderName.ToLower()
+            ClientId = Configuration[$"Oidc:{ConfigSectionName}:ClientId"] ?? "",
+            ClientSecret = Configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
+            RedirectUri = Configuration["BaseUrl"] + "/auth/callback/" + ProviderName.ToLower()
         };
     }
 
@@ -67,10 +66,28 @@ public abstract class OidcService
     /// </summary>
     protected async Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
     {
-        var client = _httpClientFactory.CreateClient();
+        // Construct a cache key unique to the current provider:
+        var cacheKey = $"oidc-discovery:{ProviderName}";
+
+        // Try getting the discovery document from cache first:
+        var (found, cachedDoc) = await cache.GetAsyncWithStatus<OidcDiscoveryDocument>(cacheKey);
+        if (found && cachedDoc != null)
+        {
+            return cachedDoc;
+        }
+
+        // If it's not cached, fetch from the actual discovery endpoint:
+        var client = HttpClientFactory.CreateClient();
         var response = await client.GetAsync(DiscoveryEndpoint);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<OidcDiscoveryDocument>();
+        var doc = await response.Content.ReadFromJsonAsync<OidcDiscoveryDocument>();
+
+        // Store the discovery document in the cache for a while (e.g., 15 minutes):
+        if (doc is not null)
+            await cache.SetAsync(cacheKey, doc, TimeSpan.FromMinutes(15));
+
+        return doc;
+
     }
 
     /// <summary>
@@ -87,7 +104,7 @@ public abstract class OidcService
             throw new InvalidOperationException("Token endpoint not found in discovery document");
         }
 
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
         var content = new FormUrlEncodedContent(BuildTokenRequestParameters(code, config, codeVerifier));
 
         var response = await client.PostAsync(discoveryDocument.TokenEndpoint, content);
@@ -178,7 +195,7 @@ public abstract class OidcService
     )
     {
         // Create or update the account connection
-                var connection = await _db.AccountConnections
+        var connection = await Db.AccountConnections
             .FirstOrDefaultAsync(c => c.Provider == ProviderName &&
                                       c.ProvidedIdentifier == userInfo.UserId &&
                                       c.AccountId == account.Id
@@ -195,7 +212,7 @@ public abstract class OidcService
                 LastUsedAt = SystemClock.Instance.GetCurrentInstant(),
                 AccountId = account.Id
             };
-                        await _db.AccountConnections.AddAsync(connection);
+            await Db.AccountConnections.AddAsync(connection);
         }
 
         // Create a challenge that's already completed
@@ -215,7 +232,7 @@ public abstract class OidcService
             UserAgent = request.Request.Headers.UserAgent,
         };
 
-                await _db.AuthChallenges.AddAsync(challenge);
+        await Db.AuthChallenges.AddAsync(challenge);
 
         // Create a session
         var session = new Session
@@ -226,8 +243,8 @@ public abstract class OidcService
             Challenge = challenge
         };
 
-                await _db.AuthSessions.AddAsync(session);
-                await _db.SaveChangesAsync();
+        await Db.AuthSessions.AddAsync(session);
+        await Db.SaveChangesAsync();
 
         return session;
     }

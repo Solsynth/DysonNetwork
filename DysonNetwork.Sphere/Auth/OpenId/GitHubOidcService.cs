@@ -1,15 +1,17 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using DysonNetwork.Sphere.Storage;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
-public class GitHubOidcService : OidcService
+public class GitHubOidcService(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    AppDatabase db,
+    ICacheService cache
+)
+    : OidcService(configuration, httpClientFactory, db, cache)
 {
-    public GitHubOidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
-        : base(configuration, httpClientFactory, db)
-    {
-    }
-
     public override string ProviderName => "GitHub";
     protected override string DiscoveryEndpoint => ""; // GitHub doesn't have a standard OIDC discovery endpoint
     protected override string ConfigSectionName => "GitHub";
@@ -45,10 +47,11 @@ public class GitHubOidcService : OidcService
         return userInfo;
     }
 
-    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code, string? codeVerifier = null)
+    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code,
+        string? codeVerifier = null)
     {
         var config = GetProviderConfig();
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
 
         var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token")
         {
@@ -70,7 +73,7 @@ public class GitHubOidcService : OidcService
 
     private async Task<OidcUserInfo> GetUserInfoAsync(string accessToken)
     {
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
         request.Headers.Add("Authorization", $"Bearer {accessToken}");
         request.Headers.Add("User-Agent", "DysonNetwork.Sphere");
@@ -93,14 +96,16 @@ public class GitHubOidcService : OidcService
             Email = email,
             DisplayName = githubUser.TryGetProperty("name", out var nameElement) ? nameElement.GetString() ?? "" : "",
             PreferredUsername = githubUser.GetProperty("login").GetString() ?? "",
-            ProfilePictureUrl = githubUser.TryGetProperty("avatar_url", out var avatarElement) ? avatarElement.GetString() ?? "" : "",
+            ProfilePictureUrl = githubUser.TryGetProperty("avatar_url", out var avatarElement)
+                ? avatarElement.GetString() ?? ""
+                : "",
             Provider = ProviderName
         };
     }
 
     private async Task<string?> GetPrimaryEmailAsync(string accessToken)
     {
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
         request.Headers.Add("Authorization", $"Bearer {accessToken}");
         request.Headers.Add("User-Agent", "DysonNetwork.Sphere");

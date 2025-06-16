@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
@@ -12,12 +13,13 @@ namespace DysonNetwork.Sphere.Auth.OpenId;
 public class GoogleOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
-    AppDatabase db
+    AppDatabase db,
+    ICacheService cache
 )
-    : OidcService(configuration, httpClientFactory, db)
+    : OidcService(configuration, httpClientFactory, db, cache)
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
-    
+
     public override string ProviderName => "google";
     protected override string DiscoveryEndpoint => "https://accounts.google.com/.well-known/openid-configuration";
     protected override string ConfigSectionName => "Google";
@@ -85,16 +87,17 @@ public class GoogleOidcService(
         userInfo.RefreshToken = tokenResponse.RefreshToken;
 
         // Try to fetch additional profile data if userinfo endpoint is available
-        try 
+        try
         {
             var discoveryDocument = await GetDiscoveryDocumentAsync();
             if (discoveryDocument?.UserinfoEndpoint != null && !string.IsNullOrEmpty(tokenResponse.AccessToken))
             {
                 var client = _httpClientFactory.CreateClient();
-                client.DefaultRequestHeaders.Authorization = 
+                client.DefaultRequestHeaders.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResponse.AccessToken);
 
-                var userInfoResponse = await client.GetFromJsonAsync<Dictionary<string, object>>(discoveryDocument.UserinfoEndpoint);
+                var userInfoResponse =
+                    await client.GetFromJsonAsync<Dictionary<string, object>>(discoveryDocument.UserinfoEndpoint);
 
                 if (userInfoResponse != null)
                 {

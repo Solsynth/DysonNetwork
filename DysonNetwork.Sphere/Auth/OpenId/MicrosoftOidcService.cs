@@ -1,18 +1,22 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using DysonNetwork.Sphere.Storage;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
-public class MicrosoftOidcService : OidcService
+public class MicrosoftOidcService(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    AppDatabase db,
+    ICacheService cache
+)
+    : OidcService(configuration, httpClientFactory, db, cache)
 {
-    public MicrosoftOidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
-        : base(configuration, httpClientFactory, db)
-    {
-    }
-
     public override string ProviderName => "Microsoft";
 
-    protected override string DiscoveryEndpoint => _configuration[$"Oidc:{ConfigSectionName}:DiscoveryEndpoint"] ?? throw new InvalidOperationException("Microsoft OIDC discovery endpoint is not configured.");
+    protected override string DiscoveryEndpoint => Configuration[$"Oidc:{ConfigSectionName}:DiscoveryEndpoint"] ??
+                                                   throw new InvalidOperationException(
+                                                       "Microsoft OIDC discovery endpoint is not configured.");
 
     protected override string ConfigSectionName => "Microsoft";
 
@@ -54,7 +58,8 @@ public class MicrosoftOidcService : OidcService
         return userInfo;
     }
 
-    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code, string? codeVerifier = null)
+    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code,
+        string? codeVerifier = null)
     {
         var config = GetProviderConfig();
         var discoveryDocument = await GetDiscoveryDocumentAsync();
@@ -63,7 +68,7 @@ public class MicrosoftOidcService : OidcService
             throw new InvalidOperationException("Token endpoint not found in discovery document.");
         }
 
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
 
         var tokenRequest = new HttpRequestMessage(HttpMethod.Post, discoveryDocument.TokenEndpoint)
         {
@@ -90,7 +95,7 @@ public class MicrosoftOidcService : OidcService
         if (discoveryDocument?.UserinfoEndpoint == null)
             throw new InvalidOperationException("Userinfo endpoint not found in discovery document.");
 
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, discoveryDocument.UserinfoEndpoint);
         request.Headers.Add("Authorization", $"Bearer {accessToken}");
 
@@ -104,9 +109,14 @@ public class MicrosoftOidcService : OidcService
         {
             UserId = microsoftUser.GetProperty("sub").GetString() ?? "",
             Email = microsoftUser.TryGetProperty("email", out var emailElement) ? emailElement.GetString() : null,
-            DisplayName = microsoftUser.TryGetProperty("name", out var nameElement) ? nameElement.GetString() ?? "" : "",
-            PreferredUsername = microsoftUser.TryGetProperty("preferred_username", out var preferredUsernameElement) ? preferredUsernameElement.GetString() ?? "" : "",
-            ProfilePictureUrl = microsoftUser.TryGetProperty("picture", out var pictureElement) ? pictureElement.GetString() ?? "" : "",
+            DisplayName =
+                microsoftUser.TryGetProperty("name", out var nameElement) ? nameElement.GetString() ?? "" : "",
+            PreferredUsername = microsoftUser.TryGetProperty("preferred_username", out var preferredUsernameElement)
+                ? preferredUsernameElement.GetString() ?? ""
+                : "",
+            ProfilePictureUrl = microsoftUser.TryGetProperty("picture", out var pictureElement)
+                ? pictureElement.GetString() ?? ""
+                : "",
             Provider = ProviderName
         };
     }

@@ -1,15 +1,17 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using DysonNetwork.Sphere.Storage;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
-public class DiscordOidcService : OidcService
+public class DiscordOidcService(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    AppDatabase db,
+    ICacheService cache
+)
+    : OidcService(configuration, httpClientFactory, db, cache)
 {
-    public DiscordOidcService(IConfiguration configuration, IHttpClientFactory httpClientFactory, AppDatabase db)
-        : base(configuration, httpClientFactory, db)
-    {
-    }
-
     public override string ProviderName => "Discord";
     protected override string DiscoveryEndpoint => ""; // Discord doesn't have a standard OIDC discovery endpoint
     protected override string ConfigSectionName => "Discord";
@@ -46,10 +48,11 @@ public class DiscordOidcService : OidcService
         return userInfo;
     }
 
-    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code, string? codeVerifier = null)
+    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(string code,
+        string? codeVerifier = null)
     {
         var config = GetProviderConfig();
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
 
         var content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -68,7 +71,7 @@ public class DiscordOidcService : OidcService
 
     private async Task<OidcUserInfo> GetUserInfoAsync(string accessToken)
     {
-        var client = _httpClientFactory.CreateClient();
+        var client = HttpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "https://discord.com/api/users/@me");
         request.Headers.Add("Authorization", $"Bearer {accessToken}");
 
@@ -85,10 +88,15 @@ public class DiscordOidcService : OidcService
         {
             UserId = userId,
             Email = (discordUser.TryGetProperty("email", out var emailElement) ? emailElement.GetString() : null) ?? "",
-            EmailVerified = discordUser.TryGetProperty("verified", out var verifiedElement) && verifiedElement.GetBoolean(),
-            DisplayName = (discordUser.TryGetProperty("global_name", out var globalNameElement) ? globalNameElement.GetString() : null) ?? "",
+            EmailVerified = discordUser.TryGetProperty("verified", out var verifiedElement) &&
+                            verifiedElement.GetBoolean(),
+            DisplayName = (discordUser.TryGetProperty("global_name", out var globalNameElement)
+                ? globalNameElement.GetString()
+                : null) ?? "",
             PreferredUsername = discordUser.GetProperty("username").GetString() ?? "",
-            ProfilePictureUrl = !string.IsNullOrEmpty(avatar) ? $"https://cdn.discordapp.com/avatars/{userId}/{avatar}.png" : "",
+            ProfilePictureUrl = !string.IsNullOrEmpty(avatar)
+                ? $"https://cdn.discordapp.com/avatars/{userId}/{avatar}.png"
+                : "",
             Provider = ProviderName
         };
     }

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
@@ -13,9 +14,10 @@ namespace DysonNetwork.Sphere.Auth.OpenId;
 public class AppleOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
-    AppDatabase db
+    AppDatabase db,
+    ICacheService cache
 )
-    : OidcService(configuration, httpClientFactory, db)
+    : OidcService(configuration, httpClientFactory, db, cache)
 {
     private readonly IConfiguration _configuration = configuration;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
