@@ -282,7 +282,7 @@ public class ConnectionController(
         var returnUrl = await cache.GetAsync<string>(returnUrlKey);
         await cache.RemoveAsync(returnUrlKey);
 
-        return Redirect(string.IsNullOrEmpty(returnUrl) ? "/settings/connections" : returnUrl);
+        return Redirect(string.IsNullOrEmpty(returnUrl) ? "/auth/callback" : returnUrl);
     }
 
     private async Task<IActionResult> HandleLoginOrRegistration(
