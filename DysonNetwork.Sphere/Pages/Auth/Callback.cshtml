@@ -14,36 +14,33 @@
 
 @section Scripts {
     <script>
-        (function() {
+        (function () {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
 
-            if (token) {
-                console.log("Authentication token received.");
+            console.log("Authentication token received.");
 
-                // For WebView2/UWP apps that can handle window.external.notify
-                if (window.external && typeof window.external.notify === 'function') {
-                    try {
-                        window.external.notify(token);
-                        console.log("Token sent via window.external.notify.");
-                        return; // Exit after successful notification
-                    } catch (e) {
-                        console.error("Failed to send token via window.external.notify:", e);
-                    }
-                }
-
-                // For mobile apps that use custom URI schemes
+            // For WebView2/UWP apps that can handle window.external.notify
+            if (window.external && typeof window.external.notify === 'function') {
                 try {
-                    const customSchemeUrl = `dyson://auth?token=${encodeURIComponent(token)}`;
-                    window.location.href = customSchemeUrl;
-                    console.log("Attempting to redirect to custom scheme:", customSchemeUrl);
+                    if (!token)
+                        window.external.notify('done');
+                    else
+                        window.external.notify(token);
+                    console.log("Token sent via window.external.notify.");
+                    return; // Exit after successful notification
                 } catch (e) {
-                    console.error("Failed to redirect to custom scheme:", e);
+                    console.error("Failed to send token via window.external.notify:", e);
                 }
+            }
 
-            } else {
-                console.error("Authentication token not found in URL.");
-                document.querySelector('p').innerText = "Authentication failed: No token was provided.";
+            // For mobile apps that use custom URI schemes
+            try {
+                const customSchemeUrl = `solian://auth/callback?token=${encodeURIComponent(token ?? 'done')}`;
+                window.location.href = customSchemeUrl;
+                console.log("Attempting to redirect to custom scheme:", customSchemeUrl);
+            } catch (e) {
+                console.error("Failed to redirect to custom scheme:", e);
             }
         })();
     </script>
