@@ -22,7 +22,7 @@ public class OidcController(
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
 
     [HttpGet("{provider}")]
-    public async Task<ActionResult> SignIn([FromRoute] string provider, [FromQuery] string? returnUrl = "/")
+    public async Task<ActionResult> OidcLogin([FromRoute] string provider, [FromQuery] string? returnUrl = "/")
     {
         try
         {
@@ -42,13 +42,12 @@ public class OidcController(
                 var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
                 return Redirect(authUrl);
             }
-            else // Otherwise, proceed with login/registration flow
+            else // Otherwise, proceed with the login / registration flow
             {
-                var state = returnUrl;
                 var nonce = Guid.NewGuid().ToString();
 
                 // The state parameter is the returnUrl. The callback will not find a session state and will treat it as a login.
-                var authUrl = oidcService.GetAuthorizationUrl(state ?? "/", nonce);
+                var authUrl = oidcService.GetAuthorizationUrl(returnUrl ?? "/", nonce);
                 return Redirect(authUrl);
             }
         }

@@ -175,8 +175,7 @@ public class GoogleOidcService(
 
     public string GenerateCodeChallenge(string codeVerifier)
     {
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var challengeBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier));
+        var challengeBytes = SHA256.HashData(Encoding.UTF8.GetBytes(codeVerifier));
         return Convert.ToBase64String(challengeBytes)
             .Replace('+', '-')
             .Replace('/', '_')
