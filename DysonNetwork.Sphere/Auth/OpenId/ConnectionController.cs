@@ -2,7 +2,7 @@ using DysonNetwork.Sphere.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Sphere.Auth.OpenId;
+using DysonNetwork.Sphere.Storage;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
@@ -14,9 +14,13 @@ public class ConnectionController(
     AppDatabase db,
     IEnumerable<OidcService> oidcServices,
     AccountService accounts,
-    AuthService auth
+    AuthService auth,
+    ICacheService cacheService
 ) : ControllerBase
 {
+    private const string StateCachePrefix = "oidc-state:";
+    private const string ReturnUrlCachePrefix = "oidc-returning:";
+    private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
     [HttpGet]
     public async Task<ActionResult<List<AccountConnection>>> GetConnections()
     {
@@ -142,10 +146,12 @@ public class ConnectionController(
 
         var state = Guid.NewGuid().ToString("N");
         var nonce = Guid.NewGuid().ToString("N");
-        HttpContext.Session.SetString($"oidc_state_{state}", $"{currentUser.Id}|{request.Provider}|{nonce}");
-
+        var stateValue = $"{currentUser.Id}|{request.Provider}|{nonce}";
         var finalReturnUrl = !string.IsNullOrEmpty(request.ReturnUrl) ? request.ReturnUrl : "/settings/connections";
-        HttpContext.Session.SetString($"oidc_return_url_{state}", finalReturnUrl);
+
+        // Store state and return URL in cache
+        await cacheService.SetAsync($"{StateCachePrefix}{state}", stateValue, StateExpiration);
+        await cacheService.SetAsync($"{ReturnUrlCachePrefix}{state}", finalReturnUrl, StateExpiration);
 
         var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
 
@@ -169,14 +175,22 @@ public class ConnectionController(
         if (callbackData.State == null)
             return BadRequest("State parameter is missing.");
 
-        var sessionState = HttpContext.Session.GetString($"oidc_state_{callbackData.State!}");
-        HttpContext.Session.Remove($"oidc_state_{callbackData.State}");
+        // Get and validate state from cache
+        var stateKey = $"{StateCachePrefix}{callbackData.State}";
+        var stateValue = await cacheService.GetAsync<string>(stateKey);
+        if (string.IsNullOrEmpty(stateValue))
+        {
+            return BadRequest("Invalid or expired state parameter");
+        }
 
-        // If sessionState is present, it's a manual connection flow for an existing user.
-        if (sessionState == null) return await HandleLoginOrRegistration(provider, oidcService, callbackData);
-        var stateParts = sessionState.Split('|');
-        if (stateParts.Length != 3 || !stateParts[1].Equals(provider, StringComparison.OrdinalIgnoreCase))
-            return BadRequest("State mismatch.");
+        // Remove state from cache to prevent replay attacks
+        await cacheService.RemoveAsync(stateKey);
+
+        var stateParts = stateValue.Split('|');
+        if (stateParts.Length != 3)
+        {
+            return BadRequest("Invalid state format");
+        }
 
         var accountId = Guid.Parse(stateParts[0]);
         return await HandleManualConnection(provider, oidcService, callbackData, accountId);
@@ -259,9 +273,9 @@ public class ConnectionController(
         }
 
         // Clean up and redirect
-        var returnUrl = HttpContext.Session.GetString($"oidc_return_url_{callbackData.State}");
-        HttpContext.Session.Remove($"oidc_return_url_{callbackData.State}");
-        HttpContext.Session.Remove($"oidc_state_{callbackData.State}");
+        var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
+        var returnUrl = await cacheService.GetAsync<string>(returnUrlKey);
+        await cacheService.RemoveAsync(returnUrlKey);
 
         return Redirect(string.IsNullOrEmpty(returnUrl) ? "/settings/connections" : returnUrl);
     }

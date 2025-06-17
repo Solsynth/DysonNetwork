@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -12,12 +13,16 @@ public class OidcController(
     IServiceProvider serviceProvider,
     AppDatabase db,
     AccountService accounts,
-    AuthService authService
+    AuthService auth,
+    ICacheService cache
 )
     : ControllerBase
 {
+    private const string StateCachePrefix = "oidc-state:";
+    private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
+
     [HttpGet("{provider}")]
-    public ActionResult SignIn([FromRoute] string provider, [FromQuery] string? returnUrl = "/")
+    public async Task<ActionResult> SignIn([FromRoute] string provider, [FromQuery] string? returnUrl = "/")
     {
         try
         {
@@ -29,10 +34,11 @@ public class OidcController(
                 var state = Guid.NewGuid().ToString();
                 var nonce = Guid.NewGuid().ToString();
 
-                // Store user's ID, provider, and nonce in session. The callback will use this.
-                HttpContext.Session.SetString($"oidc_state_{state}", $"{currentUser.Id}|{provider}|{nonce}");
+                // Store user's ID, provider, and nonce in cache. The callback will use this.
+                var stateValue = $"{currentUser.Id}|{provider}|{nonce}";
+                await cache.SetAsync($"{StateCachePrefix}{state}", stateValue, StateExpiration);
 
-                // The state parameter sent to the provider is the GUID key for the session state.
+                // The state parameter sent to the provider is the GUID key for the cache.
                 var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
                 return Redirect(authUrl);
             }
@@ -88,7 +94,7 @@ public class OidcController(
             );
 
             // Generate token using existing auth service
-            var token = authService.CreateToken(session);
+            var token = auth.CreateToken(session);
 
             return Ok(new AuthController.TokenExchangeResponse { Token = token });
         }
@@ -156,7 +162,7 @@ public class OidcController(
                 Meta = userInfo.ToMetadata()
             };
 
-            db.AccountConnections.Add(connection);
+            await db.AccountConnections.AddAsync(connection);
             await db.SaveChangesAsync();
 
             return existingAccount;
