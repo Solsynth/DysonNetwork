@@ -324,7 +324,6 @@ app.UseRequestLocalization();
     app.UseForwardedHeaders(forwardedHeadersOptions);
 }
 
-app.UseSession();
 app.UseCors(opts =>
     opts.SetIsOriginAllowed(_ => true)
         .WithExposedHeaders("*")
