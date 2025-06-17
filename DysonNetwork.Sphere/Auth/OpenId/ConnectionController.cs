@@ -278,7 +278,7 @@ public class ConnectionController(
         }
 
         // Clean up and redirect
-        var returnUrlKey = $"{ReturnUrlCachePrefix}{CleanStateCodeVerifier(callbackData.State)}";
+        var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
         var returnUrl = await cache.GetAsync<string>(returnUrlKey);
         await cache.RemoveAsync(returnUrlKey);
 
@@ -366,10 +366,5 @@ public class ConnectionController(
         }
 
         return data;
-    }
-
-    private static string? CleanStateCodeVerifier(string? og)
-    {
-        return og is null ? null : !og.Contains('|') ? og : og.Split('|').First();
     }
 }

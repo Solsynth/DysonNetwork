@@ -7,9 +7,6 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
-/// <summary>
-/// Implementation of OpenID Connect service for Google Sign In
-/// </summary>
 public class GoogleOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
@@ -34,13 +31,7 @@ public class GoogleOidcService(
             throw new InvalidOperationException("Authorization endpoint not found in discovery document");
         }
 
-        // Generate code verifier and challenge for PKCE
-        var codeVerifier = GenerateCodeVerifier();
-        var codeChallenge = GenerateCodeChallenge(codeVerifier);
-
-        // Store code verifier in session or cache for later use
-        // For simplicity, we'll append it to the state parameter in this example
-        var combinedState = $"{state}|{codeVerifier}";
+        // PKCE code removed: no code verifier/challenge generated
 
         var queryParams = new Dictionary<string, string>
         {
@@ -48,10 +39,8 @@ public class GoogleOidcService(
             { "redirect_uri", config.RedirectUri },
             { "response_type", "code" },
             { "scope", "openid email profile" },
-            { "state", combinedState },
-            { "nonce", nonce },
-            { "code_challenge", codeChallenge },
-            { "code_challenge_method", "S256" }
+            { "state", state }, // No '|codeVerifier' appended anymore
+            { "nonce", nonce }
         };
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
@@ -60,20 +49,13 @@ public class GoogleOidcService(
 
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)
     {
-        // Extract code verifier from state
-        string? codeVerifier = null;
+        // No need to split or parse code verifier from state
         var state = callbackData.State ?? "";
-
-        if (state.Contains('|'))
-        {
-            var parts = state.Split('|');
-            state = parts[0];
-            codeVerifier = parts.Length > 1 ? parts[1] : null;
-            callbackData.State = state; // Set the clean state back
-        }
+        callbackData.State = state; // Keep the original state if needed
 
         // Exchange the code for tokens
-        var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code, codeVerifier);
+        // Pass null or omit the parameter for codeVerifier as PKCE is removed
+        var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code, null);
         if (tokenResponse?.IdToken == null)
         {
             throw new InvalidOperationException("Failed to obtain ID token from Google");
@@ -101,7 +83,6 @@ public class GoogleOidcService(
 
                 if (userInfoResponse != null)
                 {
-                    // Extract any additional fields that might be available
                     if (userInfoResponse.TryGetValue("picture", out var picture) && picture != null)
                     {
                         userInfo.ProfilePictureUrl = picture.ToString();
@@ -109,7 +90,7 @@ public class GoogleOidcService(
                 }
             }
         }
-        catch (Exception)
+        catch
         {
             // Ignore errors when fetching additional profile data
         }
@@ -125,7 +106,6 @@ public class GoogleOidcService(
             throw new InvalidOperationException("JWKS URI not found in discovery document");
         }
 
-        // Get Google's signing keys
         var client = _httpClientFactory.CreateClient();
         var jwksResponse = await client.GetFromJsonAsync<JsonWebKeySet>(discoveryDocument.JwksUri);
         if (jwksResponse == null)
@@ -133,19 +113,15 @@ public class GoogleOidcService(
             throw new InvalidOperationException("Failed to retrieve JWKS from Google");
         }
 
-        // Parse the JWT to get the key ID
         var handler = new JwtSecurityTokenHandler();
         var jwtToken = handler.ReadJwtToken(idToken);
         var kid = jwtToken.Header.Kid;
-
-        // Find the matching key
         var signingKey = jwksResponse.Keys.FirstOrDefault(k => k.Kid == kid);
         if (signingKey == null)
         {
             throw new SecurityTokenValidationException("Unable to find matching key in Google's JWKS");
         }
 
-        // Create validation parameters
         var validationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -158,29 +134,4 @@ public class GoogleOidcService(
 
         return ValidateAndExtractIdToken(idToken, validationParameters);
     }
-
-    #region PKCE Support
-
-    public string GenerateCodeVerifier()
-    {
-        var randomBytes = new byte[32]; // 256 bits
-        using (var rng = RandomNumberGenerator.Create())
-            rng.GetBytes(randomBytes);
-
-        return Convert.ToBase64String(randomBytes)
-            .Replace('+', '-')
-            .Replace('/', '_')
-            .TrimEnd('=');
-    }
-
-    public string GenerateCodeChallenge(string codeVerifier)
-    {
-        var challengeBytes = SHA256.HashData(Encoding.UTF8.GetBytes(codeVerifier));
-        return Convert.ToBase64String(challengeBytes)
-            .Replace('+', '-')
-            .Replace('/', '_')
-            .TrimEnd('=');
-    }
-
-    #endregion
 }
