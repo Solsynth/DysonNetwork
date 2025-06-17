@@ -35,7 +35,6 @@ using Quartz;
 using StackExchange.Redis;
 using tusdotnet;
 using tusdotnet.Stores;
-using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,30 +90,6 @@ builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
 
 builder.Services.AddHttpClient();
 
-// Configure Data Protection for persistent session keys
-var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
-Directory.CreateDirectory(keysDirectory);
-
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
-    .SetApplicationName("DysonNetwork.Sphere");
-
-// Configure cookie policy to be essential for session
-builder.Services.Configure<CookiePolicyOptions>(options =>
-{
-    options.CheckConsentNeeded = _ => false; // Required for session to work without consent
-    options.MinimumSameSitePolicy = SameSiteMode.Lax;
-});
-
-// Add session with consistent cookie settings
-builder.Services.AddSession(options =>
-{
-    options.Cookie.Name = "_dynses";
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-});
-
 // Register OIDC services
 builder.Services.AddScoped<OidcService, GoogleOidcService>();
 builder.Services.AddScoped<OidcService, AppleOidcService>();
@@ -153,12 +128,6 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 
 // Other pipelines
 
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = !builder.Configuration["BaseUrl"]!.StartsWith("https");
-    options.Cookie.IsEssential = true;
-});
 builder.Services.AddRateLimiter(o => o.AddFixedWindowLimiter(policyName: "fixed", opts =>
 {
     opts.Window = TimeSpan.FromMinutes(1);
