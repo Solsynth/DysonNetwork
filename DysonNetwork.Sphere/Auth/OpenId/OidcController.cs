@@ -13,7 +13,6 @@ public class OidcController(
     IServiceProvider serviceProvider,
     AppDatabase db,
     AccountService accounts,
-    AuthService auth,
     ICacheService cache
 )
     : ControllerBase
@@ -22,7 +21,11 @@ public class OidcController(
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
 
     [HttpGet("{provider}")]
-    public async Task<ActionResult> OidcLogin([FromRoute] string provider, [FromQuery] string? returnUrl = "/")
+    public async Task<ActionResult> OidcLogin(
+        [FromRoute] string provider,
+        [FromQuery] string? returnUrl = "/",
+        [FromHeader(Name = "X-Device-Id")] string? deviceId = null
+    )
     {
         try
         {
@@ -34,9 +37,9 @@ public class OidcController(
                 var state = Guid.NewGuid().ToString();
                 var nonce = Guid.NewGuid().ToString();
 
-                // Store user's ID, provider, and nonce in cache. The callback will use this.
-                var stateValue = $"{currentUser.Id}|{provider}|{nonce}";
-                await cache.SetAsync($"{StateCachePrefix}{state}", stateValue, StateExpiration);
+                // Create and store connection state
+                var oidcState = OidcState.ForConnection(currentUser.Id, provider, nonce, deviceId);
+                await cache.SetAsync($"{StateCachePrefix}{state}", oidcState, StateExpiration);
 
                 // The state parameter sent to the provider is the GUID key for the cache.
                 var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
@@ -45,9 +48,12 @@ public class OidcController(
             else // Otherwise, proceed with the login / registration flow
             {
                 var nonce = Guid.NewGuid().ToString();
+                var state = Guid.NewGuid().ToString();
 
-                // The state parameter is the returnUrl. The callback will not find a session state and will treat it as a login.
-                var authUrl = oidcService.GetAuthorizationUrl(returnUrl ?? "/", nonce);
+                // Create login state with return URL and device ID
+                var oidcState = OidcState.ForLogin(returnUrl ?? "/", deviceId);
+                await cache.SetAsync($"{StateCachePrefix}{state}", oidcState, StateExpiration);
+                var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
                 return Redirect(authUrl);
             }
         }
@@ -62,7 +68,7 @@ public class OidcController(
     /// Handles Apple authentication directly from mobile apps
     /// </summary>
     [HttpPost("apple/mobile")]
-    public async Task<ActionResult<AuthController.TokenExchangeResponse>> AppleMobileSignIn(
+    public async Task<ActionResult<Challenge>> AppleMobileLogin(
         [FromBody] AppleMobileSignInRequest request)
     {
         try
@@ -85,17 +91,14 @@ public class OidcController(
             var account = await FindOrCreateAccount(userInfo, "apple");
 
             // Create session using the OIDC service
-            var session = await appleService.CreateSessionForUserAsync(
+            var challenge = await appleService.CreateChallengeForUserAsync(
                 userInfo,
                 account,
                 HttpContext,
                 request.DeviceId
             );
 
-            // Generate token using existing auth service
-            var token = auth.CreateToken(session);
-
-            return Ok(new AuthController.TokenExchangeResponse { Token = token });
+            return Ok(challenge);
         }
         catch (SecurityTokenValidationException ex)
         {

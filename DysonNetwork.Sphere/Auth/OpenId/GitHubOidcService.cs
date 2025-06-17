@@ -8,9 +8,10 @@ public class GitHubOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
+    AuthService auth,
     ICacheService cache
 )
-    : OidcService(configuration, httpClientFactory, db, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache)
 {
     public override string ProviderName => "GitHub";
     protected override string DiscoveryEndpoint => ""; // GitHub doesn't have a standard OIDC discovery endpoint

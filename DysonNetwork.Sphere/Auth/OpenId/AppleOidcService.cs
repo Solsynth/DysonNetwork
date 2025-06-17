@@ -15,9 +15,10 @@ public class AppleOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
+    AuthService auth,
     ICacheService cache
 )
-    : OidcService(configuration, httpClientFactory, db, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache)
 {
     private readonly IConfiguration _configuration = configuration;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;

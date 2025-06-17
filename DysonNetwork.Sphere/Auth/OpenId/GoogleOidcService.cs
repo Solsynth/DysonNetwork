@@ -11,9 +11,10 @@ public class GoogleOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
+    AuthService auth,
     ICacheService cache
 )
-    : OidcService(configuration, httpClientFactory, db, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache)
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
@@ -30,8 +31,6 @@ public class GoogleOidcService(
         {
             throw new InvalidOperationException("Authorization endpoint not found in discovery document");
         }
-
-        // PKCE code removed: no code verifier/challenge generated
 
         var queryParams = new Dictionary<string, string>
         {

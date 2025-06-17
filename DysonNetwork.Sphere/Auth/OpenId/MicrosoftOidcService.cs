@@ -8,9 +8,10 @@ public class MicrosoftOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
+    AuthService auth,
     ICacheService cache
 )
-    : OidcService(configuration, httpClientFactory, db, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache)
 {
     public override string ProviderName => "Microsoft";
 

@@ -16,6 +16,7 @@ public abstract class OidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
+    AuthService auth,
     ICacheService cache
 )
 {
@@ -187,7 +188,7 @@ public abstract class OidcService(
     /// Creates a challenge and session for an authenticated user
     /// Also creates or updates the account connection
     /// </summary>
-    public async Task<Session> CreateSessionForUserAsync(
+    public async Task<Challenge> CreateChallengeForUserAsync(
         OidcUserInfo userInfo,
         Account.Account account,
         HttpContext request,
@@ -220,8 +221,7 @@ public abstract class OidcService(
         var challenge = new Challenge
         {
             ExpiredAt = now.Plus(Duration.FromHours(1)),
-            StepTotal = 1,
-            StepRemain = 0, // Already verified by provider
+            StepTotal = await auth.DetectChallengeRisk(request.Request, account),
             Type = ChallengeType.Oidc,
             Platform = ChallengePlatform.Unidentified,
             Audiences = [ProviderName],
@@ -231,22 +231,13 @@ public abstract class OidcService(
             IpAddress = request.Connection.RemoteIpAddress?.ToString() ?? null,
             UserAgent = request.Request.Headers.UserAgent,
         };
+        challenge.StepRemain--;
+        if (challenge.StepRemain < 0) challenge.StepRemain = 0;
 
         await Db.AuthChallenges.AddAsync(challenge);
-
-        // Create a session
-        var session = new Session
-        {
-            AccountId = account.Id,
-            CreatedAt = now,
-            LastGrantedAt = now,
-            Challenge = challenge
-        };
-
-        await Db.AuthSessions.AddAsync(session);
         await Db.SaveChangesAsync();
 
-        return session;
+        return challenge;
     }
 }
 
