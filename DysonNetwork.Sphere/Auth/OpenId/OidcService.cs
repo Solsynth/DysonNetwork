@@ -291,6 +291,5 @@ public class OidcCallbackData
     public string Code { get; set; } = "";
     public string IdToken { get; set; } = "";
     public string? State { get; set; }
-    public string? CodeVerifier { get; set; }
     public string? RawData { get; set; }
 }

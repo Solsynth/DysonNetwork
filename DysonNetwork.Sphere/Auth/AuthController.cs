@@ -74,6 +74,19 @@ public class AuthController(
         return challenge;
     }
 
+    [HttpGet("challenge/{id:guid}")]
+    public async Task<ActionResult<Challenge>> GetChallenge([FromRoute] Guid id)
+    {
+        var challenge = await db.AuthChallenges
+            .Include(e => e.Account)
+            .ThenInclude(e => e.Profile)
+            .FirstOrDefaultAsync(e => e.Id == id);
+
+        return challenge is null 
+            ? NotFound("Auth challenge was not found.") 
+            : challenge;
+    }
+
     [HttpGet("challenge/{id:guid}/factors")]
     public async Task<ActionResult<List<AccountAuthFactor>>> GetChallengeFactors([FromRoute] Guid id)
     {

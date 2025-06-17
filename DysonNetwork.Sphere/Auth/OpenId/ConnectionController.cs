@@ -355,7 +355,7 @@ public class ConnectionController(
                 connection.Account, 
                 HttpContext, 
                 deviceId ?? string.Empty);
-            return Redirect($"/auth/callback?context={challenge.Id}");
+            return Redirect($"/auth/callback?challenge={challenge.Id}");
         }
 
         // Register new user

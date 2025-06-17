@@ -16,7 +16,7 @@
     <script>
         (function () {
             const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
+            const token = urlParams.get('challenge');
 
             console.log("Authentication token received.");
 
@@ -36,7 +36,7 @@
 
             // For mobile apps that use custom URI schemes
             try {
-                const customSchemeUrl = `solian://auth/callback?token=${encodeURIComponent(token ?? 'done')}`;
+                const customSchemeUrl = `solian://auth/callback?challenge=${encodeURIComponent(token ?? 'done')}`;
                 window.location.href = customSchemeUrl;
                 console.log("Attempting to redirect to custom scheme:", customSchemeUrl);
             } catch (e) {
