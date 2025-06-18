@@ -32,7 +32,18 @@ public class DiscordOidcService(
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
         return $"https://discord.com/api/oauth2/authorize?{queryString}";
     }
-
+    
+    protected override async Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
+    {
+        return new OidcDiscoveryDocument
+        {
+            AuthorizationEndpoint = "https://discord.com/oauth2/authorize",
+            TokenEndpoint = "https://discord.com/api/oauth2/token",
+            UserinfoEndpoint = "https://discord.com/api/users/@me",
+            JwksUri = null
+        };
+    }
+    
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)
     {
         var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code);

@@ -65,7 +65,7 @@ public abstract class OidcService(
     /// <summary>
     /// Retrieves the OpenID Connect discovery document
     /// </summary>
-    protected async Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
+    protected virtual async Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
     {
         // Construct a cache key unique to the current provider:
         var cacheKey = $"oidc-discovery:{ProviderName}";
