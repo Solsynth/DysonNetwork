@@ -435,6 +435,68 @@ public class PostService(
 
         return posts;
     }
+    
+    public async Task<List<Post>> LoadInteractive(List<Post> posts, Account.Account? currentUser = null)
+    {
+        if (posts.Count == 0) return posts;
+
+        var postsId = posts.Select(e => e.Id).ToList();
+        
+        var reactionMaps = await GetPostReactionMapBatch(postsId);
+        var repliesCountMap = await GetPostRepliesCountBatch(postsId);
+        
+        foreach (var post in posts)
+        {
+            // Set reactions count
+            post.ReactionsCount = reactionMaps.TryGetValue(post.Id, out var count) 
+                ? count 
+                : new Dictionary<string, int>();
+
+            // Set replies count
+            post.RepliesCount = repliesCountMap.TryGetValue(post.Id, out var repliesCount) 
+                ? repliesCount 
+                : 0;
+
+            // Track view for each post in the list
+            if (currentUser != null)
+                await IncreaseViewCount(post.Id, currentUser.Id.ToString());
+            else
+                await IncreaseViewCount(post.Id);
+        }
+
+        return posts;
+    }
+
+    private async Task<Dictionary<Guid, int>> GetPostRepliesCountBatch(List<Guid> postIds)
+    {
+        return await db.Posts
+            .Where(p => p.RepliedPostId != null && postIds.Contains(p.RepliedPostId.Value))
+            .GroupBy(p => p.RepliedPostId!.Value)
+            .ToDictionaryAsync(
+                g => g.Key,
+                g => g.Count()
+            );
+    }
+
+    public async Task<List<Post>> LoadPostInfo(List<Post> posts, Account.Account? currentUser = null, bool truncate = false)
+    {
+        if (posts.Count == 0) return posts;
+
+        posts = await LoadPublishers(posts);
+        posts = await LoadInteractive(posts, currentUser);
+        
+        if (truncate)
+            posts = TruncatePostContent(posts);
+
+        return posts;
+    }
+
+    public async Task<Post> LoadPostInfo(Post post, Account.Account? currentUser = null, bool truncate = false)
+    {
+        // Convert single post to list, process it, then return the single post
+        var posts = await LoadPostInfo([post], currentUser, truncate);
+        return posts.First();
+    } 
 }
 
 public static class PostQueryExtensions

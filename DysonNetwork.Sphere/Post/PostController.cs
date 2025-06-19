@@ -52,26 +52,7 @@ public class PostController(
             .Skip(offset)
             .Take(take)
             .ToListAsync();
-        posts = PostService.TruncatePostContent(posts);
-        posts = await ps.LoadPublishers(posts);
-
-        var postsId = posts.Select(e => e.Id).ToList();
-        var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
-        foreach (var post in posts)
-        {
-            post.ReactionsCount =
-                reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
-
-            // Track view for each post in the list
-            if (currentUser != null)
-            {
-                await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
-            }
-            else
-            {
-                await ps.IncreaseViewCount(post.Id);
-            }
-        }
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -94,8 +75,7 @@ public class PostController(
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
-
-        post.ReactionsCount = await ps.GetPostReactionMap(post.Id);
+        post = await ps.LoadPostInfo(post, currentUser);
 
         // Track view - use the account ID as viewer ID if user is logged in
         await ps.IncreaseViewCount(post.Id, currentUser?.Id.ToString());
@@ -131,8 +111,7 @@ public class PostController(
             .Skip(offset)
             .Take(take)
             .ToListAsync();
-        posts = PostService.TruncatePostContent(posts);
-        posts = await ps.LoadPublishers(posts);
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);

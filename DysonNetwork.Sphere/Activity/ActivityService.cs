@@ -24,8 +24,7 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
             .FilterWithVisibility(null, [], [], isListing: true)
             .Take(take)
             .ToListAsync();
-        posts = PostService.TruncatePostContent(posts);
-        posts = await ps.LoadPublishers(posts);
+        posts = await ps.LoadPostInfo(posts, null, true);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
@@ -63,8 +62,7 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
             .Take(take)
             .ToListAsync();
-        posts = PostService.TruncatePostContent(posts);
-        posts = await ps.LoadPublishers(posts);
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
