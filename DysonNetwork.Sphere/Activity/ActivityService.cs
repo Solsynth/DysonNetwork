@@ -69,8 +69,13 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
         foreach (var post in posts)
+        {
             post.ReactionsCount =
                 reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
+
+            // Track view for each post in the feed
+            await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
+        }
 
         // Formatting data
         foreach (var post in posts)

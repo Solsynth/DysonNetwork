@@ -13,7 +13,9 @@ public class PostService(
     AppDatabase db,
     FileReferenceService fileRefService,
     IStringLocalizer<NotificationResource> localizer,
-    IServiceScopeFactory factory
+    IServiceScopeFactory factory,
+    FlushBufferService flushBuffer,
+    ICacheService cacheService
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -363,6 +365,40 @@ public class PostService(
                         sg => sg.Count()
                     )
             );
+    }
+
+    /// <summary>
+    /// Increases the view count for a post.
+    /// Uses the flush buffer service to batch database updates for better performance.
+    /// </summary>
+    /// <param name="postId">The ID of the post to mark as viewed</param>
+    /// <param name="viewerId">Optional viewer ID for unique view counting (anonymous if null)</param>
+    /// <returns>Task representing the asynchronous operation</returns>
+    public async Task IncreaseViewCount(Guid postId, string? viewerId = null)
+    {
+        // Check if this view is already counted in cache to prevent duplicate counting
+        if (!string.IsNullOrEmpty(viewerId))
+        {
+            var cacheKey = $"post:view:{postId}:{viewerId}";
+            var (found, _) = await cacheService.GetAsyncWithStatus<bool>(cacheKey);
+
+            if (found)
+            {
+                // Already viewed by this user recently, don't count again
+                return;
+            }
+
+            // Mark as viewed in cache for 1 hour to prevent duplicate counting
+            await cacheService.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
+        }
+
+        // Add view info to flush buffer
+        flushBuffer.Enqueue(new PostViewInfo
+        {
+            PostId = postId,
+            ViewerId = viewerId,
+            ViewedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
+        });
     }
 
     public async Task<List<Post>> LoadPublishers(List<Post> posts)

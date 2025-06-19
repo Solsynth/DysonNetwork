@@ -195,6 +195,7 @@ builder.Services.AddSingleton<FlushBufferService>();
 builder.Services.AddScoped<ActionLogFlushHandler>();
 builder.Services.AddScoped<MessageReadReceiptFlushHandler>();
 builder.Services.AddScoped<LastActiveFlushHandler>();
+builder.Services.AddScoped<PostViewFlushHandler>();
 
 // The handlers for websocket
 builder.Services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
@@ -280,6 +281,16 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("LastActiveFlushTrigger")
         .WithSimpleSchedule(o => o
             .WithIntervalInMinutes(5)
+            .RepeatForever())
+    );
+
+    var postViewFlushJob = new JobKey("PostViewFlush");
+    q.AddJob<PostViewFlushJob>(opts => opts.WithIdentity(postViewFlushJob));
+    q.AddTrigger(opts => opts
+        .ForJob(postViewFlushJob)
+        .WithIdentity("PostViewFlushTrigger")
+        .WithSimpleSchedule(o => o
+            .WithIntervalInMinutes(1)
             .RepeatForever())
     );
 });

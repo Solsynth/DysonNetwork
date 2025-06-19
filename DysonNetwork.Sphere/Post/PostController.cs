@@ -58,8 +58,20 @@ public class PostController(
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
         foreach (var post in posts)
+        {
             post.ReactionsCount =
                 reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
+
+            // Track view for each post in the list
+            if (currentUser != null)
+            {
+                await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
+            }
+            else
+            {
+                await ps.IncreaseViewCount(post.Id);
+            }
+        }
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -84,6 +96,9 @@ public class PostController(
         if (post is null) return NotFound();
 
         post.ReactionsCount = await ps.GetPostReactionMap(post.Id);
+
+        // Track view - use the account ID as viewer ID if user is logged in
+        await ps.IncreaseViewCount(post.Id, currentUser?.Id.ToString());
 
         return Ok(post);
     }
