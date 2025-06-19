@@ -64,9 +64,5 @@ public class MessageReadHandler(
         };
 
         buffer.Enqueue(readReceipt);
-
-        var otherMembers = (await crs.ListRoomMembers(request.ChatRoomId)).Select(m => m.AccountId).ToList();
-        foreach (var member in otherMembers)
-            srv.SendPacketToAccount(member, packet);
     }
 }
