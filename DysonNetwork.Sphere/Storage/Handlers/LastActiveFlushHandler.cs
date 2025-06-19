@@ -1,4 +1,3 @@
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Quartz;
@@ -34,29 +33,21 @@ public class LastActiveFlushHandler(IServiceProvider serviceProvider) : IFlushHa
             .GroupBy(x => x.Account.Id)
             .ToDictionary(g => g.Key, g => g.Last().SeenAt);
 
-        // Load all sessions that need to be updated in one batch
-        var sessionsToUpdate = await db.AuthSessions
-            .Where(s => sessionIdMap.Keys.Contains(s.Id))
-            .ToListAsync();
+        // Update sessions using native EF Core ExecuteUpdateAsync
+        foreach (var kvp in sessionIdMap)
+        {
+            await db.AuthSessions
+                .Where(s => s.Id == kvp.Key)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastGrantedAt, kvp.Value));
+        }
 
-        // Update their LastGrantedAt
-        foreach (var session in sessionsToUpdate)
-            session.LastGrantedAt = sessionIdMap[session.Id];
-
-        // Bulk update sessions
-        await db.BulkUpdateAsync(sessionsToUpdate);
-
-        // Similarly, load account profiles in one batch
-        var accountProfilesToUpdate = await db.AccountProfiles
-            .Where(a => accountIdMap.Keys.Contains(a.AccountId))
-            .ToListAsync();
-
-        // Update their LastSeenAt
-        foreach (var profile in accountProfilesToUpdate)
-            profile.LastSeenAt = accountIdMap[profile.AccountId];
-
-        // Bulk update profiles
-        await db.BulkUpdateAsync(accountProfilesToUpdate);
+        // Update account profiles using native EF Core ExecuteUpdateAsync
+        foreach (var kvp in accountIdMap)
+        {
+            await db.AccountProfiles
+                .Where(a => a.AccountId == kvp.Key)
+                .ExecuteUpdateAsync(a => a.SetProperty(x => x.LastSeenAt, kvp.Value));
+        }
     }
 }
 
