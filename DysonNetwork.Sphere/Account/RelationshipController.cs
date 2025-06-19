@@ -32,7 +32,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
 
         var statuses = await db.AccountRelationships
             .Where(r => r.AccountId == userId)
-            .ToDictionaryAsync(r => r.AccountId);
+            .ToDictionaryAsync(r => r.RelatedId);
         foreach (var relationship in relationships)
             if (statuses.TryGetValue(relationship.RelatedId, out var status))
                 relationship.Status = status.Status;
