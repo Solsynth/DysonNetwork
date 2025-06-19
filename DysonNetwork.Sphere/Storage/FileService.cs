@@ -118,6 +118,11 @@ public class FileService(
                     foreach (var field in vipsImage.GetFields())
                     {
                         var value = vipsImage.Get(field);
+                        
+                        // Skip GPS-related EXIF fields to remove location data
+                        if (IsGpsExifField(field))
+                            continue;
+                        
                         exif.Add(field, value);
                         if (field == "orientation") orientation = (int)value;
                     }
@@ -496,5 +501,42 @@ public class FileService(
         return await db.FileReferences
             .Where(r => r.FileId == fileId)
             .AnyAsync();
+    }
+
+    /// <summary>
+    /// Checks if an EXIF field contains GPS location data
+    /// </summary>
+    /// <param name="fieldName">The EXIF field name</param>
+    /// <returns>True if the field contains GPS data, false otherwise</returns>
+    private static bool IsGpsExifField(string fieldName)
+    {
+        // Common GPS EXIF field names
+        var gpsFields = new[]
+        {
+            "gps-latitude",
+            "gps-longitude", 
+            "gps-altitude",
+            "gps-latitude-ref",
+            "gps-longitude-ref",
+            "gps-altitude-ref",
+            "gps-timestamp",
+            "gps-datestamp",
+            "gps-speed",
+            "gps-speed-ref",
+            "gps-track",
+            "gps-track-ref",
+            "gps-img-direction",
+            "gps-img-direction-ref",
+            "gps-dest-latitude",
+            "gps-dest-longitude",
+            "gps-dest-latitude-ref",
+            "gps-dest-longitude-ref",
+            "gps-processing-method",
+            "gps-area-information"
+        };
+
+        return gpsFields.Any(gpsField => 
+            fieldName.Equals(gpsField, StringComparison.OrdinalIgnoreCase) ||
+            fieldName.StartsWith("gps", StringComparison.OrdinalIgnoreCase));
     }
 }
