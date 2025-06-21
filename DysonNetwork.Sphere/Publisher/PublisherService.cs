@@ -9,7 +9,6 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherService(AppDatabase db, FileReferenceService fileRefService, ICacheService cache)
 {
     private const string UserPublishersCacheKey = "accounts:{0}:publishers";
-    private const string UserPublishersBatchCacheKey = "accounts:batch:{0}:publishers";
 
     public async Task<List<Publisher>> GetUserPublishers(Guid userId)
     {
@@ -89,7 +88,7 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
     
     
 
-    private const string SubscribedPublishersCacheKey = "accounts:{0}:subscribed-publishers";
+    public const string SubscribedPublishersCacheKey = "accounts:{0}:subscribed-publishers";
     
     public async Task<List<Publisher>> GetSubscribedPublishers(Guid userId)
     {
@@ -103,6 +102,7 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
         // If not in cache, fetch from a database
         var publishersId = await db.PublisherSubscriptions
             .Where(p => p.AccountId == userId)
+            .Where(p => p.Status == SubscriptionStatus.Active)
             .Select(p => p.PublisherId)
             .ToListAsync();
         publishers = await db.Publishers

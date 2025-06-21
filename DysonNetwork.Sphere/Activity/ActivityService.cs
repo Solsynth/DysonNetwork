@@ -54,23 +54,14 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
         var userPublishers = await pub.GetUserPublishers(currentUser.Id);
 
         // Get publishers based on filter
-        List<Publisher.Publisher>? filteredPublishers = null;
-        switch (filter)
+        var filteredPublishers = filter switch
         {
-            case "subscriptions":
-                filteredPublishers = await pub.GetSubscribedPublishers(currentUser.Id);
-                break;
-            case "friends":
-            {
-                filteredPublishers = (await pub.GetUserPublishersBatch(userFriends))
-                    .SelectMany(x => x.Value)
-                    .DistinctBy(x => x.Id)
-                    .ToList();
-                break;
-            }
-            default:
-                break;
-        }
+            "subscriptions" => await pub.GetSubscribedPublishers(currentUser.Id),
+            "friends" => (await pub.GetUserPublishersBatch(userFriends)).SelectMany(x => x.Value)
+                .DistinctBy(x => x.Id)
+                .ToList(),
+            _ => null
+        };
 
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
 

@@ -1,5 +1,6 @@
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
@@ -9,7 +10,9 @@ public class PublisherSubscriptionService(
     AppDatabase db,
     NotificationService nty,
     PostService ps,
-    IStringLocalizer<Notification> localizer)
+    IStringLocalizer<Notification> localizer,
+    ICacheService cache
+)
 {
     /// <summary>
     /// Checks if a subscription exists between the account and publisher
@@ -158,6 +161,8 @@ public class PublisherSubscriptionService(
 
         db.PublisherSubscriptions.Add(subscription);
         await db.SaveChangesAsync();
+        
+        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
 
         return subscription;
     }
@@ -176,6 +181,9 @@ public class PublisherSubscriptionService(
 
         subscription.Status = SubscriptionStatus.Cancelled;
         await db.SaveChangesAsync();
+        
+        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+        
         return true;
     }
 }
