@@ -324,7 +324,6 @@ public class CacheServiceRedis : ICacheService
     public async Task<bool> SetWithGroupsAsync<T>(string key, T value, IEnumerable<string>? groups = null,
         TimeSpan? expiry = null)
     {
-        key = $"{GlobalKeyPrefix}{key}";
         // First, set the value in the cache
         var setResult = await SetAsync(key, value, expiry);
 
