@@ -1,5 +1,6 @@
+using System.Text.RegularExpressions;
 using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Activity;
+using DysonNetwork.Sphere.Connection.WebReader;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Storage;
@@ -9,13 +10,15 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostService(
+public partial class PostService(
     AppDatabase db,
     FileReferenceService fileRefService,
     IStringLocalizer<NotificationResource> localizer,
     IServiceScopeFactory factory,
     FlushBufferService flushBuffer,
-    ICacheService cacheService
+    ICacheService cache,
+    WebReaderService reader,
+    Logger<PostService> logger
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -31,14 +34,14 @@ public class PostService(
                 item.Content = item.Content[..maxLength];
                 item.IsTruncated = true;
             }
-            
+
             // Truncate replied post content with shorter embed length
             if (item.RepliedPost?.Content?.Length > embedMaxLength)
             {
                 item.RepliedPost.Content = item.RepliedPost.Content[..embedMaxLength];
                 item.RepliedPost.IsTruncated = true;
             }
-            
+
             // Truncate forwarded post content with shorter embed length
             if (item.ForwardedPost?.Content?.Length > embedMaxLength)
             {
@@ -182,6 +185,9 @@ public class PostService(
             });
         }
 
+        // Process link preview in the background to avoid delaying post creation
+        _ = Task.Run(async () => await ProcessPostLinkPreviewAsync(post));
+
         return post;
     }
 
@@ -254,7 +260,109 @@ public class PostService(
         db.Update(post);
         await db.SaveChangesAsync();
 
+        // Process link preview in the background to avoid delaying post update
+        _ = Task.Run(async () => await ProcessPostLinkPreviewAsync(post));
+
         return post;
+    }
+
+    [GeneratedRegex(@"https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]*[-A-Za-z0-9+&@#/%=~_|]")]
+    private static partial Regex GetLinkRegex();
+
+    public async Task<Post> PreviewPostLinkAsync(Post item)
+    {
+        if (item.Type != PostType.Moment || string.IsNullOrEmpty(item.Content)) return item;
+
+        // Find all URLs in the content
+        var matches = GetLinkRegex().Matches(item.Content);
+
+        if (matches.Count == 0)
+            return item;
+
+        // Initialize meta dictionary if null
+        item.Meta ??= new Dictionary<string, object>();
+
+        // Initialize embeds array if it doesn't exist
+        if (!item.Meta.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<IEmbeddable>)
+        {
+            item.Meta["embeds"] = new List<IEmbeddable>();
+        }
+
+        var embeds = (List<IEmbeddable>)item.Meta["embeds"];
+
+        // Process up to 3 links to avoid excessive processing
+        var processedLinks = 0;
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            if (processedLinks >= 3)
+                break;
+
+            var url = match.Value;
+
+            try
+            {
+                // Check if this URL is already in the embeds list
+                var urlAlreadyEmbedded = embeds.OfType<LinkEmbed>().Any(e => e.Url == url);
+                if (urlAlreadyEmbedded)
+                    continue;
+
+                // Preview the link
+                var linkEmbed = await reader.GetLinkPreviewAsync(url);
+                embeds.Add(linkEmbed);
+                processedLinks++;
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+
+        return item;
+    }
+
+    /// <summary>
+    /// Process link previews for a post in the background
+    /// This method is designed to be called from a background task
+    /// </summary>
+    /// <param name="post">The post to process link previews for</param>
+    private async Task ProcessPostLinkPreviewAsync(Post post)
+    {
+        try
+        {
+            // Create a new scope for database operations
+            using var scope = factory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+
+            // Preview the links in the post
+            var updatedPost = await PreviewPostLinkAsync(post);
+
+            // If embeds were added, update the post in the database
+            if (updatedPost.Meta != null &&
+                updatedPost.Meta.TryGetValue("embeds", out var embeds) &&
+                embeds is List<IEmbeddable> embedsList &&
+                embedsList.Count > 0)
+            {
+                // Get a fresh copy of the post from the database
+                var dbPost = await dbContext.Posts.FindAsync(post.Id);
+                if (dbPost != null)
+                {
+                    // Update the meta field with the new embeds
+                    dbPost.Meta ??= new Dictionary<string, object>();
+                    dbPost.Meta["embeds"] = embedsList;
+
+                    // Save changes to the database
+                    dbContext.Update(dbPost);
+                    await dbContext.SaveChangesAsync();
+
+                    logger.LogDebug("Updated post {PostId} with {EmbedCount} link previews", post.Id, embedsList.Count);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log errors but don't rethrow - this is a background task
+            logger.LogError(ex, "Error processing link previews for post {PostId}", post.Id);
+        }
     }
 
     public async Task DeletePostAsync(Post post)
@@ -397,7 +505,7 @@ public class PostService(
         if (!string.IsNullOrEmpty(viewerId))
         {
             var cacheKey = $"post:view:{postId}:{viewerId}";
-            var (found, _) = await cacheService.GetAsyncWithStatus<bool>(cacheKey);
+            var (found, _) = await cache.GetAsyncWithStatus<bool>(cacheKey);
 
             if (found)
             {
@@ -406,7 +514,7 @@ public class PostService(
             }
 
             // Mark as viewed in cache for 1 hour to prevent duplicate counting
-            await cacheService.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
+            await cache.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
         }
 
         // Add view info to flush buffer
@@ -452,26 +560,26 @@ public class PostService(
 
         return posts;
     }
-    
+
     public async Task<List<Post>> LoadInteractive(List<Post> posts, Account.Account? currentUser = null)
     {
         if (posts.Count == 0) return posts;
 
         var postsId = posts.Select(e => e.Id).ToList();
-        
+
         var reactionMaps = await GetPostReactionMapBatch(postsId);
         var repliesCountMap = await GetPostRepliesCountBatch(postsId);
-        
+
         foreach (var post in posts)
         {
             // Set reactions count
-            post.ReactionsCount = reactionMaps.TryGetValue(post.Id, out var count) 
-                ? count 
+            post.ReactionsCount = reactionMaps.TryGetValue(post.Id, out var count)
+                ? count
                 : new Dictionary<string, int>();
 
             // Set replies count
-            post.RepliesCount = repliesCountMap.TryGetValue(post.Id, out var repliesCount) 
-                ? repliesCount 
+            post.RepliesCount = repliesCountMap.TryGetValue(post.Id, out var repliesCount)
+                ? repliesCount
                 : 0;
 
             // Track view for each post in the list
@@ -495,13 +603,14 @@ public class PostService(
             );
     }
 
-    public async Task<List<Post>> LoadPostInfo(List<Post> posts, Account.Account? currentUser = null, bool truncate = false)
+    public async Task<List<Post>> LoadPostInfo(List<Post> posts, Account.Account? currentUser = null,
+        bool truncate = false)
     {
         if (posts.Count == 0) return posts;
 
         posts = await LoadPublishers(posts);
         posts = await LoadInteractive(posts, currentUser);
-        
+
         if (truncate)
             posts = TruncatePostContent(posts);
 
@@ -513,7 +622,7 @@ public class PostService(
         // Convert single post to list, process it, then return the single post
         var posts = await LoadPostInfo([post], currentUser, truncate);
         return posts.First();
-    } 
+    }
 }
 
 public static class PostQueryExtensions
