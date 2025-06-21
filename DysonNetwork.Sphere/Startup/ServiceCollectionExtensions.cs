@@ -18,14 +18,13 @@ using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Storage.Handlers;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-using Quartz;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using DysonNetwork.Sphere.Connection.WebReader;
 using tusdotnet.Stores;
 
 namespace DysonNetwork.Sphere.Startup;
@@ -221,6 +220,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WalletService>();
         services.AddScoped<PaymentService>();
         services.AddScoped<IRealtimeService, LivekitRealtimeService>();
+        services.AddScoped<WebReaderService>();
 
         return services;
     }
