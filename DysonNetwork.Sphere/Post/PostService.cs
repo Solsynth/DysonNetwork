@@ -20,9 +20,10 @@ public class PostService(
 {
     private const string PostFileUsageIdentifier = "post";
 
-    public static List<Post> TruncatePostContent(List<Post> input)
+    private static List<Post> TruncatePostContent(List<Post> input)
     {
         const int maxLength = 256;
+        const int embedMaxLength = 80;
         foreach (var item in input)
         {
             if (item.Content?.Length > maxLength)
@@ -31,17 +32,17 @@ public class PostService(
                 item.IsTruncated = true;
             }
             
-            // Truncate replied post content
-            if (item.RepliedPost?.Content?.Length > maxLength)
+            // Truncate replied post content with shorter embed length
+            if (item.RepliedPost?.Content?.Length > embedMaxLength)
             {
-                item.RepliedPost.Content = item.RepliedPost.Content[..maxLength];
+                item.RepliedPost.Content = item.RepliedPost.Content[..embedMaxLength];
                 item.RepliedPost.IsTruncated = true;
             }
             
-            // Truncate forwarded post content
-            if (item.ForwardedPost?.Content?.Length > maxLength)
+            // Truncate forwarded post content with shorter embed length
+            if (item.ForwardedPost?.Content?.Length > embedMaxLength)
             {
-                item.ForwardedPost.Content = item.ForwardedPost.Content[..maxLength];
+                item.ForwardedPost.Content = item.ForwardedPost.Content[..embedMaxLength];
                 item.ForwardedPost.IsTruncated = true;
             }
         }

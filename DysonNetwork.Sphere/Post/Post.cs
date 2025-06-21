@@ -66,7 +66,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
 
     [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
-    [NotMapped] public bool IsTruncated = false;
+    [NotMapped] public bool IsTruncated { get; set; } = false;
 
     public string ResourceIdentifier => $"post/{Id}";
 
