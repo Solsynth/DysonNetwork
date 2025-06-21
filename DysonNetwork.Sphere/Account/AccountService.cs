@@ -257,6 +257,18 @@ public class AccountService(
                     }
                 };
                 break;
+            case AccountAuthFactorType.PinCode:
+                if (string.IsNullOrWhiteSpace(secret)) throw new ArgumentNullException(nameof(secret));
+                if (!secret.All(char.IsDigit) || secret.Length != 6)
+                    throw new ArgumentException("PIN code must be exactly 6 digits");
+                factor = new AccountAuthFactor
+                {
+                    Type = AccountAuthFactorType.PinCode,
+                    Trustworthy = 0, // Only for confirming, can't be used for login
+                    Secret = secret,
+                    EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+                }.HashSecret();
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(type), type, null);
         }

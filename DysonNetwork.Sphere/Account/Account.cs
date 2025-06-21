@@ -23,7 +23,7 @@ public class Account : ModelBase
     public Profile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
     public ICollection<Badge> Badges { get; set; } = new List<Badge>();
-    
+
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
     [JsonIgnore] public ICollection<AccountConnection> Connections { get; set; } = new List<AccountConnection>();
     [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
@@ -31,7 +31,7 @@ public class Account : ModelBase
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
-    
+
     [JsonIgnore] public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
 }
 
@@ -119,12 +119,15 @@ public class AccountAuthFactor : ModelBase
     public Guid Id { get; set; }
     public AccountAuthFactorType Type { get; set; }
     [JsonIgnore] [MaxLength(8196)] public string? Secret { get; set; }
-    [JsonIgnore] [Column(TypeName = "jsonb")] public Dictionary<string, object>? Config { get; set; } = new();
+
+    [JsonIgnore]
+    [Column(TypeName = "jsonb")]
+    public Dictionary<string, object>? Config { get; set; } = new();
 
     /// <summary>
     /// The trustworthy stands for how safe is this auth factor.
     /// Basically, it affects how many steps it can complete in authentication.
-    /// Besides, users may need to use some high trustworthy level auth factors when confirming some dangerous operations.
+    /// Besides, users may need to use some high-trustworthy level auth factors when confirming some dangerous operations.
     /// </summary>
     public int Trustworthy { get; set; } = 1;
 
@@ -148,6 +151,7 @@ public class AccountAuthFactor : ModelBase
         switch (Type)
         {
             case AccountAuthFactorType.Password:
+            case AccountAuthFactorType.PinCode:
                 return BCrypt.Net.BCrypt.Verify(password, Secret);
             case AccountAuthFactorType.TimedCode:
                 var otp = new Totp(Base32Encoding.ToBytes(Secret));
@@ -172,7 +176,8 @@ public enum AccountAuthFactorType
     Password,
     EmailCode,
     InAppCode,
-    TimedCode
+    TimedCode,
+    PinCode,
 }
 
 public class AccountConnection : ModelBase
@@ -181,11 +186,11 @@ public class AccountConnection : ModelBase
     [MaxLength(4096)] public string Provider { get; set; } = null!;
     [MaxLength(8192)] public string ProvidedIdentifier { get; set; } = null!;
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; } = new();
-    
+
     [JsonIgnore] [MaxLength(4096)] public string? AccessToken { get; set; }
     [JsonIgnore] [MaxLength(4096)] public string? RefreshToken { get; set; }
     public Instant? LastUsedAt { get; set; }
-    
+
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
 }

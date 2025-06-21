@@ -1,11 +1,19 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth;
 
-public class AuthService(AppDatabase db, IConfiguration config, IHttpClientFactory httpClientFactory, IHttpContextAccessor httpContextAccessor)
+public class AuthService(
+    AppDatabase db,
+    IConfiguration config,
+    IHttpClientFactory httpClientFactory,
+    IHttpContextAccessor httpContextAccessor,
+    ICacheService cache
+)
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
 
@@ -172,6 +180,69 @@ public class AuthService(AppDatabase db, IConfiguration config, IHttpClientFacto
 
         // Combine payload and signature with a dot
         return $"{payloadBase64}.{signatureBase64}";
+    }
+
+    public async Task<bool> ValidateSudoMode(Session session, string? pinCode)
+    {
+        // Check if the session is already in sudo mode (cached)
+        var sudoModeKey = $"accounts:{session.Id}:sudo";
+        var (found, _) = await cache.GetAsyncWithStatus<bool>(sudoModeKey);
+        
+        if (found)
+        {
+            // Session is already in sudo mode
+            return true;
+        }
+        
+        // Check if the user has a pin code
+        var hasPinCode = await db.AccountAuthFactors
+            .Where(f => f.AccountId == session.AccountId)
+            .Where(f => f.EnabledAt != null)
+            .Where(f => f.Type == AccountAuthFactorType.PinCode)
+            .AnyAsync();
+            
+        if (!hasPinCode)
+        {
+            // User doesn't have a pin code, no validation needed
+            return true;
+        }
+        
+        // If pin code is not provided, we can't validate
+        if (string.IsNullOrEmpty(pinCode))
+        {
+            return false;
+        }
+        
+        try
+        {
+            // Validate the pin code
+            var isValid = await ValidatePinCode(session.AccountId, pinCode);
+            
+            if (isValid)
+            {
+                // Set session in sudo mode for 5 minutes
+                await cache.SetAsync(sudoModeKey, true, TimeSpan.FromMinutes(5));
+            }
+            
+            return isValid;
+        }
+        catch (InvalidOperationException)
+        {
+            // No pin code enabled for this account, so validation is successful
+            return true;
+        }
+    }
+
+    public async Task<bool> ValidatePinCode(Guid accountId, string pinCode)
+    {
+        var factor = await db.AccountAuthFactors
+            .Where(f => f.AccountId == accountId)
+            .Where(f => f.EnabledAt != null)
+            .Where(f => f.Type == AccountAuthFactorType.PinCode)
+            .FirstOrDefaultAsync();
+        if (factor is null) throw new InvalidOperationException("No pin code enabled for this account.");
+
+        return factor.VerifyPassword(pinCode);
     }
 
     public bool ValidateToken(string token, out Guid sessionId)
