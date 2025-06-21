@@ -283,12 +283,12 @@ public partial class PostService(
         item.Meta ??= new Dictionary<string, object>();
 
         // Initialize the embeds' array if it doesn't exist
-        if (!item.Meta.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<IEmbeddable>)
+        if (!item.Meta.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<EmbeddableBase>)
         {
-            item.Meta["embeds"] = new List<IEmbeddable>();
+            item.Meta["embeds"] = new List<Dictionary<string, object>>();
         }
 
-        var embeds = (List<IEmbeddable>)item.Meta["embeds"];
+        var embeds = (List<Dictionary<string, object>>)item.Meta["embeds"];
 
         // Process up to 3 links to avoid excessive processing
         var processedLinks = 0;
@@ -302,13 +302,14 @@ public partial class PostService(
             try
             {
                 // Check if this URL is already in the embed list
-                var urlAlreadyEmbedded = embeds.OfType<LinkEmbed>().Any(e => e.Url == url);
+                var urlAlreadyEmbedded = embeds.Any(e =>
+                    e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url);
                 if (urlAlreadyEmbedded)
                     continue;
 
                 // Preview the link
                 var linkEmbed = await reader.GetLinkPreviewAsync(url);
-                embeds.Add(linkEmbed);
+                embeds.Add(linkEmbed.ToDictionary());
                 processedLinks++;
             }
             catch
@@ -341,7 +342,7 @@ public partial class PostService(
             // If embeds were added, update the post in the database
             if (updatedPost.Meta != null &&
                 updatedPost.Meta.TryGetValue("embeds", out var embeds) &&
-                embeds is List<IEmbeddable> { Count: > 0 } embedsList)
+                embeds is List<EmbeddableBase> { Count: > 0 } embedsList)
             {
                 // Get a fresh copy of the post from the database
                 var dbPost = await dbContext.Posts.FindAsync(post.Id);

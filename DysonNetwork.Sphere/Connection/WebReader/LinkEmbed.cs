@@ -4,9 +4,9 @@ namespace DysonNetwork.Sphere.Connection.WebReader;
 /// The link embed is a part of the embeddable implementations
 /// It can be used in the post or messages' meta's embeds fields
 /// </summary>
-public class LinkEmbed : IEmbeddable
+public class LinkEmbed : EmbeddableBase
 {
-    public string Type => "link";
+    public override string Type => "link";
 
     /// <summary>
     /// The original URL that was processed
