@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Chat.Realtime;
 using DysonNetwork.Sphere.Connection;
@@ -7,7 +8,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class ChatService(
+public partial class ChatService(
     AppDatabase db,
     FileReferenceService fileRefService,
     IServiceScopeFactory scopeFactory,
@@ -16,6 +17,131 @@ public class ChatService(
 )
 {
     private const string ChatFileUsageIdentifier = "chat";
+
+    [GeneratedRegex(@"https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]*[-A-Za-z0-9+&@#/%=~_|]")]
+    private static partial Regex GetLinkRegex();
+
+    /// <summary>
+    /// Process link previews for a message in the background
+    /// This method is designed to be called from a background task
+    /// </summary>
+    /// <param name="message">The message to process link previews for</param>
+    private async Task ProcessMessageLinkPreviewAsync(Message message)
+    {
+        try
+        {
+            // Create a new scope for database operations
+            using var scope = scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+            var webReader = scope.ServiceProvider.GetRequiredService<Connection.WebReader.WebReaderService>();
+
+            // Preview the links in the message
+            var updatedMessage = await PreviewMessageLinkAsync(message, webReader);
+
+            // If embeds were added, update the message in the database
+            if (updatedMessage.Meta != null &&
+                updatedMessage.Meta.TryGetValue("embeds", out var embeds) &&
+                embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList)
+            {
+                // Get a fresh copy of the message from the database
+                var dbMessage = await dbContext.ChatMessages
+                    .Where(m => m.Id == message.Id)
+                    .Include(m => m.Sender)
+                    .Include(m => m.ChatRoom)
+                    .FirstOrDefaultAsync();
+                if (dbMessage != null)
+                {
+                    // Update the meta field with the new embeds
+                    dbMessage.Meta ??= new Dictionary<string, object>();
+                    dbMessage.Meta["embeds"] = embedsList;
+
+                    // Save changes to the database
+                    dbContext.Update(dbMessage);
+                    await dbContext.SaveChangesAsync();
+
+                    logger.LogDebug($"Updated message {message.Id} with {embedsList.Count} link previews");
+
+                    // Notify clients of the updated message
+                    await DeliverMessageAsync(
+                        dbMessage,
+                        dbMessage.Sender,
+                        dbMessage.ChatRoom,
+                        WebSocketPacketType.MessageUpdate
+                    );
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log errors but don't rethrow - this is a background task
+            logger.LogError($"Error processing link previews for message {message.Id}: {ex.Message} {ex.StackTrace}");
+        }
+    }
+
+    /// <summary>
+    /// Processes a message to find and preview links in its content
+    /// </summary>
+    /// <param name="message">The message to process</param>
+    /// <param name="webReader">The web reader service</param>
+    /// <returns>The message with link previews added to its meta data</returns>
+    public async Task<Message> PreviewMessageLinkAsync(Message message,
+        Connection.WebReader.WebReaderService? webReader = null)
+    {
+        if (string.IsNullOrEmpty(message.Content))
+            return message;
+
+        // Find all URLs in the content
+        var matches = GetLinkRegex().Matches(message.Content);
+
+        if (matches.Count == 0)
+            return message;
+
+        // Initialize meta dictionary if null
+        message.Meta ??= new Dictionary<string, object>();
+
+        // Initialize the embeds' array if it doesn't exist
+        if (!message.Meta.TryGetValue("embeds", out var existingEmbeds) ||
+            existingEmbeds is not List<Dictionary<string, object>>)
+        {
+            message.Meta["embeds"] = new List<Dictionary<string, object>>();
+        }
+
+        var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+        webReader ??= scopeFactory.CreateScope().ServiceProvider
+            .GetRequiredService<Connection.WebReader.WebReaderService>();
+
+        // Process up to 3 links to avoid excessive processing
+        var processedLinks = 0;
+        foreach (Match match in matches)
+        {
+            if (processedLinks >= 3)
+                break;
+
+            var url = match.Value;
+
+            try
+            {
+                // Check if this URL is already in the embed list
+                var urlAlreadyEmbedded = embeds.Any(e =>
+                    e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url);
+                if (urlAlreadyEmbedded)
+                    continue;
+
+                // Preview the link
+                var linkEmbed = await webReader.GetLinkPreviewAsync(url);
+                embeds.Add(linkEmbed.ToDictionary());
+                processedLinks++;
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+
+        message.Meta["embeds"] = embeds;
+
+        return message;
+    }
 
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
@@ -56,6 +182,9 @@ public class ChatService(
                 logger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
             }
         });
+
+        // Process link preview in the background to avoid delaying message sending
+        _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(message));
 
         message.Sender = sender;
         message.ChatRoom = room;
@@ -293,7 +422,7 @@ public class ChatService(
         {
             Type = "call.ended",
             ChatRoomId = call.RoomId,
-            SenderId = sender.Id,
+            SenderId = call.SenderId,
             Meta = new Dictionary<string, object>
             {
                 { "call_id", call.Id },
@@ -388,6 +517,10 @@ public class ChatService(
         message.EditedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(message);
         await db.SaveChangesAsync();
+
+        // Process link preview in the background if content was updated
+        if (content is not null)
+            _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(message));
 
         _ = DeliverMessageAsync(
             message,
