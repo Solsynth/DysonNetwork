@@ -313,9 +313,23 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
 {
     public async Task Execute(IJobExecutionContext context)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        logger.LogInformation("Cleaning up expired records...");
+
+        // Expired relationships
+        var affectedRows = await db.AccountRelationships
+            .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
+            .ExecuteDeleteAsync();
+        logger.LogDebug("Removed {Count} records of expired relationships.", affectedRows);
+        // Expired permission group members
+        affectedRows = await db.PermissionGroupMembers
+            .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
+            .ExecuteDeleteAsync();
+        logger.LogDebug("Removed {Count} records of expired permission group members.", affectedRows);
+
         logger.LogInformation("Deleting soft-deleted records...");
 
-        var now = SystemClock.Instance.GetCurrentInstant();
         var threshold = now - Duration.FromDays(7);
 
         var entityTypes = db.Model.GetEntityTypes()
