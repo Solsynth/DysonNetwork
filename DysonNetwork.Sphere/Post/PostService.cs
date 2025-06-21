@@ -282,7 +282,7 @@ public partial class PostService(
         // Initialize meta dictionary if null
         item.Meta ??= new Dictionary<string, object>();
 
-        // Initialize embeds array if it doesn't exist
+        // Initialize the embeds' array if it doesn't exist
         if (!item.Meta.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<IEmbeddable>)
         {
             item.Meta["embeds"] = new List<IEmbeddable>();
@@ -292,7 +292,7 @@ public partial class PostService(
 
         // Process up to 3 links to avoid excessive processing
         var processedLinks = 0;
-        foreach (System.Text.RegularExpressions.Match match in matches)
+        foreach (Match match in matches)
         {
             if (processedLinks >= 3)
                 break;
@@ -301,7 +301,7 @@ public partial class PostService(
 
             try
             {
-                // Check if this URL is already in the embeds list
+                // Check if this URL is already in the embed list
                 var urlAlreadyEmbedded = embeds.OfType<LinkEmbed>().Any(e => e.Url == url);
                 if (urlAlreadyEmbedded)
                     continue;
@@ -316,6 +316,8 @@ public partial class PostService(
                 // ignored
             }
         }
+
+        item.Meta["embeds"] = embeds;
 
         return item;
     }
@@ -339,8 +341,7 @@ public partial class PostService(
             // If embeds were added, update the post in the database
             if (updatedPost.Meta != null &&
                 updatedPost.Meta.TryGetValue("embeds", out var embeds) &&
-                embeds is List<IEmbeddable> embedsList &&
-                embedsList.Count > 0)
+                embeds is List<IEmbeddable> { Count: > 0 } embedsList)
             {
                 // Get a fresh copy of the post from the database
                 var dbPost = await dbContext.Posts.FindAsync(post.Id);
