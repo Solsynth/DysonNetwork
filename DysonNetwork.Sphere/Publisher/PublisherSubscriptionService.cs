@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ public class PublisherSubscriptionService(
     AppDatabase db,
     NotificationService nty,
     PostService ps,
-    IStringLocalizer<Notification> localizer,
+    IStringLocalizer<NotificationResource> localizer,
     ICacheService cache
 )
 {
@@ -49,9 +50,9 @@ public class PublisherSubscriptionService(
     public async Task<int> NotifySubscriberPost(Post.Post post)
     {
         var subscribers = await db.PublisherSubscriptions
-            .Include(ps => ps.Account)
-            .Where(ps => ps.PublisherId == post.Publisher.Id &&
-                         ps.Status == SubscriptionStatus.Active)
+            .Include(p => p.Account)
+            .Where(p => p.PublisherId == post.PublisherId &&
+                         p.Status == SubscriptionStatus.Active)
             .ToListAsync();
         if (subscribers.Count == 0)
             return 0;
