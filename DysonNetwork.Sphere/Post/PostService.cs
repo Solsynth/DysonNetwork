@@ -18,7 +18,7 @@ public partial class PostService(
     FlushBufferService flushBuffer,
     ICacheService cache,
     WebReaderService reader,
-    Logger<PostService> logger
+    ILogger<PostService> logger
 )
 {
     private const string PostFileUsageIdentifier = "post";
