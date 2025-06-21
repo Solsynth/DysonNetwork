@@ -659,6 +659,5 @@ public static class PostQueryExtensions
             .Where(e => e.Visibility != PostVisibility.Friends ||
                         (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
                         publishersId.Contains(e.PublisherId));
-        ;
     }
 }

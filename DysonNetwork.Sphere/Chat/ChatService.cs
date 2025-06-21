@@ -34,6 +34,7 @@ public partial class ChatService(
             using var scope = scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
             var webReader = scope.ServiceProvider.GetRequiredService<Connection.WebReader.WebReaderService>();
+            var newChat = scope.ServiceProvider.GetRequiredService<ChatService>();
 
             // Preview the links in the message
             var updatedMessage = await PreviewMessageLinkAsync(message, webReader);
@@ -62,7 +63,7 @@ public partial class ChatService(
                     logger.LogDebug($"Updated message {message.Id} with {embedsList.Count} link previews");
 
                     // Notify clients of the updated message
-                    await DeliverMessageAsync(
+                    await newChat.DeliverMessageAsync(
                         dbMessage,
                         dbMessage.Sender,
                         dbMessage.ChatRoom,

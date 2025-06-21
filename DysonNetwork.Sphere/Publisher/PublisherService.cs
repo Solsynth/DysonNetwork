@@ -9,6 +9,7 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherService(AppDatabase db, FileReferenceService fileRefService, ICacheService cache)
 {
     private const string UserPublishersCacheKey = "accounts:{0}:publishers";
+    private const string UserPublishersBatchCacheKey = "accounts:batch:{0}:publishers";
 
     public async Task<List<Publisher>> GetUserPublishers(Guid userId)
     {
@@ -31,6 +32,86 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
         // Store in a cache for 5 minutes
         await cache.SetAsync(cacheKey, publishers, TimeSpan.FromMinutes(5));
         
+        return publishers;
+    }
+
+    public async Task<Dictionary<Guid, List<Publisher>>> GetUserPublishersBatch(List<Guid> userIds)
+    {
+        var result = new Dictionary<Guid, List<Publisher>>();
+        var missingIds = new List<Guid>();
+
+        // Try to get publishers from cache for each user
+        foreach (var userId in userIds)
+        {
+            var cacheKey = string.Format(UserPublishersCacheKey, userId);
+            var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
+            if (publishers != null)
+                result[userId] = publishers;
+            else
+                missingIds.Add(userId);
+        }
+
+        if (missingIds.Count <= 0) return result;
+        {
+            // Fetch missing data from database
+            var publisherMembers = await db.PublisherMembers
+                .Where(p => missingIds.Contains(p.AccountId))
+                .Select(p => new { p.AccountId, p.PublisherId })
+                .ToListAsync();
+
+            var publisherIds = publisherMembers.Select(p => p.PublisherId).Distinct().ToList();
+            var publishers = await db.Publishers
+                .Where(p => publisherIds.Contains(p.Id))
+                .ToListAsync();
+
+            // Group publishers by user id
+            foreach (var userId in missingIds)
+            {
+                var userPublisherIds = publisherMembers
+                    .Where(p => p.AccountId == userId)
+                    .Select(p => p.PublisherId)
+                    .ToList();
+
+                var userPublishers = publishers
+                    .Where(p => userPublisherIds.Contains(p.Id))
+                    .ToList();
+
+                result[userId] = userPublishers;
+
+                // Cache individual results
+                var cacheKey = string.Format(UserPublishersCacheKey, userId);
+                await cache.SetAsync(cacheKey, userPublishers, TimeSpan.FromMinutes(5));
+            }
+        }
+
+        return result;
+    }
+    
+    
+
+    private const string SubscribedPublishersCacheKey = "accounts:{0}:subscribed-publishers";
+    
+    public async Task<List<Publisher>> GetSubscribedPublishers(Guid userId)
+    {
+        var cacheKey = string.Format(SubscribedPublishersCacheKey, userId);
+
+        // Try to get publishers from the cache first
+        var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
+        if (publishers is not null)
+            return publishers;
+
+        // If not in cache, fetch from a database
+        var publishersId = await db.PublisherSubscriptions
+            .Where(p => p.AccountId == userId)
+            .Select(p => p.PublisherId)
+            .ToListAsync();
+        publishers = await db.Publishers
+            .Where(p => publishersId.Contains(p.Id))
+            .ToListAsync();
+
+        // Store in a cache for 5 minutes
+        await cache.SetAsync(cacheKey, publishers, TimeSpan.FromMinutes(5));
+
         return publishers;
     }
 

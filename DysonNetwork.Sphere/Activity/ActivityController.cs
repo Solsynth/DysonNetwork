@@ -22,8 +22,11 @@ public class ActivityController(
     /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<Activity>>> ListActivities([FromQuery] string? cursor,
-        [FromQuery] int take = 20)
+    public async Task<ActionResult<List<Activity>>> ListActivities(
+        [FromQuery] string? cursor,
+        [FromQuery] string? filter,
+        [FromQuery] int take = 20
+    )
     {
         Instant? cursorTimestamp = null;
         if (!string.IsNullOrEmpty(cursor))
@@ -42,6 +45,6 @@ public class ActivityController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not Account.Account currentUser
             ? Ok(await acts.GetActivitiesForAnyone(take, cursorTimestamp))
-            : Ok(await acts.GetActivities(take, cursorTimestamp, currentUser));
+            : Ok(await acts.GetActivities(take, cursorTimestamp, currentUser, filter));
     }
 }

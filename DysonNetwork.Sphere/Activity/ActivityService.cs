@@ -42,26 +42,57 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
         return activities;
     }
 
-    public async Task<List<Activity>> GetActivities(int take, Instant? cursor, Account.Account currentUser)
+    public async Task<List<Activity>> GetActivities(
+        int take,
+        Instant? cursor,
+        Account.Account currentUser,
+        string? filter = null
+    )
     {
         var activities = new List<Activity>();
         var userFriends = await rels.ListAccountFriends(currentUser);
         var userPublishers = await pub.GetUserPublishers(currentUser.Id);
-        
-        var publishersId = userPublishers.Select(e => e.Id).ToList();
-        
-        // Crunching data
-        var posts = await db.Posts
+
+        // Get publishers based on filter
+        List<Publisher.Publisher>? filteredPublishers = null;
+        switch (filter)
+        {
+            case "subscriptions":
+                filteredPublishers = await pub.GetSubscribedPublishers(currentUser.Id);
+                break;
+            case "friends":
+            {
+                filteredPublishers = (await pub.GetUserPublishersBatch(userFriends))
+                    .SelectMany(x => x.Value)
+                    .DistinctBy(x => x.Id)
+                    .ToList();
+                break;
+            }
+            default:
+                break;
+        }
+
+        var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
+
+        // Build the query based on the filter
+        var postsQuery = db.Posts
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
-            .Where(e => e.RepliedPostId == null || publishersId.Contains(e.RepliedPost!.PublisherId))
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .AsQueryable();
+
+        if (filteredPublishersId is not null)
+            postsQuery = postsQuery.Where(p => filteredPublishersId.Contains(p.PublisherId));
+
+        // Complete the query with visibility filtering and execute
+        var posts = await postsQuery
+            .FilterWithVisibility(currentUser, userFriends, filter is null ? userPublishers : [], isListing: true)
             .Take(take)
             .ToListAsync();
+
         posts = await ps.LoadPostInfo(posts, currentUser, true);
 
         var postsId = posts.Select(e => e.Id).ToList();
