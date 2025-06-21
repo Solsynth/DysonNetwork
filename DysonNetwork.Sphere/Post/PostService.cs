@@ -25,9 +25,25 @@ public class PostService(
         const int maxLength = 256;
         foreach (var item in input)
         {
-            if (!(item.Content?.Length > maxLength)) continue;
-            item.Content = item.Content[..maxLength];
-            item.IsTruncated = true;
+            if (item.Content?.Length > maxLength)
+            {
+                item.Content = item.Content[..maxLength];
+                item.IsTruncated = true;
+            }
+            
+            // Truncate replied post content
+            if (item.RepliedPost?.Content?.Length > maxLength)
+            {
+                item.RepliedPost.Content = item.RepliedPost.Content[..maxLength];
+                item.RepliedPost.IsTruncated = true;
+            }
+            
+            // Truncate forwarded post content
+            if (item.ForwardedPost?.Content?.Length > maxLength)
+            {
+                item.ForwardedPost.Content = item.ForwardedPost.Content[..maxLength];
+                item.ForwardedPost.IsTruncated = true;
+            }
         }
 
         return input;
