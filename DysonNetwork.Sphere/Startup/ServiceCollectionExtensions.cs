@@ -53,11 +53,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OidcService, GitHubOidcService>();
         services.AddScoped<OidcService, MicrosoftOidcService>();
         services.AddScoped<OidcService, DiscordOidcService>();
+        services.AddScoped<OidcService, AfdianOidcService>();
         services.AddScoped<GoogleOidcService>();
         services.AddScoped<AppleOidcService>();
         services.AddScoped<GitHubOidcService>();
         services.AddScoped<MicrosoftOidcService>();
         services.AddScoped<DiscordOidcService>();
+        services.AddScoped<AfdianOidcService>();
 
         services.AddControllers().AddJsonOptions(options =>
         {
