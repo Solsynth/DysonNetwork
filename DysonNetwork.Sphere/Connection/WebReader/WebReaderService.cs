@@ -51,7 +51,8 @@ public class WebReaderService(
         var httpClient = httpClientFactory.CreateClient("WebReader");
         httpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024; // 10MB, prevent scrap some directly accessible files
         httpClient.Timeout = TimeSpan.FromSeconds(3);
-        httpClient.DefaultRequestHeaders.Add("User-Agent", "DysonNetwork/1.0 LinkPreview Bot");
+        // Setting UA to facebook's bot to get the opengraph.
+        httpClient.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
 
         try
         {
