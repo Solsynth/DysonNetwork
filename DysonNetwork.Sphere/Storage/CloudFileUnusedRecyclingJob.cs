@@ -6,7 +6,6 @@ namespace DysonNetwork.Sphere.Storage;
 
 public class CloudFileUnusedRecyclingJob(
     AppDatabase db,
-    FileService fs,
     FileReferenceService fileRefService,
     ILogger<CloudFileUnusedRecyclingJob> logger
 )

@@ -6,8 +6,8 @@ namespace DysonNetwork.Sphere.Storage.Handlers;
 
 public class LastActiveInfo
 {
-    public Auth.Session Session { get; set; }
-    public Account.Account Account { get; set; }
+    public Auth.Session Session { get; set; } = null!;
+    public Account.Account Account { get; set; } = null!;
     public Instant SeenAt { get; set; }
 }
 

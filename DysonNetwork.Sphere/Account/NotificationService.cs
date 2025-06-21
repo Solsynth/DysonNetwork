@@ -10,7 +10,6 @@ namespace DysonNetwork.Sphere.Account;
 public class NotificationService(
     AppDatabase db,
     WebSocketService ws,
-    ILogger<NotificationService> logger,
     IHttpClientFactory httpFactory,
     IConfiguration config)
 {

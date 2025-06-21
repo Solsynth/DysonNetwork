@@ -9,7 +9,6 @@ namespace DysonNetwork.Sphere.Chat;
 
 public class ChatService(
     AppDatabase db,
-    FileService fs,
     FileReferenceService fileRefService,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,

@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Permission;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,11 +14,9 @@ namespace DysonNetwork.Sphere.Account;
 [Route("/accounts")]
 public class AccountController(
     AppDatabase db,
-    FileService fs,
     AuthService auth,
     AccountService accounts,
-    AccountEventService events,
-    MagicSpellService spells
+    AccountEventService events
 ) : ControllerBase
 {
     [HttpGet("{name}")]

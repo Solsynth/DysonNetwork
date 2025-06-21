@@ -16,7 +16,6 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherController(
     AppDatabase db,
     PublisherService ps,
-    FileService fs,
     FileReferenceService fileRefService,
     ActionLogService als)
     : ControllerBase

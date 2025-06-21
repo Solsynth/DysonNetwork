@@ -304,7 +304,7 @@ public class ConnectionController(
         {
             await db.SaveChangesAsync();
         }
-        catch (DbUpdateException ex)
+        catch (DbUpdateException)
         {
             return StatusCode(500, $"Failed to save {provider} connection. Please try again.");
         }

@@ -6,7 +6,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
-public class PublisherService(AppDatabase db, FileService fs, FileReferenceService fileRefService, ICacheService cache)
+public class PublisherService(AppDatabase db, FileReferenceService fileRefService, ICacheService cache)
 {
     private const string UserPublishersCacheKey = "accounts:{0}:publishers";
 

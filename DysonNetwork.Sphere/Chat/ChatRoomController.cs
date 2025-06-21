@@ -16,7 +16,6 @@ namespace DysonNetwork.Sphere.Chat;
 [Route("/chat")]
 public class ChatRoomController(
     AppDatabase db,
-    FileService fs,
     FileReferenceService fileRefService,
     ChatRoomService crs,
     RealmService rs,

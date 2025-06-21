@@ -33,15 +33,15 @@ public class DiscordOidcService(
         return $"https://discord.com/api/oauth2/authorize?{queryString}";
     }
     
-    protected override async Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
+    protected override Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
     {
-        return new OidcDiscoveryDocument
+        return Task.FromResult(new OidcDiscoveryDocument
         {
             AuthorizationEndpoint = "https://discord.com/oauth2/authorize",
             TokenEndpoint = "https://discord.com/api/oauth2/token",
             UserinfoEndpoint = "https://discord.com/api/users/@me",
             JwksUri = null
-        };
+        })!;
     }
     
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)

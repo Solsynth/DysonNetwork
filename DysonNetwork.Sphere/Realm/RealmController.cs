@@ -13,7 +13,6 @@ namespace DysonNetwork.Sphere.Realm;
 public class RealmController(
     AppDatabase db,
     RealmService rs,
-    FileService fs,
     FileReferenceService fileRefService,
     RelationshipService rels,
     ActionLogService als
