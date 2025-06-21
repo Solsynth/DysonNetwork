@@ -342,7 +342,7 @@ public partial class PostService(
             // If embeds were added, update the post in the database
             if (updatedPost.Meta != null &&
                 updatedPost.Meta.TryGetValue("embeds", out var embeds) &&
-                embeds is List<EmbeddableBase> { Count: > 0 } embedsList)
+                embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList)
             {
                 // Get a fresh copy of the post from the database
                 var dbPost = await dbContext.Posts.FindAsync(post.Id);
