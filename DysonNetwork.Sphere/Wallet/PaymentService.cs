@@ -6,14 +6,23 @@ namespace DysonNetwork.Sphere.Wallet;
 
 public class PaymentService(AppDatabase db, WalletService wat)
 {
-    public async Task<Order> CreateOrderAsync(Guid payeeWalletId, string currency, decimal amount, Duration expiration)
+    public async Task<Order> CreateOrderAsync(
+        Guid? payeeWalletId,
+        string currency,
+        decimal amount,
+        Duration? expiration = null,
+        string? appIdentifier = null,
+        Dictionary<string, object>? meta = null
+    )
     {
         var order = new Order
         {
             PayeeWalletId = payeeWalletId,
             Currency = currency,
             Amount = amount,
-            ExpiredAt = SystemClock.Instance.GetCurrentInstant().Plus(expiration)
+            ExpiredAt = SystemClock.Instance.GetCurrentInstant().Plus(expiration ?? Duration.FromHours(24)),
+            AppIdentifier = appIdentifier,
+            Meta = meta
         };
 
         db.PaymentOrders.Add(order);

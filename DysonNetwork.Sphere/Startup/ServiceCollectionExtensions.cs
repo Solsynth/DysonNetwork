@@ -205,8 +205,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MagicSpellService>();
         services.AddScoped<NotificationService>();
         services.AddScoped<AuthService>();
-        services.AddScoped<AppleOidcService>();
-        services.AddScoped<GoogleOidcService>();
         services.AddScoped<AccountUsernameService>();
         services.AddScoped<FileService>();
         services.AddScoped<FileReferenceService>();
@@ -220,6 +218,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ChatService>();
         services.AddScoped<StickerService>();
         services.AddScoped<WalletService>();
+        services.AddScoped<SubscriptionService>();
         services.AddScoped<PaymentService>();
         services.AddScoped<IRealtimeService, LivekitRealtimeService>();
         services.AddScoped<WebReaderService>();

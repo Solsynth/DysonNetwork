@@ -5,6 +5,21 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet;
 
+public record class SubscriptionTypeData(
+    string Identifier,
+    decimal BasePrice
+)
+{
+    public static Dictionary<string, SubscriptionTypeData> SubscriptionDict =
+        new()
+        {
+            [SubscriptionType.Twinkle] = new SubscriptionTypeData(SubscriptionType.Twinkle, 0),
+            [SubscriptionType.Stellar] = new SubscriptionTypeData(SubscriptionType.Stellar, 10),
+            [SubscriptionType.Nova] = new SubscriptionTypeData(SubscriptionType.Nova, 20),
+            [SubscriptionType.Supernova] = new SubscriptionTypeData(SubscriptionType.Supernova, 30)
+        };
+}
+
 public abstract class SubscriptionType
 {
     /// <summary>
@@ -12,7 +27,7 @@ public abstract class SubscriptionType
     /// this is the prefix of all the stellar program subscriptions.
     /// </summary>
     public const string StellarProgram = "solian.stellar";
-    
+
     /// <summary>
     /// No actual usage, just tells there is a free level named twinkle.
     /// Applies to every registered user by default, so there is no need to create a record in db for that.
@@ -78,7 +93,7 @@ public class Subscription : ModelBase
     public bool IsFreeTrial { get; set; }
 
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Unpaid;
-    
+
     [MaxLength(4096)] public string PaymentMethod { get; set; } = null!;
     [Column(TypeName = "jsonb")] public PaymentDetails PaymentDetails { get; set; } = null!;
     public decimal BasePrice { get; set; }

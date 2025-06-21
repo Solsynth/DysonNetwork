@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Sphere.Developer;
 using NodaTime;
 
@@ -7,6 +8,7 @@ namespace DysonNetwork.Sphere.Wallet;
 public class WalletCurrency
 {
     public const string SourcePoint = "points";
+    public const string GoldenPoint = "golds";
 }
 
 public enum OrderStatus
@@ -24,11 +26,13 @@ public class Order : ModelBase
     public OrderStatus Status { get; set; } = OrderStatus.Unpaid;
     [MaxLength(128)] public string Currency { get; set; } = null!;
     [MaxLength(4096)] public string? Remarks { get; set; }
+    [MaxLength(4096)] public string? AppIdentifier { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     public decimal Amount { get; set; }
     public Instant ExpiredAt { get; set; }
     
-    public Guid PayeeWalletId { get; set; }
-    public Wallet PayeeWallet { get; set; } = null!;
+    public Guid? PayeeWalletId { get; set; }
+    public Wallet? PayeeWallet { get; set; } = null!;
     public Guid? TransactionId { get; set; }
     public Transaction? Transaction { get; set; }
     public Guid? IssuerAppId { get; set; }
