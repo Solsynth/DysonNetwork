@@ -77,7 +77,7 @@ public class DysonTokenAuthHandler(
                 {
                     // Store in cache for future requests
                     await cache.SetWithGroupsAsync(
-                        $"Auth_{sessionId}",
+                        $"auth:{sessionId}",
                         session,
                         [$"{AccountService.AccountCachePrefix}{session.Account.Id}"],
                         TimeSpan.FromHours(1)

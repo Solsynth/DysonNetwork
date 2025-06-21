@@ -6,7 +6,7 @@ namespace DysonNetwork.Sphere.Account;
 
 public class RelationshipService(AppDatabase db, ICacheService cache)
 {
-    private const string UserFriendsCacheKeyPrefix = "UserFriends_";
+    private const string UserFriendsCacheKeyPrefix = "user:friends:";
     
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
     {

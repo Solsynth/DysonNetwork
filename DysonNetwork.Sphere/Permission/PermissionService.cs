@@ -12,9 +12,9 @@ public class PermissionService(
 {
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromMinutes(1);
 
-    private const string PermCacheKeyPrefix = "Perm_";
-    private const string PermGroupCacheKeyPrefix = "PermCacheGroup_";
-    private const string PermissionGroupPrefix = "PermGroup_";
+    private const string PermCacheKeyPrefix = "perm:";
+    private const string PermGroupCacheKeyPrefix = "perm-cg:";
+    private const string PermissionGroupPrefix = "perm-g:";
 
     private static string _GetPermissionCacheKey(string actor, string area, string key) =>
         PermCacheKeyPrefix + actor + ":" + area + ":" + key;

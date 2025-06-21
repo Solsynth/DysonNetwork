@@ -6,9 +6,9 @@ namespace DysonNetwork.Sphere.Chat;
 
 public class ChatRoomService(AppDatabase db, ICacheService cache)
 {
-    public const string ChatRoomGroupPrefix = "ChatRoom_";
-    private const string RoomMembersCacheKeyPrefix = "ChatRoomMembers_";
-    private const string ChatMemberCacheKey = "ChatMember_{0}_{1}";
+    public const string ChatRoomGroupPrefix = "chatroom:";
+    private const string RoomMembersCacheKeyPrefix = "chatroom:members:";
+    private const string ChatMemberCacheKey = "chatroom:{0}:member:{1}";
 
     public async Task<List<ChatMember>> ListRoomMembers(Guid roomId)
     {
