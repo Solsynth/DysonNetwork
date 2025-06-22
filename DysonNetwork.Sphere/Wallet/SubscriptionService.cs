@@ -16,7 +16,8 @@ public class SubscriptionService(
     NotificationService nty,
     IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<SubscriptionService> logger
 )
 {
     public async Task<Subscription> CreateSubscriptionAsync(
@@ -100,8 +101,10 @@ public class SubscriptionService(
         {
             case "afdian":
                 var afdianPlans = cfgSection.GetValue<Dictionary<string, string>>("Afdian");
-                var afdianPlan = afdianPlans?.FirstOrDefault(p => p.Value == subscriptionIdentifier);
-                if (afdianPlan?.Key is not null) subscriptionIdentifier = afdianPlan.Value.Key;
+                logger.LogInformation("Afdian plans configuration: {Plans}", JsonSerializer.Serialize(afdianPlans));
+                if (afdianPlans != null && afdianPlans.TryGetValue(subscriptionIdentifier, out var planName))
+                    subscriptionIdentifier = planName;
+
                 currency = "cny";
                 break;
         }
@@ -164,7 +167,7 @@ public class SubscriptionService(
 
         db.WalletSubscriptions.Add(subscription);
         await db.SaveChangesAsync();
-        
+
         await NotifySubscriptionBegun(subscription);
 
         return subscription;
@@ -271,7 +274,7 @@ public class SubscriptionService(
                 .Where(a => a.AccountId == subscription.AccountId)
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.StellarMembership, subscription.ToReference()));
         }
-        
+
         await NotifySubscriptionBegun(subscription);
 
         return subscription;
