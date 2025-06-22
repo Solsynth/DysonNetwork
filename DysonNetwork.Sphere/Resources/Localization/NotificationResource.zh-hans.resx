@@ -6,10 +6,14 @@
         <value>1.3</value>
     </resheader>
     <resheader name="reader">
-        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
     </resheader>
     <resheader name="writer">
-        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
     </resheader>
     <data name="ChatInviteTitle" xml:space="preserve">
         <value>新聊天邀请</value>
@@ -57,16 +61,15 @@
         <value>{0} 是你的一次性验证码，它将会在五分钟内过期</value>
     </data>
     <data name="SubscriptionAppliedTitle" xml:space="preserve">
-        {0} 的订阅激活成功
+        <value>{0} 的订阅激活成功</value>
     </data>
     <data name="SubscriptionAppliedBody" xml:space="preserve">
-        感谢你支持 Solar Network 的开发！你的 {0} 天 {1} 订阅刚刚开始，
-        接下来来探索新解锁的新功能吧！
+        <value>感谢你支持 Solar Network 的开发！你的 {0} 天 {1} 订阅刚刚开始，接下来来探索新解锁的新功能吧！</value>
     </data>
     <data name="OrderPaidTitle" xml:space="preserve">
-        订单回执 {0}
+        <value>订单回执 {0}</value>
     </data>
     <data name="OrderPaidBody" xml:space="preserve">
-        {0} {1} 已从你的帐户中扣除来支付 {2}
+        <value>{0} {1} 已从你的帐户中扣除来支付 {2}</value>
     </data>
 </root>
