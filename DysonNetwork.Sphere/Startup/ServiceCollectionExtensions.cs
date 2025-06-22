@@ -25,6 +25,7 @@ using StackExchange.Redis;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using DysonNetwork.Sphere.Connection.WebReader;
+using DysonNetwork.Sphere.Wallet.PaymentHandlers;
 using tusdotnet.Stores;
 
 namespace DysonNetwork.Sphere.Startup;
@@ -222,6 +223,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentService>();
         services.AddScoped<IRealtimeService, LivekitRealtimeService>();
         services.AddScoped<WebReaderService>();
+        services.AddScoped<AfdianPaymentHandler>();
 
         return services;
     }

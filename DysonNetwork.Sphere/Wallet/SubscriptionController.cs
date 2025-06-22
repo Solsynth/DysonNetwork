@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Wallet.PaymentHandlers;
 
 namespace DysonNetwork.Sphere.Wallet;
 
 [ApiController]
 [Route("/subscriptions")]
-public class SubscriptionController(SubscriptionService subscriptions, AppDatabase db) : ControllerBase
+public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db) : ControllerBase
 {
     [HttpGet]
     [Authorize]
@@ -171,5 +172,32 @@ public class SubscriptionController(SubscriptionService subscriptions, AppDataba
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    public class RestorePurchaseRequest
+    {
+        [Required] public string OrderId { get; set; } = null!;
+    }
+
+    [HttpPost("order/restore/afdian")]
+    public async Task<IActionResult> RestorePurchaseFromAfdian([FromBody] RestorePurchaseRequest request)
+    {
+        var order = await afdian.GetOrderAsync(request.OrderId);
+        if (order is null) return NotFound($"Order with ID {request.OrderId} was not found.");
+        
+        var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
+        return Ok(subscription);
+    }
+
+    [HttpPost("order/handle/afdian")]
+    public async Task<IActionResult> AfdianWebhook()
+    {
+        var response = await afdian.HandleWebhook(Request, async (webhookData) =>
+        {
+            var order = webhookData.Order;
+            await subscriptions.CreateSubscriptionFromOrder(order);
+        });
+
+        return Ok(response);
     }
 }

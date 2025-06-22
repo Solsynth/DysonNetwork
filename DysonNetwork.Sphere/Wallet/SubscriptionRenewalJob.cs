@@ -152,16 +152,15 @@ public class SubscriptionRenewalJob(
         var validSubscriptions = await db.WalletSubscriptions
             .Where(s => membershipIds.Contains(s.Id))
             .Where(s => s.IsActive)
-            .Where(s => !s.EndedAt.HasValue || s.EndedAt.Value > now)
-            .Select(s => s.Id)
             .ToListAsync();
+        var validSubscriptionsId = validSubscriptions
+            .Where(s => s.IsAvailable)
+            .Select(s => s.Id)
+            .ToList();
 
         // Identify accounts that need updating (membership expired or not in validSubscriptions)
         var accountIdsToUpdate = accountsWithMemberships
-            .Where(a => a.StellarMembership != null && (
-                (a.StellarMembership.EndedAt.HasValue && a.StellarMembership.EndedAt.Value <= now) ||
-                !validSubscriptions.Contains(a.StellarMembership.Id)
-            ))
+            .Where(a => a.StellarMembership != null && !validSubscriptionsId.Contains(a.StellarMembership.Id))
             .Select(a => a.Id)
             .ToList();
 

@@ -1,11 +1,19 @@
 using System.Text.Json;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Wallet.PaymentHandlers;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet;
 
-public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheService cache)
+public class SubscriptionService(
+    AppDatabase db,
+    PaymentService payment,
+    AccountService accounts,
+    IConfiguration configuration,
+    ICacheService cache
+)
 {
     public async Task<Subscription> CreateSubscriptionAsync(
         Account.Account account,
@@ -68,6 +76,85 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
             CouponId = couponData?.Id,
             Coupon = couponData,
             RenewalAt = (isFreeTrial || !isAutoRenewal) ? null : now.Plus(cycleDuration.Value),
+            AccountId = account.Id,
+        };
+
+        db.WalletSubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
+
+        return subscription;
+    }
+
+    public async Task<Subscription> CreateSubscriptionFromOrder(ISubscriptionOrder order)
+    {
+        var cfgSection = configuration.GetSection("Payment:Subscriptions");
+        var provider = order.Provider;
+
+        var currency = "irl";
+        var subscriptionIdentifier = order.SubscriptionId;
+        switch (provider)
+        {
+            case "afdian":
+                var afdianPlans = cfgSection.GetValue<Dictionary<string, string>>("Afdian");
+                var afdianPlan = afdianPlans?.FirstOrDefault(p => p.Value == subscriptionIdentifier);
+                if (afdianPlan?.Key is not null) subscriptionIdentifier = afdianPlan.Value.Key;
+                currency = "cny";
+                break;
+            default:
+                break;
+        }
+
+        var subscriptionTemplate = SubscriptionTypeData
+            .SubscriptionDict.TryGetValue(subscriptionIdentifier, out var template)
+            ? template
+            : null;
+        if (subscriptionTemplate is null)
+            throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier), $@"Subscription {subscriptionIdentifier} was not found.");
+
+        Account.Account? account = null;
+        if (!string.IsNullOrEmpty(provider))
+            account = await accounts.LookupAccountByConnection(order.AccountId, provider);
+        else if (Guid.TryParse(order.AccountId, out var accountId))
+            account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+
+        if (account is null)
+            throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
+
+        var cycleDuration = order.Duration;
+
+        var existingSubscription = await GetSubscriptionAsync(account.Id, subscriptionIdentifier);
+        if (existingSubscription is not null && existingSubscription.PaymentMethod != provider)
+            throw new InvalidOperationException($"Active subscription with identifier {subscriptionIdentifier} already exists.");
+        if (existingSubscription?.PaymentDetails.OrderId == order.Id)
+            return existingSubscription;
+        if (existingSubscription is not null)
+        {
+            // Same provider, but different order, renew the subscription
+            existingSubscription.PaymentDetails.OrderId = order.Id;
+            existingSubscription.EndedAt = order.BegunAt.Plus(cycleDuration);
+            existingSubscription.RenewalAt = order.BegunAt.Plus(cycleDuration);
+            existingSubscription.Status = SubscriptionStatus.Paid;
+
+            db.Update(existingSubscription);
+            await db.SaveChangesAsync();
+
+            return existingSubscription;
+        }
+
+        var subscription = new Subscription
+        {
+            BegunAt = order.BegunAt,
+            EndedAt = order.BegunAt.Plus(cycleDuration),
+            IsActive = true,
+            Status = SubscriptionStatus.Unpaid,
+            PaymentMethod = provider,
+            PaymentDetails = new PaymentDetails
+            {
+                Currency = currency,
+                OrderId = order.Id,
+            },
+            BasePrice = subscriptionTemplate.BasePrice,
+            RenewalAt = order.BegunAt.Plus(cycleDuration),
             AccountId = account.Id,
         };
 
@@ -217,6 +304,8 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
     }
 
     private const string SubscriptionCacheKeyPrefix = "subscription:";
+
+    public AccountService Accounts { get; } = accounts;
 
     public async Task<Subscription?> GetSubscriptionAsync(Guid accountId, string identifier)
     {

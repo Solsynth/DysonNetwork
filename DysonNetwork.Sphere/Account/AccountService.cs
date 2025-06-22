@@ -57,6 +57,15 @@ public class AccountService(
         return contact?.Account;
     }
 
+    public async Task<Account?> LookupAccountByConnection(string identifier, string provider)
+    {
+        var connection = await db.AccountConnections
+            .Where(c => c.ProvidedIdentifier == identifier && c.Provider == provider)
+            .Include(c => c.Account)
+            .FirstOrDefaultAsync();
+        return connection?.Account;
+    }
+
     public async Task<int?> GetAccountLevel(Guid accountId)
     {
         var profile = await db.AccountProfiles
