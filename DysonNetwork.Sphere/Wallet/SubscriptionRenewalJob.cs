@@ -41,11 +41,12 @@ public class SubscriptionRenewalJob(
         logger.LogInformation("Found {TotalSubscriptions} subscriptions due for renewal", totalSubscriptions);
 
         foreach (var subscription in subscriptionsToRenew)
-        {            
+        {
             try
             {
                 processedCount++;
-                logger.LogDebug("Processing renewal for subscription {SubscriptionId} (Identifier: {Identifier}) for account {AccountId}", 
+                logger.LogDebug(
+                    "Processing renewal for subscription {SubscriptionId} (Identifier: {Identifier}) for account {AccountId}",
                     subscription.Id, subscription.Identifier, subscription.AccountId);
 
                 // Calculate next cycle duration based on current cycle
@@ -72,7 +73,7 @@ public class SubscriptionRenewalJob(
                     {
                         var wallet = await walletService.GetWalletAsync(subscription.AccountId);
                         if (wallet is null) continue;
-                        
+
                         // Process automatic payment from wallet
                         await paymentService.PayOrderAsync(order.Id, wallet.Id);
 
@@ -90,14 +91,15 @@ public class SubscriptionRenewalJob(
                     catch (Exception ex)
                     {
                         // If auto-payment fails, mark for manual payment
-                        logger.LogWarning(ex, "Failed to auto-renew subscription {SubscriptionId} with wallet payment", subscription.Id);
+                        logger.LogWarning(ex, "Failed to auto-renew subscription {SubscriptionId} with wallet payment",
+                            subscription.Id);
                         failedCount++;
                     }
                 }
                 else
                 {
                     // For other payment methods, mark as pending payment
-                    logger.LogInformation("Subscription {SubscriptionId} requires manual payment via {PaymentMethod}", 
+                    logger.LogInformation("Subscription {SubscriptionId} requires manual payment via {PaymentMethod}",
                         subscription.Id, subscription.PaymentMethod);
                     failedCount++;
                 }
@@ -117,7 +119,69 @@ public class SubscriptionRenewalJob(
             }
         }
 
-        logger.LogInformation("Completed subscription renewal job. Processed: {ProcessedCount}, Renewed: {RenewedCount}, Failed: {FailedCount}",
+        logger.LogInformation(
+            "Completed subscription renewal job. Processed: {ProcessedCount}, Renewed: {RenewedCount}, Failed: {FailedCount}",
             processedCount, renewedCount, failedCount);
+
+        logger.LogInformation("Validating user stellar memberships...");
+
+        // Get all account IDs with StellarMembership
+        var accountsWithMemberships = await db.AccountProfiles
+            .Where(a => a.StellarMembership != null)
+            .Select(a => new { a.Id, a.StellarMembership })
+            .ToListAsync();
+
+        logger.LogInformation("Found {Count} accounts with stellar memberships to validate",
+            accountsWithMemberships.Count);
+
+        if (accountsWithMemberships.Count == 0)
+        {
+            logger.LogInformation("No stellar memberships found to validate");
+            return;
+        }
+
+        // Get all subscription IDs from StellarMemberships
+        var memberships = accountsWithMemberships
+            .Where(a => a.StellarMembership != null)
+            .Select(a => a.StellarMembership)
+            .Distinct()
+            .ToList();
+        var membershipIds = memberships.Select(m => m!.Id).ToList();
+
+        // Get all valid subscriptions in a single query
+        var validSubscriptions = await db.WalletSubscriptions
+            .Where(s => membershipIds.Contains(s.Id))
+            .Where(s => s.IsActive)
+            .Where(s => !s.EndedAt.HasValue || s.EndedAt.Value > now)
+            .Select(s => s.Id)
+            .ToListAsync();
+
+        // Identify accounts that need updating (membership expired or not in validSubscriptions)
+        var accountIdsToUpdate = accountsWithMemberships
+            .Where(a => a.StellarMembership != null && (
+                (a.StellarMembership.EndedAt.HasValue && a.StellarMembership.EndedAt.Value <= now) ||
+                !validSubscriptions.Contains(a.StellarMembership.Id)
+            ))
+            .Select(a => a.Id)
+            .ToList();
+
+        // Log the IDs that will be updated for debugging
+        logger.LogDebug("Accounts with expired or invalid memberships: {AccountIds}",
+            string.Join(", ", accountIdsToUpdate));
+
+        if (accountIdsToUpdate.Count == 0)
+        {
+            logger.LogInformation("No expired/invalid stellar memberships found");
+            return;
+        }
+
+        // Update all accounts in a single batch operation
+        var updatedCount = await db.AccountProfiles
+            .Where(a => accountIdsToUpdate.Contains(a.Id))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.StellarMembership, p => null)
+            );
+
+        logger.LogInformation("Updated {Count} accounts with expired/invalid stellar memberships", updatedCount);
     }
 }
