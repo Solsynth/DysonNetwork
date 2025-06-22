@@ -190,9 +190,9 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     }
 
     [HttpPost("order/handle/afdian")]
-    public async Task<IActionResult> AfdianWebhook()
+    public async Task<ActionResult<WebhookResponse>> AfdianWebhook()
     {
-        var response = await afdian.HandleWebhook(Request, async (webhookData) =>
+        var response = await afdian.HandleWebhook(Request, async webhookData =>
         {
             var order = webhookData.Order;
             await subscriptions.CreateSubscriptionFromOrder(order);

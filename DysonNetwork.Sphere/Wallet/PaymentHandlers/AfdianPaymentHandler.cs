@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet.PaymentHandlers;
@@ -19,6 +20,12 @@ public class AfdianPaymentHandler(
     private readonly IConfiguration _configuration =
         configuration ?? throw new ArgumentNullException(nameof(configuration));
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
     private string CalculateSign(string token, string userId, string paramsJson, long ts)
     {
         var kvString = $"{token}params{paramsJson}ts{ts}user_id{userId}";
@@ -35,7 +42,7 @@ public class AfdianPaymentHandler(
         {
             var userId = "abc"; // Replace with your actual USER_ID
             var token = _configuration["Payment:Auth:Afdian"] ?? "<token here>";
-            var paramsJson = JsonConvert.SerializeObject(new { page });
+            var paramsJson = JsonSerializer.Serialize(new { page }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
 
@@ -44,13 +51,13 @@ public class AfdianPaymentHandler(
             var client = _httpClientFactory.CreateClient();
             var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
             {
-                Content = new StringContent(JsonConvert.SerializeObject(new
+                Content = new StringContent(JsonSerializer.Serialize(new
                 {
                     user_id = userId,
                     @params = paramsJson,
                     ts,
                     sign
-                }), Encoding.UTF8, "application/json")
+                }, JsonOptions), Encoding.UTF8, "application/json")
             };
 
             var response = await client.SendAsync(request);
@@ -61,7 +68,8 @@ public class AfdianPaymentHandler(
                 return null;
             }
 
-            var result = JsonConvert.DeserializeObject<OrderResponse>(await response.Content.ReadAsStringAsync());
+            var result = await JsonSerializer.DeserializeAsync<OrderResponse>(
+                await response.Content.ReadAsStreamAsync(), JsonOptions);
             return result;
         }
         catch (Exception ex)
@@ -88,7 +96,7 @@ public class AfdianPaymentHandler(
         {
             var userId = "abc"; // Replace with your actual USER_ID
             var token = _configuration["Payment:Auth:Afdian"] ?? "<token here>";
-            var paramsJson = JsonConvert.SerializeObject(new { out_trade_no = orderId });
+            var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderId }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
 
@@ -97,13 +105,13 @@ public class AfdianPaymentHandler(
             var client = _httpClientFactory.CreateClient();
             var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
             {
-                Content = new StringContent(JsonConvert.SerializeObject(new
+                Content = new StringContent(JsonSerializer.Serialize(new
                 {
                     user_id = userId,
                     @params = paramsJson,
                     ts,
                     sign
-                }), Encoding.UTF8, "application/json")
+                }, JsonOptions), Encoding.UTF8, "application/json")
             };
 
             var response = await client.SendAsync(request);
@@ -114,7 +122,8 @@ public class AfdianPaymentHandler(
                 return null;
             }
 
-            var result = JsonConvert.DeserializeObject<OrderResponse>(await response.Content.ReadAsStringAsync());
+            var result = await JsonSerializer.DeserializeAsync<OrderResponse>(
+                await response.Content.ReadAsStreamAsync(), JsonOptions);
 
             // Check if we have a valid response and orders in the list
             if (result?.Data?.Orders == null || result.Data.Orders.Count == 0)
@@ -153,7 +162,7 @@ public class AfdianPaymentHandler(
 
             var userId = "abc"; // Replace with your actual USER_ID
             var token = _configuration["Payment:Auth:Afdian"] ?? "<token here>";
-            var paramsJson = JsonConvert.SerializeObject(new { out_trade_no = orderIdsParam });
+            var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderIdsParam }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
 
@@ -162,13 +171,13 @@ public class AfdianPaymentHandler(
             var client = _httpClientFactory.CreateClient();
             var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
             {
-                Content = new StringContent(JsonConvert.SerializeObject(new
+                Content = new StringContent(JsonSerializer.Serialize(new
                 {
                     user_id = userId,
                     @params = paramsJson,
                     ts,
                     sign
-                }), Encoding.UTF8, "application/json")
+                }, JsonOptions), Encoding.UTF8, "application/json")
             };
 
             var response = await client.SendAsync(request);
@@ -179,7 +188,8 @@ public class AfdianPaymentHandler(
                 return new List<OrderItem>();
             }
 
-            var result = JsonConvert.DeserializeObject<OrderResponse>(await response.Content.ReadAsStringAsync());
+            var result = await JsonSerializer.DeserializeAsync<OrderResponse>(
+                await response.Content.ReadAsStreamAsync(), JsonOptions);
 
             // Check if we have a valid response and orders in the list
             if (result?.Data?.Orders == null || result.Data.Orders.Count == 0)
@@ -228,7 +238,7 @@ public class AfdianPaymentHandler(
             _logger.LogInformation($"Received webhook: {requestBody}");
 
             // Parse the webhook data
-            var webhook = JsonConvert.DeserializeObject<WebhookRequest>(requestBody);
+            var webhook = JsonSerializer.Deserialize<WebhookRequest>(requestBody, JsonOptions);
 
             if (webhook == null)
             {
@@ -287,63 +297,63 @@ public class AfdianPaymentHandler(
 
 public class OrderResponse
 {
-    [JsonProperty("ec")] public int ErrorCode { get; set; }
+    [JsonPropertyName("ec")] public int ErrorCode { get; set; }
 
-    [JsonProperty("em")] public string ErrorMessage { get; set; } = null!;
+    [JsonPropertyName("em")] public string ErrorMessage { get; set; } = null!;
 
-    [JsonProperty("data")] public OrderData Data { get; set; } = null!;
+    [JsonPropertyName("data")] public OrderData Data { get; set; } = null!;
 }
 
 public class OrderData
 {
-    [JsonProperty("list")] public List<OrderItem> Orders { get; set; } = null!;
+    [JsonPropertyName("list")] public List<OrderItem> Orders { get; set; } = null!;
 
-    [JsonProperty("total_count")] public int TotalCount { get; set; }
+    [JsonPropertyName("total_count")] public int TotalCount { get; set; }
 
-    [JsonProperty("total_page")] public int TotalPages { get; set; }
+    [JsonPropertyName("total_page")] public int TotalPages { get; set; }
 
-    [JsonProperty("request")] public RequestDetails Request { get; set; } = null!;
+    [JsonPropertyName("request")] public RequestDetails Request { get; set; } = null!;
 }
 
 public class OrderItem : ISubscriptionOrder
 {
-    [JsonProperty("out_trade_no")] public string TradeNumber { get; set; } = null!;
+    [JsonPropertyName("out_trade_no")] public string TradeNumber { get; set; } = null!;
 
-    [JsonProperty("user_id")] public string UserId { get; set; } = null!;
+    [JsonPropertyName("user_id")] public string UserId { get; set; } = null!;
 
-    [JsonProperty("plan_id")] public string PlanId { get; set; } = null!;
+    [JsonPropertyName("plan_id")] public string PlanId { get; set; } = null!;
 
-    [JsonProperty("month")] public int Months { get; set; }
+    [JsonPropertyName("month")] public int Months { get; set; }
 
-    [JsonProperty("total_amount")] public string TotalAmount { get; set; } = null!;
+    [JsonPropertyName("total_amount")] public string TotalAmount { get; set; } = null!;
 
-    [JsonProperty("show_amount")] public string ShowAmount { get; set; } = null!;
+    [JsonPropertyName("show_amount")] public string ShowAmount { get; set; } = null!;
 
-    [JsonProperty("status")] public int Status { get; set; }
+    [JsonPropertyName("status")] public int Status { get; set; }
 
-    [JsonProperty("remark")] public string Remark { get; set; } = null!;
+    [JsonPropertyName("remark")] public string Remark { get; set; } = null!;
 
-    [JsonProperty("redeem_id")] public string RedeemId { get; set; } = null!;
+    [JsonPropertyName("redeem_id")] public string RedeemId { get; set; } = null!;
 
-    [JsonProperty("product_type")] public int ProductType { get; set; }
+    [JsonPropertyName("product_type")] public int ProductType { get; set; }
 
-    [JsonProperty("discount")] public string Discount { get; set; } = null!;
+    [JsonPropertyName("discount")] public string Discount { get; set; } = null!;
 
-    [JsonProperty("sku_detail")] public List<object> SkuDetail { get; set; } = null!;
+    [JsonPropertyName("sku_detail")] public List<object> SkuDetail { get; set; } = null!;
 
-    [JsonProperty("create_time")] public long CreateTime { get; set; }
+    [JsonPropertyName("create_time")] public long CreateTime { get; set; }
 
-    [JsonProperty("user_name")] public string UserName { get; set; } = null!;
+    [JsonPropertyName("user_name")] public string UserName { get; set; } = null!;
 
-    [JsonProperty("plan_title")] public string PlanTitle { get; set; } = null!;
+    [JsonPropertyName("plan_title")] public string PlanTitle { get; set; } = null!;
 
-    [JsonProperty("user_private_id")] public string UserPrivateId { get; set; } = null!;
+    [JsonPropertyName("user_private_id")] public string UserPrivateId { get; set; } = null!;
 
-    [JsonProperty("address_person")] public string AddressPerson { get; set; } = null!;
+    [JsonPropertyName("address_person")] public string AddressPerson { get; set; } = null!;
 
-    [JsonProperty("address_phone")] public string AddressPhone { get; set; } = null!;
+    [JsonPropertyName("address_phone")] public string AddressPhone { get; set; } = null!;
 
-    [JsonProperty("address_address")] public string AddressAddress { get; set; } = null!;
+    [JsonPropertyName("address_address")] public string AddressAddress { get; set; } = null!;
 
     public Instant BegunAt => Instant.FromUnixTimeSeconds(CreateTime);
 
@@ -360,13 +370,13 @@ public class OrderItem : ISubscriptionOrder
 
 public class RequestDetails
 {
-    [JsonProperty("user_id")] public string UserId { get; set; } = null!;
+    [JsonPropertyName("user_id")] public string UserId { get; set; } = null!;
 
-    [JsonProperty("params")] public string Params { get; set; } = null!;
+    [JsonPropertyName("params")] public string Params { get; set; } = null!;
 
-    [JsonProperty("ts")] public long Timestamp { get; set; }
+    [JsonPropertyName("ts")] public long Timestamp { get; set; }
 
-    [JsonProperty("sign")] public string Sign { get; set; } = null!;
+    [JsonPropertyName("sign")] public string Sign { get; set; } = null!;
 }
 
 /// <summary>
@@ -374,11 +384,11 @@ public class RequestDetails
 /// </summary>
 public class WebhookRequest
 {
-    [JsonProperty("ec")] public int ErrorCode { get; set; }
+    [JsonPropertyName("ec")] public int ErrorCode { get; set; }
 
-    [JsonProperty("em")] public string ErrorMessage { get; set; } = null!;
+    [JsonPropertyName("em")] public string ErrorMessage { get; set; } = null!;
 
-    [JsonProperty("data")] public WebhookOrderData Data { get; set; } = null!;
+    [JsonPropertyName("data")] public WebhookOrderData Data { get; set; } = null!;
 }
 
 /// <summary>
@@ -386,9 +396,9 @@ public class WebhookRequest
 /// </summary>
 public class WebhookOrderData
 {
-    [JsonProperty("type")] public string Type { get; set; } = null!;
+    [JsonPropertyName("type")] public string Type { get; set; } = null!;
 
-    [JsonProperty("order")] public WebhookOrderDetails Order { get; set; } = null!;
+    [JsonPropertyName("order")] public WebhookOrderDetails Order { get; set; } = null!;
 }
 
 /// <summary>
@@ -396,7 +406,7 @@ public class WebhookOrderData
 /// </summary>
 public class WebhookOrderDetails : OrderItem
 {
-    [JsonProperty("custom_order_id")] public string CustomOrderId { get; set; } = null!;
+    [JsonPropertyName("custom_order_id")] public string CustomOrderId { get; set; } = null!;
 }
 
 /// <summary>
@@ -404,9 +414,9 @@ public class WebhookOrderDetails : OrderItem
 /// </summary>
 public class WebhookResponse
 {
-    [JsonProperty("ec")] public int ErrorCode { get; set; } = 200;
+    [JsonPropertyName("ec")] public int ErrorCode { get; set; } = 200;
 
-    [JsonProperty("em")] public string ErrorMessage { get; set; } = "";
+    [JsonPropertyName("em")] public string ErrorMessage { get; set; } = "";
 
     public static WebhookResponse Success => new()
     {
@@ -420,13 +430,13 @@ public class WebhookResponse
 /// </summary>
 public class SkuDetailItem
 {
-    [JsonProperty("sku_id")] public string SkuId { get; set; } = null!;
+    [JsonPropertyName("sku_id")] public string SkuId { get; set; } = null!;
 
-    [JsonProperty("count")] public int Count { get; set; }
+    [JsonPropertyName("count")] public int Count { get; set; }
 
-    [JsonProperty("name")] public string Name { get; set; } = null!;
+    [JsonPropertyName("name")] public string Name { get; set; } = null!;
 
-    [JsonProperty("album_id")] public string AlbumId { get; set; } = null!;
+    [JsonPropertyName("album_id")] public string AlbumId { get; set; } = null!;
 
-    [JsonProperty("pic")] public string Picture { get; set; } = null!;
+    [JsonPropertyName("pic")] public string Picture { get; set; } = null!;
 }
