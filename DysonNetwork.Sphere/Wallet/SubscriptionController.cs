@@ -36,6 +36,24 @@ public class SubscriptionController(SubscriptionService subscriptions, AppDataba
         return subscriptionsList;
     }
 
+    [HttpGet("fuzzy/{prefix}")]
+    [Authorize]
+    public async Task<ActionResult<Subscription>> GetSubscriptionFuzzy(string prefix)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var subs = await db.WalletSubscriptions
+            .Where(s => s.AccountId == currentUser.Id && s.IsActive)
+            .Where(s => EF.Functions.ILike(s.Identifier, prefix + "%"))
+            .OrderByDescending(s => s.BegunAt)
+            .ToListAsync();
+        if (subs.Count == 0) return NotFound();
+        var subscription = subs.FirstOrDefault(s => s.IsAvailable);
+        if (subscription is null) return NotFound();
+
+        return Ok(subscription);
+    }
+
     [HttpGet("{identifier}")]
     [Authorize]
     public async Task<ActionResult<Subscription>> GetSubscription(string identifier)
@@ -70,9 +88,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AppDataba
 
         Duration? cycleDuration = null;
         if (request.CycleDurationDays.HasValue)
-        {
             cycleDuration = Duration.FromDays(request.CycleDurationDays.Value);
-        }
 
         try
         {

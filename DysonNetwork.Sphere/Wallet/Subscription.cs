@@ -10,7 +10,7 @@ public record class SubscriptionTypeData(
     decimal BasePrice
 )
 {
-    public static Dictionary<string, SubscriptionTypeData> SubscriptionDict =
+    public static readonly Dictionary<string, SubscriptionTypeData> SubscriptionDict =
         new()
         {
             [SubscriptionType.Twinkle] = new SubscriptionTypeData(SubscriptionType.Twinkle, 0),
@@ -145,8 +145,7 @@ public class Subscription : ModelBase
         return new SubscriptionReferenceObject
         {
             Id = Id,
-            BegunAt = BegunAt,
-            EndedAt = EndedAt,
+            Status = Status,
             Identifier = Identifier,
             IsActive = IsActive,
             AccountId = AccountId,
@@ -166,9 +165,8 @@ public class PaymentDetails
 public class SubscriptionReferenceObject : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Instant BegunAt { get; set; }
-    public Instant? EndedAt { get; set; }
-    [MaxLength(4096)] public string Identifier { get; set; } = null!;
+    public SubscriptionStatus Status { get; set; }
+    public string Identifier { get; set; } = null!;
     public bool IsActive { get; set; } = true;
     public Guid AccountId { get; set; }
 }

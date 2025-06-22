@@ -155,19 +155,23 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
         if (subscription is null)
             throw new InvalidOperationException("Invalid order.");
 
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var cycle = subscription.BegunAt.Minus(subscription.RenewalAt ?? now);
+        if (subscription.Status == SubscriptionStatus.Expired)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var cycle = subscription.BegunAt.Minus(subscription.RenewalAt ?? subscription.EndedAt ?? now);
 
-        var nextRenewalAt = subscription.RenewalAt?.Plus(cycle);
-        var nextEndedAt = subscription.RenewalAt?.Plus(cycle);
+            var nextRenewalAt = subscription.RenewalAt?.Plus(cycle);
+            var nextEndedAt = subscription.EndedAt?.Plus(cycle);
+
+            subscription.RenewalAt = nextRenewalAt;
+            subscription.EndedAt = nextEndedAt;
+        }
 
         subscription.Status = SubscriptionStatus.Paid;
-        subscription.RenewalAt = nextRenewalAt;
-        subscription.EndedAt = nextEndedAt;
 
         db.Update(subscription);
         await db.SaveChangesAsync();
-        
+
         if (subscription.Identifier.StartsWith(SubscriptionType.StellarProgram))
         {
             await db.AccountProfiles
