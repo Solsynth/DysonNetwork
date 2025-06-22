@@ -203,8 +203,13 @@ public class AfdianPaymentHandler(
     /// <param name="request">The HTTP request containing webhook data</param>
     /// <param name="processOrderAction">An action to process the received order</param>
     /// <returns>A WebhookResponse object to be returned to Afdian</returns>
-    public async Task<WebhookResponse> HandleWebhook(HttpRequest request, Func<WebhookOrderData, Task>? processOrderAction)
+    public async Task<WebhookResponse> HandleWebhook(
+        HttpRequest request,
+        Func<WebhookOrderData, Task>? processOrderAction
+    )
     {
+        _logger.LogInformation("Received webhook request from afdian...");
+
         try
         {
             // Read the request body
@@ -235,7 +240,7 @@ public class AfdianPaymentHandler(
             if (webhook.Data.Type != "order")
             {
                 _logger.LogWarning($"Unsupported webhook type: {webhook.Data.Type}");
-                return new WebhookResponse { ErrorCode = 200, ErrorMessage = "Unsupported type, but acknowledged" };
+                return WebhookResponse.Success;
             }
 
             // Process the order
@@ -246,7 +251,8 @@ public class AfdianPaymentHandler(
                 if (processOrderAction != null)
                     await processOrderAction(webhook.Data);
                 else
-                    _logger.LogInformation($"Order received but no processing action provided: {webhook.Data.Order.TradeNumber}");
+                    _logger.LogInformation(
+                        $"Order received but no processing action provided: {webhook.Data.Order.TradeNumber}");
             }
             catch (Exception ex)
             {
@@ -256,12 +262,12 @@ public class AfdianPaymentHandler(
             }
 
             // Return success response to Afdian
-            return new WebhookResponse { ErrorCode = 200, ErrorMessage = "" };
+            return WebhookResponse.Success;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling webhook");
-            return new WebhookResponse { ErrorCode = 500, ErrorMessage = "Internal server error" };
+            return WebhookResponse.Success;
         }
     }
 
@@ -401,6 +407,12 @@ public class WebhookResponse
     [JsonProperty("ec")] public int ErrorCode { get; set; } = 200;
 
     [JsonProperty("em")] public string ErrorMessage { get; set; } = "";
+
+    public static WebhookResponse Success => new()
+    {
+        ErrorCode = 200,
+        ErrorMessage = string.Empty
+    };
 }
 
 /// <summary>
