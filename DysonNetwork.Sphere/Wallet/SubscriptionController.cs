@@ -136,7 +136,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AppDataba
 
     public class SubscriptionOrderRequest
     {
-        [Required] public string OrderId { get; set; } = null!;
+        [Required] public Guid OrderId { get; set; }
     }
 
     [HttpPost("order/handle")]

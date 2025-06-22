@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -139,16 +140,16 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
     public async Task<Subscription> HandleSubscriptionOrder(Order order)
     {
         if (order.AppIdentifier != SubscriptionOrderIdentifier || order.Status != OrderStatus.Paid ||
-            order.Meta?["subscription_id"] is not string subscriptionId)
+            order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
             throw new InvalidOperationException("Invalid order.");
 
-        var subscriptionIdParsed = Guid.TryParse(subscriptionId, out var parsedSubscriptionId)
+        var subscriptionId = Guid.TryParse(subscriptionIdJson.ToString(), out var parsedSubscriptionId)
             ? parsedSubscriptionId
             : Guid.Empty;
-        if (subscriptionIdParsed == Guid.Empty)
+        if (subscriptionId == Guid.Empty)
             throw new InvalidOperationException("Invalid order.");
         var subscription = await db.WalletSubscriptions
-            .Where(s => s.Id == subscriptionIdParsed)
+            .Where(s => s.Id == subscriptionId)
             .Include(s => s.Coupon)
             .FirstOrDefaultAsync();
         if (subscription is null)

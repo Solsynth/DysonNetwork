@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +8,7 @@ namespace DysonNetwork.Sphere.Wallet;
 
 [ApiController]
 [Route("/wallets")]
-public class WalletController(AppDatabase db, WalletService ws) : ControllerBase
+public class WalletController(AppDatabase db, WalletService ws, PaymentService payment) : ControllerBase
 {
     [HttpPost]
     [Authorize]
@@ -60,5 +62,40 @@ public class WalletController(AppDatabase db, WalletService ws) : ControllerBase
         Response.Headers["X-Total"] = transactionCount.ToString();
 
         return Ok(transactions);
+    }
+
+    public class WalletBalanceRequest
+    {
+        public string? Remark { get; set; }
+        [Required] public decimal Amount { get; set; }
+        [Required] public string Currency { get; set; } = null!;
+        [Required] public Guid AccountId { get; set; }
+    }
+
+    [HttpPost("balance")]
+    [Authorize]
+    [RequiredPermission("maintenance", "wallets.balance.modify")]
+    public async Task<ActionResult<Transaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
+    {
+        var wallet = await ws.GetWalletAsync(request.AccountId);
+        if (wallet is null) return NotFound("Wallet was not found.");
+
+        var transaction = request.Amount >= 0
+            ? await payment.CreateTransactionAsync(
+                payerWalletId: null,
+                payeeWalletId: wallet.Id,
+                currency: request.Currency,
+                amount: request.Amount,
+                remarks: request.Remark
+            )
+            : await payment.CreateTransactionAsync(
+                payerWalletId: wallet.Id,
+                payeeWalletId: null,
+                currency: request.Currency,
+                amount: request.Amount,
+                remarks: request.Remark
+            );
+
+        return Ok(transaction);
     }
 }
