@@ -47,49 +47,6 @@ public class AfdianOidcService(
 
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)
     {
-        var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code);
-        if (tokenResponse?.AccessToken == null)
-        {
-            throw new InvalidOperationException("Failed to obtain access token from Afdian");
-        }
-
-        var userInfo = await GetUserInfoAsync(tokenResponse.AccessToken);
-
-        userInfo.AccessToken = tokenResponse.AccessToken;
-        userInfo.RefreshToken = tokenResponse.RefreshToken;
-
-        return userInfo;
-    }
-
-    protected override async Task<OidcTokenResponse?> ExchangeCodeForTokensAsync(
-        string code,
-        string? codeVerifier = null
-    )
-    {
-        var config = GetProviderConfig();
-        var client = HttpClientFactory.CreateClient();
-
-        var content = new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            { "client_id", config.ClientId },
-            { "client_secret", config.ClientSecret },
-            { "grant_type", "authorization_code" },
-            { "code", code },
-            { "redirect_uri", config.RedirectUri },
-        });
-
-        var response = await client.PostAsync("https://afdian.com/api/oauth2/access_token", content);
-        response.EnsureSuccessStatusCode();
-
-        return new OidcTokenResponse()
-        {
-            AccessToken = code,
-            ExpiresIn = 3600
-        };
-    }
-
-    private async Task<OidcUserInfo> GetUserInfoAsync(string accessToken)
-    {
         try
         {
             var config = GetProviderConfig();
@@ -98,7 +55,7 @@ public class AfdianOidcService(
                 { "client_id", config.ClientId },
                 { "client_secret", config.ClientSecret },
                 { "grant_type", "authorization_code" },
-                { "code", accessToken },
+                { "code", callbackData.Code },
                 { "redirect_uri", config.RedirectUri },
             });
 
