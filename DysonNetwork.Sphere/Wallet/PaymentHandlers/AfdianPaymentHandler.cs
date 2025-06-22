@@ -40,8 +40,10 @@ public class AfdianPaymentHandler(
     {
         try
         {
-            var userId = "abc"; // Replace with your actual USER_ID
-            var token = _configuration["Payment:Auth:Afdian"] ?? "<token here>";
+            var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
+            var tokenParts = token.Split(':');
+            var userId = tokenParts[0];
+            token = tokenParts[1];
             var paramsJson = JsonSerializer.Serialize(new { page }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
@@ -94,8 +96,10 @@ public class AfdianPaymentHandler(
 
         try
         {
-            var userId = "abc"; // Replace with your actual USER_ID
-            var token = _configuration["Payment:Auth:Afdian"] ?? "<token here>";
+            var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
+            var tokenParts = token.Split(':');
+            var userId = tokenParts[0];
+            token = tokenParts[1];
             var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderId }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
@@ -126,7 +130,7 @@ public class AfdianPaymentHandler(
                 await response.Content.ReadAsStreamAsync(), JsonOptions);
 
             // Check if we have a valid response and orders in the list
-            if (result?.Data?.Orders == null || result.Data.Orders.Count == 0)
+            if (result?.Data.Orders == null || result.Data.Orders.Count == 0)
             {
                 _logger.LogWarning($"No order found with ID: {orderId}");
                 return null;
@@ -147,21 +151,24 @@ public class AfdianPaymentHandler(
     /// </summary>
     /// <param name="orderIds">A collection of order IDs to query</param>
     /// <returns>A list of found order items</returns>
-    public async Task<List<OrderItem>> GetOrders(IEnumerable<string> orderIds)
+    public async Task<List<OrderItem>> GetOrderBatchAsync(IEnumerable<string> orderIds)
     {
-        if (orderIds == null || !orderIds.Any())
+        var orders = orderIds.ToList();
+        if (orders.Count == 0)
         {
             _logger.LogWarning("Order IDs cannot be null or empty");
-            return new List<OrderItem>();
+            return [];
         }
 
         try
         {
             // Join the order IDs with commas as specified in the API documentation
-            var orderIdsParam = string.Join(",", orderIds);
+            var orderIdsParam = string.Join(",", orders);
 
-            var userId = "abc"; // Replace with your actual USER_ID
-            var token = _configuration["Payment:Auth:Afdian"] ?? "<token here>";
+            var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
+            var tokenParts = token.Split(':');
+            var userId = tokenParts[0];
+            token = tokenParts[1];
             var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderIdsParam }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
@@ -192,13 +199,9 @@ public class AfdianPaymentHandler(
                 await response.Content.ReadAsStreamAsync(), JsonOptions);
 
             // Check if we have a valid response and orders in the list
-            if (result?.Data?.Orders == null || result.Data.Orders.Count == 0)
-            {
-                _logger.LogWarning($"No orders found with IDs: {orderIdsParam}");
-                return new List<OrderItem>();
-            }
-
-            return result.Data.Orders;
+            if (result?.Data?.Orders != null && result.Data.Orders.Count != 0) return result.Data.Orders;
+            _logger.LogWarning($"No orders found with IDs: {orderIdsParam}");
+            return [];
         }
         catch (Exception ex)
         {
