@@ -9,7 +9,8 @@ public class AfdianOidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<AfdianOidcService> logger
 )
     : OidcService(configuration, httpClientFactory, db, auth, cache)
 {
@@ -89,38 +90,48 @@ public class AfdianOidcService(
 
     private async Task<OidcUserInfo> GetUserInfoAsync(string accessToken)
     {
-        var config = GetProviderConfig();
-        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        try
         {
-            { "client_id", config.ClientId },
-            { "client_secret", config.ClientSecret },
-            { "grant_type", "authorization_code" },
-            { "code", accessToken },
-            { "redirect_uri", config.RedirectUri },
-        });
-        
-        var client = HttpClientFactory.CreateClient();
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/oauth2/access_token");
-        request.Content = content;
+            var config = GetProviderConfig();
+            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "client_id", config.ClientId },
+                { "client_secret", config.ClientSecret },
+                { "grant_type", "authorization_code" },
+                { "code", accessToken },
+                { "redirect_uri", config.RedirectUri },
+            });
 
-        var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+            var client = HttpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/oauth2/access_token");
+            request.Content = content;
+            
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            
+            var json = await response.Content.ReadAsStringAsync();
+            logger.LogInformation("Trying get userinfo from afdian, response: {Response}", json);
+            var afdianResponse = JsonDocument.Parse(json).RootElement;
 
-        var json = await response.Content.ReadAsStringAsync();
-        var afdianResponse = JsonDocument.Parse(json).RootElement;
+            var user = afdianResponse.TryGetProperty("data", out var dataElement) ? dataElement : default;
+            var userId = user.TryGetProperty("user_id", out var userIdElement) ? userIdElement.GetString() ?? "" : "";
+            var avatar = user.TryGetProperty("avatar", out var avatarElement) ? avatarElement.GetString() : null;
 
-        var user = afdianResponse.GetProperty("data");
-        var userId = user.GetProperty("user_id").GetString() ?? "";
-        var avatar = user.TryGetProperty("avatar", out var avatarElement) ? avatarElement.GetString() : null;
-
-        return new OidcUserInfo
+            return new OidcUserInfo
+            {
+                UserId = userId,
+                DisplayName = (user.TryGetProperty("name", out var nameElement)
+                    ? nameElement.GetString()
+                    : null) ?? "",
+                ProfilePictureUrl = avatar,
+                Provider = ProviderName
+            };
+        }
+        catch (Exception ex)
         {
-            UserId = userId,
-            DisplayName = (user.TryGetProperty("name", out var nameElement)
-                ? nameElement.GetString()
-                : null) ?? "",
-            ProfilePictureUrl = avatar,
-            Provider = ProviderName
-        };
+            // Due to afidan's API isn't compliant with OAuth2, we want more logs from it to investigate.
+            logger.LogError(ex, "Failed to get user info from Afdian");
+            throw;
+        }
     }
 }
