@@ -13,8 +13,9 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
         PaymentDetails paymentDetails,
         Duration? cycleDuration = null,
         string? coupon = null,
-        bool isFreeTrail = false,
-        bool isAutoRenewal = true
+        bool isFreeTrial = false,
+        bool isAutoRenewal = true,
+        bool noop = false
     )
     {
         var subscriptionTemplate = SubscriptionTypeData
@@ -27,9 +28,18 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
         cycleDuration ??= Duration.FromDays(30);
 
         var existingSubscription = await GetSubscriptionAsync(account.Id, identifier);
-        if (existingSubscription is not null)
-        {
+        if (existingSubscription is not null && !noop)
             throw new InvalidOperationException($"Active subscription with identifier {identifier} already exists.");
+        if (existingSubscription is not null)
+            return existingSubscription;
+
+        if (isFreeTrial)
+        {
+            var prevFreeTrial = await db.WalletSubscriptions
+                .Where(s => s.AccountId == account.Id && s.Identifier == identifier && s.IsFreeTrial)
+                .FirstOrDefaultAsync();
+            if (prevFreeTrial is not null)
+                throw new InvalidOperationException("Free trial already exists.");
         }
 
         Coupon? couponData = null;
@@ -49,14 +59,14 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
             EndedAt = now.Plus(cycleDuration.Value),
             Identifier = identifier,
             IsActive = true,
-            IsFreeTrial = isFreeTrail,
+            IsFreeTrial = isFreeTrial,
             Status = SubscriptionStatus.Unpaid,
             PaymentMethod = paymentMethod,
             PaymentDetails = paymentDetails,
             BasePrice = subscriptionTemplate.BasePrice,
             CouponId = couponData?.Id,
             Coupon = couponData,
-            RenewalAt = (isFreeTrail || !isAutoRenewal) ? null : now.Plus(cycleDuration.Value),
+            RenewalAt = (isFreeTrial || !isAutoRenewal) ? null : now.Plus(cycleDuration.Value),
             AccountId = account.Id,
         };
 
@@ -156,8 +166,49 @@ public class SubscriptionService(AppDatabase db, PaymentService payment, ICacheS
 
         db.Update(subscription);
         await db.SaveChangesAsync();
+        
+        if (subscription.Identifier.StartsWith(SubscriptionType.StellarProgram))
+        {
+            await db.AccountProfiles
+                .Where(a => a.AccountId == subscription.AccountId)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.StellarMembership, subscription.ToReference()));
+        }
 
         return subscription;
+    }
+
+    /// <summary>
+    /// Updates the status of expired subscriptions to reflect their current state.
+    /// This helps maintain accurate subscription records and is typically called periodically.
+    /// </summary>
+    /// <param name="batchSize">Maximum number of subscriptions to process</param>
+    /// <returns>Number of subscriptions that were marked as expired</returns>
+    public async Task<int> UpdateExpiredSubscriptionsAsync(int batchSize = 100)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        // Find active subscriptions that have passed their end date
+        var expiredSubscriptions = await db.WalletSubscriptions
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Paid)
+            .Where(s => s.EndedAt.HasValue && s.EndedAt.Value < now)
+            .Take(batchSize)
+            .ToListAsync();
+
+        if (expiredSubscriptions.Count == 0)
+            return 0;
+
+        foreach (var subscription in expiredSubscriptions)
+        {
+            subscription.Status = SubscriptionStatus.Expired;
+
+            // Clear the cache for this subscription
+            var cacheKey = $"{SubscriptionCacheKeyPrefix}{subscription.AccountId}:{subscription.Identifier}";
+            await cache.RemoveAsync(cacheKey);
+        }
+
+        await db.SaveChangesAsync();
+        return expiredSubscriptions.Count;
     }
 
     private const string SubscriptionCacheKeyPrefix = "subscription:";

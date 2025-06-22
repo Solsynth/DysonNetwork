@@ -66,7 +66,7 @@ public class PublisherMember : ModelBase
     public Instant? JoinedAt { get; set; }
 }
 
-public enum SubscriptionStatus
+public enum PublisherSubscriptionStatus
 {
     Active,
     Expired,
@@ -82,7 +82,7 @@ public class PublisherSubscription : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
-    public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Active;
+    public PublisherSubscriptionStatus Status { get; set; } = PublisherSubscriptionStatus.Active;
     public int Tier { get; set; } = 0;
 }
 

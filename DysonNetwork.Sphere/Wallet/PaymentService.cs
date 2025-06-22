@@ -12,9 +12,37 @@ public class PaymentService(AppDatabase db, WalletService wat)
         decimal amount,
         Duration? expiration = null,
         string? appIdentifier = null,
-        Dictionary<string, object>? meta = null
+        Dictionary<string, object>? meta = null,
+        bool reuseable = true
     )
     {
+        // Check if there's an existing unpaid order that can be reused
+        if (reuseable && appIdentifier != null)
+        {
+            var existingOrder = await db.PaymentOrders
+                .Where(o => o.Status == OrderStatus.Unpaid &&
+                       o.PayeeWalletId == payeeWalletId &&
+                       o.Currency == currency &&
+                       o.Amount == amount &&
+                       o.AppIdentifier == appIdentifier &&
+                       o.ExpiredAt > SystemClock.Instance.GetCurrentInstant())
+                .FirstOrDefaultAsync();
+
+            // If an existing order is found, check if meta matches
+            if (existingOrder != null && meta != null && existingOrder.Meta != null)
+            {
+                // Compare meta dictionaries - if they are equivalent, reuse the order
+                var metaMatches = existingOrder.Meta.Count == meta.Count &&
+                                  !existingOrder.Meta.Except(meta).Any();
+                               
+                if (metaMatches)
+                {
+                    return existingOrder;
+                }
+            }
+        }
+
+        // Create a new order if no reusable order was found
         var order = new Order
         {
             PayeeWalletId = payeeWalletId,

@@ -127,6 +127,7 @@ public class Subscription : ModelBase
     {
         get
         {
+            if (IsFreeTrial) return 0;
             if (Coupon == null) return BasePrice;
 
             var now = SystemClock.Instance.GetCurrentInstant();

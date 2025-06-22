@@ -26,7 +26,7 @@ public class PublisherSubscriptionService(
         return await db.PublisherSubscriptions
             .AnyAsync(ps => ps.AccountId == accountId &&
                             ps.PublisherId == publisherId &&
-                            ps.Status == SubscriptionStatus.Active);
+                            ps.Status == PublisherSubscriptionStatus.Active);
     }
 
     /// <summary>
@@ -52,7 +52,7 @@ public class PublisherSubscriptionService(
         var subscribers = await db.PublisherSubscriptions
             .Include(p => p.Account)
             .Where(p => p.PublisherId == post.PublisherId &&
-                         p.Status == SubscriptionStatus.Active)
+                         p.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
         if (subscribers.Count == 0)
             return 0;
@@ -105,7 +105,7 @@ public class PublisherSubscriptionService(
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
-            .Where(ps => ps.AccountId == accountId && ps.Status == SubscriptionStatus.Active)
+            .Where(ps => ps.AccountId == accountId && ps.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
     }
 
@@ -118,7 +118,7 @@ public class PublisherSubscriptionService(
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Account)
-            .Where(ps => ps.PublisherId == publisherId && ps.Status == SubscriptionStatus.Active)
+            .Where(ps => ps.PublisherId == publisherId && ps.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
     }
 
@@ -141,8 +141,8 @@ public class PublisherSubscriptionService(
         if (existingSubscription != null)
         {
             // If it exists but is not active, reactivate it
-            if (existingSubscription.Status == SubscriptionStatus.Active) return existingSubscription;
-            existingSubscription.Status = SubscriptionStatus.Active;
+            if (existingSubscription.Status == PublisherSubscriptionStatus.Active) return existingSubscription;
+            existingSubscription.Status = PublisherSubscriptionStatus.Active;
             existingSubscription.Tier = tier;
 
             await db.SaveChangesAsync();
@@ -156,7 +156,7 @@ public class PublisherSubscriptionService(
         {
             AccountId = accountId,
             PublisherId = publisherId,
-            Status = SubscriptionStatus.Active,
+            Status = PublisherSubscriptionStatus.Active,
             Tier = tier,
         };
 
@@ -177,10 +177,10 @@ public class PublisherSubscriptionService(
     public async Task<bool> CancelSubscriptionAsync(Guid accountId, Guid publisherId)
     {
         var subscription = await GetSubscriptionAsync(accountId, publisherId);
-        if (subscription is not { Status: SubscriptionStatus.Active })
+        if (subscription is not { Status: PublisherSubscriptionStatus.Active })
             return false;
 
-        subscription.Status = SubscriptionStatus.Cancelled;
+        subscription.Status = PublisherSubscriptionStatus.Cancelled;
         await db.SaveChangesAsync();
         
         await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));

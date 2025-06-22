@@ -61,7 +61,10 @@ public class SubscriptionController(SubscriptionService subscriptions, AppDataba
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Subscription>> CreateSubscription([FromBody] CreateSubscriptionRequest request)
+    public async Task<ActionResult<Subscription>> CreateSubscription(
+        [FromBody] CreateSubscriptionRequest request,
+        [FromHeader(Name = "X-Noop")] bool noop = false
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -81,7 +84,8 @@ public class SubscriptionController(SubscriptionService subscriptions, AppDataba
                 cycleDuration,
                 request.Coupon,
                 request.IsFreeTrial,
-                request.IsAutoRenewal
+                request.IsAutoRenewal,
+                noop
             );
 
             return subscription;

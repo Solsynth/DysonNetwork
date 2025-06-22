@@ -1,5 +1,6 @@
 using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Storage.Handlers;
+using DysonNetwork.Sphere.Wallet;
 using Quartz;
 
 namespace DysonNetwork.Sphere.Startup;
@@ -62,6 +63,16 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("PostViewFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
+
+            var subscriptionRenewalJob = new JobKey("SubscriptionRenewal");
+            q.AddJob<SubscriptionRenewalJob>(opts => opts.WithIdentity(subscriptionRenewalJob));
+            q.AddTrigger(opts => opts
+                .ForJob(subscriptionRenewalJob)
+                .WithIdentity("SubscriptionRenewalTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(30)
                     .RepeatForever())
             );
         });
