@@ -100,11 +100,11 @@ public class SubscriptionService(
         switch (provider)
         {
             case "afdian":
-                var afdianPlans = cfgSection.GetValue<Dictionary<string, string>>("Afdian");
+                // Get the Afdian section first, then bind it to a dictionary
+                var afdianPlans = cfgSection.GetSection("Afdian").Get<Dictionary<string, string>>();
                 logger.LogInformation("Afdian plans configuration: {Plans}", JsonSerializer.Serialize(afdianPlans));
                 if (afdianPlans != null && afdianPlans.TryGetValue(subscriptionIdentifier, out var planName))
                     subscriptionIdentifier = planName;
-
                 currency = "cny";
                 break;
         }
