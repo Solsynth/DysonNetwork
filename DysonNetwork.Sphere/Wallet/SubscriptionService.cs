@@ -1,8 +1,10 @@
 using System.Text.Json;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Wallet.PaymentHandlers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet;
@@ -11,6 +13,8 @@ public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
     AccountService accounts,
+    NotificationService nty,
+    IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
     ICacheService cache
 )
@@ -100,8 +104,6 @@ public class SubscriptionService(
                 if (afdianPlan?.Key is not null) subscriptionIdentifier = afdianPlan.Value.Key;
                 currency = "cny";
                 break;
-            default:
-                break;
         }
 
         var subscriptionTemplate = SubscriptionTypeData
@@ -109,7 +111,8 @@ public class SubscriptionService(
             ? template
             : null;
         if (subscriptionTemplate is null)
-            throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier), $@"Subscription {subscriptionIdentifier} was not found.");
+            throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier),
+                $@"Subscription {subscriptionIdentifier} was not found.");
 
         Account.Account? account = null;
         if (!string.IsNullOrEmpty(provider))
@@ -124,7 +127,8 @@ public class SubscriptionService(
 
         var existingSubscription = await GetSubscriptionAsync(account.Id, subscriptionIdentifier);
         if (existingSubscription is not null && existingSubscription.PaymentMethod != provider)
-            throw new InvalidOperationException($"Active subscription with identifier {subscriptionIdentifier} already exists.");
+            throw new InvalidOperationException(
+                $"Active subscription with identifier {subscriptionIdentifier} already exists.");
         if (existingSubscription?.PaymentDetails.OrderId == order.Id)
             return existingSubscription;
         if (existingSubscription is not null)
@@ -146,7 +150,7 @@ public class SubscriptionService(
             BegunAt = order.BegunAt,
             EndedAt = order.BegunAt.Plus(cycleDuration),
             IsActive = true,
-            Status = SubscriptionStatus.Unpaid,
+            Status = SubscriptionStatus.Paid,
             PaymentMethod = provider,
             PaymentDetails = new PaymentDetails
             {
@@ -160,6 +164,8 @@ public class SubscriptionService(
 
         db.WalletSubscriptions.Add(subscription);
         await db.SaveChangesAsync();
+        
+        await NotifySubscriptionBegun(subscription);
 
         return subscription;
     }
@@ -265,6 +271,8 @@ public class SubscriptionService(
                 .Where(a => a.AccountId == subscription.AccountId)
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.StellarMembership, subscription.ToReference()));
         }
+        
+        await NotifySubscriptionBegun(subscription);
 
         return subscription;
     }
@@ -303,9 +311,33 @@ public class SubscriptionService(
         return expiredSubscriptions.Count;
     }
 
-    private const string SubscriptionCacheKeyPrefix = "subscription:";
+    private async Task NotifySubscriptionBegun(Subscription subscription)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == subscription.AccountId);
+        if (account is null) return;
 
-    public AccountService Accounts { get; } = accounts;
+        var humanReadableName =
+            SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
+                ? humanReadable
+                : subscription.Identifier;
+        var duration = subscription.EndedAt is not null
+            ? subscription.EndedAt.Value.Minus(subscription.BegunAt).ToString()
+            : "infinite";
+
+        await nty.SendNotification(
+            account,
+            "subscriptions.begun",
+            localizer["SubscriptionAppliedTitle", humanReadableName],
+            null,
+            localizer["SubscriptionAppliedBody", duration, humanReadableName],
+            new Dictionary<string, object>()
+            {
+                ["subscription_id"] = subscription.Id.ToString(),
+            }
+        );
+    }
+
+    private const string SubscriptionCacheKeyPrefix = "subscription:";
 
     public async Task<Subscription?> GetSubscriptionAsync(Guid accountId, string identifier)
     {

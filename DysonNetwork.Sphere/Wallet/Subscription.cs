@@ -18,6 +18,15 @@ public record class SubscriptionTypeData(
             [SubscriptionType.Nova] = new SubscriptionTypeData(SubscriptionType.Nova, 20),
             [SubscriptionType.Supernova] = new SubscriptionTypeData(SubscriptionType.Supernova, 30)
         };
+
+    public static readonly Dictionary<string, string> SubscriptionHumanReadable =
+        new()
+        {
+            [SubscriptionType.Twinkle] = "Stellar Program Twinkle",
+            [SubscriptionType.Stellar] = "Stellar Program",
+            [SubscriptionType.Nova] = "Stellar Program Nova",
+            [SubscriptionType.Supernova] = "Stellar Program Supernova"
+        };
 }
 
 public abstract class SubscriptionType

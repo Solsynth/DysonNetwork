@@ -134,5 +134,29 @@ namespace DysonNetwork.Sphere.Resources.Localization {
                 return ResourceManager.GetString("AuthCodeBody", resourceCulture);
             }
         }
+        
+        internal static string SubscriptionAppliedTitle {
+            get {
+                return ResourceManager.GetString("SubscriptionAppliedTitle", resourceCulture);
+            }
+        }
+        
+        internal static string SubscriptionAppliedBody {
+            get {
+                return ResourceManager.GetString("SubscriptionAppliedBody", resourceCulture);
+            }
+        }
+        
+        internal static string OrderPaidTitle {
+            get {
+                return ResourceManager.GetString("OrderPaidTitle", resourceCulture);
+            }
+        }
+        
+        internal static string OrderPaidBody {
+            get {
+                return ResourceManager.GetString("OrderPaidBody", resourceCulture);
+            }
+        }
     }
 }

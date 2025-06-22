@@ -1,10 +1,19 @@
+using System.Globalization;
+using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet;
 
-public class PaymentService(AppDatabase db, WalletService wat)
+public class PaymentService(
+    AppDatabase db,
+    WalletService wat,
+    NotificationService nty,
+    IStringLocalizer<NotificationResource> localizer
+)
 {
     public async Task<Order> CreateOrderAsync(
         Guid? payeeWalletId,
@@ -21,11 +30,11 @@ public class PaymentService(AppDatabase db, WalletService wat)
         {
             var existingOrder = await db.PaymentOrders
                 .Where(o => o.Status == OrderStatus.Unpaid &&
-                       o.PayeeWalletId == payeeWalletId &&
-                       o.Currency == currency &&
-                       o.Amount == amount &&
-                       o.AppIdentifier == appIdentifier &&
-                       o.ExpiredAt > SystemClock.Instance.GetCurrentInstant())
+                            o.PayeeWalletId == payeeWalletId &&
+                            o.Currency == currency &&
+                            o.Amount == amount &&
+                            o.AppIdentifier == appIdentifier &&
+                            o.ExpiredAt > SystemClock.Instance.GetCurrentInstant())
                 .FirstOrDefaultAsync();
 
             // If an existing order is found, check if meta matches
@@ -34,7 +43,7 @@ public class PaymentService(AppDatabase db, WalletService wat)
                 // Compare meta dictionaries - if they are equivalent, reuse the order
                 var metaMatches = existingOrder.Meta.Count == meta.Count &&
                                   !existingOrder.Meta.Except(meta).Any();
-                               
+
                 if (metaMatches)
                 {
                     return existingOrder;
@@ -176,9 +185,36 @@ public class PaymentService(AppDatabase db, WalletService wat)
         order.TransactionId = transaction.Id;
         order.Transaction = transaction;
         order.Status = OrderStatus.Paid;
-
+        
         await db.SaveChangesAsync();
+        
+        await NotifyOrderPaid(order);
+        
         return order;
+    }
+
+    private async Task NotifyOrderPaid(Order order)
+    {
+        if (order.PayeeWallet is null) return;
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == order.PayeeWallet.AccountId);
+        if (account is null) return;
+
+        // Due to ID is uuid, it longer than 8 words for sure
+        var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
+        var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+
+        await nty.SendNotification(
+            account,
+            "wallets.orders.paid",
+            localizer["OrderPaidTitle", $"#{readableOrderId}"],
+            null,
+            localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture), order.Currency,
+                readableOrderRemark],
+            new Dictionary<string, object>()
+            {
+                ["order_id"] = order.Id.ToString()
+            }
+        );
     }
 
     public async Task<Order> CancelOrderAsync(Guid orderId)

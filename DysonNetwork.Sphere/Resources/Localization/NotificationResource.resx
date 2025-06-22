@@ -63,4 +63,17 @@
     <data name="AuthCodeBody" xml:space="preserve">
         <value>{0} is your disposable code, it will expires in 5 minutes</value>
     </data>
+    <data name="SubscriptionAppliedTitle" xml:space="preserve">
+        Subscription {0} just activated for your account
+    </data>
+    <data name="SubscriptionAppliedBody" xml:space="preserve">
+        Thank for supporting the Solar Network! Your {0} days {1} subscription just begun,
+        feel free to explore the newly unlocked features!
+    </data>
+    <data name="OrderPaidTitle" xml:space="preserve">
+        Order {0} recipent
+    </data>
+    <data name="OrderPaidBody" xml:space="preserve">
+        {0} {1} was removed from your wallet to pay {2}
+    </data>
 </root>
