@@ -154,6 +154,7 @@ public class SubscriptionService(
             EndedAt = order.BegunAt.Plus(cycleDuration),
             IsActive = true,
             Status = SubscriptionStatus.Paid,
+            Identifier = subscriptionIdentifier,
             PaymentMethod = provider,
             PaymentDetails = new PaymentDetails
             {
