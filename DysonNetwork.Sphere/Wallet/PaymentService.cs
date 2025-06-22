@@ -198,6 +198,8 @@ public class PaymentService(
         if (order.PayeeWallet is null) return;
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == order.PayeeWallet.AccountId);
         if (account is null) return;
+        
+        AccountService.SetCultureInfo(account);
 
         // Due to ID is uuid, it longer than 8 words for sure
         var readableOrderId = order.Id.ToString().Replace("-", "")[..8];

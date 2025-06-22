@@ -319,13 +319,15 @@ public class SubscriptionService(
     {
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == subscription.AccountId);
         if (account is null) return;
+        
+        AccountService.SetCultureInfo(account);
 
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
                 ? humanReadable
                 : subscription.Identifier;
         var duration = subscription.EndedAt is not null
-            ? subscription.EndedAt.Value.Minus(subscription.BegunAt).ToString()
+            ? subscription.EndedAt.Value.Minus(subscription.BegunAt).Days.ToString()
             : "infinite";
 
         await nty.SendNotification(
