@@ -101,20 +101,22 @@ public class AfdianOidcService(
         
         var client = HttpClientFactory.CreateClient();
         var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/oauth2/access_token");
+        request.Content = content;
 
         var response = await client.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
-        var afdianUser = JsonDocument.Parse(json).RootElement;
+        var afdianResponse = JsonDocument.Parse(json).RootElement;
 
-        var userId = afdianUser.GetProperty("user_id").GetString() ?? "";
-        var avatar = afdianUser.TryGetProperty("avatar", out var avatarElement) ? avatarElement.GetString() : null;
+        var user = afdianResponse.GetProperty("data");
+        var userId = user.GetProperty("user_id").GetString() ?? "";
+        var avatar = user.TryGetProperty("avatar", out var avatarElement) ? avatarElement.GetString() : null;
 
         return new OidcUserInfo
         {
             UserId = userId,
-            DisplayName = (afdianUser.TryGetProperty("name", out var nameElement)
+            DisplayName = (user.TryGetProperty("name", out var nameElement)
                 ? nameElement.GetString()
                 : null) ?? "",
             ProfilePictureUrl = avatar,
