@@ -52,7 +52,9 @@ public class FileService(
     }
 
     private static readonly string TempFilePrefix = "dyn-cloudfile";
-    private static readonly string[] AnimatedImageTypes = new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
+
+    private static readonly string[] AnimatedImageTypes =
+        new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
 
     // The analysis file method no longer will remove the GPS EXIF data
     // It should be handled on the client side, and for some specific cases it should be keep
@@ -118,11 +120,11 @@ public class FileService(
                     foreach (var field in vipsImage.GetFields())
                     {
                         var value = vipsImage.Get(field);
-                        
+
                         // Skip GPS-related EXIF fields to remove location data
                         if (IsGpsExifField(field))
                             continue;
-                        
+
                         exif.Add(field, value);
                         if (field == "orientation") orientation = (int)value;
                     }
@@ -190,7 +192,8 @@ public class FileService(
                     {
                         logger.LogInformation(
                             "File {fileId} is an animated image (MIME: {mime}), skipping WebP conversion.", fileId,
-                            contentType);
+                            contentType
+                        );
                         var tempFilePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
                         result.Add((tempFilePath, string.Empty));
                         return;
@@ -200,9 +203,8 @@ public class FileService(
 
                     using var vipsImage = Image.NewFromFile(ogFilePath);
                     var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    vipsImage.Autorot();
-                    vipsImage.WriteToFile(imagePath + ".webp",
-                        new VOption { { "lossless", true } });
+                    vipsImage.Autorot().WriteToFile(imagePath + ".webp",
+                        new VOption { { "lossless", true }, { "strip", true } });
                     result.Add((imagePath + ".webp", string.Empty));
 
                     if (vipsImage.Width * vipsImage.Height >= 1024 * 1024)
@@ -213,8 +215,8 @@ public class FileService(
 
                         // Create and save image within the same synchronous block to avoid disposal issues
                         using var compressedImage = vipsImage.Resize(scale);
-                        compressedImage.WriteToFile(imageCompressedPath + ".webp",
-                            new VOption { { "Q", 80 } });
+                        compressedImage.Autorot().WriteToFile(imageCompressedPath + ".webp",
+                            new VOption { { "Q", 80 }, { "strip", true } });
 
                         result.Add((imageCompressedPath + ".webp", ".compressed"));
                         file.HasCompression = true;
@@ -514,7 +516,7 @@ public class FileService(
         var gpsFields = new[]
         {
             "gps-latitude",
-            "gps-longitude", 
+            "gps-longitude",
             "gps-altitude",
             "gps-latitude-ref",
             "gps-longitude-ref",
@@ -535,7 +537,7 @@ public class FileService(
             "gps-area-information"
         };
 
-        return gpsFields.Any(gpsField => 
+        return gpsFields.Any(gpsField =>
             fieldName.Equals(gpsField, StringComparison.OrdinalIgnoreCase) ||
             fieldName.StartsWith("gps", StringComparison.OrdinalIgnoreCase));
     }
