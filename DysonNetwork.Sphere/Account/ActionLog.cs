@@ -4,7 +4,7 @@ using Point = NetTopologySuite.Geometries.Point;
 
 namespace DysonNetwork.Sphere.Account;
 
-public class ActionLogType
+public abstract class ActionLogType
 {
     public const string NewLogin = "login";
     public const string ChallengeAttempt = "challenges.attempt";
@@ -55,5 +55,4 @@ public class ActionLog : ModelBase
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
     public Guid? SessionId { get; set; }
-    public Auth.Session? Session { get; set; } = null!;
 }
