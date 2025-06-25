@@ -852,7 +852,7 @@ namespace DysonNetwork.Sphere.Migrations
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     file_meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
                     user_meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
-                    sensitive_marks = table.Column<List<CloudFileSensitiveMark>>(type: "jsonb", nullable: true),
+                    sensitive_marks = table.Column<List<ContentSensitiveMark>>(type: "jsonb", nullable: true),
                     mime_type = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     hash = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     size = table.Column<long>(type: "bigint", nullable: false),

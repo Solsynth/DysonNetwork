@@ -21,8 +21,8 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250615083256_AddAccountConnection")]
-    partial class AddAccountConnection
+    [Migration("20250625150644_SafetyAbuseReport")]
+    partial class SafetyAbuseReport
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -34,6 +34,63 @@ namespace DysonNetwork.Sphere.Migrations
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Account.AbuseReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("resolution");
+
+                    b.Property<Instant?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<string>("ResourceIdentifier")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("resource_identifier");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_abuse_reports");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_abuse_reports_account_id");
+
+                    b.ToTable("abuse_reports", (string)null);
+                });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Account", b =>
                 {
@@ -175,6 +232,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_used_at");
 
+                    b.Property<Dictionary<string, object>>("Meta")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("meta");
+
                     b.Property<string>("ProvidedIdentifier")
                         .IsRequired()
                         .HasMaxLength(8192)
@@ -312,9 +373,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("AccountId")
                         .HasDatabaseName("ix_action_logs_account_id");
-
-                    b.HasIndex("SessionId")
-                        .HasDatabaseName("ix_action_logs_session_id");
 
                     b.ToTable("action_logs", (string)null);
                 });
@@ -1614,6 +1672,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasAnnotation("Npgsql:TsVectorConfig", "simple")
                         .HasAnnotation("Npgsql:TsVectorProperties", new[] { "Title", "Description", "Content" });
 
+                    b.Property<List<ContentSensitiveMark>>("SensitiveMarks")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("sensitive_marks");
+
                     b.Property<string>("Title")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
@@ -2503,6 +2565,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("numeric")
                         .HasColumnName("amount");
 
+                    b.Property<string>("AppIdentifier")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("app_identifier");
+
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2525,7 +2592,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("issuer_app_id");
 
-                    b.Property<Guid>("PayeeWalletId")
+                    b.Property<Dictionary<string, object>>("Meta")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("meta");
+
+                    b.Property<Guid?>("PayeeWalletId")
                         .HasColumnType("uuid")
                         .HasColumnName("payee_wallet_id");
 
@@ -2837,6 +2908,18 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("post_tag_links", (string)null);
                 });
 
+            modelBuilder.Entity("DysonNetwork.Sphere.Account.AbuseReport", b =>
+                {
+                    b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_abuse_reports_accounts_account_id");
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("DysonNetwork.Sphere.Account.AccountAuthFactor", b =>
                 {
                     b.HasOne("DysonNetwork.Sphere.Account.Account", "Account")
@@ -2882,14 +2965,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_action_logs_accounts_account_id");
 
-                    b.HasOne("DysonNetwork.Sphere.Auth.Session", "Session")
-                        .WithMany()
-                        .HasForeignKey("SessionId")
-                        .HasConstraintName("fk_action_logs_auth_sessions_session_id");
-
                     b.Navigation("Account");
-
-                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Account.Badge", b =>
@@ -3417,8 +3493,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasOne("DysonNetwork.Sphere.Wallet.Wallet", "PayeeWallet")
                         .WithMany()
                         .HasForeignKey("PayeeWalletId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("fk_payment_orders_wallets_payee_wallet_id");
 
                     b.HasOne("DysonNetwork.Sphere.Wallet.Transaction", "Transaction")

@@ -54,6 +54,7 @@ public class AppDatabase(
     public DbSet<NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
     public DbSet<Badge> Badges { get; set; }
     public DbSet<ActionLog> ActionLogs { get; set; }
+    public DbSet<AbuseReport> AbuseReports { get; set; }
 
     public DbSet<Session> AuthSessions { get; set; }
     public DbSet<Challenge> AuthChallenges { get; set; }

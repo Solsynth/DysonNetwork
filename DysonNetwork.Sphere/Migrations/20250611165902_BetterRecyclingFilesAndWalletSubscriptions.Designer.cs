@@ -2279,7 +2279,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
-                    b.Property<List<CloudFileSensitiveMark>>("SensitiveMarks")
+                    b.Property<List<ContentSensitiveMark>>("SensitiveMarks")
                         .HasColumnType("jsonb")
                         .HasColumnName("sensitive_marks");
 

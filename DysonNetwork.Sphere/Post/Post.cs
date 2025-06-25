@@ -38,6 +38,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
 
     public PostType Type { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
+    [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
 
     public int ViewsUnique { get; set; }
     public int ViewsTotal { get; set; }

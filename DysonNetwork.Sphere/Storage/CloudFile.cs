@@ -46,7 +46,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [MaxLength(4096)] public string? Description { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? FileMeta { get; set; } = null!;
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? UserMeta { get; set; } = null!;
-    [Column(TypeName = "jsonb")] public List<CloudFileSensitiveMark>? SensitiveMarks { get; set; } = [];
+    [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
     [MaxLength(256)] public string? MimeType { get; set; }
     [MaxLength(256)] public string? Hash { get; set; }
     public long Size { get; set; }
@@ -98,7 +98,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public string ResourceIdentifier => $"file/{Id}";
 }
 
-public enum CloudFileSensitiveMark
+public enum ContentSensitiveMark
 {
     Language,
     SexualContent,
