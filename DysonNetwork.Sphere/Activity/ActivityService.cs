@@ -29,7 +29,7 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
 
         if (cursor == null)
         {
-            var realms = await ds.GetPublicRealmsAsync(null, null);
+            var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
             {
                 activities.Add(new DiscoveryActivity("Explore Realms", realms.Cast<object>().ToList()).ToActivity());
@@ -89,7 +89,7 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
 
         if (cursor == null)
         {
-            var realms = await ds.GetPublicRealmsAsync(null, null);
+            var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
             {
                 activities.Add(new DiscoveryActivity("Explore Realms", realms.Cast<object>().ToList()).ToActivity());
