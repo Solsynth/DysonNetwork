@@ -64,7 +64,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
     public ICollection<PostTag> Tags { get; set; } = new List<PostTag>();
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
-    public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
+    [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
 
     [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
     [NotMapped] public bool IsTruncated { get; set; } = false;
@@ -91,7 +91,7 @@ public class PostTag : ModelBase
     public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
-    public ICollection<Post> Posts { get; set; } = new List<Post>();
+    [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
 }
 
 public class PostCategory : ModelBase
@@ -99,7 +99,7 @@ public class PostCategory : ModelBase
     public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
-    public ICollection<Post> Posts { get; set; } = new List<Post>();
+    [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
 }
 
 public class PostCollection : ModelBase
