@@ -224,6 +224,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentService>();
         services.AddScoped<IRealtimeService, LivekitRealtimeService>();
         services.AddScoped<WebReaderService>();
+        services.AddScoped<WebFeedService>();
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<SafetyService>();
 

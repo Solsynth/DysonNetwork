@@ -95,6 +95,8 @@ public class AppDatabase(
 
     public DbSet<Subscription> WalletSubscriptions { get; set; }
     public DbSet<Coupon> WalletCoupons { get; set; }
+    public DbSet<Connection.WebReader.WebArticle> WebArticles { get; set; }
+    public DbSet<Connection.WebReader.WebFeed> WebFeeds { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -136,6 +138,8 @@ public class AppDatabase(
                 await context.SaveChangesAsync(cancellationToken);
             }
         });
+
+        optionsBuilder.UseSeeding((context, _) => {});
 
         base.OnConfiguring(optionsBuilder);
     }
@@ -260,6 +264,14 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Connection.WebReader.WebFeed>()
+            .HasIndex(f => f.Url)
+            .IsUnique();
+
+        modelBuilder.Entity<Connection.WebReader.WebArticle>()
+            .HasIndex(a => a.Url)
+            .IsUnique();
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

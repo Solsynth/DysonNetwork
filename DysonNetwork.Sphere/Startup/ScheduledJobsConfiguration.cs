@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Sphere.Connection.WebReader;
 using DysonNetwork.Sphere.Storage.Handlers;
 using DysonNetwork.Sphere.Wallet;
 using Quartz;
@@ -74,6 +75,14 @@ public static class ScheduledJobsConfiguration
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(30)
                     .RepeatForever())
+            );
+
+            var webFeedScraperJob = new JobKey("WebFeedScraper");
+            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity(webFeedScraperJob));
+            q.AddTrigger(opts => opts
+                .ForJob(webFeedScraperJob)
+                .WithIdentity("WebFeedScraperTrigger")
+                .WithSimpleSchedule(o => o.WithIntervalInHours(24).RepeatForever())
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
