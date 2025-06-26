@@ -11,10 +11,11 @@ public class WebFeedService(
     AppDatabase database,
     IHttpClientFactory httpClientFactory,
     ILogger<WebFeedService> logger,
-    AccountService accountService
-)
+    AccountService accountService,
+    WebReaderService webReaderService
+    )
 {
-    public async Task<WebFeed> CreateWebFeedAsync(WebFeedController.CreateWebFeedRequest dto, ClaimsPrincipal claims)
+    public async Task<WebFeed> CreateWebFeedAsync(WebFeedController.CreateWebFeedRequest request, ClaimsPrincipal claims)
     {
         if (claims.Identity?.Name == null)
         {
@@ -29,9 +30,9 @@ public class WebFeedService(
 
         var feed = new WebFeed
         {
-            Url = dto.Url,
-            Title = dto.Title,
-            Description = dto.Description,
+            Url = request.Url,
+            Title = request.Title,
+            Description = request.Description,
             PublisherId = account.Id,
         };
 
@@ -73,14 +74,29 @@ public class WebFeedService(
                 continue;
             }
 
+            var content = (item.Content as TextSyndicationContent)?.Text ?? item.Summary.Text;
+            LinkEmbed preview;
+
+            if (feed.Config.ScrapPage)
+            {
+                var scrapedArticle = await webReaderService.ScrapeArticleAsync(itemUrl, cancellationToken);
+                preview = scrapedArticle.LinkEmbed;
+                content = scrapedArticle.Content;
+            }
+            else
+            {
+                preview = await webReaderService.GetLinkPreviewAsync(itemUrl, cancellationToken);
+            }
+
             var newArticle = new WebArticle
             {
                 FeedId = feed.Id,
                 Title = item.Title.Text,
                 Url = itemUrl,
                 Author = item.Authors.FirstOrDefault()?.Name,
-                Content = (item.Content as TextSyndicationContent)?.Text ?? item.Summary.Text,
+                Content = content,
                 PublishedAt = item.PublishDate.UtcDateTime,
+                Preview = preview,
             };
 
             database.Set<WebArticle>().Add(newArticle);

@@ -23,6 +23,11 @@ public class WebArticle : ModelBase
     public WebFeed Feed { get; set; } = null!;
 }
 
+public class WebFeedConfig
+{
+    public bool ScrapPage { get; set; }
+}
+
 public class WebFeed : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -31,6 +36,7 @@ public class WebFeed : ModelBase
     [MaxLength(8192)] public string? Description { get; set; }
     
     [Column(TypeName = "jsonb")] public LinkEmbed? Preview { get; set; }
+    [Column(TypeName = "jsonb")] public WebFeedConfig Config { get; set; } = new();
 
     public Guid PublisherId { get; set; }
     public Publisher.Publisher Publisher { get; set; } = null!;

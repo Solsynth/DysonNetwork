@@ -2,6 +2,7 @@ using System.Globalization;
 using AngleSharp;
 using AngleSharp.Dom;
 using DysonNetwork.Sphere.Storage;
+using HtmlAgilityPack;
 
 namespace DysonNetwork.Sphere.Connection.WebReader;
 
@@ -16,6 +17,30 @@ public class WebReaderService(
 {
     private const string LinkPreviewCachePrefix = "scrap:preview:";
     private const string LinkPreviewCacheGroup = "scrap:preview";
+
+    public async Task<ScrapedArticle> ScrapeArticleAsync(string url, CancellationToken cancellationToken = default)
+    {
+        var linkEmbed = await GetLinkPreviewAsync(url, cancellationToken);
+        var content = await GetArticleContentAsync(url, cancellationToken);
+        return new ScrapedArticle
+        {
+            LinkEmbed = linkEmbed,
+            Content = content
+        };
+    }
+
+    private async Task<string?> GetArticleContentAsync(string url, CancellationToken cancellationToken)
+    {
+        var httpClient = httpClientFactory.CreateClient("WebReader");
+        var response = await httpClient.GetAsync(url, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync(cancellationToken);
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        var articleNode = doc.DocumentNode.SelectSingleNode("//article");
+        return articleNode?.InnerHtml;
+    }
+
 
     /// <summary>
     /// Generate a link preview embed from a URL
