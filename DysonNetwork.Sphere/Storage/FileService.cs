@@ -1,13 +1,12 @@
 using System.Globalization;
 using FFMpegCore;
 using System.Security.Cryptography;
+using AngleSharp.Text;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Minio;
 using Minio.DataModel.Args;
 using NetVips;
 using NodaTime;
-using Quartz;
 using tusdotnet.Stores;
 
 namespace DysonNetwork.Sphere.Storage;
@@ -54,7 +53,7 @@ public class FileService(
     private static readonly string TempFilePrefix = "dyn-cloudfile";
 
     private static readonly string[] AnimatedImageTypes =
-        new[] { "image/gif", "image/apng", "image/webp", "image/avif" };
+        ["image/gif", "image/apng", "image/webp", "image/avif"];
 
     // The analysis file method no longer will remove the GPS EXIF data
     // It should be handled on the client side, and for some specific cases it should be keep
@@ -115,6 +114,14 @@ public class FileService(
 
                     // Try to get orientation from exif data
                     var orientation = 1;
+                    var meta = new Dictionary<string, object>
+                    {
+                        ["blur"] = blurhash,
+                        ["format"] = format,
+                        ["width"] = width,
+                        ["height"] = height,
+                        ["orientation"] = orientation,
+                    };
                     Dictionary<string, object> exif = [];
 
                     foreach (var field in vipsImage.GetFields())
@@ -122,10 +129,12 @@ public class FileService(
                         var value = vipsImage.Get(field);
 
                         // Skip GPS-related EXIF fields to remove location data
-                        if (IsGpsExifField(field))
+                        if (IsIgnoredField(field))
                             continue;
 
-                        exif.Add(field, value);
+                        if (field.StartsWith("exif-")) exif.Add(field.Replace("exif-", ""), value);
+                        else meta.Add(field, value);
+                        
                         if (field == "orientation") orientation = (int)value;
                     }
 
@@ -134,16 +143,9 @@ public class FileService(
 
                     var aspectRatio = height != 0 ? (double)width / height : 0;
 
-                    file.FileMeta = new Dictionary<string, object>
-                    {
-                        ["blur"] = blurhash,
-                        ["format"] = format,
-                        ["width"] = width,
-                        ["height"] = height,
-                        ["orientation"] = orientation,
-                        ["ratio"] = aspectRatio,
-                        ["exif"] = exif
-                    };
+                    meta["exif"] = exif;
+                    meta["ratio"] = aspectRatio;
+                    file.FileMeta = meta;
                 }
 
                 break;
@@ -188,7 +190,7 @@ public class FileService(
                 {
                     // Skip compression for animated image types
                     var animatedMimeTypes = AnimatedImageTypes;
-                    if (animatedMimeTypes.Contains(contentType))
+                    if (Enumerable.Contains(animatedMimeTypes, contentType))
                     {
                         logger.LogInformation(
                             "File {fileId} is an animated image (MIME: {mime}), skipping WebP conversion.", fileId,
@@ -540,5 +542,12 @@ public class FileService(
         return gpsFields.Any(gpsField =>
             fieldName.Equals(gpsField, StringComparison.OrdinalIgnoreCase) ||
             fieldName.StartsWith("gps", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsIgnoredField(string fieldName)
+    {
+        if (IsGpsExifField(fieldName)) return true;
+        if (fieldName.EndsWith("-data")) return true;
+        return false;
     }
 }
