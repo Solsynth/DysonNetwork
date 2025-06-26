@@ -132,8 +132,8 @@ public class FileService(
                         if (IsIgnoredField(field))
                             continue;
 
-                        if (field.StartsWith("exif-")) exif.Add(field.Replace("exif-", ""), value);
-                        else meta.Add(field, value);
+                        if (field.StartsWith("exif-")) exif[field.Replace("exif-", "")] = value;
+                        else meta[field] = value;
                         
                         if (field == "orientation") orientation = (int)value;
                     }
