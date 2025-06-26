@@ -1,4 +1,3 @@
-
 using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
@@ -12,9 +11,14 @@ using System.Threading.Tasks;
 
 namespace DysonNetwork.Sphere.Activity;
 
-public class ActivityService(AppDatabase db, PublisherService pub, RelationshipService rels, PostService ps, DiscoveryService ds)
+public class ActivityService(
+    AppDatabase db,
+    PublisherService pub,
+    RelationshipService rels,
+    PostService ps,
+    DiscoveryService ds)
 {
-    private double CalculateHotRank(Post.Post post, Instant now)
+    private static double CalculateHotRank(Post.Post post, Instant now)
     {
         var score = post.Upvotes - post.Downvotes;
         var postTime = post.PublishedAt ?? post.CreatedAt;
@@ -32,7 +36,9 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
             var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
             {
-                activities.Add(new DiscoveryActivity("Explore Realms", realms.Cast<object>().ToList()).ToActivity());
+                activities.Add(new DiscoveryActivity(
+                    realms.Select(x => new DiscoveryItem("realm", x)).ToList()
+                ).ToActivity());
             }
         }
 
@@ -92,7 +98,9 @@ public class ActivityService(AppDatabase db, PublisherService pub, RelationshipS
             var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
             {
-                activities.Add(new DiscoveryActivity("Explore Realms", realms.Cast<object>().ToList()).ToActivity());
+                activities.Add(new DiscoveryActivity(
+                    realms.Select(x => new DiscoveryItem("realm", x)).ToList()
+                ).ToActivity());
             }
         }
 
