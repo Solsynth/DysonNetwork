@@ -13,9 +13,10 @@ public class WebFeedService(
     ILogger<WebFeedService> logger,
     AccountService accountService,
     WebReaderService webReaderService
-    )
+)
 {
-    public async Task<WebFeed> CreateWebFeedAsync(WebFeedController.CreateWebFeedRequest request, ClaimsPrincipal claims)
+    public async Task<WebFeed> CreateWebFeedAsync(WebFeedController.CreateWebFeedRequest request,
+        ClaimsPrincipal claims)
     {
         if (claims.Identity?.Name == null)
         {

@@ -75,6 +75,8 @@ public class AppDatabase(
 
     public DbSet<Realm.Realm> Realms { get; set; }
     public DbSet<RealmMember> RealmMembers { get; set; }
+    public DbSet<Tag> Tags { get; set; }
+    public DbSet<RealmTag> RealmTags { get; set; }
 
     public DbSet<ChatRoom> ChatRooms { get; set; }
     public DbSet<ChatMember> ChatMembers { get; set; }
@@ -228,6 +230,19 @@ public class AppDatabase(
             .HasOne(pm => pm.Account)
             .WithMany()
             .HasForeignKey(pm => pm.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RealmTag>()
+            .HasKey(rt => new { rt.RealmId, rt.TagId });
+        modelBuilder.Entity<RealmTag>()
+            .HasOne(rt => rt.Realm)
+            .WithMany(r => r.RealmTags)
+            .HasForeignKey(rt => rt.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<RealmTag>()
+            .HasOne(rt => rt.Tag)
+            .WithMany(t => t.RealmTags)
+            .HasForeignKey(rt => rt.TagId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ChatMember>()

@@ -84,6 +84,7 @@
 
     <ItemGroup>
         <Folder Include="Migrations\" />
+        <Folder Include="Discovery\" />
     </ItemGroup>
 
     <ItemGroup>
