@@ -17,7 +17,7 @@ public class MessageTypingHandler(ChatRoomService crs) : IWebSocketPacketHandler
         WebSocketService srv
     )
     {
-        var request = packet.GetData<ChatController.TypingMessageRequest>();
+        var request = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
         if (request is null)
         {
             await socket.SendAsync(

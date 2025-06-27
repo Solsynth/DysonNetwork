@@ -3,7 +3,7 @@ using DysonNetwork.Sphere.Chat;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
-public class MessagesUnsubscribeHandler(WebSocketService webSocketService) : IWebSocketPacketHandler
+public class MessagesUnsubscribeHandler() : IWebSocketPacketHandler
 {
     public string PacketType => "messages.unsubscribe";
 
@@ -15,7 +15,7 @@ public class MessagesUnsubscribeHandler(WebSocketService webSocketService) : IWe
         WebSocketService srv
     )
     {
-        webSocketService.UnsubscribeFromChatRoom(deviceId);
+        srv.UnsubscribeFromChatRoom(deviceId);
         return Task.CompletedTask;
     }
 }

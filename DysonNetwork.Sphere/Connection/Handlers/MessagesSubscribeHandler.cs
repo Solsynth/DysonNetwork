@@ -4,7 +4,7 @@ using DysonNetwork.Sphere.Chat;
 
 namespace DysonNetwork.Sphere.Connection.Handlers;
 
-public class MessagesSubscribeHandler(ChatRoomService crs, WebSocketService webSocketService) : IWebSocketPacketHandler
+public class MessagesSubscribeHandler(ChatRoomService crs) : IWebSocketPacketHandler
 {
     public string PacketType => "messages.subscribe";
 
@@ -16,7 +16,7 @@ public class MessagesSubscribeHandler(ChatRoomService crs, WebSocketService webS
         WebSocketService srv
     )
     {
-        var request = packet.GetData<ChatController.TypingMessageRequest>();
+        var request = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
         if (request is null)
         {
             await socket.SendAsync(
@@ -48,6 +48,6 @@ public class MessagesSubscribeHandler(ChatRoomService crs, WebSocketService webS
             return;
         }
 
-        webSocketService.SubscribeToChatRoom(sender.ChatRoomId.ToString(), deviceId);
+        srv.SubscribeToChatRoom(sender.ChatRoomId.ToString(), deviceId);
     }
 }

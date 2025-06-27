@@ -17,7 +17,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
         public Guid ChatRoomId { get; set; }
     }
 
-    public class TypingMessageRequest
+    public class ChatRoomWsUniversalRequest
     {
         public Guid ChatRoomId { get; set; }
     }
