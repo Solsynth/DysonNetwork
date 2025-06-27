@@ -31,7 +31,7 @@ public class ActivityService(
     {
         var activities = new List<Activity>();
 
-        if (cursor == null)
+        if (cursor == null && Random.Shared.NextDouble() < 0.2)
         {
             var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
@@ -93,7 +93,7 @@ public class ActivityService(
         var userFriends = await rels.ListAccountFriends(currentUser);
         var userPublishers = await pub.GetUserPublishers(currentUser.Id);
 
-        if (cursor == null)
+        if (cursor == null && Random.Shared.NextDouble() < 0.2)
         {
             var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
