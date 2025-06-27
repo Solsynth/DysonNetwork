@@ -243,7 +243,7 @@ public class RealmController(
         }
     }
 
-    
+
 
     [HttpGet("{slug}/members/me")]
     [Authorize]
@@ -384,8 +384,6 @@ public class RealmController(
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
-            .Include(r => r.Picture)
-            .Include(r => r.Background)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
