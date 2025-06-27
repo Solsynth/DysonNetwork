@@ -4,10 +4,6 @@ using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace DysonNetwork.Sphere.Activity;
 
@@ -103,6 +99,16 @@ public class ActivityService(
                 ).ToActivity());
             }
         }
+        else if (cursor == null && Random.Shared.NextDouble() < 0.2)
+        {
+            var popularPublishers = await GetPopularPublishers(5);
+            if (popularPublishers.Count > 0)
+            {
+                activities.Add(new DiscoveryActivity(
+                    popularPublishers.Select(x => new DiscoveryItem("publisher", x)).ToList()
+                ).ToActivity());
+            }
+        }
 
         // Get publishers based on filter
         var filteredPublishers = filter switch
@@ -165,5 +171,38 @@ public class ActivityService(
             activities.Add(Activity.Empty());
 
         return activities;
+    }
+
+    private static double CalculatePopularity(List<Post.Post> posts)
+    {
+        var score = posts.Sum(p => p.Upvotes - p.Downvotes);
+        var postCount = posts.Count;
+        return score + postCount;
+    }
+
+    private async Task<List<Publisher.Publisher>> GetPopularPublishers(int take)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var recent = now.Minus(Duration.FromDays(7));
+
+        var posts = await db.Posts
+            .Where(p => p.PublishedAt > recent)
+            .ToListAsync();
+
+        var publisherIds = posts.Select(p => p.PublisherId).Distinct().ToList();
+        var publishers = await db.Publishers.Where(p => publisherIds.Contains(p.Id)).ToListAsync();
+
+        var rankedPublishers = publishers
+            .Select(p => new
+            {
+                Publisher = p,
+                Rank = CalculatePopularity(posts.Where(post => post.PublisherId == p.Id).ToList())
+            })
+            .OrderByDescending(x => x.Rank)
+            .Select(x => x.Publisher)
+            .Take(take)
+            .ToList();
+
+        return rankedPublishers;
     }
 }
