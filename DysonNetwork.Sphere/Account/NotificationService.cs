@@ -215,7 +215,7 @@ public class NotificationService(
 
         var notifications = subDict.Select(value =>
         {
-            int platformCode = value.Key switch
+            var platformCode = value.Key switch
             {
                 NotificationPushProvider.Apple => 1,
                 NotificationPushProvider.Google => 2,

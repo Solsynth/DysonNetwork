@@ -409,8 +409,6 @@ public class RealmController(
         if (request.IsPublic is not null)
             realm.IsPublic = request.IsPublic.Value;
 
-        var realmResourceId = $"realm:{realm.Id}";
-
         if (request.PictureId is not null)
         {
             var picture = await db.Files.FindAsync(request.PictureId);
@@ -419,11 +417,7 @@ public class RealmController(
             // Remove old references for the realm picture
             if (realm.Picture is not null)
             {
-                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(realmResourceId, "realm.picture");
-                foreach (var oldRef in oldPictureRefs)
-                {
-                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
-                }
+                await fileRefService.DeleteResourceReferencesAsync(realm.ResourceIdentifier, "realm.picture");
             }
 
             realm.Picture = picture.ToReferenceObject();
@@ -432,7 +426,7 @@ public class RealmController(
             await fileRefService.CreateReferenceAsync(
                 picture.Id,
                 "realm.picture",
-                realmResourceId
+                realm.ResourceIdentifier
             );
         }
 
@@ -444,12 +438,7 @@ public class RealmController(
             // Remove old references for the realm background
             if (realm.Background is not null)
             {
-                var oldBackgroundRefs =
-                    await fileRefService.GetResourceReferencesAsync(realmResourceId, "realm.background");
-                foreach (var oldRef in oldBackgroundRefs)
-                {
-                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
-                }
+                await fileRefService.DeleteResourceReferencesAsync(realm.ResourceIdentifier, "realm.background");
             }
 
             realm.Background = background.ToReferenceObject();
@@ -458,7 +447,7 @@ public class RealmController(
             await fileRefService.CreateReferenceAsync(
                 background.Id,
                 "realm.background",
-                realmResourceId
+                realm.ResourceIdentifier
             );
         }
 

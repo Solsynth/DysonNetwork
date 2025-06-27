@@ -157,6 +157,36 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     }
 
     /// <summary>
+    /// Deletes references for a specific resource and usage
+    /// </summary>
+    /// <param name="resourceId">The ID of the resource</param>
+    /// <param name="usage">The usage context</param>
+    /// <returns>The number of deleted references</returns>
+    public async Task<int> DeleteResourceReferencesAsync(string resourceId, string usage)
+    {
+        var references = await db.FileReferences
+            .Where(r => r.ResourceId == resourceId && r.Usage == usage)
+            .ToListAsync();
+
+        if (!references.Any())
+        {
+            return 0;
+        }
+
+        var fileIds = references.Select(r => r.FileId).Distinct().ToList();
+
+        db.FileReferences.RemoveRange(references);
+        var deletedCount = await db.SaveChangesAsync();
+
+        // Purge caches
+        var tasks = fileIds.Select(fileService._PurgeCacheAsync).ToList();
+        tasks.Add(PurgeCacheForResourceAsync(resourceId));
+        await Task.WhenAll(tasks);
+
+        return deletedCount;
+    }
+
+    /// <summary>
     /// Deletes a specific file reference
     /// </summary>
     /// <param name="referenceId">The ID of the reference to delete</param>

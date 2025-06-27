@@ -69,7 +69,7 @@ public class PublisherSubscriptionService(
 
         // Notify each subscriber
         var notifiedCount = 0;
-        foreach (var subscription in subscribers)
+        foreach (var subscription in subscribers.GroupBy(s => s.AccountId).Select(g => g.First()))
         {
             try
             {

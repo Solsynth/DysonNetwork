@@ -262,26 +262,19 @@ public class ChatRoomController(
             chatRoom.RealmId = member.RealmId;
         }
 
-        var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
-
         if (request.PictureId is not null)
         {
             var picture = await db.Files.FindAsync(request.PictureId);
             if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
             // Remove old references for pictures
-            var oldPictureRefs =
-                await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.picture");
-            foreach (var oldRef in oldPictureRefs)
-            {
-                await fileRefService.DeleteReferenceAsync(oldRef.Id);
-            }
+            await fileRefService.DeleteResourceReferencesAsync(chatRoom.ResourceIdentifier, "chat.room.picture");
 
             // Add a new reference
             await fileRefService.CreateReferenceAsync(
                 picture.Id,
                 "chat.room.picture",
-                chatRoomResourceId
+                chatRoom.ResourceIdentifier
             );
 
             chatRoom.Picture = picture.ToReferenceObject();
@@ -293,18 +286,13 @@ public class ChatRoomController(
             if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
 
             // Remove old references for backgrounds
-            var oldBackgroundRefs =
-                await fileRefService.GetResourceReferencesAsync(chatRoomResourceId, "chat.room.background");
-            foreach (var oldRef in oldBackgroundRefs)
-            {
-                await fileRefService.DeleteReferenceAsync(oldRef.Id);
-            }
+            await fileRefService.DeleteResourceReferencesAsync(chatRoom.ResourceIdentifier, "chat.room.background");
 
             // Add a new reference
             await fileRefService.CreateReferenceAsync(
                 background.Id,
                 "chat.room.background",
-                chatRoomResourceId
+                chatRoom.ResourceIdentifier
             );
 
             chatRoom.Background = background.ToReferenceObject();

@@ -355,12 +355,7 @@ public class PublisherController(
             // Remove old references for the publisher picture
             if (publisher.Picture is not null)
             {
-                var oldPictureRefs = await fileRefService.GetResourceReferencesAsync(
-                    publisher.ResourceIdentifier,
-                    "publisher.picture"
-                );
-                foreach (var oldRef in oldPictureRefs)
-                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
+                await fileRefService.DeleteResourceReferencesAsync(publisher.ResourceIdentifier, "publisher.picture");
             }
 
             publisher.Picture = picture.ToReferenceObject();
@@ -378,17 +373,10 @@ public class PublisherController(
             var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
             if (background is null) return BadRequest("Invalid background id.");
 
-            var publisherResourceId = $"publisher:{publisher.Id}";
-
             // Remove old references for the publisher background
             if (publisher.Background is not null)
             {
-                var oldBackgroundRefs =
-                    await fileRefService.GetResourceReferencesAsync(publisherResourceId, "publisher.background");
-                foreach (var oldRef in oldBackgroundRefs)
-                {
-                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
-                }
+                await fileRefService.DeleteResourceReferencesAsync(publisher.ResourceIdentifier, "publisher.background");
             }
 
             publisher.Background = background.ToReferenceObject();
@@ -397,7 +385,7 @@ public class PublisherController(
             await fileRefService.CreateReferenceAsync(
                 background.Id,
                 "publisher.background",
-                publisherResourceId
+                publisher.ResourceIdentifier
             );
         }
 
