@@ -22,7 +22,8 @@ public class ChatRoomController(
     ActionLogService als,
     NotificationService nty,
     RelationshipService rels,
-    IStringLocalizer<NotificationResource> localizer
+    IStringLocalizer<NotificationResource> localizer,
+    AccountEventService aes
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -149,7 +150,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required][MaxLength(1024)] public string? Name { get; set; }
+        [Required] [MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -384,7 +385,7 @@ public class ChatRoomController(
 
     [HttpGet("{roomId:guid}/members")]
     public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId, [FromQuery] int take = 20,
-        [FromQuery] int skip = 0)
+        [FromQuery] int skip = 0, [FromQuery] bool withStatus = false, [FromQuery] string? status = null)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
 
@@ -400,23 +401,53 @@ public class ChatRoomController(
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
 
-        var query = db.ChatMembers
+        IQueryable<ChatMember> query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.LeaveAt == null) // Add this condition to exclude left members
             .Include(m => m.Account)
             .Include(m => m.Account.Profile);
 
-        var total = await query.CountAsync();
-        Response.Headers.Append("X-Total", total.ToString());
+        if (withStatus)
+        {
+            var members = await query
+                .OrderBy(m => m.JoinedAt)
+                .ToListAsync();
 
-        var members = await query
-            .OrderBy(m => m.JoinedAt)
-            .Skip(skip)
-            .Take(take)
-            .ToListAsync();
+            var memberStatuses = await aes.GetStatuses(members.Select(m => m.AccountId).ToList());
 
-        return Ok(members);
+            if (!string.IsNullOrEmpty(status))
+            {
+                members = members.Where(m =>
+                    memberStatuses.TryGetValue(m.AccountId, out var s) && s.Label != null &&
+                    s.Label.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            members = members.OrderByDescending(m => memberStatuses.TryGetValue(m.AccountId, out var s) && s.IsOnline)
+                .ToList();
+
+            var total = members.Count;
+            Response.Headers.Append("X-Total", total.ToString());
+
+            var result = members.Skip(skip).Take(take).ToList();
+
+            return Ok(result);
+        }
+        else
+        {
+            var total = await query.CountAsync();
+            Response.Headers.Append("X-Total", total.ToString());
+
+            var members = await query
+                .OrderBy(m => m.JoinedAt)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
+
+            return Ok(members);
+        }
     }
+
+    
 
     public class ChatMemberRequest
     {

@@ -15,7 +15,8 @@ public class RealmController(
     RealmService rs,
     FileReferenceService fileRefService,
     RelationshipService rels,
-    ActionLogService als
+    ActionLogService als,
+    AccountEventService aes
 ) : Controller
 {
     [HttpGet("{slug}")]
@@ -179,7 +180,9 @@ public class RealmController(
     public async Task<ActionResult<List<RealmMember>>> ListMembers(
         string slug,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] bool withStatus = false,
+        [FromQuery] string? status = null
     )
     {
         var realm = await db.Realms
@@ -194,23 +197,53 @@ public class RealmController(
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
-        var query = db.RealmMembers
+        IQueryable<RealmMember> query = db.RealmMembers
             .Where(m => m.RealmId == realm.Id)
-            .Where(m => m.LeaveAt == null);
-
-        var total = await query.CountAsync();
-        Response.Headers["X-Total"] = total.ToString();
-
-        var members = await query
-            .OrderBy(m => m.CreatedAt)
-            .Skip(offset)
-            .Take(take)
+            .Where(m => m.LeaveAt == null)
             .Include(m => m.Account)
-            .Include(m => m.Account.Profile)
-            .ToListAsync();
+            .Include(m => m.Account.Profile);
 
-        return Ok(members);
+        if (withStatus)
+        {
+            var members = await query
+                .OrderBy(m => m.CreatedAt)
+                .ToListAsync();
+
+            var memberStatuses = await aes.GetStatuses(members.Select(m => m.AccountId).ToList());
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                members = members.Where(m =>
+                    memberStatuses.TryGetValue(m.AccountId, out var s) && s.Label != null &&
+                    s.Label.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            members = members.OrderByDescending(m => memberStatuses.TryGetValue(m.AccountId, out var s) && s.IsOnline)
+                .ToList();
+
+            var total = members.Count;
+            Response.Headers["X-Total"] = total.ToString();
+
+            var result = members.Skip(offset).Take(take).ToList();
+
+            return Ok(result);
+        }
+        else
+        {
+            var total = await query.CountAsync();
+            Response.Headers["X-Total"] = total.ToString();
+
+            var members = await query
+                .OrderBy(m => m.CreatedAt)
+                .Skip(offset)
+                .Take(take)
+                .ToListAsync();
+
+            return Ok(members);
+        }
     }
+
+    
 
     [HttpGet("{slug}/members/me")]
     [Authorize]

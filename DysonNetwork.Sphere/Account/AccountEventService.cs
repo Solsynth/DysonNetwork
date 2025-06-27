@@ -65,7 +65,7 @@ public class AccountEventService(
             };
         }
 
-        return new Status
+                return new Status
         {
             Attitude = StatusAttitude.Neutral,
             IsOnline = false,
@@ -73,6 +73,70 @@ public class AccountEventService(
             Label = "Offline",
             AccountId = userId,
         };
+    }
+
+    public async Task<Dictionary<Guid, Status>> GetStatuses(List<Guid> userIds)
+    {
+        var results = new Dictionary<Guid, Status>();
+        var cacheMissUserIds = new List<Guid>();
+
+        foreach (var userId in userIds)
+        {
+            var cacheKey = $"{StatusCacheKey}{userId}";
+            var cachedStatus = await cache.GetAsync<Status>(cacheKey);
+            if (cachedStatus != null)
+            {
+                cachedStatus.IsOnline = !cachedStatus.IsInvisible && ws.GetAccountIsConnected(userId);
+                results[userId] = cachedStatus;
+            }
+            else
+            {
+                cacheMissUserIds.Add(userId);
+            }
+        }
+
+        if (cacheMissUserIds.Any())
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var statusesFromDb = await db.AccountStatuses
+                .Where(e => cacheMissUserIds.Contains(e.AccountId))
+                .Where(e => e.ClearedAt == null || e.ClearedAt > now)
+                .GroupBy(e => e.AccountId)
+                .Select(g => g.OrderByDescending(e => e.CreatedAt).First())
+                .ToListAsync();
+
+            var foundUserIds = new HashSet<Guid>();
+
+            foreach (var status in statusesFromDb)
+            {
+                var isOnline = ws.GetAccountIsConnected(status.AccountId);
+                status.IsOnline = !status.IsInvisible && isOnline;
+                results[status.AccountId] = status;
+                var cacheKey = $"{StatusCacheKey}{status.AccountId}";
+                await cache.SetAsync(cacheKey, status, TimeSpan.FromMinutes(5));
+                foundUserIds.Add(status.AccountId);
+            }
+
+            var usersWithoutStatus = cacheMissUserIds.Except(foundUserIds).ToList();
+            if (usersWithoutStatus.Any())
+            {
+                foreach (var userId in usersWithoutStatus)
+                {
+                    var isOnline = ws.GetAccountIsConnected(userId);
+                    var defaultStatus = new Status
+                    {
+                        Attitude = StatusAttitude.Neutral,
+                        IsOnline = isOnline,
+                        IsCustomized = false,
+                        Label = isOnline ? "Online" : "Offline",
+                        AccountId = userId,
+                    };
+                    results[userId] = defaultStatus;
+                }
+            }
+        }
+
+        return results;
     }
 
     public async Task<Status> CreateStatus(Account user, Status status)
