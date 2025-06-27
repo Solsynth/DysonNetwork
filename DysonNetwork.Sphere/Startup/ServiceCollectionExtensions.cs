@@ -187,6 +187,8 @@ public static class ServiceCollectionExtensions
         // The handlers for websocket
         services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
         services.AddScoped<IWebSocketPacketHandler, MessageTypingHandler>();
+        services.AddScoped<IWebSocketPacketHandler, MessagesSubscribeHandler>();
+        services.AddScoped<IWebSocketPacketHandler, MessagesUnsubscribeHandler>();
 
         return services;
     }
