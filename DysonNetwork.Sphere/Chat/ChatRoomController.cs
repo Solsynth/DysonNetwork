@@ -149,7 +149,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required] [MaxLength(1024)] public string? Name { get; set; }
+        [Required][MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -239,7 +239,6 @@ public class ChatRoomController(
 
         var chatRoom = await db.ChatRooms
             .Where(e => e.Id == id)
-            .Include(c => c.Background)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
