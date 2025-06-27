@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Realm;
 
 [ApiController]
-[Route("/realm/{slug}")]
+[Route("/realms/{slug}")]
 public class RealmChatController(AppDatabase db, RealmService rs) : ControllerBase
 {
     [HttpGet("chat")]
