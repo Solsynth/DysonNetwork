@@ -23,11 +23,12 @@ public class ActivityService(
         return (score + 1) / Math.Pow(hours + 2, 1.8);
     }
 
-    public async Task<List<Activity>> GetActivitiesForAnyone(int take, Instant? cursor)
+    public async Task<List<Activity>> GetActivitiesForAnyone(int take, Instant? cursor, HashSet<string>? debugInclude = null)
     {
         var activities = new List<Activity>();
+        debugInclude ??= new HashSet<string>();
 
-        if (cursor == null && Random.Shared.NextDouble() < 0.2)
+        if (cursor == null && (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2))
         {
             var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
             if (realms.Count > 0)
@@ -82,31 +83,37 @@ public class ActivityService(
         int take,
         Instant? cursor,
         Account.Account currentUser,
-        string? filter = null
+        string? filter = null,
+        HashSet<string>? debugInclude = null
     )
     {
         var activities = new List<Activity>();
         var userFriends = await rels.ListAccountFriends(currentUser);
         var userPublishers = await pub.GetUserPublishers(currentUser.Id);
+        debugInclude ??= new HashSet<string>();
 
-        if (cursor == null && Random.Shared.NextDouble() < 0.2)
+        if (string.IsNullOrEmpty(filter))
         {
-            var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
-            if (realms.Count > 0)
+            if (cursor == null && (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2))
             {
-                activities.Add(new DiscoveryActivity(
-                    realms.Select(x => new DiscoveryItem("realm", x)).ToList()
-                ).ToActivity());
+                var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
+                if (realms.Count > 0)
+                {
+                    activities.Add(new DiscoveryActivity(
+                        realms.Select(x => new DiscoveryItem("realm", x)).ToList()
+                    ).ToActivity());
+                }
             }
-        }
-        else if (cursor == null && Random.Shared.NextDouble() < 0.2)
-        {
-            var popularPublishers = await GetPopularPublishers(5);
-            if (popularPublishers.Count > 0)
+
+            if (cursor == null && (debugInclude.Contains("publishers") || Random.Shared.NextDouble() < 0.2))
             {
-                activities.Add(new DiscoveryActivity(
-                    popularPublishers.Select(x => new DiscoveryItem("publisher", x)).ToList()
-                ).ToActivity());
+                var popularPublishers = await GetPopularPublishers(5);
+                if (popularPublishers.Count > 0)
+                {
+                    activities.Add(new DiscoveryActivity(
+                        popularPublishers.Select(x => new DiscoveryItem("publisher", x)).ToList()
+                    ).ToActivity());
+                }
             }
         }
 
