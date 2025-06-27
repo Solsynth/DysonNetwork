@@ -164,6 +164,8 @@ public class FileService(
                         ["tags"] = mediaInfo.Format.Tags ?? [],
                         ["chapters"] = mediaInfo.Chapters,
                     };
+                    if (mediaInfo.PrimaryVideoStream is not null)
+                        file.FileMeta["ratio"] = mediaInfo.PrimaryVideoStream.Width / mediaInfo.PrimaryVideoStream.Height;
                 }
                 catch (Exception ex)
                 {
