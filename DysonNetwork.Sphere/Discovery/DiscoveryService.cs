@@ -13,7 +13,7 @@ public class DiscoveryService(AppDatabase appDatabase)
         var realmsQuery = appDatabase.Realms
             .Take(take)
             .Skip(offset)
-            .Where(r => r.IsPublic);
+            .Where(r => r.IsCommunity);
 
         if (!string.IsNullOrEmpty(query))
         {
