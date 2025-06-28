@@ -95,3 +95,9 @@ public class PublisherFeature : ModelBase
     public Guid PublisherId { get; set; }
     public Publisher Publisher { get; set; } = null!;
 }
+
+public abstract class PublisherFeatureFlag
+{
+    public static List<string> AllFlags => [Developer];
+    public static string Developer = "develop";
+}

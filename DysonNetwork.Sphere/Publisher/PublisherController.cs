@@ -491,4 +491,86 @@ public class PublisherController(
         if (member is null) return NotFound();
         return Ok(member);
     }
+
+    [HttpGet("{name}/features")]
+    [Authorize]
+    public async Task<ActionResult<Dictionary<string, bool>>> ListPublisherFeatures(string name)
+    {
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        var features = await db.PublisherFeatures
+            .Where(f => f.PublisherId == publisher.Id)
+            .ToListAsync();
+
+        var dict = PublisherFeatureFlag.AllFlags.ToDictionary(
+            flag => flag,
+            _ => false
+        );
+
+        foreach (
+            var feature in features.Where(feature =>
+                feature.ExpiredAt == null || !(feature.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
+            )
+        )
+        {
+            dict[feature.Flag] = true;
+        }
+
+        return Ok(dict);
+    }
+
+    public class PublisherFeatureRequest
+    {
+        [Required] public string Flag { get; set; } = null!;
+        public Instant? ExpiredAt { get; set; }
+    }
+
+    [HttpPost("{name}/features")]
+    [Authorize]
+    [RequiredPermission("maintenance", "publishers.features")]
+    public async Task<ActionResult<PublisherFeature>> AddPublisherFeature(string name,
+        [FromBody] PublisherFeatureRequest request)
+    {
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        var feature = new PublisherFeature
+        {
+            PublisherId = publisher.Id,
+            Flag = request.Flag,
+            ExpiredAt = request.ExpiredAt
+        };
+
+        db.PublisherFeatures.Add(feature);
+        await db.SaveChangesAsync();
+
+        return Ok(feature);
+    }
+
+    [HttpDelete("{name}/features/{flag}")]
+    [Authorize]
+    [RequiredPermission("maintenance", "publishers.features")]
+    public async Task<ActionResult> RemovePublisherFeature(string name, string flag)
+    {
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        var feature = await db.PublisherFeatures
+            .Where(f => f.PublisherId == publisher.Id)
+            .Where(f => f.Flag == flag)
+            .FirstOrDefaultAsync();
+        if (feature is null) return NotFound();
+
+        db.PublisherFeatures.Remove(feature);
+        await db.SaveChangesAsync();
+
+        return NoContent();
+    }
 }
