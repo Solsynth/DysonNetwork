@@ -18,6 +18,10 @@ namespace DysonNetwork.Sphere.Pages.Auth
     ) : PageModel
     {
         [BindProperty] [Required] public string Username { get; set; } = string.Empty;
+        
+        [BindProperty]
+        [FromQuery]
+        public string? ReturnUrl { get; set; }
 
         public void OnGet()
         {
@@ -35,6 +39,12 @@ namespace DysonNetwork.Sphere.Pages.Auth
             {
                 ModelState.AddModelError(string.Empty, "Account was not found.");
                 return Page();
+            }
+            
+            // Store the return URL in TempData to preserve it during the login flow
+            if (!string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl))
+            {
+                TempData["ReturnUrl"] = ReturnUrl;
             }
 
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -71,11 +81,13 @@ namespace DysonNetwork.Sphere.Pages.Auth
             await db.AuthChallenges.AddAsync(challenge);
             await db.SaveChangesAsync();
 
-            als.CreateActionLogFromRequest(ActionLogType.ChallengeAttempt,
-                new Dictionary<string, object> { { "challenge_id", challenge.Id } }, Request, account
-            );
-
-            return RedirectToPage("Challenge", new { id = challenge.Id });
+            // If we have a return URL, pass it to the verify page
+            if (TempData.TryGetValue("ReturnUrl", out var returnUrl) && returnUrl is string url)
+            {
+                return RedirectToPage("SelectFactor", new { id = challenge.Id, returnUrl = url });
+            }
+            
+            return RedirectToPage("SelectFactor", new { id = challenge.Id });
         }
     }
 }

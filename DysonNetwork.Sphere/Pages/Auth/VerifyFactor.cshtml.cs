@@ -22,6 +22,9 @@ namespace DysonNetwork.Sphere.Pages.Auth
 
         [BindProperty(SupportsGet = true)]
         public Guid FactorId { get; set; }
+        
+        [BindProperty(SupportsGet = true)]
+        public string? ReturnUrl { get; set; }
 
         [BindProperty, Required]
         public string Code { get; set; } = string.Empty;
@@ -159,21 +162,21 @@ namespace DysonNetwork.Sphere.Pages.Auth
             var session = await _db.AuthSessions
                 .FirstOrDefaultAsync(e => e.ChallengeId == challenge.Id);
 
-            if (session != null) return BadRequest("Session already exists for this challenge.");
-
-            session = new Session
+            if (session == null)
             {
-                LastGrantedAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
-                ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(30)),
-                Account = challenge.Account,
-                Challenge = challenge,
-            };
-
-            _db.AuthSessions.Add(session);
-            await _db.SaveChangesAsync();
+                session = new Session
+                {
+                    LastGrantedAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
+                    ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(30)),
+                    Account = challenge.Account,
+                    Challenge = challenge,
+                };
+                _db.AuthSessions.Add(session);
+                await _db.SaveChangesAsync();
+            }
 
             var token = _auth.CreateToken(session);
-            Response.Cookies.Append(AuthConstants.CookieTokenName, token, new()
+            Response.Cookies.Append("access_token", token, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = !_configuration.GetValue<bool>("Debug"),
@@ -181,7 +184,19 @@ namespace DysonNetwork.Sphere.Pages.Auth
                 Path = "/"
             });
 
-            return RedirectToPage("/Account/Profile");
+            // Redirect to the return URL if provided and valid, otherwise to the home page
+            if (!string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl))
+            {
+                return Redirect(ReturnUrl);
+            }
+            
+            // Check TempData for return URL (in case it was passed through multiple steps)
+            if (TempData.TryGetValue("ReturnUrl", out var tempReturnUrl) && tempReturnUrl is string returnUrl && !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return RedirectToPage("/Index");
         }
     }
 }

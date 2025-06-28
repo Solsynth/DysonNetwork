@@ -13,6 +13,9 @@ public class SelectFactorModel(
     : PageModel
 {
     [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
+    [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
+    [BindProperty] public Guid SelectedFactorId { get; set; }
+    [BindProperty] public string? Hint { get; set; }
 
     public Challenge? AuthChallenge { get; set; }
     public List<AccountAuthFactor> AuthFactors { get; set; } = [];
@@ -25,7 +28,7 @@ public class SelectFactorModel(
         return Page();
     }
 
-    public async Task<IActionResult> OnPostSelectFactorAsync(Guid factorId, string? hint = null)
+    public async Task<IActionResult> OnPostSelectFactorAsync()
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
@@ -33,23 +36,29 @@ public class SelectFactorModel(
 
         if (challenge == null) return NotFound();
 
-        var factor = await db.AccountAuthFactors.FindAsync(factorId);
+        var factor = await db.AccountAuthFactors.FindAsync(SelectedFactorId);
         if (factor?.EnabledAt == null || factor.Trustworthy <= 0)
             return BadRequest("Invalid authentication method.");
+            
+        // Store return URL in TempData to pass to the next step
+        if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            TempData["ReturnUrl"] = ReturnUrl;
+        }
 
         // For OTP factors that require code delivery
         try
         {
-            // Validate hint for factors that require it
+            // For OTP factors that require code delivery
             if (factor.Type == AccountAuthFactorType.EmailCode 
-                && string.IsNullOrWhiteSpace(hint))
+                && string.IsNullOrWhiteSpace(Hint))
             {
                 ModelState.AddModelError(string.Empty, $"Please provide a {factor.Type.ToString().ToLower().Replace("code", "")} to send the code to.");
                 await LoadChallengeAndFactors();
                 return Page();
             }
 
-            await accounts.SendFactorCode(challenge.Account, factor, hint);
+            await accounts.SendFactorCode(challenge.Account, factor, Hint);
         }
         catch (Exception ex)
         {
@@ -58,8 +67,12 @@ public class SelectFactorModel(
             return Page();
         }
 
-        // Redirect to verify the page with the selected factor
-        return RedirectToPage("VerifyFactor", new { id = Id, factorId });
+        // Redirect to verify page with return URL if available
+        if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            return RedirectToPage("VerifyFactor", new { id = Id, factorId = factor.Id, returnUrl = ReturnUrl });
+        }
+        return RedirectToPage("VerifyFactor", new { id = Id, factorId = factor.Id });
     }
 
     private async Task LoadChallengeAndFactors()

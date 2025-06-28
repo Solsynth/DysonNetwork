@@ -7,10 +7,13 @@ namespace DysonNetwork.Sphere.Pages.Auth
     {
         [BindProperty(SupportsGet = true)]
         public Guid Id { get; set; }
+        
+        [BindProperty(SupportsGet = true)]
+        public string? ReturnUrl { get; set; }
 
         public IActionResult OnGet()
         {
-            return RedirectToPage("SelectFactor", new { id = Id });
+            return RedirectToPage("SelectFactor", new { id = Id, returnUrl = ReturnUrl });
         }
     }
 }

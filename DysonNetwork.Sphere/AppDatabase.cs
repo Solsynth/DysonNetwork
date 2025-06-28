@@ -196,6 +196,41 @@ public class AppDatabase(
             .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
             .HasIndex(p => p.SearchVector)
             .HasMethod("GIN");
+
+        modelBuilder.Entity<CustomApp>()
+            .Property(c => c.RedirectUris)
+            .HasConversion(
+                v => string.Join(",", v),
+                v => v.Split(",", StringSplitOptions.RemoveEmptyEntries).ToArray());
+            
+        modelBuilder.Entity<CustomApp>()
+            .Property(c => c.PostLogoutRedirectUris)
+            .HasConversion(
+                v => v != null ? string.Join(",", v) : "",
+                v => !string.IsNullOrEmpty(v) ? v.Split(",", StringSplitOptions.RemoveEmptyEntries) : Array.Empty<string>());
+                
+        modelBuilder.Entity<CustomApp>()
+            .Property(c => c.AllowedScopes)
+            .HasConversion(
+                v => v != null ? string.Join(" ", v) : "",
+                v => !string.IsNullOrEmpty(v) ? v.Split(" ", StringSplitOptions.RemoveEmptyEntries) : new[] { "openid", "profile", "email" });
+                
+        modelBuilder.Entity<CustomApp>()
+            .Property(c => c.AllowedGrantTypes)
+            .HasConversion(
+                v => v != null ? string.Join(" ", v) : "",
+                v => !string.IsNullOrEmpty(v) ? v.Split(" ", StringSplitOptions.RemoveEmptyEntries) : new[] { "authorization_code", "refresh_token" });
+                
+        modelBuilder.Entity<CustomAppSecret>()
+            .HasIndex(s => s.Secret)
+            .IsUnique();
+            
+        modelBuilder.Entity<CustomApp>()
+            .HasMany(c => c.Secrets)
+            .WithOne(s => s.App)
+            .HasForeignKey(s => s.AppId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.RepliedPost)
             .WithMany()

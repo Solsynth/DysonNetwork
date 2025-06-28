@@ -1,0 +1,127 @@
+@page "/auth/authorize"
+@model DysonNetwork.Sphere.Pages.Auth.AuthorizeModel
+@{
+    ViewData["Title"] = "Authorize Application";
+}
+
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-200 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 transition-colors duration-200">
+        <div class="text-center">
+            <h2 class="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+                Authorize Application
+            </h2>
+            @if (!string.IsNullOrEmpty(Model.AppName))
+            {
+                <div class="mt-6">
+                    <div class="flex items-center justify-center">
+                        @if (!string.IsNullOrEmpty(Model.AppLogo))
+                        {
+                            <div class="relative h-16 w-16 flex-shrink-0">
+                                <img class="h-16 w-16 rounded-lg object-cover border border-gray-200 dark:border-gray-700" 
+                                     src="@Model.AppLogo" 
+                                     alt="@Model.AppName logo" 
+                                     onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iY3VycmVudENvbG9yIiBjbGFzczz0idy02IGgtNiB0ZXh0LWdyYXktNDAwIj48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xOS42MDMgMy4wMDRjMS4xNTMgMCAyLjI2LjE4IDMuMzI5LjUxM2EuNzUuNzUgMCAwMS0uMzI4IDEuNDQ1IDE2LjkzIDE2LjkzIDAgMDAtNi4wMS0xuMTAzLjc1Ljc1IDAgMDEtLjY2OC0uNzQ4VjMuNzVBLjc1Ljc1IDAgMDExNi41IDNoMy4xMDN6TTMxLjUgMjEuMDA4Yy0uU0UuNzUgNzUuNzUgMCAwMTEuOTQ4LjA1MWMuMDgxLjkxOC4wNTIgMS44MzgtLjA4NiAyLjczNGEuNzUuNzUgMCAwMS0xLjQ5LS4xNTkgMjEuMzg2IDIxLjM4NiAwIDAwLjA2LTIuNTc1Ljc1Ljc1IDAgMDExLjU3OC0uMDQzem0tMy4wMi0xOC4wMmMuMDYgMS4wOTIuMDQgMi4xODctLjA1NiAzLjI3MmEuNzUuNzUgMCAwMS0xLjQ5Mi0uMTY0Yy4wOTItLjg3NC4xMDctMS43NTYuMDUxLTIuNjA3YS43NS43NSAwIDAxMS40OTctLjEwMXpNNS42MzcgNS42MzJjLS4zMzQuMS0uNjc2LjE4NS0xLjAyNi4yNTdhLjc1Ljc1IDAgMDEuMTQ5LTEuNDljLjQyNS0uMDg1Ljg1Mi0uMTg5IDEuMjY4LS4zMDRhLjc1Ljc1IDAgMDEuMzYgMS40Mzd6TTMuMzMgMTkuNjUzYy0uMTY1LS4zNS0uMzA4LS43MDctNDIuNjUzLjc1Ljc1IDAgMS4zODgtLjU0MiAxLjQ5LTEuMjg1LjA0Ni0uMzI2LjEwNi0uNjUyLjE4LS45NzZhLjc1Ljc1IDAgMTExLjQ2LS41M2MuMTA2LjQzNy4xODkuODgxLjI0NSAxLjM0OGEuNzUuNzUgMCAwMS0xLjQ5LjIzM3pNTEuMzUzIDIuNzY3YS43NS43NSAwIDAxLjc1LS4wMTdsLjAwMS4wMDFoLjAwMWwuMDAyLjAwMWwuMDA3LjAwM2wuMDI0LjAxM2MuMDIuMDEuMDQ1LjAyNS4wNzkuMDQ2LjA2Ny4wNDIuMTYxLjEwMi4yNzUuMTc4LjIzMi4xNTEuNTUuMzgzLjg1Ni42NjdsLjAyNy4wMjRjLjYxNi41NTggMS4yMTIgMS4xNzYgMS43MzMgMS44NDNhLjc1Ljc1IDAgMDEtMS4yNC44N2MtLjQ3LS42NzEtMS4wMzEtMS4yOTItMS42LFsxLjYxNi0xLjYxNmEzLjc1IDMuNzUgMCAwMC01LjMwNS01LjMwNGwtMS4wNi0xuMDZBNy4yNDMgNy4yNDMgMCAwMTUxLjM1MyAyLjc2N3pNNDQuMzc5IDkuNjRsLTEuNTYgMS41NmE2Ljk5IDYuOTkgMCAwMTIuMjMgNC4zMzcgNi45OSA2Ljk5IDAgMDEtMi4yMyA1LjE3NmwtMS41Ni0xLjU2QTguNDkgOC40OSAwIDAwNDUuNSAxNS41YzAtMi4yOTYtLjg3NC00LjQzLTIuMTIxLTYuMDF6bS0zLjUzLTMuNTNsLTEuMDYxLTEuMDZhNy4yNDMgNy4yNDMgMCAwMTkuMTkyIDkuE2x0LTEuMDYgMS4wNjFhNS43NDkgNS43NDkgMCAwMC04LjEzLTguMTN6TTM0LjUgMTUuNWE4Ljk5IDguOTkgMCAwMC0yLjYzMSA2LjM2OS43NS43NSAwIDExLTEuNDk0LS43MzlDNzIuMzkgMjAuMDYgMzMuNSAxNy41NzUgMzMuNSAxNS41YzAtMi4zNzYgMS4wOTktNC40MzggMi44MTEtNS44MTJsLS4zOTYtLjM5NmEuNzUuNzUgMCAwMTEuMDYtMS4wNkwzNy41IDkuNDRWMmgtL4wMDJhLjc1Ljc1IDAgMDEtLjc0OC0uNzVWMS41YS43NS43NSAwIDAxLjc1LS43NWg2YS43NS43NSAwIDAxLjc1Ljc1di4yNWEwIC43NS0uNzUuNzVoLS4wMDF2Ny40NGwzLjUzNy0zLjUzN2EuNzUuNzUgMCAwMTEuMDYgMS4wNmwtLjM5Ni4zOTZDMzUuNDAxIDExLjA2MiAzNC41IDEzLjEyNCAzNC41IDE1LjV6TTM5IDIuMjV2Ni4wMy0uMDAyYTEuNSAxLjUgMCAwMS0uNDQ0IDEuMDZsLTEuMDYxIDEuMDZBOC40OSA4LjQ5IDAgMDAzOSAxNS41YzAgMi4yOTYtLjg3NCA0LjQzLTIuMTIxIDYuMDFsMS41NiAxLjU2QTYuOTkgNi45OSAwIDAwNDIgMTUuNWE2Ljk5IDYuOTkgMCAwMC0yLjIzLTUuMTc2bC0xLjU2LTEuNTZhMS41IDEuNSAwIDAxLS40NC0xLjA2VjIuMjVoLTF6TTI0IDkuNzVhLjc1Ljc1IDAgMDEtLjc1Ljc1di0uNWMwLS40MTQuMzM2LS43NS43NS0uNzVoLjVjLjQxNCAwIC43NS4zMzYuNzUuNzV2LjVhLjc1Ljc1IDAgMDEtLjc1Ljc1aC0uNXpNMTkuNSAxM2EuNzUuNzUgMCAwMS0uNzUtLjc1di0uNWMwLS40MTQuMzM2LS43NS43NS0uNzVoLjVjLjQxNCAwIC43NS4zMzYuNzUuNzV2LjVhLjc1Ljc1IDAgMDEtLjc1Ljc1aC0uNXpNMTUgMTYuMjVhLjc1Ljc1IDAgMDEuNzUtLjc1aC41Yy40MTQgMCAuNzUuMzM2Ljc1Ljc1di41YS43NS43NSAwIDAxLS43NS43NWgtLjVhLjc1Ljc1IDAgMDEtLjc1LS43NXYtLjV6IiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz48L3N2Zz4=';">
+                                <div class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-300">@Model.AppName?[0]</span>
+                                </div>
+                            </div>
+                        }
+                        <div class="ml-4 text-left">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">@Model.AppName</h3>
+                            @if (!string.IsNullOrEmpty(Model.AppUri))
+                            {
+                                <a href="@Model.AppUri" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors duration-200" target="_blank" rel="noopener noreferrer">
+                                    @Model.AppUri
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            <p class="mt-6 text-sm text-gray-600 dark:text-gray-300">
+                wants to access your account with the following permissions:
+            </p>
+        </div>
+
+        <div class="mt-6">
+            <ul class="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700 overflow-hidden">
+                @if (Model.Scope != null)
+                {
+                    var scopeDescriptions = new Dictionary<string, (string Name, string Description)>
+                    {
+                        ["openid"] = ("OpenID", "Read your basic profile information"),
+                        ["profile"] = ("Profile", "View your basic profile information"),
+                        ["email"] = ("Email", "View your email address"),
+                        ["offline_access"] = ("Offline Access", "Access your data while you're not using the application")
+                    };
+
+                    foreach (var scope in Model.Scope.Split(' ').Where(s => !string.IsNullOrWhiteSpace(s)))
+                    {
+                        var scopeInfo = scopeDescriptions.GetValueOrDefault(scope, (scope, scope.Replace('_', ' ')));
+                        <li class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 pt-0.5">
+                                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">@scopeInfo.Item1</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">@scopeInfo.Item2</p>
+                                </div>
+                            </div>
+                        </li>
+                    }
+                }
+            </ul>
+            
+            <div class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                <p>By authorizing, you allow this application to access your information on your behalf.</p>
+            </div>
+        </div>
+
+        <form method="post" class="mt-8 space-y-4">
+            <input type="hidden" asp-for="ClientIdString" />
+            <input type="hidden" asp-for="ResponseType" name="response_type" />
+            <input type="hidden" asp-for="RedirectUri" name="redirect_uri" />
+            <input type="hidden" asp-for="Scope" name="scope" />
+            <input type="hidden" asp-for="State" name="state" />
+            <input type="hidden" asp-for="Nonce" name="nonce" />
+            <input type="hidden" asp-for="ReturnUrl" name="returnUrl" />
+            <input type="hidden" name="code_challenge" value="@HttpContext.Request.Query["code_challenge"]" />
+            <input type="hidden" name="code_challenge_method" value="@HttpContext.Request.Query["code_challenge_method"]" />
+            <input type="hidden" name="response_mode" value="@HttpContext.Request.Query["response_mode"]" />
+            
+            <div class="flex flex-col space-y-3">
+                <button type="submit" name="allow" value="true" 
+                        class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors duration-200">
+                    Allow
+                </button>
+                <button type="submit" name="allow" value="false" 
+                        class="w-full flex justify-center py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors duration-200">
+                    Deny
+                </button>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-center text-gray-500 dark:text-gray-400">
+                    You can change these permissions later in your account settings.
+                </p>
+            </div>
+        </form>
+    </div>
+</div>
+
+@functions {
+    private string GetScopeDisplayName(string scope)
+    {
+        return scope switch
+        {
+            "openid" => "View your basic profile information",
+            "profile" => "View your profile information (name, picture, etc.)",
+            "email" => "View your email address",
+            "offline_access" => "Access your information while you're not using the app",
+            _ => scope
+        };
+    }
+}

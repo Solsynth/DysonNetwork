@@ -2,6 +2,7 @@
 @model DysonNetwork.Sphere.Pages.Auth.LoginModel
 @{
     ViewData["Title"] = "Login";
+    var returnUrl = Model.ReturnUrl ?? "";
 }
 
 <div class="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -9,6 +10,7 @@
         <h1 class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">Login</h1>
 
         <form method="post">
+            <input type="hidden" asp-for="ReturnUrl" value="@returnUrl" />
             <div class="mb-4">
                 <label asp-for="Username"
                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"></label>
