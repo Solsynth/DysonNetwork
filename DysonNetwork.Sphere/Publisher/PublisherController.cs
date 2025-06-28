@@ -455,7 +455,7 @@ public class PublisherController(
             .Where(m => m.PublisherId == publisher.Id)
             .Where(m => m.JoinedAt != null)
             .Include(m => m.Account)
-            .Include(m => m.Account.Profile);
+            .ThenInclude(m => m.Profile);
 
         var total = await query.CountAsync();
         Response.Headers["X-Total"] = total.ToString();

@@ -26,10 +26,10 @@ public class Publisher : ModelBase, IIdentifiedResource
     // Outdated fields, for backward compability
     [MaxLength(32)] public string? PictureId { get; set; }
     [MaxLength(32)] public string? BackgroundId { get; set; }
-    
+
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
-    
+
     [Column(TypeName = "jsonb")] public Account.VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
@@ -60,7 +60,7 @@ public class PublisherMember : ModelBase
     public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [JsonIgnore] public Account.Account Account { get; set; } = null!;
+    public Account.Account Account { get; set; } = null!;
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
@@ -91,7 +91,7 @@ public class PublisherFeature : ModelBase
     public Guid Id { get; set; }
     [MaxLength(1024)] public string Flag { get; set; } = null!;
     public Instant? ExpiredAt { get; set; }
-        
+
     public Guid PublisherId { get; set; }
     public Publisher Publisher { get; set; } = null!;
 }
