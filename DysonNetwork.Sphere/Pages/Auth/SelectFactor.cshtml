@@ -1,0 +1,65 @@
+@page "/web/auth/challenge/{id:guid}/select-factor"
+@using DysonNetwork.Sphere.Account
+@model DysonNetwork.Sphere.Pages.Auth.SelectFactorModel
+@{
+    ViewData["Title"] = "Select Authentication Method";
+}
+
+<div class="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div class="bg-white dark:bg-gray-800 px-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">Select Authentication Method</h1>
+
+        @if (Model.AuthChallenge == null)
+        {
+            <p class="text-red-500 text-center">Challenge not found or expired.</p>
+        }
+        else if (Model.AuthChallenge.StepRemain == 0)
+        {
+            <p class="text-green-600 dark:text-green-400 text-center">Challenge completed. Redirecting...</p>
+        }
+        else
+        {
+            <p class="text-gray-700 dark:text-gray-300 mb-4">Please select an authentication method:</p>
+
+            <div class="space-y-4">
+                @foreach (var factor in Model.AuthFactors)
+                {
+                    <form method="post" asp-page-handler="SelectFactor" class="w-full">
+                        <input type="hidden" name="factorId" value="@factor.Id"/>
+                        <button type="submit"
+                                class="w-full text-left p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                            <div
+                                class="font-medium text-gray-900 dark:text-white">@GetFactorDisplayName(factor.Type)</div>
+                            <div
+                                class="text-sm text-gray-500 dark:text-gray-400">@GetFactorDescription(factor.Type)</div>
+                        </button>
+                    </form>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+
+    private string GetFactorDisplayName(AccountAuthFactorType type) => type switch
+    {
+        AccountAuthFactorType.InAppCode => "Authenticator App",
+        AccountAuthFactorType.EmailCode => "Email",
+        AccountAuthFactorType.TimedCode => "Timed Code",
+        AccountAuthFactorType.PinCode => "PIN Code",
+        AccountAuthFactorType.Password => "Password",
+        _ => type.ToString()
+    };
+
+    private string GetFactorDescription(AccountAuthFactorType type) => type switch
+    {
+        AccountAuthFactorType.InAppCode => "Enter a code from your authenticator app",
+        AccountAuthFactorType.EmailCode => "Receive a verification code via email",
+        AccountAuthFactorType.TimedCode => "Use a time-based verification code",
+        AccountAuthFactorType.PinCode => "Enter your PIN code",
+        AccountAuthFactorType.Password => "Enter your password",
+        _ => string.Empty
+    };
+
+}
