@@ -216,13 +216,6 @@ public class PostController(
             return BadRequest(err.Message);
         }
 
-        _ = Task.Run(async () =>
-        {
-            using var scope = factory.CreateScope();
-            var subs = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
-            await subs.NotifySubscriberPost(post);
-        });
-
         als.CreateActionLogFromRequest(
             ActionLogType.PostCreate,
             new Dictionary<string, object> { { "post_id", post.Id } }, Request

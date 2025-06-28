@@ -52,7 +52,7 @@ public class PublisherSubscriptionService(
         var subscribers = await db.PublisherSubscriptions
             .Include(p => p.Account)
             .Where(p => p.PublisherId == post.PublisherId &&
-                         p.Status == PublisherSubscriptionStatus.Active)
+                        p.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
         if (subscribers.Count == 0)
             return 0;
@@ -69,7 +69,7 @@ public class PublisherSubscriptionService(
 
         // Notify each subscriber
         var notifiedCount = 0;
-        foreach (var subscription in subscribers.GroupBy(s => s.AccountId).Select(g => g.First()))
+        foreach (var subscription in subscribers.DistinctBy(s => s.AccountId))
         {
             try
             {
@@ -162,7 +162,7 @@ public class PublisherSubscriptionService(
 
         db.PublisherSubscriptions.Add(subscription);
         await db.SaveChangesAsync();
-        
+
         await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
 
         return subscription;
@@ -182,9 +182,9 @@ public class PublisherSubscriptionService(
 
         subscription.Status = PublisherSubscriptionStatus.Cancelled;
         await db.SaveChangesAsync();
-        
+
         await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
-        
+
         return true;
     }
 }
