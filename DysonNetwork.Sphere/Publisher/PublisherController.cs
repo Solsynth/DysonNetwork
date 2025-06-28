@@ -376,7 +376,8 @@ public class PublisherController(
             // Remove old references for the publisher background
             if (publisher.Background is not null)
             {
-                await fileRefService.DeleteResourceReferencesAsync(publisher.ResourceIdentifier, "publisher.background");
+                await fileRefService.DeleteResourceReferencesAsync(publisher.ResourceIdentifier,
+                    "publisher.background");
             }
 
             publisher.Background = background.ToReferenceObject();
@@ -436,5 +437,35 @@ public class PublisherController(
         );
 
         return NoContent();
+    }
+
+    [HttpGet("{name}/members")]
+    public async Task<ActionResult<List<PublisherMember>>> ListMembers(
+        string name,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        IQueryable<PublisherMember> query = db.PublisherMembers
+            .Where(m => m.PublisherId == publisher.Id)
+            .Where(m => m.JoinedAt != null)
+            .Include(m => m.Account)
+            .Include(m => m.Account.Profile);
+
+        var total = await query.CountAsync();
+        Response.Headers["X-Total"] = total.ToString();
+
+        var members = await query
+            .OrderBy(m => m.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(members);
     }
 }
