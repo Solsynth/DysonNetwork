@@ -468,4 +468,27 @@ public class PublisherController(
 
         return Ok(members);
     }
+
+    [HttpGet("{name}/members/me")]
+    [Authorize]
+    public async Task<ActionResult<PublisherMember>> GetCurrentIdentity(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        var userId = currentUser.Id;
+
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        var member = await db.PublisherMembers
+            .Where(m => m.AccountId == userId)
+            .Where(m => m.PublisherId == publisher.Id)
+            .Include(m => m.Account)
+            .ThenInclude(m => m.Profile)
+            .FirstOrDefaultAsync();
+
+        if (member is null) return NotFound();
+        return Ok(member);
+    }
 }
