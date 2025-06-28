@@ -4,75 +4,340 @@
     ViewData["Title"] = "Profile";
 }
 
-<div class="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900 py-12">
-    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-2xl">
-        <h1 class="text-3xl font-bold text-center text-gray-900 dark:text-white mb-8">User Profile</h1>
-
-        @if (Model.Account != null)
-        {
-            <div class="mb-6">
-                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Account Information</h2>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Username:</strong> @Model.Account.Name</p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Nickname:</strong> @Model.Account.Nick</p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Language:</strong> @Model.Account.Language</p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2">
-                    <strong>Activated:</strong> @Model.Account.ActivatedAt?.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture)
-                </p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Superuser:</strong> @Model.Account.IsSuperuser
-                </p>
+@if (Model.Account != null)
+{
+    <div class="h-full bg-gray-100 dark:bg-gray-900 py-8 px-4">
+        <div class="max-w-6xl mx-auto">
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Profile Settings</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-2">Manage your account information and preferences</p>
             </div>
 
-            <div class="mb-6">
-                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Profile Details</h2>
-                <p class="text-gray-700 dark:text-gray-300 mb-2">
-                    <strong>Name:</strong> @Model.Account.Profile.FirstName @Model.Account.Profile.MiddleName @Model.Account.Profile.LastName
-                </p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Bio:</strong> @Model.Account.Profile.Bio</p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Gender:</strong> @Model.Account.Profile.Gender
-                </p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2">
-                    <strong>Location:</strong> @Model.Account.Profile.Location</p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2">
-                    <strong>Birthday:</strong> @Model.Account.Profile.Birthday?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
-                </p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2">
-                    <strong>Experience:</strong> @Model.Account.Profile.Experience</p>
-                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Level:</strong> @Model.Account.Profile.Level
-                </p>
-            </div>
+            <!-- Two Column Layout -->
+            <div class="flex flex-col md:flex-row gap-8">
+                <!-- Left Pane - Profile Card -->
+                <div class="w-full md:w-1/3 lg:w-1/4">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sticky top-8">
+                        <div class="flex flex-col items-center text-center">
+                            <!-- Avatar -->
+                            <div
+                                class="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mb-4 overflow-hidden">
+                                <span class="text-4xl text-gray-500 dark:text-gray-400">
+                                    @Model.Account.Name?.Substring(0, 1).ToUpper()
+                                </span>
+                            </div>
 
-            <div class="mb-6">
-                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Access Token</h2>
-                <div class="flex items-center">
-                    <input type="text" id="accessToken" value="@Model.AccessToken" readonly
-                           class="form-input flex-grow rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
-                    <button onclick="copyAccessToken()"
-                            class="ml-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                        Copy
-                    </button>
+                            <!-- Basic Info -->
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                                @Model.Account.Nick
+                            </h2>
+                            <p class="text-gray-600 dark:text-gray-400">@Model.Account.Name</p>
+
+                            <!-- Stats -->
+                            <div
+                                class="mt-4 flex justify-around w-full border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <div class="text-center">
+                                    <div
+                                        class="text-lg font-semibold text-gray-900 dark:text-white">@Model.Account.Profile.Level</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Level</div>
+                                </div>
+                                <div class="text-center">
+                                    <div
+                                        class="text-lg font-semibold text-gray-900 dark:text-white">@Model.Account.Profile.Experience</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">XP</div>
+                                </div>
+                                <div class="text-center">
+                                    <div
+                                        class="text-lg font-semibold text-gray-900 dark:text-white">
+                                        @Model.Account.CreatedAt.ToDateTimeUtc().ToString("yyyy/MM/dd")
+                                    </div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Member since</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Pane - Tabbed Content -->
+                <div class="flex-1">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                        <!-- Tabs -->
+                        <div class="border-b border-gray-200 dark:border-gray-700">
+                            <nav class="flex -mb-px">
+                                <button type="button"
+                                        class="tab-button active py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                                        data-tab="profile">
+                                    Profile
+                                </button>
+                                <button type="button"
+                                        class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                                        data-tab="security">
+                                    Security
+                                </button>
+                                <button type="button"
+                                        class="tab-button py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                                        data-tab="sessions">
+                                    Sessions
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Tab Content -->
+                        <div class="p-6">
+                            <!-- Profile Tab -->
+                            <div id="profile-tab" class="tab-content">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Profile
+                                    Information</h2>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Basic
+                                            Information</h3>
+                                        <dl class="space-y-4">
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Full
+                                                    Name
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                                                    @($"{Model.Account.Profile.FirstName} {Model.Account.Profile.MiddleName} {Model.Account.Profile.LastName}".Trim())
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    Username
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">@Model.Account.Name</dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    Nickname
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">@Model.Account.Nick</dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    Gender
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">@Model.Account.Profile.Gender</dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+
+                                    <div>
+                                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Additional
+                                            Details</h3>
+                                        <dl class="space-y-4">
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    Location
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">@Model.Account.Profile.Location</dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                    Birthday
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                                                    @Model.Account.Profile.Birthday?.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Bio
+                                                </dt>
+                                                <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                                                    @(string.IsNullOrEmpty(Model.Account.Profile.Bio) ? "No bio provided" : Model.Account.Profile.Bio)
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+                                </div>
+
+                                <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                    <button type="button"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Edit Profile
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Security Tab -->
+                            <div id="security-tab" class="tab-content hidden">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Security
+                                    Settings</h2>
+
+                                <div class="space-y-6">
+                                    <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+                                        <div class="px-4 py-5 sm:px-6">
+                                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                                                Access Token</h3>
+                                            <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Use this
+                                                token to authenticate with the API</p>
+                                        </div>
+                                        <div class="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:px-6">
+                                            <div class="flex items-center">
+                                                <input type="password" id="accessToken" value="@Model.AccessToken"
+                                                       readonly
+                                                       class="form-input flex-grow rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white py-2 px-4"/>
+                                                <button onclick="copyAccessToken()"
+                                                        class="ml-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                                                    Copy
+                                                </button>
+                                            </div>
+                                            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                                Keep this token secure and do not share it with anyone.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sessions Tab -->
+                            <div id="sessions-tab" class="tab-content hidden">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Active
+                                    Sessions</h2>
+                                <p class="text-gray-600 dark:text-gray-400 mb-6">This is a list of devices that have
+                                    logged into your account. Revoke any sessions that you do not recognize.</p>
+
+                                <div class="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+                                    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        <li class="px-4 py-4 sm:px-6">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center">
+                                                    <div
+                                                        class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                                                        <svg class="h-6 w-6 text-blue-600 dark:text-blue-400"
+                                                             fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                  d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z"
+                                                                  clip-rule="evenodd"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                                            Current Session
+                                                        </div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                                                            @($"{Request.Headers["User-Agent"]} • {DateTime.Now:MMMM d, yyyy 'at' h:mm tt}")
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4 flex-shrink-0">
+                                                    <span
+                                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                        Active now
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                    <div class="bg-gray-50 dark:bg-gray-800 px-4 py-4 sm:px-6 text-right">
+                                        <button type="button"
+                                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                            Sign out all other sessions
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logout Button -->
+                    <div class="mt-6 flex justify-end">
+                        <form method="post" asp-page-handler="Logout">
+                            <button type="submit"
+                                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
-
-            <form method="post" asp-page-handler="Logout" class="text-center">
-                <button type="submit"
-                        class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
-                    Logout
-                </button>
-            </form>
-        }
-        else
-        {
-            <p class="text-red-500 text-center">User profile not found. Please log in.</p>
-        }
+        </div>
     </div>
-</div>
+}
+else
+{
+    <div class="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div class="max-w-md w-full p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md text-center">
+            <div class="text-red-500 text-5xl mb-4">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Profile Not Found</h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">User profile not found. Please log in to continue.</p>
+            <a href="/auth/login"
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Go to Login
+            </a>
+        </div>
+    </div>
+}
 
-<script>
-    function copyAccessToken() {
-        var copyText = document.getElementById("accessToken");
-        copyText.select();
-        copyText.setSelectionRange(0, 99999); /* For mobile devices */
-        document.execCommand("copy");
-        alert("Access Token copied to clipboard!");
-    }
-</script>
+@section Scripts {
+    <script>
+        // Tab functionality
+        document.addEventListener('DOMContentLoaded', function () {
+            // Get all tab buttons and content
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            // Add click event listeners to tab buttons
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function () {
+                    const tabId = this.getAttribute('data-tab');
+
+                    // Update active tab button
+                    tabButtons.forEach(btn => btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400'));
+                    this.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+
+                    // Show corresponding tab content
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                        if (content.id === `${tabId}-tab`) {
+                            content.classList.remove('hidden');
+                        }
+                    });
+                });
+            });
+
+            // Show first tab by default
+            if (tabButtons.length > 0) {
+                tabButtons[0].click();
+            }
+        });
+
+        // Copy access token to clipboard
+        function copyAccessToken() {
+            const copyText = document.getElementById("accessToken");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            document.execCommand("copy");
+
+            // Show tooltip or notification
+            const originalText = event.target.innerHTML;
+            event.target.innerHTML = '<i class="fas fa-check mr-1"></i> Copied!';
+            event.target.disabled = true;
+
+            setTimeout(() => {
+                event.target.innerHTML = originalText;
+                event.target.disabled = false;
+            }, 2000);
+        }
+
+        // Toggle password visibility
+        function togglePasswordVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = document.querySelector(`[onclick="togglePasswordVisibility('${inputId}')"] i`);
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    </script>
+}
