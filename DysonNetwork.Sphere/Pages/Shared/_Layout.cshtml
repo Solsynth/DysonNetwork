@@ -1,3 +1,4 @@
+@using DysonNetwork.Sphere.Auth
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
@@ -12,6 +13,19 @@
         <div class="flex justify-between h-16 items-center">
             <div class="flex">
                 <a href="/" class="text-xl font-bold text-gray-900 dark:text-white">Solar Network</a>
+            </div>
+            <div class="flex items-center ml-auto">
+                @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
+                {
+                    <a href="/Account/Profile" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
+                    <form method="post" asp-page="/Account/Profile" asp-page-handler="Logout" class="inline">
+                        <button type="submit" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Logout</button>
+                    </form>
+                }
+                else
+                {
+                    <a href="/web/auth/login" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Login</a>
+                }
             </div>
         </div>
     </nav>

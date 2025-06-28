@@ -51,7 +51,7 @@ public class AfdianPaymentHandler(
             var sign = CalculateSign(token, userId, paramsJson, ts);
 
             var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/open/query-order")
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
@@ -107,7 +107,7 @@ public class AfdianPaymentHandler(
             var sign = CalculateSign(token, userId, paramsJson, ts);
 
             var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/open/query-order")
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
@@ -176,7 +176,7 @@ public class AfdianPaymentHandler(
             var sign = CalculateSign(token, userId, paramsJson, ts);
 
             var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/open/query-order")
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {

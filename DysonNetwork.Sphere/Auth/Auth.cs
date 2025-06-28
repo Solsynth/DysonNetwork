@@ -15,6 +15,7 @@ public static class AuthConstants
 {
     public const string SchemeName = "DysonToken";
     public const string TokenQueryParamName = "tk";
+    public const string CookieTokenName = "AuthToken";
 }
 
 public enum TokenType
@@ -44,7 +45,7 @@ public class DysonTokenAuthHandler(
     : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
     public const string AuthCachePrefix = "auth:";
-    
+
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var tokenInfo = _ExtractToken(Request);
@@ -126,7 +127,7 @@ public class DysonTokenAuthHandler(
                 SeenAt = SystemClock.Instance.GetCurrentInstant(),
             };
             fbs.Enqueue(lastInfo);
-            
+
             return AuthenticateResult.Success(ticket);
         }
         catch (Exception ex)
@@ -182,7 +183,7 @@ public class DysonTokenAuthHandler(
         return Convert.FromBase64String(padded);
     }
 
-    private static TokenInfo? _ExtractToken(HttpRequest request)
+    private TokenInfo? _ExtractToken(HttpRequest request)
     {
         // Check for token in query parameters
         if (request.Query.TryGetValue(AuthConstants.TokenQueryParamName, out var queryToken))
@@ -206,7 +207,7 @@ public class DysonTokenAuthHandler(
                     Type = TokenType.AuthKey
                 };
             }
-            
+
             if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo
@@ -227,7 +228,7 @@ public class DysonTokenAuthHandler(
         }
 
         // Check for token in cookies
-        if (request.Cookies.TryGetValue(AuthConstants.TokenQueryParamName, out var cookieToken))
+        if (request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out var cookieToken))
         {
             return new TokenInfo
             {

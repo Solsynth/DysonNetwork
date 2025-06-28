@@ -194,7 +194,8 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAppBusinessServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddScoped<CompactTokenService>();
         services.AddScoped<RazorViewRenderer>();

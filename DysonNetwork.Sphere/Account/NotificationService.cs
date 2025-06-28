@@ -288,7 +288,7 @@ public class NotificationService(
 
         var client = httpFactory.CreateClient();
         client.BaseAddress = _notifyEndpoint;
-        var request = await client.PostAsync("/api/push", new StringContent(
+        var request = await client.PostAsync("/push", new StringContent(
             JsonSerializer.Serialize(requestDict),
             Encoding.UTF8,
             "application/json"

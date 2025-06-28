@@ -17,7 +17,7 @@ public static class ApplicationConfiguration
 
         app.UseSwagger();
         app.UseSwaggerUI();
-
+        
         app.UseRequestLocalization();
 
         ConfigureForwardedHeaders(app, configuration);

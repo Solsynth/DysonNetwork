@@ -30,7 +30,7 @@ public class DiscordOidcService(
         };
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        return $"https://discord.com/api/oauth2/authorize?{queryString}";
+        return $"https://discord.com/oauth2/authorize?{queryString}";
     }
     
     protected override Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
@@ -38,8 +38,8 @@ public class DiscordOidcService(
         return Task.FromResult(new OidcDiscoveryDocument
         {
             AuthorizationEndpoint = "https://discord.com/oauth2/authorize",
-            TokenEndpoint = "https://discord.com/api/oauth2/token",
-            UserinfoEndpoint = "https://discord.com/api/users/@me",
+            TokenEndpoint = "https://discord.com/oauth2/token",
+            UserinfoEndpoint = "https://discord.com/users/@me",
             JwksUri = null
         })!;
     }
@@ -75,7 +75,7 @@ public class DiscordOidcService(
             { "redirect_uri", config.RedirectUri },
         });
 
-        var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
+        var response = await client.PostAsync("https://discord.com/oauth2/token", content);
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<OidcTokenResponse>();
@@ -84,7 +84,7 @@ public class DiscordOidcService(
     private async Task<OidcUserInfo> GetUserInfoAsync(string accessToken)
     {
         var client = HttpClientFactory.CreateClient();
-        var request = new HttpRequestMessage(HttpMethod.Get, "https://discord.com/api/users/@me");
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://discord.com/users/@me");
         request.Headers.Add("Authorization", $"Bearer {accessToken}");
 
         var response = await client.SendAsync(request);

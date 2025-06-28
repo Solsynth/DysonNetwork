@@ -131,7 +131,7 @@ public class AuthService(
             case "google":
                 content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
                     "application/x-www-form-urlencoded");
-                response = await client.PostAsync("https://www.google.com/recaptcha/api/siteverify", content);
+                response = await client.PostAsync("https://www.google.com/recaptcha/siteverify", content);
                 response.EnsureSuccessStatusCode();
 
                 json = await response.Content.ReadAsStringAsync();

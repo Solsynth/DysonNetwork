@@ -1,0 +1,78 @@
+@page "/web/account/profile"
+@model DysonNetwork.Sphere.Pages.Account.ProfileModel
+@{
+    ViewData["Title"] = "Profile";
+}
+
+<div class="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 py-12">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-2xl">
+        <h1 class="text-3xl font-bold text-center text-gray-900 dark:text-white mb-8">User Profile</h1>
+
+        @if (Model.Account != null)
+        {
+            <div class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Account Information</h2>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Username:</strong> @Model.Account.Name</p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Nickname:</strong> @Model.Account.Nick</p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Language:</strong> @Model.Account.Language</p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2">
+                    <strong>Activated:</strong> @Model.Account.ActivatedAt?.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+                </p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Superuser:</strong> @Model.Account.IsSuperuser
+                </p>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Profile Details</h2>
+                <p class="text-gray-700 dark:text-gray-300 mb-2">
+                    <strong>Name:</strong> @Model.Account.Profile.FirstName @Model.Account.Profile.MiddleName @Model.Account.Profile.LastName
+                </p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Bio:</strong> @Model.Account.Profile.Bio</p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Gender:</strong> @Model.Account.Profile.Gender
+                </p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2">
+                    <strong>Location:</strong> @Model.Account.Profile.Location</p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2">
+                    <strong>Birthday:</strong> @Model.Account.Profile.Birthday?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+                </p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2">
+                    <strong>Experience:</strong> @Model.Account.Profile.Experience</p>
+                <p class="text-gray-700 dark:text-gray-300 mb-2"><strong>Level:</strong> @Model.Account.Profile.Level
+                </p>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Access Token</h2>
+                <div class="flex items-center">
+                    <input type="text" id="accessToken" value="@Model.AccessToken" readonly
+                           class="form-input flex-grow rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
+                    <button onclick="copyAccessToken()"
+                            class="ml-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                        Copy
+                    </button>
+                </div>
+            </div>
+
+            <form method="post" asp-page-handler="Logout" class="text-center">
+                <button type="submit"
+                        class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
+                    Logout
+                </button>
+            </form>
+        }
+        else
+        {
+            <p class="text-red-500 text-center">User profile not found. Please log in.</p>
+        }
+    </div>
+</div>
+
+<script>
+    function copyAccessToken() {
+        var copyText = document.getElementById("accessToken");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); /* For mobile devices */
+        document.execCommand("copy");
+        alert("Access Token copied to clipboard!");
+    }
+</script>
