@@ -25,7 +25,7 @@ public class SelectFactorModel(
         return Page();
     }
 
-    public async Task<IActionResult> OnPostSelectFactorAsync(Guid factorId)
+    public async Task<IActionResult> OnPostSelectFactorAsync(Guid factorId, string? hint = null)
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
@@ -40,11 +40,20 @@ public class SelectFactorModel(
         // For OTP factors that require code delivery
         try
         {
-            await accounts.SendFactorCode(challenge.Account, factor);
+            // Validate hint for factors that require it
+            if (factor.Type == AccountAuthFactorType.EmailCode 
+                && string.IsNullOrWhiteSpace(hint))
+            {
+                ModelState.AddModelError(string.Empty, $"Please provide a {factor.Type.ToString().ToLower().Replace("code", "")} to send the code to.");
+                await LoadChallengeAndFactors();
+                return Page();
+            }
+
+            await accounts.SendFactorCode(challenge.Account, factor, hint);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, "An error occurred while sending the verification code.");
+            ModelState.AddModelError(string.Empty, $"An error occurred while sending the verification code: {ex.Message}");
             await LoadChallengeAndFactors();
             return Page();
         }
