@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DysonNetwork.Sphere.Auth.OidcProvider.Services;
-using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Auth.OidcProvider.Responses;
 using DysonNetwork.Sphere.Developer;
 
@@ -48,12 +47,14 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
 
     public async Task<IActionResult> OnGetAsync()
     {
-        if (HttpContext.Items["CurrentUser"] is not Sphere.Account.Account)
+        // First check if user is authenticated
+        if (HttpContext.Items["CurrentUser"] is not Sphere.Account.Account currentUser)
         {
             var returnUrl = Uri.EscapeDataString($"{Request.Path}{Request.QueryString}");
             return RedirectToPage("/Auth/Login", new { returnUrl });
         }
 
+        // Validate client_id
         if (string.IsNullOrEmpty(ClientIdString) || !Guid.TryParse(ClientIdString, out var clientId))
         {
             ModelState.AddModelError("client_id", "Invalid client_id format");
@@ -62,6 +63,7 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
 
         ClientId = clientId;
 
+        // Get client info
         var client = await oidcService.FindClientByIdAsync(ClientId);
         if (client == null)
         {
@@ -69,20 +71,84 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
             return NotFound("Client not found");
         }
 
+        // Validate redirect URI for non-Developing apps
         if (client.Status != CustomAppStatus.Developing)
         {
-            // Validate redirect URI for non-Developing apps
             if (!string.IsNullOrEmpty(RedirectUri) && !(client.RedirectUris?.Contains(RedirectUri) ?? false))
-                return BadRequest(
-                    new ErrorResponse { Error = "invalid_request", ErrorDescription = "Invalid redirect_uri" });
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "invalid_request",
+                    ErrorDescription = "Invalid redirect_uri"
+                });
+            }
         }
 
+        // Check for an existing valid session
+        var existingSession = await oidcService.FindValidSessionAsync(currentUser.Id, clientId);
+        if (existingSession != null)
+        {
+            // Auto-approve since valid session exists
+            return await HandleApproval(currentUser, client, existingSession);
+        }
+
+        // Show authorization page
         AppName = client.Name;
         AppLogo = client.LogoUri;
         AppUri = client.ClientUri;
         RequestedScopes = (Scope ?? "openid profile").Split(' ').Distinct().ToArray();
 
         return Page();
+    }
+
+    private async Task<IActionResult> HandleApproval(Sphere.Account.Account currentUser, CustomApp client, Session? existingSession = null)
+    {
+        if (string.IsNullOrEmpty(RedirectUri))
+        {
+            ModelState.AddModelError("redirect_uri", "No redirect_uri provided");
+            return BadRequest("No redirect_uri provided");
+        }
+
+        string authCode;
+        
+        if (existingSession != null)
+        {
+            // Reuse existing session
+            authCode = await oidcService.GenerateAuthorizationCodeForExistingSessionAsync(
+                session: existingSession,
+                clientId: ClientId,
+                redirectUri: RedirectUri,
+                scopes: Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
+                codeChallenge: CodeChallenge,
+                codeChallengeMethod: CodeChallengeMethod,
+                nonce: Nonce
+            );
+        }
+        else
+        {
+            // Create new session (existing flow)
+            authCode = await oidcService.GenerateAuthorizationCodeAsync(
+                clientId: ClientId,
+                userId: currentUser.Id,
+                redirectUri: RedirectUri,
+                scopes: Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
+                codeChallenge: CodeChallenge,
+                codeChallengeMethod: CodeChallengeMethod,
+                nonce: Nonce
+            );
+        }
+
+        // Build the redirect URI with the authorization code
+        var redirectUriBuilder = new UriBuilder(RedirectUri);
+        var query = System.Web.HttpUtility.ParseQueryString(redirectUriBuilder.Query);
+        query["code"] = authCode;
+        if (!string.IsNullOrEmpty(State))
+            query["state"] = State;
+        if (!string.IsNullOrEmpty(Scope))
+            query["scope"] = Scope;
+        redirectUriBuilder.Query = query.ToString();
+
+        return Redirect(redirectUriBuilder.ToString());
     }
 
     public async Task<IActionResult> OnPostAsync(bool allow)
