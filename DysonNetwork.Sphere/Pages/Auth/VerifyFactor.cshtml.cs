@@ -8,46 +8,27 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Pages.Auth
 {
-    public class VerifyFactorModel : PageModel
+    public class VerifyFactorModel(
+        AppDatabase db,
+        AccountService accounts,
+        AuthService auth,
+        ActionLogService als,
+        IConfiguration configuration,
+        IHttpClientFactory httpClientFactory
+    )
+        : PageModel
     {
-        private readonly AppDatabase _db;
-        private readonly AccountService _accounts;
-        private readonly AuthService _auth;
-        private readonly ActionLogService _als;
-        private readonly IConfiguration _configuration;
-        private readonly IHttpClientFactory _httpClientFactory;
+        [BindProperty(SupportsGet = true)] public Guid Id { get; set; }
 
-        [BindProperty(SupportsGet = true)]
-        public Guid Id { get; set; }
+        [BindProperty(SupportsGet = true)] public Guid FactorId { get; set; }
 
-        [BindProperty(SupportsGet = true)]
-        public Guid FactorId { get; set; }
-        
-        [BindProperty(SupportsGet = true)]
-        public string? ReturnUrl { get; set; }
+        [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
 
-        [BindProperty, Required]
-        public string Code { get; set; } = string.Empty;
+        [BindProperty, Required] public string Code { get; set; } = string.Empty;
 
         public Challenge? AuthChallenge { get; set; }
         public AccountAuthFactor? Factor { get; set; }
         public AccountAuthFactorType FactorType => Factor?.Type ?? AccountAuthFactorType.EmailCode;
-
-        public VerifyFactorModel(
-            AppDatabase db,
-            AccountService accounts,
-            AuthService auth,
-            ActionLogService als,
-            IConfiguration configuration,
-            IHttpClientFactory httpClientFactory)
-        {
-            _db = db;
-            _accounts = accounts;
-            _auth = auth;
-            _als = als;
-            _configuration = configuration;
-            _httpClientFactory = httpClientFactory;
-        }
 
         public async Task<IActionResult> OnGetAsync()
         {
@@ -55,7 +36,7 @@ namespace DysonNetwork.Sphere.Pages.Auth
             if (AuthChallenge == null) return NotFound("Challenge not found or expired.");
             if (Factor == null) return NotFound("Authentication method not found.");
             if (AuthChallenge.StepRemain == 0) return await ExchangeTokenAndRedirect();
-            
+
             return Page();
         }
 
@@ -73,25 +54,25 @@ namespace DysonNetwork.Sphere.Pages.Auth
 
             try
             {
-                if (await _accounts.VerifyFactorCode(Factor, Code))
+                if (await accounts.VerifyFactorCode(Factor, Code))
                 {
                     AuthChallenge.StepRemain -= Factor.Trustworthy;
                     AuthChallenge.StepRemain = Math.Max(0, AuthChallenge.StepRemain);
                     AuthChallenge.BlacklistFactors.Add(Factor.Id);
-                    _db.Update(AuthChallenge);
+                    db.Update(AuthChallenge);
 
-                    _als.CreateActionLogFromRequest(ActionLogType.ChallengeSuccess,
+                    als.CreateActionLogFromRequest(ActionLogType.ChallengeSuccess,
                         new Dictionary<string, object>
                         {
                             { "challenge_id", AuthChallenge.Id },
                             { "factor_id", Factor?.Id.ToString() ?? string.Empty }
                         }, Request, AuthChallenge.Account);
 
-                    await _db.SaveChangesAsync();
+                    await db.SaveChangesAsync();
 
                     if (AuthChallenge.StepRemain == 0)
                     {
-                        _als.CreateActionLogFromRequest(ActionLogType.NewLogin,
+                        als.CreateActionLogFromRequest(ActionLogType.NewLogin,
                             new Dictionary<string, object>
                             {
                                 { "challenge_id", AuthChallenge.Id },
@@ -104,7 +85,7 @@ namespace DysonNetwork.Sphere.Pages.Auth
                     else
                     {
                         // If more steps are needed, redirect back to select factor
-                        return RedirectToPage("SelectFactor", new { id = Id });
+                        return RedirectToPage("SelectFactor", new { id = Id, returnUrl = ReturnUrl });
                     }
                 }
                 else
@@ -117,10 +98,10 @@ namespace DysonNetwork.Sphere.Pages.Auth
                 if (AuthChallenge != null)
                 {
                     AuthChallenge.FailedAttempts++;
-                    _db.Update(AuthChallenge);
-                    await _db.SaveChangesAsync();
+                    db.Update(AuthChallenge);
+                    await db.SaveChangesAsync();
 
-                    _als.CreateActionLogFromRequest(ActionLogType.ChallengeFailure,
+                    als.CreateActionLogFromRequest(ActionLogType.ChallengeFailure,
                         new Dictionary<string, object>
                         {
                             { "challenge_id", AuthChallenge.Id },
@@ -136,30 +117,30 @@ namespace DysonNetwork.Sphere.Pages.Auth
 
         private async Task LoadChallengeAndFactor()
         {
-            AuthChallenge = await _db.AuthChallenges
+            AuthChallenge = await db.AuthChallenges
                 .Include(e => e.Account)
                 .FirstOrDefaultAsync(e => e.Id == Id);
 
             if (AuthChallenge?.Account != null)
             {
-                Factor = await _db.AccountAuthFactors
-                    .FirstOrDefaultAsync(e => e.Id == FactorId && 
-                                           e.AccountId == AuthChallenge.Account.Id &&
-                                           e.EnabledAt != null && 
-                                           e.Trustworthy > 0);
+                Factor = await db.AccountAuthFactors
+                    .FirstOrDefaultAsync(e => e.Id == FactorId &&
+                                              e.AccountId == AuthChallenge.Account.Id &&
+                                              e.EnabledAt != null &&
+                                              e.Trustworthy > 0);
             }
         }
 
         private async Task<IActionResult> ExchangeTokenAndRedirect()
         {
-            var challenge = await _db.AuthChallenges
+            var challenge = await db.AuthChallenges
                 .Include(e => e.Account)
                 .FirstOrDefaultAsync(e => e.Id == Id);
 
             if (challenge == null) return BadRequest("Authorization code not found or expired.");
             if (challenge.StepRemain != 0) return BadRequest("Challenge not yet completed.");
 
-            var session = await _db.AuthSessions
+            var session = await db.AuthSessions
                 .FirstOrDefaultAsync(e => e.ChallengeId == challenge.Id);
 
             if (session == null)
@@ -171,15 +152,15 @@ namespace DysonNetwork.Sphere.Pages.Auth
                     Account = challenge.Account,
                     Challenge = challenge,
                 };
-                _db.AuthSessions.Add(session);
-                await _db.SaveChangesAsync();
+                db.AuthSessions.Add(session);
+                await db.SaveChangesAsync();
             }
 
-            var token = _auth.CreateToken(session);
-            Response.Cookies.Append("access_token", token, new CookieOptions
+            var token = auth.CreateToken(session);
+            Response.Cookies.Append(AuthConstants.CookieTokenName, token, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = !_configuration.GetValue<bool>("Debug"),
+                Secure = !configuration.GetValue<bool>("Debug"),
                 SameSite = SameSiteMode.Strict,
                 Path = "/"
             });
@@ -189,9 +170,10 @@ namespace DysonNetwork.Sphere.Pages.Auth
             {
                 return Redirect(ReturnUrl);
             }
-            
+
             // Check TempData for return URL (in case it was passed through multiple steps)
-            if (TempData.TryGetValue("ReturnUrl", out var tempReturnUrl) && tempReturnUrl is string returnUrl && !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            if (TempData.TryGetValue("ReturnUrl", out var tempReturnUrl) && tempReturnUrl is string returnUrl &&
+                !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             {
                 return Redirect(returnUrl);
             }

@@ -4,8 +4,8 @@ namespace DysonNetwork.Sphere.Auth;
 
 public class CompactTokenService(IConfiguration config)
 {
-    private readonly string _privateKeyPath = config["Jwt:PrivateKeyPath"] 
-        ?? throw new InvalidOperationException("Jwt:PrivateKeyPath configuration is missing");
+    private readonly string _privateKeyPath = config["AuthToken:PrivateKeyPath"] 
+        ?? throw new InvalidOperationException("AuthToken:PrivateKeyPath configuration is missing");
     
     public string CreateToken(Session session)
     {
@@ -54,7 +54,7 @@ public class CompactTokenService(IConfiguration config)
             sessionId = new Guid(payloadBytes);
             
             // Load public key for verification
-            var publicKeyPem = File.ReadAllText(config["Jwt:PublicKeyPath"]!);
+            var publicKeyPem = File.ReadAllText(config["AuthToken:PublicKeyPath"]!);
             using var rsa = RSA.Create();
             rsa.ImportFromPem(publicKeyPem);
             

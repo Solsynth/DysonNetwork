@@ -17,7 +17,7 @@
             <div class="flex items-center ml-auto">
                 @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
                 {
-                    <a href="/Account/Profile" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
+                    <a href="/web/account/profile" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
                     <form method="post" asp-page="/Account/Profile" asp-page-handler="Logout" class="inline">
                         <button type="submit" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Logout</button>
                     </form>
@@ -31,19 +31,10 @@
     </nav>
 </header>
 
-@* The header 64px + The footer 56px = 118px *@
+@* The header 64px *@
 <main class="h-full">
     @RenderBody()
 </main>
-
-<footer class="bg-white dark:bg-gray-800 fixed bottom-0 left-0 right-0 shadow-[0_-1px_3px_0_rgba(0,0,0,0.1)]">
-    <div class="container-default" style="padding: 1rem 0;">
-        <p class="text-center text-gray-500 dark:text-gray-400">
-            &copy; @DateTime.Now.Year Solsynth LLC. All
-            rights reserved.
-        </p>
-    </div>
-</footer>
 
 @await RenderSectionAsync("Scripts", required: false)
 </body>

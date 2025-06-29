@@ -1,12 +1,19 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Auth.OidcProvider.Options;
 using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Storage.Handlers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using NodaTime;
+using System.Text;
+using DysonNetwork.Sphere.Auth.OidcProvider.Controllers;
+using DysonNetwork.Sphere.Auth.OidcProvider.Services;
 using SystemClock = NodaTime.SystemClock;
 
 namespace DysonNetwork.Sphere.Auth;
@@ -22,6 +29,7 @@ public enum TokenType
 {
     AuthKey,
     ApiKey,
+    OidcKey,
     Unknown
 }
 
@@ -39,6 +47,7 @@ public class DysonTokenAuthHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     AppDatabase database,
+    OidcProviderService oidc,
     ICacheService cache,
     FlushBufferService fbs
 )
@@ -142,35 +151,60 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            // Split the token
             var parts = token.Split('.');
-            if (parts.Length != 2)
-                return false;
 
-            // Decode the payload
-            var payloadBytes = Base64UrlDecode(parts[0]);
+            switch (parts.Length)
+            {
+                // Handle JWT tokens (3 parts)
+                case 3:
+                {
+                    var (isValid, jwtResult) = oidc.ValidateToken(token);
+                    if (!isValid) return false;
+                    var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+                    if (jti is null) return false;
 
-            // Extract session ID
-            sessionId = new Guid(payloadBytes);
+                    return Guid.TryParse(jti, out sessionId);
+                }
+                // Handle compact tokens (2 parts)
+                case 2:
+                    // Original compact token validation logic
+                    try
+                    {
+                        // Decode the payload
+                        var payloadBytes = Base64UrlDecode(parts[0]);
 
-            // Load public key for verification
-            var publicKeyPem = File.ReadAllText(configuration["Jwt:PublicKeyPath"]!);
-            using var rsa = RSA.Create();
-            rsa.ImportFromPem(publicKeyPem);
+                        // Extract session ID
+                        sessionId = new Guid(payloadBytes);
 
-            // Verify signature
-            var signature = Base64UrlDecode(parts[1]);
-            return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                        // Load public key for verification
+                        var publicKeyPem = File.ReadAllText(configuration["AuthToken:PublicKeyPath"]!);
+                        using var rsa = RSA.Create();
+                        rsa.ImportFromPem(publicKeyPem);
+
+                        // Verify signature
+                        var signature = Base64UrlDecode(parts[1]);
+                        return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+
+                    break;
+                default:
+                    return false;
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Token validation failed");
             return false;
         }
     }
 
     private static byte[] Base64UrlDecode(string base64Url)
     {
-        string padded = base64Url
+        var padded = base64Url
             .Replace('-', '+')
             .Replace('_', '/');
 
@@ -195,20 +229,23 @@ public class DysonTokenAuthHandler(
             };
         }
 
+
         // Check for token in Authorization header
         var authHeader = request.Headers.Authorization.ToString();
         if (!string.IsNullOrEmpty(authHeader))
         {
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
+                var token = authHeader["Bearer ".Length..].Trim();
+                var parts = token.Split('.');
+                
                 return new TokenInfo
                 {
-                    Token = authHeader["Bearer ".Length..].Trim(),
-                    Type = TokenType.AuthKey
+                    Token = token,
+                    Type = parts.Length == 3 ? TokenType.OidcKey : TokenType.AuthKey
                 };
             }
-
-            if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
+            else if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo
                 {
@@ -216,8 +253,7 @@ public class DysonTokenAuthHandler(
                     Type = TokenType.AuthKey
                 };
             }
-
-            if (authHeader.StartsWith("AkField ", StringComparison.OrdinalIgnoreCase))
+            else if (authHeader.StartsWith("AkField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo
                 {
@@ -233,9 +269,10 @@ public class DysonTokenAuthHandler(
             return new TokenInfo
             {
                 Token = cookieToken,
-                Type = TokenType.AuthKey
+                Type = cookieToken.Count(c => c == '.') == 2 ? TokenType.OidcKey : TokenType.AuthKey
             };
         }
+
 
         return null;
     }

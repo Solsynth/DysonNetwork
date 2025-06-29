@@ -39,7 +39,7 @@ public class SelectFactorModel(
         var factor = await db.AccountAuthFactors.FindAsync(SelectedFactorId);
         if (factor?.EnabledAt == null || factor.Trustworthy <= 0)
             return BadRequest("Invalid authentication method.");
-            
+
         // Store return URL in TempData to pass to the next step
         if (!string.IsNullOrEmpty(ReturnUrl))
         {
@@ -50,10 +50,14 @@ public class SelectFactorModel(
         try
         {
             // For OTP factors that require code delivery
-            if (factor.Type == AccountAuthFactorType.EmailCode 
-                && string.IsNullOrWhiteSpace(Hint))
+            if (
+                factor.Type == AccountAuthFactorType.EmailCode
+                && string.IsNullOrWhiteSpace(Hint)
+            )
             {
-                ModelState.AddModelError(string.Empty, $"Please provide a {factor.Type.ToString().ToLower().Replace("code", "")} to send the code to.");
+                ModelState.AddModelError(string.Empty,
+                    $"Please provide a {factor.Type.ToString().ToLower().Replace("code", "")} to send the code to."
+                );
                 await LoadChallengeAndFactors();
                 return Page();
             }
@@ -62,31 +66,30 @@ public class SelectFactorModel(
         }
         catch (Exception ex)
         {
-            ModelState.AddModelError(string.Empty, $"An error occurred while sending the verification code: {ex.Message}");
+            ModelState.AddModelError(string.Empty,
+                $"An error occurred while sending the verification code: {ex.Message}");
             await LoadChallengeAndFactors();
             return Page();
         }
 
         // Redirect to verify page with return URL if available
-        if (!string.IsNullOrEmpty(ReturnUrl))
-        {
-            return RedirectToPage("VerifyFactor", new { id = Id, factorId = factor.Id, returnUrl = ReturnUrl });
-        }
-        return RedirectToPage("VerifyFactor", new { id = Id, factorId = factor.Id });
+        return !string.IsNullOrEmpty(ReturnUrl)
+            ? RedirectToPage("VerifyFactor", new { id = Id, factorId = factor.Id, returnUrl = ReturnUrl })
+            : RedirectToPage("VerifyFactor", new { id = Id, factorId = factor.Id });
     }
 
     private async Task LoadChallengeAndFactors()
     {
         AuthChallenge = await db.AuthChallenges
             .Include(e => e.Account)
-            .ThenInclude(e => e.AuthFactors)
             .FirstOrDefaultAsync(e => e.Id == Id);
 
         if (AuthChallenge != null)
         {
-            AuthFactors = AuthChallenge.Account.AuthFactors
-                .Where(e => e is { EnabledAt: not null, Trustworthy: >= 1 })
-                .ToList();
+            AuthFactors = await db.AccountAuthFactors
+                .Where(e => e.AccountId == AuthChallenge.Account.Id)
+                .Where(e => e.EnabledAt != null && e.Trustworthy >= 1)
+                .ToListAsync();
         }
     }
 

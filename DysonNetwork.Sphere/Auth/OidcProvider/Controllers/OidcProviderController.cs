@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Sphere.Auth.OidcProvider.Controllers;
 
@@ -110,7 +111,7 @@ public class OidcProviderController(
         return Ok(userInfo);
     }
 
-    [HttpGet(".well-known/openid-configuration")]
+    [HttpGet("/.well-known/openid-configuration")]
     public IActionResult GetConfiguration()
     {
         var baseUrl = configuration["BaseUrl"];
@@ -119,10 +120,10 @@ public class OidcProviderController(
         return Ok(new
         {
             issuer = issuer,
-            authorization_endpoint = $"{baseUrl}/connect/authorize",
+            authorization_endpoint = $"{baseUrl}/auth/authorize",
             token_endpoint = $"{baseUrl}/auth/open/token",
             userinfo_endpoint = $"{baseUrl}/auth/open/userinfo",
-            jwks_uri = $"{baseUrl}/.well-known/openid-configuration/jwks",
+            jwks_uri = $"{baseUrl}/.well-known/jwks",
             scopes_supported = new[] { "openid", "profile", "email" },
             response_types_supported = new[]
                 { "code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token" },
@@ -139,11 +140,17 @@ public class OidcProviderController(
         });
     }
 
-    [HttpGet("jwks")]
+    [HttpGet("/.well-known/jwks")]
     public IActionResult GetJwks()
     {
-        var keyBytes = Encoding.UTF8.GetBytes(options.Value.SigningKey);
-        var keyId = Convert.ToBase64String(SHA256.HashData(keyBytes)[..8])
+        using var rsa = options.Value.GetRsaPublicKey();
+        if (rsa == null)
+        {
+            return BadRequest("Public key is not configured");
+        }
+
+        var parameters = rsa.ExportParameters(false);
+        var keyId = Convert.ToBase64String(SHA256.HashData(parameters.Modulus!)[..8])
             .Replace("+", "-")
             .Replace("/", "_")
             .Replace("=", "");
@@ -154,11 +161,12 @@ public class OidcProviderController(
             {
                 new
                 {
-                    kty = "oct",
+                    kty = "RSA",
                     use = "sig",
                     kid = keyId,
-                    k = Convert.ToBase64String(keyBytes),
-                    alg = "HS256"
+                    n = Base64UrlEncoder.Encode(parameters.Modulus!),
+                    e = Base64UrlEncoder.Encode(parameters.Exponent!),
+                    alg = "RS256"
                 }
             }
         });

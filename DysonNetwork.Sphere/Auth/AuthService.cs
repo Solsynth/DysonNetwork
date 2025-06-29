@@ -156,7 +156,7 @@ public class AuthService(
     public string CreateToken(Session session)
     {
         // Load the private key for signing
-        var privateKeyPem = File.ReadAllText(config["Jwt:PrivateKeyPath"]!);
+        var privateKeyPem = File.ReadAllText(config["AuthToken:PrivateKeyPath"]!);
         using var rsa = RSA.Create();
         rsa.ImportFromPem(privateKeyPem);
 
@@ -263,7 +263,7 @@ public class AuthService(
             sessionId = new Guid(payloadBytes);
 
             // Load public key for verification
-            var publicKeyPem = File.ReadAllText(config["Jwt:PublicKeyPath"]!);
+            var publicKeyPem = File.ReadAllText(config["AuthToken:PublicKeyPath"]!);
             using var rsa = RSA.Create();
             rsa.ImportFromPem(publicKeyPem);
 

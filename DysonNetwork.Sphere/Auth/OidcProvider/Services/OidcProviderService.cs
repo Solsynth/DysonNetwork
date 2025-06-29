@@ -75,7 +75,7 @@ public class OidcProviderService(
 
         // Generate access token
         var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
-        var refreshToken = GenerateRefreshToken();
+        var refreshToken = GenerateRefreshToken(session);
 
         // In a real implementation, you would store the token in the database
         // For this example, we'll just return the token without storing it
@@ -92,35 +92,38 @@ public class OidcProviderService(
     }
 
     private string GenerateJwtToken(
-        CustomApp client,
-        Session session,
-        Instant expiresAt,
-        IEnumerable<string>? scopes = null
+    CustomApp client,
+    Session session,
+    Instant expiresAt,
+    IEnumerable<string>? scopes = null
     )
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_options.SigningKey);
-
         var clock = SystemClock.Instance;
+        var now = clock.GetCurrentInstant();
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity([
                 new Claim(JwtRegisteredClaimNames.Sub, session.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Iat, clock.GetCurrentInstant().ToUnixTimeSeconds().ToString(),
-                    ClaimValueTypes.Integer64),
-                new Claim("client_id", client.Id.ToString())
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64),
+            new Claim("client_id", client.Id.ToString())
             ]),
             Expires = expiresAt.ToDateTimeUtc(),
             Issuer = _options.IssuerUri,
-            Audience = client.Id.ToString(),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature
-            )
+            Audience = client.Id.ToString()
         };
 
-        // Add scopes as claims if provided, otherwise use client's default scopes
+        // Try to use RSA signing if keys are available, fall back to HMAC
+        var rsaPrivateKey = _options.GetRsaPrivateKey();
+        tokenDescriptor.SigningCredentials = new SigningCredentials(
+            new RsaSecurityKey(rsaPrivateKey),
+            SecurityAlgorithms.RsaSha256
+        );
+
+        // Add scopes as claims if provided
         var effectiveScopes = scopes?.ToList() ?? client.AllowedScopes?.ToList() ?? new List<string>();
         if (effectiveScopes.Any())
         {
@@ -132,15 +135,40 @@ public class OidcProviderService(
         return tokenHandler.WriteToken(token);
     }
 
-    private static string GenerateRefreshToken()
+    public (bool isValid, JwtSecurityToken? token) ValidateToken(string token)
     {
-        using var rng = RandomNumberGenerator.Create();
-        var bytes = new byte[32];
-        rng.GetBytes(bytes);
-        return Convert.ToBase64String(bytes)
-            .Replace("+", "-")
-            .Replace("/", "_")
-            .Replace("=", "");
+        try
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = _options.IssuerUri,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            // Try to use RSA validation if public key is available
+            var rsaPublicKey = _options.GetRsaPublicKey();
+            validationParameters.IssuerSigningKey = new RsaSecurityKey(rsaPublicKey);
+            validationParameters.ValidateIssuerSigningKey = true;
+            validationParameters.ValidAlgorithms = new[] { SecurityAlgorithms.RsaSha256 };
+
+
+            tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+            return (true, (JwtSecurityToken)validatedToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Token validation failed");
+            return (false, null);
+        }
+    }
+
+    private static string GenerateRefreshToken(Session session)
+    {
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(session.Id.ToString()));
     }
 
     private static bool VerifyHashedSecret(string secret, string hashedSecret)
@@ -149,35 +177,6 @@ public class OidcProviderService(
         // For now, we'll do a simple comparison, but you should replace this with proper hashing
         return string.Equals(secret, hashedSecret, StringComparison.Ordinal);
     }
-
-    public JwtSecurityToken? ValidateToken(string token)
-    {
-        try
-        {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_options.SigningKey);
-
-            tokenHandler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(key),
-                ValidateIssuer = true,
-                ValidIssuer = _options.IssuerUri,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
-            }, out var validatedToken);
-
-            return (JwtSecurityToken)validatedToken;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Token validation failed");
-            return null;
-        }
-    }
-
-    // Authorization codes are now managed through ICacheService
 
     public async Task<string> GenerateAuthorizationCodeAsync(
         Guid clientId,
