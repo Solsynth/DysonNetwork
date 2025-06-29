@@ -1,9 +1,6 @@
-using System.Security.Claims;
 using System.ServiceModel.Syndication;
 using System.Xml;
-using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace DysonNetwork.Sphere.Connection.WebReader;
 
@@ -11,36 +8,65 @@ public class WebFeedService(
     AppDatabase database,
     IHttpClientFactory httpClientFactory,
     ILogger<WebFeedService> logger,
-    AccountService accountService,
     WebReaderService webReaderService
 )
 {
-    public async Task<WebFeed> CreateWebFeedAsync(WebFeedController.CreateWebFeedRequest request,
-        ClaimsPrincipal claims)
+    public async Task<WebFeed> CreateWebFeedAsync(Publisher.Publisher publisher, WebFeedController.WebFeedRequest request)
     {
-        if (claims.Identity?.Name == null)
-        {
-            throw new UnauthorizedAccessException();
-        }
-
-        var account = await accountService.LookupAccount(claims.Identity.Name);
-        if (account == null)
-        {
-            throw new UnauthorizedAccessException();
-        }
-
         var feed = new WebFeed
         {
-            Url = request.Url,
-            Title = request.Title,
+            Url = request.Url!,
+            Title = request.Title!,
             Description = request.Description,
-            PublisherId = account.Id,
+            PublisherId = publisher.Id,
         };
 
         database.Set<WebFeed>().Add(feed);
         await database.SaveChangesAsync();
 
         return feed;
+    }
+
+    public async Task<WebFeed?> GetFeedAsync(Guid id, Guid? publisherId = null)
+    {
+        var query = database.WebFeeds.Where(a => a.Id == id).AsQueryable();
+        if (publisherId.HasValue)
+            query = query.Where(a => a.PublisherId == publisherId.Value);
+        return await query.FirstOrDefaultAsync();
+    }
+
+    public async Task<List<WebFeed>> GetFeedsByPublisherAsync(Guid publisherId)
+    {
+        return await database.WebFeeds.Where(a => a.PublisherId == publisherId).ToListAsync();
+    }
+
+    public async Task<WebFeed> UpdateFeedAsync(WebFeed feed, WebFeedController.WebFeedRequest request)
+    {
+        if (request.Url is not null)
+            feed.Url = request.Url;
+        if (request.Title is not null)
+            feed.Title = request.Title;
+        if (request.Description is not null)
+            feed.Description = request.Description;
+
+        database.Update(feed);
+        await database.SaveChangesAsync();
+
+        return feed;
+    }
+
+    public async Task<bool> DeleteFeedAsync(Guid id)
+    {
+        var feed = await database.WebFeeds.FindAsync(id);
+        if (feed == null)
+        {
+            return false;
+        }
+
+        database.WebFeeds.Remove(feed);
+        await database.SaveChangesAsync();
+
+        return true;
     }
 
     public async Task ScrapeFeedAsync(WebFeed feed, CancellationToken cancellationToken = default)

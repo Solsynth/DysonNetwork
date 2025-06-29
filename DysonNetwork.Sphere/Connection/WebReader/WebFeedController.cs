@@ -1,62 +1,123 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Connection.WebReader;
 
 [Authorize]
 [ApiController]
-[Route("/feeds")]
-public class WebFeedController(WebFeedService webFeedService, AppDatabase database) : ControllerBase
+[Route("/publishers/{pubName}/feeds")]
+public class WebFeedController(WebFeedService webFeed, PublisherService ps) : ControllerBase
 {
-    public class CreateWebFeedRequest
+    public record WebFeedRequest(
+        [MaxLength(8192)] string? Url,
+        [MaxLength(4096)] string? Title,
+        [MaxLength(8192)] string? Description
+    );
+
+    [HttpGet]
+    public async Task<IActionResult> ListFeeds([FromRoute] string pubName)
     {
-        [Required]
-        [MaxLength(8192)]
-        public required string Url { get; set; }
-
-        [Required]
-        [MaxLength(4096)]
-        public required string Title { get; set; }
-
-        [MaxLength(8192)]
-        public string? Description { get; set; }
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+        var feeds = await webFeed.GetFeedsByPublisherAsync(publisher.Id);
+        return Ok(feeds);
     }
 
-    
-    [HttpPost]
-    public async Task<IActionResult> CreateWebFeed([FromBody] CreateWebFeedRequest request)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetFeed([FromRoute] string pubName, Guid id)
     {
-        var feed = await webFeedService.CreateWebFeedAsync(request, User);
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
+        if (feed == null)
+            return NotFound();
+
         return Ok(feed);
     }
-    
-    [HttpPost("scrape/{feedId}")]
-    [RequiredPermission("maintenance", "web-feeds")]
-    public async Task<ActionResult> ScrapeFeed(Guid feedId)
+
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> CreateWebFeed([FromRoute] string pubName, [FromBody] WebFeedRequest request)
     {
-        var feed = await database.Set<WebFeed>().FindAsync(feedId);
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(request.Url) || string.IsNullOrWhiteSpace(request.Title))
+            return BadRequest("Url and title are required");
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to create a web feed");
+
+        var feed = await webFeed.CreateWebFeedAsync(publisher, request);
+        return Ok(feed);
+    }
+
+    [HttpPatch("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateFeed([FromRoute] string pubName, Guid id, [FromBody] WebFeedRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to update a web feed");
+
+        var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
+        if (feed == null)
+            return NotFound();
+
+        feed = await webFeed.UpdateFeedAsync(feed, request);
+        return Ok(feed);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteFeed([FromRoute] string pubName, Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to delete a web feed");
+
+        var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
+        if (feed == null)
+            return NotFound();
+
+        var result = await webFeed.DeleteFeedAsync(id);
+        if (!result)
+            return NotFound();
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/scrap")]
+    [Authorize]
+    public async Task<ActionResult> Scrap([FromRoute] string pubName, Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to scrape a web feed");
+
+        var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
         if (feed == null)
         {
             return NotFound();
         }
 
-        await webFeedService.ScrapeFeedAsync(feed);
-        return Ok();
-    }
-
-    [HttpPost("scrape-all")]
-    [RequiredPermission("maintenance", "web-feeds")]
-    public async Task<ActionResult> ScrapeAllFeeds()
-    {
-        var feeds = await database.Set<WebFeed>().ToListAsync();
-        foreach (var feed in feeds)
-        {
-            await webFeedService.ScrapeFeedAsync(feed);
-        }
-
+        await webFeed.ScrapeFeedAsync(feed);
         return Ok();
     }
 }
