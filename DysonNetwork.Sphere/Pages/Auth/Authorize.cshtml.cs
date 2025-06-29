@@ -8,7 +8,7 @@ using DysonNetwork.Sphere.Developer;
 
 namespace DysonNetwork.Sphere.Pages.Auth;
 
-public class AuthorizeModel(OidcProviderService oidcService) : PageModel
+public class AuthorizeModel(OidcProviderService oidcService, IConfiguration configuration) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
 
@@ -70,11 +70,18 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
             ModelState.AddModelError("client_id", "Client not found");
             return NotFound("Client not found");
         }
+        
+        var config = client.OauthConfig;
+        if (config is null)
+        {
+            ModelState.AddModelError("client_id", "Client was not available for use OAuth / OIDC");
+            return BadRequest("Client was not enabled for OAuth / OIDC");
+        }
 
         // Validate redirect URI for non-Developing apps
         if (client.Status != CustomAppStatus.Developing)
         {
-            if (!string.IsNullOrEmpty(RedirectUri) && !(client.RedirectUris?.Contains(RedirectUri) ?? false))
+            if (!string.IsNullOrEmpty(RedirectUri) && !(config.RedirectUris?.Contains(RedirectUri) ?? false))
             {
                 return BadRequest(new ErrorResponse
                 {
@@ -93,9 +100,10 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
         }
 
         // Show authorization page
+        var baseUrl = configuration["BaseUrl"];
         AppName = client.Name;
-        AppLogo = client.LogoUri;
-        AppUri = client.ClientUri;
+        AppLogo = client.Picture is not null ? $"{baseUrl}/files/{client.Picture.Id}" : null;
+        AppUri = config.ClientUri;
         RequestedScopes = (Scope ?? "openid profile").Split(' ').Distinct().ToArray();
 
         return Page();
@@ -114,7 +122,7 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
         if (existingSession != null)
         {
             // Reuse existing session
-            authCode = await oidcService.GenerateAuthorizationCodeForExistingSessionAsync(
+            authCode = await oidcService.GenerateAuthorizationCodeForReuseSessionAsync(
                 session: existingSession,
                 clientId: ClientId,
                 redirectUri: RedirectUri,
@@ -126,7 +134,7 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
         }
         else
         {
-            // Create new session (existing flow)
+            // Create a new session (existing flow)
             authCode = await oidcService.GenerateAuthorizationCodeAsync(
                 clientId: ClientId,
                 userId: currentUser.Id,

@@ -1,63 +1,129 @@
+using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Publisher;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Sphere.Developer;
 
 [ApiController]
-[Route("/developers/apps")]
-public class CustomAppController(CustomAppService customAppService, PublisherService ps) : ControllerBase
+[Route("/developers/{pubName}/apps")]
+public class CustomAppController(CustomAppService customApps, PublisherService ps) : ControllerBase
 {
-    public record CreateAppRequest(Guid PublisherId, string Name, string Slug);
-    public record UpdateAppRequest(string Name, string Slug);
-    
+    public record CustomAppRequest(
+        [MaxLength(1024)] string? Slug,
+        [MaxLength(1024)] string? Name,
+        [MaxLength(4096)] string? Description,
+        string? PictureId,
+        string? BackgroundId,
+        CustomAppStatus? Status,
+        CustomAppLinks? Links,
+        CustomAppOauthConfig? OauthConfig
+    );
+
     [HttpGet]
-    public async Task<IActionResult> ListApps([FromQuery] Guid publisherId)
+    public async Task<IActionResult> ListApps([FromRoute] string pubName)
     {
-        var apps = await customAppService.GetAppsByPublisherAsync(publisherId);
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+        var apps = await customApps.GetAppsByPublisherAsync(publisher.Id);
         return Ok(apps);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetApp(Guid id)
+    public async Task<IActionResult> GetApp([FromRoute] string pubName, Guid id)
     {
-        var app = await customAppService.GetAppAsync(id);
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
         if (app == null)
-        { 
             return NotFound();
-        }
+
         return Ok(app);
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateApp([FromBody] CreateAppRequest request)
+    [Authorize]
+    public async Task<IActionResult> CreateApp([FromRoute] string pubName, [FromBody] CustomAppRequest request)
     {
-        var app = await customAppService.CreateAppAsync(request.PublisherId, request.Name, request.Slug);
-        if (app == null)
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Slug))
+            return BadRequest("Name and slug are required");
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to create a custom app");
+        if (!await ps.HasFeature(publisher.Id, PublisherFeatureFlag.Develop))
+            return StatusCode(403, "Publisher must be a developer to create a custom app");
+
+        try
         {
-            return BadRequest("Invalid publisher ID or missing developer feature flag");
+            var app = await customApps.CreateAppAsync(publisher, request);
+            return Ok(app);
         }
-        return CreatedAtAction(nameof(GetApp), new { id = app.Id }, app);
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<IActionResult> UpdateApp(Guid id, [FromBody] UpdateAppRequest request)
+    [Authorize]
+    public async Task<IActionResult> UpdateApp(
+        [FromRoute] string pubName,
+        [FromRoute] Guid id,
+        [FromBody] CustomAppRequest request
+    )
     {
-        var app = await customAppService.UpdateAppAsync(id, request.Name, request.Slug);
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+        
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to update a custom app");
+
+        var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
         if (app == null)
-        {
             return NotFound();
+
+        try
+        {
+            app = await customApps.UpdateAppAsync(app, request);
+            return Ok(app);
         }
-        return Ok(app);
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> DeleteApp(Guid id)
+    [Authorize]
+    public async Task<IActionResult> DeleteApp(
+        [FromRoute] string pubName,
+        [FromRoute] Guid id
+    )
     {
-        var result = await customAppService.DeleteAppAsync(id);
-        if (!result)
-        {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+        
+        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to delete a custom app");
+
+        var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
+        if (app == null)
             return NotFound();
-        }
+
+        var result = await customApps.DeleteAppAsync(id);
+        if (!result)
+            return NotFound();
         return NoContent();
     }
 }

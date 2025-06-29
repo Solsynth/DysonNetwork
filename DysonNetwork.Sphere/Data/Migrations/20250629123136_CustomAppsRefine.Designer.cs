@@ -11,6 +11,7 @@ using DysonNetwork.Sphere.Storage;
 using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -19,12 +20,14 @@ using NpgsqlTypes;
 
 #nullable disable
 
-namespace DysonNetwork.Sphere.Migrations
+namespace DysonNetwork.Sphere.Data.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250629123136_CustomAppsRefine")]
+    partial class CustomAppsRefine
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

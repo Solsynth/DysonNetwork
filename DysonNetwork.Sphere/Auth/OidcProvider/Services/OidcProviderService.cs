@@ -158,8 +158,8 @@ public class OidcProviderService(
         );
 
         // Add scopes as claims if provided
-        var effectiveScopes = scopes?.ToList() ?? client.AllowedScopes?.ToList() ?? new List<string>();
-        if (effectiveScopes.Any())
+        var effectiveScopes = scopes?.ToList() ?? client.OauthConfig!.AllowedScopes?.ToList() ?? [];
+        if (effectiveScopes.Count != 0)
         {
             tokenDescriptor.Subject.AddClaims(
                 effectiveScopes.Select(scope => new Claim("scope", scope)));
@@ -221,7 +221,7 @@ public class OidcProviderService(
         return string.Equals(secret, hashedSecret, StringComparison.Ordinal);
     }
 
-    public async Task<string> GenerateAuthorizationCodeForExistingSessionAsync(
+    public async Task<string> GenerateAuthorizationCodeForReuseSessionAsync(
         Session session,
         Guid clientId,
         string redirectUri,

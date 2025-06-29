@@ -8,6 +8,13 @@ namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherService(AppDatabase db, FileReferenceService fileRefService, ICacheService cache)
 {
+    public async Task<Publisher?> GetPublisherByName(string name)
+    {
+        return await db.Publishers
+            .Where(e => e.Name == name)
+            .FirstOrDefaultAsync();
+    }
+
     private const string UserPublishersCacheKey = "accounts:{0}:publishers";
 
     public async Task<List<Publisher>> GetUserPublishers(Guid userId)
@@ -336,7 +343,7 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
                 f.PublisherId == publisherId && f.Flag == flag &&
                 (f.ExpiredAt == null || f.ExpiredAt > now)
             );
-        if (featureFlag is not null) isEnabled = true;
+        isEnabled = featureFlag is not null;
 
         await cache.SetAsync(cacheKey, isEnabled!.Value, TimeSpan.FromMinutes(5));
         return isEnabled.Value;
