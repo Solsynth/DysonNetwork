@@ -35,6 +35,7 @@ public class Publisher : ModelBase, IIdentifiedResource
     [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
     [JsonIgnore] public ICollection<PublisherMember> Members { get; set; } = new List<PublisherMember>();
+    [JsonIgnore] public ICollection<PublisherFeature> Features { get; set; } = new List<PublisherFeature>();
 
     [JsonIgnore]
     public ICollection<PublisherSubscription> Subscriptions { get; set; } = new List<PublisherSubscription>();
@@ -98,6 +99,6 @@ public class PublisherFeature : ModelBase
 
 public abstract class PublisherFeatureFlag
 {
-    public static List<string> AllFlags => [Developer];
-    public static string Developer = "develop";
+    public static List<string> AllFlags => [Develop];
+    public static string Develop = "develop";
 }
