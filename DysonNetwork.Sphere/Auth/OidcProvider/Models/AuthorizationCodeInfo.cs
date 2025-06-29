@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Auth.OidcProvider.Models;
 public class AuthorizationCodeInfo
 {
     public Guid ClientId { get; set; }
-    public string UserId { get; set; } = string.Empty;
+    public Guid AccountId { get; set; }
     public string RedirectUri { get; set; } = string.Empty;
     public List<string> Scopes { get; set; } = new();
     public string? CodeChallenge { get; set; }

@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using DysonNetwork.Sphere.Auth.OidcProvider.Services;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Sphere.Auth.OidcProvider.Responses;
+using DysonNetwork.Sphere.Developer;
 
 namespace DysonNetwork.Sphere.Pages.Auth;
 
@@ -48,9 +50,15 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
     public string? AppLogo { get; set; }
     public string? AppUri { get; set; }
     public string[]? RequestedScopes { get; set; }
-
+    
     public async Task<IActionResult> OnGetAsync()
     {
+        if (HttpContext.Items["CurrentUser"] is not Sphere.Account.Account)
+        {
+            var returnUrl = Uri.EscapeDataString($"{Request.Path}{Request.QueryString}");
+            return RedirectToPage($"/Auth/Login?returnUrl={returnUrl}");
+        }
+        
         if (string.IsNullOrEmpty(ClientIdString) || !Guid.TryParse(ClientIdString, out var clientId))
         {
             ModelState.AddModelError("client_id", "Invalid client_id format");
@@ -65,6 +73,14 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
             ModelState.AddModelError("client_id", "Client not found");
             return NotFound("Client not found");
         }
+        
+        if (client.Status != CustomAppStatus.Developing)
+        {
+            // Validate redirect URI for non-Developing apps
+            if (!string.IsNullOrEmpty(RedirectUri) && !(client.RedirectUris?.Contains(RedirectUri) ?? false))
+                return BadRequest(
+                    new ErrorResponse { Error = "invalid_request", ErrorDescription = "Invalid redirect_uri" });
+        }
 
         AppName = client.Name;
         AppLogo = client.LogoUri;
@@ -76,7 +92,9 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
 
     public async Task<IActionResult> OnPostAsync(bool allow)
     {
-        // First validate the client ID
+        if (HttpContext.Items["CurrentUser"] is not Sphere.Account.Account currentUser) return Unauthorized();
+        
+        // First, validate the client ID
         if (string.IsNullOrEmpty(ClientIdString) || !Guid.TryParse(ClientIdString, out var clientId))
         {
             ModelState.AddModelError("client_id", "Invalid client_id format");
@@ -85,7 +103,7 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
         
         ClientId = clientId;
 
-        // Check if client exists
+        // Check if a client exists
         var client = await oidcService.FindClientByIdAsync(ClientId);
         if (client == null)
         {
@@ -119,7 +137,7 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
         // Generate authorization code
         var authCode = await oidcService.GenerateAuthorizationCodeAsync(
             clientId: ClientId,
-            userId: User.Identity?.Name ?? string.Empty,
+            userId: currentUser.Id,
             redirectUri: RedirectUri,
             scopes: Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>(),
             codeChallenge: CodeChallenge,
