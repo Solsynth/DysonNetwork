@@ -13,6 +13,5 @@ public class AuthorizationCodeInfo
     public string? CodeChallenge { get; set; }
     public string? CodeChallengeMethod { get; set; }
     public string? Nonce { get; set; }
-    public Instant Expiration { get; set; }
     public Instant CreatedAt { get; set; }
 }

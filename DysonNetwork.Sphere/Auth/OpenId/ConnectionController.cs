@@ -376,7 +376,7 @@ public class ConnectionController(
 
         await db.SaveChangesAsync();
 
-        var loginSession = await auth.CreateSessionAsync(account, clock.GetCurrentInstant());
+        var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
         var loginToken = auth.CreateToken(loginSession);
         return Redirect($"/auth/token?token={loginToken}");
     }

@@ -148,9 +148,7 @@ public class AuthorizeModel(OidcProviderService oidcService) : PageModel
 
         // Add state if provided (for CSRF protection)
         if (!string.IsNullOrEmpty(State))
-        {
             query["state"] = State;
-        }
 
         // Set the query string
         redirectUri.Query = query.ToString();

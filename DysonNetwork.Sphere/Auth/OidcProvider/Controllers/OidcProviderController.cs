@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Account;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth.OidcProvider.Controllers;
 
@@ -43,35 +44,67 @@ public class OidcProviderController(
                     return BadRequest(new ErrorResponse
                         { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
 
-                // Validate the authorization code
-                var authCode = await oidcService.ValidateAuthorizationCodeAsync(
-                    request.Code ?? string.Empty,
-                    request.ClientId.Value,
-                    request.RedirectUri,
-                    request.CodeVerifier
-                );
-
-                if (authCode == null)
-                {
-                    logger.LogWarning(@"Invalid or expired authorization code: {Code}", request.Code);
-                    return BadRequest(new ErrorResponse
-                        { Error = "invalid_grant", ErrorDescription = "Invalid or expired authorization code" });
-                }
-
                 // Generate tokens
                 var tokenResponse = await oidcService.GenerateTokenResponseAsync(
                     clientId: request.ClientId.Value,
-                    scopes: authCode.Scopes,
-                    authorizationCode: request.Code!
+                    authorizationCode: request.Code!,
+                    redirectUri: request.RedirectUri,
+                    codeVerifier: request.CodeVerifier
                 );
 
                 return Ok(tokenResponse);
             }
+            case "refresh_token" when string.IsNullOrEmpty(request.RefreshToken):
+                return BadRequest(new ErrorResponse
+                    { Error = "invalid_request", ErrorDescription = "Refresh token is required" });
             case "refresh_token":
-                // Handle refresh token request
-                // In a real implementation, you would validate the refresh token
-                // and issue a new access token
-                return BadRequest(new ErrorResponse { Error = "unsupported_grant_type" });
+            {
+                try
+                {
+                    // Decode the base64 refresh token to get the session ID
+                    var sessionIdBytes = Convert.FromBase64String(request.RefreshToken);
+                    var sessionId = new Guid(sessionIdBytes);
+
+                    // Find the session and related data
+                    var session = await oidcService.FindSessionByIdAsync(sessionId);
+                    var now = SystemClock.Instance.GetCurrentInstant();
+                    if (session?.App is null || session.ExpiredAt < now)
+                    {
+                        return BadRequest(new ErrorResponse
+                        {
+                            Error = "invalid_grant",
+                            ErrorDescription = "Invalid or expired refresh token"
+                        });
+                    }
+
+                    // Get the client
+                    var client = session.App;
+                    if (client == null)
+                    {
+                        return BadRequest(new ErrorResponse
+                        {
+                            Error = "invalid_client",
+                            ErrorDescription = "Client not found"
+                        });
+                    }
+
+                    // Generate new tokens
+                    var tokenResponse = await oidcService.GenerateTokenResponseAsync(
+                        clientId: session.AppId!.Value,
+                        sessionId: session.Id
+                    );
+
+                    return Ok(tokenResponse);
+                }
+                catch (FormatException)
+                {
+                    return BadRequest(new ErrorResponse
+                    {
+                        Error = "invalid_grant",
+                        ErrorDescription = "Invalid refresh token format"
+                    });
+                }
+            }
             default:
                 return BadRequest(new ErrorResponse { Error = "unsupported_grant_type" });
         }
@@ -79,7 +112,7 @@ public class OidcProviderController(
 
     [HttpGet("userinfo")]
     [Authorize]
-    public async Task<IActionResult> UserInfo()
+    public async Task<IActionResult> GetUserInfo()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser ||
             HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
@@ -175,19 +208,35 @@ public class OidcProviderController(
 
 public class TokenRequest
 {
-    [JsonPropertyName("grant_type")] public string? GrantType { get; set; }
+    [JsonPropertyName("grant_type")]
+    [FromForm(Name = "grant_type")]
+    public string? GrantType { get; set; }
 
-    [JsonPropertyName("code")] public string? Code { get; set; }
+    [JsonPropertyName("code")]
+    [FromForm(Name = "code")]
+    public string? Code { get; set; }
 
-    [JsonPropertyName("redirect_uri")] public string? RedirectUri { get; set; }
+    [JsonPropertyName("redirect_uri")]
+    [FromForm(Name = "redirect_uri")]
+    public string? RedirectUri { get; set; }
 
-    [JsonPropertyName("client_id")] public Guid? ClientId { get; set; }
+    [JsonPropertyName("client_id")]
+    [FromForm(Name = "client_id")]
+    public Guid? ClientId { get; set; }
 
-    [JsonPropertyName("client_secret")] public string? ClientSecret { get; set; }
+    [JsonPropertyName("client_secret")]
+    [FromForm(Name = "client_secret")]
+    public string? ClientSecret { get; set; }
 
-    [JsonPropertyName("refresh_token")] public string? RefreshToken { get; set; }
+    [JsonPropertyName("refresh_token")]
+    [FromForm(Name = "refresh_token")]
+    public string? RefreshToken { get; set; }
 
-    [JsonPropertyName("scope")] public string? Scope { get; set; }
+    [JsonPropertyName("scope")]
+    [FromForm(Name = "scope")]
+    public string? Scope { get; set; }
 
-    [JsonPropertyName("code_verifier")] public string? CodeVerifier { get; set; }
+    [JsonPropertyName("code_verifier")]
+    [FromForm(Name = "code_verifier")]
+    public string? CodeVerifier { get; set; }
 }

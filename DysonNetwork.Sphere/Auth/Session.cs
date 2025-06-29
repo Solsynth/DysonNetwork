@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Developer;
 using NodaTime;
 using Point = NetTopologySuite.Geometries.Point;
 
@@ -17,6 +18,8 @@ public class Session : ModelBase
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
     public Guid ChallengeId { get; set; }
     public Challenge Challenge { get; set; } = null!;
+    public Guid? AppId { get; set; }
+    public CustomApp? App { get; set; }
 }
 
 public enum ChallengeType

@@ -73,7 +73,7 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<Session> CreateSessionAsync(Account.Account account, Instant time)
+    public async Task<Session> CreateSessionForOidcAsync(Account.Account account, Instant time, Guid? customAppId = null)
     {
         var challenge = new Challenge
         {
@@ -82,7 +82,7 @@ public class AuthService(
             UserAgent = HttpContext.Request.Headers.UserAgent,
             StepRemain = 1,
             StepTotal = 1,
-            Type = ChallengeType.Oidc
+            Type = customAppId is not null ? ChallengeType.OAuth : ChallengeType.Oidc
         };
 
         var session = new Session
@@ -90,7 +90,8 @@ public class AuthService(
             AccountId = account.Id,
             CreatedAt = time,
             LastGrantedAt = time,
-            Challenge = challenge
+            Challenge = challenge,
+            AppId = customAppId
         };
 
         db.AuthChallenges.Add(challenge);

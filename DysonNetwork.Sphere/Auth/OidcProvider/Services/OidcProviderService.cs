@@ -53,33 +53,53 @@ public class OidcProviderService(
 
     public async Task<TokenResponse> GenerateTokenResponseAsync(
         Guid clientId,
-        string authorizationCode,
-        IEnumerable<string>? scopes = null
+        string? authorizationCode = null,
+        string? redirectUri = null,
+        string? codeVerifier = null,
+        Guid? sessionId = null
     )
     {
         var client = await FindClientByIdAsync(clientId);
         if (client == null)
             throw new InvalidOperationException("Client not found");
 
-        var authCode = await ValidateAuthorizationCodeAsync(authorizationCode, clientId);
-        if (authCode is null) throw new InvalidOperationException("Invalid authorization code");
-        var account = await db.Accounts.Where(a => a.Id == authCode.AccountId).FirstOrDefaultAsync();
-        if (account is null) throw new InvalidOperationException("Account was not found");
-
+        Session session;
         var clock = SystemClock.Instance;
         var now = clock.GetCurrentInstant();
-        var session = await auth.CreateSessionAsync(account, now);
+
+        List<string>? scopes = null;
+        if (authorizationCode != null)
+        {
+            // Authorization code flow
+            var authCode = await ValidateAuthorizationCodeAsync(authorizationCode, clientId, redirectUri, codeVerifier);
+            if (authCode is null) throw new InvalidOperationException("Invalid authorization code");
+            var account = await db.Accounts.Where(a => a.Id == authCode.AccountId).FirstOrDefaultAsync();
+            if (account is null) throw new InvalidOperationException("Account was not found");
+
+            session = await auth.CreateSessionForOidcAsync(account, now);
+            scopes = authCode.Scopes;
+        }
+        else if (sessionId.HasValue)
+        {
+            // Refresh token flow
+            session = await FindSessionByIdAsync(sessionId.Value) ?? 
+                     throw new InvalidOperationException("Invalid session");
+            
+            // Verify the session is still valid
+            if (session.ExpiredAt < now)
+                throw new InvalidOperationException("Session has expired");
+        }
+        else
+        {
+            throw new InvalidOperationException("Either authorization code or session ID must be provided");
+        }
 
         var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
         var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
 
-        // Generate access token
+        // Generate an access token
         var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
         var refreshToken = GenerateRefreshToken(session);
-
-        // In a real implementation, you would store the token in the database
-        // For this example, we'll just return the token without storing it
-        // as we don't have a dedicated OIDC token table
 
         return new TokenResponse
         {
@@ -105,8 +125,8 @@ public class OidcProviderService(
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity([
-                new Claim(JwtRegisteredClaimNames.Sub, session.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Sub, session.AccountId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(),
                 ClaimValueTypes.Integer64),
             new Claim("client_id", client.Id.ToString())
@@ -144,7 +164,7 @@ public class OidcProviderService(
             {
                 ValidateIssuer = true,
                 ValidIssuer = _options.IssuerUri,
-                ValidateAudience = true,
+                ValidateAudience = false,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
@@ -166,9 +186,18 @@ public class OidcProviderService(
         }
     }
 
+    public async Task<Session?> FindSessionByIdAsync(Guid sessionId)
+    {
+        return await db.AuthSessions
+            .Include(s => s.Account)
+            .Include(s => s.Challenge)
+            .Include(s => s.App)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+    }
+
     private static string GenerateRefreshToken(Session session)
     {
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(session.Id.ToString()));
+        return Convert.ToBase64String(session.Id.ToByteArray());
     }
 
     private static bool VerifyHashedSecret(string secret, string hashedSecret)
@@ -202,7 +231,6 @@ public class OidcProviderService(
             CodeChallenge = codeChallenge,
             CodeChallengeMethod = codeChallengeMethod,
             Nonce = nonce,
-            Expiration = now.Plus(Duration.FromTimeSpan(_options.AuthorizationCodeLifetime)),
             CreatedAt = now
         };
 
@@ -214,7 +242,7 @@ public class OidcProviderService(
         return code;
     }
 
-    public async Task<AuthorizationCodeInfo?> ValidateAuthorizationCodeAsync(
+    private async Task<AuthorizationCodeInfo?> ValidateAuthorizationCodeAsync(
         string code,
         Guid clientId,
         string? redirectUri = null,
@@ -227,17 +255,6 @@ public class OidcProviderService(
         if (!found || authCode == null)
         {
             logger.LogWarning("Authorization code not found: {Code}", code);
-            return null;
-        }
-
-        var clock = SystemClock.Instance;
-        var now = clock.GetCurrentInstant();
-
-        // Check if the code has expired
-        if (now > authCode.Expiration)
-        {
-            logger.LogWarning("Authorization code expired: {Code}", code);
-            await cache.RemoveAsync(cacheKey);
             return null;
         }
 

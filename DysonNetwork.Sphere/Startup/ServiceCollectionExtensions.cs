@@ -24,6 +24,7 @@ using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using DysonNetwork.Sphere.Auth.OidcProvider.Options;
 using DysonNetwork.Sphere.Auth.OidcProvider.Services;
 using DysonNetwork.Sphere.Connection.WebReader;
 using DysonNetwork.Sphere.Developer;
@@ -235,6 +236,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SafetyService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<CustomAppService>();
+        
+        services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
 
         return services;
