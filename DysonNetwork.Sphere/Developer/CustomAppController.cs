@@ -7,8 +7,11 @@ namespace DysonNetwork.Sphere.Developer;
 [Route("/developers/apps")]
 public class CustomAppController(CustomAppService customAppService, PublisherService ps) : ControllerBase
 {
-    [HttpGet("")]
-    public async Task<IActionResult> GetApps([FromQuery] Guid publisherId)
+    public record CreateAppRequest(Guid PublisherId, string Name, string Slug);
+    public record UpdateAppRequest(string Name, string Slug);
+    
+    [HttpGet]
+    public async Task<IActionResult> ListApps([FromQuery] Guid publisherId)
     {
         var apps = await customAppService.GetAppsByPublisherAsync(publisherId);
         return Ok(apps);
@@ -25,10 +28,10 @@ public class CustomAppController(CustomAppService customAppService, PublisherSer
         return Ok(app);
     }
 
-    [HttpPost("")]
-    public async Task<IActionResult> CreateApp([FromBody] CreateAppDto dto)
+    [HttpPost]
+    public async Task<IActionResult> CreateApp([FromBody] CreateAppRequest request)
     {
-        var app = await customAppService.CreateAppAsync(dto.PublisherId, dto.Name, dto.Slug);
+        var app = await customAppService.CreateAppAsync(request.PublisherId, request.Name, request.Slug);
         if (app == null)
         {
             return BadRequest("Invalid publisher ID or missing developer feature flag");
@@ -36,10 +39,10 @@ public class CustomAppController(CustomAppService customAppService, PublisherSer
         return CreatedAtAction(nameof(GetApp), new { id = app.Id }, app);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> UpdateApp(Guid id, [FromBody] UpdateAppDto dto)
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> UpdateApp(Guid id, [FromBody] UpdateAppRequest request)
     {
-        var app = await customAppService.UpdateAppAsync(id, dto.Name, dto.Slug);
+        var app = await customAppService.UpdateAppAsync(id, request.Name, request.Slug);
         if (app == null)
         {
             return NotFound();
@@ -58,6 +61,3 @@ public class CustomAppController(CustomAppService customAppService, PublisherSer
         return NoContent();
     }
 }
-
-public record CreateAppDto(Guid PublisherId, string Name, string Slug);
-public record UpdateAppDto(string Name, string Slug);

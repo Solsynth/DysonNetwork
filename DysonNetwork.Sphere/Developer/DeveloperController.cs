@@ -24,13 +24,6 @@ public class DeveloperController(
             .Where(e => e.Name == name)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
-        if (publisher.AccountId is null) return Ok(publisher);
-
-        var account = await db.Accounts
-            .Where(a => a.Id == publisher.AccountId)
-            .Include(a => a.Profile)
-            .FirstOrDefaultAsync();
-        publisher.Account = account;
 
         return Ok(publisher);
     }
@@ -119,11 +112,12 @@ public class DeveloperController(
         if (!isOwner) return StatusCode(403, "You must be the owner of the publisher to join the developer program");
 
         // Check if already has a developer feature
+        var now = SystemClock.Instance.GetCurrentInstant();
         var hasDeveloperFeature = await db.PublisherFeatures
             .AnyAsync(f =>
                 f.PublisherId == publisher.Id &&
                 f.Flag == PublisherFeatureFlag.Develop &&
-                (f.ExpiredAt == null || f.ExpiredAt > SystemClock.Instance.GetCurrentInstant()));
+                (f.ExpiredAt == null || f.ExpiredAt > now));
 
         if (hasDeveloperFeature) return BadRequest("Publisher is already in the developer program");
 
