@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace DysonNetwork.Sphere.Connection.WebReader;
 
@@ -41,5 +42,5 @@ public class WebFeed : ModelBase
     public Guid PublisherId { get; set; }
     public Publisher.Publisher Publisher { get; set; } = null!;
 
-    public ICollection<WebArticle> Articles { get; set; } = new List<WebArticle>();
+    [JsonIgnore] public ICollection<WebArticle> Articles { get; set; } = new List<WebArticle>();
 }
