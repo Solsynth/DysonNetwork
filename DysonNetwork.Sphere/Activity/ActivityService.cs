@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Connection.WebReader;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -35,6 +36,31 @@ public class ActivityService(
             {
                 activities.Add(new DiscoveryActivity(
                     realms.Select(x => new DiscoveryItem("realm", x)).ToList()
+                ).ToActivity());
+            }
+        }
+
+        if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
+        {
+            var recentArticlesQuery = db.WebArticles
+                .Take(20); // Get a larger pool for randomization
+
+            // Apply random ordering 50% of the time
+            if (Random.Shared.NextDouble() < 0.5)
+            {
+                recentArticlesQuery = recentArticlesQuery.OrderBy(_ => EF.Functions.Random());
+            }
+            else
+            {
+                recentArticlesQuery = recentArticlesQuery.OrderByDescending(a => a.PublishedAt);
+            }
+
+            var recentArticles = await recentArticlesQuery.Take(5).ToListAsync();
+
+            if (recentArticles.Count > 0)
+            {
+                activities.Add(new DiscoveryActivity(
+                    recentArticles.Select(x => new DiscoveryItem("article", x)).ToList()
                 ).ToActivity());
             }
         }
@@ -112,6 +138,27 @@ public class ActivityService(
                 {
                     activities.Add(new DiscoveryActivity(
                         popularPublishers.Select(x => new DiscoveryItem("publisher", x)).ToList()
+                    ).ToActivity());
+                }
+            }
+            
+            if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
+            {
+                var recentArticlesQuery = db.WebArticles
+                    .Take(20); // Get a larger pool for randomization
+
+                // Apply random ordering 50% of the time
+                if (Random.Shared.NextDouble() < 0.5)
+                    recentArticlesQuery = recentArticlesQuery.OrderBy(_ => EF.Functions.Random());
+                else
+                    recentArticlesQuery = recentArticlesQuery.OrderByDescending(a => a.PublishedAt);
+
+                var recentArticles = await recentArticlesQuery.Take(5).ToListAsync();
+
+                if (recentArticles.Count > 0)
+                {
+                    activities.Add(new DiscoveryActivity(
+                        recentArticles.Select(x => new DiscoveryItem("article", x)).ToList()
                     ).ToActivity());
                 }
             }

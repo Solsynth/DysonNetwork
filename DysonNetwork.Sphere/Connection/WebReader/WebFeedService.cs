@@ -112,7 +112,8 @@ public class WebFeedService(
             {
                 var scrapedArticle = await webReaderService.ScrapeArticleAsync(itemUrl, cancellationToken);
                 preview = scrapedArticle.LinkEmbed;
-                content = scrapedArticle.Content;
+                if (scrapedArticle.Content is not null)
+                    content = scrapedArticle.Content;
             }
             else
             {
