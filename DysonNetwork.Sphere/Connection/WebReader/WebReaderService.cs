@@ -33,7 +33,11 @@ public class WebReaderService(
     {
         var httpClient = httpClientFactory.CreateClient("WebReader");
         var response = await httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Failed to scrap article content for URL: {Url}", url);
+            return null;
+        }
         var html = await response.Content.ReadAsStringAsync(cancellationToken);
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -74,7 +78,8 @@ public class WebReaderService(
         // Cache miss or bypass, fetch fresh data
         logger.LogDebug("Fetching fresh link preview for URL: {Url}", url);
         var httpClient = httpClientFactory.CreateClient("WebReader");
-        httpClient.MaxResponseContentBufferSize = 10 * 1024 * 1024; // 10MB, prevent scrap some directly accessible files
+        httpClient.MaxResponseContentBufferSize =
+            10 * 1024 * 1024; // 10MB, prevent scrap some directly accessible files
         httpClient.Timeout = TimeSpan.FromSeconds(3);
         // Setting UA to facebook's bot to get the opengraph.
         httpClient.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");

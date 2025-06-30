@@ -13,7 +13,8 @@ public class WebFeedController(WebFeedService webFeed, PublisherService ps) : Co
     public record WebFeedRequest(
         [MaxLength(8192)] string? Url,
         [MaxLength(4096)] string? Title,
-        [MaxLength(8192)] string? Description
+        [MaxLength(8192)] string? Description,
+        WebFeedConfig? Config
     );
 
     [HttpGet]

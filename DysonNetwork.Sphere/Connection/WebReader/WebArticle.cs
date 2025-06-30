@@ -31,8 +31,8 @@ public class WebFeedConfig
 public class WebFeed : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    [MaxLength(8192)] public string Url { get; set; }
-    [MaxLength(4096)] public string Title { get; set; }
+    [MaxLength(8192)] public string Url { get; set; } = null!;
+    [MaxLength(4096)] public string Title { get; set; } = null!;
     [MaxLength(8192)] public string? Description { get; set; }
     
     [Column(TypeName = "jsonb")] public LinkEmbed? Preview { get; set; }

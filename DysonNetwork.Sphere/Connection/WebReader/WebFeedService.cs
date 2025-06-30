@@ -11,13 +11,15 @@ public class WebFeedService(
     WebReaderService webReaderService
 )
 {
-    public async Task<WebFeed> CreateWebFeedAsync(Publisher.Publisher publisher, WebFeedController.WebFeedRequest request)
+    public async Task<WebFeed> CreateWebFeedAsync(Publisher.Publisher publisher,
+        WebFeedController.WebFeedRequest request)
     {
         var feed = new WebFeed
         {
             Url = request.Url!,
             Title = request.Title!,
             Description = request.Description,
+            Config = request.Config ?? new WebFeedConfig(),
             PublisherId = publisher.Id,
         };
 
@@ -48,6 +50,8 @@ public class WebFeedService(
             feed.Title = request.Title;
         if (request.Description is not null)
             feed.Description = request.Description;
+        if (request.Config is not null)
+            feed.Config = request.Config;
 
         database.Update(feed);
         await database.SaveChangesAsync();
