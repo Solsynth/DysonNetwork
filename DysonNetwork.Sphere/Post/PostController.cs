@@ -109,7 +109,9 @@ public class PostController(
             queryable = queryable.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(query)));
         else
             queryable = queryable.Where(p => EF.Functions.ILike(p.Title, $"%{query}%") ||
-                                             EF.Functions.ILike(p.Content, $"%{query}%"));
+                                             EF.Functions.ILike(p.Description, $"%{query}%") ||
+                                             EF.Functions.ILike(p.Content, $"%{query}%")
+            );
 
         var totalCount = await queryable.CountAsync();
 
