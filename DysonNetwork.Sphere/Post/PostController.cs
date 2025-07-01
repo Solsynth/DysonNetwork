@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NpgsqlTypes;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -18,14 +19,16 @@ public class PostController(
     PostService ps,
     PublisherService pub,
     RelationshipService rels,
-    IServiceScopeFactory factory,
     ActionLogService als
 )
     : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<Post>>> ListPosts([FromQuery] int offset = 0, [FromQuery] int take = 20,
-        [FromQuery(Name = "pub")] string? pubName = null)
+    public async Task<ActionResult<List<Post>>> ListPosts(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "pub")] string? pubName = null
+    )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
@@ -81,6 +84,48 @@ public class PostController(
         await ps.IncreaseViewCount(post.Id, currentUser?.Id.ToString());
 
         return Ok(post);
+    }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<List<Post>>> SearchPosts(
+        [FromQuery] string query,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery] bool useVector = true
+    )
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return BadRequest("Search query cannot be empty");
+
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account.Account;
+        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
+
+        var queryable = db.Posts
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .AsQueryable();
+        if (useVector)
+            queryable = queryable.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(query)));
+        else
+            queryable = queryable.Where(p => EF.Functions.ILike(p.Title, $"%{query}%") ||
+                                             EF.Functions.ILike(p.Content, $"%{query}%"));
+
+        var totalCount = await queryable.CountAsync();
+
+        var posts = await queryable
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+        return Ok(posts);
     }
 
     [HttpGet("{id:guid}/replies")]
