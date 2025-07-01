@@ -47,7 +47,8 @@ public class AutoCompletionController(AppDatabase db)
                 Id = a.Id.ToString(),
                 DisplayName = a.Name,
                 SecondaryText = a.Nick,
-                Type = "account"
+                Type = "account",
+                Data = a
             })
             .ToListAsync();
     }
@@ -63,7 +64,8 @@ public class AutoCompletionController(AppDatabase db)
             {
                 Id = s.Id.ToString(),
                 DisplayName = s.Slug,
-                Type = "sticker"
+                Type = "sticker",
+                Data = s
             })
             .ToListAsync();
     }
@@ -86,4 +88,5 @@ public class CompletionItem
     public string DisplayName { get; set; } = string.Empty;
     public string? SecondaryText { get; set; }
     public string Type { get; set; } = string.Empty;
+    public object? Data { get; set; }
 }
