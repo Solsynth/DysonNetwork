@@ -8,8 +8,8 @@ public class WebArticle : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [MaxLength(4096)] public string Title { get; set; }
-    [MaxLength(8192)] public string Url { get; set; }
+    [MaxLength(4096)] public string Title { get; set; } = null!;
+    [MaxLength(8192)] public string Url { get; set; } = null!;
     [MaxLength(4096)] public string? Author { get; set; }
     
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }

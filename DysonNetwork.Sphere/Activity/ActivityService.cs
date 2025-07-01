@@ -43,17 +43,14 @@ public class ActivityService(
         if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
         {
             var recentArticlesQuery = db.WebArticles
+                .Include(a => a.Feed)
                 .Take(20); // Get a larger pool for randomization
 
             // Apply random ordering 50% of the time
             if (Random.Shared.NextDouble() < 0.5)
-            {
                 recentArticlesQuery = recentArticlesQuery.OrderBy(_ => EF.Functions.Random());
-            }
             else
-            {
                 recentArticlesQuery = recentArticlesQuery.OrderByDescending(a => a.PublishedAt);
-            }
 
             var recentArticles = await recentArticlesQuery.Take(5).ToListAsync();
 
