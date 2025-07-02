@@ -53,6 +53,18 @@ public class SubscriptionService(
         if (existingSubscription is not null)
             return existingSubscription;
 
+        if (subscriptionInfo.RequiredLevel > 0)
+        {
+            var profile = await db.AccountProfiles
+                .Where(p => p.AccountId == account.Id)
+                .FirstOrDefaultAsync();
+            if (profile is null) throw new InvalidOperationException("Account profile was not found.");
+            if (profile.Level < subscriptionInfo.RequiredLevel)
+                throw new InvalidOperationException(
+                    $"Account level must be at least {subscriptionInfo.RequiredLevel} to subscribe to {identifier}."
+                );
+        }
+
         if (isFreeTrial)
         {
             var prevFreeTrial = await db.WalletSubscriptions
@@ -146,7 +158,7 @@ public class SubscriptionService(
             existingSubscription.PaymentDetails.OrderId = order.Id;
             existingSubscription.EndedAt = order.BegunAt.Plus(cycleDuration);
             existingSubscription.RenewalAt = order.BegunAt.Plus(cycleDuration);
-            existingSubscription.Status = SubscriptionStatus.Paid;
+            existingSubscription.Status = SubscriptionStatus.Active;
 
             db.Update(existingSubscription);
             await db.SaveChangesAsync();
@@ -159,7 +171,7 @@ public class SubscriptionService(
             BegunAt = order.BegunAt,
             EndedAt = order.BegunAt.Plus(cycleDuration),
             IsActive = true,
-            Status = SubscriptionStatus.Paid,
+            Status = SubscriptionStatus.Active,
             Identifier = subscriptionIdentifier,
             PaymentMethod = provider,
             PaymentDetails = new PaymentDetails
@@ -192,10 +204,15 @@ public class SubscriptionService(
         var subscription = await GetSubscriptionAsync(accountId, identifier);
         if (subscription is null)
             throw new InvalidOperationException($"Subscription with identifier {identifier} was not found.");
-        if (subscription.Status == SubscriptionStatus.Cancelled)
+        if (subscription.Status != SubscriptionStatus.Active)
             throw new InvalidOperationException("Subscription is already cancelled.");
+        if (subscription.RenewalAt is null)
+            throw new InvalidOperationException("Subscription is no need to be cancelled.");
+        if (subscription.PaymentMethod != SubscriptionPaymentMethod.InAppWallet)
+            throw new InvalidOperationException(
+                "Only in-app wallet subscription can be cancelled. For other payment methods, please head to the payment provider."
+            );
 
-        subscription.Status = SubscriptionStatus.Cancelled;
         subscription.RenewalAt = null;
 
         await db.SaveChangesAsync();
@@ -226,7 +243,7 @@ public class SubscriptionService(
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
         if (subscription is null) throw new InvalidOperationException("No matching subscription found.");
-        
+
         var subscriptionInfo = SubscriptionTypeData.SubscriptionDict
             .TryGetValue(subscription.Identifier, out var template)
             ? template
@@ -276,7 +293,7 @@ public class SubscriptionService(
             subscription.EndedAt = nextEndedAt;
         }
 
-        subscription.Status = SubscriptionStatus.Paid;
+        subscription.Status = SubscriptionStatus.Active;
 
         db.Update(subscription);
         await db.SaveChangesAsync();
@@ -306,7 +323,7 @@ public class SubscriptionService(
         // Find active subscriptions that have passed their end date
         var expiredSubscriptions = await db.WalletSubscriptions
             .Where(s => s.IsActive)
-            .Where(s => s.Status == SubscriptionStatus.Paid)
+            .Where(s => s.Status == SubscriptionStatus.Active)
             .Where(s => s.EndedAt.HasValue && s.EndedAt.Value < now)
             .Take(batchSize)
             .ToListAsync();

@@ -92,7 +92,7 @@ public abstract class SubscriptionPaymentMethod
 public enum SubscriptionStatus
 {
     Unpaid,
-    Paid,
+    Active,
     Expired,
     Cancelled
 }
@@ -152,7 +152,7 @@ public class Subscription : ModelBase
             if (BegunAt > now) return false;
             if (EndedAt.HasValue && now > EndedAt.Value) return false;
             if (RenewalAt.HasValue && now > RenewalAt.Value) return false;
-            if (Status != SubscriptionStatus.Paid) return false;
+            if (Status != SubscriptionStatus.Active) return false;
 
             return true;
         }

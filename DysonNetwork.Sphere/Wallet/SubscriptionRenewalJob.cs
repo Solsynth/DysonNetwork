@@ -29,7 +29,7 @@ public class SubscriptionRenewalJob(
         // Find subscriptions that need renewal (due for renewal and are still active)
         var subscriptionsToRenew = await db.WalletSubscriptions
             .Where(s => s.RenewalAt.HasValue && s.RenewalAt.Value <= now) // Due for renewal
-            .Where(s => s.Status == SubscriptionStatus.Paid) // Only paid subscriptions
+            .Where(s => s.Status == SubscriptionStatus.Active) // Only paid subscriptions
             .Where(s => s.IsActive) // Only active subscriptions
             .Where(s => !s.IsFreeTrial) // Exclude free trials
             .OrderBy(s => s.RenewalAt) // Process oldest first
@@ -48,6 +48,17 @@ public class SubscriptionRenewalJob(
                 logger.LogDebug(
                     "Processing renewal for subscription {SubscriptionId} (Identifier: {Identifier}) for account {AccountId}",
                     subscription.Id, subscription.Identifier, subscription.AccountId);
+
+                if (subscription.RenewalAt is null)
+                {
+                    logger.LogWarning(
+                        "Subscription {SubscriptionId} (Identifier: {Identifier}) has no renewal date or has been cancelled.",
+                        subscription.Id, subscription.Identifier);
+                    subscription.Status = SubscriptionStatus.Cancelled;
+                    db.WalletSubscriptions.Update(subscription);
+                    await db.SaveChangesAsync();
+                    continue;
+                }
 
                 // Calculate next cycle duration based on current cycle
                 var currentCycle = subscription.EndedAt!.Value - subscription.BegunAt;
