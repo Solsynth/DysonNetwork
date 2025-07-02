@@ -7,16 +7,43 @@ namespace DysonNetwork.Sphere.Wallet;
 
 public record class SubscriptionTypeData(
     string Identifier,
-    decimal BasePrice
+    string? GroupIdentifier,
+    string Currency,
+    decimal BasePrice,
+    int? RequiredLevel = null
 )
 {
     public static readonly Dictionary<string, SubscriptionTypeData> SubscriptionDict =
         new()
         {
-            [SubscriptionType.Twinkle] = new SubscriptionTypeData(SubscriptionType.Twinkle, 0),
-            [SubscriptionType.Stellar] = new SubscriptionTypeData(SubscriptionType.Stellar, 10),
-            [SubscriptionType.Nova] = new SubscriptionTypeData(SubscriptionType.Nova, 20),
-            [SubscriptionType.Supernova] = new SubscriptionTypeData(SubscriptionType.Supernova, 30)
+            [SubscriptionType.Twinkle] = new SubscriptionTypeData(
+                SubscriptionType.Twinkle,
+                SubscriptionType.StellarProgram,
+                WalletCurrency.SourcePoint,
+                0,
+                1
+            ),
+            [SubscriptionType.Stellar] = new SubscriptionTypeData(
+                SubscriptionType.Stellar,
+                SubscriptionType.StellarProgram,
+                WalletCurrency.SourcePoint,
+                1200,
+                3
+            ),
+            [SubscriptionType.Nova] = new SubscriptionTypeData(
+                SubscriptionType.Nova,
+                SubscriptionType.StellarProgram,
+                WalletCurrency.SourcePoint,
+                2400,
+                6
+            ),
+            [SubscriptionType.Supernova] = new SubscriptionTypeData(
+                SubscriptionType.Supernova,
+                SubscriptionType.StellarProgram,
+                WalletCurrency.SourcePoint,
+                3600,
+                9
+            )
         };
 
     public static readonly Dictionary<string, string> SubscriptionHumanReadable =

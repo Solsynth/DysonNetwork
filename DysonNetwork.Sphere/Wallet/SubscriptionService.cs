@@ -32,16 +32,22 @@ public class SubscriptionService(
         bool noop = false
     )
     {
-        var subscriptionTemplate = SubscriptionTypeData
+        var subscriptionInfo = SubscriptionTypeData
             .SubscriptionDict.TryGetValue(identifier, out var template)
             ? template
             : null;
-        if (subscriptionTemplate is null)
+        if (subscriptionInfo is null)
             throw new ArgumentOutOfRangeException(nameof(identifier), $@"Subscription {identifier} was not found.");
+        var subscriptionsInGroup = subscriptionInfo.GroupIdentifier is not null
+            ? SubscriptionTypeData.SubscriptionDict
+                .Where(s => s.Value.GroupIdentifier == subscriptionInfo.GroupIdentifier)
+                .Select(s => s.Value.Identifier)
+                .ToArray()
+            : [identifier];
 
         cycleDuration ??= Duration.FromDays(30);
 
-        var existingSubscription = await GetSubscriptionAsync(account.Id, identifier);
+        var existingSubscription = await GetSubscriptionAsync(account.Id, subscriptionsInGroup);
         if (existingSubscription is not null && !noop)
             throw new InvalidOperationException($"Active subscription with identifier {identifier} already exists.");
         if (existingSubscription is not null)
@@ -77,7 +83,7 @@ public class SubscriptionService(
             Status = SubscriptionStatus.Unpaid,
             PaymentMethod = paymentMethod,
             PaymentDetails = paymentDetails,
-            BasePrice = subscriptionTemplate.BasePrice,
+            BasePrice = subscriptionInfo.BasePrice,
             CouponId = couponData?.Id,
             Coupon = couponData,
             RenewalAt = (isFreeTrial || !isAutoRenewal) ? null : now.Plus(cycleDuration.Value),
@@ -220,10 +226,16 @@ public class SubscriptionService(
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
         if (subscription is null) throw new InvalidOperationException("No matching subscription found.");
+        
+        var subscriptionInfo = SubscriptionTypeData.SubscriptionDict
+            .TryGetValue(subscription.Identifier, out var template)
+            ? template
+            : null;
+        if (subscriptionInfo is null) throw new InvalidOperationException("No matching subscription found.");
 
         return await payment.CreateOrderAsync(
             null,
-            WalletCurrency.GoldenPoint,
+            subscriptionInfo.Currency,
             subscription.FinalPrice,
             appIdentifier: SubscriptionOrderIdentifier,
             meta: new Dictionary<string, object>()
@@ -319,7 +331,7 @@ public class SubscriptionService(
     {
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == subscription.AccountId);
         if (account is null) return;
-        
+
         AccountService.SetCultureInfo(account);
 
         var humanReadableName =
@@ -345,10 +357,10 @@ public class SubscriptionService(
 
     private const string SubscriptionCacheKeyPrefix = "subscription:";
 
-    public async Task<Subscription?> GetSubscriptionAsync(Guid accountId, string identifier)
+    public async Task<Subscription?> GetSubscriptionAsync(Guid accountId, params string[] identifiers)
     {
         // Create a unique cache key for this subscription
-        var cacheKey = $"{SubscriptionCacheKeyPrefix}{accountId}:{identifier}";
+        var cacheKey = $"{SubscriptionCacheKeyPrefix}{accountId}:{string.Join(",", identifiers)}";
 
         // Try to get the subscription from cache first
         var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
@@ -359,15 +371,13 @@ public class SubscriptionService(
 
         // If not in cache, get from database
         var subscription = await db.WalletSubscriptions
-            .Where(s => s.AccountId == accountId && s.Identifier == identifier)
+            .Where(s => s.AccountId == accountId && identifiers.Contains(s.Identifier))
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
 
         // Cache the result if found (with 30 minutes expiry)
         if (subscription != null)
-        {
             await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(30));
-        }
 
         return subscription;
     }
