@@ -30,6 +30,9 @@ public class NotificationService(
         string deviceToken
     )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        
+        // First check if a matching subscription exists
         var existingSubscription = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == account.Id)
             .Where(s => s.DeviceId == deviceId || s.DeviceToken == deviceToken)
@@ -37,11 +40,18 @@ public class NotificationService(
 
         if (existingSubscription is not null)
         {
-            // Reset these audit fields to renew the lifecycle of this device token
+            // Update the existing subscription directly in the database
+            await db.NotificationPushSubscriptions
+                .Where(s => s.Id == existingSubscription.Id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(s => s.DeviceId, deviceId)
+                    .SetProperty(s => s.DeviceToken, deviceToken)
+                    .SetProperty(s => s.UpdatedAt, now));
+
+            // Return the updated subscription
             existingSubscription.DeviceId = deviceId;
             existingSubscription.DeviceToken = deviceToken;
-            db.Update(existingSubscription);
-            await db.SaveChangesAsync();
+            existingSubscription.UpdatedAt = now;
             return existingSubscription;
         }
 
