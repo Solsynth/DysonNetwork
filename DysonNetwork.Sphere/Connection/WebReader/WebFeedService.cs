@@ -93,17 +93,13 @@ public class WebFeedService(
         {
             var itemUrl = item.Links.FirstOrDefault()?.Uri.ToString();
             if (string.IsNullOrEmpty(itemUrl))
-            {
                 continue;
-            }
 
             var articleExists = await database.Set<WebArticle>()
                 .AnyAsync(a => a.FeedId == feed.Id && a.Url == itemUrl, cancellationToken);
 
             if (articleExists)
-            {
                 continue;
-            }
 
             var content = (item.Content as TextSyndicationContent)?.Text ?? item.Summary.Text;
             LinkEmbed preview;
@@ -127,11 +123,11 @@ public class WebFeedService(
                 Url = itemUrl,
                 Author = item.Authors.FirstOrDefault()?.Name,
                 Content = content,
-                PublishedAt = item.PublishDate.UtcDateTime,
+                PublishedAt = item.LastUpdatedTime.UtcDateTime,
                 Preview = preview,
             };
 
-            database.Set<WebArticle>().Add(newArticle);
+            database.WebArticles.Add(newArticle);
         }
 
         await database.SaveChangesAsync(cancellationToken);

@@ -42,17 +42,31 @@ public class ActivityService(
 
         if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
         {
-            var recentArticlesQuery = db.WebArticles
-                .Include(a => a.Feed)
-                .Take(20); // Get a larger pool for randomization
+            var recentFeedIds = await db.WebArticles
+                .GroupBy(a => a.FeedId)
+                .OrderByDescending(g => g.Max(a => a.PublishedAt))
+                .Take(10) // Get recent 10 distinct feeds
+                .Select(g => g.Key)
+                .ToListAsync();
 
-            // Apply random ordering 50% of the time
-            if (Random.Shared.NextDouble() < 0.5)
-                recentArticlesQuery = recentArticlesQuery.OrderBy(_ => EF.Functions.Random());
-            else
-                recentArticlesQuery = recentArticlesQuery.OrderByDescending(a => a.PublishedAt);
-
-            var recentArticles = await recentArticlesQuery.Take(5).ToListAsync();
+            // For each feed, get one random article
+            var recentArticles = new List<WebArticle>();
+            var random = new Random();
+            
+            foreach (var feedId in recentFeedIds.OrderBy(_ => random.Next()))
+            {
+                var article = await db.WebArticles
+                    .Include(a => a.Feed)
+                    .Where(a => a.FeedId == feedId)
+                    .OrderBy(_ => EF.Functions.Random())
+                    .FirstOrDefaultAsync();
+                    
+                if (article != null)
+                {
+                    recentArticles.Add(article);
+                    if (recentArticles.Count >= 5) break; // Limit to 5 articles
+                }
+            }
 
             if (recentArticles.Count > 0)
             {
