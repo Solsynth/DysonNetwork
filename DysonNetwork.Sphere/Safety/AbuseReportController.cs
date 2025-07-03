@@ -54,13 +54,13 @@ public class AbuseReportController(
     [RequiredPermission("safety", "reports.view")]
     [ProducesResponseType<List<AbuseReport>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<AbuseReport>>> GetReports(
-        [FromQuery] int skip = 0,
+        [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery] bool includeResolved = false
     )
     {
         var totalCount = await safety.CountReports(includeResolved);
-        var reports = await safety.GetReports(skip, take, includeResolved);
+        var reports = await safety.GetReports(offset, take, includeResolved);
         Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(reports);
     }
@@ -70,14 +70,15 @@ public class AbuseReportController(
     [ProducesResponseType<List<AbuseReport>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<List<AbuseReport>>> GetMyReports(
-        [FromQuery] int skip = 0, 
+        [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] bool includeResolved = false)
+        [FromQuery] bool includeResolved = false
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
         var totalCount = await safety.CountUserReports(currentUser.Id, includeResolved);
-        var reports = await safety.GetUserReports(currentUser.Id, skip, take, includeResolved);
+        var reports = await safety.GetUserReports(currentUser.Id, offset, take, includeResolved);
         Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(reports);
     }
