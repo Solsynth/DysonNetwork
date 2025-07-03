@@ -7,6 +7,7 @@ namespace DysonNetwork.Sphere.Account;
 public class RelationshipService(AppDatabase db, ICacheService cache)
 {
     private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
+    private const string UserBlockedCacheKeyPrefix = "accounts:blocked:";
     
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
     {
@@ -50,9 +51,8 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
 
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
-
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.AccountId}");
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.RelatedId}");
+        
+        await PurgeRelationshipCache(sender.Id, target.Id);
 
         return relationship;
     }
@@ -71,8 +71,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
         db.Remove(relationship);
         await db.SaveChangesAsync();
         
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{sender.Id}");
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{target.Id}");
+        await PurgeRelationshipCache(sender.Id, target.Id);
         
         return relationship;
     }
@@ -105,8 +104,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
             .Where(r => r.AccountId == accountId && r.RelatedId == relatedId && r.Status == RelationshipStatus.Pending)
             .ExecuteDeleteAsync();
         
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relatedId}");
+        await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId);
     }
     
     public async Task<Relationship> AcceptFriendRelationship(
@@ -135,8 +133,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
 
         await db.SaveChangesAsync();
 
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.AccountId}");
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relationship.RelatedId}");
+        await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId);
 
         return relationshipBackward;
     }
@@ -150,15 +147,14 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
         db.Update(relationship);
         await db.SaveChangesAsync();
         
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
-        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relatedId}");
+        await PurgeRelationshipCache(accountId, relatedId);
         
         return relationship;
     }
 
     public async Task<List<Guid>> ListAccountFriends(Account account)
     {
-        string cacheKey = $"{UserFriendsCacheKeyPrefix}{account.Id}";
+        var cacheKey = $"{UserFriendsCacheKeyPrefix}{account.Id}";
         var friends = await cache.GetAsync<List<Guid>>(cacheKey);
         
         if (friends == null)
@@ -174,11 +170,38 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
 
         return friends ?? [];
     }
+    
+    public async Task<List<Guid>> ListAccountBlocked(Account account)
+    {
+        var cacheKey = $"{UserBlockedCacheKeyPrefix}{account.Id}";
+        var blocked = await cache.GetAsync<List<Guid>>(cacheKey);
+        
+        if (blocked == null)
+        {
+            blocked = await db.AccountRelationships
+                .Where(r => r.RelatedId == account.Id)
+                .Where(r => r.Status == RelationshipStatus.Blocked)
+                .Select(r => r.AccountId)
+                .ToListAsync();
+                
+            await cache.SetAsync(cacheKey, blocked, TimeSpan.FromHours(1));
+        }
+
+        return blocked ?? [];
+    }
 
     public async Task<bool> HasRelationshipWithStatus(Guid accountId, Guid relatedId,
         RelationshipStatus status = RelationshipStatus.Friends)
     {
         var relationship = await GetRelationship(accountId, relatedId, status);
         return relationship is not null;
+    }
+    
+    private async Task PurgeRelationshipCache(Guid accountId, Guid relatedId)
+    {
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{relatedId}");
+        await cache.RemoveAsync($"{UserBlockedCacheKeyPrefix}{accountId}");
+        await cache.RemoveAsync($"{UserBlockedCacheKeyPrefix}{relatedId}");
     }
 }

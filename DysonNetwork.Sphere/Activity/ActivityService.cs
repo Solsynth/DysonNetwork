@@ -126,7 +126,7 @@ public class ActivityService(
         var activities = new List<Activity>();
         var userFriends = await rels.ListAccountFriends(currentUser);
         var userPublishers = await pub.GetUserPublishers(currentUser.Id);
-        debugInclude ??= new HashSet<string>();
+        debugInclude ??= [];
 
         if (string.IsNullOrEmpty(filter))
         {
