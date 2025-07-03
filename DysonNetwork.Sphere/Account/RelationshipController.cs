@@ -230,4 +230,24 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             return BadRequest(err.Message);
         }
     }
+    
+    [HttpDelete("{userId:guid}/block")]
+    [Authorize]
+    public async Task<ActionResult<Relationship>> UnblockUser(Guid userId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var relatedUser = await db.Accounts.FindAsync(userId);
+        if (relatedUser is null) return NotFound("Account was not found.");
+
+        try
+        {
+            var relationship = await rels.UnblockAccount(currentUser, relatedUser);
+            return relationship;
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
 }

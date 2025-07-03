@@ -63,6 +63,19 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
             return await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
         return await CreateRelationship(sender, target, RelationshipStatus.Blocked);
     }
+    
+    public async Task<Relationship> UnblockAccount(Account sender, Account target)
+    {
+        var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
+        if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
+        db.Remove(relationship);
+        await db.SaveChangesAsync();
+        
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{sender.Id}");
+        await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{target.Id}");
+        
+        return relationship;
+    }
 
     public async Task<Relationship> SendFriendRequest(Account sender, Account target)
     {
