@@ -252,7 +252,7 @@ public partial class ChatService(
 
             if (member.Account.Id == sender.AccountId) continue;
             if (member.Notify == ChatMemberNotify.None) continue;
-            if (scopedWs.IsUserSubscribedToChatRoom(member.AccountId, room.Id.ToString())) continue;
+            // if (scopedWs.IsUserSubscribedToChatRoom(member.AccountId, room.Id.ToString())) continue;
             if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.Account.Id))
             {
                 var now = SystemClock.Instance.GetCurrentInstant();
