@@ -87,6 +87,7 @@ public class AfdianPaymentHandler(
     /// Get a specific order by its ID (out_trade_no)
     /// </summary>
     /// <param name="orderId">The order ID to query</param>
+    /// <param name="accountId">The account ID</param>
     /// <returns>The order item if found, otherwise null</returns>
     public async Task<OrderItem?> GetOrderAsync(string orderId, Guid accountId)
     {
@@ -105,7 +106,7 @@ public class AfdianPaymentHandler(
         {
             var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
             var tokenParts = token.Split(':');
-            var userId = connection.ProvidedIdentifier;
+            var userId = tokenParts[0];
             token = tokenParts[1];
             var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderId }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
@@ -118,7 +119,7 @@ public class AfdianPaymentHandler(
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
-                    user_id = userId,
+                    user_id = connection.ProvidedIdentifier,
                     @params = paramsJson,
                     ts,
                     sign
