@@ -32,6 +32,10 @@ namespace DysonNetwork.Sphere.Pages.Auth
 
         public async Task<IActionResult> OnGetAsync()
         {
+            if (!string.IsNullOrEmpty(ReturnUrl))
+            {
+                TempData["ReturnUrl"] = ReturnUrl;
+            }
             await LoadChallengeAndFactor();
             if (AuthChallenge == null) return NotFound("Challenge not found or expired.");
             if (Factor == null) return NotFound("Authentication method not found.");
@@ -42,6 +46,10 @@ namespace DysonNetwork.Sphere.Pages.Auth
 
         public async Task<IActionResult> OnPostAsync()
         {
+            if (!string.IsNullOrEmpty(ReturnUrl))
+            {
+                TempData["ReturnUrl"] = ReturnUrl;
+            }
             if (!ModelState.IsValid)
             {
                 await LoadChallengeAndFactor();
@@ -51,6 +59,12 @@ namespace DysonNetwork.Sphere.Pages.Auth
             await LoadChallengeAndFactor();
             if (AuthChallenge == null) return NotFound("Challenge not found or expired.");
             if (Factor == null) return NotFound("Authentication method not found.");
+
+            if (AuthChallenge.BlacklistFactors.Contains(Factor.Id))
+            {
+                ModelState.AddModelError(string.Empty, "This authentication method has already been used for this challenge.");
+                return Page();
+            }
 
             try
             {
@@ -160,7 +174,7 @@ namespace DysonNetwork.Sphere.Pages.Auth
             Response.Cookies.Append(AuthConstants.CookieTokenName, token, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = !configuration.GetValue<bool>("Debug"),
+                Secure = Request.IsHttps,
                 SameSite = SameSiteMode.Strict,
                 Path = "/"
             });

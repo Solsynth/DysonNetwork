@@ -34,6 +34,14 @@
                     }
                 </p>
 
+                @if (Model.AuthChallenge != null && Model.AuthChallenge.StepRemain > 0)
+                {
+                    <div class="text-center mt-4">
+                        <p class="text-sm text-info mb-2">Progress: @(Model.AuthChallenge.StepTotal - Model.AuthChallenge.StepRemain) of @Model.AuthChallenge.StepTotal steps completed</p>
+                        <progress class="progress progress-info w-full" value="@(Model.AuthChallenge.StepTotal - Model.AuthChallenge.StepRemain)" max="@Model.AuthChallenge.StepTotal"></progress>
+                    </div>
+                }
+
                 @if (Model.AuthChallenge == null)
                 {
                     <div class="alert alert-error">
@@ -51,7 +59,12 @@
                 else
                 {
                     <form method="post" class="space-y-4">
-                        <div asp-validation-summary="ModelOnly" class="text-error text-sm"></div>
+                        @if (!ViewData.ModelState.IsValid && ViewData.ModelState.Any(m => m.Value.Errors.Any()))
+                        {
+                            <div role="alert" class="alert alert-error mb-4">
+                                <span>@Html.ValidationSummary(true)</span>
+                            </div>
+                        }
                         
                         <div class="form-control">
                             <label asp-for="Code" class="label">

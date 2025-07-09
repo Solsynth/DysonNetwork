@@ -2228,6 +2228,9 @@
       }
     }
   }
+  .progress-info {
+    color: var(--color-info);
+  }
   .text-base-content\/70 {
     color: var(--color-base-content);
     @supports (color: color-mix(in lab, red, red)) {
@@ -2239,6 +2242,9 @@
   }
   .text-error {
     color: var(--color-error);
+  }
+  .text-info {
+    color: var(--color-info);
   }
   .text-neutral-content {
     color: var(--color-neutral-content);

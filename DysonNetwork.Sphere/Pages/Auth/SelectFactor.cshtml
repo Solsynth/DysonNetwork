@@ -11,6 +11,14 @@
             <div class="card-body">
                 <h1 class="card-title justify-center text-2xl font-bold">Select Authentication Method</h1>
 
+                @if (Model.AuthChallenge != null && Model.AuthChallenge.StepRemain > 0)
+                {
+                    <div class="text-center mt-4">
+                        <p class="text-sm text-info mb-2">Progress: @(Model.AuthChallenge.StepTotal - Model.AuthChallenge.StepRemain) of @Model.AuthChallenge.StepTotal steps completed</p>
+                        <progress class="progress progress-info w-full" value="@(Model.AuthChallenge.StepTotal - Model.AuthChallenge.StepRemain)" max="@Model.AuthChallenge.StepTotal"></progress>
+                    </div>
+                }
+
                 @if (Model.AuthChallenge == null)
                 {
                     <div class="alert alert-error">
