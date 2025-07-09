@@ -38,14 +38,14 @@ public class CustomApp : ModelBase, IIdentifiedResource
     [NotMapped] public string ResourceIdentifier => "custom-app/" + Id;
 }
 
-public class CustomAppLinks : ModelBase
+public class CustomAppLinks
 {
     [MaxLength(8192)] public string? HomePage { get; set; }
     [MaxLength(8192)] public string? PrivacyPolicy { get; set; }
     [MaxLength(8192)] public string? TermsOfService { get; set; }
 }
 
-public class CustomAppOauthConfig : ModelBase
+public class CustomAppOauthConfig
 {
     [MaxLength(1024)] public string? ClientUri { get; set; }
     [MaxLength(4096)] public string[] RedirectUris { get; set; } = [];

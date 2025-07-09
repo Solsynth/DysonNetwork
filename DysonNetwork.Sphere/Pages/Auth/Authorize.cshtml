@@ -4,9 +4,9 @@
     ViewData["Title"] = "Authorize Application";
 }
 
-<div class="min-h-screen flex items-center justify-center bg-base-200 py-12 px-4 sm:px-6 lg:px-8">
+<div class="h-full flex items-center justify-center bg-base-200 py-12 px-4 sm:px-6 lg:px-8">
     <div class="card w-full max-w-md bg-base-100 shadow-xl">
-        <div class="card-body">
+        <div class="card-body px-8 py-7">
             <h2 class="card-title justify-center text-2xl font-bold">
                 Authorize Application
             </h2>
@@ -17,8 +17,16 @@
                         @if (!string.IsNullOrEmpty(Model.AppLogo))
                         {
                             <div class="avatar">
-                                <div class="w-16 rounded">
+                                <div class="w-12 rounded">
                                     <img src="@Model.AppLogo" alt="@Model.AppName logo" />
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="avatar avatar-placeholder">
+                                <div class="bg-neutral text-neutral-content rounded-full w-12">
+                                    <span class="text-xl">@Model.AppName?[..1].ToUpper()</span>
                                 </div>
                             </div>
                         }
@@ -35,11 +43,11 @@
                 </div>
             }
             <p class="mt-6 text-sm text-center">
-                wants to access your account with the following permissions:
+                When you authorize this application, you consent to the following permissions:
             </p>
 
-            <div class="mt-6">
-                <ul class="menu bg-base-200 rounded-box">
+            <div class="mt-4">
+                <ul class="menu bg-base-200 rounded-box w-full">
                     @if (Model.Scope != null)
                     {
                         var scopeDescriptions = new Dictionary<string, (string Name, string Description)>
@@ -67,10 +75,6 @@
                         }
                     }
                 </ul>
-                
-                <div class="mt-4 text-xs text-base-content/70">
-                    <p>By authorizing, you allow this application to access your information on your behalf.</p>
-                </div>
             </div>
 
             <form method="post" class="mt-8 space-y-4">
@@ -81,19 +85,13 @@
                 <input type="hidden" asp-for="State" name="state" />
                 <input type="hidden" asp-for="Nonce" name="nonce" />
                 <input type="hidden" asp-for="ReturnUrl" name="returnUrl" />
-                <input type="hidden" name="code_challenge" value="@HttpContext.Request.Query["code_challenge"]" />
-                <input type="hidden" name="code_challenge_method" value="@HttpContext.Request.Query["code_challenge_method"]" />
-                <input type="hidden" name="response_mode" value="@HttpContext.Request.Query["response_mode"]" />
+                <input type="hidden" asp-for="CodeChallenge" value="@HttpContext.Request.Query["code_challenge"]" />
+                <input type="hidden" asp-for="CodeChallengeMethod" value="@HttpContext.Request.Query["code_challenge_method"]" />
+                <input type="hidden" asp-for="ResponseMode" value="@HttpContext.Request.Query["response_mode"]" />
                 
-                <div class="card-actions justify-center">
-                    <button type="submit" name="allow" value="true" class="btn btn-primary">Allow</button>
-                    <button type="submit" name="allow" value="false" class="btn btn-ghost">Deny</button>
-                </div>
-                
-                <div class="mt-4 pt-4 border-t border-base-300">
-                    <p class="text-xs text-center text-base-content/70">
-                        You can change these permissions later in your account settings.
-                    </p>
+                <div class="card-actions justify-center flex gap-4">
+                    <button type="submit" name="allow" value="true" class="btn btn-primary flex-1">Allow</button>
+                    <button type="submit" name="allow" value="false" class="btn btn-ghost flex-1">Deny</button>
                 </div>
             </form>
         </div>

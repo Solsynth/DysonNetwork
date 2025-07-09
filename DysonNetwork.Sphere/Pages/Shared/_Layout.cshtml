@@ -22,19 +22,27 @@
         <a class="btn btn-ghost text-xl">Solar Network</a>
     </div>
     <div class="flex-none">
-        <ul class="menu menu-horizontal px-1">
+        <ul class="menu menu-horizontal menu-sm px-1">
             @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
             {
-                <li><a href="/web/account/profile">Profile</a></li>
-                <li>
+                <li class="tooltip tooltip-bottom" data-tip="Profile">
+                    <a href="/web/account/profile">
+                        <span class="material-symbols-outlined">account_circle</span>
+                    </a>
+                </li>
+                <li class="tooltip tooltip-bottom" data-tip="Logout">
                     <form method="post" asp-page="/Account/Profile" asp-page-handler="Logout">
-                        <button type="submit">Logout</button>
+                        <button type="submit">
+                            <span class="material-symbols-outlined">
+                                logout
+                            </span>
+                        </button>
                     </form>
                 </li>
             }
             else
             {
-                <li>
+                <li class="tooltip tooltip-bottom" data-tip="Login">
                     <a href="/web/auth/login"><span class="material-symbols-outlined">login</span></a>
                 </li>
             }
