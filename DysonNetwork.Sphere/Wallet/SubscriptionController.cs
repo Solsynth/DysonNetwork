@@ -180,11 +180,14 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     }
 
     [HttpPost("order/restore/afdian")]
+    [Authorize]
     public async Task<IActionResult> RestorePurchaseFromAfdian([FromBody] RestorePurchaseRequest request)
     {
-        var order = await afdian.GetOrderAsync(request.OrderId);
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+
+        var order = await afdian.GetOrderAsync(request.OrderId, currentUser.Id);
         if (order is null) return NotFound($"Order with ID {request.OrderId} was not found.");
-        
+
         var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
         return Ok(subscription);
     }

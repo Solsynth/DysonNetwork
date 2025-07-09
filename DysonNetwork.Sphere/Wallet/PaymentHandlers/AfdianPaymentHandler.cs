@@ -2,11 +2,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Wallet.PaymentHandlers;
 
 public class AfdianPaymentHandler(
+    AppDatabase db,
     IHttpClientFactory httpClientFactory,
     ILogger<AfdianPaymentHandler> logger,
     IConfiguration configuration
@@ -86,7 +88,7 @@ public class AfdianPaymentHandler(
     /// </summary>
     /// <param name="orderId">The order ID to query</param>
     /// <returns>The order item if found, otherwise null</returns>
-    public async Task<OrderItem?> GetOrderAsync(string orderId)
+    public async Task<OrderItem?> GetOrderAsync(string orderId, Guid accountId)
     {
         if (string.IsNullOrEmpty(orderId))
         {
@@ -94,11 +96,16 @@ public class AfdianPaymentHandler(
             return null;
         }
 
+        var connection = await db.AccountConnections
+          .Where(c => c.AccountId == accountId && c.Provider == "afdian")
+          .FirstOrDefaultAsync();
+        if (connection is null) throw new InvalidOperationException("Account need to link an afdian account first.");
+
         try
         {
             var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
             var tokenParts = token.Split(':');
-            var userId = tokenParts[0];
+            var userId = connection.ProvidedIdentifier;
             token = tokenParts[1];
             var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderId }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
