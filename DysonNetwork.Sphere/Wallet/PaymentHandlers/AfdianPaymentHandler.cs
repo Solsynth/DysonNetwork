@@ -8,7 +8,6 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Wallet.PaymentHandlers;
 
 public class AfdianPaymentHandler(
-    AppDatabase db,
     IHttpClientFactory httpClientFactory,
     ILogger<AfdianPaymentHandler> logger,
     IConfiguration configuration
@@ -53,7 +52,7 @@ public class AfdianPaymentHandler(
             var sign = CalculateSign(token, userId, paramsJson, ts);
 
             var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/open/query-order")
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
@@ -109,7 +108,7 @@ public class AfdianPaymentHandler(
             var sign = CalculateSign(token, userId, paramsJson, ts);
 
             var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/open/query-order")
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
@@ -178,7 +177,7 @@ public class AfdianPaymentHandler(
             var sign = CalculateSign(token, userId, paramsJson, ts);
 
             var client = _httpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/open/query-order")
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/open/query-order")
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
