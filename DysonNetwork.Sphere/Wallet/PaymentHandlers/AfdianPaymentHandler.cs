@@ -87,20 +87,14 @@ public class AfdianPaymentHandler(
     /// Get a specific order by its ID (out_trade_no)
     /// </summary>
     /// <param name="orderId">The order ID to query</param>
-    /// <param name="accountId">The account ID</param>
     /// <returns>The order item if found, otherwise null</returns>
-    public async Task<OrderItem?> GetOrderAsync(string orderId, Guid accountId)
+    public async Task<OrderItem?> GetOrderAsync(string orderId)
     {
         if (string.IsNullOrEmpty(orderId))
         {
             _logger.LogWarning("Order ID cannot be null or empty");
             return null;
         }
-
-        var connection = await db.AccountConnections
-          .Where(c => c.AccountId == accountId && c.Provider == "afdian")
-          .FirstOrDefaultAsync();
-        if (connection is null) throw new InvalidOperationException("Account need to link an afdian account first.");
 
         try
         {
@@ -119,7 +113,7 @@ public class AfdianPaymentHandler(
             {
                 Content = new StringContent(JsonSerializer.Serialize(new
                 {
-                    user_id = connection.ProvidedIdentifier,
+                    user_id = userId,
                     @params = paramsJson,
                     ts,
                     sign
