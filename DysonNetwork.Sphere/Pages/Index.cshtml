@@ -4,26 +4,20 @@
     ViewData["Title"] = "The Solar Network";
 }
 
-<div class="container-default h-full text-center flex flex-col justify-center items-center">
-    <div class="mx-auto max-w-2xl">
-        <h1 class="text-4xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
-            Solar Network
-        </h1>
-        <p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
-            This Solar Network instance is up and running.
-        </p>
-        <div class="mt-10 flex items-center justify-center gap-x-6">
-            <a href="https://sn.solsynth.dev" target="_blank" class="btn-primary">
-                Get started
-            </a>
-        </div>
-        <div class="flex items-center justify-center gap-x-6 mt-6">
-            <a href="/swagger" target="_blank" class="btn-text">
-                <span aria-hidden="true">λ&nbsp;</span> API Docs
-            </a>
-            <a href="https://kb.solsynth.dev" target="_blank" class="btn-text">
-                Learn more <span aria-hidden="true">→</span>
-            </a>
-        </div>
+<div class="hero min-h-full bg-base-200">
+  <div class="hero-content text-center">
+    <div class="max-w-md">
+      <h1 class="text-5xl font-bold">Solar Network</h1>
+      <p class="py-6">This Solar Network instance is up and running.</p>
+      <a href="https://sn.solsynth.dev" target="_blank" class="btn btn-primary">Get started</a>
+      <div class="flex items-center justify-center gap-x-6 mt-6">
+          <a href="/swagger" target="_blank" class="btn btn-ghost">
+              <span aria-hidden="true">λ&nbsp;</span> API Docs
+          </a>
+          <a href="https://kb.solsynth.dev" target="_blank" class="btn btn-ghost">
+              Learn more <span aria-hidden="true">→</span>
+          </a>
+      </div>
     </div>
+  </div>
 </div>

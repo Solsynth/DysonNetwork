@@ -5,54 +5,92 @@
     ViewData["Title"] = "Select Authentication Method";
 }
 
-<div class="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-6">Select Authentication Method</h1>
+<div class="hero min-h-full bg-base-200">
+    <div class="hero-content w-full max-w-md">
+        <div class="card w-full bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h1 class="card-title justify-center text-2xl font-bold">Select Authentication Method</h1>
 
-        @if (Model.AuthChallenge == null)
-        {
-            <p class="text-red-500 text-center">Challenge not found or expired.</p>
-        }
-        else if (Model.AuthChallenge.StepRemain == 0)
-        {
-            <p class="text-green-600 dark:text-green-400 text-center">Challenge completed. Redirecting...</p>
-        }
-        else
-        {
-            <p class="text-gray-700 dark:text-gray-300 mb-4">Please select an authentication method:</p>
-
-            <div class="space-y-4">
-                @foreach (var factor in Model.AuthFactors)
+                @if (Model.AuthChallenge == null)
                 {
-                    <div class="mb-4">
-                        <form method="post" asp-page-handler="SelectFactor" class="w-full" id="factor-@factor.Id">
-                            <input type="hidden" name="SelectedFactorId" value="@factor.Id"/>
-                            
-                            @if (factor.Type == AccountAuthFactorType.EmailCode)
-                            {
-                                <div class="mb-3">
-                                    <label for="hint-@factor.Id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Email to send code to
-                                    </label>
-                                    <input type="email" 
-                                           id="hint-@factor.Id" 
-                                           name="hint" 
-                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                                           placeholder="Enter your email"
-                                           required>
-                                </div>
-                            }
-                            
-                            <button type="submit"
-                                    class="w-full text-left p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <div class="font-medium text-gray-900 dark:text-white">@GetFactorDisplayName(factor.Type)</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400">@GetFactorDescription(factor.Type)</div>
-                            </button>
-                        </form>
+                    <div class="alert alert-error">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Challenge not found or expired.</span>
+                    </div>
+                }
+                else if (Model.AuthChallenge.StepRemain == 0)
+                {
+                    <div class="alert alert-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none"
+                             viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Challenge completed. Redirecting...</span>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-center">Please select an authentication method:</p>
+
+                    <div class="space-y-4">
+                        @foreach (var factor in Model.AuthFactors)
+                        {
+                            <form method="post" asp-page-handler="SelectFactor" class="w-full" id="factor-@factor.Id">
+                                <input type="hidden" name="SelectedFactorId" value="@factor.Id"/>
+
+                                @if (factor.Type == AccountAuthFactorType.EmailCode)
+                                {
+                                    <div class="card w-full bg-base-200 card-sm shadow-sm rounded-md">
+                                        <div class="py-4 px-5 align-items-center">
+                                            <div>
+                                                <h2 class="card-title">@GetFactorDisplayName(factor.Type)</h2>
+                                                <p>@GetFactorDescription(factor.Type)</p>
+                                            </div>
+                                            <div class="join w-full mt-2">
+                                                <div class="flex-1">
+                                                    <label class="input join-item input-sm">
+                                                        <input id="hint-@factor.Id" type="email"
+                                                               placeholder="mail@site.com" required/>
+                                                    </label>
+                                                </div>
+                                                <button class="btn btn-primary join-item btn-sm">
+                                                    <span class="material-symbols-outlined">
+                                                        arrow_right_alt
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="card w-full bg-base-200 card-sm shadow-sm rounded-md">
+                                        <div class="flex py-4 px-5 align-items-center">
+                                            <div class="flex-1">
+                                                <h2 class="card-title">@GetFactorDisplayName(factor.Type)</h2>
+                                                <p>@GetFactorDescription(factor.Type)</p>
+                                            </div>
+                                            <div class="justify-end card-actions">
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <span class="material-symbols-outlined">
+                                                        arrow_right_alt
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </form>
+                        }
                     </div>
                 }
             </div>
-        }
+        </div>
     </div>
 </div>
 

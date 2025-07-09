@@ -6,95 +6,85 @@
     ViewData["Title"] = "Magic Spell";
 }
 
-<div class="h-full flex items-center justify-center">
-    <div class="max-w-lg w-full mx-auto p-6">
-        <div class="text-center">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">Magic Spell</h1>
+<div class="hero min-h-full bg-base-200">
+    <div class="hero-content text-center">
+        <div class="max-w-md">
+            <h1 class="text-5xl font-bold mb-4">Magic Spell</h1>
 
             @if (Model.IsSuccess)
             {
-                <div class="p-4 bg-green-100 dark:bg-green-900 rounded-lg mb-6">
-                    <p class="text-green-800 dark:text-green-200">The spell was applied successfully!</p>
-                    <p class="text-green-800 dark:text-green-200 opacity-80">Now you can close this page.</p>
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>The spell was applied successfully!</span>
+                    <p>Now you can close this page.</p>
                 </div>
             }
             else if (Model.CurrentSpell == null)
             {
-                <div class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                    <p class="text-yellow-800 dark:text-yellow-200">The spell was expired or does not exist.</p>
+                <div class="alert alert-warning">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <span>The spell was expired or does not exist.</span>
                 </div>
             }
             else
             {
-                <div
-                    class="px-4 py-12 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg rounded-lg mb-6">
-                    <div class="mb-2">
-                        <p>
-                            <span class="font-medium">The spell is for </span>
-                            <span
-                                class="font-bold">@System.Text.RegularExpressions.Regex.Replace(Model.CurrentSpell!.Type.ToString(), "([a-z])([A-Z])", "$1 $2")</span>
-                        </p>
-                        <p><span class="font-medium">for @@</span>@Model.CurrentSpell.Account?.Name</p>
-                    </div>
-                    <div class="text-sm opacity-80">
-                        @if (Model.CurrentSpell.ExpiresAt.HasValue)
-                        {
-                            <p>Available until @Model.CurrentSpell.ExpiresAt.Value.ToDateTimeUtc().ToString("g")</p>
-                        }
-                        @if (Model.CurrentSpell.AffectedAt.HasValue)
-                        {
-                            <p>Available after @Model.CurrentSpell.AffectedAt.Value.ToDateTimeUtc().ToString("g")</p>
-                        }
-                    </div>
-                    <p class="text-sm opacity-80">Would you like to apply this spell?</p>
-                </div>
-
-                <form method="post" class="mt-4">
-                    <input type="hidden" asp-for="CurrentSpell!.Id"/>
-
-                    @if (Model.CurrentSpell?.Type == MagicSpellType.AuthPasswordReset)
-                    {
-                        <div class="mb-4">
-                            <label
-                                asp-for="NewPassword"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                            >
-                                New Password
-                            </label>
-                            <input type="password"
-                                   asp-for="NewPassword"
-                                   required
-                                   minlength="8"
-                                   style="padding: 0.5rem 1rem"
-                                   placeholder="Your new password"
-                                   class="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg 
-                                          focus:ring-2 focus:ring-blue-400
-                                          dark:text-white bg-gray-100 dark:bg-gray-800"/>
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title">
+                            @System.Text.RegularExpressions.Regex.Replace(Model.CurrentSpell!.Type.ToString(), "([a-z])([A-Z])", "$1 $2")
+                        </h2>
+                        <p>for @@ @Model.CurrentSpell.Account?.Name</p>
+                        <div class="text-sm opacity-80">
+                            @if (Model.CurrentSpell.ExpiresAt.HasValue)
+                            {
+                                <p>Available until @Model.CurrentSpell.ExpiresAt.Value.ToDateTimeUtc().ToString("g")</p>
+                            }
+                            @if (Model.CurrentSpell.AffectedAt.HasValue)
+                            {
+                                <p>Available after @Model.CurrentSpell.AffectedAt.Value.ToDateTimeUtc().ToString("g")</p>
+                            }
                         </div>
-                    }
+                        <p class="text-sm opacity-80">Would you like to apply this spell?</p>
+                        
+                        <form method="post" class="mt-4">
+                            <input type="hidden" asp-for="CurrentSpell!.Id"/>
 
-                    <button type="submit"
-                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors
-                                   transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        Apply
-                    </button>
-                </form>
+                            @if (Model.CurrentSpell?.Type == MagicSpellType.AuthPasswordReset)
+                            {
+                                <div class="form-control w-full max-w-xs">
+                                    <label class="label" asp-for="NewPassword">
+                                        <span class="label-text">New Password</span>
+                                    </label>
+                                    <input type="password"
+                                           asp-for="NewPassword"
+                                           required
+                                           minlength="8"
+                                           placeholder="Your new password"
+                                           class="input input-bordered w-full max-w-xs"/>
+                                </div>
+                            }
+
+                            <div class="card-actions justify-end mt-4">
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             }
-        </div>
-
-        <div class="mt-8 text-center text-sm">
-            <div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Solar Network</div>
-            <div class="text-gray-600 dark:text-gray-400">
-                <a href="https://solsynth.dev" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                    Solsynth LLC
-                </a>
-                &copy; @DateTime.Now.Year
-                <br/>
-                Powered by
-                <a href="https://github.com/Solsynth/DysonNetwork"
-                   class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                    DysonNetwork.Sphere
-                </a>
+            
+            <div class="mt-8 text-center text-sm">
+                <div class="font-semibold mb-1">Solar Network</div>
+                <div class="text-base-content/70">
+                    <a href="https://solsynth.dev" class="link link-hover">
+                        Solsynth LLC
+                    </a>
+                    &copy; @DateTime.Now.Year
+                    <br/>
+                    Powered by
+                    <a href="https://github.com/Solsynth/DysonNetwork" class="link link-hover">
+                        DysonNetwork.Sphere
+                    </a>
+                </div>
             </div>
         </div>
     </div>

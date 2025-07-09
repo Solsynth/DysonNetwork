@@ -38,72 +38,72 @@
     </script>
 }
 
-<div class="h-full flex items-center justify-center">
-    <div class="max-w-lg w-full mx-auto p-6">
-        <div class="text-center">
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Security Check</h1>
-            <p class="mb-6 text-gray-900 dark:text-white">Please complete the contest below to confirm you're not a robot</p>
+<div class="hero min-h-full bg-base-200">
+    <div class="hero-content text-center">
+        <div class="max-w-md">
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h1 class="card-title">Security Check</h1>
+                    <p>Please complete the contest below to confirm you're not a robot</p>
 
-            <div class="flex justify-center mb-8">
-                @switch (provider)
-                {
-                    case "cloudflare":
-                        <div class="cf-turnstile"
-                             data-sitekey="@apiKey"
-                             data-callback="onSuccess">
+                    <div class="flex justify-center my-8">
+                        @switch (provider)
+                        {
+                            case "cloudflare":
+                                <div class="cf-turnstile"
+                                     data-sitekey="@apiKey"
+                                     data-callback="onSuccess">
+                                </div>
+                                break;
+                            case "recaptcha":
+                                <div class="g-recaptcha"
+                                     data-sitekey="@apiKey"
+                                     data-callback="onSuccess">
+                                </div>
+                                break;
+                            case "hcaptcha":
+                                <div class="h-captcha"
+                                     data-sitekey="@apiKey"
+                                     data-callback="onSuccess">
+                                </div>
+                                break;
+                            default:
+                                <div class="alert alert-warning">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                    <span>Captcha provider not configured correctly.</span>
+                                </div>
+                                break;
+                        }
+                    </div>
+                    
+                    <div class="text-center text-sm">
+                        <div class="font-semibold mb-1">Solar Network Anti-Robot</div>
+                        <div class="text-base-content/70">
+                            Powered by
+                            @switch (provider)
+                            {
+                                case "cloudflare":
+                                    <a href="https://www.cloudflare.com/turnstile/" class="link link-hover">
+                                        Cloudflare Turnstile
+                                    </a>
+                                    break;
+                                case "recaptcha":
+                                    <a href="https://www.google.com/recaptcha/" class="link link-hover">
+                                        Google reCaptcha
+                                    </a>
+                                    break;
+                                default:
+                                    <span>Nothing</span>
+                                    break;
+                            }
+                            <br/>
+                            Hosted by
+                            <a href="https://github.com/Solsynth/DysonNetwork" class="link link-hover">
+                                DysonNetwork.Sphere
+                            </a>
                         </div>
-                        break;
-                    case "recaptcha":
-                        <div class="g-recaptcha"
-                             data-sitekey="@apiKey"
-                             data-callback="onSuccess">
-                        </div>
-                        break;
-                    case "hcaptcha":
-                        <div class="h-captcha"
-                             data-sitekey="@apiKey"
-                             data-callback="onSuccess">
-                        </div>
-                        break;
-                    default:
-                        <div class="p-4 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                            <p class="text-yellow-800 dark:text-yellow-200">
-                                Captcha provider not configured correctly.
-                            </p>
-                        </div>
-                        break;
-                }
-            </div>
-        </div>
-
-        <div class="mt-8 text-center text-sm">
-            <div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Solar Network Anti-Robot</div>
-            <div class="text-gray-600 dark:text-gray-400">
-                Powered by
-                @switch (provider)
-                {
-                    case "cloudflare":
-                        <a href="https://www.cloudflare.com/turnstile/"
-                           class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                            Cloudflare Turnstile
-                        </a>
-                        break;
-                    case "recaptcha":
-                        <a href="https://www.google.com/recaptcha/"
-                           class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                            Google reCaptcha
-                        </a>
-                        break;
-                    default:
-                        <span>Nothing</span>
-                        break;
-                }
-                <br/>
-                Hosted by
-                <a href="https://github.com/Solsynth/DysonNetwork"
-                   class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                    DysonNetwork.Sphere
-                </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

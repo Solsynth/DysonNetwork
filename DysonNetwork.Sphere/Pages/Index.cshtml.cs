@@ -6,6 +6,5 @@ public class IndexModel : PageModel
 {
     public void OnGet()
     {
-        // Add any page initialization logic here
     }
 } 

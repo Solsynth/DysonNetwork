@@ -6,7 +6,8 @@
     "css:build": "npx @tailwindcss/cli -i ./wwwroot/css/site.css -o ./wwwroot/css/styles.css"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.7",
     "@tailwindcss/postcss": "^4.1.7",
-    "@tailwindcss/cli": "^4.1.7"
+    "daisyui": "^5.0.46"
   }
 }

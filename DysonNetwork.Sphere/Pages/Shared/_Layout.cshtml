@@ -5,34 +5,44 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>@ViewData["Title"]</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@100..900&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true"/>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet"
+    />
 </head>
-<body class="h-[calc(100dvh-118px)] mt-[64px] bg-white dark:bg-gray-900">
-<header class="bg-white dark:bg-gray-800 shadow-sm fixed left-0 right-0 top-0 z-50">
-    <nav class="container-default">
-        <div class="flex justify-between h-16 items-center">
-            <div class="flex">
-                <a href="/" class="text-xl font-bold text-gray-900 dark:text-white">Solar Network</a>
-            </div>
-            <div class="flex items-center ml-auto">
-                @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
-                {
-                    <a href="/web/account/profile" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Profile</a>
-                    <form method="post" asp-page="/Account/Profile" asp-page-handler="Logout" class="inline">
-                        <button type="submit" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Logout</button>
+<body class="h-full bg-base-200">
+<header class="navbar bg-base-100/35 backdrop-blur-md shadow-xl fixed left-0 right-0 top-0 z-50 px-5">
+    <div class="flex-1">
+        <a class="btn btn-ghost text-xl">Solar Network</a>
+    </div>
+    <div class="flex-none">
+        <ul class="menu menu-horizontal px-1">
+            @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
+            {
+                <li><a href="/web/account/profile">Profile</a></li>
+                <li>
+                    <form method="post" asp-page="/Account/Profile" asp-page-handler="Logout">
+                        <button type="submit">Logout</button>
                     </form>
-                }
-                else
-                {
-                    <a href="/web/auth/login" class="text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-300 px-3 py-2 rounded-md text-sm font-medium">Login</a>
-                }
-            </div>
-        </div>
-    </nav>
+                </li>
+            }
+            else
+            {
+                <li>
+                    <a href="/web/auth/login"><span class="material-symbols-outlined">login</span></a>
+                </li>
+            }
+        </ul>
+    </div>
 </header>
 
-@* The header 64px *@
-<main class="h-full">
+<main class="h-full pt-16">
     @RenderBody()
 </main>
 
