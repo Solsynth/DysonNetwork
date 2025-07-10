@@ -35,7 +35,7 @@ public class ClientTypeMiddleware(RequestDelegate next)
 
         if (!isWebPage && !context.Request.Path.StartsWithSegments("/api"))
             context.Response.Redirect(
-                "/api" + context.Request.Path.Value,
+                $"/api{context.Request.Path.Value}{context.Request.QueryString.Value}",
                 permanent: false
             );
         else
