@@ -34,6 +34,7 @@ public static class ApplicationConfiguration
         app.UseWebSockets();
         app.UseRateLimiter();
         app.UseHttpsRedirection();
+        app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<PermissionMiddleware>();
 

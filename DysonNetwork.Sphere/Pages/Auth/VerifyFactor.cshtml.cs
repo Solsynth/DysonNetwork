@@ -39,7 +39,7 @@ namespace DysonNetwork.Sphere.Pages.Auth
             await LoadChallengeAndFactor();
             if (AuthChallenge == null) return NotFound("Challenge not found or expired.");
             if (Factor == null) return NotFound("Authentication method not found.");
-            if (AuthChallenge.StepRemain == 0) return await ExchangeTokenAndRedirect();
+            if (AuthChallenge.StepRemain == 0) return await ExchangeTokenAndRedirect(AuthChallenge);
 
             return Page();
         }
@@ -93,7 +93,7 @@ namespace DysonNetwork.Sphere.Pages.Auth
                                 { "account_id", AuthChallenge.AccountId }
                             }, Request, AuthChallenge.Account);
 
-                        return await ExchangeTokenAndRedirect();
+                        return await ExchangeTokenAndRedirect(AuthChallenge);
                     }
 
                     else
@@ -145,14 +145,10 @@ namespace DysonNetwork.Sphere.Pages.Auth
             }
         }
 
-        private async Task<IActionResult> ExchangeTokenAndRedirect()
+        private async Task<IActionResult> ExchangeTokenAndRedirect(Challenge challenge)
         {
-            var challenge = await db.AuthChallenges
-                .Include(e => e.Account)
-                .FirstOrDefaultAsync(e => e.Id == Id);
-
-            if (challenge == null) return BadRequest("Authorization code not found or expired.");
-            if (challenge.StepRemain != 0) return BadRequest("Challenge not yet completed.");
+            await db.Entry(challenge).ReloadAsync();
+            if (challenge.StepRemain != 0) return BadRequest($"Challenge not yet completed. Remaining steps: {challenge.StepRemain}");
 
             var session = await db.AuthSessions
                 .FirstOrDefaultAsync(e => e.ChallengeId == challenge.Id);
