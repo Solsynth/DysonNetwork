@@ -29,12 +29,13 @@ public class PostDetailModel(
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
         Post = await db.Posts
-            .Where(e => e.Id == PostId)
-            .Include(e => e.Publisher)
-            .Include(e => e.Tags)
-            .Include(e => e.Categories)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers)
-            .FirstOrDefaultAsync();
+                .Where(e => e.Id == PostId)
+                .Include(e => e.Publisher)
+                    .ThenInclude(p => p.Account)
+                .Include(e => e.Tags)
+                .Include(e => e.Categories)
+                .FilterWithVisibility(currentUser, userFriends, userPublishers)
+                .FirstOrDefaultAsync();
 
         if (Post == null)
             return NotFound();
