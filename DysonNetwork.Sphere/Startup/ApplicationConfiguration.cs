@@ -1,4 +1,5 @@
 using System.Net;
+using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -14,6 +15,7 @@ public static class ApplicationConfiguration
     {
         app.MapMetrics();
         app.MapOpenApi();
+        app.UseMiddleware<ClientTypeMiddleware>();
 
         app.UseSwagger();
         app.UseSwaggerUI();

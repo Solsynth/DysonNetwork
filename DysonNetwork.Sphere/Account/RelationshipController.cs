@@ -7,7 +7,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
-[Route("/relationships")]
+[Route("/api/relationships")]
 public class RelationshipController(AppDatabase db, RelationshipService rels) : ControllerBase
 {
     [HttpGet]

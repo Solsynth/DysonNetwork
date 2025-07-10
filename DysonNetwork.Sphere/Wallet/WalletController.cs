@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Wallet;
 
 [ApiController]
-[Route("/wallets")]
+[Route("/api/wallets")]
 public class WalletController(AppDatabase db, WalletService ws, PaymentService payment) : ControllerBase
 {
     [HttpPost]

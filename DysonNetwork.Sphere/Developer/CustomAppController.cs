@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Sphere.Developer;
 
 [ApiController]
-[Route("/developers/{pubName}/apps")]
+[Route("/api/developers/{pubName}/apps")]
 public class CustomAppController(CustomAppService customApps, PublisherService ps) : ControllerBase
 {
     public record CustomAppRequest(

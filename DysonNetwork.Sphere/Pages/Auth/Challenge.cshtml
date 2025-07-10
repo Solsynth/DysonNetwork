@@ -1,9 +1,9 @@
-@page "/web/auth/challenge/{id:guid}"
+@page "//auth/challenge/{id:guid}"
 @model DysonNetwork.Sphere.Pages.Auth.ChallengeModel
 @{
     // This page is kept for backward compatibility
     // It will automatically redirect to the new SelectFactor page
-    Response.Redirect($"/web/auth/challenge/{Model.Id}/select-factor");
+    Response.Redirect($"//auth/challenge/{Model.Id}/select-factor");
 }
 
 <div class="hero min-h-full bg-base-200">

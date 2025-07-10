@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.Connection.WebReader;
 /// Controller for web scraping and link preview services
 /// </summary>
 [ApiController]
-[Route("/scrap")]
+[Route("/api/scrap")]
 [EnableRateLimiting("fixed")]
 public class WebReaderController(WebReaderService reader, ILogger<WebReaderController> logger)
     : ControllerBase

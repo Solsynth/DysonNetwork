@@ -9,7 +9,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Realm;
 
 [ApiController]
-[Route("/realms")]
+[Route("/api/realms")]
 public class RealmController(
     AppDatabase db,
     RealmService rs,

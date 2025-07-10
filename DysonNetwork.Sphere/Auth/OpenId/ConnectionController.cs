@@ -8,7 +8,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
 [ApiController]
-[Route("/accounts/me/connections")]
+[Route("/api/accounts/me/connections")]
 [Authorize]
 public class ConnectionController(
     AppDatabase db,
@@ -164,7 +164,7 @@ public class ConnectionController(
     }
 
     [AllowAnonymous]
-    [Route("/auth/callback/{provider}")]
+    [Route("/api/auth/callback/{provider}")]
     [HttpGet, HttpPost]
     public async Task<IActionResult> HandleCallback([FromRoute] string provider)
     {

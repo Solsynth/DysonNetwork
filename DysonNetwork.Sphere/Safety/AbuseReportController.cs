@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Sphere.Safety;
 
 [ApiController]
-[Route("/safety/reports")]
+[Route("/api/safety/reports")]
 public class AbuseReportController(
     SafetyService safety
 ) : ControllerBase

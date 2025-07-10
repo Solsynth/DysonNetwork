@@ -8,10 +8,10 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace DysonNetwork.Sphere.Connection;
 
 [ApiController]
-[Route("/ws")]
+[Route("/api/ws")]
 public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> logger) : ControllerBase
 {
-    [Route("/ws")]
+    [Route("/api/ws")]
     [Authorize]
     [SwaggerIgnore]
     public async Task TheGateway()

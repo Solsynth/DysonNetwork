@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Wallet;
 
 [ApiController]
-[Route("/orders")]
+[Route("/api/orders")]
 public class OrderController(PaymentService payment, AuthService auth, AppDatabase db) : ControllerBase
 {
     [HttpGet("{id:guid}")]

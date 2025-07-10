@@ -9,7 +9,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
-[Route("/notifications")]
+[Route("/api/notifications")]
 public class NotificationController(AppDatabase db, NotificationService nty) : ControllerBase
 {
     [HttpGet("count")]

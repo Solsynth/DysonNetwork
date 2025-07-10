@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
-[Route("/chat")]
+[Route("/api/chat")]
 public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomService crs) : ControllerBase
 {
     public class MarkMessageReadRequest

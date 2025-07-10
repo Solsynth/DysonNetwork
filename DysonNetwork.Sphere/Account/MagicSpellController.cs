@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
-[Route("/spells")]
+[Route("/api/spells")]
 public class MagicSpellController(AppDatabase db, MagicSpellService sp) : ControllerBase
 {
     [HttpPost("{spellId:guid}/resend")]

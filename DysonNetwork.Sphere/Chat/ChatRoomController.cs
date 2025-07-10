@@ -13,7 +13,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
-[Route("/chat")]
+[Route("/api/chat")]
 public class ChatRoomController(
     AppDatabase db,
     FileReferenceService fileRefService,

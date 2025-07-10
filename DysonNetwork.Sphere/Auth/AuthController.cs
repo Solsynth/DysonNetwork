@@ -11,7 +11,7 @@ using DysonNetwork.Sphere.Connection;
 namespace DysonNetwork.Sphere.Auth;
 
 [ApiController]
-[Route("/auth")]
+[Route("/api/auth")]
 public class AuthController(
     AppDatabase db,
     AccountService accounts,

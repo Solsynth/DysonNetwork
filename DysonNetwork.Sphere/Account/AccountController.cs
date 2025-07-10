@@ -11,7 +11,7 @@ using System.Collections.Generic;
 namespace DysonNetwork.Sphere.Account;
 
 [ApiController]
-[Route("/accounts")]
+[Route("/api/accounts")]
 public class AccountController(
     AppDatabase db,
     AuthService auth,

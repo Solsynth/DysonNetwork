@@ -9,7 +9,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Developer;
 
 [ApiController]
-[Route("/developers")]
+[Route("/api/developers")]
 public class DeveloperController(
     AppDatabase db,
     PublisherService ps,

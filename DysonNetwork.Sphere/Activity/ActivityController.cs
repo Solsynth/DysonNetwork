@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.Activity;
 /// Activity is a universal feed that contains multiple kinds of data. Personalized and generated dynamically.
 /// </summary>
 [ApiController]
-[Route("/activities")]
+[Route("/api/activities")]
 public class ActivityController(
     ActivityService acts
 ) : ControllerBase

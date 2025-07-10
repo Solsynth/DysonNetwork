@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Connection.WebReader;
 
 [ApiController]
-[Route("/feeds/articles")]
+[Route("/api/feeds/articles")]
 public class WebArticleController(AppDatabase db) : ControllerBase
 {
     /// <summary>

@@ -14,7 +14,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Auth.OidcProvider.Controllers;
 
-[Route("/auth/open")]
+[Route("/api/auth/open")]
 [ApiController]
 public class OidcProviderController(
     AppDatabase db,

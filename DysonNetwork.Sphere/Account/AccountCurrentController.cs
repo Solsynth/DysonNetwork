@@ -12,7 +12,7 @@ namespace DysonNetwork.Sphere.Account;
 
 [Authorize]
 [ApiController]
-[Route("/accounts/me")]
+[Route("/api/accounts/me")]
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,

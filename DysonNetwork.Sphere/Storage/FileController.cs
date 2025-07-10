@@ -7,7 +7,7 @@ using Minio.DataModel.Args;
 namespace DysonNetwork.Sphere.Storage;
 
 [ApiController]
-[Route("/files")]
+[Route("/api/files")]
 public class FileController(
     AppDatabase db,
     FileService fs,

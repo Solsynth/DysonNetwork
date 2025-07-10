@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Sticker;
 
 [ApiController]
-[Route("/stickers")]
+[Route("/api/stickers")]
 public class StickerController(AppDatabase db, StickerService st) : ControllerBase
 {
     private async Task<IActionResult> _CheckStickerPackPermissions(Guid packId, Account.Account currentUser,

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Sphere.Discovery;
 
 [ApiController]
-[Route("/discovery")]
+[Route("/api/discovery")]
 public class DiscoveryController(DiscoveryService discoveryService) : ControllerBase
 {
     [HttpGet("realms")]

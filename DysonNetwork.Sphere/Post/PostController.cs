@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Sphere.Account;
+using DysonNetwork.Sphere.Pages.Posts;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Storage;
@@ -13,7 +14,7 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
-[Route("/posts")]
+[Route("/api/posts")]
 public class PostController(
     AppDatabase db,
     PostService ps,
@@ -65,6 +66,9 @@ public class PostController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Post>> GetPost(Guid id)
     {
+        if (HttpContext.Items["IsWebPage"] as bool? ?? true)
+            return RedirectToPage("/Posts/PostDetail", new { PostId = id });
+        
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account.Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);

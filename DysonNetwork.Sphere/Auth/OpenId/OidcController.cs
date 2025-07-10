@@ -8,7 +8,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Auth.OpenId;
 
 [ApiController]
-[Route("/auth/login")]
+[Route("/api/auth/login")]
 public class OidcController(
     IServiceProvider serviceProvider,
     AppDatabase db,

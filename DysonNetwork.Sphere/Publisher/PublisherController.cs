@@ -11,7 +11,7 @@ using NodaTime;
 namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
-[Route("/publishers")]
+[Route("/api/publishers")]
 public class PublisherController(
     AppDatabase db,
     PublisherService ps,

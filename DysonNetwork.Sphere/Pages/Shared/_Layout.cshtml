@@ -26,7 +26,7 @@
             @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
             {
                 <li class="tooltip tooltip-bottom" data-tip="Profile">
-                    <a href="/web/account/profile">
+                    <a href="//account/profile">
                         <span class="material-symbols-outlined">account_circle</span>
                     </a>
                 </li>
@@ -43,7 +43,7 @@
             else
             {
                 <li class="tooltip tooltip-bottom" data-tip="Login">
-                    <a href="/web/auth/login"><span class="material-symbols-outlined">login</span></a>
+                    <a href="//auth/login"><span class="material-symbols-outlined">login</span></a>
                 </li>
             }
         </ul>

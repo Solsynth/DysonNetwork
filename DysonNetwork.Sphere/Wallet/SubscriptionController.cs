@@ -8,7 +8,7 @@ using DysonNetwork.Sphere.Wallet.PaymentHandlers;
 namespace DysonNetwork.Sphere.Wallet;
 
 [ApiController]
-[Route("/subscriptions")]
+[Route("/api/subscriptions")]
 public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db) : ControllerBase
 {
     [HttpGet]

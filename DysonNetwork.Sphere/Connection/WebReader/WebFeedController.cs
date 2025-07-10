@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Connection.WebReader;
 
 [Authorize]
 [ApiController]
-[Route("/publishers/{pubName}/feeds")]
+[Route("/api/publishers/{pubName}/feeds")]
 public class WebFeedController(WebFeedService webFeed, PublisherService ps) : ControllerBase
 {
     public record WebFeedRequest(

@@ -13,7 +13,7 @@ public class RealtimeChatConfiguration
 }
 
 [ApiController]
-[Route("/chat/realtime")]
+[Route("/api/chat/realtime")]
 public class RealtimeCallController(
     IConfiguration configuration,
     AppDatabase db,

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
-[Route("/publishers")]
+[Route("/api/publishers")]
 public class PublisherSubscriptionController(
     PublisherSubscriptionService subs,
     AppDatabase db,
