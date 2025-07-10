@@ -19,6 +19,10 @@ public class FileController(
     [HttpGet("{id}")]
     public async Task<ActionResult> OpenFile(string id, [FromQuery] bool original = false)
     {
+        // Support the file extension for client side data recognize
+        if (id.Contains("."))
+            id = id.Split('.').First();
+        
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
         

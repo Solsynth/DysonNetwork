@@ -1,5 +1,3 @@
-using Azure.Core;
-
 namespace DysonNetwork.Sphere.Connection;
 
 public class ClientTypeMiddleware(RequestDelegate next)
@@ -16,8 +14,8 @@ public class ClientTypeMiddleware(RequestDelegate next)
         }
         else
         {
-            var userAgent = headers["User-Agent"].ToString();
-            var accept = headers["Accept"].ToString();
+            var userAgent = headers.UserAgent.ToString();
+            var accept = headers.Accept.ToString();
 
             // Priority 2: Check known app User-Agent (backward compatibility)
             if (!string.IsNullOrEmpty(userAgent) && userAgent.Contains("Solian"))
