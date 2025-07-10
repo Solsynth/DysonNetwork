@@ -26,11 +26,11 @@ public class FileController(
     {
         // Support the file extension for client side data recognize
         string? fileExtension = null;
-        if (id.Contains("."))
+        if (id.Contains('.'))
         {
-            var splitedId = id.Split('.');
-            id = splitedId.First();
-            fileExtension = splitedId.Last();
+            var splitId = id.Split('.');
+            id = splitId.First();
+            fileExtension = splitId.Last();
         }
 
         var file = await fs.GetFileAsync(id);
