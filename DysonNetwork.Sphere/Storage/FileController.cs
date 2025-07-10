@@ -17,10 +17,15 @@ public class FileController(
 ) : ControllerBase
 {
     [HttpGet("{id}")]
-    public async Task<ActionResult> OpenFile(string id, [FromQuery] bool original = false)
+    public async Task<ActionResult> OpenFile(
+        string id,
+        [FromQuery] bool download = false,
+        [FromQuery] bool original = false,
+        [FromQuery] string? overrideMimeType = null
+    )
     {
         // Support the file extension for client side data recognize
-        String? fileExtension = null;
+        string? fileExtension = null;
         if (id.Contains("."))
         {
             var splitedId = id.Split('.');
@@ -76,9 +81,18 @@ public class FileController(
                 if (MimeTypes.TryGetMimeType(fileExtension, out var mimeType))
                     headers.Add("Response-Content-Type", mimeType);
             }
+            else if (overrideMimeType is not null)
+            {
+                headers.Add("Response-Content-Type", overrideMimeType);
+            }
             else if (file.MimeType is not null && !file.MimeType!.EndsWith("unknown"))
             {
                 headers.Add("Response-Content-Type", file.MimeType);
+            }
+
+            if (download)
+            {
+                headers.Add("Response-Content-Disposition", $"attachment; filename=\"{file.Name}\"");
             }
 
             var bucket = dest.Bucket;
