@@ -20,14 +20,19 @@ public class FileController(
     public async Task<ActionResult> OpenFile(string id, [FromQuery] bool original = false)
     {
         // Support the file extension for client side data recognize
+        String? fileExtension = null;
         if (id.Contains("."))
-            id = id.Split('.').First();
-        
+        {
+            var splitedId = id.Split('.');
+            id = splitedId.First();
+            fileExtension = splitedId.Last();
+        }
+
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
-        
+
         if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
-        
+
         if (file.UploadedTo is null)
         {
             var tusStorePath = configuration.GetValue<string>("Tus:StorePath")!;
@@ -65,12 +70,24 @@ public class FileController(
                 return BadRequest(
                     "Failed to configure client for remote destination, file got an invalid storage remote.");
 
+            var headers = new Dictionary<string, string>();
+            if (fileExtension is not null)
+            {
+                if (MimeTypes.TryGetMimeType(fileExtension, out var mimeType))
+                    headers.Add("Response-Content-Type", mimeType);
+            }
+            else if (file.MimeType is not null && !file.MimeType!.EndsWith("unknown"))
+            {
+                headers.Add("Response-Content-Type", file.MimeType);
+            }
+
             var bucket = dest.Bucket;
             var openUrl = await client.PresignedGetObjectAsync(
                 new PresignedGetObjectArgs()
                     .WithBucket(bucket)
                     .WithObject(fileName)
                     .WithExpiry(3600)
+                    .WithHeaders(headers)
             );
 
             return Redirect(openUrl);
@@ -111,7 +128,7 @@ public class FileController(
 
         return NoContent();
     }
-    
+
     [HttpPost("/maintenance/migrateReferences")]
     [Authorize]
     [RequiredPermission("maintenance", "files.references")]
