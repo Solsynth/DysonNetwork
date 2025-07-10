@@ -33,7 +33,7 @@ public class ClientTypeMiddleware(RequestDelegate next)
 
         context.Items["IsWebPage"] = isWebPage;
 
-        if (!isWebPage && !context.Request.Path.StartsWithSegments("/api"))
+        if (!isWebPage && context.Request.Path != "/ws" && !context.Request.Path.StartsWithSegments("/api"))
             context.Response.Redirect(
                 $"/api{context.Request.Path.Value}{context.Request.QueryString.Value}",
                 permanent: false
