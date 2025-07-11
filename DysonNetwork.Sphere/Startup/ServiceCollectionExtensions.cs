@@ -229,6 +229,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WalletService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<RealtimeStatusService>();
         services.AddRealtimeService(configuration);
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
@@ -252,7 +253,7 @@ public static class ServiceCollectionExtensions
                 services.AddHttpClient<IRealtimeService, CloudflareRealtimeService>();
                 break;
             case "LiveKit":
-                services.AddScoped<IRealtimeService, LivekitRealtimeService>();
+                services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
                 break;
             default:
                 throw new NotSupportedException($"Realtime provider '{provider}' is not supported.");

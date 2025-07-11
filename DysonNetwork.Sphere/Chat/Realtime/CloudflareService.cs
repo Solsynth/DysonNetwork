@@ -1,29 +1,32 @@
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat.Realtime;
 
 public class CloudflareRealtimeService : IRealtimeService
 {
+    private readonly AppDatabase _db;
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
-    private readonly string _apiSecret;
-    private readonly ChatRoomService _chatRoomService;
     private RSA? _publicKey;
 
-    public CloudflareRealtimeService(HttpClient httpClient, IConfiguration configuration,
-        ChatRoomService chatRoomService)
+    public CloudflareRealtimeService(
+        AppDatabase db,
+        HttpClient httpClient,
+        IConfiguration configuration
+    )
     {
+        _db = db;
         _httpClient = httpClient;
         _configuration = configuration;
-        _chatRoomService = chatRoomService;
         var apiKey = _configuration["Realtime:Cloudflare:ApiKey"];
-        _apiSecret = _configuration["Realtime:Cloudflare:ApiSecret"]!;
-        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{apiKey}:{_apiSecret}"));
+        var apiSecret = _configuration["Realtime:Cloudflare:ApiSecret"]!;
+        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{apiKey}:{apiSecret}"));
         _httpClient.BaseAddress = new Uri("https://rtk.realtime.cloudflare.com/v2/");
         _httpClient.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
@@ -33,13 +36,12 @@ public class CloudflareRealtimeService : IRealtimeService
 
     public async Task<RealtimeSessionConfig> CreateSessionAsync(Guid roomId, Dictionary<string, object> metadata)
     {
-        var roomName = $"Call_{roomId.ToString().Replace("-", "")}";
+        var roomName = $"Room Call #{roomId.ToString().Replace("-", "")}";
         var requestBody = new
         {
-            title = $"Solar Room Call #{roomId}",
+            title = roomName,
             preferred_region = _configuration["Realtime:Cloudflare:PreferredRegion"],
-            data = metadata,
-            room_name = roomName
+            data = metadata
         };
 
         var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -48,7 +50,8 @@ public class CloudflareRealtimeService : IRealtimeService
         response.EnsureSuccessStatusCode();
 
         var responseContent = await response.Content.ReadAsStringAsync();
-        var meetingResponse = JsonSerializer.Deserialize<DyteMeetingResponse>(responseContent);
+        var meetingResponse = JsonSerializer.Deserialize<CfMeetingResponse>(responseContent);
+        if (meetingResponse is null) throw new Exception("Failed to create meeting with cloudflare");
 
         return new RealtimeSessionConfig
         {
@@ -77,7 +80,7 @@ public class CloudflareRealtimeService : IRealtimeService
     {
         return GetUserTokenAsync(account, sessionId, isAdmin).GetAwaiter().GetResult();
     }
-    
+
     public async Task<string> GetUserTokenAsync(Account.Account account, string sessionId, bool isAdmin = false)
     {
         try
@@ -93,14 +96,15 @@ public class CloudflareRealtimeService : IRealtimeService
                     .PostAsync($"meetings/{sessionId}/participants/{account.Id}/token", null);
                 tokenResponse.EnsureSuccessStatusCode();
                 var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
-                var tokenData = JsonSerializer.Deserialize<DyteResponse<DyteTokenResponse>>(tokenContent);
+                var tokenData = JsonSerializer.Deserialize<CfResponse<CfTokenResponse>>(tokenContent);
                 if (tokenData == null || !tokenData.Success)
                 {
                     throw new Exception("Failed to get participant token");
                 }
+
                 return tokenData.Data?.Token ?? throw new Exception("Token is null");
             }
-            
+
             // Participant doesn't exist, create a new one
             var requestBody = new
             {
@@ -110,20 +114,21 @@ public class CloudflareRealtimeService : IRealtimeService
             };
 
             var content = new StringContent(
-                JsonSerializer.Serialize(requestBody), 
-                Encoding.UTF8, 
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
                 "application/json"
             );
-            
+
             var createResponse = await _httpClient.PostAsync($"meetings/{sessionId}/participants", content);
             createResponse.EnsureSuccessStatusCode();
 
             var responseContent = await createResponse.Content.ReadAsStringAsync();
-            var participantData = JsonSerializer.Deserialize<DyteResponse<DyteParticipantResponse>>(responseContent);
+            var participantData = JsonSerializer.Deserialize<CfResponse<CfParticipantResponse>>(responseContent);
             if (participantData == null || !participantData.Success)
             {
                 throw new Exception("Failed to create participant");
             }
+
             return participantData.Data?.Token ?? throw new Exception("Token is null");
         }
         catch (Exception ex)
@@ -156,17 +161,18 @@ public class CloudflareRealtimeService : IRealtimeService
         }
 
         // Process the webhook event
-        var webhookEvent = JsonSerializer.Deserialize<DyteWebhookEvent>(body);
+        var evt = JsonSerializer.Deserialize<CfWebhookEvent>(body);
+        if (evt is null) return;
 
-        if (webhookEvent.Type == "participant.joined")
+        switch (evt.Type)
         {
-            await _chatRoomService.SetRoomCallStatus(
-                Guid.Parse(webhookEvent.Event.Meeting.RoomName.Replace("Call_", "")), true);
-        }
-        else if (webhookEvent.Type == "room.ended")
-        {
-            await _chatRoomService.SetRoomCallStatus(
-                Guid.Parse(webhookEvent.Event.Meeting.RoomName.Replace("Call_", "")), false);
+            case "meeting.ended":
+                var now = SystemClock.Instance.GetCurrentInstant();
+                await _db.ChatRealtimeCall
+                    .Where(c => c.SessionId == evt.Event.Meeting.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.EndedAt, now)
+                    );
+                break;
         }
     }
 
@@ -197,72 +203,56 @@ public class CloudflareRealtimeService : IRealtimeService
         _publicKey.ImportFromPem(publicKeyPem);
     }
 
-    private class DyteMeetingResponse
+    private class CfMeetingResponse
     {
-        [JsonPropertyName("data")]
-        public DyteMeetingData Data { get; set; } = new();
+        [JsonPropertyName("data")] public CfMeetingData Data { get; set; } = new();
     }
 
-    private class DyteMeetingData
+    private class CfMeetingData
     {
-        [JsonPropertyName("id")]
-        public string Id { get; set; } = string.Empty;
-        [JsonPropertyName("roomName")]
-        public string RoomName { get; set; } = string.Empty;
-        [JsonPropertyName("title")]
-        public string Title { get; set; } = string.Empty;
-        [JsonPropertyName("status")]
-        public string Status { get; set; } = string.Empty;
-        [JsonPropertyName("createdAt")]
-        public DateTime CreatedAt { get; set; }
-        [JsonPropertyName("updatedAt")]
-        public DateTime UpdatedAt { get; set; }
+        [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+        [JsonPropertyName("roomName")] public string RoomName { get; set; } = string.Empty;
+        [JsonPropertyName("title")] public string Title { get; set; } = string.Empty;
+        [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
+        [JsonPropertyName("createdAt")] public DateTime CreatedAt { get; set; }
+        [JsonPropertyName("updatedAt")] public DateTime UpdatedAt { get; set; }
     }
 
-    private class DyteParticipant
+    private class CfParticipant
     {
         public string Id { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
         public string CustomParticipantId { get; set; } = string.Empty;
     }
 
-    public class DyteResponse<T>
+    public class CfResponse<T>
     {
-        [JsonPropertyName("success")]
-        public bool Success { get; set; }
-        
-        [JsonPropertyName("data")]
-        public T? Data { get; set; }
+        [JsonPropertyName("success")] public bool Success { get; set; }
+
+        [JsonPropertyName("data")] public T? Data { get; set; }
     }
 
-    public class DyteTokenResponse
+    public class CfTokenResponse
     {
-        [JsonPropertyName("token")]
-        public string Token { get; set; } = string.Empty;
-    }
-    
-    public class DyteParticipantResponse
-    {
-        [JsonPropertyName("id")]
-        public string Id { get; set; } = string.Empty;
-        
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-        
-        [JsonPropertyName("customUserId")]
-        public string CustomUserId { get; set; } = string.Empty;
-        
-        [JsonPropertyName("presetName")]
-        public string PresetName { get; set; } = string.Empty;
-        
-        [JsonPropertyName("isActive")]
-        public bool IsActive { get; set; }
-        
-        [JsonPropertyName("token")]
-        public string Token { get; set; } = string.Empty;
+        [JsonPropertyName("token")] public string Token { get; set; } = string.Empty;
     }
 
-    public class DyteWebhookEvent
+    public class CfParticipantResponse
+    {
+        [JsonPropertyName("id")] public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("name")] public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("customUserId")] public string CustomUserId { get; set; } = string.Empty;
+
+        [JsonPropertyName("presetName")] public string PresetName { get; set; } = string.Empty;
+
+        [JsonPropertyName("isActive")] public bool IsActive { get; set; }
+
+        [JsonPropertyName("token")] public string Token { get; set; } = string.Empty;
+    }
+
+    public class CfWebhookEvent
     {
         [JsonPropertyName("id")] public string Id { get; set; }
 
