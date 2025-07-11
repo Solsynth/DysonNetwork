@@ -132,13 +132,13 @@
         <value>"NO CARD"</value>
     </data>
     <data name="FortuneTipPositiveTitle_11" xml:space="preserve">
-        <value>焊PCB</value>
+        <value>焊 PCB</value>
     </data>
     <data name="FortuneTipPositiveContent_11" xml:space="preserve">
         <value>上电，启动，好耶！</value>
     </data>
     <data name="FortuneTipNegativeTitle_11" xml:space="preserve">
-        <value>焊PCB</value>
+        <value>焊 PCB</value>
     </data>
     <data name="FortuneTipNegativeContent_11" xml:space="preserve">
         <value>斯~不烫</value>
