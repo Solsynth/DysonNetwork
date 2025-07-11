@@ -99,13 +99,13 @@
         <value>学习</value>
     </data>
     <data name="FortuneTipPositiveContent_8" xml:space="preserve">
-        <value>效率200%！</value>
+        <value>效率200%</value>
     </data>
     <data name="FortuneTipNegativeTitle_8" xml:space="preserve">
         <value>学习</value>
     </data>
     <data name="FortuneTipNegativeContent_8" xml:space="preserve">
-        <value>效率50%？！</value>
+        <value>效率50%</value>
     </data>
     <data name="FortuneTipPositiveTitle_9" xml:space="preserve">
         <value>编曲</value>
@@ -144,13 +144,13 @@
         <value>斯~不烫</value>
     </data>
     <data name="FortuneTipPositiveTitle_12" xml:space="preserve">
-        <value>AE启动</value>
+        <value>AE 启动</value>
     </data>
     <data name="FortuneTipPositiveContent_12" xml:space="preserve">
         <value>帧渲染时间 20ms</value>
     </data>
     <data name="FortuneTipNegativeTitle_12" xml:space="preserve">
-        <value>AE启动</value>
+        <value>AE 启动</value>
     </data>
     <data name="FortuneTipNegativeContent_12" xml:space="preserve">
         <value>咩~</value>
