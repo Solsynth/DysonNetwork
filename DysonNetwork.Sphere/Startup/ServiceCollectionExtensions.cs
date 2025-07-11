@@ -229,7 +229,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WalletService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<PaymentService>();
-        services.AddScoped<IRealtimeService, LivekitRealtimeService>();
+        services.AddRealtimeService(configuration);
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
         services.AddScoped<AfdianPaymentHandler>();
@@ -239,6 +239,24 @@ public static class ServiceCollectionExtensions
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
+
+        return services;
+    }
+    
+    private static IServiceCollection AddRealtimeService(this IServiceCollection services, IConfiguration configuration)
+    {
+        var provider = configuration["Realtime:Provider"];
+        switch (provider)
+        {
+            case "Cloudflare":
+                services.AddHttpClient<IRealtimeService, CloudflareRealtimeService>();
+                break;
+            case "LiveKit":
+                services.AddScoped<IRealtimeService, LivekitRealtimeService>();
+                break;
+            default:
+                throw new NotSupportedException($"Realtime provider '{provider}' is not supported.");
+        }
 
         return services;
     }

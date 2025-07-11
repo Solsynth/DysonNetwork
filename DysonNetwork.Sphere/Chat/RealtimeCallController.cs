@@ -1,5 +1,4 @@
 using DysonNetwork.Sphere.Chat.Realtime;
-using Livekit.Server.Sdk.Dotnet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -97,34 +96,6 @@ public class RealtimeCallController(
         var endpoint = _config.Endpoint ??
                    throw new InvalidOperationException("LiveKit endpoint configuration is missing");
 
-        // Inject the ChatRoomService
-        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
-
-        // Get current participants from the LiveKit service
-        var participants = new List<CallParticipant>();
-        if (realtime is LivekitRealtimeService livekitService)
-        {
-            var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
-            participants = [];
-            
-            foreach (var p in roomParticipants)
-            {
-                var participant = new CallParticipant
-                {
-                    Identity = p.Identity,
-                    Name = p.Name,
-                    AccountId = p.AccountId,
-                    JoinedAt = p.JoinedAt
-                };
-            
-                // Fetch the ChatMember profile if we have an account ID
-                if (p.AccountId.HasValue)
-                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
-            
-                participants.Add(participant);
-            }
-        }
-
         // Create the response model
         var response = new JoinCallResponse
         {
@@ -133,8 +104,7 @@ public class RealtimeCallController(
             Token = userToken,
             CallId = ongoingCall.Id,
             RoomName = ongoingCall.SessionId,
-            IsAdmin = isAdmin,
-            Participants = participants
+            IsAdmin = isAdmin
         };
 
         return Ok(response);
@@ -215,11 +185,6 @@ public class JoinCallResponse
     /// Whether the user is the admin of the call
     /// </summary>
     public bool IsAdmin { get; set; }
-    
-    /// <summary>
-    /// Current participants in the call
-    /// </summary>
-    public List<CallParticipant> Participants { get; set; } = new();
 }
 
 /// <summary>

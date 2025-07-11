@@ -30,13 +30,22 @@ public interface IRealtimeService
     Task EndSessionAsync(string sessionId, RealtimeSessionConfig config);
 
     /// <summary>
-    /// Gets a token for user to join the session
+    /// Gets a token for user to join the session (synchronous version for backward compatibility)
     /// </summary>
     /// <param name="account">The user identifier</param>
     /// <param name="sessionId">The session identifier</param>
     /// <param name="isAdmin">The user is the admin of session</param>
     /// <returns>User-specific token for the session</returns>
     string GetUserToken(Account.Account account, string sessionId, bool isAdmin = false);
+    
+    /// <summary>
+    /// Gets a token for user to join the session asynchronously
+    /// </summary>
+    /// <param name="account">The user identifier</param>
+    /// <param name="sessionId">The session identifier</param>
+    /// <param name="isAdmin">The user is the admin of session</param>
+    /// <returns>Task that resolves to the user-specific token for the session</returns>
+    Task<string> GetUserTokenAsync(Account.Account account, string sessionId, bool isAdmin = false);
     
     /// <summary>
     /// Processes incoming webhook requests from the realtime service provider
