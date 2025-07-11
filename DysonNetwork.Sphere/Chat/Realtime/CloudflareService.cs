@@ -40,8 +40,7 @@ public class CloudflareRealtimeService : IRealtimeService
         var requestBody = new
         {
             title = roomName,
-            preferred_region = _configuration["Realtime:Cloudflare:PreferredRegion"],
-            data = metadata
+            preferred_region = _configuration["Realtime:Cloudflare:PreferredRegion"]
         };
 
         var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -106,11 +105,15 @@ public class CloudflareRealtimeService : IRealtimeService
             }
 
             // Participant doesn't exist, create a new one
+            var baseUrl = _configuration["BaseUrl"];
             var requestBody = new
             {
                 name = "@" + account.Name,
+                picture = account.Profile.Picture is not null
+                    ? $"{baseUrl}/api/files/{account.Profile.Picture.Id}"
+                    : null,
                 preset_name = isAdmin ? "group_call_host" : "group_call_participant",
-                custom_user_id = account.Id.ToString()
+                custom_participant_id = account.Id.ToString()
             };
 
             var content = new StringContent(
