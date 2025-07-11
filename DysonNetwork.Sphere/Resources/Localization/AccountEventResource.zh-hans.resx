@@ -95,4 +95,64 @@
     <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
         <value>抽卡</value>
     </data>
+    <data name="FortuneTipPositiveTitle_8" xml:space="preserve">
+        <value>学习</value>
+    </data>
+    <data name="FortuneTipPositiveContent_8" xml:space="preserve">
+        <value>效率200%</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_8" xml:space="preserve">
+        <value>学习</value>
+    </data>
+    <data name="FortuneTipNegativeContent_8" xml:space="preserve">
+        <value>效率50%</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_9" xml:space="preserve">
+        <value>编曲</value>
+    </data>
+    <data name="FortuneTipPositiveContent_9" xml:space="preserve">
+        <value>灵感爆棚</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_9" xml:space="preserve">
+        <value>编曲</value>
+    </data>
+    <data name="FortuneTipNegativeContent_9" xml:space="preserve">
+        <value>FL Studio未响应</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_10" xml:space="preserve">
+        <value>摄影</value>
+    </data>
+    <data name="FortuneTipPositiveContent_10" xml:space="preserve">
+        <value>刀锐奶化</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_10" xml:space="preserve">
+        <value>摄影</value>
+    </data>
+    <data name="FortuneTipNegativeContent_10" xml:space="preserve">
+        <value>"NO CARD"</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_11" xml:space="preserve">
+        <value>焊 PCB</value>
+    </data>
+    <data name="FortuneTipPositiveContent_11" xml:space="preserve">
+        <value>上电，启动，好耶！</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_11" xml:space="preserve">
+        <value>焊 PCB</value>
+    </data>
+    <data name="FortuneTipNegativeContent_11" xml:space="preserve">
+        <value>斯~不烫</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_12" xml:space="preserve">
+        <value>AE 启动</value>
+    </data>
+    <data name="FortuneTipPositiveContent_12" xml:space="preserve">
+        <value>帧渲染时间 20ms</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_12" xml:space="preserve">
+        <value>AE 启动</value>
+    </data>
+    <data name="FortuneTipNegativeContent_12" xml:space="preserve">
+        <value>咩~</value>
+    </data>
 </root>
