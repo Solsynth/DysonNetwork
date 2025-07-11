@@ -31,7 +31,10 @@ public class ClientTypeMiddleware(RequestDelegate next)
 
         context.Items["IsWebPage"] = isWebPage;
 
-        if (!isWebPage && context.Request.Path != "/ws" && !context.Request.Path.StartsWithSegments("/api"))
+        var redirectWhiteList = new[] { "/ws", "/.well-known", "/swagger" };
+        if(redirectWhiteList.Any(w => context.Request.Path.StartsWithSegments(w)))
+            await next(context);
+        else if (!isWebPage && !context.Request.Path.StartsWithSegments("/api"))
             context.Response.Redirect(
                 $"/api{context.Request.Path.Value}{context.Request.QueryString.Value}",
                 permanent: false

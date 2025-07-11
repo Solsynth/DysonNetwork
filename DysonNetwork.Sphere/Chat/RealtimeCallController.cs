@@ -1,16 +1,10 @@
 using DysonNetwork.Sphere.Chat.Realtime;
-using Livekit.Server.Sdk.Dotnet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Sphere.Chat;
-
-public class RealtimeChatConfiguration
-{
-    public string Endpoint { get; set; } = null!;
-}
 
 [ApiController]
 [Route("/api/chat/realtime")]
@@ -21,9 +15,6 @@ public class RealtimeCallController(
     IRealtimeService realtime
 ) : ControllerBase
 {
-    private readonly RealtimeChatConfiguration _config =
-        configuration.GetSection("RealtimeChat").Get<RealtimeChatConfiguration>()!;
-
     /// <summary>
     /// This endpoint is especially designed for livekit webhooks,
     /// for update the call participates and more.
@@ -36,9 +27,9 @@ public class RealtimeCallController(
         using var reader = new StreamReader(Request.Body);
         var postData = await reader.ReadToEndAsync();
         var authHeader = Request.Headers.Authorization.ToString();
-        
+
         await realtime.ReceiveWebhook(postData, authHeader);
-    
+
         return Ok();
     }
 
@@ -91,39 +82,17 @@ public class RealtimeCallController(
             return BadRequest("Call session is not properly configured.");
 
         var isAdmin = member.Role >= ChatMemberRole.Moderator;
-        var userToken = realtime.GetUserToken(currentUser, ongoingCall.SessionId, isAdmin);
+        var userToken = await realtime.GetUserTokenAsync(currentUser, ongoingCall.SessionId, isAdmin);
 
         // Get LiveKit endpoint from configuration
-        var endpoint = _config.Endpoint ??
-                   throw new InvalidOperationException("LiveKit endpoint configuration is missing");
-
-        // Inject the ChatRoomService
-        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
-
-        // Get current participants from the LiveKit service
-        var participants = new List<CallParticipant>();
-        if (realtime is LivekitRealtimeService livekitService)
+        var endpoint = configuration[$"Realtime:{realtime.ProviderName}:Endpoint"] ?? realtime.ProviderName switch
         {
-            var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
-            participants = [];
-            
-            foreach (var p in roomParticipants)
-            {
-                var participant = new CallParticipant
-                {
-                    Identity = p.Identity,
-                    Name = p.Name,
-                    AccountId = p.AccountId,
-                    JoinedAt = p.JoinedAt
-                };
-            
-                // Fetch the ChatMember profile if we have an account ID
-                if (p.AccountId.HasValue)
-                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
-            
-                participants.Add(participant);
-            }
-        }
+            // Unusable for sure, just for placeholder
+            "LiveKit" => "https://livekit.cloud",
+            "Cloudflare" => "https://rtk.realtime.cloudflare.com/v2",
+            // Unusable for sure, just for placeholder
+            _ => "https://example.com" 
+        };
 
         // Create the response model
         var response = new JoinCallResponse
@@ -133,8 +102,7 @@ public class RealtimeCallController(
             Token = userToken,
             CallId = ongoingCall.Id,
             RoomName = ongoingCall.SessionId,
-            IsAdmin = isAdmin,
-            Participants = participants
+            IsAdmin = isAdmin
         };
 
         return Ok(response);
@@ -192,7 +160,7 @@ public class JoinCallResponse
     public string Provider { get; set; } = null!;
 
     /// <summary>
-    /// The LiveKit server endpoint
+    /// The provider server endpoint
     /// </summary>
     public string Endpoint { get; set; } = null!;
 
@@ -215,11 +183,6 @@ public class JoinCallResponse
     /// Whether the user is the admin of the call
     /// </summary>
     public bool IsAdmin { get; set; }
-    
-    /// <summary>
-    /// Current participants in the call
-    /// </summary>
-    public List<CallParticipant> Participants { get; set; } = new();
 }
 
 /// <summary>
@@ -231,22 +194,22 @@ public class CallParticipant
     /// The participant's identity (username)
     /// </summary>
     public string Identity { get; set; } = null!;
-    
+
     /// <summary>
     /// The participant's display name
     /// </summary>
     public string Name { get; set; } = null!;
-    
+
     /// <summary>
     /// The participant's account ID if available
     /// </summary>
     public Guid? AccountId { get; set; }
-    
+
     /// <summary>
     /// The participant's profile in the chat
     /// </summary>
     public ChatMember? Profile { get; set; }
-    
+
     /// <summary>
     /// When the participant joined the call
     /// </summary>
