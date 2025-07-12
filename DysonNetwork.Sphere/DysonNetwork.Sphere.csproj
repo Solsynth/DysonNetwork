@@ -71,8 +71,8 @@
         <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="2.88.9" />
         <PackageReference Include="StackExchange.Redis" Version="2.8.41" />
         <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="11.0.0" />
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.0" />
-        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.0" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3" />
         <PackageReference Include="System.ServiceModel.Syndication" Version="9.0.6" />
         <PackageReference Include="tusdotnet" Version="2.8.1" />
     </ItemGroup>

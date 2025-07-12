@@ -1,23 +1,40 @@
+using DysonNetwork.Pass;
+using DysonNetwork.Pass.Startup;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Configure Kestrel and server options
+builder.ConfigureAppKestrel();
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Add metrics and telemetry
+builder.Services.AddAppMetrics();
+
+// Add application services
+builder.Services.AddAppServices(builder.Configuration);
+builder.Services.AddAppRateLimiting();
+builder.Services.AddAppAuthentication();
+builder.Services.AddAppSwagger();
+
+// Add flush handlers and websocket handlers
+builder.Services.AddAppFlushHandlers();
+
+// Add business services
+builder.Services.AddAppBusinessServices(builder.Configuration);
+
+// Add scheduled jobs
+builder.Services.AddAppScheduledJobs();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Run database migrations
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+    await db.Database.MigrateAsync();
 }
 
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
+// Configure application middleware pipeline
+app.ConfigureAppMiddleware(builder.Configuration);
 
 app.Run();
