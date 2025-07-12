@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Geo;
+using DysonNetwork.Shared.GeoIp;
 
 namespace DysonNetwork.Pass.Account;
 

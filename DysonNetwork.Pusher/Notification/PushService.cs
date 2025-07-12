@@ -66,8 +66,7 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
         return subscription;
     }
 
-    public async Task<Pusher.Notification.Notification> SendNotification(
-        Account account,
+    public async Task SendNotification(Account account,
         string topic,
         string? title = null,
         string? subtitle = null,
@@ -75,8 +74,7 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
         Dictionary<string, object>? meta = null,
         string? actionUri = null,
         bool isSilent = false,
-        bool save = true
-    )
+        bool save = true)
     {
         if (title is null && subtitle is null && content is null)
             throw new ArgumentException("Unable to send notification that completely empty.");
@@ -102,8 +100,6 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
         }
 
         if (!isSilent) _ = DeliveryNotification(notification);
-
-        return notification;
     }
 
     public async Task DeliveryNotification(Pusher.Notification.Notification notification)
@@ -128,7 +124,7 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
             );
     }
 
-    public async Task SendNotificationBatch(Notification notification, List<Account> accounts, bool save = false)
+    public async Task SendNotificationBatch(Notification notification, List<Guid> accounts, bool save = false)
     {
         if (save)
         {
@@ -142,23 +138,15 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
                     Content = notification.Content,
                     Meta = notification.Meta,
                     Priority = notification.Priority,
-                    Account = x,
-                    AccountId = Guid.Parse(x.Id)
+                    AccountId = x
                 };
                 return newNotification;
             }).ToList();
             await db.BulkInsertAsync(notifications);
         }
 
-        foreach (var account in accounts)
-        {
-            notification.Account = account;
-            notification.AccountId = Guid.Parse(account.Id);
-        }
-
-        var accountsId = accounts.Select(x => Guid.Parse(x.Id)).ToList();
         var subscribers = await db.PushSubscriptions
-            .Where(s => accountsId.Contains(s.AccountId))
+            .Where(s => accounts.Contains(s.AccountId))
             .ToListAsync();
         await _PushNotification(notification, subscribers);
     }

@@ -1,17 +1,13 @@
 using System.Net;
-using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Permission;
+using DysonNetwork.Pusher.Services;
 using Microsoft.AspNetCore.HttpOverrides;
-using Prometheus;
 
-namespace DysonNetwork.Pass.Startup;
+namespace DysonNetwork.Pusher.Startup;
 
 public static class ApplicationConfiguration
 {
     public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
     {
-        app.MapMetrics();
         app.MapOpenApi();
 
         app.UseSwagger();
@@ -35,7 +31,6 @@ public static class ApplicationConfiguration
         app.UseHttpsRedirection();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<PermissionMiddleware>();
 
         app.MapControllers().RequireRateLimiting("fixed");
         app.MapStaticAssets().RequireRateLimiting("fixed");
@@ -68,8 +63,7 @@ public static class ApplicationConfiguration
 
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
-        app.MapGrpcService<AccountServiceGrpc>();
-        app.MapGrpcService<AuthServiceGrpc>();
+        app.MapGrpcService<PusherServiceGrpc>();
         
         return app;
     }

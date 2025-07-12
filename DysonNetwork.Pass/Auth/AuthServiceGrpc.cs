@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Pass.Auth;
 
-public class AuthServiceGrpc(AuthService authService, AppDatabase db) : Shared.Proto.AuthService
+public class AuthServiceGrpc(AuthService authService, AppDatabase db) : Shared.Proto.AuthService.AuthServiceBase
 {
-    public async Task<Shared.Proto.AuthSession> Authenticate(AuthenticateRequest request, ServerCallContext context)
+    public override async Task<Shared.Proto.AuthSession> Authenticate(AuthenticateRequest request, ServerCallContext context)
     {
         if (!authService.ValidateToken(request.Token, out var sessionId))
         {

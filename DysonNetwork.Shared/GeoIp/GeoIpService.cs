@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using Point = NetTopologySuite.Geometries.Point;
 
-namespace DysonNetwork.Shared.Geo;
+namespace DysonNetwork.Shared.GeoIp;
 
 public class GeoIpOptions
 {

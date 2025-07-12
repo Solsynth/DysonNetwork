@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Shared.Geo;
+using DysonNetwork.Shared.GeoIp;
 
 namespace DysonNetwork.Pass.Auth;
 

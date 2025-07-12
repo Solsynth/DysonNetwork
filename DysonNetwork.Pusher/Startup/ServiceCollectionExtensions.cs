@@ -1,33 +1,21 @@
-using System.Globalization;
-using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Auth.OpenId;
-using DysonNetwork.Pass.Email;
-using DysonNetwork.Pass.Localization;
-using DysonNetwork.Pass.Permission;
-using DysonNetwork.Pass.Wallet;
+using System.Text.Json;
+using System.Threading.RateLimiting;
+using DysonNetwork.Pusher.Email;
+using DysonNetwork.Pusher.Notification;
+using DysonNetwork.Pusher.Services;
+using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
-using System.Text.Json;
-using System.Threading.RateLimiting;
-using DysonNetwork.Pass.Auth.OidcProvider.Options;
-using DysonNetwork.Pass.Auth.OidcProvider.Services;
-using DysonNetwork.Pass.Handlers;
-using DysonNetwork.Pass.Wallet.PaymentHandlers;
-using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.GeoIp;
 
-namespace DysonNetwork.Pass.Startup;
+namespace DysonNetwork.Pusher.Startup;
 
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAppServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddLocalization(options => options.ResourcesPath = "Resources");
-
         services.AddDbContext<AppDatabase>();
         services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
@@ -52,46 +40,15 @@ public static class ServiceCollectionExtensions
         services.AddGrpc();
 
         // Register gRPC services
-        services.AddScoped<AccountServiceGrpc>();
-        services.AddScoped<AuthServiceGrpc>();
+        services.AddScoped<PusherServiceGrpc>();
 
         // Register OIDC services
-        services.AddScoped<OidcService, GoogleOidcService>();
-        services.AddScoped<OidcService, AppleOidcService>();
-        services.AddScoped<OidcService, GitHubOidcService>();
-        services.AddScoped<OidcService, MicrosoftOidcService>();
-        services.AddScoped<OidcService, DiscordOidcService>();
-        services.AddScoped<OidcService, AfdianOidcService>();
-        services.AddScoped<GoogleOidcService>();
-        services.AddScoped<AppleOidcService>();
-        services.AddScoped<GitHubOidcService>();
-        services.AddScoped<MicrosoftOidcService>();
-        services.AddScoped<DiscordOidcService>();
-        services.AddScoped<AfdianOidcService>();
-
         services.AddControllers().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
             options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-        }).AddDataAnnotationsLocalization(options =>
-        {
-            options.DataAnnotationLocalizerProvider = (type, factory) =>
-                factory.Create(typeof(SharedResource));
-        });
-        services.AddRazorPages();
-
-        services.Configure<RequestLocalizationOptions>(options =>
-        {
-            var supportedCultures = new[]
-            {
-                new CultureInfo("en-US"),
-                new CultureInfo("zh-Hans"),
-            };
-
-            options.SupportedCultures = supportedCultures;
-            options.SupportedUICultures = supportedCultures;
         });
 
         return services;
@@ -114,12 +71,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddCors();
         services.AddAuthorization();
-        services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = AuthConstants.SchemeName;
-                options.DefaultChallengeScheme = AuthConstants.SchemeName;
-            })
-            .AddScheme<DysonTokenAuthOptions, DysonTokenAuthHandler>(AuthConstants.SchemeName, _ => { });
 
         return services;
     }
@@ -173,37 +124,14 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-        services.AddScoped<ActionLogFlushHandler>();
-        services.AddScoped<LastActiveFlushHandler>();
 
         return services;
     }
 
-    public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
-        IConfiguration configuration)
+    public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
     {
-        services.AddScoped<CompactTokenService>();
-        services.AddScoped<RazorViewRenderer>();
-        services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
-        services.AddScoped<GeoIpService>();
         services.AddScoped<EmailService>();
-        services.AddScoped<PermissionService>();
-        services.AddScoped<ActionLogService>();
-        services.AddScoped<AccountService>();
-        services.AddScoped<AccountEventService>();
-        services.AddScoped<ActionLogService>();
-        services.AddScoped<RelationshipService>();
-        services.AddScoped<MagicSpellService>();
-        services.AddScoped<NotificationService>();
-        services.AddScoped<AuthService>();
-        services.AddScoped<AccountUsernameService>();
-        services.AddScoped<WalletService>();
-        services.AddScoped<SubscriptionService>();
-        services.AddScoped<PaymentService>();
-        services.AddScoped<AfdianPaymentHandler>();
-        
-        services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
-        services.AddScoped<OidcProviderService>();
+        services.AddScoped<PushService>();
 
         return services;
     }
