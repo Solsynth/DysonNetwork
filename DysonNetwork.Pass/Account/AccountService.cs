@@ -115,7 +115,7 @@ public class AccountService(
                         }.HashSecret()
                     }
                     : [],
-                Profile = new Profile()
+                Profile = new AccountProfile()
             };
 
             if (isActivated)
@@ -648,7 +648,7 @@ public class AccountService(
 
         if (missingId.Count != 0)
         {
-            var newProfiles = missingId.Select(id => new Profile { Id = Guid.NewGuid(), AccountId = id }).ToList();
+            var newProfiles = missingId.Select(id => new AccountProfile { Id = Guid.NewGuid(), AccountId = id }).ToList();
             await db.BulkInsertAsync(newProfiles);
         }
     }

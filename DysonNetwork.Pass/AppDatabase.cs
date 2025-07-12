@@ -25,7 +25,7 @@ public class AppDatabase(
     public DbSet<MagicSpell> MagicSpells { get; set; }
     public DbSet<Account.Account> Accounts { get; set; }
     public DbSet<AccountConnection> AccountConnections { get; set; }
-    public DbSet<Profile> AccountProfiles { get; set; }
+    public DbSet<AccountProfile> AccountProfiles { get; set; }
     public DbSet<AccountContact> AccountContacts { get; set; }
     public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; }
     public DbSet<Relationship> AccountRelationships { get; set; }

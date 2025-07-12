@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Pass", "DysonN
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Shared", "DysonNetwork.Shared\DysonNetwork.Shared.csproj", "{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Pusher", "DysonNetwork.Pusher\DysonNetwork.Pusher.csproj", "{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,5 +31,9 @@ Global
 		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

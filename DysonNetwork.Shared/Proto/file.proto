@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+// CloudFileReferenceObject represents a reference to a file stored in cloud storage.
+// It contains metadata about the file that won't change, helping to reduce database load.
+message CloudFileReferenceObject {
+  // Unique identifier for the file
+  string id = 1;
+  
+  // Original name of the file
+  string name = 2;
+  
+  // File metadata (e.g., dimensions, duration, etc.)
+  map<string, google.protobuf.Value> file_meta = 3;
+  
+  // User-defined metadata
+  map<string, google.protobuf.Value> user_meta = 4;
+  
+  // MIME type of the file
+  string mime_type = 5;
+  
+  // File content hash (e.g., MD5, SHA-256)
+  string hash = 6;
+  
+  // File size in bytes
+  int64 size = 7;
+  
+  // Indicates if the file is stored with compression
+  bool has_compression = 8;
+  
+  // URL to access the file (kept for backward compatibility)
+  string url = 9;
+  
+  // Content type of the file (kept for backward compatibility)
+  string content_type = 10;
+  
+  // When the file was uploaded (kept for backward compatibility)
+  google.protobuf.Timestamp uploaded_at = 11;
+  
+  // Additional metadata (kept for backward compatibility)
+  map<string, string> metadata = 12;
+}
+
+// Service for file operations
+service FileService {
+  // Get file reference by ID
+  rpc GetFile(GetFileRequest) returns (CloudFileReferenceObject) {}
+  
+  // Create a new file reference
+  rpc CreateFile(CreateFileRequest) returns (CloudFileReferenceObject) {}
+  
+  // Update an existing file reference
+  rpc UpdateFile(UpdateFileRequest) returns (CloudFileReferenceObject) {}
+  
+  // Delete a file reference
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+}
+
+// Request message for GetFile
+message GetFileRequest {
+  string id = 1;
+}
+
+// Request message for CreateFile
+message CreateFileRequest {
+  CloudFileReferenceObject file = 1;
+}
+
+// Request message for UpdateFile
+message UpdateFileRequest {
+  CloudFileReferenceObject file = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+// Request message for DeleteFile
+message DeleteFileRequest {
+  string id = 1;
+  bool hard_delete = 2;
+}

@@ -1,6 +1,0 @@
-@DysonNetwork.Pass_HostAddress = http://localhost:5216
-
-GET {{DysonNetwork.Pass_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

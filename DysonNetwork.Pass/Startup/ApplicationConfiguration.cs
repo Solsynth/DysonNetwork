@@ -1,4 +1,5 @@
 using System.Net;
+using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Permission;
 using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
@@ -62,5 +63,12 @@ public static class ApplicationConfiguration
         }
 
         app.UseForwardedHeaders(forwardedHeadersOptions);
+    }
+
+    public static WebApplication ConfigureGrpcServices(this WebApplication app)
+    {
+        app.MapGrpcService<AccountServiceGrpc>();
+        
+        return app;
     }
 }

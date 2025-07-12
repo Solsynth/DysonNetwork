@@ -72,7 +72,7 @@ public class AccountCurrentController(
     }
 
     [HttpPatch("profile")]
-    public async Task<ActionResult<Profile>> UpdateProfile([FromBody] ProfileRequest request)
+    public async Task<ActionResult<AccountProfile>> UpdateProfile([FromBody] ProfileRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;

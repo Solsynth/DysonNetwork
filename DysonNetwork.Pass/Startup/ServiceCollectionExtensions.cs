@@ -40,6 +40,20 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient();
 
+        // Register gRPC services
+        services.AddGrpc(options =>
+        {
+            options.EnableDetailedErrors = true; // Will be adjusted in Program.cs
+            options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
+            options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
+        });
+        
+        // Register gRPC reflection for service discovery
+        services.AddGrpc();
+
+        // Register gRPC services
+        services.AddScoped<AccountServiceGrpc>();
+
         // Register OIDC services
         services.AddScoped<OidcService, GoogleOidcService>();
         services.AddScoped<OidcService, AppleOidcService>();

@@ -18,7 +18,7 @@ public class Account : ModelBase
     public Instant? ActivatedAt { get; set; }
     public bool IsSuperuser { get; set; } = false;
 
-    public Profile Profile { get; set; } = null!;
+    public AccountProfile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
     public ICollection<AccountBadge> Badges { get; set; } = new List<AccountBadge>();
 
@@ -53,7 +53,7 @@ public abstract class Leveling
     ];
 }
 
-public class Profile : ModelBase
+public class AccountProfile : ModelBase
 {
     public Guid Id { get; set; }
     [MaxLength(256)] public string? FirstName { get; set; }

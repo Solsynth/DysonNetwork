@@ -1,4 +1,5 @@
 using DysonNetwork.Pass;
+using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Startup;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,5 +37,8 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
+
+// Configure gRPC
+app.ConfigureGrpcServices();
 
 app.Run();
