@@ -2,7 +2,10 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -33,6 +36,23 @@ public class AccountBadge : ModelBase
             AccountId = AccountId
         };
     }
+
+    public Shared.Proto.AccountBadge ToProtoValue()
+    {
+        var proto = new Shared.Proto.AccountBadge
+        {
+            Id = Id.ToString(),
+            Type = Type,
+            Label = Label ?? string.Empty,
+            Caption = Caption ?? string.Empty,
+            ActivatedAt = ActivatedAt?.ToTimestamp(),
+            ExpiredAt = ExpiredAt?.ToTimestamp(),
+            AccountId = AccountId.ToString(),
+        };
+        proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta));
+
+        return proto;
+    }
 }
 
 public class BadgeReferenceObject : ModelBase
@@ -45,4 +65,22 @@ public class BadgeReferenceObject : ModelBase
     public Instant? ActivatedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
     public Guid AccountId { get; set; }
+
+    public Shared.Proto.BadgeReferenceObject ToProtoValue()
+    {
+        var proto = new Shared.Proto.BadgeReferenceObject
+        {
+            Id = Id.ToString(),
+            Type = Type,
+            Label = Label ?? string.Empty,
+            Caption = Caption ?? string.Empty,
+            ActivatedAt = ActivatedAt?.ToTimestamp(),
+            ExpiredAt = ExpiredAt?.ToTimestamp(),
+            AccountId = AccountId.ToString()
+        };
+        if (Meta is not null)
+            proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta!));
+
+        return proto;
+    }
 }

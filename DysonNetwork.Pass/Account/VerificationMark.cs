@@ -13,6 +13,29 @@ public class VerificationMark
     [MaxLength(1024)] public string? Title { get; set; }
     [MaxLength(8192)] public string? Description { get; set; }
     [MaxLength(1024)] public string? VerifiedBy { get; set; }
+
+    public Shared.Proto.VerificationMark ToProtoValue()
+    {
+        var proto = new Shared.Proto.VerificationMark
+        {
+            Type = Type switch
+            {
+                VerificationMarkType.Official => Shared.Proto.VerificationMarkType.Official,
+                VerificationMarkType.Individual => Shared.Proto.VerificationMarkType.Individual,
+                VerificationMarkType.Organization => Shared.Proto.VerificationMarkType.Organization,
+                VerificationMarkType.Government => Shared.Proto.VerificationMarkType.Government,
+                VerificationMarkType.Creator => Shared.Proto.VerificationMarkType.Creator,
+                VerificationMarkType.Developer => Shared.Proto.VerificationMarkType.Developer,
+                VerificationMarkType.Parody => Shared.Proto.VerificationMarkType.Parody,
+                _ => Shared.Proto.VerificationMarkType.Unspecified
+            },
+            Title = Title ?? string.Empty,
+            Description = Description ?? string.Empty,
+            VerifiedBy = VerifiedBy ?? string.Empty
+        };
+
+        return proto;
+    }
 }
 
 public enum VerificationMarkType
@@ -21,5 +44,7 @@ public enum VerificationMarkType
     Individual,
     Organization,
     Government,
-    Creator
+    Creator,
+    Developer,
+    Parody
 }

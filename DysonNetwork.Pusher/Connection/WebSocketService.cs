@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Pusher.Connection;
 
@@ -13,7 +14,7 @@ public class WebSocketService
     }
 
     private static readonly ConcurrentDictionary<
-        (Guid AccountId, string DeviceId),
+        (string AccountId, string DeviceId),
         (WebSocket Socket, CancellationTokenSource Cts)
     > ActiveConnections = new();
 
@@ -29,21 +30,23 @@ public class WebSocketService
         ActiveSubscriptions.TryRemove(deviceId, out _);
     }
 
-    public bool IsUserSubscribedToChatRoom(Guid accountId, string chatRoomId)
+    public bool IsUserSubscribedToChatRoom(string accountId, string chatRoomId)
     {
         var userDeviceIds = ActiveConnections.Keys.Where(k => k.AccountId == accountId).Select(k => k.DeviceId);
         foreach (var deviceId in userDeviceIds)
         {
-            if (ActiveSubscriptions.TryGetValue(deviceId, out var subscribedChatRoomId) && subscribedChatRoomId == chatRoomId)
+            if (ActiveSubscriptions.TryGetValue(deviceId, out var subscribedChatRoomId) &&
+                subscribedChatRoomId == chatRoomId)
             {
                 return true;
             }
         }
+
         return false;
     }
 
     public bool TryAdd(
-        (Guid AccountId, string DeviceId) key,
+        (string AccountId, string DeviceId) key,
         WebSocket socket,
         CancellationTokenSource cts
     )
@@ -54,7 +57,7 @@ public class WebSocketService
         return ActiveConnections.TryAdd(key, (socket, cts));
     }
 
-    public void Disconnect((Guid AccountId, string DeviceId) key, string? reason = null)
+    public void Disconnect((string AccountId, string DeviceId) key, string? reason = null)
     {
         if (!ActiveConnections.TryGetValue(key, out var data)) return;
         data.Socket.CloseAsync(
@@ -67,12 +70,12 @@ public class WebSocketService
         UnsubscribeFromChatRoom(key.DeviceId);
     }
 
-    public bool GetAccountIsConnected(Guid accountId)
+    public bool GetAccountIsConnected(string accountId)
     {
         return ActiveConnections.Any(c => c.Key.AccountId == accountId);
     }
 
-    public void SendPacketToAccount(Guid userId, WebSocketPacket packet)
+    public void SendPacketToAccount(string userId, WebSocketPacket packet)
     {
         var connections = ActiveConnections.Where(c => c.Key.AccountId == userId);
         var packetBytes = packet.ToBytes();
@@ -106,8 +109,12 @@ public class WebSocketService
         }
     }
 
-    public async Task HandlePacket(Account.Account currentUser, string deviceId, WebSocketPacket packet,
-        WebSocket socket)
+    public async Task HandlePacket(
+        Account currentUser,
+        string deviceId,
+        WebSocketPacket packet,
+        WebSocket socket
+    )
     {
         if (_handlerMap.TryGetValue(packet.Type, out var handler))
         {

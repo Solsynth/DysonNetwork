@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// Represents a user session
+message AuthSession {
+  string id = 1;
+  google.protobuf.StringValue label = 2;
+  google.protobuf.Timestamp last_granted_at = 3;
+  google.protobuf.Timestamp expired_at = 4;
+  string account_id = 5;
+  string challenge_id = 6;
+  AuthChallenge challenge = 7;
+  google.protobuf.StringValue app_id = 8;
+}
+
+// Represents an authentication challenge
+message AuthChallenge {
+  string id = 1;
+  google.protobuf.Timestamp expired_at = 2;
+  int32 step_remain = 3;
+  int32 step_total = 4;
+  int32 failed_attempts = 5;
+  ChallengePlatform platform = 6;
+  ChallengeType type = 7;
+  repeated string blacklist_factors = 8;
+  repeated string audiences = 9;
+  repeated string scopes = 10;
+  google.protobuf.StringValue ip_address = 11;
+  google.protobuf.StringValue user_agent = 12;
+  google.protobuf.StringValue device_id = 13;
+  google.protobuf.StringValue nonce = 14;
+  // Point location is omitted as there is no direct proto equivalent.
+  string account_id = 15;
+}
+
+// Enum for challenge types
+enum ChallengeType {
+  CHALLENGE_TYPE_UNSPECIFIED = 0;
+  LOGIN = 1;
+  OAUTH = 2;
+  OIDC = 3;
+}
+
+// Enum for challenge platforms
+enum ChallengePlatform {
+  CHALLENGE_PLATFORM_UNSPECIFIED = 0;
+  UNIDENTIFIED = 1;
+  WEB = 2;
+  IOS = 3;
+  ANDROID = 4;
+  MACOS = 5;
+  WINDOWS = 6;
+  LINUX = 7;
+}
+
+service AuthService {
+  rpc Authenticate(AuthenticateRequest) returns (AuthSession) {}
+}
+
+message AuthenticateRequest {
+  string token = 1;
+}

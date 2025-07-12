@@ -8,6 +8,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 
 import 'file.proto';
 
@@ -83,7 +84,7 @@ message AccountAuthFactor {
   string id = 1;
   AccountAuthFactorType type = 2;
   google.protobuf.StringValue secret = 3;  // Omitted from JSON serialization in original
-  map<string, string> config = 4;  // Omitted from JSON serialization in original
+  map<string, google.protobuf.Value> config = 4;  // Omitted from JSON serialization in original
   int32 trustworthy = 5;
   google.protobuf.Timestamp enabled_at = 6;
   google.protobuf.Timestamp expired_at = 7;
@@ -107,7 +108,7 @@ message AccountBadge {
   string type = 2;  // Type/category of the badge
   google.protobuf.StringValue label = 3;  // Display name of the badge
   google.protobuf.StringValue caption = 4;  // Optional description of the badge
-  map<string, string> meta = 5;  // Additional metadata for the badge
+  map<string, google.protobuf.Value> meta = 5;  // Additional metadata for the badge
   google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
   google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
   string account_id = 8;  // ID of the account this badge belongs to
@@ -118,7 +119,7 @@ message AccountConnection {
   string id = 1;
   string provider = 2;
   string provided_identifier = 3;
-  map<string, string> meta = 4;
+  map<string, google.protobuf.Value> meta = 4;
   google.protobuf.StringValue access_token = 5;  // Omitted from JSON serialization
   google.protobuf.StringValue refresh_token = 6;  // Omitted from JSON serialization
   google.protobuf.Timestamp last_used_at = 7;
@@ -127,10 +128,21 @@ message AccountConnection {
 
 // VerificationMark represents verification status
 message VerificationMark {
-  bool verified = 1;
-  string method = 2;
-  google.protobuf.Timestamp verified_at = 3;
+  VerificationMarkType type = 1;
+  string title = 2;
+  string description = 3;
   string verified_by = 4;
+}
+
+enum VerificationMarkType {
+  VERIFICATION_MARK_TYPE_UNSPECIFIED = 0;
+  OFFICIAL = 1;
+  INDIVIDUAL = 2;
+  ORGANIZATION = 3;
+  GOVERNMENT = 4;
+  CREATOR = 5;
+  DEVELOPER = 6;
+  PARODY = 7;
 }
 
 // BadgeReferenceObject represents a reference to a badge with minimal information
@@ -139,7 +151,7 @@ message BadgeReferenceObject {
   string type = 2;  // Type/category of the badge
   google.protobuf.StringValue label = 3;  // Display name of the badge
   google.protobuf.StringValue caption = 4;  // Optional description of the badge
-  map<string, string> meta = 5;  // Additional metadata for the badge
+  map<string, google.protobuf.Value> meta = 5;  // Additional metadata for the badge
   google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
   google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
   string account_id = 8;  // ID of the account this badge belongs to

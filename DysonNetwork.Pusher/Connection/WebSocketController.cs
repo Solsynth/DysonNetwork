@@ -1,8 +1,7 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Pusher.Connection;
@@ -18,15 +17,15 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
-        if (currentUserValue is not Account.Account currentUser ||
-            currentSessionValue is not Auth.Session currentSession)
+        if (currentUserValue is not Account currentUser ||
+            currentSessionValue is not AuthSession currentSession)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
 
-        var accountId = currentUser.Id;
-        var deviceId = currentSession.Challenge.DeviceId;
+        var accountId = currentUser.Id!;
+        var deviceId = currentSession.Challenge.DeviceId!;
 
         if (string.IsNullOrEmpty(deviceId))
         {
@@ -69,7 +68,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
 
     private async Task _ConnectionEventLoop(
         string deviceId,
-        Account.Account currentUser,
+        Account currentUser,
         WebSocket webSocket,
         CancellationToken cancellationToken
     )

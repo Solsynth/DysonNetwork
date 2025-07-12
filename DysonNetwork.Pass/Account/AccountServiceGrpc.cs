@@ -19,72 +19,7 @@ public class AccountServiceGrpc(
 
     private readonly ILogger<AccountServiceGrpc>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-    // Helper methods for conversion between protobuf and domain models
-    private static Shared.Proto.Account ToProtoAccount(Account account) => new()
-    {
-        Id = account.Id.ToString(),
-        Name = account.Name,
-        Nick = account.Nick,
-        Language = account.Language,
-        ActivatedAt = account.ActivatedAt?.ToTimestamp(),
-        IsSuperuser = account.IsSuperuser,
-        Profile = ToProtoProfile(account.Profile)
-        // Note: Collections are not included by default to avoid large payloads
-        // They should be loaded on demand via specific methods
-    };
-
-    private static Shared.Proto.AccountProfile ToProtoProfile(AccountProfile profile) => new()
-    {
-        Id = profile.Id.ToString(),
-        FirstName = profile.FirstName,
-        MiddleName = profile.MiddleName,
-        LastName = profile.LastName,
-        Bio = profile.Bio,
-        Gender = profile.Gender,
-        Pronouns = profile.Pronouns,
-        TimeZone = profile.TimeZone,
-        Location = profile.Location,
-        Birthday = profile.Birthday?.ToTimestamp(),
-        LastSeenAt = profile.LastSeenAt?.ToTimestamp(),
-        Experience = profile.Experience,
-        Level = profile.Level,
-        LevelingProgress = profile.LevelingProgress,
-        AccountId = profile.AccountId.ToString(),
-        PictureId = profile.PictureId,
-        BackgroundId = profile.BackgroundId,
-        Picture = profile.Picture?.ToProtoValue(),
-        Background = profile.Background?.ToProtoValue()
-    };
-
-    private static Shared.Proto.AccountContact ToProtoContact(AccountContact contact) => new()
-    {
-        Id = contact.Id.ToString(),
-        Type = contact.Type switch
-        {
-            AccountContactType.Address => Shared.Proto.AccountContactType.Address,
-            AccountContactType.PhoneNumber => Shared.Proto.AccountContactType.PhoneNumber,
-            AccountContactType.Email => Shared.Proto.AccountContactType.Email,
-            _ => Shared.Proto.AccountContactType.Unspecified
-        },
-        VerifiedAt = contact.VerifiedAt?.ToTimestamp(),
-        IsPrimary = contact.IsPrimary,
-        Content = contact.Content,
-        AccountId = contact.AccountId.ToString()
-    };
-
-    private static Shared.Proto.AccountBadge ToProtoBadge(AccountBadge badge) => new()
-    {
-        Id = badge.Id.ToString(),
-        Type = badge.Type,
-        Label = badge.Label,
-        Caption = badge.Caption,
-        ActivatedAt = badge.ActivatedAt?.ToTimestamp(),
-        ExpiredAt = badge.ExpiredAt?.ToTimestamp(),
-        AccountId = badge.AccountId.ToString()
-    };
-
-// Implementation of gRPC service methods
+    
     public override async Task<Shared.Proto.Account> GetAccount(GetAccountRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var accountId))
@@ -98,7 +33,7 @@ public class AccountServiceGrpc(
         if (account == null)
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, $"Account {request.Id} not found"));
 
-        return ToProtoAccount(account);
+        return account.ToProtoValue();
     }
 
     public override async Task<Shared.Proto.Account> CreateAccount(CreateAccountRequest request,
@@ -125,7 +60,7 @@ public class AccountServiceGrpc(
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("Created new account with ID {AccountId}", account.Id);
-        return ToProtoAccount(account);
+        return account.ToProtoValue();
     }
 
     public override async Task<Shared.Proto.Account> UpdateAccount(UpdateAccountRequest request,
@@ -145,7 +80,7 @@ public class AccountServiceGrpc(
         if (request.IsSuperuser != null) account.IsSuperuser = request.IsSuperuser.Value;
 
         await _db.SaveChangesAsync();
-        return ToProtoAccount(account);
+        return account.ToProtoValue();
     }
 
     public override async Task<Empty> DeleteAccount(DeleteAccountRequest request, ServerCallContext context)
@@ -202,7 +137,7 @@ public class AccountServiceGrpc(
                 : ""
         };
 
-        response.Accounts.AddRange(accounts.Select(ToProtoAccount));
+        response.Accounts.AddRange(accounts.Select(x => x.ToProtoValue()));
         return response;
     }
 
@@ -223,7 +158,7 @@ public class AccountServiceGrpc(
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound,
                 $"Profile for account {request.AccountId} not found"));
 
-        return ToProtoProfile(profile);
+        return profile.ToProtoValue();
     }
 
     public override async Task<Shared.Proto.AccountProfile> UpdateProfile(UpdateProfileRequest request,
@@ -249,7 +184,7 @@ public class AccountServiceGrpc(
         // Update other fields similarly...
 
         await _db.SaveChangesAsync();
-        return ToProtoProfile(profile);
+        return profile.ToProtoValue();
     }
 
 // Contact operations
@@ -271,10 +206,65 @@ public class AccountServiceGrpc(
         _db.AccountContacts.Add(contact);
         await _db.SaveChangesAsync();
 
-        return ToProtoContact(contact);
+        return contact.ToProtoValue();
     }
 
-// Implement other contact operations...
+    public override async Task<Empty> RemoveContact(RemoveContactRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.Id, out var contactId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid contact ID format"));
+
+        var contact = await _db.AccountContacts.FirstOrDefaultAsync(c => c.Id == contactId && c.AccountId == accountId);
+        if (contact == null)
+            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Contact not found."));
+
+        _db.AccountContacts.Remove(contact);
+        await _db.SaveChangesAsync();
+
+        return new Empty();
+    }
+
+    public override async Task<ListContactsResponse> ListContacts(ListContactsRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var query = _db.AccountContacts.AsNoTracking().Where(c => c.AccountId == accountId);
+
+        if (request.VerifiedOnly)
+            query = query.Where(c => c.VerifiedAt != null);
+
+        var contacts = await query.ToListAsync();
+
+        var response = new ListContactsResponse();
+        response.Contacts.AddRange(contacts.Select(c => c.ToProtoValue()));
+
+        return response;
+    }
+
+    public override async Task<Shared.Proto.AccountContact> VerifyContact(VerifyContactRequest request, ServerCallContext context)
+    {
+        // This is a placeholder implementation. In a real-world scenario, you would
+        // have a more robust verification mechanism (e.g., sending a code to the
+        // user's email or phone).
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.Id, out var contactId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid contact ID format"));
+
+        var contact = await _db.AccountContacts.FirstOrDefaultAsync(c => c.Id == contactId && c.AccountId == accountId);
+        if (contact == null)
+            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Contact not found."));
+
+        contact.VerifiedAt = _clock.GetCurrentInstant();
+        await _db.SaveChangesAsync();
+
+        return contact.ToProtoValue();
+    }
 
 // Badge operations
     public override async Task<Shared.Proto.AccountBadge> AddBadge(AddBadgeRequest request, ServerCallContext context)
@@ -296,8 +286,59 @@ public class AccountServiceGrpc(
         _db.Badges.Add(badge);
         await _db.SaveChangesAsync();
 
-        return ToProtoBadge(badge);
+        return badge.ToProtoValue();
     }
 
-// Implement other badge operations...
+    public override async Task<Empty> RemoveBadge(RemoveBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.Id, out var badgeId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid badge ID format"));
+
+        var badge = await _db.Badges.FirstOrDefaultAsync(b => b.Id == badgeId && b.AccountId == accountId);
+        if (badge == null)
+            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Badge not found."));
+
+        _db.Badges.Remove(badge);
+        await _db.SaveChangesAsync();
+
+        return new Empty();
+    }
+
+    public override async Task<ListBadgesResponse> ListBadges(ListBadgesRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var query = _db.Badges.AsNoTracking().Where(b => b.AccountId == accountId);
+
+        if (request.ActiveOnly)
+            query = query.Where(b => b.ExpiredAt == null || b.ExpiredAt > _clock.GetCurrentInstant());
+
+        var badges = await query.ToListAsync();
+
+        var response = new ListBadgesResponse();
+        response.Badges.AddRange(badges.Select(b => b.ToProtoValue()));
+
+        return response;
+    }
+
+    public override async Task<Shared.Proto.AccountProfile> SetActiveBadge(SetActiveBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var profile = await _db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == accountId);
+        if (profile == null)
+            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Profile not found."));
+
+        if (!string.IsNullOrEmpty(request.BadgeId) && !Guid.TryParse(request.BadgeId, out var badgeId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid badge ID format"));
+
+        await _db.SaveChangesAsync();
+
+        return profile.ToProtoValue();
+    }
 }

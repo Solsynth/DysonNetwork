@@ -2,7 +2,9 @@ using System.Text.Json;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
-public class WebSocketPacketType
+namespace DysonNetwork.Pusher.Connection;
+
+public abstract class WebSocketPacketType
 {
     public const string Error = "error";
     public const string MessageNew = "messages.new";
@@ -31,7 +33,7 @@ public class WebSocketPacket
             DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
         };
         return JsonSerializer.Deserialize<WebSocketPacket>(json, jsonOpts) ??
-            throw new JsonException("Failed to deserialize WebSocketPacket");
+               throw new JsonException("Failed to deserialize WebSocketPacket");
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using OtpNet;
 
 namespace DysonNetwork.Pass.Account;
@@ -29,6 +30,30 @@ public class Account : ModelBase
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
+
+    public Shared.Proto.Account ToProtoValue()
+    {
+        var proto = new Shared.Proto.Account
+        {
+            Id = Id.ToString(),
+            Name = Name,
+            Nick = Nick,
+            Language = Language,
+            ActivatedAt = ActivatedAt?.ToTimestamp(),
+            IsSuperuser = IsSuperuser,
+            Profile = Profile.ToProtoValue()
+        };
+
+        // Add contacts
+        foreach (var contact in Contacts)
+            proto.Contacts.Add(contact.ToProtoValue());
+
+        // Add badges
+        foreach (var badge in Badges)
+            proto.Badges.Add(badge.ToProtoValue());
+
+        return proto;
+    }
 }
 
 public abstract class Leveling
@@ -88,6 +113,36 @@ public class AccountProfile : ModelBase
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
+
+    public Shared.Proto.AccountProfile ToProtoValue()
+    {
+        var proto = new Shared.Proto.AccountProfile
+        {
+            Id = Id.ToString(),
+            FirstName = FirstName ?? string.Empty,
+            MiddleName = MiddleName ?? string.Empty,
+            LastName = LastName ?? string.Empty,
+            Bio = Bio ?? string.Empty,
+            Gender = Gender ?? string.Empty,
+            Pronouns = Pronouns ?? string.Empty,
+            TimeZone = TimeZone ?? string.Empty,
+            Location = Location ?? string.Empty,
+            Birthday = Birthday?.ToTimestamp(),
+            LastSeenAt = LastSeenAt?.ToTimestamp(),
+            Experience = Experience,
+            Level = Level,
+            LevelingProgress = LevelingProgress,
+            PictureId = PictureId ?? string.Empty,
+            BackgroundId = BackgroundId ?? string.Empty,
+            Picture = Picture?.ToProtoValue(),
+            Background = Background?.ToProtoValue(),
+            AccountId = AccountId.ToString(),
+            Verification = Verification?.ToProtoValue(),
+            ActiveBadge = ActiveBadge?.ToProtoValue()
+        };
+
+        return proto;
+    }
 }
 
 public class AccountContact : ModelBase
@@ -100,6 +155,27 @@ public class AccountContact : ModelBase
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account Account { get; set; } = null!;
+
+    public Shared.Proto.AccountContact ToProtoValue()
+    {
+        var proto = new Shared.Proto.AccountContact
+        {
+            Id = Id.ToString(),
+            Type = Type switch
+            {
+                AccountContactType.Email => Shared.Proto.AccountContactType.Email,
+                AccountContactType.PhoneNumber => Shared.Proto.AccountContactType.PhoneNumber,
+                AccountContactType.Address => Shared.Proto.AccountContactType.Address,
+                _ => Shared.Proto.AccountContactType.Unspecified
+            },
+            Content = Content,
+            IsPrimary = IsPrimary,
+            VerifiedAt = VerifiedAt?.ToTimestamp(),
+            AccountId = AccountId.ToString()
+        };
+
+        return proto;
+    }
 }
 
 public enum AccountContactType

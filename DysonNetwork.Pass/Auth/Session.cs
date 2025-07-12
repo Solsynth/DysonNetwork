@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Pass;
 using DysonNetwork.Shared.Data;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using Point = NetTopologySuite.Geometries.Point;
 
 namespace DysonNetwork.Pass.Auth;
@@ -21,6 +22,18 @@ public class AuthSession : ModelBase
     public AuthChallenge Challenge { get; set; } = null!;
     public Guid? AppId { get; set; }
     // public CustomApp? App { get; set; }
+
+    public Shared.Proto.AuthSession ToProtoValue() => new()
+    {
+        Id = Id.ToString(),
+        Label = Label,
+        LastGrantedAt = LastGrantedAt?.ToTimestamp(),
+        ExpiredAt = ExpiredAt?.ToTimestamp(),
+        AccountId = AccountId.ToString(),
+        ChallengeId = ChallengeId.ToString(),
+        Challenge = Challenge.ToProtoValue(),
+        AppId = AppId?.ToString()
+    };
 }
 
 public enum ChallengeType
@@ -67,4 +80,23 @@ public class AuthChallenge : ModelBase
         if (StepRemain == 0 && BlacklistFactors.Count == 0) StepRemain = StepTotal;
         return this;
     }
+
+    public Shared.Proto.AuthChallenge ToProtoValue() => new()
+    {
+        Id = Id.ToString(),
+        ExpiredAt = ExpiredAt?.ToTimestamp(),
+        StepRemain = StepRemain,
+        StepTotal = StepTotal,
+        FailedAttempts = FailedAttempts,
+        Platform = (Shared.Proto.ChallengePlatform)Platform,
+        Type = (Shared.Proto.ChallengeType)Type,
+        BlacklistFactors = { BlacklistFactors.Select(x => x.ToString()) },
+        Audiences = { Audiences },
+        Scopes = { Scopes },
+        IpAddress = IpAddress,
+        UserAgent = UserAgent,
+        DeviceId = DeviceId,
+        Nonce = Nonce,
+        AccountId = AccountId.ToString()
+    };
 }
