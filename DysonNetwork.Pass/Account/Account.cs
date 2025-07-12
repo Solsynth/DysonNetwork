@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using OtpNet;
@@ -19,12 +20,12 @@ public class Account : ModelBase
 
     public Profile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();
-    public ICollection<Badge> Badges { get; set; } = new List<Badge>();
+    public ICollection<AccountBadge> Badges { get; set; } = new List<AccountBadge>();
 
     [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = new List<AccountAuthFactor>();
     [JsonIgnore] public ICollection<AccountConnection> Connections { get; set; } = new List<AccountConnection>();
-    [JsonIgnore] public ICollection<Auth.Session> Sessions { get; set; } = new List<Auth.Session>();
-    [JsonIgnore] public ICollection<Auth.Challenge> Challenges { get; set; } = new List<Auth.Challenge>();
+    [JsonIgnore] public ICollection<Auth.AuthSession> Sessions { get; set; } = new List<Auth.AuthSession>();
+    [JsonIgnore] public ICollection<Auth.AuthChallenge> Challenges { get; set; } = new List<Auth.AuthChallenge>();
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();

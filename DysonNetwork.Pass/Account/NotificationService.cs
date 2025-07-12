@@ -9,9 +9,9 @@ namespace DysonNetwork.Pass.Account;
 
 public class NotificationService(
     AppDatabase db,
-    WebSocketService ws,
     IHttpClientFactory httpFactory,
-    IConfiguration config)
+    IConfiguration config
+)
 {
     private readonly string _notifyTopic = config["Notifications:Topic"]!;
     private readonly Uri _notifyEndpoint = new(config["Notifications:Endpoint"]!);
@@ -31,7 +31,7 @@ public class NotificationService(
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        
+
         // First check if a matching subscription exists
         var existingSubscription = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == account.Id)
@@ -110,12 +110,6 @@ public class NotificationService(
 
     public async Task DeliveryNotification(Notification notification)
     {
-        ws.SendPacketToAccount(notification.AccountId, new WebSocketPacket
-        {
-            Type = "notifications.new",
-            Data = notification
-        });
-
         // Pushing the notification
         var subscribers = await db.NotificationPushSubscriptions
             .Where(s => s.AccountId == notification.AccountId)
@@ -164,11 +158,6 @@ public class NotificationService(
         {
             notification.Account = account;
             notification.AccountId = account.Id;
-            ws.SendPacketToAccount(account.Id, new WebSocketPacket
-            {
-                Type = "notifications.new",
-                Data = notification
-            });
         }
 
         var subscribers = await db.NotificationPushSubscriptions
@@ -202,11 +191,6 @@ public class NotificationService(
         {
             notification.Account = account;
             notification.AccountId = account.Id;
-            ws.SendPacketToAccount(account.Id, new WebSocketPacket
-            {
-                Type = "notifications.new",
-                Data = notification
-            });
         }
 
         var accountsId = accounts.Select(x => x.Id).ToList();

@@ -114,7 +114,7 @@ public class OidcProviderController(
     public async Task<IActionResult> GetUserInfo()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         // Get requested scopes from the token
         var scopes = currentSession.Challenge.Scopes;

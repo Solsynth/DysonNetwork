@@ -27,7 +27,7 @@ public class AuthController(
     }
 
     [HttpPost("challenge")]
-    public async Task<ActionResult<Challenge>> StartChallenge([FromBody] ChallengeRequest request)
+    public async Task<ActionResult<AuthChallenge>> StartChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
@@ -47,7 +47,7 @@ public class AuthController(
             .FirstOrDefaultAsync();
         if (existingChallenge is not null) return existingChallenge;
 
-        var challenge = new Challenge
+        var challenge = new AuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
             StepTotal = await auth.DetectChallengeRisk(Request, account),
@@ -72,7 +72,7 @@ public class AuthController(
     }
 
     [HttpGet("challenge/{id:guid}")]
-    public async Task<ActionResult<Challenge>> GetChallenge([FromRoute] Guid id)
+    public async Task<ActionResult<AuthChallenge>> GetChallenge([FromRoute] Guid id)
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
@@ -132,7 +132,7 @@ public class AuthController(
     }
 
     [HttpPatch("challenge/{id:guid}")]
-    public async Task<ActionResult<Challenge>> DoChallenge(
+    public async Task<ActionResult<AuthChallenge>> DoChallenge(
         [FromRoute] Guid id,
         [FromBody] PerformChallengeRequest request
     )
@@ -236,7 +236,7 @@ public class AuthController(
                 if (session is not null)
                     return BadRequest("Session already exists for this challenge.");
 
-                session = new Session
+                session = new AuthSession
                 {
                     LastGrantedAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
                     ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(30)),

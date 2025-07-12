@@ -7,7 +7,7 @@ public class CompactTokenService(IConfiguration config)
     private readonly string _privateKeyPath = config["AuthToken:PrivateKeyPath"] 
         ?? throw new InvalidOperationException("AuthToken:PrivateKeyPath configuration is missing");
     
-    public string CreateToken(Session session)
+    public string CreateToken(AuthSession session)
     {
         // Load the private key for signing
         var privateKeyPem = File.ReadAllText(_privateKeyPath);

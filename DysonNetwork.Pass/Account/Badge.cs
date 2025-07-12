@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using NodaTime;
 
 namespace DysonNetwork.Pass.Account;
 
-public class Badge : ModelBase
+public class AccountBadge : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string Type { get; set; } = null!;

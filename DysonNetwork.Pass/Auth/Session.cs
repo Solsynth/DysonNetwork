@@ -2,12 +2,13 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Pass;
+using DysonNetwork.Shared.Data;
 using NodaTime;
 using Point = NetTopologySuite.Geometries.Point;
 
 namespace DysonNetwork.Pass.Auth;
 
-public class Session : ModelBase
+public class AuthSession : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string? Label { get; set; }
@@ -17,7 +18,7 @@ public class Session : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
     public Guid ChallengeId { get; set; }
-    public Challenge Challenge { get; set; } = null!;
+    public AuthChallenge Challenge { get; set; } = null!;
     public Guid? AppId { get; set; }
     // public CustomApp? App { get; set; }
 }
@@ -40,7 +41,7 @@ public enum ChallengePlatform
     Linux
 }
 
-public class Challenge : ModelBase
+public class AuthChallenge : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Instant? ExpiredAt { get; set; }
@@ -61,7 +62,7 @@ public class Challenge : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
-    public Challenge Normalize()
+    public AuthChallenge Normalize()
     {
         if (StepRemain == 0 && BlacklistFactors.Count == 0) StepRemain = StepTotal;
         return this;

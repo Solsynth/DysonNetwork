@@ -187,7 +187,7 @@ public abstract class OidcService(
     /// Creates a challenge and session for an authenticated user
     /// Also creates or updates the account connection
     /// </summary>
-    public async Task<Challenge> CreateChallengeForUserAsync(
+    public async Task<AuthChallenge> CreateChallengeForUserAsync(
         OidcUserInfo userInfo,
         Account.Account account,
         HttpContext request,
@@ -217,7 +217,7 @@ public abstract class OidcService(
 
         // Create a challenge that's already completed
         var now = SystemClock.Instance.GetCurrentInstant();
-        var challenge = new Challenge
+        var challenge = new AuthChallenge
         {
             ExpiredAt = now.Plus(Duration.FromHours(1)),
             StepTotal = await auth.DetectChallengeRisk(request.Request, account),

@@ -65,7 +65,7 @@ public class DysonTokenAuthHandler(
                 return AuthenticateResult.Fail("Invalid token.");
 
             // Try to get session from cache first
-            var session = await cache.GetAsync<Session>($"{AuthCachePrefix}{sessionId}");
+            var session = await cache.GetAsync<AuthSession>($"{AuthCachePrefix}{sessionId}");
 
             // If not in cache, load from database
             if (session is null)

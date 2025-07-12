@@ -1,12 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass;
-using DysonNetwork.Pass.Storage;
+using DysonNetwork.Pass.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Org.BouncyCastle.Utilities;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -16,7 +14,6 @@ namespace DysonNetwork.Pass.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
-    FileReferenceService fileRefService,
     AccountEventService events,
     AuthService auth
 ) : ControllerBase
@@ -97,58 +94,12 @@ public class AccountCurrentController(
 
         if (request.PictureId is not null)
         {
-            var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
-            if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
-
-            var profileResourceId = $"profile:{profile.Id}";
-
-            // Remove old references for the profile picture
-            if (profile.Picture is not null)
-            {
-                var oldPictureRefs =
-                    await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.picture");
-                foreach (var oldRef in oldPictureRefs)
-                {
-                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
-                }
-            }
-
-            profile.Picture = picture.ToReferenceObject();
-
-            // Create new reference
-            await fileRefService.CreateReferenceAsync(
-                picture.Id,
-                "profile.picture",
-                profileResourceId
-            );
+           // TODO: Create reference, set profile picture
         }
 
         if (request.BackgroundId is not null)
         {
-            var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
-            if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-
-            var profileResourceId = $"profile:{profile.Id}";
-
-            // Remove old references for the profile background
-            if (profile.Background is not null)
-            {
-                var oldBackgroundRefs =
-                    await fileRefService.GetResourceReferencesAsync(profileResourceId, "profile.background");
-                foreach (var oldRef in oldBackgroundRefs)
-                {
-                    await fileRefService.DeleteReferenceAsync(oldRef.Id);
-                }
-            }
-
-            profile.Background = background.ToReferenceObject();
-
-            // Create new reference
-            await fileRefService.CreateReferenceAsync(
-                background.Id,
-                "profile.background",
-                profileResourceId
-            );
+            // TODO: Create reference, set profile background
         }
 
         db.Update(profile);
@@ -438,7 +389,7 @@ public class AccountCurrentController(
         public string UserAgent { get; set; } = null!;
         public string DeviceId { get; set; } = null!;
         public ChallengePlatform Platform { get; set; }
-        public List<Session> Sessions { get; set; } = [];
+        public List<AuthSession> Sessions { get; set; } = [];
     }
 
     [HttpGet("devices")]
@@ -446,7 +397,7 @@ public class AccountCurrentController(
     public async Task<ActionResult<List<AuthorizedDevice>>> GetDevices()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
@@ -475,13 +426,13 @@ public class AccountCurrentController(
 
     [HttpGet("sessions")]
     [Authorize]
-    public async Task<ActionResult<List<Session>>> GetSessions(
+    public async Task<ActionResult<List<AuthSession>>> GetSessions(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         var query = db.AuthSessions
             .Include(session => session.Account)
@@ -503,7 +454,7 @@ public class AccountCurrentController(
 
     [HttpDelete("sessions/{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<Session>> DeleteSession(Guid id)
+    public async Task<ActionResult<AuthSession>> DeleteSession(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -520,10 +471,10 @@ public class AccountCurrentController(
 
     [HttpDelete("sessions/current")]
     [Authorize]
-    public async Task<ActionResult<Session>> DeleteCurrentSession()
+    public async Task<ActionResult<AuthSession>> DeleteCurrentSession()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         try
         {
@@ -537,7 +488,7 @@ public class AccountCurrentController(
     }
 
     [HttpPatch("sessions/{id:guid}/label")]
-    public async Task<ActionResult<Session>> UpdateSessionLabel(Guid id, [FromBody] string label)
+    public async Task<ActionResult<AuthSession>> UpdateSessionLabel(Guid id, [FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -553,10 +504,10 @@ public class AccountCurrentController(
     }
 
     [HttpPatch("sessions/current/label")]
-    public async Task<ActionResult<Session>> UpdateCurrentSessionLabel([FromBody] string label)
+    public async Task<ActionResult<AuthSession>> UpdateCurrentSessionLabel([FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not Session currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         try
         {
@@ -672,9 +623,9 @@ public class AccountCurrentController(
     }
 
     [HttpGet("badges")]
-    [ProducesResponseType<List<Badge>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<List<AccountBadge>>(StatusCodes.Status200OK)]
     [Authorize]
-    public async Task<ActionResult<List<Badge>>> GetBadges()
+    public async Task<ActionResult<List<AccountBadge>>> GetBadges()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -686,7 +637,7 @@ public class AccountCurrentController(
 
     [HttpPost("badges/{id:guid}/active")]
     [Authorize]
-    public async Task<ActionResult<Badge>> ActivateBadge(Guid id)
+    public async Task<ActionResult<AccountBadge>> ActivateBadge(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 

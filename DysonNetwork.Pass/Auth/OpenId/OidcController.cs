@@ -68,7 +68,7 @@ public class OidcController(
     /// Handles Apple authentication directly from mobile apps
     /// </summary>
     [HttpPost("apple/mobile")]
-    public async Task<ActionResult<Challenge>> AppleMobileLogin(
+    public async Task<ActionResult<AuthChallenge>> AppleMobileLogin(
         [FromBody] AppleMobileSignInRequest request)
     {
         try

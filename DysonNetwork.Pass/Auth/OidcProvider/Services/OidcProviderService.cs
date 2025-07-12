@@ -37,7 +37,7 @@ public class OidcProviderService(
             .FirstOrDefaultAsync(c => c.Id == appId);
     }
 
-    public async Task<Session?> FindValidSessionAsync(Guid accountId, Guid clientId)
+    public async Task<AuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -76,7 +76,7 @@ public class OidcProviderService(
         if (client == null)
             throw new InvalidOperationException("Client not found");
 
-        Session session;
+        AuthSession session;
         var clock = SystemClock.Instance;
         var now = clock.GetCurrentInstant();
 
@@ -126,7 +126,7 @@ public class OidcProviderService(
 
     private string GenerateJwtToken(
         CustomApp client,
-        Session session,
+        AuthSession session,
         Instant expiresAt,
         IEnumerable<string>? scopes = null
     )
@@ -199,7 +199,7 @@ public class OidcProviderService(
         }
     }
 
-    public async Task<Session?> FindSessionByIdAsync(Guid sessionId)
+    public async Task<AuthSession?> FindSessionByIdAsync(Guid sessionId)
     {
         return await db.AuthSessions
             .Include(s => s.Account)
@@ -208,7 +208,7 @@ public class OidcProviderService(
             .FirstOrDefaultAsync(s => s.Id == sessionId);
     }
 
-    private static string GenerateRefreshToken(Session session)
+    private static string GenerateRefreshToken(AuthSession session)
     {
         return Convert.ToBase64String(session.Id.ToByteArray());
     }
@@ -221,7 +221,7 @@ public class OidcProviderService(
     }
 
     public async Task<string> GenerateAuthorizationCodeForReuseSessionAsync(
-        Session session,
+        AuthSession session,
         Guid clientId,
         string redirectUri,
         IEnumerable<string> scopes,

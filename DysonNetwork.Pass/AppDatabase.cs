@@ -3,6 +3,8 @@ using System.Reflection;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -10,18 +12,6 @@ using NodaTime;
 using Quartz;
 
 namespace DysonNetwork.Pass;
-
-public interface IIdentifiedResource
-{
-    public string ResourceIdentifier { get; }
-}
-
-public abstract class ModelBase
-{
-    public Instant CreatedAt { get; set; }
-    public Instant UpdatedAt { get; set; }
-    public Instant? DeletedAt { get; set; }
-}
 
 public class AppDatabase(
     DbContextOptions<AppDatabase> options,
@@ -43,12 +33,19 @@ public class AppDatabase(
     public DbSet<CheckInResult> AccountCheckInResults { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
-    public DbSet<Badge> Badges { get; set; }
+    public DbSet<AccountBadge> Badges { get; set; }
     public DbSet<ActionLog> ActionLogs { get; set; }
     public DbSet<AbuseReport> AbuseReports { get; set; }
 
-    public DbSet<Session> AuthSessions { get; set; }
-    public DbSet<Challenge> AuthChallenges { get; set; }
+    public DbSet<AuthSession> AuthSessions { get; set; }
+    public DbSet<AuthChallenge> AuthChallenges { get; set; }
+    
+    public DbSet<Wallet.Wallet> Wallets { get; set; }
+    public DbSet<WalletPocket> WalletPockets { get; set; }
+    public DbSet<Order> PaymentOrders { get; set; }
+    public DbSet<Transaction> PaymentTransactions { get; set; }
+    public DbSet<Subscription> WalletSubscriptions { get; set; }
+    public DbSet<Coupon> WalletCoupons { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

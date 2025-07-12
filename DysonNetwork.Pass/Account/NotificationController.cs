@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass;
+using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -69,7 +70,7 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
         if (currentUser == null) return Unauthorized();
-        var currentSession = currentSessionValue as Session;
+        var currentSession = currentSessionValue as AuthSession;
         if (currentSession == null) return Unauthorized();
 
         var result =
@@ -87,7 +88,7 @@ public class NotificationController(AppDatabase db, NotificationService nty) : C
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
         if (currentUser == null) return Unauthorized();
-        var currentSession = currentSessionValue as Session;
+        var currentSession = currentSessionValue as AuthSession;
         if (currentSession == null) return Unauthorized();
 
         var affectedRows = await db.NotificationPushSubscriptions

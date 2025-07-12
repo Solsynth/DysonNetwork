@@ -1,0 +1,27 @@
+@using DysonNetwork.Pass.Localization
+@using Microsoft.Extensions.Localization
+@using EmailResource = DysonNetwork.Pass.Localization.EmailResource
+
+<EmailLayout>
+    <tr>
+        <td class="wrapper">
+            <p class="font-bold">@(Localizer["VerificationHeader1"])</p>
+            <p>@(Localizer["VerificationPara1"]) @@@Name,</p>
+            <p>@(Localizer["VerificationPara2"])</p>
+            <p>@(Localizer["VerificationPara3"])</p>
+
+            <p class="verification-code">@Code</p>
+
+            <p>@(Localizer["VerificationPara4"])</p>
+            <p>@(Localizer["VerificationPara5"])</p>
+        </td>
+    </tr>
+</EmailLayout>
+
+@code {
+    [Parameter] public required string Name { get; set; }
+    [Parameter] public required string Code { get; set; }
+
+    [Inject] IStringLocalizer<EmailResource> Localizer { get; set; } = null!;
+    [Inject] IStringLocalizer<SharedResource> LocalizerShared { get; set; } = null!;
+}

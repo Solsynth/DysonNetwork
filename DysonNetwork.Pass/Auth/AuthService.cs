@@ -73,9 +73,9 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<Session> CreateSessionForOidcAsync(Account.Account account, Instant time, Guid? customAppId = null)
+    public async Task<AuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time, Guid? customAppId = null)
     {
-        var challenge = new Challenge
+        var challenge = new AuthChallenge
         {
             AccountId = account.Id,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
@@ -85,7 +85,7 @@ public class AuthService(
             Type = customAppId is not null ? ChallengeType.OAuth : ChallengeType.Oidc
         };
 
-        var session = new Session
+        var session = new AuthSession
         {
             AccountId = account.Id,
             CreatedAt = time,
@@ -154,7 +154,7 @@ public class AuthService(
         }
     }
 
-    public string CreateToken(Session session)
+    public string CreateToken(AuthSession session)
     {
         // Load the private key for signing
         var privateKeyPem = File.ReadAllText(config["AuthToken:PrivateKeyPath"]!);
@@ -183,7 +183,7 @@ public class AuthService(
         return $"{payloadBase64}.{signatureBase64}";
     }
 
-    public async Task<bool> ValidateSudoMode(Session session, string? pinCode)
+    public async Task<bool> ValidateSudoMode(AuthSession session, string? pinCode)
     {
         // Check if the session is already in sudo mode (cached)
         var sudoModeKey = $"accounts:{session.Id}:sudo";

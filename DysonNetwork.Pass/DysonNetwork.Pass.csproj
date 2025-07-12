@@ -39,4 +39,73 @@
       <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>NotificationResource.resx</DependentUpon>
+      </Compile>
+      <Compile Update="Resources\Localization\SharedResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>SharedResource.resx</DependentUpon>
+      </Compile>
+      <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>NotificationResource.resx</DependentUpon>
+      </Compile>
+      <Compile Update="Resources\Localization\SharedResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>SharedResource.resx</DependentUpon>
+      </Compile>
+      <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>AccountEventResource.resx</DependentUpon>
+      </Compile>
+      <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>AccountEventResource.resx</DependentUpon>
+      </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Update="Resources\Localization\EmailResource.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>Email.LandingResource.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+      <EmbeddedResource Update="Resources\Localization\NotificationResource.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>NotificationResource.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+      <EmbeddedResource Update="Resources\Localization\SharedResource.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+      <EmbeddedResource Update="Resources\Localization\AccountEventResource.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup>
+      <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor" />
+      <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor" />
+      <AdditionalFiles Include="Pages\Emails\EmailLayout.razor" />
+      <AdditionalFiles Include="Pages\Emails\LandingEmail.razor" />
+      <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor" />
+      <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor" />
+      <AdditionalFiles Include="Resources\Localization\AccountEventResource.resx" />
+      <AdditionalFiles Include="Resources\Localization\AccountEventResource.zh-hans.resx" />
+      <AdditionalFiles Include="Resources\Localization\EmailResource.resx" />
+      <AdditionalFiles Include="Resources\Localization\EmailResource.zh-hans.resx" />
+      <AdditionalFiles Include="Resources\Localization\NotificationResource.resx" />
+      <AdditionalFiles Include="Resources\Localization\NotificationResource.zh-hans.resx" />
+      <AdditionalFiles Include="Resources\Localization\SharedResource.resx" />
+      <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx" />
+    </ItemGroup>
+
 </Project>

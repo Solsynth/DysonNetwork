@@ -1,21 +1,16 @@
 using System.Globalization;
-using DysonNetwork.Pass;
-using DysonNetwork.Pass.Connection;
-using DysonNetwork.Pass.Storage;
 using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Cache;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Localization;
 using NodaTime;
-using Org.BouncyCastle.Asn1.X509;
 
 namespace DysonNetwork.Pass.Account;
 
 public class AccountEventService(
     AppDatabase db,
-    WebSocketService ws,
-    ICacheService cache,
     PaymentService payment,
+    ICacheService cache,
     IStringLocalizer<Localization.AccountEventResource> localizer
 )
 {
@@ -34,7 +29,7 @@ public class AccountEventService(
         var cachedStatus = await cache.GetAsync<Status>(cacheKey);
         if (cachedStatus is not null)
         {
-            cachedStatus!.IsOnline = !cachedStatus.IsInvisible && ws.GetAccountIsConnected(userId);
+            cachedStatus!.IsOnline = !cachedStatus.IsInvisible; // && ws.GetAccountIsConnected(userId);
             return cachedStatus;
         }
 
@@ -44,7 +39,7 @@ public class AccountEventService(
             .Where(e => e.ClearedAt == null || e.ClearedAt > now)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
-        var isOnline = ws.GetAccountIsConnected(userId);
+        var isOnline = false; // TODO: Get connection status
         if (status is not null)
         {
             status.IsOnline = !status.IsInvisible && isOnline;
@@ -65,7 +60,7 @@ public class AccountEventService(
             };
         }
 
-                return new Status
+        return new Status
         {
             Attitude = StatusAttitude.Neutral,
             IsOnline = false,
@@ -86,7 +81,7 @@ public class AccountEventService(
             var cachedStatus = await cache.GetAsync<Status>(cacheKey);
             if (cachedStatus != null)
             {
-                cachedStatus.IsOnline = !cachedStatus.IsInvisible && ws.GetAccountIsConnected(userId);
+                cachedStatus.IsOnline = !cachedStatus.IsInvisible /* && ws.GetAccountIsConnected(userId) */;
                 results[userId] = cachedStatus;
             }
             else
@@ -109,7 +104,7 @@ public class AccountEventService(
 
             foreach (var status in statusesFromDb)
             {
-                var isOnline = ws.GetAccountIsConnected(status.AccountId);
+                var isOnline = false; // ws.GetAccountIsConnected(status.AccountId);
                 status.IsOnline = !status.IsInvisible && isOnline;
                 results[status.AccountId] = status;
                 var cacheKey = $"{StatusCacheKey}{status.AccountId}";
@@ -122,7 +117,7 @@ public class AccountEventService(
             {
                 foreach (var userId in usersWithoutStatus)
                 {
-                    var isOnline = ws.GetAccountIsConnected(userId);
+                    var isOnline = false; // ws.GetAccountIsConnected(userId);
                     var defaultStatus = new Status
                     {
                         Attitude = StatusAttitude.Neutral,
@@ -198,11 +193,11 @@ public class AccountEventService(
     public async Task<CheckInResult> CheckInDaily(Account user)
     {
         var lockKey = $"{CheckInLockKey}{user.Id}";
-        
+
         try
         {
             var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(100));
-            
+
             if (lk != null)
                 await lk.ReleaseAsync();
         }
@@ -210,9 +205,10 @@ public class AccountEventService(
         {
             // Ignore errors from this pre-check
         }
-        
+
         // Now try to acquire the lock properly
-        await using var lockObj = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5));
+        await using var lockObj =
+            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5));
         if (lockObj is null) throw new InvalidOperationException("Check-in was in progress.");
 
         var cultureInfo = new CultureInfo(user.Language, false);
@@ -274,7 +270,7 @@ public class AccountEventService(
                 s.SetProperty(b => b.Experience, b => b.Experience + result.RewardExperience)
             );
         db.AccountCheckInResults.Add(result);
-        await db.SaveChangesAsync();  // Don't forget to save changes to the database
+        await db.SaveChangesAsync(); // Don't forget to save changes to the database
 
         // The lock will be automatically released by the await using statement
         return result;

@@ -1,16 +1,14 @@
 using System.Globalization;
-using DysonNetwork.Pass;
+using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Auth.OpenId;
 using DysonNetwork.Pass.Email;
-
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Permission;
-using DysonNetwork.Pass.Storage;
+using DysonNetwork.Shared.Cache;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
-using Org.BouncyCastle.Utilities;
 using OtpNet;
 
 namespace DysonNetwork.Pass.Account;
@@ -454,7 +452,7 @@ public class AccountService(
         );
     }
 
-    public async Task<Session> UpdateSessionLabel(Account account, Guid sessionId, string label)
+    public async Task<AuthSession> UpdateSessionLabel(Account account, Guid sessionId, string label)
     {
         var session = await db.AuthSessions
             .Include(s => s.Challenge)
@@ -574,7 +572,7 @@ public class AccountService(
     /// This method will grant a badge to the account.
     /// Shouldn't be exposed to normal user and the user itself.
     /// </summary>
-    public async Task<Badge> GrantBadge(Account account, Badge badge)
+    public async Task<AccountBadge> GrantBadge(Account account, AccountBadge badge)
     {
         badge.AccountId = account.Id;
         db.Badges.Add(badge);
