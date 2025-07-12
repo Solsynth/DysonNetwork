@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Pass;
+using DysonNetwork.Pass.Developer;
 using DysonNetwork.Shared.Data;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -21,7 +22,7 @@ public class AuthSession : ModelBase
     public Guid ChallengeId { get; set; }
     public AuthChallenge Challenge { get; set; } = null!;
     public Guid? AppId { get; set; }
-    // public CustomApp? App { get; set; }
+    public CustomApp? App { get; set; }
 
     public Shared.Proto.AuthSession ToProtoValue() => new()
     {

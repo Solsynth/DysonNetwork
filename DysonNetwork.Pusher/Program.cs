@@ -23,6 +23,8 @@ builder.Services.AddAppBusinessServices();
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
 
+builder.Services.AddHostedService<ServiceRegistrationHostedService>();
+
 var app = builder.Build();
 
 // Run database migrations
@@ -34,6 +36,8 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
+
+app.UseMiddleware<DysonNetwork.Shared.Middleware.AuthMiddleware>();
 
 // Configure gRPC
 app.ConfigureGrpcServices();

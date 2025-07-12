@@ -1,6 +1,7 @@
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Startup;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,7 @@ builder.ConfigureAppKestrel();
 builder.Services.AddAppMetrics();
 
 // Add application services
+builder.Services.AddEtcdService(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
@@ -25,6 +27,8 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
+
+builder.Services.AddHostedService<ServiceRegistrationHostedService>();
 
 var app = builder.Build();
 
