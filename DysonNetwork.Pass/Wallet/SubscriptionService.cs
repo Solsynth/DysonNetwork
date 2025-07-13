@@ -1,11 +1,14 @@
 using System.Text.Json;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using AccountService = DysonNetwork.Pass.Account.AccountService;
+using Duration = NodaTime.Duration;
 
 namespace DysonNetwork.Pass.Wallet;
 
@@ -13,7 +16,7 @@ public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
     AccountService accounts,
-    NotificationService nty,
+    PusherService.PusherServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
     ICacheService cache,
@@ -352,15 +355,19 @@ public class SubscriptionService(
             ? subscription.EndedAt.Value.Minus(subscription.BegunAt).Days.ToString()
             : "infinite";
 
-        await nty.SendNotification(
-            account,
-            "subscriptions.begun",
-            localizer["SubscriptionAppliedTitle", humanReadableName],
-            null,
-            localizer["SubscriptionAppliedBody", duration, humanReadableName],
-            new Dictionary<string, object>()
+        var notification = new PushNotification
+        {
+            Topic = "subscriptions.begun",
+            Title = localizer["SubscriptionAppliedTitle", humanReadableName],
+            Body = localizer["SubscriptionAppliedBody", duration, humanReadableName],
+            IsSavable = false,
+        };
+        notification.Meta.Add("subscription_id", Value.ForString(subscription.Id.ToString()));
+        await pusher.SendPushNotificationToUserAsync(
+            new SendPushNotificationToUserRequest
             {
-                ["subscription_id"] = subscription.Id.ToString(),
+                UserId = account.Id.ToString(),
+                Notification = notification
             }
         );
     }

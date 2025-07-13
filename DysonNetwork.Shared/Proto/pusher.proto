@@ -36,6 +36,12 @@ service PusherService {
 
   // Sends a push notification to a list of users.
   rpc SendPushNotificationToUsers(SendPushNotificationToUsersRequest) returns (google.protobuf.Empty) {}
+
+  // Unsubscribes a device from push notifications.
+  rpc UnsubscribePushNotifications(UnsubscribePushNotificationsRequest) returns (google.protobuf.Empty) {}
+
+  // Gets the WebSocket connection status for a device or user.
+  rpc GetWebsocketConnectionStatus(GetWebsocketConnectionStatusRequest) returns (GetWebsocketConnectionStatusResponse) {}
 }
 
 // Represents an email message.
@@ -107,4 +113,19 @@ message SendPushNotificationToUserRequest {
 message SendPushNotificationToUsersRequest {
     repeated string user_ids = 1;
     PushNotification notification = 2;
+}
+
+message UnsubscribePushNotificationsRequest {
+    string device_id = 1;
+}
+
+message GetWebsocketConnectionStatusRequest {
+    oneof id {
+        string device_id = 1;
+        string user_id = 2;
+    }
+}
+
+message GetWebsocketConnectionStatusResponse {
+    bool is_connected = 1;
 }

@@ -12,14 +12,14 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
     private readonly string _notifyTopic = config["Notifications:Topic"]!;
     private readonly Uri _notifyEndpoint = new(config["Notifications:Endpoint"]!);
 
-    public async Task UnsubscribePushNotifications(string deviceId)
+    public async Task UnsubscribeDevice(string deviceId)
     {
         await db.PushSubscriptions
             .Where(s => s.DeviceId == deviceId)
             .ExecuteDeleteAsync();
     }
 
-    public async Task<PushSubscription> SubscribePushNotification(
+    public async Task<PushSubscription> SubscribeDevice(
         string deviceId,
         string deviceToken,
         PushProvider provider,

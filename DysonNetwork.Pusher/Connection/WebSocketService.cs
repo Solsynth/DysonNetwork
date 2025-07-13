@@ -20,31 +20,6 @@ public class WebSocketService
 
     private static readonly ConcurrentDictionary<string, string> ActiveSubscriptions = new(); // deviceId -> chatRoomId
 
-    public void SubscribeToChatRoom(string chatRoomId, string deviceId)
-    {
-        ActiveSubscriptions[deviceId] = chatRoomId;
-    }
-
-    public void UnsubscribeFromChatRoom(string deviceId)
-    {
-        ActiveSubscriptions.TryRemove(deviceId, out _);
-    }
-
-    public bool IsUserSubscribedToChatRoom(string accountId, string chatRoomId)
-    {
-        var userDeviceIds = ActiveConnections.Keys.Where(k => k.AccountId == accountId).Select(k => k.DeviceId);
-        foreach (var deviceId in userDeviceIds)
-        {
-            if (ActiveSubscriptions.TryGetValue(deviceId, out var subscribedChatRoomId) &&
-                subscribedChatRoomId == chatRoomId)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public bool TryAdd(
         (string AccountId, string DeviceId) key,
         WebSocket socket,
@@ -67,7 +42,11 @@ public class WebSocketService
         );
         data.Cts.Cancel();
         ActiveConnections.TryRemove(key, out _);
-        UnsubscribeFromChatRoom(key.DeviceId);
+    }
+    
+    public bool GetDeviceIsConnected(string deviceId)
+    {
+        return ActiveConnections.Any(c => c.Key.DeviceId == deviceId);
     }
 
     public bool GetAccountIsConnected(string accountId)

@@ -2,7 +2,7 @@ namespace DysonNetwork.Pass.Permission;
 
 using System;
 
-[AttributeUsage(AttributeTargets.Method, Inherited = true)]
+[AttributeUsage(AttributeTargets.Method)]
 public class RequiredPermissionAttribute(string area, string key) : Attribute
 {
     public string Area { get; set; } = area;

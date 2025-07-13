@@ -16,9 +16,9 @@ public static class DysonAuthStartup
         {
             var etcdClient = sp.GetRequiredService<IEtcdClient>();
             var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["ClientCert:Path"];
-            var clientKeyPath = config["ClientKey:Path"];
-            var clientCertPassword = config["ClientCert:Password"];
+            var clientCertPath = config["Service:ClientCert"];
+            var clientKeyPath = config["Service:ClientKey"];
+            var clientCertPassword = config["Service:CertPassword"];
 
             return GrpcClientHelper
                 .CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)

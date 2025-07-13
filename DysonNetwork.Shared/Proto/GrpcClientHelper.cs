@@ -33,17 +33,6 @@ public static class GrpcClientHelper
         return response.Kvs[0].Value.ToStringUtf8();
     }
 
-    public static AccountService.AccountServiceClient CreateAccountServiceClient(
-        string url,
-        string clientCertPath,
-        string clientKeyPath,
-        string? clientCertPassword = null
-    )
-    {
-        return new AccountService.AccountServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
-            clientCertPassword));
-    }
-
     public static async Task<AccountService.AccountServiceClient> CreateAccountServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
@@ -51,19 +40,8 @@ public static class GrpcClientHelper
         string? clientCertPassword = null
     )
     {
-        var url = await GetServiceUrlFromEtcd(etcdClient, "AccountService");
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pass");
         return new AccountService.AccountServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
-            clientCertPassword));
-    }
-
-    public static AuthService.AuthServiceClient CreateAuthServiceClient(
-        string url,
-        string clientCertPath,
-        string clientKeyPath,
-        string? clientCertPassword = null
-    )
-    {
-        return new AuthService.AuthServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
 
@@ -74,19 +52,8 @@ public static class GrpcClientHelper
         string? clientCertPassword = null
     )
     {
-        var url = await GetServiceUrlFromEtcd(etcdClient, "AuthService");
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pass");
         return new AuthService.AuthServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
-            clientCertPassword));
-    }
-
-    public static PusherService.PusherServiceClient CreatePusherServiceClient(
-        string url,
-        string clientCertPath,
-        string clientKeyPath,
-        string? clientCertPassword = null
-    )
-    {
-        return new PusherService.PusherServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
 
@@ -97,7 +64,7 @@ public static class GrpcClientHelper
         string? clientCertPassword = null
     )
     {
-        var url = await GetServiceUrlFromEtcd(etcdClient, "PusherService");
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pusher");
         return new PusherService.PusherServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }

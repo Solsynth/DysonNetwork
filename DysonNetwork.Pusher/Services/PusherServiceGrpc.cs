@@ -9,7 +9,7 @@ namespace DysonNetwork.Pusher.Services;
 
 public class PusherServiceGrpc(
     EmailService emailService,
-    WebSocketService webSocketService,
+    WebSocketService websocket,
     PushService pushService
 ) : PusherService.PusherServiceBase
 {
@@ -32,7 +32,7 @@ public class PusherServiceGrpc(
             Data = request.Packet.Data,
             ErrorMessage = request.Packet.ErrorMessage
         };
-        webSocketService.SendPacketToAccount(request.UserId, packet);
+        websocket.SendPacketToAccount(request.UserId, packet);
         return Task.FromResult(new Empty());
     }
 
@@ -46,7 +46,7 @@ public class PusherServiceGrpc(
             ErrorMessage = request.Packet.ErrorMessage
         };
         foreach (var userId in request.UserIds)
-            webSocketService.SendPacketToAccount(userId, packet);
+            websocket.SendPacketToAccount(userId, packet);
 
         return Task.FromResult(new Empty());
     }
@@ -60,7 +60,7 @@ public class PusherServiceGrpc(
             Data = request.Packet.Data,
             ErrorMessage = request.Packet.ErrorMessage
         };
-        webSocketService.SendPacketToDevice(request.DeviceId, packet);
+        websocket.SendPacketToDevice(request.DeviceId, packet);
         return Task.FromResult(new Empty());
     }
 
@@ -74,7 +74,7 @@ public class PusherServiceGrpc(
             ErrorMessage = request.Packet.ErrorMessage
         };
         foreach (var deviceId in request.DeviceIds)
-            webSocketService.SendPacketToDevice(deviceId, packet);
+            websocket.SendPacketToDevice(deviceId, packet);
 
         return Task.FromResult(new Empty());
     }
@@ -158,5 +158,23 @@ public class PusherServiceGrpc(
         var accounts = request.UserIds.Select(Guid.Parse).ToList();
         await pushService.SendNotificationBatch(notification, accounts, request.Notification.IsSavable);
         return new Empty();
+    }
+
+    public override async Task<Empty> UnsubscribePushNotifications(UnsubscribePushNotificationsRequest request, ServerCallContext context)
+    {
+        await pushService.UnsubscribeDevice(request.DeviceId);
+        return new Empty();
+    }
+
+    public override Task<GetWebsocketConnectionStatusResponse> GetWebsocketConnectionStatus(GetWebsocketConnectionStatusRequest request, ServerCallContext context)
+    {
+        var isConnected = request.IdCase switch
+        {
+            GetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId => websocket.GetDeviceIsConnected(request.DeviceId),
+            GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => websocket.GetAccountIsConnected(request.UserId),
+            _ => false
+        };
+
+        return Task.FromResult(new GetWebsocketConnectionStatusResponse { IsConnected = isConnected });
     }
 }

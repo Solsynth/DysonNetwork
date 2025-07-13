@@ -1,17 +1,18 @@
 using System.Globalization;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Localization;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using AccountService = DysonNetwork.Pass.Account.AccountService;
 
 namespace DysonNetwork.Pass.Wallet;
 
 public class PaymentService(
     AppDatabase db,
     WalletService wat,
-    NotificationService nty,
+    PusherService.PusherServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer
 )
 {
@@ -205,16 +206,19 @@ public class PaymentService(
         var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
         var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
-        await nty.SendNotification(
-            account,
-            "wallets.orders.paid",
-            localizer["OrderPaidTitle", $"#{readableOrderId}"],
-            null,
-            localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture), order.Currency,
-                readableOrderRemark],
-            new Dictionary<string, object>()
+        
+        await pusher.SendPushNotificationToUserAsync(
+            new SendPushNotificationToUserRequest
             {
-                ["order_id"] = order.Id.ToString()
+                UserId = account.Id.ToString(),
+                Notification = new PushNotification
+                {
+                    Topic = "wallets.orders.paid",
+                    Title = localizer["OrderPaidTitle", $"#{readableOrderId}"],
+                    Body = localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture), order.Currency,
+                        readableOrderRemark],
+                    IsSavable = false
+                }
             }
         );
     }

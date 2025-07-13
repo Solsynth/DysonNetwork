@@ -190,7 +190,6 @@ public class NotificationService(
                     Content = notification.Content,
                     Meta = notification.Meta,
                     Priority = notification.Priority,
-                    Account = x,
                     AccountId = x.Id
                 };
                 return newNotification;

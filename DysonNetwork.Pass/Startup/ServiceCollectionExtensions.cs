@@ -19,6 +19,7 @@ using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Pass.Startup;
 
@@ -48,9 +49,8 @@ public static class ServiceCollectionExtensions
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
         
-        // Register gRPC reflection for service discovery
-        services.AddGrpc();
-
+        services.AddPusherService();
+        
         // Register gRPC services
         services.AddScoped<AccountServiceGrpc>();
         services.AddScoped<AuthServiceGrpc>();
@@ -194,7 +194,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActionLogService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
-        services.AddScoped<NotificationService>();
         services.AddScoped<AuthService>();
         services.AddScoped<AccountUsernameService>();
         services.AddScoped<WalletService>();

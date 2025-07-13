@@ -6,18 +6,11 @@ using Microsoft.AspNetCore.Components;
 namespace DysonNetwork.Pass.Email;
 
 public class EmailService(
-    IEtcdClient etcd,
+    PusherService.PusherServiceClient pusher,
     RazorViewRenderer viewRenderer,
-    IConfiguration configuration,
     ILogger<EmailService> logger
 )
 {
-    private readonly PusherService.PusherServiceClient _client = GrpcClientHelper.CreatePusherServiceClient(
-        etcd,
-        configuration["Service:CertPath"]!,
-        configuration["Service:KeyPath"]!
-    ).GetAwaiter().GetResult();
-
     public async Task SendEmailAsync(
         string? recipientName,
         string recipientEmail,
@@ -27,7 +20,7 @@ public class EmailService(
     {
         subject = $"[Solarpass] {subject}";
 
-        await _client.SendEmailAsync(
+        await pusher.SendEmailAsync(
             new SendEmailRequest()
             {
                 Email = new EmailMessage()

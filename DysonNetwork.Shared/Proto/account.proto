@@ -195,6 +195,7 @@ message LevelingInfo {
 service AccountService {
   // Account Operations
   rpc GetAccount(GetAccountRequest) returns (Account) {}
+  rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
   rpc CreateAccount(CreateAccountRequest) returns (Account) {}
   rpc UpdateAccount(UpdateAccountRequest) returns (Account) {}
   rpc DeleteAccount(DeleteAccountRequest) returns (google.protobuf.Empty) {}
@@ -241,6 +242,14 @@ service AccountService {
 // Account Requests/Responses
 message GetAccountRequest {
   string id = 1;  // Account ID to retrieve
+}
+
+message GetAccountBatchRequest {
+  repeated string id = 1;  // Account ID to retrieve
+}
+
+message GetAccountBatchResponse {
+  repeated Account accounts = 1;  // List of accounts
 }
 
 message CreateAccountRequest {

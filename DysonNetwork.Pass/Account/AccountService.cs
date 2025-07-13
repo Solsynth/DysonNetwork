@@ -402,16 +402,17 @@ public class AccountService(
                     return;
                 }
 
-                                await mailer.SendTemplatedEmailAsync<DysonNetwork.Pass.Pages.Emails.VerificationEmail, VerificationEmailModel>(
-                    account.Nick,
-                    contact.Content,
-                    localizer["VerificationEmail"],
-                    new VerificationEmailModel
-                    {
-                        Name = account.Name,
-                        Code = code
-                    }
-                );
+                await mailer
+                    .SendTemplatedEmailAsync<Pages.Emails.VerificationEmail, VerificationEmailModel>(
+                        account.Nick,
+                        contact.Content,
+                        localizer["VerificationEmail"],
+                        new VerificationEmailModel
+                        {
+                            Name = account.Name,
+                            Code = code
+                        }
+                    );
 
                 await _SetFactorCode(factor, code, TimeSpan.FromMinutes(30));
                 break;
@@ -496,7 +497,10 @@ public class AccountService(
             .ToListAsync();
 
         if (session.Challenge.DeviceId is not null)
-            await pusher.UnsubscribePushNotifications(session.Challenge.DeviceId);
+            await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
+            {
+                DeviceId = session.Challenge.DeviceId
+            });
 
         // The current session should be included in the sessions' list
         await db.AuthSessions
@@ -655,7 +659,8 @@ public class AccountService(
 
         if (missingId.Count != 0)
         {
-            var newProfiles = missingId.Select(id => new AccountProfile { Id = Guid.NewGuid(), AccountId = id }).ToList();
+            var newProfiles = missingId.Select(id => new AccountProfile { Id = Guid.NewGuid(), AccountId = id })
+                .ToList();
             await db.BulkInsertAsync(newProfiles);
         }
     }

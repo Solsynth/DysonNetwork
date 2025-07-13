@@ -36,6 +36,24 @@ public class AccountServiceGrpc(
         return account.ToProtoValue();
     }
 
+    public override async Task<GetAccountBatchResponse> GetAccountBatch(GetAccountBatchRequest request, ServerCallContext context)
+    {
+        var accountIds = request.Id
+            .Select(id => Guid.TryParse(id, out var accountId) ? accountId : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => accountIds.Contains(a.Id))
+            .ToListAsync();
+
+        var response = new GetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
     public override async Task<Shared.Proto.Account> CreateAccount(CreateAccountRequest request,
         ServerCallContext context)
     {

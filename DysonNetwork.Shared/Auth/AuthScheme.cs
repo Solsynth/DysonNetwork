@@ -16,10 +16,9 @@ public class DysonTokenAuthHandler(
     IOptionsMonitor<DysonTokenAuthOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    ISystemClock clock,
     AuthService.AuthServiceClient auth
 )
-    : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder, clock)
+    : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
