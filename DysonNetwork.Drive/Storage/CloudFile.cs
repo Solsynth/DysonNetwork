@@ -1,9 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -97,6 +96,46 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     }
 
     public string ResourceIdentifier => $"file/{Id}";
+
+    /// <summary>
+    /// Converts the CloudFile to a protobuf message
+    /// </summary>
+    /// <returns>The protobuf message representation of this object</returns>
+    public Shared.Proto.CloudFile ToProtoValue()
+    {
+        var protoFile = new Shared.Proto.CloudFile
+        {
+            Id = Id,
+            Name = Name ?? string.Empty,
+            MimeType = MimeType ?? string.Empty,
+            Hash = Hash ?? string.Empty,
+            Size = Size,
+            HasCompression = HasCompression,
+            Url = StorageUrl ?? string.Empty,
+            ContentType = MimeType ?? string.Empty,
+            UploadedAt = UploadedAt?.ToTimestamp()
+        };
+
+        // Convert FileMeta dictionary
+        if (FileMeta != null)
+        {
+            foreach (var (key, value) in FileMeta)
+            {
+                protoFile.FileMeta[key] = Google.Protobuf.WellKnownTypes.Value.ForString(value?.ToString() ?? string.Empty);
+            }
+        }
+
+        // Convert UserMeta dictionary
+        if (UserMeta != null)
+        {
+            foreach (var (key, value) in UserMeta)
+            {
+                protoFile.UserMeta[key] = Google.Protobuf.WellKnownTypes.Value.ForString(value?.ToString() ?? string.Empty);
+            }
+        }
+
+        return protoFile;
+    }
 }
 
 public enum ContentSensitiveMark
@@ -128,4 +167,21 @@ public class CloudFileReference : ModelBase
     /// Optional expiration date for the file reference
     /// </summary>
     public Instant? ExpiredAt { get; set; }
+
+    /// <summary>
+    /// Converts the CloudFileReference to a protobuf message
+    /// </summary>
+    /// <returns>The protobuf message representation of this object</returns>
+    public Shared.Proto.CloudFileReference ToProtoValue()
+    {
+        return new Shared.Proto.CloudFileReference
+        {
+            Id = Id.ToString(),
+            FileId = FileId,
+            File = File?.ToProtoValue(),
+            Usage = Usage,
+            ResourceId = ResourceId,
+            ExpiredAt = ExpiredAt?.ToTimestamp()
+        };
+    }
 }

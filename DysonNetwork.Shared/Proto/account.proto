@@ -55,8 +55,8 @@ message AccountProfile {
   google.protobuf.StringValue picture_id = 17;
   google.protobuf.StringValue background_id = 18;
   
-  CloudFileReferenceObject picture = 19;
-  CloudFileReferenceObject background = 20;
+  CloudFile picture = 19;
+  CloudFile background = 20;
   
   string account_id = 21;
 }

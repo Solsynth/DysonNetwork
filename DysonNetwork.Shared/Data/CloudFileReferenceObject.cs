@@ -20,9 +20,9 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
     /// <summary>
     /// Converts the current object to its protobuf representation
     /// </summary>
-    public global::DysonNetwork.Shared.Proto.CloudFileReferenceObject ToProtoValue()
+    public Proto.CloudFile ToProtoValue()
     {
-        var proto = new global::DysonNetwork.Shared.Proto.CloudFileReferenceObject
+        var proto = new Proto.CloudFile
         {
             Id = Id,
             Name = Name,
@@ -30,7 +30,6 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
             Hash = Hash ?? string.Empty,
             Size = Size,
             HasCompression = HasCompression,
-            // Backward compatibility fields
             ContentType = MimeType ?? string.Empty,
             Url = string.Empty // This should be set by the caller if needed
         };
