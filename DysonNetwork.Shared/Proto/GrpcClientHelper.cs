@@ -1,3 +1,4 @@
+using System.Net;
 using Grpc.Net.Client;
 using System.Security.Cryptography.X509Certificates;
 using Grpc.Core;
@@ -16,11 +17,14 @@ public static class GrpcClientHelper
     {
         var handler = new HttpClientHandler();
         handler.ClientCertificates.Add(
-            clientCertPassword is null ?
-            X509Certificate2.CreateFromPemFile(clientCertPath, clientKeyPath) :
-            X509Certificate2.CreateFromEncryptedPemFile(clientCertPath, clientCertPassword, clientKeyPath)
+            clientCertPassword is null
+                ? X509Certificate2.CreateFromPemFile(clientCertPath, clientKeyPath)
+                : X509Certificate2.CreateFromEncryptedPemFile(clientCertPath, clientCertPassword, clientKeyPath)
         );
-        return GrpcChannel.ForAddress(url, new GrpcChannelOptions { HttpHandler = handler }).CreateCallInvoker();
+        var httpClient = new HttpClient(handler);
+        httpClient.DefaultRequestVersion = HttpVersion.Version20;
+        httpClient.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
+        return GrpcChannel.ForAddress(url, new GrpcChannelOptions { HttpClient = httpClient }).CreateCallInvoker();
     }
 
     private static async Task<string> GetServiceUrlFromEtcd(IEtcdClient etcdClient, string serviceName)
@@ -30,6 +34,7 @@ public static class GrpcClientHelper
         {
             throw new InvalidOperationException($"Service '{serviceName}' not found in Etcd.");
         }
+
         return response.Kvs[0].Value.ToStringUtf8();
     }
 

@@ -84,8 +84,8 @@ public static class ServiceCollectionExtensions
             options.SwaggerDoc("v1", new OpenApiInfo
             {
                 Version = "v1",
-                Title = "Solar Network API",
-                Description = "An open-source social network",
+                Title = "Dyson Pusher",
+                Description = "The pusher service of the Dyson Network. Mainly handling emailing, notifications and websockets.",
                 TermsOfService = new Uri("https://solsynth.dev/terms"),
                 License = new OpenApiLicense
                 {

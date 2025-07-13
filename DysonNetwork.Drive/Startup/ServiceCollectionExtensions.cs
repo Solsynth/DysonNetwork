@@ -34,7 +34,7 @@ public static class ServiceCollectionExtensions
             options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
-        
+
         // Register gRPC reflection for service discovery
         services.AddGrpc();
 
@@ -69,7 +69,7 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-    
+
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
@@ -85,9 +85,10 @@ public static class ServiceCollectionExtensions
             options.SwaggerDoc("v1", new OpenApiInfo
             {
                 Version = "v1",
-                Title = "DysonNetwork.Drive API",
-                Description = "DysonNetwork Drive Service",
-                TermsOfService = new Uri("https://example.com/terms"), // Update with actual terms
+                Title = "Dyson Drive",
+                Description =
+                    "The file service of the Dyson Network. Mainly handling file storage and sharing. Also provide image processing and media analysis. Powered the Solar Network Drive as well.",
+                TermsOfService = new Uri("https://solsynth.dev/terms"), // Update with actual terms
                 License = new OpenApiLicense
                 {
                     Name = "APGLv3", // Update with actual license
