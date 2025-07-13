@@ -66,9 +66,4 @@
     <ItemGroup>
       <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Compile Remove="Storage\FileReferenceServiceGrpc.cs" />
-    </ItemGroup>
-
 </Project>
