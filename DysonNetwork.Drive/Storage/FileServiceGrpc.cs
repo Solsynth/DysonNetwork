@@ -15,19 +15,11 @@ namespace DysonNetwork.Drive.Storage
 
         public override async Task<Shared.Proto.CloudFile> UpdateFile(UpdateFileRequest request, ServerCallContext context)
         {
-            // Assuming UpdateFileAsync exists in FileService and handles the update_mask
-            // This is a placeholder, as the current FileService.cs doesn't have a direct UpdateFile method
-            // You might need to implement this logic in FileService based on your needs.
-            // For now, we'll just return the requested file.
             var file = await fileService.GetFileAsync(request.File.Id);
             if (file == null)
-            {
                 throw new RpcException(new Status(StatusCode.NotFound, "File not found"));
-            }
-
-            // Apply updates from request.File to 'file' based on request.UpdateMask
-            // This part requires more detailed implementation based on how you want to handle partial updates.
-            return file.ToProtoValue();
+            var updatedFile = await fileService.UpdateFileAsync(file, request.UpdateMask);
+            return updatedFile.ToProtoValue();
         }
 
         public override async Task<Empty> DeleteFile(DeleteFileRequest request, ServerCallContext context)

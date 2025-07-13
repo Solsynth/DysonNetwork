@@ -3,6 +3,7 @@ using FFMpegCore;
 using System.Security.Cryptography;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 using Microsoft.EntityFrameworkCore;
 using Minio;
 using Minio.DataModel.Args;
@@ -342,6 +343,68 @@ public class FileService(
 
         file.UploadedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
         return file;
+    }
+
+    public async Task<CloudFile> UpdateFileAsync(CloudFile file, FieldMask updateMask)
+    {
+        var existingFile = await db.Files.FirstOrDefaultAsync(f => f.Id == file.Id);
+        if (existingFile == null)
+        {
+            throw new InvalidOperationException($"File with ID {file.Id} not found.");
+        }
+
+        foreach (var path in updateMask.Paths)
+        {
+            switch (path)
+            {
+                case "name":
+                    existingFile.Name = file.Name;
+                    break;
+                case "description":
+                    existingFile.Description = file.Description;
+                    break;
+                case "file_meta":
+                    existingFile.FileMeta = file.FileMeta;
+                    break;
+                case "user_meta":
+                    existingFile.UserMeta = file.UserMeta;
+                    break;
+                case "mime_type":
+                    existingFile.MimeType = file.MimeType;
+                    break;
+                case "hash":
+                    existingFile.Hash = file.Hash;
+                    break;
+                case "size":
+                    existingFile.Size = file.Size;
+                    break;
+                case "uploaded_at":
+                    existingFile.UploadedAt = file.UploadedAt;
+                    break;
+                case "uploaded_to":
+                    existingFile.UploadedTo = file.UploadedTo;
+                    break;
+                case "has_compression":
+                    existingFile.HasCompression = file.HasCompression;
+                    break;
+                case "is_marked_recycle":
+                    existingFile.IsMarkedRecycle = file.IsMarkedRecycle;
+                    break;
+                case "storage_id":
+                    existingFile.StorageId = file.StorageId;
+                    break;
+                case "storage_url":
+                    existingFile.StorageUrl = file.StorageUrl;
+                    break;
+                default:
+                    logger.LogWarning("Attempted to update unknown field: {Field}", path);
+                    break;
+            }
+        }
+
+        await db.SaveChangesAsync();
+        await _PurgeCacheAsync(file.Id);
+        return existingFile;
     }
 
     public async Task DeleteFileAsync(CloudFile file)
