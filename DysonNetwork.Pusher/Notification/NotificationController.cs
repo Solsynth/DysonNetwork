@@ -1,13 +1,11 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Pass;
-using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Pass.Account;
+namespace DysonNetwork.Pusher.Notification;
 
 [ApiController]
 [Route("/api/notifications")]

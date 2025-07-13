@@ -1,33 +1,23 @@
 using dotnet_etcd;
+using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Components;
 
 namespace DysonNetwork.Pass.Email;
 
-public class EmailService
+public class EmailService(
+    IEtcdClient etcd,
+    RazorViewRenderer viewRenderer,
+    IConfiguration configuration,
+    ILogger<EmailService> logger
+)
 {
-    private readonly PusherService.PusherServiceClient _client;
-    private readonly RazorViewRenderer _viewRenderer;
-    private readonly ILogger<EmailService> _logger;
+    private readonly PusherService.PusherServiceClient _client = GrpcClientHelper.CreatePusherServiceClient(
+        etcd,
+        configuration["Service:CertPath"]!,
+        configuration["Service:KeyPath"]!
+    ).GetAwaiter().GetResult();
 
-    public EmailService(
-        EtcdClient etcd,
-        RazorViewRenderer viewRenderer,
-        IConfiguration configuration,
-        ILogger<EmailService> logger,
-        PusherService.PusherServiceClient client
-    )
-    {
-        _client = GrpcClientHelper.CreatePusherServiceClient(
-            etcd,
-            configuration["Service:CertPath"]!,
-            configuration["Service:KeyPath"]!
-        ).GetAwaiter().GetResult();
-        _viewRenderer = viewRenderer;
-        _logger = logger;
-        _client = client;
-    }
-    
     public async Task SendEmailAsync(
         string? recipientName,
         string recipientEmail,
@@ -57,12 +47,12 @@ public class EmailService
     {
         try
         {
-            var htmlBody = await _viewRenderer.RenderComponentToStringAsync<TComponent, TModel>(model);
+            var htmlBody = await viewRenderer.RenderComponentToStringAsync<TComponent, TModel>(model);
             await SendEmailAsync(recipientName, recipientEmail, subject, htmlBody);
         }
         catch (Exception err)
         {
-            _logger.LogError(err, "Failed to render email template...");
+            logger.LogError(err, "Failed to render email template...");
             throw;
         }
     }

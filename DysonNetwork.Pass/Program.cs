@@ -28,8 +28,6 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
 
-builder.Services.AddHostedService<ServiceRegistrationHostedService>();
-
 var app = builder.Build();
 
 // Run database migrations

@@ -1,11 +1,10 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
-using dotnet_etcd.interfaces;
+using DysonNetwork.Pusher.Connection;
 using DysonNetwork.Pusher.Email;
 using DysonNetwork.Pusher.Notification;
 using DysonNetwork.Pusher.Services;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using NodaTime;
@@ -43,18 +42,6 @@ public static class ServiceCollectionExtensions
 
         // Register gRPC services
         services.AddScoped<PusherServiceGrpc>();
-
-        // Register AuthService.AuthServiceClient for AuthMiddleware
-        services.AddSingleton(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var configuration = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = configuration["ClientCert:Path"];
-            var clientKeyPath = configuration["ClientKey:Path"];
-            var clientCertPassword = configuration["ClientCert:Password"];
-
-            return GrpcClientHelper.CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword);
-        });
 
         // Register OIDC services
         services.AddControllers().AddJsonOptions(options =>
@@ -144,6 +131,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
     {
+        services.AddScoped<WebSocketService>();
         services.AddScoped<EmailService>();
         services.AddScoped<PushService>();
 

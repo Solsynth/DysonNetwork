@@ -19,6 +19,5 @@ public class Notification : ModelBase
     public Instant? ViewedAt { get; set; }
 
     public Guid AccountId { get; set; }
-    [JsonIgnore] public Account Account { get; set; } = null!;
 }
 

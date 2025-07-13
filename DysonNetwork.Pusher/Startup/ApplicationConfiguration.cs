@@ -33,8 +33,6 @@ public static class ApplicationConfiguration
         app.UseAuthorization();
 
         app.MapControllers().RequireRateLimiting("fixed");
-        app.MapStaticAssets().RequireRateLimiting("fixed");
-        app.MapRazorPages().RequireRateLimiting("fixed");
 
         return app;
     }

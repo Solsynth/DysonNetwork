@@ -11,10 +11,17 @@ public class RegistryHostedService(
 )
     : IHostedService
 {
+    private CancellationTokenSource? _cts;
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var serviceName = configuration["Service:Name"];
         var serviceUrl = configuration["Service:Url"];
+        var insecure = configuration.GetValue<bool>("Etcd:Insecure");
+        var remote = configuration.GetConnectionString("Etcd");
+
+        if (insecure)
+            logger.LogWarning("Etcd is configured to use insecure channel.");
 
         if (string.IsNullOrEmpty(serviceUrl) || string.IsNullOrEmpty(serviceName))
         {
@@ -22,10 +29,16 @@ public class RegistryHostedService(
             return;
         }
 
-        logger.LogInformation("Registering service {ServiceName} at {ServiceUrl} with Etcd.", serviceName, serviceUrl);
+        logger.LogInformation(
+            "Registering service {ServiceName} at {ServiceUrl} with Etcd ({Remote}).",
+            serviceName,
+            serviceUrl,
+            remote
+        );
         try
         {
-            await serviceRegistry.RegisterService(serviceName, serviceUrl);
+            _cts = new CancellationTokenSource();
+            await serviceRegistry.RegisterService(serviceName, serviceUrl, cancellationToken: _cts.Token);
             logger.LogInformation("Service {ServiceName} registered successfully.", serviceName);
         }
         catch (Exception ex)
@@ -36,6 +49,8 @@ public class RegistryHostedService(
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        _cts?.Cancel();
+
         // The lease will expire automatically if the service stops ungracefully.
         var serviceName = configuration["Service:Name"];
         if (serviceName is not null)

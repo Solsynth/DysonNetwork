@@ -12,7 +12,7 @@ public static class DysonAuthStartup
         IConfiguration configuration
     )
     {
-        services.AddSingleton(sp =>
+        services.AddSingleton<AuthService.AuthServiceClient>(sp =>
         {
             var etcdClient = sp.GetRequiredService<IEtcdClient>();
             var config = sp.GetRequiredService<IConfiguration>();
@@ -20,9 +20,12 @@ public static class DysonAuthStartup
             var clientKeyPath = config["ClientKey:Path"];
             var clientCertPassword = config["ClientCert:Password"];
 
-            return GrpcClientHelper.CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword);
+            return GrpcClientHelper
+                .CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .GetAwaiter()
+                .GetResult();
         });
-        
+
         services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = AuthConstants.SchemeName;

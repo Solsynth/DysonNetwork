@@ -5,11 +5,13 @@ using DysonNetwork.Pass.Email;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
 using OtpNet;
+using AuthSession = DysonNetwork.Pass.Auth.AuthSession;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -17,8 +19,8 @@ public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
     AccountUsernameService uname,
-    NotificationService nty,
     EmailService mailer,
+    PusherService.PusherServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     ICacheService cache,
     ILogger<AccountService> logger
@@ -353,13 +355,18 @@ public class AccountService(
                 if (await _GetFactorCode(factor) is not null)
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
 
-                await nty.SendNotification(
-                    account,
-                    "auth.verification",
-                    localizer["AuthCodeTitle"],
-                    null,
-                    localizer["AuthCodeBody", code],
-                    save: true
+                await pusher.SendPushNotificationToUserAsync(
+                    new SendPushNotificationToUserRequest
+                    {
+                        UserId = account.Id.ToString(),
+                        Notification = new PushNotification
+                        {
+                            Topic = "auth.verification",
+                            Title = localizer["AuthCodeTitle"],
+                            Body = localizer["AuthCodeBody", code],
+                            IsSavable = false
+                        }
+                    }
                 );
                 await _SetFactorCode(factor, code, TimeSpan.FromMinutes(5));
                 break;
@@ -489,7 +496,7 @@ public class AccountService(
             .ToListAsync();
 
         if (session.Challenge.DeviceId is not null)
-            await nty.UnsubscribePushNotifications(session.Challenge.DeviceId);
+            await pusher.UnsubscribePushNotifications(session.Challenge.DeviceId);
 
         // The current session should be included in the sessions' list
         await db.AuthSessions
