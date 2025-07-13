@@ -8,33 +8,33 @@
 
     <ItemGroup>
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.71.0" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7"/>
-        <PackageReference Include="NodaTime" Version="3.2.2"/>
-        <PackageReference Include="NodaTime.Serialization.JsonNet" Version="3.2.0"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
+        <PackageReference Include="NodaTime" Version="3.2.2" />
+        <PackageReference Include="NodaTime.Serialization.JsonNet" Version="3.2.0" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.0"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="9.0.4"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="9.0.4"/>
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0"/>
-        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0"/>
-        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0"/>
-        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0"/>
-        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0"/>
-        <PackageReference Include="Otp.NET" Version="1.4.0"/>
-        <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1"/>
-        <PackageReference Include="prometheus-net.AspNetCore.HealthChecks" Version="8.2.1"/>
-        <PackageReference Include="prometheus-net.DotNetRuntime" Version="4.4.1"/>
-        <PackageReference Include="prometheus-net.EntityFramework" Version="0.9.5"/>
-        <PackageReference Include="prometheus-net.SystemMetrics" Version="3.1.0"/>
-        <PackageReference Include="Quartz" Version="3.14.0"/>
-        <PackageReference Include="Quartz.AspNetCore" Version="3.14.0"/>
-        <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0"/>
-        <PackageReference Include="BCrypt.Net-Next" Version="4.0.3"/>
-        <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1"/>
-        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1"/>
-        <PackageReference Include="EFCore.NamingConventions" Version="9.0.0"/>
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.0" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.Design" Version="1.1.0" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="9.0.4" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="9.0.4" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0" />
+        <PackageReference Include="Otp.NET" Version="1.4.0" />
+        <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
+        <PackageReference Include="prometheus-net.AspNetCore.HealthChecks" Version="8.2.1" />
+        <PackageReference Include="prometheus-net.DotNetRuntime" Version="4.4.1" />
+        <PackageReference Include="prometheus-net.EntityFramework" Version="0.9.5" />
+        <PackageReference Include="prometheus-net.SystemMetrics" Version="3.1.0" />
+        <PackageReference Include="Quartz" Version="3.14.0" />
+        <PackageReference Include="Quartz.AspNetCore" Version="3.14.0" />
+        <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0" />
+        <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1" />
+        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1" />
+        <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3" />
     </ItemGroup>

@@ -6,17 +6,21 @@ option csharp_namespace = "DysonNetwork.Shared.Proto";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/struct.proto";
+
+import 'account.proto';
 
 // Represents a user session
 message AuthSession {
   string id = 1;
   google.protobuf.StringValue label = 2;
-  google.protobuf.Timestamp last_granted_at = 3;
-  google.protobuf.Timestamp expired_at = 4;
+  optional google.protobuf.Timestamp last_granted_at = 3;
+  optional google.protobuf.Timestamp expired_at = 4;
   string account_id = 5;
-  string challenge_id = 6;
-  AuthChallenge challenge = 7;
-  google.protobuf.StringValue app_id = 8;
+  Account account = 6;
+  string challenge_id = 7;
+  AuthChallenge challenge = 8;
+  google.protobuf.StringValue app_id = 9;
 }
 
 // Represents an authentication challenge
@@ -60,9 +64,111 @@ enum ChallengePlatform {
 }
 
 service AuthService {
-  rpc Authenticate(AuthenticateRequest) returns (AuthSession) {}
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
 }
 
 message AuthenticateRequest {
   string token = 1;
 }
+
+message AuthenticateResponse {
+  bool valid = 1;
+  optional string message = 2;
+  optional AuthSession session = 3;
+}
+
+// Permission related messages and services
+message PermissionNode {
+  string id = 1;
+  string actor = 2;
+  string area = 3;
+  string key = 4;
+  google.protobuf.Value value = 5; // Using Value to represent generic type
+  google.protobuf.Timestamp expired_at = 6;
+  google.protobuf.Timestamp affected_at = 7;
+  string group_id = 8; // Optional group ID
+}
+
+message PermissionGroup {
+  string id = 1;
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message HasPermissionRequest {
+  string actor = 1;
+  string area = 2;
+  string key = 3;
+}
+
+message HasPermissionResponse {
+  bool has_permission = 1;
+}
+
+message GetPermissionRequest {
+  string actor = 1;
+  string area = 2;
+  string key = 3;
+}
+
+message GetPermissionResponse {
+  google.protobuf.Value value = 1; // Using Value to represent generic type
+}
+
+message AddPermissionNodeRequest {
+  string actor = 1;
+  string area = 2;
+  string key = 3;
+  google.protobuf.Value value = 4;
+  google.protobuf.Timestamp expired_at = 5;
+  google.protobuf.Timestamp affected_at = 6;
+}
+
+message AddPermissionNodeResponse {
+  PermissionNode node = 1;
+}
+
+message AddPermissionNodeToGroupRequest {
+  PermissionGroup group = 1;
+  string actor = 2;
+  string area = 3;
+  string key = 4;
+  google.protobuf.Value value = 5;
+  google.protobuf.Timestamp expired_at = 6;
+  google.protobuf.Timestamp affected_at = 7;
+}
+
+message AddPermissionNodeToGroupResponse {
+  PermissionNode node = 1;
+}
+
+message RemovePermissionNodeRequest {
+  string actor = 1;
+  string area = 2;
+  string key = 3;
+}
+
+message RemovePermissionNodeResponse {
+  bool success = 1;
+}
+
+message RemovePermissionNodeFromGroupRequest {
+  PermissionGroup group = 1;
+  string actor = 2;
+  string area = 3;
+  string key = 4;
+}
+
+message RemovePermissionNodeFromGroupResponse {
+  bool success = 1;
+}
+
+service PermissionService {
+  rpc HasPermission(HasPermissionRequest) returns (HasPermissionResponse) {}
+  rpc GetPermission(GetPermissionRequest) returns (GetPermissionResponse) {}
+  rpc AddPermissionNode(AddPermissionNodeRequest) returns (AddPermissionNodeResponse) {}
+  rpc AddPermissionNodeToGroup(AddPermissionNodeToGroupRequest) returns (AddPermissionNodeToGroupResponse) {}
+  rpc RemovePermissionNode(RemovePermissionNodeRequest) returns (RemovePermissionNodeResponse) {}
+  rpc RemovePermissionNodeFromGroup(RemovePermissionNodeFromGroupRequest) returns (RemovePermissionNodeFromGroupResponse) {}
+}
+

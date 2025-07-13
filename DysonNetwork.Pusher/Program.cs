@@ -1,6 +1,7 @@
-using DysonNetwork.Pass.Startup;
 using DysonNetwork.Pusher;
 using DysonNetwork.Pusher.Startup;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,10 +10,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.ConfigureAppKestrel();
 
 // Add application services
+builder.Services.AddRegistryService(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
+builder.Services.AddDysonAuth(builder.Configuration);
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
@@ -22,8 +25,6 @@ builder.Services.AddAppBusinessServices();
 
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
-
-builder.Services.AddHostedService<ServiceRegistrationHostedService>();
 
 var app = builder.Build();
 
@@ -36,8 +37,6 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
-
-app.UseMiddleware<DysonNetwork.Shared.Middleware.AuthMiddleware>();
 
 // Configure gRPC
 app.ConfigureGrpcServices();

@@ -4,9 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DysonNetwork.Shared.Registry;
 
-public static class EtcdStartup
+public static class RegistryStartup
 {
-    public static IServiceCollection AddEtcdService(
+    public static IServiceCollection AddRegistryService(
         this IServiceCollection services,
         IConfiguration configuration
     )
@@ -17,6 +17,7 @@ public static class EtcdStartup
             options.UseInsecureChannel = configuration.GetValue<bool>("Etcd:Insecure");
         });
         services.AddSingleton<ServiceRegistry>();
+        services.AddHostedService<RegistryHostedService>();
 
         return services;
     }
