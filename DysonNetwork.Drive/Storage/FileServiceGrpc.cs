@@ -12,7 +12,8 @@ namespace DysonNetwork.Drive.Storage
             return file?.ToProtoValue() ?? throw new RpcException(new Status(StatusCode.NotFound, "File not found"));
         }
 
-        public override async Task<Shared.Proto.CloudFile> UpdateFile(UpdateFileRequest request, ServerCallContext context)
+        public override async Task<Shared.Proto.CloudFile> UpdateFile(UpdateFileRequest request,
+            ServerCallContext context)
         {
             var file = await fileService.GetFileAsync(request.File.Id);
             if (file == null)
@@ -33,113 +34,10 @@ namespace DysonNetwork.Drive.Storage
             return new Empty();
         }
 
-        public override async Task<Shared.Proto.CloudFile> ProcessNewFile(IAsyncStreamReader<ProcessNewFileRequest> requestStream,
-            ServerCallContext context)
-        {
-            ProcessNewFileRequest? metadataRequest = null;
-            var chunks = new List<byte[]>();
-
-            await foreach (var message in requestStream.ReadAllAsync())
-            {
-                if (message.DataCase == ProcessNewFileRequest.DataOneofCase.Metadata)
-                {
-                    metadataRequest = message;
-                }
-                else if (message.DataCase == ProcessNewFileRequest.DataOneofCase.Chunk)
-                {
-                    chunks.Add(message.Chunk.ToByteArray());
-                }
-            }
-
-            if (metadataRequest == null || metadataRequest.Metadata == null)
-            {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Missing file metadata"));
-            }
-
-            var metadata = metadataRequest.Metadata;
-            using var memoryStream = new MemoryStream();
-            foreach (var chunk in chunks)
-            {
-                await memoryStream.WriteAsync(chunk);
-            }
-
-            memoryStream.Position = 0;
-
-            // Assuming you have an Account object available or can create a dummy one for now
-            // You might need to adjust this based on how accounts are handled in your system
-            var dummyAccount = new Account { Id = metadata.AccountId };
-
-            var cloudFile = await fileService.ProcessNewFileAsync(
-                dummyAccount,
-                metadata.FileId,
-                memoryStream,
-                metadata.FileName,
-                metadata.ContentType
-            );
-            return cloudFile.ToProtoValue();
-        }
-
-        public override async Task<Shared.Proto.CloudFile> UploadFileToRemote(
-            IAsyncStreamReader<UploadFileToRemoteRequest> requestStream, ServerCallContext context)
-        {
-            UploadFileToRemoteRequest? metadataRequest = null;
-            var chunks = new List<byte[]>();
-
-            await foreach (var message in requestStream.ReadAllAsync())
-            {
-                if (message.DataCase == UploadFileToRemoteRequest.DataOneofCase.Metadata)
-                {
-                    metadataRequest = message;
-                }
-                else if (message.DataCase == UploadFileToRemoteRequest.DataOneofCase.Chunk)
-                {
-                    chunks.Add(message.Chunk.ToByteArray());
-                }
-            }
-
-            if (metadataRequest == null || metadataRequest.Metadata == null)
-            {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Missing upload metadata"));
-            }
-
-            var metadata = metadataRequest.Metadata;
-            using var memoryStream = new MemoryStream();
-            foreach (var chunk in chunks)
-            {
-                await memoryStream.WriteAsync(chunk);
-            }
-
-            memoryStream.Position = 0;
-
-            var file = await fileService.GetFileAsync(metadata.FileId);
-            if (file == null)
-            {
-                throw new RpcException(new Status(StatusCode.NotFound, "File not found"));
-            }
-
-            var uploadedFile = await fileService.UploadFileToRemoteAsync(
-                file,
-                memoryStream,
-                metadata.TargetRemote,
-                metadata.Suffix
-            );
-            return uploadedFile.ToProtoValue();
-        }
-
-        public override async Task<Empty> DeleteFileData(DeleteFileDataRequest request, ServerCallContext context)
-        {
-            var file = await fileService.GetFileAsync(request.FileId);
-            if (file == null)
-            {
-                throw new RpcException(new Status(StatusCode.NotFound, "File not found"));
-            }
-
-            await fileService.DeleteFileDataAsync(file);
-            return new Empty();
-        }
-
-        public override async Task<LoadFromReferenceResponse> LoadFromReference(LoadFromReferenceRequest request,
-            ServerCallContext context)
+        public override async Task<LoadFromReferenceResponse> LoadFromReference(
+            LoadFromReferenceRequest request,
+            ServerCallContext context
+        )
         {
             // Assuming CloudFileReferenceObject is a simple class/struct that holds an ID
             // You might need to define this or adjust the LoadFromReference method in FileService

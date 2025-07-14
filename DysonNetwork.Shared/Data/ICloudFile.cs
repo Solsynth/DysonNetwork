@@ -26,7 +26,7 @@ public interface ICloudFile
     /// <summary>
     /// Gets the file metadata dictionary.
     /// </summary>
-    Dictionary<string, object>? FileMeta { get; }
+    Dictionary<string, object?> FileMeta { get; }
 
     /// <summary>
     /// Gets the user metadata dictionary.

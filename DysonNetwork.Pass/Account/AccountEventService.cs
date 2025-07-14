@@ -100,7 +100,7 @@ public class AccountEventService(
             }
         }
 
-        if (cacheMissUserIds.Any())
+        if (cacheMissUserIds.Count != 0)
         {
             var now = SystemClock.Instance.GetCurrentInstant();
             var statusesFromDb = await db.AccountStatuses

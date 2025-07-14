@@ -51,10 +51,6 @@ message AccountProfile {
   int32 level = 15;
   double leveling_progress = 16;
   
-  // Legacy fields
-  google.protobuf.StringValue picture_id = 17;
-  google.protobuf.StringValue background_id = 18;
-  
   CloudFile picture = 19;
   CloudFile background = 20;
   

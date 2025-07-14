@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 
 namespace DysonNetwork.Shared.Data;
@@ -10,12 +11,29 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
 {
     public string Id { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
-    public Dictionary<string, object>? FileMeta { get; set; } = null!;
-    public Dictionary<string, object>? UserMeta { get; set; } = null!;
+    public Dictionary<string, object?> FileMeta { get; set; } = null!;
+    public Dictionary<string, object?> UserMeta { get; set; } = null!;
     public string? MimeType { get; set; }
     public string? Hash { get; set; }
     public long Size { get; set; }
     public bool HasCompression { get; set; } = false;
+
+    public static CloudFileReferenceObject FromProtoValue(Proto.CloudFile proto)
+    {
+        return new CloudFileReferenceObject
+        {
+            Id = proto.Id,
+            Name = proto.Name,
+            FileMeta = proto.FileMeta
+                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertField(kvp.Value)),
+            UserMeta = proto.UserMeta
+                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertField(kvp.Value)),
+            MimeType = proto.MimeType,
+            Hash = proto.Hash,
+            Size = proto.Size,
+            HasCompression = proto.HasCompression
+        };
+    }
 
     /// <summary>
     /// Converts the current object to its protobuf representation

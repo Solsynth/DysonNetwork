@@ -78,7 +78,7 @@ public abstract class Leveling
     ];
 }
 
-public class AccountProfile : ModelBase
+public class AccountProfile : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
     [MaxLength(256)] public string? FirstName { get; set; }
@@ -104,10 +104,6 @@ public class AccountProfile : ModelBase
         : (Experience - Leveling.ExperiencePerLevel[Level]) * 100.0 /
           (Leveling.ExperiencePerLevel[Level + 1] - Leveling.ExperiencePerLevel[Level]);
 
-    // Outdated fields, for backward compability
-    [MaxLength(32)] public string? PictureId { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
@@ -132,8 +128,6 @@ public class AccountProfile : ModelBase
             Experience = Experience,
             Level = Level,
             LevelingProgress = LevelingProgress,
-            PictureId = PictureId ?? string.Empty,
-            BackgroundId = BackgroundId ?? string.Empty,
             Picture = Picture?.ToProtoValue(),
             Background = Background?.ToProtoValue(),
             AccountId = AccountId.ToString(),
@@ -143,6 +137,8 @@ public class AccountProfile : ModelBase
 
         return proto;
     }
+
+    public string ResourceIdentifier => $"account:profile:{Id}";
 }
 
 public class AccountContact : ModelBase

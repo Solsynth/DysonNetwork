@@ -1,10 +1,14 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using AuthService = DysonNetwork.Pass.Auth.AuthService;
+using AuthSession = DysonNetwork.Pass.Auth.AuthSession;
+using ChallengePlatform = DysonNetwork.Pass.Auth.ChallengePlatform;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -15,7 +19,9 @@ public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
     AccountEventService events,
-    AuthService auth
+    AuthService auth,
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs
 ) : ControllerBase
 {
     [HttpGet]
@@ -94,12 +100,37 @@ public class AccountCurrentController(
 
         if (request.PictureId is not null)
         {
-           // TODO: Create reference, set profile picture
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+            if (profile.Picture is not null)
+                await fileRefs.DeleteResourceReferencesAsync(
+                    new DeleteResourceReferencesRequest { ResourceId = profile.ResourceIdentifier }
+                );
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    ResourceId = profile.ResourceIdentifier,
+                    FileId = request.PictureId,
+                    Usage = "profile.picture"
+                }
+            );
+            profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
         }
-
         if (request.BackgroundId is not null)
         {
-            // TODO: Create reference, set profile background
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+            if (profile.Background is not null)
+                await fileRefs.DeleteResourceReferencesAsync(
+                    new DeleteResourceReferencesRequest { ResourceId = profile.ResourceIdentifier }
+                );
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    ResourceId = profile.ResourceIdentifier,
+                    FileId = request.BackgroundId,
+                    Usage = "profile.background"
+                }
+            );
+            profile.Background = CloudFileReferenceObject.FromProtoValue(file);
         }
 
         db.Update(profile);

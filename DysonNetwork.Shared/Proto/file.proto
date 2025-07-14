@@ -58,15 +58,6 @@ service FileService {
   // Delete a file reference
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty);
 
-  // Process and upload a new file
-  rpc ProcessNewFile(stream ProcessNewFileRequest) returns (CloudFile);
-
-  // Upload a file to remote storage
-  rpc UploadFileToRemote(stream UploadFileToRemoteRequest) returns (CloudFile);
-
-  // Delete file data from storage
-  rpc DeleteFileData(DeleteFileDataRequest) returns (google.protobuf.Empty);
-
   // Load files from references
   rpc LoadFromReference(LoadFromReferenceRequest) returns (LoadFromReferenceResponse);
 
@@ -88,26 +79,11 @@ message UpdateFileRequest {
   google.protobuf.FieldMask update_mask = 2;
 }
 
-// Request message for DeleteFile
-message ProcessNewFileRequest {
-  oneof data {
-    FileMetadata metadata = 1;
-    bytes chunk = 2;
-  }
-}
-
 message FileMetadata {
   string file_id = 1;
   string file_name = 2;
   string content_type = 3;
   string account_id = 4;
-}
-
-message UploadFileToRemoteRequest {
-  oneof data {
-    UploadMetadata metadata = 1;
-    bytes chunk = 2;
-  }
 }
 
 message UploadMetadata {
@@ -120,11 +96,6 @@ message UploadMetadata {
 message DeleteFileRequest {
   string id = 1;
   bool purge = 2;
-}
-
-message DeleteFileDataRequest {
-  string file_id = 1;
-  bool force = 2;
 }
 
 message LoadFromReferenceRequest {
@@ -201,7 +172,7 @@ message GetResourceReferencesRequest {
 
 message GetResourceFilesRequest {
   string resource_id = 1;
-  string usage = 2; // Optional
+  optional string usage = 2;
 }
 
 message GetResourceFilesResponse {
@@ -210,7 +181,7 @@ message GetResourceFilesResponse {
 
 message DeleteResourceReferencesRequest {
   string resource_id = 1;
-  string usage = 2; // Optional
+  optional string usage = 2;
 }
 
 message DeleteResourceReferencesResponse {

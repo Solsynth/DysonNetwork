@@ -29,7 +29,7 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
 {
     public string Id { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
-    public Dictionary<string, object>? FileMeta { get; set; } = null!;
+    public Dictionary<string, object?> FileMeta { get; set; } = null!;
     public Dictionary<string, object>? UserMeta { get; set; } = null!;
     public string? MimeType { get; set; }
     public string? Hash { get; set; }
@@ -45,7 +45,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
 
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Description { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object>? FileMeta { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public Dictionary<string, object?> FileMeta { get; set; } = null!;
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? UserMeta { get; set; } = null!;
     [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
     [MaxLength(256)] public string? MimeType { get; set; }

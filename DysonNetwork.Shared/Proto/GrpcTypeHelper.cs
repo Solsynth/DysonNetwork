@@ -75,7 +75,7 @@ public abstract class GrpcTypeHelper
         return result;
     }
 
-    private static object? ConvertField(Value value)
+    public static object? ConvertField(Value value)
     {
         return value.KindCase switch
         {
