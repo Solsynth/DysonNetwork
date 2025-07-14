@@ -15,34 +15,34 @@ import "google/protobuf/duration.proto";
 message CloudFile {
   // Unique identifier for the file
   string id = 1;
-  
+
   // Original name of the file
   string name = 2;
-  
+
   // File metadata (e.g., dimensions, duration, etc.)
   map<string, google.protobuf.Value> file_meta = 3;
-  
+
   // User-defined metadata
   map<string, google.protobuf.Value> user_meta = 4;
-  
+
   // MIME type of the file
   string mime_type = 5;
-  
+
   // File content hash (e.g., MD5, SHA-256)
   string hash = 6;
-  
+
   // File size in bytes
   int64 size = 7;
-  
+
   // Indicates if the file is stored with compression
   bool has_compression = 8;
-  
+
   // URL to access the file
   string url = 9;
-  
+
   // Content type of the file
   string content_type = 10;
-  
+
   // When the file was uploaded
   google.protobuf.Timestamp uploaded_at = 11;
 }
@@ -51,28 +51,28 @@ message CloudFile {
 service FileService {
   // Get file reference by ID
   rpc GetFile(GetFileRequest) returns (CloudFile);
-  
+
   // Update an existing file reference
   rpc UpdateFile(UpdateFileRequest) returns (CloudFile);
-  
+
   // Delete a file reference
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty);
-  
+
   // Process and upload a new file
   rpc ProcessNewFile(stream ProcessNewFileRequest) returns (CloudFile);
-  
+
   // Upload a file to remote storage
   rpc UploadFileToRemote(stream UploadFileToRemoteRequest) returns (CloudFile);
-  
+
   // Delete file data from storage
   rpc DeleteFileData(DeleteFileDataRequest) returns (google.protobuf.Empty);
-  
+
   // Load files from references
   rpc LoadFromReference(LoadFromReferenceRequest) returns (LoadFromReferenceResponse);
-  
+
   // Check if a file is referenced by any resource
   rpc IsReferenced(IsReferencedRequest) returns (IsReferencedResponse);
-  
+
   // Purge cache for a file
   rpc PurgeCache(PurgeCacheRequest) returns (google.protobuf.Empty);
 }
@@ -160,19 +160,19 @@ message PurgeCacheRequest {
 message CloudFileReference {
   // Unique identifier for the reference
   string id = 1;
-  
+
   // Reference to the actual file
   string file_id = 2;
-  
+
   // The actual file data (optional, can be populated when needed)
   CloudFile file = 3;
-  
+
   // Description of how this file is being used
   string usage = 4;
-  
+
   // ID of the resource that this file is associated with
   string resource_id = 5;
-  
+
   // Optional expiration timestamp for the reference
   google.protobuf.Timestamp expired_at = 6;
 }
@@ -182,8 +182,8 @@ message CreateReferenceRequest {
   string file_id = 1;
   string usage = 2;
   string resource_id = 3;
-  google.protobuf.Timestamp expired_at = 4;
-  google.protobuf.Duration duration = 5; // Alternative to expired_at
+  optional google.protobuf.Timestamp expired_at = 4;
+  optional google.protobuf.Duration duration = 5; // Alternative to expired_at
 }
 
 message GetReferencesRequest {
@@ -268,34 +268,34 @@ message HasFileReferencesResponse {
 service FileReferenceService {
   // Creates a new reference to a file for a specific resource
   rpc CreateReference(CreateReferenceRequest) returns (CloudFileReference);
-  
+
   // Gets all references to a file
   rpc GetReferences(GetReferencesRequest) returns (GetReferencesResponse);
-  
+
   // Gets the number of references to a file
   rpc GetReferenceCount(GetReferenceCountRequest) returns (GetReferenceCountResponse);
-  
+
   // Gets all references for a specific resource and optional usage
   rpc GetResourceReferences(GetResourceReferencesRequest) returns (GetReferencesResponse);
-  
+
   // Gets all files referenced by a resource with optional usage filter
   rpc GetResourceFiles(GetResourceFilesRequest) returns (GetResourceFilesResponse);
-  
+
   // Deletes references for a specific resource and optional usage
   rpc DeleteResourceReferences(DeleteResourceReferencesRequest) returns (DeleteResourceReferencesResponse);
-  
+
   // Deletes a specific file reference
   rpc DeleteReference(DeleteReferenceRequest) returns (DeleteReferenceResponse);
-  
+
   // Updates the files referenced by a resource
   rpc UpdateResourceFiles(UpdateResourceFilesRequest) returns (UpdateResourceFilesResponse);
-  
+
   // Updates the expiration time for a file reference
   rpc SetReferenceExpiration(SetReferenceExpirationRequest) returns (SetReferenceExpirationResponse);
-  
+
   // Updates the expiration time for all references to a file
   rpc SetFileReferencesExpiration(SetFileReferencesExpirationRequest) returns (SetFileReferencesExpirationResponse);
-  
+
   // Checks if a file has any references
   rpc HasFileReferences(HasFileReferencesRequest) returns (HasFileReferencesResponse);
 }

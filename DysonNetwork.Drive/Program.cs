@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,8 @@ builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth(builder.Configuration);
+
+builder.Services.AddAppFileStorage(builder.Configuration);
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
@@ -36,8 +39,10 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
+
 // Configure application middleware pipeline
-app.ConfigureAppMiddleware(builder.Configuration);
+app.ConfigureAppMiddleware(tusDiskStore);
 
 // Configure gRPC
 app.ConfigureGrpcServices();

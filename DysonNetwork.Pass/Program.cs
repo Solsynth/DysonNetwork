@@ -15,6 +15,7 @@ builder.Services.AddAppMetrics();
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
+builder.Services.AddPusherService();
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();

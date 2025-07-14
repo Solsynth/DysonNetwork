@@ -1,6 +1,4 @@
-using System.Threading.Tasks;
 using DysonNetwork.Shared.Proto;
-using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using NodaTime;
 using Duration = NodaTime.Duration;
@@ -13,13 +11,9 @@ namespace DysonNetwork.Drive.Storage
         {
             Instant? expiredAt = null;
             if (request.ExpiredAt != null)
-            {
                 expiredAt = Instant.FromUnixTimeSeconds(request.ExpiredAt.Seconds);
-            }
             else if (request.Duration != null)
-            {
                 expiredAt = SystemClock.Instance.GetCurrentInstant() + Duration.FromTimeSpan(request.Duration.ToTimeSpan());
-            }
 
             var reference = await fileReferenceService.CreateReferenceAsync(
                 request.FileId,

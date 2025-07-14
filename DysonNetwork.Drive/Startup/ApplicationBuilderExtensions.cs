@@ -1,8 +1,12 @@
+using DysonNetwork.Drive.Storage;
+using tusdotnet;
+using tusdotnet.Interfaces;
+
 namespace DysonNetwork.Drive.Startup;
 
 public static class ApplicationBuilderExtensions
 {
-    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
+    public static WebApplication ConfigureAppMiddleware(this WebApplication app, ITusStore tusStore)
     {
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
@@ -14,6 +18,8 @@ public static class ApplicationBuilderExtensions
         app.UseHttpsRedirection();
         app.UseAuthorization();
         app.MapControllers();
+        
+        app.MapTus("/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusStore)));
 
         return app;
     }
@@ -21,7 +27,8 @@ public static class ApplicationBuilderExtensions
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         // Map your gRPC services here
-        // Example: app.MapGrpcService<MyGrpcService>();
+        app.MapGrpcService<FileServiceGrpc>();
+        app.MapGrpcService<FileReferenceServiceGrpc>();
 
         return app;
     }

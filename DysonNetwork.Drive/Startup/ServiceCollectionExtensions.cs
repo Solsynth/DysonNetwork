@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
@@ -8,6 +7,7 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using DysonNetwork.Shared.Proto;
+using tusdotnet.Stores;
 
 namespace DysonNetwork.Drive.Startup;
 
@@ -122,10 +122,23 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+    
+    public static IServiceCollection AddAppFileStorage(this IServiceCollection services, IConfiguration configuration)
+    {
+        var tusStorePath = configuration.GetSection("Tus").GetValue<string>("StorePath")!;
+        Directory.CreateDirectory(tusStorePath);
+        var tusDiskStore = new TusDiskStore(tusStorePath);
+
+        services.AddSingleton(tusDiskStore);
+
+        return services;
+    }
 
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
     {
-        // Add your business services here
+        services.AddScoped<Storage.FileService>();
+        services.AddScoped<Storage.FileReferenceService>();
+        
         return services;
     }
 }

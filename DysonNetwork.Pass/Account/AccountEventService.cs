@@ -1,6 +1,7 @@
 using System.Globalization;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
@@ -11,11 +12,20 @@ public class AccountEventService(
     AppDatabase db,
     PaymentService payment,
     ICacheService cache,
-    IStringLocalizer<Localization.AccountEventResource> localizer
+    IStringLocalizer<Localization.AccountEventResource> localizer,
+    PusherService.PusherServiceClient pusher
 )
 {
     private static readonly Random Random = new();
-    private const string StatusCacheKey = "AccountStatus_";
+    private const string StatusCacheKey = "account:status:";
+
+    private async Task<bool> GetAccountIsConnected(Guid userId)
+    {
+        var resp = await pusher.GetWebsocketConnectionStatusAsync(
+            new GetWebsocketConnectionStatusRequest { UserId = userId.ToString() }
+        );
+        return resp.IsConnected;
+    }
 
     public void PurgeStatusCache(Guid userId)
     {
@@ -29,7 +39,7 @@ public class AccountEventService(
         var cachedStatus = await cache.GetAsync<Status>(cacheKey);
         if (cachedStatus is not null)
         {
-            cachedStatus!.IsOnline = !cachedStatus.IsInvisible; // && ws.GetAccountIsConnected(userId);
+            cachedStatus!.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
             return cachedStatus;
         }
 
@@ -81,7 +91,7 @@ public class AccountEventService(
             var cachedStatus = await cache.GetAsync<Status>(cacheKey);
             if (cachedStatus != null)
             {
-                cachedStatus.IsOnline = !cachedStatus.IsInvisible /* && ws.GetAccountIsConnected(userId) */;
+                cachedStatus.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
                 results[userId] = cachedStatus;
             }
             else
@@ -104,7 +114,7 @@ public class AccountEventService(
 
             foreach (var status in statusesFromDb)
             {
-                var isOnline = false; // ws.GetAccountIsConnected(status.AccountId);
+                var isOnline = await GetAccountIsConnected(status.AccountId);
                 status.IsOnline = !status.IsInvisible && isOnline;
                 results[status.AccountId] = status;
                 var cacheKey = $"{StatusCacheKey}{status.AccountId}";
@@ -117,7 +127,7 @@ public class AccountEventService(
             {
                 foreach (var userId in usersWithoutStatus)
                 {
-                    var isOnline = false; // ws.GetAccountIsConnected(userId);
+                    var isOnline = await GetAccountIsConnected(userId);
                     var defaultStatus = new Status
                     {
                         Attitude = StatusAttitude.Neutral,
