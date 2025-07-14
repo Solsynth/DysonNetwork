@@ -174,6 +174,19 @@ message LevelingInfo {
   repeated int32 experience_per_level = 6;
 }
 
+// ActionLog represents a record of an action taken by a user
+message ActionLog {
+  string id = 1; // Unique identifier for the log entry
+  string action = 2; // The action that was performed, e.g., "user.login"
+  map<string, google.protobuf.Value> meta = 3; // Metadata associated with the action
+  google.protobuf.StringValue user_agent = 4; // User agent of the client
+  google.protobuf.StringValue ip_address = 5; // IP address of the client
+  google.protobuf.StringValue location = 6; // Geographic location of the client, derived from IP
+  string account_id = 7; // The account that performed the action
+  google.protobuf.StringValue session_id = 8; // The session in which the action was performed
+  google.protobuf.Timestamp created_at = 9; // When the action log was created
+}
+
 // ====================================
 // Service Definitions
 // ====================================
@@ -209,9 +222,44 @@ service AccountService {
   rpc ListBlocked(ListUserRelationshipSimpleRequest) returns (ListUserRelationshipSimpleResponse) {}
 }
 
+// ActionLogService provides operations for action logs
+service ActionLogService {
+  rpc CreateActionLog(CreateActionLogRequest) returns (CreateActionLogResponse) {}
+  rpc ListActionLogs(ListActionLogsRequest) returns (ListActionLogsResponse) {}
+}
+
 // ====================================
 // Request/Response Messages
 // ====================================
+
+// ActionLog Requests/Responses
+message CreateActionLogRequest {
+  string action = 1;
+  map<string, google.protobuf.Value> meta = 2;
+  google.protobuf.StringValue user_agent = 3;
+  google.protobuf.StringValue ip_address = 4;
+  google.protobuf.StringValue location = 5;
+  string account_id = 6;
+  google.protobuf.StringValue session_id = 7;
+}
+
+message CreateActionLogResponse {
+  ActionLog action_log = 1;
+}
+
+message ListActionLogsRequest {
+  string account_id = 1;
+  string action = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+  string order_by = 5;
+}
+
+message ListActionLogsResponse {
+  repeated ActionLog action_logs = 1;
+  string next_page_token = 2;
+  int32 total_size = 3;
+}
 
 // Account Requests/Responses
 message GetAccountRequest {

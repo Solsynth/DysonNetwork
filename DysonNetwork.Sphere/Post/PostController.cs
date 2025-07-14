@@ -1,15 +1,11 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
-using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Pages.Posts;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using NpgsqlTypes;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -19,8 +15,8 @@ public class PostController(
     AppDatabase db,
     PostService ps,
     PublisherService pub,
-    RelationshipService rels,
-    ActionLogService als
+    AccountService.AccountServiceClient accounts,
+    ActionLogService.ActionLogServiceClient als
 )
     : ControllerBase
 {

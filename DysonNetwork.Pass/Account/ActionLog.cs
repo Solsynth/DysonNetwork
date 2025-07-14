@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
+using NodaTime.Serialization.Protobuf;
 using Point = NetTopologySuite.Geometries.Point;
 
 namespace DysonNetwork.Pass.Account;
@@ -56,4 +58,26 @@ public class ActionLog : ModelBase
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
     public Guid? SessionId { get; set; }
+
+    public Shared.Proto.ActionLog ToProtoValue()
+    {
+        var protoLog = new Shared.Proto.ActionLog
+        {
+            Id = Id.ToString(),
+            Action = Action,
+            UserAgent = UserAgent ?? string.Empty,
+            IpAddress = IpAddress ?? string.Empty,
+            Location = Location?.ToString() ?? string.Empty,
+            AccountId = AccountId.ToString(),
+            CreatedAt = CreatedAt.ToTimestamp()
+        };
+
+        // Convert Meta dictionary to Struct
+        protoLog.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta));
+
+        if (SessionId.HasValue)
+            protoLog.SessionId = SessionId.Value.ToString();
+
+        return protoLog;
+    }
 }
