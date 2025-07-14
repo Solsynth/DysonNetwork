@@ -241,7 +241,7 @@ public partial class ChatService(
             Priority = 10,
         };
 
-        List<Account.Account> accountsToNotify = [];
+        List<Account> accountsToNotify = [];
         foreach (var member in members)
         {
             scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket

@@ -34,7 +34,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<Realm>>> ListJoinedRealms()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var members = await db.RealmMembers
@@ -52,7 +52,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<RealmMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var members = await db.RealmMembers
@@ -75,7 +75,7 @@ public class RealmController(
     public async Task<ActionResult<RealmMember>> InviteMember(string slug,
         [FromBody] RealmMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
@@ -126,7 +126,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<Realm>> AcceptMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -153,7 +153,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -192,7 +192,7 @@ public class RealmController(
 
         if (!realm.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+            if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
             if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
@@ -249,7 +249,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<RealmMember>> GetCurrentIdentity(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -267,7 +267,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> LeaveRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -307,7 +307,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<Realm>> CreateRealm(RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
         if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest("You cannot create a realm without a slug.");
 
@@ -380,7 +380,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<Realm>> Update(string slug, [FromBody] RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -466,7 +466,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<RealmMember>> JoinRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -506,7 +506,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string slug, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -538,7 +538,7 @@ public class RealmController(
     public async Task<ActionResult<RealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -572,7 +572,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> Delete(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)

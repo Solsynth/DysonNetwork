@@ -12,6 +12,12 @@ namespace DysonNetwork.Drive.Storage
             return file?.ToProtoValue() ?? throw new RpcException(new Status(StatusCode.NotFound, "File not found"));
         }
 
+        public override async Task<GetFileBatchResponse> GetFileBatch(GetFileBatchRequest request, ServerCallContext context)
+        {
+            var files = await fileService.GetFilesAsync(request.Ids.ToList());
+            return new GetFileBatchResponse { Files = { files.Select(f => f.ToProtoValue()) } };
+        }
+
         public override async Task<Shared.Proto.CloudFile> UpdateFile(UpdateFileRequest request,
             ServerCallContext context)
         {

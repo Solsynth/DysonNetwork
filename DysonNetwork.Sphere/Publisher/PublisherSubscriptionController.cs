@@ -30,7 +30,7 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<SubscriptionStatusResponse>> CheckSubscriptionStatus(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
     
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
@@ -53,7 +53,7 @@ public class PublisherSubscriptionController(
         string name,
         [FromBody] SubscribeRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
     
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
@@ -81,7 +81,7 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult> Unsubscribe(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
@@ -104,7 +104,7 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<List<PublisherSubscription>>> GetCurrentSubscriptions()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var subscriptions = await subs.GetAccountSubscriptionsAsync(currentUser.Id);
         return subscriptions;

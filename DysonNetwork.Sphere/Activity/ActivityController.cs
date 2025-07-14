@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using NodaTime.Text;
@@ -45,7 +46,7 @@ public class ActivityController(
         var debugIncludeSet = debugInclude?.Split(',').ToHashSet() ?? new HashSet<string>();
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        return currentUserValue is not Account.Account currentUser
+        return currentUserValue is not Account currentUser
             ? Ok(await acts.GetActivitiesForAnyone(take, cursorTimestamp, debugIncludeSet))
             : Ok(await acts.GetActivities(take, cursorTimestamp, currentUser, filter, debugIncludeSet));
     }

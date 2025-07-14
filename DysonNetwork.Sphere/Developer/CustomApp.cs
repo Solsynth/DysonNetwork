@@ -35,7 +35,7 @@ public class CustomApp : ModelBase, IIdentifiedResource
     public Guid PublisherId { get; set; }
     public Publisher.Publisher Developer { get; set; } = null!;
 
-    [NotMapped] public string ResourceIdentifier => "custom-app/" + Id;
+    [NotMapped] public string ResourceIdentifier => "custom-app:" + Id;
 }
 
 public class CustomAppLinks

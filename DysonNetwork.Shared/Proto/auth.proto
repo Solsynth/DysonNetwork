@@ -65,6 +65,9 @@ enum ChallengePlatform {
 
 service AuthService {
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+  
+  rpc ValidatePin(ValidatePinRequest) returns (ValidateResponse) {}
+  rpc ValidateCaptcha(ValidateCaptchaRequest) returns (ValidateResponse) {}
 }
 
 message AuthenticateRequest {
@@ -75,6 +78,19 @@ message AuthenticateResponse {
   bool valid = 1;
   optional string message = 2;
   optional AuthSession session = 3;
+}
+
+message ValidatePinRequest {
+  string account_id = 1;
+  string pin = 2;
+}
+
+message ValidateCaptchaRequest {
+  string token = 1;
+}
+
+message ValidateResponse {
+  bool valid = 1;
 }
 
 // Permission related messages and services

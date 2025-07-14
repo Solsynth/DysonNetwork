@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -30,7 +30,7 @@ public class Publisher : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
-    [Column(TypeName = "jsonb")] public Account.VerificationMark? Verification { get; set; }
+    [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
@@ -41,11 +41,10 @@ public class Publisher : ModelBase, IIdentifiedResource
     public ICollection<PublisherSubscription> Subscriptions { get; set; } = new List<PublisherSubscription>();
 
     public Guid? AccountId { get; set; }
-    public Account.Account? Account { get; set; }
     public Guid? RealmId { get; set; }
     [JsonIgnore] public Realm.Realm? Realm { get; set; }
 
-    public string ResourceIdentifier => $"publisher/{Id}";
+    public string ResourceIdentifier => $"publisher:{Id}";
 }
 
 public enum PublisherMemberRole
@@ -61,7 +60,6 @@ public class PublisherMember : ModelBase
     public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
-    public Account.Account Account { get; set; } = null!;
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
@@ -81,7 +79,6 @@ public class PublisherSubscription : ModelBase
     public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
     public PublisherSubscriptionStatus Status { get; set; } = PublisherSubscriptionStatus.Active;
     public int Tier { get; set; } = 0;

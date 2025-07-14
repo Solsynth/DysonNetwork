@@ -100,12 +100,16 @@
     </ItemGroup>
 
     <ItemGroup>
+      <AdditionalFiles Include="Pages\Checkpoint\CheckpointPage.cshtml" />
       <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor" />
       <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor" />
       <AdditionalFiles Include="Pages\Emails\EmailLayout.razor" />
       <AdditionalFiles Include="Pages\Emails\LandingEmail.razor" />
       <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor" />
       <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor" />
+      <AdditionalFiles Include="Pages\Shared\_Layout.cshtml" />
+      <AdditionalFiles Include="Pages\Shared\_ValidationScriptsPartial.cshtml" />
+      <AdditionalFiles Include="Pages\Spell\MagicSpellPage.cshtml" />
       <AdditionalFiles Include="Resources\Localization\AccountEventResource.resx" />
       <AdditionalFiles Include="Resources\Localization\AccountEventResource.zh-hans.resx" />
       <AdditionalFiles Include="Resources\Localization\EmailResource.resx" />

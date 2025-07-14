@@ -20,7 +20,7 @@ message Account {
   string language = 4;
   google.protobuf.Timestamp activated_at = 5;
   bool is_superuser = 6;
-  
+
   AccountProfile profile = 7;
   repeated AccountContact contacts = 8;
   repeated AccountBadge badges = 9;
@@ -43,17 +43,17 @@ message AccountProfile {
   google.protobuf.StringValue location = 9;
   google.protobuf.Timestamp birthday = 10;
   google.protobuf.Timestamp last_seen_at = 11;
-  
+
   VerificationMark verification = 12;
   BadgeReferenceObject active_badge = 13;
-  
+
   int32 experience = 14;
   int32 level = 15;
   double leveling_progress = 16;
-  
+
   CloudFile picture = 19;
   CloudFile background = 20;
-  
+
   string account_id = 21;
 }
 
@@ -155,22 +155,13 @@ message BadgeReferenceObject {
 
 // Relationship represents a connection between two accounts
 message Relationship {
-  string id = 1;
-  string from_account_id = 2;
-  string to_account_id = 3;
-  RelationshipType type = 4;
-  string note = 5;
+  string account_id = 1;
+  string related_id = 2;
+  optional Account account = 3;
+  optional Account related = 4;
+  int32 type = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
-}
-
-// Enum for relationship types
-enum RelationshipType {
-  RELATIONSHIP_TYPE_UNSPECIFIED = 0;
-  FRIEND = 1;
-  BLOCKED = 2;
-  PENDING_INCOMING = 3;
-  PENDING_OUTGOING = 4;
 }
 
 // Leveling information
@@ -192,43 +183,30 @@ service AccountService {
   // Account Operations
   rpc GetAccount(GetAccountRequest) returns (Account) {}
   rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
-  rpc CreateAccount(CreateAccountRequest) returns (Account) {}
-  rpc UpdateAccount(UpdateAccountRequest) returns (Account) {}
-  rpc DeleteAccount(DeleteAccountRequest) returns (google.protobuf.Empty) {}
   rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
-  
+
   // Profile Operations
   rpc GetProfile(GetProfileRequest) returns (AccountProfile) {}
-  rpc UpdateProfile(UpdateProfileRequest) returns (AccountProfile) {}
-  
+
   // Contact Operations
-  rpc AddContact(AddContactRequest) returns (AccountContact) {}
-  rpc UpdateContact(UpdateContactRequest) returns (AccountContact) {}
-  rpc RemoveContact(RemoveContactRequest) returns (google.protobuf.Empty) {}
   rpc ListContacts(ListContactsRequest) returns (ListContactsResponse) {}
-  rpc VerifyContact(VerifyContactRequest) returns (AccountContact) {}
-  
+
   // Badge Operations
-  rpc AddBadge(AddBadgeRequest) returns (AccountBadge) {}
-  rpc RemoveBadge(RemoveBadgeRequest) returns (google.protobuf.Empty) {}
   rpc ListBadges(ListBadgesRequest) returns (ListBadgesResponse) {}
-  rpc SetActiveBadge(SetActiveBadgeRequest) returns (AccountProfile) {}
-  
+
   // Authentication Factor Operations
-  rpc AddAuthFactor(AddAuthFactorRequest) returns (AccountAuthFactor) {}
-  rpc RemoveAuthFactor(RemoveAuthFactorRequest) returns (google.protobuf.Empty) {}
   rpc ListAuthFactors(ListAuthFactorsRequest) returns (ListAuthFactorsResponse) {}
-  
+
   // Connection Operations
-  rpc AddConnection(AddConnectionRequest) returns (AccountConnection) {}
-  rpc RemoveConnection(RemoveConnectionRequest) returns (google.protobuf.Empty) {}
   rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse) {}
-  
+
   // Relationship Operations
-  rpc CreateRelationship(CreateRelationshipRequest) returns (Relationship) {}
-  rpc UpdateRelationship(UpdateRelationshipRequest) returns (Relationship) {}
-  rpc DeleteRelationship(DeleteRelationshipRequest) returns (google.protobuf.Empty) {}
   rpc ListRelationships(ListRelationshipsRequest) returns (ListRelationshipsResponse) {}
+
+  rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse) {}
+  rpc HasRelationship(GetRelationshipRequest) returns (google.protobuf.BoolValue) {}
+  rpc ListFriends(ListUserRelationshipSimpleRequest) returns (ListUserRelationshipSimpleResponse) {}
+  rpc ListBlocked(ListUserRelationshipSimpleRequest) returns (ListUserRelationshipSimpleResponse) {}
 }
 
 // ====================================
@@ -301,18 +279,6 @@ message AddContactRequest {
   bool is_primary = 4;  // If this should be the primary contact
 }
 
-message UpdateContactRequest {
-  string id = 1;  // Contact ID to update
-  string account_id = 2;  // Account ID (for validation)
-  google.protobuf.StringValue content = 3;  // New contact content
-  google.protobuf.BoolValue is_primary = 4;  // New primary status
-}
-
-message RemoveContactRequest {
-  string id = 1;  // Contact ID to remove
-  string account_id = 2;  // Account ID (for validation)
-}
-
 message ListContactsRequest {
   string account_id = 1;  // Account ID to list contacts for
   AccountContactType type = 2;  // Optional: filter by type
@@ -330,20 +296,6 @@ message VerifyContactRequest {
 }
 
 // Badge Requests/Responses
-message AddBadgeRequest {
-  string account_id = 1;  // Account to add badge to
-  string type = 2;  // Type of badge
-  google.protobuf.StringValue label = 3;  // Display label
-  google.protobuf.StringValue caption = 4;  // Description
-  map<string, string> meta = 5;  // Additional metadata
-  google.protobuf.Timestamp expired_at = 6;  // Optional expiration
-}
-
-message RemoveBadgeRequest {
-  string id = 1;  // Badge ID to remove
-  string account_id = 2;  // Account ID (for validation)
-}
-
 message ListBadgesRequest {
   string account_id = 1;  // Account to list badges for
   string type = 2;  // Optional: filter by type
@@ -354,26 +306,6 @@ message ListBadgesResponse {
   repeated AccountBadge badges = 1;  // List of badges
 }
 
-message SetActiveBadgeRequest {
-  string account_id = 1;  // Account to update
-  string badge_id = 2;  // Badge ID to set as active (empty to clear)
-}
-
-// Authentication Factor Requests/Responses
-message AddAuthFactorRequest {
-  string account_id = 1;  // Account to add factor to
-  AccountAuthFactorType type = 2;  // Type of factor
-  string secret = 3;  // Factor secret (hashed on server)
-  map<string, string> config = 4;  // Configuration
-  int32 trustworthy = 5;  // Trust level
-  google.protobuf.Timestamp expired_at = 6;  // Optional expiration
-}
-
-message RemoveAuthFactorRequest {
-  string id = 1;  // Factor ID to remove
-  string account_id = 2;  // Account ID (for validation)
-}
-
 message ListAuthFactorsRequest {
   string account_id = 1;  // Account to list factors for
   bool active_only = 2;  // Only return active (non-expired) factors
@@ -381,21 +313,6 @@ message ListAuthFactorsRequest {
 
 message ListAuthFactorsResponse {
   repeated AccountAuthFactor factors = 1;  // List of auth factors
-}
-
-// Connection Requests/Responses
-message AddConnectionRequest {
-  string account_id = 1;  // Account to add connection to
-  string provider = 2;  // Provider name (e.g., "google", "github")
-  string provided_identifier = 3;  // Provider's user ID
-  map<string, string> meta = 4;  // Additional metadata
-  google.protobuf.StringValue access_token = 5;  // OAuth access token
-  google.protobuf.StringValue refresh_token = 6;  // OAuth refresh token
-}
-
-message RemoveConnectionRequest {
-  string id = 1;  // Connection ID to remove
-  string account_id = 2;  // Account ID (for validation)
 }
 
 message ListConnectionsRequest {
@@ -408,30 +325,9 @@ message ListConnectionsResponse {
 }
 
 // Relationship Requests/Responses
-message CreateRelationshipRequest {
-  string from_account_id = 1;  // Source account ID
-  string to_account_id = 2;  // Target account ID
-  RelationshipType type = 3;  // Type of relationship
-  string note = 4;  // Optional note
-}
-
-message UpdateRelationshipRequest {
-  string id = 1;  // Relationship ID to update
-  string account_id = 2;  // Account ID (for validation)
-  RelationshipType type = 3;  // New relationship type
-  google.protobuf.StringValue note = 4;  // New note
-}
-
-message DeleteRelationshipRequest {
-  string id = 1;  // Relationship ID to delete
-  string account_id = 2;  // Account ID (for validation)
-}
-
 message ListRelationshipsRequest {
   string account_id = 1;  // Account to list relationships for
-  RelationshipType type = 2;  // Optional: filter by type
-  bool incoming = 3;  // If true, list incoming relationships
-  bool outgoing = 4;  // If true, list outgoing relationships
+  optional int32 status = 2;  // Filter by status
   int32 page_size = 5;  // Number of results per page
   string page_token = 6;  // Token for pagination
 }
@@ -442,3 +338,20 @@ message ListRelationshipsResponse {
   int32 total_size = 3;  // Total number of relationships
 }
 
+message GetRelationshipRequest {
+  string account_id = 1;
+  string related_id = 2;
+  optional int32 status = 3;
+}
+
+message GetRelationshipResponse {
+  optional Relationship relationship = 1;
+}
+
+message ListUserRelationshipSimpleRequest {
+  string account_id = 1;
+}
+
+message ListUserRelationshipSimpleResponse {
+  repeated string accounts_id = 1;
+}

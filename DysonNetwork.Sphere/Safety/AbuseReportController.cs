@@ -30,7 +30,7 @@ public class AbuseReportController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AbuseReport>> CreateReport([FromBody] CreateReportRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
@@ -75,7 +75,7 @@ public class AbuseReportController(
         [FromQuery] bool includeResolved = false
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var totalCount = await safety.CountUserReports(currentUser.Id, includeResolved);
         var reports = await safety.GetUserReports(currentUser.Id, offset, take, includeResolved);
@@ -101,7 +101,7 @@ public class AbuseReportController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<AbuseReport>> GetMyReportById(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var report = await safety.GetReportById(id);
         if (report == null) return NotFound();

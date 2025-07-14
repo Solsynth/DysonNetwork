@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using DysonNetwork.Drive.Storage;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 

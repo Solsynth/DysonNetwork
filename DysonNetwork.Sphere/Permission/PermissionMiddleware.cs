@@ -21,7 +21,7 @@ public class PermissionMiddleware(RequestDelegate next)
 
         if (attr != null)
         {
-            if (httpContext.Items["CurrentUser"] is not Account.Account currentUser)
+            if (httpContext.Items["CurrentUser"] is not Account currentUser)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await httpContext.Response.WriteAsync("Unauthorized");

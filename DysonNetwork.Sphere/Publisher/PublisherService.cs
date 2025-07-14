@@ -1,12 +1,17 @@
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
-public class PublisherService(AppDatabase db, FileReferenceService fileRefService, ICacheService cache)
+public class PublisherService(
+    AppDatabase db,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
+    ICacheService cache
+)
 {
     public async Task<Publisher?> GetPublisherByName(string name)
     {
@@ -20,12 +25,12 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
     public async Task<List<Publisher>> GetUserPublishers(Guid userId)
     {
         var cacheKey = string.Format(UserPublishersCacheKey, userId);
-        
+
         // Try to get publishers from the cache first
         var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
         if (publishers is not null)
             return publishers;
-        
+
         // If not in cache, fetch from a database
         var publishersId = await db.PublisherMembers
             .Where(p => p.AccountId == userId)
@@ -34,10 +39,10 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
         publishers = await db.Publishers
             .Where(p => publishersId.Contains(p.Id))
             .ToListAsync();
-        
+
         // Store in a cache for 5 minutes
         await cache.SetAsync(cacheKey, publishers, TimeSpan.FromMinutes(5));
-        
+
         return publishers;
     }
 
@@ -92,11 +97,10 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
 
         return result;
     }
-    
-    
+
 
     public const string SubscribedPublishersCacheKey = "accounts:{0}:subscribed-publishers";
-    
+
     public async Task<List<Publisher>> GetSubscribedPublishers(Guid userId)
     {
         var cacheKey = string.Format(SubscribedPublishersCacheKey, userId);
@@ -127,32 +131,30 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
     public async Task<List<PublisherMember>> GetPublisherMembers(Guid publisherId)
     {
         var cacheKey = string.Format(PublisherMembersCacheKey, publisherId);
-        
+
         // Try to get members from the cache first
         var members = await cache.GetAsync<List<PublisherMember>>(cacheKey);
         if (members is not null)
             return members;
-        
+
         // If not in cache, fetch from a database
         members = await db.PublisherMembers
             .Where(p => p.PublisherId == publisherId)
-            .Include(p => p.Account)
-            .ThenInclude(p => p.Profile)
             .ToListAsync();
-        
+
         // Store in cache for 5 minutes (consistent with other cache durations in the class)
         await cache.SetAsync(cacheKey, members, TimeSpan.FromMinutes(5));
-        
+
         return members;
     }
-    
+
     public async Task<Publisher> CreateIndividualPublisher(
-        Account.Account account,
+        Account account,
         string? name,
         string? nick,
         string? bio,
-        CloudFile? picture,
-        CloudFile? background
+        CloudFileReferenceObject? picture,
+        CloudFileReferenceObject? background
     )
     {
         var publisher = new Publisher
@@ -161,14 +163,14 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
             Bio = bio ?? account.Profile.Bio,
-            Picture = picture?.ToReferenceObject() ?? account.Profile.Picture,
-            Background = background?.ToReferenceObject() ?? account.Profile.Background,
-            AccountId = account.Id,
+            Picture = picture ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Picture),
+            Background = background ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Background),
+            AccountId = Guid.Parse(account.Id),
             Members = new List<PublisherMember>
             {
                 new()
                 {
-                    AccountId = account.Id,
+                    AccountId = Guid.Parse(account.Id),
                     Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
@@ -178,21 +180,26 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
         db.Publishers.Add(publisher);
         await db.SaveChangesAsync();
 
-        var publisherResourceId = $"publisher:{publisher.Id}";
-
-        if (publisher.Picture is not null) {
-            await fileRefService.CreateReferenceAsync(
-                publisher.Picture.Id,
-                "publisher.picture",
-                publisherResourceId
+        if (publisher.Picture is not null)
+        {
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = publisher.Picture.Id,
+                    Usage = "publisher.picture",
+                    ResourceId = publisher.ResourceIdentifier,
+                }
             );
         }
-
-        if (publisher.Background is not null) {
-            await fileRefService.CreateReferenceAsync(
-                publisher.Background.Id,
-                "publisher.background",
-                publisherResourceId
+        if (publisher.Background is not null)
+        {
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = publisher.Background.Id,
+                    Usage = "publisher.background",
+                    ResourceId = publisher.ResourceIdentifier,
+                }
             );
         }
 
@@ -201,12 +208,12 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
 
     public async Task<Publisher> CreateOrganizationPublisher(
         Realm.Realm realm,
-        Account.Account account,
+        Account account,
         string? name,
         string? nick,
         string? bio,
-        CloudFile? picture,
-        CloudFile? background
+        CloudFileReferenceObject? picture,
+        CloudFileReferenceObject? background
     )
     {
         var publisher = new Publisher
@@ -215,14 +222,14 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
-            Picture = picture?.ToReferenceObject() ?? realm.Picture,
-            Background = background?.ToReferenceObject() ?? realm.Background,
+            Picture = picture ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Picture),
+            Background = background ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Background),
             RealmId = realm.Id,
             Members = new List<PublisherMember>
             {
                 new()
                 {
-                    AccountId = account.Id,
+                    AccountId = Guid.Parse(account.Id),
                     Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
@@ -232,21 +239,26 @@ public class PublisherService(AppDatabase db, FileReferenceService fileRefServic
         db.Publishers.Add(publisher);
         await db.SaveChangesAsync();
 
-        var publisherResourceId = $"publisher:{publisher.Id}";
-
-        if (publisher.Picture is not null) {
-            await fileRefService.CreateReferenceAsync(
-                publisher.Picture.Id,
-                "publisher.picture",
-                publisherResourceId
+        if (publisher.Picture is not null)
+        {
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = publisher.Picture.Id,
+                    Usage = "publisher.picture",
+                    ResourceId = publisher.ResourceIdentifier,
+                }
             );
         }
-
-        if (publisher.Background is not null) {
-            await fileRefService.CreateReferenceAsync(
-                publisher.Background.Id,
-                "publisher.background",
-                publisherResourceId
+        if (publisher.Background is not null)
+        {
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = publisher.Background.Id,
+                    Usage = "publisher.background",
+                    ResourceId = publisher.ResourceIdentifier,
+                }
             );
         }
 

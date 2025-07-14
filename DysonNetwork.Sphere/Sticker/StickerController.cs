@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Permission;
-using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,10 +10,13 @@ namespace DysonNetwork.Sphere.Sticker;
 
 [ApiController]
 [Route("/api/stickers")]
-public class StickerController(AppDatabase db, StickerService st) : ControllerBase
+public class StickerController(AppDatabase db, StickerService st, FileService.FileServiceClient files) : ControllerBase
 {
-    private async Task<IActionResult> _CheckStickerPackPermissions(Guid packId, Account.Account currentUser,
-        PublisherMemberRole requiredRole)
+    private async Task<IActionResult> _CheckStickerPackPermissions(
+        Guid packId,
+        Account currentUser,
+        PublisherMemberRole requiredRole
+    )
     {
         var pack = await db.StickerPacks
             .Include(p => p.Publisher)
@@ -22,8 +25,9 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         if (pack is null)
             return NotFound("Sticker pack not found");
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.PublisherMembers
-            .FirstOrDefaultAsync(m => m.AccountId == currentUser.Id && m.PublisherId == pack.PublisherId);
+            .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
         if (member.Role < requiredRole)
@@ -78,7 +82,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [RequiredPermission("global", "stickers.packs.create")]
     public async Task<ActionResult<StickerPack>> CreateStickerPack([FromBody] StickerPackRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         if (string.IsNullOrEmpty(request.Name))
             return BadRequest("Name is required");
@@ -89,8 +93,9 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         if (string.IsNullOrEmpty(publisherName))
             return BadRequest("Publisher name is required in X-Pub header");
 
+        var accountId = Guid.Parse(currentUser.Id);
         var publisher =
-            await db.Publishers.FirstOrDefaultAsync(p => p.Name == publisherName && p.AccountId == currentUser.Id);
+            await db.Publishers.FirstOrDefaultAsync(p => p.Name == publisherName && p.AccountId == accountId);
         if (publisher == null)
             return BadRequest("Publisher not found");
 
@@ -110,7 +115,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<StickerPack>> UpdateStickerPack(Guid id, [FromBody] StickerPackRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var pack = await db.StickerPacks
@@ -119,8 +124,9 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         if (pack is null)
             return NotFound();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.PublisherMembers
-            .FirstOrDefaultAsync(m => m.AccountId == currentUser.Id && m.PublisherId == pack.PublisherId);
+            .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
         if (member.Role < PublisherMemberRole.Editor)
@@ -141,7 +147,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteStickerPack(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var pack = await db.StickerPacks
@@ -150,8 +156,9 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         if (pack is null)
             return NotFound();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.PublisherMembers
-            .FirstOrDefaultAsync(m => m.AccountId == currentUser.Id && m.PublisherId == pack.PublisherId);
+            .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
         if (member.Role < PublisherMemberRole.Editor)
@@ -212,7 +219,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [HttpPatch("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> UpdateSticker(Guid packId, Guid id, [FromBody] StickerRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
@@ -231,13 +238,14 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         if (request.Slug is not null)
             sticker.Slug = request.Slug;
 
-        CloudFile? image = null;
+        CloudFileReferenceObject? image = null;
         if (request.ImageId is not null)
         {
-            image = await db.Files.FirstOrDefaultAsync(e => e.Id == request.ImageId);
-            if (image is null)
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.ImageId });
+            if (file is null)
                 return BadRequest("Image not found");
             sticker.ImageId = request.ImageId;
+            sticker.Image = CloudFileReferenceObject.FromProtoValue(file);
         }
 
         sticker = await st.UpdateStickerAsync(sticker, image);
@@ -247,7 +255,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [HttpDelete("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> DeleteSticker(Guid packId, Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
@@ -273,7 +281,7 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
     [RequiredPermission("global", "stickers.create")]
     public async Task<IActionResult> CreateSticker(Guid packId, [FromBody] StickerRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.Slug))
@@ -295,15 +303,15 @@ public class StickerController(AppDatabase db, StickerService st) : ControllerBa
         if (stickersCount >= MaxStickersPerPack)
             return BadRequest($"Sticker pack has reached maximum capacity of {MaxStickersPerPack} stickers.");
 
-        var image = await db.Files.FirstOrDefaultAsync(e => e.Id == request.ImageId);
-        if (image is null)
-            return BadRequest("Image was not found.");
+        var file = await files.GetFileAsync(new GetFileRequest { Id = request.ImageId });
+        if (file is null)
+            return BadRequest("Image not found.");
 
         var sticker = new Sticker
         {
             Slug = request.Slug,
-            ImageId = image.Id,
-            Image = image.ToReferenceObject(),
+            ImageId = file.Id,
+            Image = CloudFileReferenceObject.FromProtoValue(file),
             Pack = pack
         };
 

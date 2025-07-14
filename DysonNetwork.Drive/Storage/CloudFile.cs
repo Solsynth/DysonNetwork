@@ -95,7 +95,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
         };
     }
 
-    public string ResourceIdentifier => $"file/{Id}";
+    public string ResourceIdentifier => $"file:{Id}";
 
     /// <summary>
     /// Converts the CloudFile to a protobuf message
@@ -136,23 +136,6 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
 
         return protoFile;
     }
-}
-
-public enum ContentSensitiveMark
-{
-    Language,
-    SexualContent,
-    Violence,
-    Profanity,
-    HateSpeech,
-    Racism,
-    AdultContent,
-    DrugAbuse,
-    AlcoholAbuse,
-    Gambling,
-    SelfHarm,
-    ChildAbuse,
-    Other
 }
 
 public class CloudFileReference : ModelBase

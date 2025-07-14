@@ -85,7 +85,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Migrations\" />
+        <Folder Include="Connection\" />
         <Folder Include="Discovery\" />
     </ItemGroup>
 
@@ -164,6 +164,19 @@
         <_ContentIncludedByDefault Remove="app\publish\Keys\Solian.json" />
         <_ContentIncludedByDefault Remove="app\publish\package-lock.json" />
         <_ContentIncludedByDefault Remove="app\publish\package.json" />
+        <_ContentIncludedByDefault Remove="Pages\Account\Profile.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Auth\Authorize.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Auth\Callback.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Auth\Challenge.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Auth\Login.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Auth\SelectFactor.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Auth\VerifyFactor.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Checkpoint\CheckpointPage.cshtml" />
+        <_ContentIncludedByDefault Remove="Pages\Spell\MagicSpellPage.cshtml" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
 
 </Project>

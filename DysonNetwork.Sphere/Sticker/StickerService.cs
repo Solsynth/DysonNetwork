@@ -1,9 +1,16 @@
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Sticker;
 
-public class StickerService(AppDatabase db, FileService fs, FileReferenceService fileRefService, ICacheService cache)
+public class StickerService(
+    AppDatabase db,
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
+    ICacheService cache
+)
 {
     public const string StickerFileUsageIdentifier = "sticker";
 
@@ -26,7 +33,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
         return sticker;
     }
 
-    public async Task<Sticker> UpdateStickerAsync(Sticker sticker, CloudFile? newImage)
+    public async Task<Sticker> UpdateStickerAsync(Sticker sticker, CloudFileReferenceObject? newImage)
     {
         if (newImage is not null)
         {
@@ -104,7 +111,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
     {
         identifier = identifier.ToLower();
         // Try to get from the cache first
-        var cacheKey = $"stickerlookup:{identifier}";
+        var cacheKey = $"sticker:lookup:{identifier}";
         var cachedSticker = await cache.GetAsync<Sticker>(cacheKey);
         if (cachedSticker is not null)
             return cachedSticker;
@@ -128,7 +135,7 @@ public class StickerService(AppDatabase db, FileService fs, FileReferenceService
     private async Task PurgeStickerCache(Sticker sticker)
     {
         // Remove both possible cache entries
-        await cache.RemoveAsync($"stickerlookup:{sticker.Id}");
-        await cache.RemoveAsync($"stickerlookup:{sticker.Pack.Prefix}{sticker.Slug}");
+        await cache.RemoveAsync($"sticker:lookup:{sticker.Id}");
+        await cache.RemoveAsync($"sticker:lookup:{sticker.Pack.Prefix}{sticker.Slug}");
     }
 }

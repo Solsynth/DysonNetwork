@@ -3,6 +3,23 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace DysonNetwork.Shared.Data;
 
+public enum ContentSensitiveMark
+{
+    Language,
+    SexualContent,
+    Violence,
+    Profanity,
+    HateSpeech,
+    Racism,
+    AdultContent,
+    DrugAbuse,
+    AlcoholAbuse,
+    Gambling,
+    SelfHarm,
+    ChildAbuse,
+    Other
+}
+
 /// <summary>
 /// The class that used in jsonb columns which referenced the cloud file.
 /// The aim of this class is to store some properties that won't change to a file to reduce the database load.

@@ -27,6 +27,27 @@ namespace DysonNetwork.Drive.Storage
             return reference.ToProtoValue();
         }
 
+        public override async Task<CreateReferenceBatchResponse> CreateReferenceBatch(CreateReferenceBatchRequest request,
+            ServerCallContext context)
+        {
+            Instant? expiredAt = null;
+            if (request.ExpiredAt != null)
+                expiredAt = Instant.FromUnixTimeSeconds(request.ExpiredAt.Seconds);
+            else if (request.Duration != null)
+                expiredAt = SystemClock.Instance.GetCurrentInstant() +
+                            Duration.FromTimeSpan(request.Duration.ToTimeSpan());
+
+            var references = await fileReferenceService.CreateReferencesAsync(
+                request.FilesId.ToList(),
+                request.Usage,
+                request.ResourceId,
+                expiredAt
+            );
+            var response = new CreateReferenceBatchResponse();
+            response.References.AddRange(references.Select(r => r.ToProtoValue()));
+            return response;
+        }
+
         public override async Task<GetReferencesResponse> GetReferences(GetReferencesRequest request,
             ServerCallContext context)
         {

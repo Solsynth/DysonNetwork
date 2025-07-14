@@ -51,6 +51,7 @@ message CloudFile {
 service FileService {
   // Get file reference by ID
   rpc GetFile(GetFileRequest) returns (CloudFile);
+  rpc GetFileBatch(GetFileBatchRequest) returns (GetFileBatchResponse);
 
   // Update an existing file reference
   rpc UpdateFile(UpdateFileRequest) returns (CloudFile);
@@ -71,6 +72,14 @@ service FileService {
 // Request message for GetFile
 message GetFileRequest {
   string id = 1;
+}
+
+message GetFileBatchRequest {
+  repeated string ids = 1;
+}
+
+message GetFileBatchResponse {
+  repeated CloudFile files = 1;
 }
 
 // Request message for UpdateFile
@@ -157,6 +166,18 @@ message CreateReferenceRequest {
   optional google.protobuf.Duration duration = 5; // Alternative to expired_at
 }
 
+message CreateReferenceBatchRequest {
+  repeated string files_id = 1;
+  string usage = 2;
+  string resource_id = 3;
+  optional google.protobuf.Timestamp expired_at = 4;
+  optional google.protobuf.Duration duration = 5; // Alternative to expired_at
+}
+
+message CreateReferenceBatchResponse {
+  repeated CloudFileReference references = 1;
+}
+
 message GetReferencesRequest {
   string file_id = 1;
 }
@@ -239,6 +260,7 @@ message HasFileReferencesResponse {
 service FileReferenceService {
   // Creates a new reference to a file for a specific resource
   rpc CreateReference(CreateReferenceRequest) returns (CloudFileReference);
+  rpc CreateReferenceBatch(CreateReferenceBatchRequest) returns (CreateReferenceBatchResponse);
 
   // Gets all references to a file
   rpc GetReferences(GetReferencesRequest) returns (GetReferencesResponse);

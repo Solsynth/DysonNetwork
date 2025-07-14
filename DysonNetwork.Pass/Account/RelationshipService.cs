@@ -154,13 +154,18 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
 
     public async Task<List<Guid>> ListAccountFriends(Account account)
     {
-        var cacheKey = $"{UserFriendsCacheKeyPrefix}{account.Id}";
+        return await ListAccountFriends(account.Id);
+    }
+
+    public async Task<List<Guid>> ListAccountFriends(Guid accountId)
+    {
+        var cacheKey = $"{UserFriendsCacheKeyPrefix}{accountId}";
         var friends = await cache.GetAsync<List<Guid>>(cacheKey);
         
         if (friends == null)
         {
             friends = await db.AccountRelationships
-                .Where(r => r.RelatedId == account.Id)
+                .Where(r => r.RelatedId == accountId)
                 .Where(r => r.Status == RelationshipStatus.Friends)
                 .Select(r => r.AccountId)
                 .ToListAsync();
@@ -173,13 +178,18 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
     
     public async Task<List<Guid>> ListAccountBlocked(Account account)
     {
-        var cacheKey = $"{UserBlockedCacheKeyPrefix}{account.Id}";
+        return await ListAccountBlocked(account.Id);
+    }
+    
+    public async Task<List<Guid>> ListAccountBlocked(Guid accountId)
+    {
+        var cacheKey = $"{UserBlockedCacheKeyPrefix}{accountId}";
         var blocked = await cache.GetAsync<List<Guid>>(cacheKey);
         
         if (blocked == null)
         {
             blocked = await db.AccountRelationships
-                .Where(r => r.RelatedId == account.Id)
+                .Where(r => r.RelatedId == accountId)
                 .Where(r => r.Status == RelationshipStatus.Blocked)
                 .Select(r => r.AccountId)
                 .ToListAsync();

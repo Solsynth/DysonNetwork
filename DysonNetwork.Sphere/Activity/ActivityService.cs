@@ -1,5 +1,6 @@
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Connection.WebReader;
+using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -118,14 +119,14 @@ public class ActivityService(
     public async Task<List<Activity>> GetActivities(
         int take,
         Instant? cursor,
-        Account.Account currentUser,
+        Account currentUser,
         string? filter = null,
         HashSet<string>? debugInclude = null
     )
     {
         var activities = new List<Activity>();
         var userFriends = await rels.ListAccountFriends(currentUser);
-        var userPublishers = await pub.GetUserPublishers(currentUser.Id);
+        var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
         debugInclude ??= [];
 
         if (string.IsNullOrEmpty(filter))
@@ -190,7 +191,7 @@ public class ActivityService(
         // Get publishers based on filter
         var filteredPublishers = filter switch
         {
-            "subscriptions" => await pub.GetSubscribedPublishers(currentUser.Id),
+            "subscriptions" => await pub.GetSubscribedPublishers(Guid.Parse(currentUser.Id)),
             "friends" => (await pub.GetUserPublishersBatch(userFriends)).SelectMany(x => x.Value)
                 .DistinctBy(x => x.Id)
                 .ToList(),

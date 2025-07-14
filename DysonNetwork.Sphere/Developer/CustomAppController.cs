@@ -47,7 +47,7 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
     [Authorize]
     public async Task<IActionResult> CreateApp([FromRoute] string pubName, [FromBody] CustomAppRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Slug))
             return BadRequest("Name and slug are required");
@@ -79,7 +79,7 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
         [FromBody] CustomAppRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
@@ -109,7 +109,7 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
         [FromRoute] Guid id
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();

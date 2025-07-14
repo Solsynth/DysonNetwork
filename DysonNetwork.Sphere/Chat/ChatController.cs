@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using DysonNetwork.Shared.Content;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Permission;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +12,12 @@ namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
 [Route("/api/chat")]
-public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomService crs) : ControllerBase
+public partial class ChatController(
+    AppDatabase db,
+    ChatService cs,
+    ChatRoomService crs,
+    FileService.FileServiceClient files
+) : ControllerBase
 {
     public class MarkMessageReadRequest
     {
@@ -32,10 +39,11 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     [Authorize]
     public async Task<ActionResult<Dictionary<Guid, ChatSummaryResponse>>> GetChatSummary()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var unreadMessages = await cs.CountUnreadMessageForUser(currentUser.Id);
-        var lastMessages = await cs.ListLastMessageForUser(currentUser.Id);
+        var accountId = Guid.Parse(currentUser.Id);
+        var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
+        var lastMessages = await cs.ListLastMessageForUser(accountId);
 
         var result = unreadMessages.Keys
             .Union(lastMessages.Keys)
@@ -65,7 +73,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     public async Task<ActionResult<List<Message>>> ListMessages(Guid roomId, [FromQuery] int offset,
         [FromQuery] int take = 20)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
@@ -74,8 +82,9 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
         {
             if (currentUser is null) return Unauthorized();
 
+            var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
                 .FirstOrDefaultAsync();
             if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -102,7 +111,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     [HttpGet("{roomId:guid}/messages/{messageId:guid}")]
     public async Task<ActionResult<Message>> GetMessage(Guid roomId, Guid messageId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
@@ -111,8 +120,9 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
         {
             if (currentUser is null) return Unauthorized();
 
+            var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
-                .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
                 .FirstOrDefaultAsync();
             if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -139,14 +149,14 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     [RequiredPermission("global", "chat.messages.create")]
     public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) &&
             (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
             return BadRequest("You cannot send an empty message.");
 
-        var member = await crs.GetRoomMember(currentUser.Id, roomId);
+        var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to send messages here.");
 
@@ -162,12 +172,12 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
             message.Content = request.Content;
         if (request.AttachmentsId is not null)
         {
-            var attachments = await db.Files
-                .Where(f => request.AttachmentsId.Contains(f.Id))
-                .ToListAsync();
-            message.Attachments = attachments
+            var queryRequest = new GetFileBatchRequest();
+            queryRequest.Ids.AddRange(request.AttachmentsId);
+            var queryResponse = await files.GetFileBatchAsync(queryRequest);
+            message.Attachments = queryResponse.Files
                 .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
-                .Select(f => f.ToReferenceObject())
+                .Select(CloudFileReferenceObject.FromProtoValue)
                 .ToList();
         }
 
@@ -216,7 +226,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     [Authorize]
     public async Task<ActionResult> UpdateMessage([FromBody] SendMessageRequest request, Guid roomId, Guid messageId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         request.Content = TextSanitizer.Sanitize(request.Content);
 
@@ -229,7 +239,8 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
 
         if (message == null) return NotFound();
 
-        if (message.Sender.AccountId != currentUser.Id)
+        var accountId = Guid.Parse(currentUser.Id);
+        if (message.Sender.AccountId != accountId)
             return StatusCode(403, "You can only edit your own messages.");
 
         if (string.IsNullOrWhiteSpace(request.Content) &&
@@ -269,7 +280,7 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     [Authorize]
     public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var message = await db.ChatMessages
             .Include(m => m.Sender)
@@ -278,7 +289,8 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
 
         if (message == null) return NotFound();
 
-        if (message.Sender.AccountId != currentUser.Id)
+        var accountId = Guid.Parse(currentUser.Id);
+        if (message.Sender.AccountId != accountId)
             return StatusCode(403, "You can only delete your own messages.");
 
         // Call service method to delete the message
@@ -295,11 +307,12 @@ public partial class ChatController(AppDatabase db, ChatService cs, ChatRoomServ
     [HttpPost("{roomId:guid}/sync")]
     public async Task<ActionResult<SyncResponse>> GetSyncData([FromBody] SyncRequest request, Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var isMember = await db.ChatMembers
-            .AnyAsync(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId);
+            .AnyAsync(m => m.AccountId == accountId && m.ChatRoomId == roomId);
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 

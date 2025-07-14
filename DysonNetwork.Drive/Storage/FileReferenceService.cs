@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -19,11 +20,12 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// <param name="duration">Optional duration after which the file expires (alternative to expiredAt)</param>
     /// <returns>The created file reference</returns>
     public async Task<CloudFileReference> CreateReferenceAsync(
-        string fileId, 
-        string usage, 
-        string resourceId, 
-        Instant? expiredAt = null, 
-        Duration? duration = null)
+        string fileId,
+        string usage,
+        string resourceId,
+        Instant? expiredAt = null,
+        Duration? duration = null
+    )
     {
         // Calculate expiration time if needed
         var finalExpiration = expiredAt;
@@ -44,6 +46,25 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         await fileService._PurgeCacheAsync(fileId);
 
         return reference;
+    }
+
+    public async Task<List<CloudFileReference>> CreateReferencesAsync(
+        List<string> fileId,
+        string usage,
+        string resourceId,
+        Instant? expiredAt = null,
+        Duration? duration = null
+    )
+    {
+        var data = fileId.Select(id => new CloudFileReference
+        {
+            FileId = id,
+            Usage = usage,
+            ResourceId = resourceId,
+            ExpiredAt = expiredAt ?? SystemClock.Instance.GetCurrentInstant() + duration
+        }).ToList();
+        await db.BulkInsertAsync(data);
+        return data;
     }
 
     /// <summary>
@@ -274,8 +295,8 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
 
             // Update newly added references with the expiration time
             var referenceIds = await db.FileReferences
-                .Where(r => toAdd.Select(a => a.FileId).Contains(r.FileId) && 
-                            r.ResourceId == resourceId && 
+                .Where(r => toAdd.Select(a => a.FileId).Contains(r.FileId) &&
+                            r.ResourceId == resourceId &&
                             r.Usage == usage)
                 .Select(r => r.Id)
                 .ToListAsync();

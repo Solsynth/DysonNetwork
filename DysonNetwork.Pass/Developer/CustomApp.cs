@@ -34,7 +34,7 @@ public class CustomApp : ModelBase, IIdentifiedResource
 
     // TODO: Publisher
 
-    [NotMapped] public string ResourceIdentifier => "custom-app/" + Id;
+    [NotMapped] public string ResourceIdentifier => "custom-app:" + Id;
 }
 
 public class CustomAppLinks

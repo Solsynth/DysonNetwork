@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
@@ -38,7 +39,7 @@ public class ChatRoom : ModelBase, IIdentifiedResource
     public ICollection<ChatMemberTransmissionObject> DirectMembers { get; set; } =
         new List<ChatMemberTransmissionObject>();
 
-    public string ResourceIdentifier => $"chatroom/{Id}";
+    public string ResourceIdentifier => $"chatroom:{Id}";
 }
 
 public abstract class ChatMemberRole
@@ -73,7 +74,7 @@ public class ChatMember : ModelBase
     public Guid ChatRoomId { get; set; }
     public ChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
-    public Account.Account Account { get; set; } = null!;
+    public Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
@@ -105,7 +106,7 @@ public class ChatMemberTransmissionObject : ModelBase
     public Guid Id { get; set; }
     public Guid ChatRoomId { get; set; }
     public Guid AccountId { get; set; }
-    public Account.Account Account { get; set; } = null!;
+    public Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
 

@@ -1,8 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using DysonNetwork.Sphere.Storage;
-using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.Data;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
@@ -19,8 +18,6 @@ public class Message : ModelBase, IIdentifiedResource
     
     [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = []; 
 
-    // Outdated fields, keep for backward compability
-    public ICollection<CloudFile> OutdatedAttachments { get; set; } = new List<CloudFile>();
     public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
 
     public Guid? RepliedMessageId { get; set; }
@@ -33,7 +30,7 @@ public class Message : ModelBase, IIdentifiedResource
     public Guid ChatRoomId { get; set; }
     [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
 
-    public string ResourceIdentifier => $"message/{Id}";
+    public string ResourceIdentifier => $"message:{Id}";
 }
 
 public enum MessageReactionAttitude

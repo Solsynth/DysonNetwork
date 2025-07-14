@@ -1,9 +1,11 @@
 using System.Text.RegularExpressions;
-using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Connection.WebReader;
+using DysonNetwork.Shared;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
@@ -12,13 +14,14 @@ namespace DysonNetwork.Sphere.Post;
 
 public partial class PostService(
     AppDatabase db,
-    FileReferenceService fileRefService,
     IStringLocalizer<NotificationResource> localizer,
     IServiceScopeFactory factory,
     FlushBufferService flushBuffer,
     ICacheService cache,
-    WebReaderService reader,
-    ILogger<PostService> logger
+    ILogger<PostService> logger,
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
+    WebReaderService reader
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -69,7 +72,7 @@ public partial class PostService(
     }
 
     public async Task<Post> PostAsync(
-        Account.Account user,
+        Account user,
         Post post,
         List<string>? attachments = null,
         List<string>? tags = null,
@@ -91,8 +94,11 @@ public partial class PostService(
 
         if (attachments is not null)
         {
-            post.Attachments = (await db.Files.Where(e => attachments.Contains(e.Id)).ToListAsync())
-                .Select(x => x.ToReferenceObject()).ToList();
+            var queryRequest = new GetFileBatchRequest();
+            queryRequest.Ids.AddRange(attachments);
+            var queryResponse = await files.GetFileBatchAsync(queryRequest);
+
+            post.Attachments = queryResponse.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
             // Re-order the list to match the id list places
             post.Attachments = attachments
                 .Select(id => post.Attachments.First(a => a.Id == id))
@@ -128,17 +134,16 @@ public partial class PostService(
         await db.SaveChangesAsync();
 
         // Create file references for each attachment
-        if (post.Attachments.Any())
+        if (post.Attachments.Count != 0)
         {
             var postResourceId = $"post:{post.Id}";
-            foreach (var file in post.Attachments)
+            var request = new CreateReferenceBatchRequest
             {
-                await fileRefService.CreateReferenceAsync(
-                    file.Id,
-                    PostFileUsageIdentifier,
-                    postResourceId
-                );
-            }
+                Usage = PostFileUsageIdentifier,
+                ResourceId = post.ResourceIdentifier,
+            };
+            request.FilesId.AddRange(post.Attachments.Select(a => a.Id));
+            await fileRefs.CreateReferenceBatchAsync(request);
         }
 
         if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow)
@@ -157,24 +162,33 @@ public partial class PostService(
                 var sender = post.Publisher;
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<PostService>>();
+                var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+                var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
                     var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId);
-                    foreach (var member in members)
+                    var queryRequest = new GetAccountBatchRequest();
+                    queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
+                    var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+                    foreach (var member in queryResponse.Accounts)
                     {
-                        AccountService.SetCultureInfo(member.Account);
-                        var (_, content) = ChopPostForNotification(post);
-                        await nty.SendNotification(
-                            member.Account,
-                            "post.replies",
-                            localizer["PostReplyTitle", sender.Nick],
-                            null,
-                            string.IsNullOrWhiteSpace(post.Title)
-                                ? localizer["PostReplyBody", sender.Nick, content]
-                                : localizer["PostReplyContentBody", sender.Nick, post.Title, content],
-                            actionUri: $"/posts/{post.Id}"
+                        if (member is null) continue;
+                        CultureService.SetCultureInfo(member);
+                        await nty.SendPushNotificationToUserAsync(
+                            new SendPushNotificationToUserRequest
+                            {
+                                UserId = member.Id,
+                                Notification = new PushNotification
+                                {
+                                    Topic = "post.replies",
+                                    Title = localizer["PostReplyTitle", sender.Nick],
+                                    Body = string.IsNullOrWhiteSpace(post.Title)
+                                        ? localizer["PostReplyBody", sender.Nick, ChopPostForNotification(post).content]
+                                        : localizer["PostReplyContentBody", sender.Nick, post.Title, ChopPostForNotification(post).content],
+                                    IsSavable = true,
+                                    ActionUri = $"/posts/{post.Id}"
+                                }
+                            }
                         );
                     }
                 }
@@ -218,18 +232,20 @@ public partial class PostService(
             var postResourceId = $"post:{post.Id}";
 
             // Update resource references using the new file list
-            await fileRefService.UpdateResourceFilesAsync(
-                postResourceId,
-                attachments,
-                PostFileUsageIdentifier
-            );
+            var request = new UpdateResourceFilesRequest
+            {
+                ResourceId = postResourceId,
+                Usage = PostFileUsageIdentifier,
+            };
+            request.FileIds.AddRange(attachments);
+            await fileRefs.UpdateResourceFilesAsync(request);
 
             // Update post attachments by getting files from database
-            var files = await db.Files
-                .Where(f => attachments.Contains(f.Id))
-                .ToListAsync();
+            var queryRequest = new GetFileBatchRequest();
+            queryRequest.Ids.AddRange(attachments);
+            var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
-            post.Attachments = files.Select(x => x.ToReferenceObject()).ToList();
+            post.Attachments = queryResponse.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
         }
 
         if (tags is not null)
@@ -369,10 +385,10 @@ public partial class PostService(
 
     public async Task DeletePostAsync(Post post)
     {
-        var postResourceId = $"post:{post.Id}";
-
         // Delete all file references for this post
-        await fileRefService.DeleteResourceReferencesAsync(postResourceId);
+        await fileRefs.DeleteResourceReferencesAsync(
+            new DeleteResourceReferencesRequest { ResourceId = post.ResourceIdentifier }
+        );
 
         db.Posts.Remove(post);
         await db.SaveChangesAsync();
@@ -391,7 +407,7 @@ public partial class PostService(
     public async Task<bool> ModifyPostVotes(
         Post post,
         PostReaction reaction,
-        Account.Account sender,
+        Account sender,
         bool isRemoving,
         bool isSelfReact
     )
@@ -438,24 +454,35 @@ public partial class PostService(
             {
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<NotificationService>();
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<PostService>>();
+                var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+                var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
                     var members = await pub.GetPublisherMembers(post.PublisherId);
-                    foreach (var member in members)
+                    var queryRequest = new GetAccountBatchRequest();
+                    queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
+                    var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+                    foreach (var member in queryResponse.Accounts)
                     {
-                        AccountService.SetCultureInfo(member.Account);
-                        await nty.SendNotification(
-                            member.Account,
-                            "posts.reactions.new",
-                            localizer["PostReactTitle", sender.Nick],
-                            null,
-                            string.IsNullOrWhiteSpace(post.Title)
-                                ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
-                                : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
-                                    post.Title],
-                            actionUri: $"/posts/{post.Id}"
+                        if (member is null) continue;
+                        CultureService.SetCultureInfo(member);
+
+                        await nty.SendPushNotificationToUserAsync(
+                            new SendPushNotificationToUserRequest
+                            {
+                                UserId = member.Id,
+                                Notification = new PushNotification
+                                {
+                                    Topic = "posts.reactions.new",
+                                    Title = localizer["PostReactTitle", sender.Nick],
+                                    Body = string.IsNullOrWhiteSpace(post.Title)
+                                        ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
+                                        : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
+                                            post.Title],
+                                    IsSavable = true,
+                                    ActionUri = $"/posts/{post.Id}"
+                                }
+                            }
                         );
                     }
                 }
@@ -563,7 +590,7 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<List<Post>> LoadInteractive(List<Post> posts, Account.Account? currentUser = null)
+    public async Task<List<Post>> LoadInteractive(List<Post> posts, Account? currentUser = null)
     {
         if (posts.Count == 0) return posts;
 
@@ -586,7 +613,7 @@ public partial class PostService(
 
             // Track view for each post in the list
             if (currentUser != null)
-                await IncreaseViewCount(post.Id, currentUser.Id.ToString());
+                await IncreaseViewCount(post.Id, currentUser.Id);
             else
                 await IncreaseViewCount(post.Id);
         }
@@ -605,8 +632,11 @@ public partial class PostService(
             );
     }
 
-    public async Task<List<Post>> LoadPostInfo(List<Post> posts, Account.Account? currentUser = null,
-        bool truncate = false)
+    public async Task<List<Post>> LoadPostInfo(
+        List<Post> posts,
+        Account? currentUser = null,
+        bool truncate = false
+    )
     {
         if (posts.Count == 0) return posts;
 
@@ -619,7 +649,7 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<Post> LoadPostInfo(Post post, Account.Account? currentUser = null, bool truncate = false)
+    public async Task<Post> LoadPostInfo(Post post, Account? currentUser = null, bool truncate = false)
     {
         // Convert single post to list, process it, then return the single post
         var posts = await LoadPostInfo([post], currentUser, truncate);
@@ -631,7 +661,7 @@ public static class PostQueryExtensions
 {
     public static IQueryable<Post> FilterWithVisibility(
         this IQueryable<Post> source,
-        Account.Account? currentUser,
+        Account? currentUser,
         List<Guid> userFriends,
         List<Publisher.Publisher> publishers,
         bool isListing = false

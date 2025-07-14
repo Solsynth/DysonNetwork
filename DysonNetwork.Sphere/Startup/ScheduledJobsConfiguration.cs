@@ -1,5 +1,5 @@
 using DysonNetwork.Sphere.Storage;
-using DysonNetwork.Sphere.Connection.WebReader;
+using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Storage.Handlers;
 using DysonNetwork.Sphere.Wallet;
 using Quartz;

@@ -20,7 +20,7 @@ public class AuthServiceGrpc(
     {
         if (!authService.ValidateToken(request.Token, out var sessionId))
             return new AuthenticateResponse { Valid = false, Message = "Invalid token." };
-        
+
         var session = await cache.GetAsync<AuthSession>($"{DysonTokenAuthHandler.AuthCachePrefix}{sessionId}");
         if (session is not null)
             return new AuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
@@ -36,7 +36,7 @@ public class AuthServiceGrpc(
         var now = SystemClock.Instance.GetCurrentInstant();
         if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
             return new AuthenticateResponse { Valid = false, Message = "Session has been expired." };
-        
+
         await cache.SetWithGroupsAsync(
             $"auth:{sessionId}",
             session,
@@ -45,5 +45,18 @@ public class AuthServiceGrpc(
         );
 
         return new AuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
+    }
+
+    public override async Task<ValidateResponse> ValidatePin(ValidatePinRequest request, ServerCallContext context)
+    {
+        var accountId = Guid.Parse(request.AccountId);
+        var valid = await authService.ValidatePinCode(accountId, request.Pin);
+        return new ValidateResponse { Valid = valid };
+    }
+    
+    public override async Task<ValidateResponse> ValidateCaptcha(ValidateCaptchaRequest request, ServerCallContext context)
+    {
+        var valid = await authService.ValidateCaptcha(request.Token);
+        return new ValidateResponse { Valid = valid };
     }
 }

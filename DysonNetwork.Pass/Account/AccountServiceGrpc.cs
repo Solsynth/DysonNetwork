@@ -9,6 +9,7 @@ namespace DysonNetwork.Pass.Account;
 
 public class AccountServiceGrpc(
     AppDatabase db,
+    RelationshipService relationships,
     IClock clock,
     ILogger<AccountServiceGrpc> logger
 )
@@ -19,7 +20,7 @@ public class AccountServiceGrpc(
 
     private readonly ILogger<AccountServiceGrpc>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    
+
     public override async Task<Shared.Proto.Account> GetAccount(GetAccountRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var accountId))
@@ -36,7 +37,8 @@ public class AccountServiceGrpc(
         return account.ToProtoValue();
     }
 
-    public override async Task<GetAccountBatchResponse> GetAccountBatch(GetAccountBatchRequest request, ServerCallContext context)
+    public override async Task<GetAccountBatchResponse> GetAccountBatch(GetAccountBatchRequest request,
+        ServerCallContext context)
     {
         var accountIds = request.Id
             .Select(id => Guid.TryParse(id, out var accountId) ? accountId : (Guid?)null)
@@ -245,7 +247,8 @@ public class AccountServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<ListContactsResponse> ListContacts(ListContactsRequest request, ServerCallContext context)
+    public override async Task<ListContactsResponse> ListContacts(ListContactsRequest request,
+        ServerCallContext context)
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
@@ -263,7 +266,8 @@ public class AccountServiceGrpc(
         return response;
     }
 
-    public override async Task<Shared.Proto.AccountContact> VerifyContact(VerifyContactRequest request, ServerCallContext context)
+    public override async Task<Shared.Proto.AccountContact> VerifyContact(VerifyContactRequest request,
+        ServerCallContext context)
     {
         // This is a placeholder implementation. In a real-world scenario, you would
         // have a more robust verification mechanism (e.g., sending a code to the
@@ -343,7 +347,8 @@ public class AccountServiceGrpc(
         return response;
     }
 
-    public override async Task<Shared.Proto.AccountProfile> SetActiveBadge(SetActiveBadgeRequest request, ServerCallContext context)
+    public override async Task<Shared.Proto.AccountProfile> SetActiveBadge(SetActiveBadgeRequest request,
+        ServerCallContext context)
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
@@ -358,5 +363,56 @@ public class AccountServiceGrpc(
         await _db.SaveChangesAsync();
 
         return profile.ToProtoValue();
+    }
+
+    public override async Task<ListUserRelationshipSimpleResponse> ListFriends(
+        ListUserRelationshipSimpleRequest request, ServerCallContext context)
+    {
+        var accountId = Guid.Parse(request.AccountId);
+        var relationship = await relationships.ListAccountFriends(accountId);
+        var resp = new ListUserRelationshipSimpleResponse();
+        resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
+        return resp;
+    }
+
+    public override async Task<ListUserRelationshipSimpleResponse> ListBlocked(
+        ListUserRelationshipSimpleRequest request, ServerCallContext context)
+    {
+        var accountId = Guid.Parse(request.AccountId);
+        var relationship = await relationships.ListAccountBlocked(accountId);
+        var resp = new ListUserRelationshipSimpleResponse();
+        resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
+        return resp;
+    }
+
+    public override async Task<GetRelationshipResponse> GetRelationship(GetRelationshipRequest request,
+        ServerCallContext context)
+    {
+        var relationship = await relationships.GetRelationship(
+            Guid.Parse(request.AccountId),
+            Guid.Parse(request.RelatedId),
+            status: (RelationshipStatus?)request.Status
+        );
+        return new GetRelationshipResponse
+        {
+            Relationship = relationship?.ToProtoValue()
+        };
+    }
+
+    public override async Task<BoolValue> HasRelationship(GetRelationshipRequest request, ServerCallContext context)
+    {
+        var hasRelationship = false;
+        if (!request.HasStatus)
+            hasRelationship = await relationships.HasExistingRelationship(
+                Guid.Parse(request.AccountId),
+                Guid.Parse(request.RelatedId)
+            );
+        else
+            hasRelationship = await relationships.HasRelationshipWithStatus(
+                Guid.Parse(request.AccountId),
+                Guid.Parse(request.RelatedId),
+                (RelationshipStatus)request.Status
+            );
+        return new BoolValue { Value = hasRelationship };
     }
 }

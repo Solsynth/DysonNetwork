@@ -32,9 +32,8 @@ public class Realm : ModelBase, IIdentifiedResource
     [JsonIgnore] public ICollection<RealmTag> RealmTags { get; set; } = new List<RealmTag>();
 
     public Guid AccountId { get; set; }
-    [JsonIgnore] public Account.Account Account { get; set; } = null!;
 
-    public string ResourceIdentifier => $"realm/{Id}";
+    public string ResourceIdentifier => $"realm:{Id}";
 }
 
 public abstract class RealmMemberRole
@@ -49,7 +48,7 @@ public class RealmMember : ModelBase
     public Guid RealmId { get; set; }
     public Realm Realm { get; set; } = null!;
     public Guid AccountId { get; set; }
-    public Account.Account Account { get; set; } = null!;
+    public Account Account { get; set; } = null!;
 
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }

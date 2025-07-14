@@ -73,4 +73,28 @@ public static class GrpcClientHelper
         return new PusherService.PusherServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
+    
+    public static async Task<FileService.FileServiceClient> CreateFileServiceClient(
+        IEtcdClient etcdClient,
+        string clientCertPath,
+        string clientKeyPath,
+        string? clientCertPassword = null
+    )
+    {
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.File");
+        return new FileService.FileServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
+            clientCertPassword));
+    }
+    
+    public static async Task<FileReferenceService.FileReferenceServiceClient> CreateFileReferenceServiceClient(
+        IEtcdClient etcdClient,
+        string clientCertPath,
+        string clientKeyPath,
+        string? clientCertPassword = null
+    )
+    {
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.FileReference");
+        return new FileReferenceService.FileReferenceServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
+            clientCertPassword));
+    }
 }

@@ -13,7 +13,7 @@ public class RealmChatController(AppDatabase db, RealmService rs) : ControllerBa
     [Authorize]
     public async Task<ActionResult<List<ChatRoom>>> ListRealmChat(string slug)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account.Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)

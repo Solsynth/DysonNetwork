@@ -32,7 +32,7 @@ public class PostController(
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account.Account;
+        var currentUser = currentUserValue as Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
@@ -70,7 +70,7 @@ public class PostController(
             return RedirectToPage("/Posts/PostDetail", new { PostId = id });
         
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account.Account;
+        var currentUser = currentUserValue as Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
@@ -102,7 +102,7 @@ public class PostController(
             return BadRequest("Search query cannot be empty");
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account.Account;
+        var currentUser = currentUserValue as Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
@@ -139,7 +139,7 @@ public class PostController(
         [FromQuery] int take = 20)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account.Account;
+        var currentUser = currentUserValue as Account;
         var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
 
@@ -201,7 +201,7 @@ public class PostController(
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
             return BadRequest("Content is required.");
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         Publisher.Publisher? publisher;
         if (publisherName is null)
@@ -287,7 +287,7 @@ public class PostController(
     public async Task<ActionResult<PostReaction>> ReactPost(Guid id, [FromBody] PostReactionRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not Account.Account currentUser) return Unauthorized();
+        if (currentUserValue is not Account currentUser) return Unauthorized();
         var userFriends = await rels.ListAccountFriends(currentUser);
         var userPublishers = await pub.GetUserPublishers(currentUser.Id);
 
@@ -336,7 +336,7 @@ public class PostController(
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
             return BadRequest("Content is required.");
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var post = await db.Posts
             .Where(e => e.Id == id)
@@ -382,7 +382,7 @@ public class PostController(
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult<Post>> DeletePost(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var post = await db.Posts
             .Where(e => e.Id == id)

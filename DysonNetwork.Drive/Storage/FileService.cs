@@ -50,6 +50,51 @@ public class FileService(
 
         return file;
     }
+    
+    public async Task<List<CloudFile>> GetFilesAsync(List<string> fileIds)
+    {
+        var cachedFiles = new Dictionary<string, CloudFile>();
+        var uncachedIds = new List<string>();
+
+        // Check cache first
+        foreach (var fileId in fileIds)
+        {
+            var cacheKey = $"{CacheKeyPrefix}{fileId}";
+            var cachedFile = await cache.GetAsync<CloudFile>(cacheKey);
+
+            if (cachedFile != null)
+            {
+                cachedFiles[fileId] = cachedFile;
+            }
+            else
+            {
+                uncachedIds.Add(fileId);
+            }
+        }
+
+        // Load uncached files from database
+        if (uncachedIds.Count > 0)
+        {
+            var dbFiles = await db.Files
+                .Where(f => uncachedIds.Contains(f.Id))
+                .ToListAsync();
+
+            // Add to cache
+            foreach (var file in dbFiles)
+            {
+                var cacheKey = $"{CacheKeyPrefix}{file.Id}";
+                await cache.SetAsync(cacheKey, file, CacheDuration);
+                cachedFiles[file.Id] = file;
+            }
+        }
+
+        // Preserve original order
+        return fileIds
+            .Select(f => cachedFiles.GetValueOrDefault(f))
+            .Where(f => f != null)
+            .Cast<CloudFile>()
+            .ToList();
+    }
 
     private static readonly string TempFilePrefix = "dyn-cloudfile";
 
@@ -155,7 +200,7 @@ public class FileService(
                 try
                 {
                     var mediaInfo = await FFProbe.AnalyseAsync(ogFilePath);
-                    file.FileMeta = new Dictionary<string, object>
+                    file.FileMeta = new Dictionary<string, object?>
                     {
                         ["duration"] = mediaInfo.Duration.TotalSeconds,
                         ["format_name"] = mediaInfo.Format.FormatName,

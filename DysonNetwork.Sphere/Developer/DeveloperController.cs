@@ -63,7 +63,7 @@ public class DeveloperController(
     [Authorize]
     public async Task<ActionResult<List<Publisher.Publisher>>> ListJoinedDevelopers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var members = await db.PublisherMembers
@@ -93,7 +93,7 @@ public class DeveloperController(
     [RequiredPermission("global", "developers.create")]
     public async Task<ActionResult<Publisher.Publisher>> EnrollDeveloperProgram(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var publisher = await db.Publishers

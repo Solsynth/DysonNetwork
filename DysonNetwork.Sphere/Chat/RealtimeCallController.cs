@@ -46,7 +46,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<RealtimeCall>> GetOngoingCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var member = await db.ChatMembers
             .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
@@ -71,7 +71,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<JoinCallResponse>> JoinCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         // Check if the user is a member of the chat room
         var member = await db.ChatMembers
@@ -144,7 +144,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<RealtimeCall>> StartCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var member = await db.ChatMembers
             .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
@@ -163,7 +163,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<RealtimeCall>> EndCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var member = await db.ChatMembers
             .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)

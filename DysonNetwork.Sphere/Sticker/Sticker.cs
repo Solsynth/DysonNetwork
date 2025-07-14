@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Sticker;
@@ -19,7 +19,7 @@ public class Sticker : ModelBase, IIdentifiedResource
     public Guid PackId { get; set; }
     public StickerPack Pack { get; set; } = null!;
 
-    public string ResourceIdentifier => $"sticker/{Id}";
+    public string ResourceIdentifier => $"sticker:{Id}";
 }
 
 [Index(nameof(Prefix), IsUnique = true)]

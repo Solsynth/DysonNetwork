@@ -111,7 +111,7 @@ public class LivekitRealtimeService : IRealtimeService
     }
 
     /// <inheritdoc />
-    public string GetUserToken(Account.Account account, string sessionId, bool isAdmin = false)
+    public string GetUserToken(Account account, string sessionId, bool isAdmin = false)
     {
         var token = _accessToken.WithIdentity(account.Name)
             .WithName(account.Nick)

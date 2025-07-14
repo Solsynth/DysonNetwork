@@ -49,7 +49,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var members = await db.PublisherMembers
@@ -65,7 +65,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<PublisherMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var members = await db.PublisherMembers
@@ -88,7 +88,7 @@ public class PublisherController(
     public async Task<ActionResult<PublisherMember>> InviteMember(string name,
         [FromBody] PublisherMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
@@ -128,7 +128,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Publisher>> AcceptMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var member = await db.PublisherMembers
@@ -154,7 +154,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var member = await db.PublisherMembers
@@ -179,7 +179,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string name, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
@@ -224,7 +224,7 @@ public class PublisherController(
     [RequiredPermission("global", "publishers.create")]
     public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var takenName = request.Name ?? currentUser.Name;
         var duplicateNameCount = await db.Publishers
@@ -274,7 +274,7 @@ public class PublisherController(
     public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug,
         [FromBody] PublisherRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmSlug);
         if (realm == null) return NotFound("Realm not found");
@@ -328,7 +328,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Publisher>> UpdatePublisher(string name, PublisherRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var publisher = await db.Publishers
@@ -405,7 +405,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Publisher>> DeletePublisher(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var publisher = await db.Publishers
@@ -473,7 +473,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<PublisherMember>> GetCurrentIdentity(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var publisher = await db.Publishers

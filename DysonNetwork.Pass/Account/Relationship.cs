@@ -1,5 +1,7 @@
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -20,4 +22,15 @@ public class Relationship : ModelBase
     public Instant? ExpiredAt { get; set; }
 
     public RelationshipStatus Status { get; set; } = RelationshipStatus.Pending;
+    
+    public Shared.Proto.Relationship ToProtoValue() => new()
+    {
+        AccountId = AccountId.ToString(),
+        RelatedId = RelatedId.ToString(),
+        Account = Account.ToProtoValue(),
+        Related = Related.ToProtoValue(),
+        Type = (int)Status,
+        CreatedAt = CreatedAt.ToTimestamp(),
+        UpdatedAt = UpdatedAt.ToTimestamp()
+    };
 }

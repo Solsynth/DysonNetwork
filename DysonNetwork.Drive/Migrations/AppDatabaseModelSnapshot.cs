@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using DysonNetwork.Drive;
 using DysonNetwork.Drive.Storage;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
