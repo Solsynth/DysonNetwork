@@ -1,5 +1,4 @@
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
@@ -12,9 +11,10 @@ namespace DysonNetwork.Sphere.Activity;
 public class ActivityService(
     AppDatabase db,
     PublisherService pub,
-    RelationshipService rels,
     PostService ps,
-    DiscoveryService ds)
+    DiscoveryService ds,
+    AccountService.AccountServiceClient accounts
+)
 {
     private static double CalculateHotRank(Post.Post post, Instant now)
     {
@@ -125,7 +125,9 @@ public class ActivityService(
     )
     {
         var activities = new List<Activity>();
-        var userFriends = await rels.ListAccountFriends(currentUser);
+        var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+            { AccountId = currentUser.Id });
+        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
         debugInclude ??= [];
 
@@ -242,8 +244,7 @@ public class ActivityService(
             .ToList();
 
         // Formatting data
-        foreach (var post in rankedPosts)
-            activities.Add(post.ToActivity());
+        activities.AddRange(rankedPosts.Select(post => post.ToActivity()));
 
         if (activities.Count == 0)
             activities.Add(Activity.Empty());

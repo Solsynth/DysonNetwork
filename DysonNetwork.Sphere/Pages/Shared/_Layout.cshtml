@@ -1,4 +1,3 @@
-@using DysonNetwork.Sphere.Auth
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
@@ -24,31 +23,6 @@
         <a class="btn btn-ghost text-xl">Solar Network</a>
     </div>
     <div class="flex-none">
-        <ul class="menu menu-horizontal menu-sm px-1">
-            @if (Context.Request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out _))
-            {
-                <li class="tooltip tooltip-bottom" data-tip="Profile">
-                    <a href="//account/profile">
-                        <span class="material-symbols-outlined">account_circle</span>
-                    </a>
-                </li>
-                <li class="tooltip tooltip-bottom" data-tip="Logout">
-                    <form method="post" asp-page="/Account/Profile" asp-page-handler="Logout">
-                        <button type="submit">
-                            <span class="material-symbols-outlined">
-                                logout
-                            </span>
-                        </button>
-                    </form>
-                </li>
-            }
-            else
-            {
-                <li class="tooltip tooltip-bottom" data-tip="Login">
-                    <a href="//auth/login"><span class="material-symbols-outlined">login</span></a>
-                </li>
-            }
-        </ul>
     </div>
 </header>
 

@@ -159,7 +159,7 @@ message Relationship {
   string related_id = 2;
   optional Account account = 3;
   optional Account related = 4;
-  int32 type = 5;
+  int32 status = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
 }
@@ -218,8 +218,8 @@ service AccountService {
 
   rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse) {}
   rpc HasRelationship(GetRelationshipRequest) returns (google.protobuf.BoolValue) {}
-  rpc ListFriends(ListUserRelationshipSimpleRequest) returns (ListUserRelationshipSimpleResponse) {}
-  rpc ListBlocked(ListUserRelationshipSimpleRequest) returns (ListUserRelationshipSimpleResponse) {}
+  rpc ListFriends(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
+  rpc ListBlocked(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
 }
 
 // ActionLogService provides operations for action logs
@@ -396,10 +396,10 @@ message GetRelationshipResponse {
   optional Relationship relationship = 1;
 }
 
-message ListUserRelationshipSimpleRequest {
+message ListRelationshipSimpleRequest {
   string account_id = 1;
 }
 
-message ListUserRelationshipSimpleResponse {
+message ListRelationshipSimpleResponse {
   repeated string accounts_id = 1;
 }

@@ -1,8 +1,7 @@
 using System.Text.RegularExpressions;
-using DysonNetwork.Sphere.Account;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat.Realtime;
-using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -10,7 +9,8 @@ namespace DysonNetwork.Sphere.Chat;
 
 public partial class ChatService(
     AppDatabase db,
-    FileReferenceService fileRefService,
+    FileService.FileServiceClient filesClient,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
     ILogger<ChatService> logger
@@ -33,7 +33,7 @@ public partial class ChatService(
             // Create a new scope for database operations
             using var scope = scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-            var webReader = scope.ServiceProvider.GetRequiredService<Connection.WebReader.WebReaderService>();
+            var webReader = scope.ServiceProvider.GetRequiredService<WebReader.WebReaderService>();
             var newChat = scope.ServiceProvider.GetRequiredService<ChatService>();
 
             // Preview the links in the message
@@ -86,7 +86,7 @@ public partial class ChatService(
     /// <param name="webReader">The web reader service</param>
     /// <returns>The message with link previews added to its meta data</returns>
     public async Task<Message> PreviewMessageLinkAsync(Message message,
-        Connection.WebReader.WebReaderService? webReader = null)
+        WebReader.WebReaderService? webReader = null)
     {
         if (string.IsNullOrEmpty(message.Content))
             return message;
@@ -109,7 +109,7 @@ public partial class ChatService(
 
         var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
         webReader ??= scopeFactory.CreateScope().ServiceProvider
-            .GetRequiredService<Connection.WebReader.WebReaderService>();
+            .GetRequiredService<WebReader.WebReaderService>();
 
         // Process up to 3 links to avoid excessive processing
         var processedLinks = 0;
@@ -157,16 +157,13 @@ public partial class ChatService(
         var files = message.Attachments.Distinct().ToList();
         if (files.Count != 0)
         {
-            var messageResourceId = $"message:{message.Id}";
-            foreach (var file in files)
+            var request = new CreateReferenceBatchRequest
             {
-                await fileRefService.CreateReferenceAsync(
-                    file.Id,
-                    ChatFileUsageIdentifier,
-                    messageResourceId,
-                    duration: Duration.FromDays(30)
-                );
-            }
+                Usage = ChatFileUsageIdentifier,
+                ResourceId = message.ResourceIdentifier,
+            };
+            request.FilesId.AddRange(message.Attachments.Select(a => a.Id));
+            await fileRefs.CreateReferenceBatchAsync(request);
         }
 
         // Then start the delivery process
@@ -203,8 +200,7 @@ public partial class ChatService(
         message.ChatRoom = room;
 
         using var scope = scopeFactory.CreateScope();
-        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService>();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<NotificationService>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
@@ -230,30 +226,32 @@ public partial class ChatService(
         if (!string.IsNullOrEmpty(room.Name))
             metaDict["room_name"] = room.Name;
 
-        var notification = new Notification
+        var notification = new PushNotification
         {
             Topic = "messages.new",
             Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
-            Content = !string.IsNullOrEmpty(message.Content)
+            Body = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<no content>",
-            Meta = metaDict,
-            Priority = 10,
         };
+        notification.Meta.Add(GrpcTypeHelper.ConvertToValueMap(metaDict));
 
         List<Account> accountsToNotify = [];
         foreach (var member in members)
         {
-            scopedWs.SendPacketToAccount(member.AccountId, new WebSocketPacket
+            await scopedNty.PushWebSocketPacketToUsersAsync(new PushWebSocketPacketToUsersRequest
             {
-                Type = type,
-                Data = message
+                Packet = new WebSocketPacket
+                {
+                    Type = type,
+                    Data = GrpcTypeHelper.ConvertObjectToValue(metaDict),
+                },
             });
 
-            if (member.Account.Id == sender.AccountId) continue;
+            if (member.AccountId == sender.AccountId) continue;
             if (member.Notify == ChatMemberNotify.None) continue;
             // if (scopedWs.IsUserSubscribedToChatRoom(member.AccountId, room.Id.ToString())) continue;
-            if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.Account.Id))
+            if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.AccountId))
             {
                 var now = SystemClock.Instance.GetCurrentInstant();
                 if (member.BreakUntil is not null && member.BreakUntil > now) continue;
@@ -265,8 +263,10 @@ public partial class ChatService(
 
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
         // Only send notifications if there are accounts to notify
+        var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
+        ntyRequest.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
         if (accountsToNotify.Count > 0)
-            await scopedNty.SendNotificationBatch(notification, accountsToNotify, save: false);
+            await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
 
         logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
     }
@@ -495,25 +495,24 @@ public partial class ChatService(
             var messageResourceId = $"message:{message.Id}";
 
             // Delete existing references for this message
-            await fileRefService.DeleteResourceReferencesAsync(messageResourceId);
+            await fileRefs.DeleteResourceReferencesAsync(
+                new DeleteResourceReferencesRequest { ResourceId = messageResourceId }
+            );
 
             // Create new references for each attachment
-            foreach (var fileId in attachmentsId)
+            var createRequest = new CreateReferenceBatchRequest
             {
-                await fileRefService.CreateReferenceAsync(
-                    fileId,
-                    ChatFileUsageIdentifier,
-                    messageResourceId,
-                    duration: Duration.FromDays(30)
-                );
-            }
+                Usage = ChatFileUsageIdentifier,
+                ResourceId = messageResourceId,
+            };
+            createRequest.FilesId.AddRange(attachmentsId);
+            await fileRefs.CreateReferenceBatchAsync(createRequest);
 
-            // Update message attachments by getting files from database
-            var files = await db.Files
-                .Where(f => attachmentsId.Contains(f.Id))
-                .ToListAsync();
-
-            message.Attachments = files.Select(x => x.ToReferenceObject()).ToList();
+            // Update message attachments by getting files from da
+            var queryRequest = new GetFileBatchRequest();
+            queryRequest.Ids.AddRange(attachmentsId);
+            var queryResult = await filesClient.GetFileBatchAsync(queryRequest);
+            message.Attachments = queryResult.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
         }
 
         message.EditedAt = SystemClock.Instance.GetCurrentInstant();
@@ -542,7 +541,9 @@ public partial class ChatService(
     {
         // Remove all file references for this message
         var messageResourceId = $"message:{message.Id}";
-        await fileRefService.DeleteResourceReferencesAsync(messageResourceId);
+        await fileRefs.DeleteResourceReferencesAsync(
+            new DeleteResourceReferencesRequest { ResourceId = messageResourceId }
+        );
 
         db.ChatMessages.Remove(message);
         await db.SaveChangesAsync();

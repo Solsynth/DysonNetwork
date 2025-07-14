@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Sphere.Chat.Realtime;
 

@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Content;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
@@ -29,8 +31,16 @@ public class PostController(
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
-        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
-        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
+
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
 
@@ -64,11 +74,18 @@ public class PostController(
     {
         if (HttpContext.Items["IsWebPage"] as bool? ?? true)
             return RedirectToPage("/Posts/PostDetail", new { PostId = id });
-        
+
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
-        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
-        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var post = await db.Posts
             .Where(e => e.Id == id)
@@ -99,8 +116,14 @@ public class PostController(
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
-        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
-        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        } 
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var queryable = db.Posts
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
@@ -136,8 +159,16 @@ public class PostController(
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
-        var userFriends = currentUser is null ? [] : await rels.ListAccountFriends(currentUser);
-        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(currentUser.Id);
+
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var parent = await db.Posts
             .Where(e => e.Id == id)
@@ -199,12 +230,14 @@ public class PostController(
             return BadRequest("Content is required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
+
         Publisher.Publisher? publisher;
         if (publisherName is null)
         {
             // Use the first personal publisher
             publisher = await db.Publishers.FirstOrDefaultAsync(e =>
-                e.AccountId == currentUser.Id && e.Type == PublisherType.Individual);
+                e.AccountId == accountId && e.Type == PublisherType.Individual);
         }
         else
         {
@@ -212,7 +245,7 @@ public class PostController(
             if (publisher is null) return BadRequest("Publisher was not found.");
             var member =
                 await db.PublisherMembers.FirstOrDefaultAsync(e =>
-                    e.AccountId == currentUser.Id && e.PublisherId == publisher.Id);
+                    e.AccountId == accountId && e.PublisherId == publisher.Id);
             if (member is null) return StatusCode(403, "You even wasn't a member of the publisher you specified.");
             if (member.Role < PublisherMemberRole.Editor)
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
@@ -263,10 +296,14 @@ public class PostController(
             return BadRequest(err.Message);
         }
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PostCreate,
-            new Dictionary<string, object> { { "post_id", post.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = ActionLogType.PostCreate,
+            Meta = { { "post_id", Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString()) } },
+            AccountId = currentUser.Id.ToString(),
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return post;
     }
@@ -282,31 +319,34 @@ public class PostController(
     [RequiredPermission("global", "posts.react")]
     public async Task<ActionResult<PostReaction>> ReactPost(Guid id, [FromBody] PostReactionRequest request)
     {
-        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not Account currentUser) return Unauthorized();
-        var userFriends = await rels.ListAccountFriends(currentUser);
-        var userPublishers = await pub.GetUserPublishers(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var friendsResponse =
+            await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id.ToString() });
+        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .ThenInclude(e => e.Account)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
-        var isSelfReact = post.Publisher.AccountId is not null && post.Publisher.AccountId == currentUser.Id;
+        var accountId = Guid.Parse(currentUser.Id);
+        var isSelfReact = post.Publisher.AccountId is not null && post.Publisher.AccountId == accountId;
 
         var isExistingReaction = await db.PostReactions
             .AnyAsync(r => r.PostId == post.Id &&
                            r.Symbol == request.Symbol &&
-                           r.AccountId == currentUser.Id);
+                           r.AccountId == accountId);
         var reaction = new PostReaction
         {
             Symbol = request.Symbol,
             Attitude = request.Attitude,
             PostId = post.Id,
-            AccountId = currentUser.Id
+            AccountId = accountId
         };
         var isRemoving = await ps.ModifyPostVotes(
             post,
@@ -318,10 +358,18 @@ public class PostController(
 
         if (isRemoving) return NoContent();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PostReact,
-            new Dictionary<string, object> { { "post_id", post.Id }, { "reaction", request.Symbol } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = ActionLogType.PostReact,
+            Meta =
+            {
+                { "post_id", Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString()) },
+                { "reaction", Google.Protobuf.WellKnownTypes.Value.ForString(request.Symbol) }
+            },
+            AccountId = currentUser.Id.ToString(),
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(reaction);
     }
@@ -342,7 +390,8 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (request.Title is not null) post.Title = request.Title;
@@ -367,10 +416,14 @@ public class PostController(
             return BadRequest(err.Message);
         }
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PostUpdate,
-            new Dictionary<string, object> { { "post_id", post.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = ActionLogType.PostUpdate,
+            Meta = { { "post_id", Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString()) } },
+            AccountId = currentUser.Id.ToString(),
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(post);
     }
@@ -386,15 +439,19 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to delete the publisher's post.");
 
         await ps.DeletePostAsync(post);
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PostDelete,
-            new Dictionary<string, object> { { "post_id", post.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = ActionLogType.PostDelete,
+            Meta = { { "post_id", Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString()) } },
+            AccountId = currentUser.Id.ToString(),
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return NoContent();
     }

@@ -29,7 +29,7 @@ public class Relationship : ModelBase
         RelatedId = RelatedId.ToString(),
         Account = Account.ToProtoValue(),
         Related = Related.ToProtoValue(),
-        Type = (int)Status,
+        Status = (int)Status,
         CreatedAt = CreatedAt.ToTimestamp(),
         UpdatedAt = UpdatedAt.ToTimestamp()
     };

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
@@ -24,8 +23,7 @@ public class ChatRoomController(
     AccountService.AccountServiceClient accounts,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    ActionLogService.ActionLogServiceClient als,
-    PusherService.PusherServiceClient pusher
+    ActionLogService.ActionLogServiceClient als
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -214,7 +212,7 @@ public class ChatRoomController(
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
                 if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
                 chatRoom.Picture = CloudFileReferenceObject.FromProtoValue(fileResponse);
-
+                
                 await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
                 {
                     FileId = fileResponse.Id,
@@ -235,7 +233,7 @@ public class ChatRoomController(
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
                 if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
                 chatRoom.Background = CloudFileReferenceObject.FromProtoValue(fileResponse);
-
+                
                 await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
                 {
                     FileId = fileResponse.Id,
@@ -513,16 +511,16 @@ public class ChatRoomController(
         // }
         // else
         // {
-        var total = await query.CountAsync();
-        Response.Headers.Append("X-Total", total.ToString());
+            var total = await query.CountAsync();
+            Response.Headers.Append("X-Total", total.ToString());
 
-        var members = await query
-            .OrderBy(m => m.JoinedAt)
-            .Skip(skip)
-            .Take(take)
-            .ToListAsync();
+            var members = await query
+                .OrderBy(m => m.JoinedAt)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
 
-        return Ok(members);
+            return Ok(members);
         // }
     }
 
@@ -542,8 +540,7 @@ public class ChatRoomController(
         var accountId = Guid.Parse(currentUser.Id);
 
         // Get related user account
-        var relatedUser =
-            await accounts.GetAccountAsync(new GetAccountRequest { Id = request.RelatedUserId.ToString() });
+        var relatedUser = await accounts.GetAccountAsync(new GetAccountRequest { Id = request.RelatedUserId.ToString() });
         if (relatedUser == null) return BadRequest("Related user was not found");
 
         // Check if the user has blocked the current user
@@ -667,14 +664,10 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = ActionLogType.ChatroomJoin,
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomJoin,
+            new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
+        );
 
         return Ok(member);
     }
@@ -891,14 +884,10 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = ActionLogType.ChatroomJoin,
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+        als.CreateActionLogFromRequest(
+            ActionLogType.ChatroomJoin,
+            new Dictionary<string, object> { { "chatroom_id", roomId } }, Request
+        );
 
         return Ok(chatRoom);
     }
@@ -934,7 +923,7 @@ public class ChatRoomController(
 
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
-            Action = ActionLogType.ChatroomLeave,
+            Action = "chatrooms.leave",
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
@@ -952,19 +941,7 @@ public class ChatRoomController(
             ? localizer["ChatInviteDirectBody", sender.Nick]
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
-        CultureService.SetCultureInfo(member.Account);
-        await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
-            {
-                UserId = member.Account.Id.ToString(),
-                Notification = new PushNotification
-                {
-                    Topic = "invites.chats",
-                    Title = title,
-                    Body = body,
-                    IsSavable = false
-                }
-            }
-        );
+        AccountService.SetCultureInfo(member.Account);
+        await nty.SendNotification(member.Account, "invites.chats", title, null, body, actionUri: "/chat");
     }
 }

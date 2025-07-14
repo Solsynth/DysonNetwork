@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +38,7 @@ public class PublisherSubscriptionController(
         if (publisher == null)
             return NotFound("Publisher not found");
     
-        var isSubscribed = await subs.SubscriptionExistsAsync(currentUser.Id, publisher.Id);
+        var isSubscribed = await subs.SubscriptionExistsAsync(Guid.Parse(currentUser.Id), publisher.Id);
     
         return new SubscriptionStatusResponse
         {
@@ -63,7 +64,7 @@ public class PublisherSubscriptionController(
         try
         {
             var subscription = await subs.CreateSubscriptionAsync(
-                currentUser.Id,
+                Guid.Parse(currentUser.Id),
                 publisher.Id,
                 request.Tier ?? 0
             );
@@ -88,7 +89,7 @@ public class PublisherSubscriptionController(
         if (publisher == null)
             return NotFound("Publisher not found");
 
-        var success = await subs.CancelSubscriptionAsync(currentUser.Id, publisher.Id);
+        var success = await subs.CancelSubscriptionAsync(Guid.Parse(currentUser.Id), publisher.Id);
 
         if (success)
             return Ok(new { message = "Subscription cancelled successfully" });
@@ -106,7 +107,7 @@ public class PublisherSubscriptionController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var subscriptions = await subs.GetAccountSubscriptionsAsync(currentUser.Id);
+        var subscriptions = await subs.GetAccountSubscriptionsAsync(Guid.Parse(currentUser.Id));
         return subscriptions;
     }
 }

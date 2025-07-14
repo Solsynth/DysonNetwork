@@ -136,7 +136,6 @@ public partial class PostService(
         // Create file references for each attachment
         if (post.Attachments.Count != 0)
         {
-            var postResourceId = $"post:{post.Id}";
             var request = new CreateReferenceBatchRequest
             {
                 Usage = PostFileUsageIdentifier,

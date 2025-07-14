@@ -1,9 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Permission;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat.Realtime;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.AspNetCore.Authorization;
@@ -48,8 +49,9 @@ public class RealtimeCallController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -74,8 +76,9 @@ public class RealtimeCallController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         // Check if the user is a member of the chat room
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -102,7 +105,7 @@ public class RealtimeCallController(
 
         // Get current participants from the LiveKit service
         var participants = new List<CallParticipant>();
-        if (realtime is LivekitRealtimeService livekitService)
+        if (realtime is LiveKitRealtimeService livekitService)
         {
             var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
             participants = [];
@@ -146,8 +149,9 @@ public class RealtimeCallController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -165,8 +169,9 @@ public class RealtimeCallController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to end a call.");

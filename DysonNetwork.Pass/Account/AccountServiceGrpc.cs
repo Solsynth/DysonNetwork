@@ -99,22 +99,22 @@ public class AccountServiceGrpc(
         return response;
     }
 
-    public override async Task<ListUserRelationshipSimpleResponse> ListFriends(
-        ListUserRelationshipSimpleRequest request, ServerCallContext context)
+    public override async Task<ListRelationshipSimpleResponse> ListFriends(
+        ListRelationshipSimpleRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
         var relationship = await relationships.ListAccountFriends(accountId);
-        var resp = new ListUserRelationshipSimpleResponse();
+        var resp = new ListRelationshipSimpleResponse();
         resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
         return resp;
     }
 
-    public override async Task<ListUserRelationshipSimpleResponse> ListBlocked(
-        ListUserRelationshipSimpleRequest request, ServerCallContext context)
+    public override async Task<ListRelationshipSimpleResponse> ListBlocked(
+        ListRelationshipSimpleRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
         var relationship = await relationships.ListAccountBlocked(accountId);
-        var resp = new ListUserRelationshipSimpleResponse();
+        var resp = new ListRelationshipSimpleResponse();
         resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
         return resp;
     }

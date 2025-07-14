@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Pusher.Connection;

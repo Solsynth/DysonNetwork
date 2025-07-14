@@ -2,7 +2,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Developer;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Realm;
@@ -32,10 +31,6 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<PermissionNode> PermissionNodes { get; set; }
-    public DbSet<PermissionGroup> PermissionGroups { get; set; }
-    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; }
-
     public DbSet<Publisher.Publisher> Publishers { get; set; }
     public DbSet<PublisherMember> PublisherMembers { get; set; }
     public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; }
@@ -78,52 +73,12 @@ public class AppDatabase(
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
-        optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
-        {
-            var defaultPermissionGroup = await context.Set<PermissionGroup>()
-                .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
-            if (defaultPermissionGroup is null)
-            {
-                context.Set<PermissionGroup>().Add(new PermissionGroup
-                {
-                    Key = "default",
-                    Nodes = new List<string>
-                        {
-                            "posts.create",
-                            "posts.react",
-                            "publishers.create",
-                            "files.create",
-                            "chat.create",
-                            "chat.messages.create",
-                            "chat.realtime.create",
-                            "accounts.statuses.create",
-                            "accounts.statuses.update",
-                            "stickers.packs.create",
-                            "stickers.create"
-                        }.Select(permission =>
-                            PermissionService.NewPermissionNode("group:default", "global", permission, true))
-                        .ToList()
-                });
-                await context.SaveChangesAsync(cancellationToken);
-            }
-        });
-
-        optionsBuilder.UseSeeding((context, _) => {});
-
         base.OnConfiguring(optionsBuilder);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        modelBuilder.Entity<PermissionGroupMember>()
-            .HasKey(pg => new { pg.GroupId, pg.Actor });
-        modelBuilder.Entity<PermissionGroupMember>()
-            .HasOne(pg => pg.Group)
-            .WithMany(g => g.Members)
-            .HasForeignKey(pg => pg.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<PublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
@@ -288,14 +243,6 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
     public async Task Execute(IJobExecutionContext context)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-
-        logger.LogInformation("Cleaning up expired records...");
-
-        // Expired permission group members
-        var affectedRows = await db.PermissionGroupMembers
-            .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
-            .ExecuteDeleteAsync();
-        logger.LogDebug("Removed {Count} records of expired permission group members.", affectedRows);
 
         logger.LogInformation("Deleting soft-deleted records...");
 

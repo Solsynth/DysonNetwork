@@ -178,7 +178,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ChatRoomService>();
         services.AddScoped<ChatService>();
         services.AddScoped<StickerService>();
-        services.AddScoped<IRealtimeService, LivekitRealtimeService>();
+        services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
         services.AddScoped<SafetyService>();

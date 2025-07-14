@@ -2,9 +2,11 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using VerificationMark = DysonNetwork.Shared.Data.VerificationMark;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -43,6 +45,7 @@ public class Publisher : ModelBase, IIdentifiedResource
     public Guid? AccountId { get; set; }
     public Guid? RealmId { get; set; }
     [JsonIgnore] public Realm.Realm? Realm { get; set; }
+    [NotMapped] public Account? Account { get; set; }
 
     public string ResourceIdentifier => $"publisher:{Id}";
 }

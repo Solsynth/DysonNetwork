@@ -1,8 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Data;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Developer;

@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Sphere.Account;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -55,7 +55,7 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to create a custom app");
         if (!await ps.HasFeature(publisher.Id, PublisherFeatureFlag.Develop))
             return StatusCode(403, "Publisher must be a developer to create a custom app");
@@ -84,7 +84,7 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
         
-        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to update a custom app");
 
         var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
@@ -114,7 +114,7 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
         
-        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to delete a custom app");
 
         var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);

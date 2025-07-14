@@ -1,32 +1,31 @@
-using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Storage;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.Text.Json;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Sphere.Chat.Realtime;
 
 /// <summary>
 /// LiveKit implementation of the real-time communication service
 /// </summary>
-public class LivekitRealtimeService : IRealtimeService
+public class LiveKitRealtimeService : IRealtimeService
 {
     private readonly AppDatabase _db;
     private readonly ICacheService _cache;
-    private readonly WebSocketService _ws;
 
-    private readonly ILogger<LivekitRealtimeService> _logger;
+    private readonly ILogger<LiveKitRealtimeService> _logger;
     private readonly RoomServiceClient _roomService;
     private readonly AccessToken _accessToken;
     private readonly WebhookReceiver _webhookReceiver;
 
-    public LivekitRealtimeService(
+    public LiveKitRealtimeService(
         IConfiguration configuration,
-        ILogger<LivekitRealtimeService> logger,
+        ILogger<LiveKitRealtimeService> logger,
         AppDatabase db,
-        ICacheService cache,
-        WebSocketService ws
+        ICacheService cache
     )
     {
         _logger = logger;
@@ -45,7 +44,6 @@ public class LivekitRealtimeService : IRealtimeService
 
         _db = db;
         _cache = cache;
-        _ws = ws;
     }
 
     /// <inheritdoc />
@@ -159,7 +157,7 @@ public class LivekitRealtimeService : IRealtimeService
                         evt.Room.Name, evt.Participant.Identity);
 
                     // Broadcast participant list update to all participants
-                    await _BroadcastParticipantUpdate(evt.Room.Name);
+                    // await _BroadcastParticipantUpdate(evt.Room.Name);
                 }
 
                 break;
@@ -174,7 +172,7 @@ public class LivekitRealtimeService : IRealtimeService
                         evt.Room.Name, evt.Participant.Identity);
 
                     // Broadcast participant list update to all participants
-                    await _BroadcastParticipantUpdate(evt.Room.Name);
+                    // await _BroadcastParticipantUpdate(evt.Room.Name);
                 }
 
                 break;
@@ -309,83 +307,5 @@ public class LivekitRealtimeService : IRealtimeService
             Metadata = metadata,
             JoinedAt = DateTime.UtcNow
         };
-    }
-
-    // Broadcast participant update to all participants in a room
-    private async Task _BroadcastParticipantUpdate(string roomName)
-    {
-        try
-        {
-            // Get the room ID from the session name
-            var roomInfo = await _db.ChatRealtimeCall
-                .Where(c => c.SessionId == roomName && c.EndedAt == null)
-                .Select(c => new { c.RoomId, c.Id })
-                .FirstOrDefaultAsync();
-
-            if (roomInfo == null)
-            {
-                _logger.LogWarning("Could not find room info for session: {SessionName}", roomName);
-                return;
-            }
-
-            // Get current participants
-            var livekitParticipants = await GetRoomParticipantsAsync(roomName);
-
-            // Get all room members who should receive this update
-            var roomMembers = await _db.ChatMembers
-                .Where(m => m.ChatRoomId == roomInfo.RoomId && m.LeaveAt == null)
-                .Select(m => m.AccountId)
-                .ToListAsync();
-
-            // Get member profiles for participants who have account IDs
-            var accountIds = livekitParticipants
-                .Where(p => p.AccountId.HasValue)
-                .Select(p => p.AccountId!.Value)
-                .ToList();
-
-            var memberProfiles = new Dictionary<Guid, ChatMember>();
-            if (accountIds.Count != 0)
-            {
-                memberProfiles = await _db.ChatMembers
-                    .Where(m => m.ChatRoomId == roomInfo.RoomId && accountIds.Contains(m.AccountId))
-                    .Include(m => m.Account)
-                    .ThenInclude(m => m.Profile)
-                    .ToDictionaryAsync(m => m.AccountId, m => m);
-            }
-
-            // Convert to CallParticipant objects
-            var participants = livekitParticipants.Select(p => new CallParticipant
-            {
-                Identity = p.Identity,
-                Name = p.Name,
-                AccountId = p.AccountId,
-                JoinedAt = p.JoinedAt,
-                Profile = p.AccountId.HasValue && memberProfiles.TryGetValue(p.AccountId.Value, out var profile)
-                    ? profile
-                    : null
-            }).ToList();
-
-            // Create the update packet with CallParticipant objects
-            var updatePacket = new WebSocketPacket
-            {
-                Type = WebSocketPacketType.CallParticipantsUpdate,
-                Data = new Dictionary<string, object>
-                {
-                    { "room_id", roomInfo.RoomId },
-                    { "call_id", roomInfo.Id },
-                    { "participants", participants }
-                }
-            };
-
-            // Send the update to all members
-            foreach (var accountId in roomMembers)
-            {
-                _ws.SendPacketToAccount(accountId, updatePacket);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error broadcasting participant update for room {RoomName}", roomName);
-        }
     }
 }

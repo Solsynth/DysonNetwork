@@ -86,4 +86,19 @@ public abstract class GrpcTypeHelper
             _ => JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value, SerializerSettings))
         };
     }
+    
+    public static Value ConvertObjectToValue(object? obj)
+    {
+        return obj switch
+        {
+            string s => Value.ForString(s),
+            int i => Value.ForNumber(i),
+            long l => Value.ForNumber(l),
+            float f => Value.ForNumber(f),
+            double d => Value.ForNumber(d),
+            bool b => Value.ForBool(b),
+            null => Value.ForNull(),
+            _ => Value.ForString(JsonConvert.SerializeObject(obj, SerializerSettings)) // fallback to JSON string
+        };
+    }
 }

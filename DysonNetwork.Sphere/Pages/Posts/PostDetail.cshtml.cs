@@ -28,7 +28,7 @@ public class PostDetailModel(
         var userFriends = currentUser is null
             ? []
             : (await accounts.ListFriendsAsync(
-                new ListUserRelationshipSimpleRequest { AccountId = currentUser.Id }
+                new ListRelationshipSimpleRequest { AccountId = currentUser.Id }
             )).AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
 
