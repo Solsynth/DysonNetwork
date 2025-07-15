@@ -41,6 +41,10 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Minio" Version="6.0.5" />
+        <PackageReference Include="Nerdbank.GitVersioning" Version="3.7.115">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="NetVips" Version="3.1.0" />
         <PackageReference Include="NetVips.Native.linux-x64" Version="8.17.1" />
         <PackageReference Include="NetVips.Native.osx-arm64" Version="8.17.1" />

@@ -3,20 +3,21 @@ using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
 using Prometheus;
 
 namespace DysonNetwork.Pass.Startup;
 
 public static class ApplicationConfiguration
 {
-    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
+    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration, string contentRoot)
     {
         app.MapMetrics();
         app.MapOpenApi();
 
         app.UseSwagger();
         app.UseSwaggerUI();
-        
+
         app.UseRequestLocalization();
 
         ConfigureForwardedHeaders(app, configuration);
@@ -37,9 +38,15 @@ public static class ApplicationConfiguration
         app.UseAuthorization();
         app.UseMiddleware<PermissionMiddleware>();
 
+        app.UseDefaultFiles();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(Path.Combine(contentRoot, "wwwroot", "dist"))
+        });
+
         app.MapControllers().RequireRateLimiting("fixed");
-        app.MapStaticAssets().RequireRateLimiting("fixed");
-        app.MapRazorPages().RequireRateLimiting("fixed");
+
+        app.MapFallbackToFile("dist/index.html");
 
         return app;
     }
@@ -71,7 +78,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<AccountServiceGrpc>();
         app.MapGrpcService<AuthServiceGrpc>();
         app.MapGrpcService<ActionLogServiceGrpc>();
-        
+
         return app;
     }
 }

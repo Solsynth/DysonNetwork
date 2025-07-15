@@ -125,7 +125,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                 clusters.Add(cluster);
                 _logger.LogInformation("  Added Cluster: {ServiceName}", serviceName);
             }
-            else
+            else if (existingCluster.Destinations is not null)
             {
                 // Create a new cluster with merged destinations
                 var newDestinations = new Dictionary<string, DestinationConfig>(existingCluster.Destinations)

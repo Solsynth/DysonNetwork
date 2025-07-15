@@ -3,6 +3,7 @@ using DysonNetwork.Pass.Startup;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,7 +40,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure application middleware pipeline
-app.ConfigureAppMiddleware(builder.Configuration);
+app.ConfigureAppMiddleware(builder.Configuration, builder.Environment.ContentRootPath);
 
 // Configure gRPC
 app.ConfigureGrpcServices();

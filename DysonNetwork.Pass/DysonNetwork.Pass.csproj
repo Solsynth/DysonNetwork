@@ -10,6 +10,10 @@
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.71.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Nerdbank.GitVersioning" Version="3.7.115">
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
           <PrivateAssets>all</PrivateAssets>
         </PackageReference>
@@ -44,80 +48,109 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>NotificationResource.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\Localization\SharedResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>SharedResource.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>NotificationResource.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\Localization\SharedResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>SharedResource.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>AccountEventResource.resx</DependentUpon>
-      </Compile>
-      <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>AccountEventResource.resx</DependentUpon>
-      </Compile>
+        <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>NotificationResource.resx</DependentUpon>
+        </Compile>
+        <Compile Update="Resources\Localization\SharedResource.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>SharedResource.resx</DependentUpon>
+        </Compile>
+        <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>NotificationResource.resx</DependentUpon>
+        </Compile>
+        <Compile Update="Resources\Localization\SharedResource.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>SharedResource.resx</DependentUpon>
+        </Compile>
+        <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>AccountEventResource.resx</DependentUpon>
+        </Compile>
+        <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>AccountEventResource.resx</DependentUpon>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>
-      <EmbeddedResource Update="Resources\Localization\EmailResource.resx">
-        <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>Email.LandingResource.Designer.cs</LastGenOutput>
-      </EmbeddedResource>
-      <EmbeddedResource Update="Resources\Localization\NotificationResource.resx">
-        <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>NotificationResource.Designer.cs</LastGenOutput>
-      </EmbeddedResource>
-      <EmbeddedResource Update="Resources\Localization\SharedResource.resx">
-        <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
-      </EmbeddedResource>
-      <EmbeddedResource Update="Resources\Localization\AccountEventResource.resx">
-        <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
-      </EmbeddedResource>
+        <EmbeddedResource Update="Resources\Localization\EmailResource.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>Email.LandingResource.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+        <EmbeddedResource Update="Resources\Localization\NotificationResource.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>NotificationResource.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+        <EmbeddedResource Update="Resources\Localization\SharedResource.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+        <EmbeddedResource Update="Resources\Localization\AccountEventResource.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
     </ItemGroup>
 
     <ItemGroup>
-      <AdditionalFiles Include="Pages\Checkpoint\CheckpointPage.cshtml" />
-      <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor" />
-      <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor" />
-      <AdditionalFiles Include="Pages\Emails\EmailLayout.razor" />
-      <AdditionalFiles Include="Pages\Emails\LandingEmail.razor" />
-      <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor" />
-      <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor" />
-      <AdditionalFiles Include="Pages\Shared\_Layout.cshtml" />
-      <AdditionalFiles Include="Pages\Shared\_ValidationScriptsPartial.cshtml" />
-      <AdditionalFiles Include="Pages\Spell\MagicSpellPage.cshtml" />
-      <AdditionalFiles Include="Resources\Localization\AccountEventResource.resx" />
-      <AdditionalFiles Include="Resources\Localization\AccountEventResource.zh-hans.resx" />
-      <AdditionalFiles Include="Resources\Localization\EmailResource.resx" />
-      <AdditionalFiles Include="Resources\Localization\EmailResource.zh-hans.resx" />
-      <AdditionalFiles Include="Resources\Localization\NotificationResource.resx" />
-      <AdditionalFiles Include="Resources\Localization\NotificationResource.zh-hans.resx" />
-      <AdditionalFiles Include="Resources\Localization\SharedResource.resx" />
-      <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx" />
+        <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\EmailLayout.razor" />
+        <AdditionalFiles Include="Pages\Emails\LandingEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor" />
+        <AdditionalFiles Include="Resources\Localization\AccountEventResource.resx" />
+        <AdditionalFiles Include="Resources\Localization\AccountEventResource.zh-hans.resx" />
+        <AdditionalFiles Include="Resources\Localization\EmailResource.resx" />
+        <AdditionalFiles Include="Resources\Localization\EmailResource.zh-hans.resx" />
+        <AdditionalFiles Include="Resources\Localization\NotificationResource.resx" />
+        <AdditionalFiles Include="Resources\Localization\NotificationResource.zh-hans.resx" />
+        <AdditionalFiles Include="Resources\Localization\SharedResource.resx" />
+        <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx" />
+    </ItemGroup>
+
+    <Target Name="BuildSpa" BeforeTargets="Build">
+        <Message Importance="high" Text="Building SPA with Vite..." />
+        <Exec WorkingDirectory="Client" Command="npm install" />
+        <Exec WorkingDirectory="Client" Command="npm run build" />
+    </Target>
+
+    <Target Name="CopySpa" AfterTargets="Build">
+        <Message Importance="high" Text="Copying SPA to wwwroot..." />
+        <RemoveDir Directories="wwwroot\dist" />
+        <MakeDir Directories="wwwroot\dist" />
+
+        <ItemGroup>
+            <_SpaDistFiles Include="Client\dist\**\*" />
+        </ItemGroup>
+        
+        <Copy SourceFiles="@(SpaDistFiles)" DestinationFolder="wwwroot\dist\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    </Target>
+
+    <ItemGroup>
+        <SpaDistFiles Include="Client\dist\**\*" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Pages\Shared\_Layout.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Checkpoint\CheckpointPage.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Spell\MagicSpellPage.cshtml" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Client\src\components\" />
+      <Folder Include="Client\src\stores\" />
     </ItemGroup>
 
 </Project>
