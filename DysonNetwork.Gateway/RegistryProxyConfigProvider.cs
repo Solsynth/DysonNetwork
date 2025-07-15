@@ -12,7 +12,8 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
     private readonly CancellationTokenSource _watchCts = new();
     private CancellationTokenSource _cts = new();
 
-    public RegistryProxyConfigProvider(IEtcdClient etcdClient, IConfiguration configuration, ILogger<RegistryProxyConfigProvider> logger)
+    public RegistryProxyConfigProvider(IEtcdClient etcdClient, IConfiguration configuration,
+        ILogger<RegistryProxyConfigProvider> logger)
     {
         _etcdClient = etcdClient;
         _configuration = configuration;
@@ -48,7 +49,8 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
         var pathAliases = _configuration.GetSection("PathAliases").GetChildren()
             .ToDictionary(x => x.Key, x => x.Value);
 
-        var directRoutes = _configuration.GetSection("DirectRoutes").Get<List<DirectRouteConfig>>() ?? new List<DirectRouteConfig>();
+        var directRoutes = _configuration.GetSection("DirectRoutes").Get<List<DirectRouteConfig>>() ??
+                           [];
 
         _logger.LogInformation("Indexing {ServiceCount} services from Etcd.", kvs.Count);
 
@@ -59,15 +61,19 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
         {
             if (serviceMap.TryGetValue(directRoute.Service, out var serviceUrl))
             {
-                var cluster = new ClusterConfig
+                var existingCluster = clusters.FirstOrDefault(c => c.ClusterId == directRoute.Service);
+                if (existingCluster is null)
                 {
-                    ClusterId = directRoute.Service,
-                    Destinations = new Dictionary<string, DestinationConfig>
+                    var cluster = new ClusterConfig
                     {
-                        { "destination1", new DestinationConfig { Address = serviceUrl } }
-                    }
-                };
-                clusters.Add(cluster);
+                        ClusterId = directRoute.Service,
+                        Destinations = new Dictionary<string, DestinationConfig>
+                        {
+                            { "destination1", new DestinationConfig { Address = serviceUrl } }
+                        }
+                    };
+                    clusters.Add(cluster);
+                }
 
                 var route = new RouteConfig
                 {
@@ -76,7 +82,8 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                     Match = new RouteMatch { Path = directRoute.Path }
                 };
                 routes.Add(route);
-                _logger.LogInformation("    Added Direct Route: {Path} -> {Service}", directRoute.Path, directRoute.Service);
+                _logger.LogInformation("    Added Direct Route: {Path} -> {Service}", directRoute.Path,
+                    directRoute.Service);
             }
             else
             {
@@ -95,27 +102,53 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
             var serviceUrl = serviceMap[serviceName];
 
             // Determine the path alias
-            string pathAlias;
-            if (pathAliases.TryGetValue(serviceName, out var alias))
+            string? pathAlias;
+            pathAlias = pathAliases.TryGetValue(serviceName, out var alias)
+                ? alias
+                : serviceName.Split('.').Last().ToLowerInvariant();
+
+            _logger.LogInformation("  Service: {ServiceName}, URL: {ServiceUrl}, Path Alias: {PathAlias}", serviceName,
+                serviceUrl, pathAlias);
+
+            // Check if the cluster already exists
+            var existingCluster = clusters.FirstOrDefault(c => c.ClusterId == serviceName);
+            if (existingCluster == null)
             {
-                pathAlias = alias;
+                var cluster = new ClusterConfig
+                {
+                    ClusterId = serviceName,
+                    Destinations = new Dictionary<string, DestinationConfig>
+                    {
+                        { "destination1", new DestinationConfig { Address = serviceUrl } }
+                    }
+                };
+                clusters.Add(cluster);
+                _logger.LogInformation("  Added Cluster: {ServiceName}", serviceName);
             }
             else
             {
-                pathAlias = serviceName.Split('.').Last().ToLowerInvariant();
-            }
-
-            _logger.LogInformation("  Service: {ServiceName}, URL: {ServiceUrl}, Path Alias: {PathAlias}", serviceName, serviceUrl, pathAlias);
-
-            var cluster = new ClusterConfig
-            {
-                ClusterId = serviceName,
-                Destinations = new Dictionary<string, DestinationConfig>
+                // Create a new cluster with merged destinations
+                var newDestinations = new Dictionary<string, DestinationConfig>(existingCluster.Destinations)
                 {
-                    { "destination1", new DestinationConfig { Address = serviceUrl } }
-                }
-            };
-            clusters.Add(cluster);
+                    {
+                        $"destination{existingCluster.Destinations.Count + 1}",
+                        new DestinationConfig { Address = serviceUrl }
+                    }
+                };
+
+                var mergedCluster = new ClusterConfig
+                {
+                    ClusterId = serviceName,
+                    Destinations = newDestinations
+                };
+
+                // Replace the existing cluster with the merged one
+                var index = clusters.IndexOf(existingCluster);
+                clusters[index] = mergedCluster;
+
+                _logger.LogInformation("  Updated Cluster {ServiceName} with {DestinationCount} destinations",
+                    serviceName, mergedCluster.Destinations.Count);
+            }
 
             // Host-based routing
             if (domainMappings.TryGetValue(serviceName, out var domain))
@@ -126,7 +159,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                     ClusterId = serviceName,
                     Match = new RouteMatch
                     {
-                        Hosts = new[] { domain },
+                        Hosts = [domain],
                         Path = "/{**catch-all}"
                     }
                 };
@@ -142,7 +175,8 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                 Match = new RouteMatch { Path = $"/{pathAlias}/{{**catch-all}}" },
                 Transforms = new List<Dictionary<string, string>>
                 {
-                    new Dictionary<string, string> { { "PathRemovePrefix", $"/{pathAlias}" } }
+                    new() { { "PathRemovePrefix", $"/{pathAlias}" } },
+                    new() { { "PathPrefix", "/api" } }
                 }
             };
             routes.Add(pathRoute);
@@ -157,16 +191,18 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
     {
         public IReadOnlyList<RouteConfig> Routes { get; } = routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; } = clusters;
-        public Microsoft.Extensions.Primitives.IChangeToken ChangeToken { get; } = new Microsoft.Extensions.Primitives.CancellationChangeToken(CancellationToken.None);
+
+        public Microsoft.Extensions.Primitives.IChangeToken ChangeToken { get; } =
+            new Microsoft.Extensions.Primitives.CancellationChangeToken(CancellationToken.None);
     }
 
-    private class DirectRouteConfig
+    private record DirectRouteConfig
     {
-        public string Path { get; set; }
-        public string Service { get; set; }
+        public required string Path { get; set; }
+        public required string Service { get; set; }
     }
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         _cts.Cancel();
         _cts.Dispose();
