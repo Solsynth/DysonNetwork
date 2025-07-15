@@ -9,7 +9,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddReverseProxy();
         services.AddRegistryService(configuration);
-        services.AddSingleton<IProxyConfigProvider, EtcdProxyConfigProvider>();
+        services.AddSingleton<IProxyConfigProvider, RegistryProxyConfigProvider>();
 
         return services;
     }

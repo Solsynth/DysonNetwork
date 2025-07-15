@@ -4,15 +4,15 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace DysonNetwork.Gateway;
 
-public class EtcdProxyConfigProvider : IProxyConfigProvider, IDisposable
+public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
 {
     private readonly IEtcdClient _etcdClient;
     private readonly IConfiguration _configuration;
-    private readonly ILogger<EtcdProxyConfigProvider> _logger;
+    private readonly ILogger<RegistryProxyConfigProvider> _logger;
     private readonly CancellationTokenSource _watchCts = new();
     private CancellationTokenSource _cts = new();
 
-    public EtcdProxyConfigProvider(IEtcdClient etcdClient, IConfiguration configuration, ILogger<EtcdProxyConfigProvider> logger)
+    public RegistryProxyConfigProvider(IEtcdClient etcdClient, IConfiguration configuration, ILogger<RegistryProxyConfigProvider> logger)
     {
         _etcdClient = etcdClient;
         _configuration = configuration;
@@ -34,20 +34,78 @@ public class EtcdProxyConfigProvider : IProxyConfigProvider, IDisposable
         var response = _etcdClient.GetRange("/services/");
         var kvs = response.Kvs;
 
+        var serviceMap = kvs.ToDictionary(
+            kv => Encoding.UTF8.GetString(kv.Key.ToByteArray()).Replace("/services/", ""),
+            kv => Encoding.UTF8.GetString(kv.Value.ToByteArray())
+        );
+
         var clusters = new List<ClusterConfig>();
         var routes = new List<RouteConfig>();
 
         var domainMappings = _configuration.GetSection("DomainMappings").GetChildren()
             .ToDictionary(x => x.Key, x => x.Value);
 
+        var pathAliases = _configuration.GetSection("PathAliases").GetChildren()
+            .ToDictionary(x => x.Key, x => x.Value);
+
+        var directRoutes = _configuration.GetSection("DirectRoutes").Get<List<DirectRouteConfig>>() ?? new List<DirectRouteConfig>();
+
         _logger.LogInformation("Indexing {ServiceCount} services from Etcd.", kvs.Count);
 
-        foreach (var kv in kvs)
-        {
-            var serviceName = Encoding.UTF8.GetString(kv.Key.ToByteArray()).Replace("/services/", "");
-            var serviceUrl = Encoding.UTF8.GetString(kv.Value.ToByteArray());
+        var gatewayServiceName = _configuration["Service:Name"];
 
-            _logger.LogInformation("  Service: {ServiceName}, URL: {ServiceUrl}", serviceName, serviceUrl);
+        // Add direct routes
+        foreach (var directRoute in directRoutes)
+        {
+            if (serviceMap.TryGetValue(directRoute.Service, out var serviceUrl))
+            {
+                var cluster = new ClusterConfig
+                {
+                    ClusterId = directRoute.Service,
+                    Destinations = new Dictionary<string, DestinationConfig>
+                    {
+                        { "destination1", new DestinationConfig { Address = serviceUrl } }
+                    }
+                };
+                clusters.Add(cluster);
+
+                var route = new RouteConfig
+                {
+                    RouteId = $"direct-{directRoute.Service}-{directRoute.Path.Replace("/", "-")}",
+                    ClusterId = directRoute.Service,
+                    Match = new RouteMatch { Path = directRoute.Path }
+                };
+                routes.Add(route);
+                _logger.LogInformation("    Added Direct Route: {Path} -> {Service}", directRoute.Path, directRoute.Service);
+            }
+            else
+            {
+                _logger.LogWarning("    Direct route service {Service} not found in Etcd.", directRoute.Service);
+            }
+        }
+
+        foreach (var serviceName in serviceMap.Keys)
+        {
+            if (serviceName == gatewayServiceName)
+            {
+                _logger.LogInformation("Skipping gateway service: {ServiceName}", serviceName);
+                continue;
+            }
+
+            var serviceUrl = serviceMap[serviceName];
+
+            // Determine the path alias
+            string pathAlias;
+            if (pathAliases.TryGetValue(serviceName, out var alias))
+            {
+                pathAlias = alias;
+            }
+            else
+            {
+                pathAlias = serviceName.Split('.').Last().ToLowerInvariant();
+            }
+
+            _logger.LogInformation("  Service: {ServiceName}, URL: {ServiceUrl}, Path Alias: {PathAlias}", serviceName, serviceUrl, pathAlias);
 
             var cluster = new ClusterConfig
             {
@@ -81,7 +139,11 @@ public class EtcdProxyConfigProvider : IProxyConfigProvider, IDisposable
             {
                 RouteId = $"{serviceName}-path",
                 ClusterId = serviceName,
-                Match = new RouteMatch { Path = $"/{serviceName}/{{**catch-all}}" }
+                Match = new RouteMatch { Path = $"/{pathAlias}/{{**catch-all}}" },
+                Transforms = new List<Dictionary<string, string>>
+                {
+                    new Dictionary<string, string> { { "PathRemovePrefix", $"/{pathAlias}" } }
+                }
             };
             routes.Add(pathRoute);
             _logger.LogInformation("    Added Path-based Route: {Path}", pathRoute.Match.Path);
@@ -96,6 +158,12 @@ public class EtcdProxyConfigProvider : IProxyConfigProvider, IDisposable
         public IReadOnlyList<RouteConfig> Routes { get; } = routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; } = clusters;
         public Microsoft.Extensions.Primitives.IChangeToken ChangeToken { get; } = new Microsoft.Extensions.Primitives.CancellationChangeToken(CancellationToken.None);
+    }
+
+    private class DirectRouteConfig
+    {
+        public string Path { get; set; }
+        public string Service { get; set; }
     }
 
     public void Dispose()
