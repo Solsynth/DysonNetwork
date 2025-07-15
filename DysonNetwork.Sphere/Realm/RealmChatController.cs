@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ public class RealmChatController(AppDatabase db, RealmService rs) : ControllerBa
     public async Task<ActionResult<List<ChatRoom>>> ListRealmChat(string slug)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -22,7 +24,7 @@ public class RealmChatController(AppDatabase db, RealmService rs) : ControllerBa
         if (!realm.IsPublic)
         {
             if (currentUser is null) return Unauthorized();
-            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
                 return StatusCode(403, "You need at least one member to view the realm's chat.");
         }
 

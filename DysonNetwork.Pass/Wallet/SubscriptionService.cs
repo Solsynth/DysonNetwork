@@ -360,7 +360,7 @@ public class SubscriptionService(
             Topic = "subscriptions.begun",
             Title = localizer["SubscriptionAppliedTitle", humanReadableName],
             Body = localizer["SubscriptionAppliedBody", duration, humanReadableName],
-            IsSavable = false,
+            IsSavable = true
         };
         notification.Meta.Add("subscription_id", Value.ForString(subscription.Id.ToString()));
         await pusher.SendPushNotificationToUserAsync(

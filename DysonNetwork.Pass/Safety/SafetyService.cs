@@ -1,8 +1,8 @@
-using DysonNetwork.Sphere.Account;
+using DysonNetwork.Pass.Account;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Safety;
+namespace DysonNetwork.Pass.Safety;
 
 public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
 {

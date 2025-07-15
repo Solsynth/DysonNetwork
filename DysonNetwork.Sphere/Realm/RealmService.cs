@@ -1,22 +1,36 @@
-using DysonNetwork.Sphere.Account;
+using DysonNetwork.Shared;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
 namespace DysonNetwork.Sphere.Realm;
 
-public class RealmService(AppDatabase db, NotificationService nty, IStringLocalizer<NotificationResource> localizer)
+public class RealmService(
+    AppDatabase db,
+    PusherService.PusherServiceClient pusher,
+    AccountService.AccountServiceClient accounts,
+    IStringLocalizer<NotificationResource> localizer
+)
 {
     public async Task SendInviteNotify(RealmMember member)
     {
-        AccountService.SetCultureInfo(member.Account);
-        await nty.SendNotification(
-            member.Account,
-            "invites.realms",
-            localizer["RealmInviteTitle"],
-            null,
-            localizer["RealmInviteBody", member.Realm.Name],
-            actionUri: "/realms"
+        var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
+        CultureService.SetCultureInfo(account);
+
+        await pusher.SendPushNotificationToUserAsync(
+            new SendPushNotificationToUserRequest
+            {
+                UserId = account.Id,
+                Notification = new PushNotification
+                {
+                    Topic = "invites.realms",
+                    Title = localizer["RealmInviteTitle"],
+                    Body = localizer["RealmInviteBody", member.Realm.Name],
+                    ActionUri = "/realms",
+                    IsSavable = true
+                }
+            }
         );
     }
 

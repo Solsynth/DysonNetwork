@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

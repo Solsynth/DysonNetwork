@@ -1,21 +1,17 @@
 using System.Net;
-using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Permission;
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
 using tusdotnet;
-using tusdotnet.Stores;
 
 namespace DysonNetwork.Sphere.Startup;
 
 public static class ApplicationConfiguration
 {
-    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration, TusDiskStore tusDiskStore)
+    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
     {
         app.MapMetrics();
         app.MapOpenApi();
-        app.UseMiddleware<ClientTypeMiddleware>();
 
         app.UseSwagger();
         app.UseSwaggerUI();
@@ -43,8 +39,6 @@ public static class ApplicationConfiguration
         app.MapControllers().RequireRateLimiting("fixed");
         app.MapStaticAssets().RequireRateLimiting("fixed");
         app.MapRazorPages().RequireRateLimiting("fixed");
-
-        app.MapTus("/files/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusDiskStore)));
 
         return app;
     }

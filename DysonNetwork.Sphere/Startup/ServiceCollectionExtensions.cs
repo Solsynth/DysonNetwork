@@ -21,9 +21,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Discovery;
-using DysonNetwork.Sphere.Safety;
 using tusdotnet.Stores;
-using PermissionService = DysonNetwork.Sphere.Permission.PermissionService;
 
 namespace DysonNetwork.Sphere.Startup;
 
@@ -90,12 +88,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddCors();
         services.AddAuthorization();
-        services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = AuthConstants.SchemeName;
-                options.DefaultChallengeScheme = AuthConstants.SchemeName;
-            })
-            .AddScheme<DysonTokenAuthOptions, DysonTokenAuthHandler>(AuthConstants.SchemeName, _ => { });
 
         return services;
     }
@@ -146,17 +138,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAppFileStorage(this IServiceCollection services, IConfiguration configuration)
-    {
-        var tusStorePath = configuration.GetSection("Tus").GetValue<string>("StorePath")!;
-        Directory.CreateDirectory(tusStorePath);
-        var tusDiskStore = new TusDiskStore(tusStorePath);
-
-        services.AddSingleton(tusDiskStore);
-
-        return services;
-    }
-
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
@@ -169,7 +150,6 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoIpService>();
-        services.AddScoped<PermissionService>();
         services.AddScoped<PublisherService>();
         services.AddScoped<PublisherSubscriptionService>();
         services.AddScoped<ActivityService>();
@@ -181,7 +161,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
-        services.AddScoped<SafetyService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<CustomAppService>();
         

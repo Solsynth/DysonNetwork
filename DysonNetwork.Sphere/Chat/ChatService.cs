@@ -233,6 +233,7 @@ public partial class ChatService(
             Body = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<no content>",
+            IsSavable = false
         };
         notification.Meta.Add(GrpcTypeHelper.ConvertToValueMap(metaDict));
 

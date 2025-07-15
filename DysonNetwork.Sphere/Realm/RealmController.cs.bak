@@ -14,7 +14,6 @@ namespace DysonNetwork.Sphere.Realm;
 public class RealmController(
     AppDatabase db,
     RealmService rs,
-    FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
     AccountService.AccountServiceClient accounts
@@ -132,7 +131,7 @@ public class RealmController(
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });
 
-        member.AccountId = Guid.Parse(relatedUser.Id);
+        member.Account = relatedUser;
         member.Realm = realm;
         await rs.SendInviteNotify(member);
 
@@ -190,19 +189,11 @@ public class RealmController(
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.decline_invite",
-            Meta =
-            {
-                { "realm_id", Value.ForString(member.RealmId.ToString()) },
-                { "account_id", Value.ForString(member.AccountId.ToString()) },
-                { "decliner_id", Value.ForString(currentUser.Id) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmLeave,
+            new Dictionary<string, object> { { "realm_id", member.RealmId }, { "account_id", member.AccountId } },
+            Request
+        );
 
         return NoContent();
     }
@@ -229,37 +220,39 @@ public class RealmController(
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
-        var query = db.RealmMembers
+        IQueryable<RealmMember> query = db.RealmMembers
             .Where(m => m.RealmId == realm.Id)
-            .Where(m => m.LeaveAt == null);
+            .Where(m => m.LeaveAt == null)
+            .Include(m => m.Account)
+            .Include(m => m.Account.Profile);
 
-        // if (withStatus)
-        // {
-        //     var members = await query
-        //         .OrderBy(m => m.CreatedAt)
-        //         .ToListAsync();
-        //
-        //     var memberStatuses = await aes.GetStatuses(members.Select(m => m.AccountId).ToList());
-        //
-        //     if (!string.IsNullOrEmpty(status))
-        //     {
-        //         members = members.Where(m =>
-        //             memberStatuses.TryGetValue(m.AccountId, out var s) && s.Label != null &&
-        //             s.Label.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
-        //     }
-        //
-        //     members = members.OrderByDescending(m => memberStatuses.TryGetValue(m.AccountId, out var s) && s.IsOnline)
-        //         .ToList();
-        //
-        //     var total = members.Count;
-        //     Response.Headers["X-Total"] = total.ToString();
-        //
-        //     var result = members.Skip(offset).Take(take).ToList();
-        //
-        //     return Ok(result);
-        // }
-        // else
-        // {
+        if (withStatus)
+        {
+            var members = await query
+                .OrderBy(m => m.CreatedAt)
+                .ToListAsync();
+
+            var memberStatuses = await aes.GetStatuses(members.Select(m => m.AccountId).ToList());
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                members = members.Where(m =>
+                    memberStatuses.TryGetValue(m.AccountId, out var s) && s.Label != null &&
+                    s.Label.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            members = members.OrderByDescending(m => memberStatuses.TryGetValue(m.AccountId, out var s) && s.IsOnline)
+                .ToList();
+
+            var total = members.Count;
+            Response.Headers["X-Total"] = total.ToString();
+
+            var result = members.Skip(offset).Take(take).ToList();
+
+            return Ok(result);
+        }
+        else
+        {
             var total = await query.CountAsync();
             Response.Headers["X-Total"] = total.ToString();
 
@@ -270,7 +263,7 @@ public class RealmController(
                 .ToListAsync();
 
             return Ok(members);
-        // }
+        }
     }
 
 
@@ -310,19 +303,11 @@ public class RealmController(
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.leave",
-            Meta =
-            {
-                { "realm_id", Value.ForString(member.RealmId.ToString()) },
-                { "account_id", Value.ForString(member.AccountId.ToString()) },
-                { "leaver_id", Value.ForString(currentUser.Id) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+        als.CreateActionLogFromRequest(
+            ActionLogType.RealmLeave,
+            new Dictionary<string, object> { { "realm_id", member.RealmId }, { "account_id", member.AccountId } },
+            Request
+        );
 
         return NoContent();
     }
@@ -354,7 +339,7 @@ public class RealmController(
             Name = request.Name!,
             Slug = request.Slug!,
             Description = request.Description!,
-            AccountId = Guid.Parse(currentUser.Id),
+            AccountId = currentUser.Id,
             IsCommunity = request.IsCommunity ?? false,
             IsPublic = request.IsPublic ?? false,
             Members = new List<RealmMember>
@@ -374,6 +359,7 @@ public class RealmController(
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
             realm.Picture = CloudFileReferenceObject.FromProtoValue(pictureResult);
         }
+
         if (request.BackgroundId is not null)
         {
             var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
@@ -395,7 +381,7 @@ public class RealmController(
                 { "is_community", Value.ForBool(realm.IsCommunity) },
                 { "is_public", Value.ForBool(realm.IsPublic) }
             },
-            AccountId = currentUser.Id,
+            UserId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent.ToString(),
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });
@@ -526,7 +512,7 @@ public class RealmController(
                 { "is_community_updated", Value.ForBool(request.IsCommunity != null) },
                 { "is_public_updated", Value.ForBool(request.IsPublic != null) }
             },
-            AccountId = currentUser.Id,
+            UserId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent.ToString(),
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });
@@ -556,7 +542,7 @@ public class RealmController(
 
         var member = new RealmMember
         {
-            AccountId = Guid.Parse(currentUser.Id),
+            AccountId = currentUser.Id,
             RealmId = realm.Id,
             Role = RealmMemberRole.Normal,
             JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
@@ -574,7 +560,7 @@ public class RealmController(
                 { "account_id", Value.ForString(currentUser.Id) },
                 { "is_community", Value.ForBool(realm.IsCommunity) }
             },
-            AccountId = currentUser.Id,
+            UserId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent.ToString(),
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });
@@ -613,7 +599,7 @@ public class RealmController(
                 { "account_id", Value.ForString(memberId.ToString()) },
                 { "kicker_id", Value.ForString(currentUser.Id) }
             },
-            AccountId = currentUser.Id,
+            UserId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent.ToString(),
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });
@@ -635,6 +621,7 @@ public class RealmController(
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == memberId && m.RealmId == realm.Id)
+            .Include(m => m.Account)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
@@ -656,7 +643,7 @@ public class RealmController(
                 { "new_role", Value.ForNumber(newRole) },
                 { "updater_id", Value.ForString(currentUser.Id) }
             },
-            AccountId = currentUser.Id,
+            UserId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent.ToString(),
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });
@@ -672,6 +659,8 @@ public class RealmController(
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
+            .Include(r => r.Picture)
+            .Include(r => r.Background)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -690,7 +679,7 @@ public class RealmController(
                 { "realm_name", Value.ForString(realm.Name) },
                 { "realm_slug", Value.ForString(realm.Slug) }
             },
-            AccountId = currentUser.Id,
+            UserId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent.ToString(),
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
         });

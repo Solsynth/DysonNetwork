@@ -74,7 +74,7 @@ public class ChatMember : ModelBase
     public Guid ChatRoomId { get; set; }
     public ChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
-    public Account Account { get; set; } = null!;
+    [NotMapped] public Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
@@ -106,7 +106,7 @@ public class ChatMemberTransmissionObject : ModelBase
     public Guid Id { get; set; }
     public Guid ChatRoomId { get; set; }
     public Guid AccountId { get; set; }
-    public Account Account { get; set; } = null!;
+    [NotMapped] public Account Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
 

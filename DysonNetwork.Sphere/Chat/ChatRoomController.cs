@@ -2,10 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Realm;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -962,7 +962,7 @@ public class ChatRoomController(
                     Topic = "invites.chats",
                     Title = title,
                     Body = body,
-                    IsSavable = false
+                    IsSavable = true
                 }
             }
         );

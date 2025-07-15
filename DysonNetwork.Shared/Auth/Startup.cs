@@ -8,8 +8,7 @@ namespace DysonNetwork.Shared.Auth;
 public static class DysonAuthStartup
 {
     public static IServiceCollection AddDysonAuth(
-        this IServiceCollection services,
-        IConfiguration configuration
+        this IServiceCollection services
     )
     {
         services.AddSingleton<AuthService.AuthServiceClient>(sp =>

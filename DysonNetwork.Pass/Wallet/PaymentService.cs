@@ -217,7 +217,7 @@ public class PaymentService(
                     Title = localizer["OrderPaidTitle", $"#{readableOrderId}"],
                     Body = localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture), order.Currency,
                         readableOrderRemark],
-                    IsSavable = false
+                    IsSavable = true
                 }
             }
         );

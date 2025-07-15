@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -25,7 +25,7 @@ public class Realm : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
     
-    [Column(TypeName = "jsonb")] public Account.VerificationMark? Verification { get; set; }
+    [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
     [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
@@ -48,7 +48,6 @@ public class RealmMember : ModelBase
     public Guid RealmId { get; set; }
     public Realm Realm { get; set; } = null!;
     public Guid AccountId { get; set; }
-    public Account Account { get; set; } = null!;
 
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }

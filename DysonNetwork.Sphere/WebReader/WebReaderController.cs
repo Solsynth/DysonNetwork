@@ -1,4 +1,4 @@
-using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;

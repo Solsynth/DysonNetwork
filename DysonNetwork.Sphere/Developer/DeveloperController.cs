@@ -1,5 +1,5 @@
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -17,7 +17,7 @@ builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
-builder.Services.AddDysonAuth(builder.Configuration);
+builder.Services.AddDysonAuth();
 
 builder.Services.AddAppFileStorage(builder.Configuration);
 
