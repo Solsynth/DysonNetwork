@@ -61,6 +61,18 @@ public static class GrpcClientHelper
         return new AuthService.AuthServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
+    
+    public static async Task<PermissionService.PermissionServiceClient> CreatePermissionServiceClient(
+        IEtcdClient etcdClient,
+        string clientCertPath,
+        string clientKeyPath,
+        string? clientCertPassword = null
+    )
+    {
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pass");
+        return new PermissionService.PermissionServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
+            clientCertPassword));
+    }
 
     public static async Task<PusherService.PusherServiceClient> CreatePusherServiceClient(
         IEtcdClient etcdClient,

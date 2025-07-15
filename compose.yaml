@@ -1,7 +1,96 @@
-﻿services:
-  sphere:
-    image: xsheep2010/dyson-sphere:latest
+services:
+  etcd:
+    image: bitnami/etcd:latest
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    environment:
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER=etcd=http://etcd:2380
+    healthcheck:
+      test: ["CMD", "etcdctl", "get", "/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build:
+      context: .
+      dockerfile: DysonNetwork.Gateway/Dockerfile
+    ports:
+      - "8000:8080"
+    environment:
+      - ConnectionStrings__Etcd=http://etcd:2379
+      - Etcd__Insecure=true
+      - Service__Name=DysonNetwork.Gateway
+      - Service__Url=http://gateway:8080
+    depends_on:
+      etcd:
+        condition: service_healthy
+
+  drive:
+    build:
+      context: .
+      dockerfile: DysonNetwork.Drive/Dockerfile
     ports:
       - "8001:8080"
+    environment:
+      - ConnectionStrings__Etcd=http://etcd:2379
+      - Etcd__Insecure=true
+      - Service__Name=DysonNetwork.Drive
+      - Service__Url=http://drive:8080
+    depends_on:
+      etcd:
+        condition: service_healthy
+
+  pass:
+    build:
+      context: .
+      dockerfile: DysonNetwork.Pass/Dockerfile
+    ports:
+      - "8002:8080"
+    environment:
+      - ConnectionStrings__Etcd=http://etcd:2379
+      - Etcd__Insecure=true
+      - Service__Name=DysonNetwork.Pass
+      - Service__Url=http://pass:8080
+    depends_on:
+      etcd:
+        condition: service_healthy
+
+  pusher:
+    build:
+      context: .
+      dockerfile: DysonNetwork.Pusher/Dockerfile
+    ports:
+      - "8003:8080"
+    environment:
+      - ConnectionStrings__Etcd=http://etcd:2379
+      - Etcd__Insecure=true
+      - Service__Name=DysonNetwork.Pusher
+      - Service__Url=http://pusher:8080
+    depends_on:
+      etcd:
+        condition: service_healthy
+
+  sphere:
+    build:
+      context: .
+      dockerfile: DysonNetwork.Sphere/Dockerfile
+    ports:
+      - "8004:8080"
+    environment:
+      - ConnectionStrings__Etcd=http://etcd:2379
+      - Etcd__Insecure=true
+      - Service__Name=DysonNetwork.Sphere
+      - Service__Url=http://sphere:8080
     volumes:
       - "./keys:/app/keys"
+    depends_on:
+      etcd:
+        condition: service_healthy

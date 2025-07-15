@@ -15,12 +15,26 @@ public static class DysonAuthStartup
         {
             var etcdClient = sp.GetRequiredService<IEtcdClient>();
             var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"];
-            var clientKeyPath = config["Service:ClientKey"];
+            var clientCertPath = config["Service:ClientCert"]!;
+            var clientKeyPath = config["Service:ClientKey"]!;
             var clientCertPassword = config["Service:CertPassword"];
 
             return GrpcClientHelper
                 .CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .GetAwaiter()
+                .GetResult();
+        });
+        
+        services.AddSingleton<PermissionService.PermissionServiceClient>(sp =>
+        {
+            var etcdClient = sp.GetRequiredService<IEtcdClient>();
+            var config = sp.GetRequiredService<IConfiguration>();
+            var clientCertPath = config["Service:ClientCert"]!;
+            var clientKeyPath = config["Service:ClientKey"]!;
+            var clientCertPassword = config["Service:CertPassword"];
+
+            return GrpcClientHelper
+                .CreatePermissionServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
                 .GetAwaiter()
                 .GetResult();
         });
