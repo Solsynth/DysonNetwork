@@ -8,6 +8,11 @@ const router = createRouter({
       name: 'index',
       component: () => import('../views/index.vue'),
     },
+    {
+      path: '/captcha',
+      name: 'captcha',
+      component: () => import('../views/captcha.vue'),
+    }
   ],
 })
 

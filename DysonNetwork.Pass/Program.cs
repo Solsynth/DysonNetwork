@@ -34,6 +34,7 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs();
 
 builder.Services.AddTransient<IPageDataProvider, VersionPageData>();
+builder.Services.AddTransient<IPageDataProvider, CaptchaPageData>();
 
 var app = builder.Build();
 

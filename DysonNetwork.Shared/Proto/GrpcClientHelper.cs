@@ -93,7 +93,7 @@ public static class GrpcClientHelper
         string? clientCertPassword = null
     )
     {
-        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.File");
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Drive");
         return new FileService.FileServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
@@ -105,7 +105,7 @@ public static class GrpcClientHelper
         string? clientCertPassword = null
     )
     {
-        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.FileReference");
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Drive");
         return new FileReferenceService.FileReferenceServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }

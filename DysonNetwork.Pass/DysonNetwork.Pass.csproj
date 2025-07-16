@@ -149,6 +149,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="Client\public\" />
       <Folder Include="Client\src\components\" />
       <Folder Include="Client\src\stores\" />
     </ItemGroup>
