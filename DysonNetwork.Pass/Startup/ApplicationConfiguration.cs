@@ -46,8 +46,6 @@ public static class ApplicationConfiguration
 
         app.MapControllers().RequireRateLimiting("fixed");
 
-        app.MapFallbackToFile("dist/index.html");
-
         return app;
     }
 

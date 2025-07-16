@@ -9,10 +9,11 @@
 
       <p class="mt-4 opacity-75 text-xs">
         <span v-if="version == null">Loading...</span>
-        <span v-else
-          >v{{ version.version }} @ {{ version.commit.substring(0, 6) }}
-          {{ version.updatedAt }}</span
-        >
+        <span v-else>
+          v{{ version.version }} @
+          {{ version.commit.substring(0, 6) }}
+          {{ version.updatedAt }}
+        </span>
       </p>
     </n-card>
   </section>
