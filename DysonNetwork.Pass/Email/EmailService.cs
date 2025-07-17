@@ -18,8 +18,6 @@ public class EmailService(
         string htmlBody
     )
     {
-        subject = $"[Solarpass] {subject}";
-
         await pusher.SendEmailAsync(
             new SendEmailRequest()
             {

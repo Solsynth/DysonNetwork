@@ -12,6 +12,11 @@ const router = createRouter({
       path: '/captcha',
       name: 'captcha',
       component: () => import('../views/captcha.vue'),
+    },
+    {
+      path: '/spells/:word',
+      name: 'spells',
+      component: () => import('../views/spells.vue'),
     }
   ],
 })

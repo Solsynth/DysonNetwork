@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using DysonNetwork.Pass.Email;
+using DysonNetwork.Pass.Pages.Emails;
 using DysonNetwork.Pass.Permission;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -12,7 +14,8 @@ public class MagicSpellService(
     AppDatabase db,
     IConfiguration configuration,
     ILogger<MagicSpellService> logger,
-    IStringLocalizer<EmailResource> localizer
+    IStringLocalizer<EmailResource> localizer,
+    EmailService email
 )
 {
     public async Task<MagicSpell> CreateMagicSpell(
@@ -79,61 +82,62 @@ public class MagicSpellService(
 
         try
         {
-            // switch (spell.Type)
-            // {
-            //     case MagicSpellType.AccountActivation:
-            //         await email.SendTemplatedEmailAsync<LandingEmail, LandingEmailModel>(
-            //             contact.Account.Nick,
-            //             contact.Content,
-            //             localizer["EmailLandingTitle"],
-            //             new LandingEmailModel
-            //             {
-            //                 Name = contact.Account.Name,
-            //                 Link = link
-            //             }
-            //         );
-            //         break;
-            //     case MagicSpellType.AccountRemoval:
-            //         await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
-            //             contact.Account.Nick,
-            //             contact.Content,
-            //             localizer["EmailAccountDeletionTitle"],
-            //             new AccountDeletionEmailModel
-            //             {
-            //                 Name = contact.Account.Name,
-            //                 Link = link
-            //             }
-            //         );
-            //         break;
-            //     case MagicSpellType.AuthPasswordReset:
-            //         await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
-            //             contact.Account.Nick,
-            //             contact.Content,
-            //             localizer["EmailAccountDeletionTitle"],
-            //             new PasswordResetEmailModel
-            //             {
-            //                 Name = contact.Account.Name,
-            //                 Link = link
-            //             }
-            //         );
-            //         break;
-            //     case MagicSpellType.ContactVerification:
-            //         if (spell.Meta["contact_method"] is not string contactMethod)
-            //             throw new InvalidOperationException("Contact method is not found.");
-            //         await email.SendTemplatedEmailAsync<ContactVerificationEmail, ContactVerificationEmailModel>(
-            //             contact.Account.Nick,
-            //             contactMethod!,
-            //             localizer["EmailContactVerificationTitle"],
-            //             new ContactVerificationEmailModel
-            //             {
-            //                 Name = contact.Account.Name,
-            //                 Link = link
-            //             }
-            //         );
-            //         break;
-            //     default:
-            //         throw new ArgumentOutOfRangeException();
-            // }
+            switch (spell.Type)
+            {
+                case MagicSpellType.AccountActivation:
+                    await email.SendTemplatedEmailAsync<LandingEmail, LandingEmailModel>(
+                        contact.Account.Nick,
+                        contact.Content,
+                        localizer["EmailLandingTitle"],
+                        new LandingEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
+                        }
+                    );
+                    break;
+                case MagicSpellType.AccountRemoval:
+                    await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
+                        contact.Account.Nick,
+                        contact.Content,
+                        localizer["EmailAccountDeletionTitle"],
+                        new AccountDeletionEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
+                        }
+                    );
+                    break;
+                case MagicSpellType.AuthPasswordReset:
+                    await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
+                        contact.Account.Nick,
+                        contact.Content,
+                        localizer["EmailAccountDeletionTitle"],
+                        new PasswordResetEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
+                        }
+                    );
+                    break;
+                case MagicSpellType.ContactVerification:
+                    if (spell.Meta["contact_method"] is not string contactMethod)
+                        throw new InvalidOperationException("Contact method is not found.");
+                    await email.SendTemplatedEmailAsync<ContactVerificationEmail, ContactVerificationEmailModel>(
+                        contact.Account.Nick,
+                        contactMethod!,
+                        localizer["EmailContactVerificationTitle"],
+                        new ContactVerificationEmailModel
+                        {
+                            Name = contact.Account.Name,
+                            Link = link
+                        }
+                    );
+                    break;
+                case MagicSpellType.AccountDeactivation:
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
         catch (Exception err)
         {

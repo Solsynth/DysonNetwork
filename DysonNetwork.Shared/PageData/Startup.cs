@@ -30,7 +30,7 @@ public static class PageStartup
                 appData[key] = value;
 
             var json = JsonSerializer.Serialize(appData);
-            html = html.Replace("%%APP_DATA%%", $"<script>window.__APP_DATA__ = {json};</script>");
+            html = html.Replace("<app-data />", $"<script>window.__APP_DATA__ = {json};</script>");
 
             context.Response.ContentType = "text/html";
             await context.Response.WriteAsync(html);

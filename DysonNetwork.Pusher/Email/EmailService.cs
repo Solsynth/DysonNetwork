@@ -27,13 +27,7 @@ public class EmailService
         _logger = logger;
     }
 
-    public async Task SendEmailAsync(string? recipientName, string recipientEmail, string subject, string textBody)
-    {
-        await SendEmailAsync(recipientName, recipientEmail, subject, textBody, null);
-    }
-
-    public async Task SendEmailAsync(string? recipientName, string recipientEmail, string subject, string textBody,
-        string? htmlBody)
+    public async Task SendEmailAsync(string? recipientName, string recipientEmail, string subject, string htmlBody)
     {
         subject = $"[{_configuration.SubjectPrefix}] {subject}";
 
@@ -42,13 +36,7 @@ public class EmailService
         emailMessage.To.Add(new MailboxAddress(recipientName, recipientEmail));
         emailMessage.Subject = subject;
 
-        var bodyBuilder = new BodyBuilder
-        {
-            TextBody = textBody
-        };
-
-        if (!string.IsNullOrEmpty(htmlBody))
-            bodyBuilder.HtmlBody = htmlBody;
+        var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
 
         emailMessage.Body = bodyBuilder.ToMessageBody();
 
