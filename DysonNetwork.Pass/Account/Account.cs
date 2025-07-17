@@ -12,7 +12,7 @@ namespace DysonNetwork.Pass.Account;
 [Index(nameof(Name), IsUnique = true)]
 public class Account : ModelBase
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(32)] public string Language { get; set; } = string.Empty;

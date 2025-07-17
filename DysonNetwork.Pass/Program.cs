@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Pages.Data;
 using DysonNetwork.Pass.Startup;
@@ -6,7 +5,6 @@ using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,11 +16,12 @@ builder.Services.AddAppMetrics();
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
-builder.Services.AddPusherService();
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
+builder.Services.AddPusherService();
+builder.Services.AddDriveService();
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();

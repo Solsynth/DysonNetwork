@@ -29,8 +29,6 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            var now = SystemClock.Instance.GetCurrentInstant();
-
             // Validate token and extract session ID
             AuthSession session;
             try
@@ -59,8 +57,20 @@ public class DysonTokenAuthHandler(
                 new("token_type", tokenInfo.Type.ToString())
             };
 
-            // return AuthenticateResult.Success(ticket);
-            return AuthenticateResult.NoResult();
+            // Add scopes as claims
+            session.Challenge.Scopes.ToList().ForEach(scope => claims.Add(new Claim("scope", scope)));
+
+            // Add superuser claim if applicable
+            if (session.Account.IsSuperuser)
+                claims.Add(new Claim("is_superuser", "1"));
+
+            // Create the identity and principal
+            var identity = new ClaimsIdentity(claims, AuthConstants.SchemeName);
+            var principal = new ClaimsPrincipal(identity);
+
+            var ticket = new AuthenticationTicket(principal, AuthConstants.SchemeName);
+
+            return AuthenticateResult.Success(ticket);
         }
         catch (Exception ex)
         {

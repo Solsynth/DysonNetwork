@@ -75,6 +75,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<AccountServiceGrpc>();
         app.MapGrpcService<AuthServiceGrpc>();
         app.MapGrpcService<ActionLogServiceGrpc>();
+        app.MapGrpcService<PermissionServiceGrpc>();
 
         return app;
     }

@@ -16,6 +16,7 @@ builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth();
+builder.Services.AddAccountService();
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();

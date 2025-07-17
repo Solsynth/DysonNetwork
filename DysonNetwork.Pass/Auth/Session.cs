@@ -31,6 +31,7 @@ public class AuthSession : ModelBase
         LastGrantedAt = LastGrantedAt?.ToTimestamp(),
         ExpiredAt = ExpiredAt?.ToTimestamp(),
         AccountId = AccountId.ToString(),
+        Account = Account.ToProtoValue(),
         ChallengeId = ChallengeId.ToString(),
         Challenge = Challenge.ToProtoValue(),
         AppId = AppId?.ToString()

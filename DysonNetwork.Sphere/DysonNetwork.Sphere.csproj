@@ -177,6 +177,7 @@
         <_ContentIncludedByDefault Remove="Pages\Auth\VerifyFactor.cshtml" />
         <_ContentIncludedByDefault Remove="Pages\Checkpoint\CheckpointPage.cshtml" />
         <_ContentIncludedByDefault Remove="Pages\Spell\MagicSpellPage.cshtml" />
+        <_ContentIncludedByDefault Remove="Keys\Solian.json" />
     </ItemGroup>
 
     <ItemGroup>

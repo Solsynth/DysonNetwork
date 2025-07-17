@@ -84,79 +84,69 @@ public class AccountService(
         bool isActivated = false
     )
     {
-        await using var transaction = await db.Database.BeginTransactionAsync();
-        try
+        var dupeNameCount = await db.Accounts.Where(a => a.Name == name).CountAsync();
+        if (dupeNameCount > 0)
+            throw new InvalidOperationException("Account name has already been taken.");
+
+        var account = new Account
         {
-            var dupeNameCount = await db.Accounts.Where(a => a.Name == name).CountAsync();
-            if (dupeNameCount > 0)
-                throw new InvalidOperationException("Account name has already been taken.");
-
-            var account = new Account
+            Name = name,
+            Nick = nick,
+            Language = language,
+            Contacts = new List<AccountContact>
             {
-                Name = name,
-                Nick = nick,
-                Language = language,
-                Contacts = new List<AccountContact>
+                new()
                 {
-                    new()
-                    {
-                        Type = AccountContactType.Email,
-                        Content = email,
-                        VerifiedAt = isEmailVerified ? SystemClock.Instance.GetCurrentInstant() : null,
-                        IsPrimary = true
-                    }
-                },
-                AuthFactors = password is not null
-                    ? new List<AccountAuthFactor>
-                    {
-                        new AccountAuthFactor
-                        {
-                            Type = AccountAuthFactorType.Password,
-                            Secret = password,
-                            EnabledAt = SystemClock.Instance.GetCurrentInstant()
-                        }.HashSecret()
-                    }
-                    : [],
-                Profile = new AccountProfile()
-            };
-
-            if (isActivated)
-            {
-                account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
-                var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
-                if (defaultGroup is not null)
-                {
-                    db.PermissionGroupMembers.Add(new PermissionGroupMember
-                    {
-                        Actor = $"user:{account.Id}",
-                        Group = defaultGroup
-                    });
+                    Type = AccountContactType.Email,
+                    Content = email,
+                    VerifiedAt = isEmailVerified ? SystemClock.Instance.GetCurrentInstant() : null,
+                    IsPrimary = true
                 }
-            }
-            else
-            {
-                var spell = await spells.CreateMagicSpell(
-                    account,
-                    MagicSpellType.AccountActivation,
-                    new Dictionary<string, object>
+            },
+            AuthFactors = password is not null
+                ? new List<AccountAuthFactor>
+                {
+                    new AccountAuthFactor
                     {
-                        { "contact_method", account.Contacts.First().Content }
-                    }
-                );
-                await spells.NotifyMagicSpell(spell, true);
-            }
+                        Type = AccountAuthFactorType.Password,
+                        Secret = password,
+                        EnabledAt = SystemClock.Instance.GetCurrentInstant()
+                    }.HashSecret()
+                }
+                : [],
+            Profile = new AccountProfile()
+        };
 
-            db.Accounts.Add(account);
-            await db.SaveChangesAsync();
-
-            await transaction.CommitAsync();
-            return account;
-        }
-        catch
+        if (isActivated)
         {
-            await transaction.RollbackAsync();
-            throw;
+            account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
+            var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
+            if (defaultGroup is not null)
+            {
+                db.PermissionGroupMembers.Add(new PermissionGroupMember
+                {
+                    Actor = $"user:{account.Id}",
+                    Group = defaultGroup
+                });
+            }
         }
+
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+
+        if (isActivated) return account;
+        
+        var spell = await spells.CreateMagicSpell(
+            account,
+            MagicSpellType.AccountActivation,
+            new Dictionary<string, object>
+            {
+                { "contact_method", account.Contacts.First().Content }
+            }
+        );
+        await spells.NotifyMagicSpell(spell, true);
+
+        return account;
     }
 
     public async Task<Account> CreateAccount(OidcUserInfo userInfo)

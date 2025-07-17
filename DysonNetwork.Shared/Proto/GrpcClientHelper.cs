@@ -49,6 +49,18 @@ public static class GrpcClientHelper
         return new AccountService.AccountServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
+    
+    public static async Task<ActionLogService.ActionLogServiceClient> CreateActionLogServiceClient(
+        IEtcdClient etcdClient,
+        string clientCertPath,
+        string clientKeyPath,
+        string? clientCertPassword = null
+    )
+    {
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pass");
+        return new ActionLogService.ActionLogServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
+            clientCertPassword));
+    }
 
     public static async Task<AuthService.AuthServiceClient> CreateAuthServiceClient(
         IEtcdClient etcdClient,
