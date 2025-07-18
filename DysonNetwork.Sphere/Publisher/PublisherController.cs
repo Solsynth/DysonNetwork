@@ -34,7 +34,7 @@ public class PublisherController(
         var account = await accounts.GetAccountAsync(
             new GetAccountRequest { Id = publisher.AccountId.Value.ToString() }
         );
-        publisher.Account = account;
+        publisher.Account = Pass.Account.Account.FromProtoValue(account);
 
         return Ok(publisher);
     }

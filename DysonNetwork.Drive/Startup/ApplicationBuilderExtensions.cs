@@ -18,7 +18,7 @@ public static class ApplicationBuilderExtensions
         app.UseAuthorization();
         app.MapControllers();
         
-        app.MapTus("/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusStore)));
+        app.MapTus("/api/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusStore, app.Configuration)));
 
         return app;
     }

@@ -163,8 +163,12 @@ public class PublisherService(
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
             Bio = bio ?? account.Profile.Bio,
-            Picture = picture ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Picture),
-            Background = background ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Background),
+            Picture = picture ?? (account.Profile.Picture is null
+                ? null
+                : CloudFileReferenceObject.FromProtoValue(account.Profile.Picture)),
+            Background = background ?? (account.Profile.Background is null
+                ? null
+                : CloudFileReferenceObject.FromProtoValue(account.Profile.Background)),
             AccountId = Guid.Parse(account.Id),
             Members = new List<PublisherMember>
             {
@@ -191,6 +195,7 @@ public class PublisherService(
                 }
             );
         }
+
         if (publisher.Background is not null)
         {
             await fileRefs.CreateReferenceAsync(
@@ -250,6 +255,7 @@ public class PublisherService(
                 }
             );
         }
+
         if (publisher.Background is not null)
         {
             await fileRefs.CreateReferenceAsync(

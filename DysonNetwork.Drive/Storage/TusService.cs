@@ -12,7 +12,7 @@ namespace DysonNetwork.Drive.Storage;
 
 public abstract class TusService
 {
-    public static DefaultTusConfiguration BuildConfiguration(ITusStore store) => new()
+    public static DefaultTusConfiguration BuildConfiguration(ITusStore store, IConfiguration configuration) => new()
     {
         Store = store,
         Events = new Events
@@ -73,6 +73,13 @@ public abstract class TusService
 
                 // Dispose the stream after all processing is complete
                 await fileStream.DisposeAsync();
+            },
+            OnCreateCompleteAsync = eventContext =>
+            {
+                var gatewayUrl = configuration["GatewayUrl"];
+                if (gatewayUrl is not null)
+                    eventContext.SetUploadUrl(new Uri(gatewayUrl + "/drive/tus/" + eventContext.FileId));
+                return Task.CompletedTask;
             }
         }
     };

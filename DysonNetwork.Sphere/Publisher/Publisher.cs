@@ -2,11 +2,11 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using VerificationMark = DysonNetwork.Shared.Data.VerificationMark;
+using Account = DysonNetwork.Pass.Account.Account;
 
 namespace DysonNetwork.Sphere.Publisher;
 

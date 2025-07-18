@@ -79,7 +79,8 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                 {
                     RouteId = $"direct-{directRoute.Service}-{directRoute.Path.Replace("/", "-")}",
                     ClusterId = directRoute.Service,
-                    Match = new RouteMatch { Path = directRoute.Path }
+                    Match = new RouteMatch { Path = directRoute.Path },
+                    TimeoutPolicy = directRoute.IsWebsocket ? "Disable" : null
                 };
                 routes.Add(route);
                 _logger.LogInformation("    Added Direct Route: {Path} -> {Service}", directRoute.Path,
@@ -196,10 +197,11 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
             new Microsoft.Extensions.Primitives.CancellationChangeToken(CancellationToken.None);
     }
 
-    private record DirectRouteConfig
+    public record DirectRouteConfig
     {
         public required string Path { get; set; }
         public required string Service { get; set; }
+        public bool IsWebsocket { get; set; } = false;
     }
 
     public virtual void Dispose()

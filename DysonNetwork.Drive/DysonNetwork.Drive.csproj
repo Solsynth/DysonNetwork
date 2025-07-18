@@ -52,10 +52,8 @@
         <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1" />
         <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
-        <PackageReference Include="SkiaSharp" Version="3.119.0" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.0" />
-        <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.0" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.9" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3" />
         <PackageReference Include="tusdotnet" Version="2.10.0" />

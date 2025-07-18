@@ -50,7 +50,7 @@ public class FileService(
 
         return file;
     }
-    
+
     public async Task<List<CloudFile>> GetFilesAsync(List<string> fileIds)
     {
         var cachedFiles = new Dictionary<string, CloudFile>();
@@ -146,7 +146,11 @@ public class FileService(
         {
             case "image":
                 var blurhash =
-                    BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(xComponent: 3, yComponent: 3, filename: ogFilePath);
+                    BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(
+                        xComponent: 3,
+                        yComponent: 3,
+                        filename: ogFilePath
+                    );
 
                 // Rewind stream
                 stream.Position = 0;
@@ -160,7 +164,7 @@ public class FileService(
 
                     // Try to get orientation from exif data
                     var orientation = 1;
-                    var meta = new Dictionary<string, object>
+                    var meta = new Dictionary<string, object?>
                     {
                         ["blur"] = blurhash,
                         ["format"] = format,
