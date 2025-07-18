@@ -8,7 +8,7 @@ namespace DysonNetwork.Shared.Proto;
 
 public static class GrpcClientHelper
 {
-    private static CallInvoker CreateCallInvoker(
+    public static CallInvoker CreateCallInvoker(
         string url,
         string clientCertPath,
         string clientKeyPath,

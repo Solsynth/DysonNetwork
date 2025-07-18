@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace DysonNetwork.Shared.Proto;
 
@@ -8,8 +10,10 @@ public abstract class GrpcTypeHelper
 {
     private static readonly JsonSerializerSettings SerializerSettings = new()
     {
-        PreserveReferencesHandling = PreserveReferencesHandling.All,
-        ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+        ContractResolver =  new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() },
+        PreserveReferencesHandling = PreserveReferencesHandling.Objects,
+        NullValueHandling = NullValueHandling.Include,
+        DateParseHandling = DateParseHandling.None
     };
 
     public static MapField<string, Value> ConvertToValueMap(Dictionary<string, object> source)
@@ -44,7 +48,7 @@ public abstract class GrpcTypeHelper
                     try
                     {
                         // Try to parse as JSON object or primitive
-                        result[kvp.Key] = JsonConvert.DeserializeObject(value.StringValue);
+                        result[kvp.Key] = JsonConvert.DeserializeObject(value.StringValue, SerializerSettings);
                     }
                     catch
                     {
@@ -62,10 +66,10 @@ public abstract class GrpcTypeHelper
                     result[kvp.Key] = null;
                     break;
                 case Value.KindOneofCase.StructValue:
-                    result[kvp.Key] = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value.StructValue.Fields.ToDictionary(f => f.Key, f => ConvertField(f.Value)), SerializerSettings));
+                    result[kvp.Key] = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value.StructValue.Fields.ToDictionary(f => f.Key, f => ConvertValueToObject(f.Value)), SerializerSettings));
                     break;
                 case Value.KindOneofCase.ListValue:
-                    result[kvp.Key] = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value.ListValue.Values.Select(ConvertField).ToList(), SerializerSettings));
+                    result[kvp.Key] = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value.ListValue.Values.Select(ConvertValueToObject).ToList(), SerializerSettings), SerializerSettings);
                     break;
                 default:
                     result[kvp.Key] = null;
@@ -75,7 +79,7 @@ public abstract class GrpcTypeHelper
         return result;
     }
 
-    public static object? ConvertField(Value value)
+    public static object? ConvertValueToObject(Value value)
     {
         return value.KindCase switch
         {
@@ -84,6 +88,15 @@ public abstract class GrpcTypeHelper
             Value.KindOneofCase.BoolValue => value.BoolValue,
             Value.KindOneofCase.NullValue => null,
             _ => JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value, SerializerSettings))
+        };
+    }
+    
+    public static T? ConvertValueToClass<T>(Value value)
+    {
+        return value.KindCase switch
+        {
+            Value.KindOneofCase.StringValue => JsonConvert.DeserializeObject<T>(value.StringValue, SerializerSettings),
+            _ => JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(value, SerializerSettings))
         };
     }
     
@@ -99,6 +112,17 @@ public abstract class GrpcTypeHelper
             bool b => Value.ForBool(b),
             null => Value.ForNull(),
             _ => Value.ForString(JsonConvert.SerializeObject(obj, SerializerSettings)) // fallback to JSON string
+        };
+    }
+    
+    public static Value ConvertClassToValue<T>(T obj)
+    {
+        if (obj is JsonElement element)
+            return Value.ForString(element.GetRawText());
+        return obj switch
+        {
+            null => Value.ForNull(),
+            _ => Value.ForString(JsonConvert.SerializeObject(obj, SerializerSettings))
         };
     }
 }

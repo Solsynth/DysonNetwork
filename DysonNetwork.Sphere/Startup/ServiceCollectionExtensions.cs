@@ -53,6 +53,11 @@ public static class ServiceCollectionExtensions
                 factory.Create(typeof(SharedResource));
         });
         services.AddRazorPages();
+        
+        services.AddGrpc(options =>
+        {
+            options.EnableDetailedErrors = true;
+        });
 
         services.Configure<RequestLocalizationOptions>(options =>
         {

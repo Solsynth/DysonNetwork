@@ -8,6 +8,8 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 
+import "account.proto";
+
 // PusherService provides methods to send various types of notifications.
 service PusherService {
   // Sends an email.
@@ -128,4 +130,15 @@ message GetWebsocketConnectionStatusRequest {
 
 message GetWebsocketConnectionStatusResponse {
     bool is_connected = 1;
+}
+
+
+service PusherHandlerService {
+  rpc ReceiveWebSocketPacket(ReceiveWebSocketPacketRequest) returns (google.protobuf.Empty) {}
+}
+
+message ReceiveWebSocketPacketRequest {
+  WebSocketPacket packet = 1;
+  Account account = 2;
+  string device_id = 3;
 }

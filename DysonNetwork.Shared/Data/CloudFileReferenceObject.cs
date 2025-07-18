@@ -42,9 +42,9 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
             Id = proto.Id,
             Name = proto.Name,
             FileMeta = proto.FileMeta
-                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertField(kvp.Value)),
+                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertValueToObject(kvp.Value)),
             UserMeta = proto.UserMeta
-                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertField(kvp.Value)),
+                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertValueToObject(kvp.Value)),
             MimeType = proto.MimeType,
             Hash = proto.Hash,
             Size = proto.Size,

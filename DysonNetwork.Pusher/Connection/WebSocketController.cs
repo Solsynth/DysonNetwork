@@ -40,8 +40,8 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         if (!ws.TryAdd(connectionKey, webSocket, cts))
         {
             await webSocket.CloseAsync(
-                WebSocketCloseStatus.InternalServerError,
-                "Failed to establish connection.",
+                WebSocketCloseStatus.PolicyViolation,
+                "Too many connections from the same device and account.",
                 CancellationToken.None
             );
             return;

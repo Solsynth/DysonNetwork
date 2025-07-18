@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -7,7 +8,8 @@ namespace DysonNetwork.Pusher.Connection;
 public class WebSocketPacket
 {
     public string Type { get; set; } = null!;
-    public object Data { get; set; } = null!;
+    public object? Data { get; set; } = null!;
+    public string? Endpoint { get; set; }
     public string? ErrorMessage { get; set; }
 
     /// <summary>
@@ -61,5 +63,25 @@ public class WebSocketPacket
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
         var json = JsonSerializer.Serialize(this, jsonOpts);
         return System.Text.Encoding.UTF8.GetBytes(json);
+    }
+
+    public Shared.Proto.WebSocketPacket ToProtoValue()
+    {
+        return new Shared.Proto.WebSocketPacket
+        {
+            Type = Type,
+            Data = GrpcTypeHelper.ConvertClassToValue(Data),
+            ErrorMessage = ErrorMessage
+        };
+    }
+    
+    public static WebSocketPacket FromProtoValue(Shared.Proto.WebSocketPacket packet)
+    {
+        return new WebSocketPacket
+        {
+            Type = packet.Type,
+            Data = GrpcTypeHelper.ConvertValueToObject(packet.Data),
+            ErrorMessage = packet.ErrorMessage
+        };
     }
 }

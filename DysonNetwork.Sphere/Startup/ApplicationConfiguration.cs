@@ -1,5 +1,6 @@
 using System.Net;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Sphere.Connection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
 
@@ -37,6 +38,9 @@ public static class ApplicationConfiguration
         app.MapControllers().RequireRateLimiting("fixed");
         app.MapStaticAssets().RequireRateLimiting("fixed");
         app.MapRazorPages().RequireRateLimiting("fixed");
+
+        // Map gRPC services
+        app.MapGrpcService<WebSocketHandlerGrpc>();
 
         return app;
     }
