@@ -49,6 +49,7 @@ public class AccountServiceGrpc(
         var accounts = await _db.Accounts
             .AsNoTracking()
             .Where(a => accountIds.Contains(a.Id))
+            .Include(a => a.Profile)
             .ToListAsync();
 
         var response = new GetAccountBatchResponse();

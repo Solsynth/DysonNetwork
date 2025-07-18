@@ -97,8 +97,6 @@ public partial class ChatController(
             .Where(m => m.ChatRoomId == roomId)
             .OrderByDescending(m => m.CreatedAt)
             .Include(m => m.Sender)
-            .Include(m => m.Sender.Account)
-            .Include(m => m.Sender.Account.Profile)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -232,8 +230,6 @@ public partial class ChatController(
 
         var message = await db.ChatMessages
             .Include(m => m.Sender)
-            .Include(m => m.Sender.Account)
-            .Include(m => m.Sender.Account.Profile)
             .Include(message => message.ChatRoom)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
 

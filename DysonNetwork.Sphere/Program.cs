@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
-using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 

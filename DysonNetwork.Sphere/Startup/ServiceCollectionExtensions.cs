@@ -17,11 +17,9 @@ using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Discovery;
-using tusdotnet.Stores;
 
 namespace DysonNetwork.Sphere.Startup;
 

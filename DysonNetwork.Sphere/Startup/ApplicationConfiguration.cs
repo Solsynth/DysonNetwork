@@ -2,7 +2,6 @@ using System.Net;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
-using tusdotnet;
 
 namespace DysonNetwork.Sphere.Startup;
 

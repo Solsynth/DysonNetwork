@@ -2,8 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using NodaTime;
+using Account = DysonNetwork.Pass.Account.Account;
 
 namespace DysonNetwork.Sphere.Chat;
 

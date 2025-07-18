@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using OtpNet;
+using VerificationMark = DysonNetwork.Shared.Data.VerificationMark;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -41,7 +42,9 @@ public class Account : ModelBase
             Language = Language,
             ActivatedAt = ActivatedAt?.ToTimestamp(),
             IsSuperuser = IsSuperuser,
-            Profile = Profile.ToProtoValue()
+            Profile = Profile.ToProtoValue(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
 
         // Add contacts
@@ -53,6 +56,32 @@ public class Account : ModelBase
             proto.Badges.Add(badge.ToProtoValue());
 
         return proto;
+    }
+
+
+    public static Account FromProtoValue(Shared.Proto.Account proto)
+    {
+        var account = new Account
+        {
+            Id = Guid.Parse(proto.Id),
+            Name = proto.Name,
+            Nick = proto.Nick,
+            Language = proto.Language,
+            ActivatedAt = proto.ActivatedAt?.ToInstant(),
+            IsSuperuser = proto.IsSuperuser,
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant(),
+        };
+
+        account.Profile = AccountProfile.FromProtoValue(proto.Profile);
+
+        foreach (var contactProto in proto.Contacts)
+            account.Contacts.Add(AccountContact.FromProtoValue(contactProto));
+
+        foreach (var badgeProto in proto.Badges)
+            account.Badges.Add(AccountBadge.FromProtoValue(badgeProto));
+
+        return account;
     }
 }
 
@@ -132,10 +161,40 @@ public class AccountProfile : ModelBase, IIdentifiedResource
             Background = Background?.ToProtoValue(),
             AccountId = AccountId.ToString(),
             Verification = Verification?.ToProtoValue(),
-            ActiveBadge = ActiveBadge?.ToProtoValue()
+            ActiveBadge = ActiveBadge?.ToProtoValue(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
 
         return proto;
+    }
+
+    public static AccountProfile FromProtoValue(Shared.Proto.AccountProfile proto)
+    {
+        var profile = new AccountProfile
+        {
+            Id = Guid.Parse(proto.Id),
+            FirstName = proto.FirstName,
+            LastName = proto.LastName,
+            MiddleName = proto.MiddleName,
+            Bio = proto.Bio,
+            Gender = proto.Gender,
+            Pronouns = proto.Pronouns,
+            TimeZone = proto.TimeZone,
+            Location = proto.Location,
+            Birthday = proto.Birthday?.ToInstant(),
+            LastSeenAt = proto.LastSeenAt?.ToInstant(),
+            Verification = proto.Verification is null ? null : VerificationMark.FromProtoValue(proto.Verification),
+            ActiveBadge = proto.ActiveBadge is null ? null : BadgeReferenceObject.FromProtoValue(proto.ActiveBadge),
+            Experience = proto.Experience,
+            Picture = proto.Picture is null ? null : CloudFileReferenceObject.FromProtoValue(proto.Picture),
+            Background = proto.Background is null ? null : CloudFileReferenceObject.FromProtoValue(proto.Background),
+            AccountId = Guid.Parse(proto.AccountId),
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
+        };
+
+        return profile;
     }
 
     public string ResourceIdentifier => $"account:profile:{Id}";
@@ -167,10 +226,35 @@ public class AccountContact : ModelBase
             Content = Content,
             IsPrimary = IsPrimary,
             VerifiedAt = VerifiedAt?.ToTimestamp(),
-            AccountId = AccountId.ToString()
+            AccountId = AccountId.ToString(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
 
         return proto;
+    }
+
+    public static AccountContact FromProtoValue(Shared.Proto.AccountContact proto)
+    {
+        var contact = new AccountContact
+        {
+            Id = Guid.Parse(proto.Id),
+            AccountId = Guid.Parse(proto.AccountId),
+            Type = proto.Type switch
+            {
+                Shared.Proto.AccountContactType.Email => AccountContactType.Email,
+                Shared.Proto.AccountContactType.PhoneNumber => AccountContactType.PhoneNumber,
+                Shared.Proto.AccountContactType.Address => AccountContactType.Address,
+                _ => AccountContactType.Email
+            },
+            Content = proto.Content,
+            IsPrimary = proto.IsPrimary,
+            VerifiedAt = proto.VerifiedAt?.ToInstant(),
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
+        };
+
+        return contact;
     }
 }
 

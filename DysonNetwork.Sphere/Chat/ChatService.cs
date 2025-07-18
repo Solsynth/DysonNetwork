@@ -9,6 +9,7 @@ namespace DysonNetwork.Sphere.Chat;
 
 public partial class ChatService(
     AppDatabase db,
+    ChatRoomService crs,
     FileService.FileServiceClient filesClient,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     IServiceScopeFactory scopeFactory,
@@ -259,7 +260,7 @@ public partial class ChatService(
             }
             else if (member.Notify == ChatMemberNotify.Mentions) continue;
 
-            accountsToNotify.Add(member.Account);
+            accountsToNotify.Add(member.Account.ToProtoValue());
         }
 
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
@@ -333,8 +334,6 @@ public partial class ChatService(
         var messages = await db.ChatMessages
             .IgnoreQueryFilters()
             .Include(m => m.Sender)
-            .Include(m => m.Sender.Account)
-            .Include(m => m.Sender.Account.Profile)
             .Where(m => userRooms.Contains(m.ChatRoomId))
             .GroupBy(m => m.ChatRoomId)
             .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
@@ -450,8 +449,6 @@ public partial class ChatService(
         var changes = await db.ChatMessages
             .IgnoreQueryFilters()
             .Include(e => e.Sender)
-            .Include(e => e.Sender.Account)
-            .Include(e => e.Sender.Account.Profile)
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.UpdatedAt > timestamp || m.DeletedAt > timestamp)
             .Select(m => new MessageChange
@@ -462,6 +459,20 @@ public partial class ChatService(
                 Timestamp = m.DeletedAt ?? m.UpdatedAt
             })
             .ToListAsync();
+
+        var changesMembers = changes
+            .Select(c => c.Message!.Sender)
+            .DistinctBy(x => x.Id)
+            .ToList();
+        changesMembers = await crs.LoadMemberAccounts(changesMembers);
+
+        foreach (var change in changes)
+        {
+            if (change.Message == null) continue;
+            var sender = changesMembers.FirstOrDefault(x => x.Id == change.Message.SenderId);
+            if (sender is not null)
+                change.Message.Sender = sender;
+        }
 
         return new SyncResponse
         {
@@ -493,18 +504,16 @@ public partial class ChatService(
 
         if (attachmentsId is not null)
         {
-            var messageResourceId = $"message:{message.Id}";
-
             // Delete existing references for this message
             await fileRefs.DeleteResourceReferencesAsync(
-                new DeleteResourceReferencesRequest { ResourceId = messageResourceId }
+                new DeleteResourceReferencesRequest { ResourceId = message.ResourceIdentifier }
             );
 
             // Create new references for each attachment
             var createRequest = new CreateReferenceBatchRequest
             {
                 Usage = ChatFileUsageIdentifier,
-                ResourceId = messageResourceId,
+                ResourceId = message.ResourceIdentifier,
             };
             createRequest.FilesId.AddRange(attachmentsId);
             await fileRefs.CreateReferenceBatchAsync(createRequest);

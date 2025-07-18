@@ -194,7 +194,7 @@ public class ChatRoomController(
                 {
                     Role = ChatMemberRole.Owner,
                     AccountId = Guid.Parse(currentUser.Id),
-                    JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
+                    JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
         };
@@ -452,21 +452,23 @@ public class ChatRoomController(
 
         var member = await db.ChatMembers
             .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId)
-            .Include(m => m.Account)
-            .Include(m => m.Account.Profile)
             .FirstOrDefaultAsync();
 
         if (member == null)
             return NotFound();
 
-        return Ok(member);
+        return Ok(await crs.LoadMemberAccount(member));
     }
 
     [HttpGet("{roomId:guid}/members")]
-    public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId, [FromQuery] int take = 20,
-        [FromQuery] int skip = 0, [FromQuery] bool withStatus = false, [FromQuery] string? status = null)
+    public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId,
+        [FromQuery] int take = 20,
+        [FromQuery] int skip = 0,
+        [FromQuery] bool withStatus = false,
+        [FromQuery] string? status = null
+    )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Shared.Proto.Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
 
         var room = await db.ChatRooms
             .FirstOrDefaultAsync(r => r.Id == roomId);
@@ -480,11 +482,9 @@ public class ChatRoomController(
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
 
-        IQueryable<ChatMember> query = db.ChatMembers
+        var query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.LeaveAt == null) // Add this condition to exclude left members
-            .Include(m => m.Account)
-            .Include(m => m.Account.Profile);
+            .Where(m => m.LeaveAt == null);
 
         // if (withStatus)
         // {
@@ -509,7 +509,7 @@ public class ChatRoomController(
         //
         //     var result = members.Skip(skip).Take(take).ToList();
         //
-        //     return Ok(result);
+        //     return Ok(await crs.LoadMemberAccounts(result));
         // }
         // else
         // {
@@ -522,7 +522,7 @@ public class ChatRoomController(
             .Take(take)
             .ToListAsync();
 
-        return Ok(members);
+        return Ok(await crs.LoadMemberAccounts(members));
         // }
     }
 
@@ -952,7 +952,7 @@ public class ChatRoomController(
             ? localizer["ChatInviteDirectBody", sender.Nick]
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
-        CultureService.SetCultureInfo(member.Account);
+        CultureService.SetCultureInfo(member.Account.Language);
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {

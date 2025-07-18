@@ -6,7 +6,6 @@ option csharp_namespace = "DysonNetwork.Shared.Proto";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 
@@ -28,6 +27,9 @@ message Account {
   repeated AccountConnection connections = 11;
   repeated Relationship outgoing_relationships = 12;
   repeated Relationship incoming_relationships = 13;
+  
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
 }
 
 // Profile contains detailed information about a user
@@ -55,6 +57,9 @@ message AccountProfile {
   CloudFile background = 20;
 
   string account_id = 21;
+  
+  google.protobuf.Timestamp created_at = 22;
+  google.protobuf.Timestamp updated_at = 23;
 }
 
 // AccountContact represents a contact method for an account
@@ -65,6 +70,9 @@ message AccountContact {
   bool is_primary = 4;
   string content = 5;
   string account_id = 6;
+  
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
 }
 
 // Enum for contact types
@@ -85,7 +93,10 @@ message AccountAuthFactor {
   google.protobuf.Timestamp enabled_at = 6;
   google.protobuf.Timestamp expired_at = 7;
   string account_id = 8;
-  map<string, string> created_response = 9;  // For initial setup
+  map<string, google.protobuf.Value> created_response = 9;  // For initial setup
+  
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
 }
 
 // Enum for authentication factor types
@@ -108,6 +119,9 @@ message AccountBadge {
   google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
   google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
   string account_id = 8;  // ID of the account this badge belongs to
+  
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
 }
 
 // AccountConnection represents a third-party connection for an account
@@ -120,6 +134,9 @@ message AccountConnection {
   google.protobuf.StringValue refresh_token = 6;  // Omitted from JSON serialization
   google.protobuf.Timestamp last_used_at = 7;
   string account_id = 8;
+  
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
 }
 
 // VerificationMark represents verification status
@@ -128,6 +145,9 @@ message VerificationMark {
   string title = 2;
   string description = 3;
   string verified_by = 4;
+  
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 enum VerificationMarkType {
@@ -160,6 +180,7 @@ message Relationship {
   optional Account account = 3;
   optional Account related = 4;
   int32 status = 5;
+  
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
 }
@@ -184,6 +205,7 @@ message ActionLog {
   google.protobuf.StringValue location = 6; // Geographic location of the client, derived from IP
   string account_id = 7; // The account that performed the action
   google.protobuf.StringValue session_id = 8; // The session in which the action was performed
+  
   google.protobuf.Timestamp created_at = 9; // When the action log was created
 }
 

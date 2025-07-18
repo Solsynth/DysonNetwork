@@ -15,7 +15,7 @@ public class AccountBadge : ModelBase
     [MaxLength(1024)] public string Type { get; set; } = null!;
     [MaxLength(1024)] public string? Label { get; set; }
     [MaxLength(4096)] public string? Caption { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
+    [Column(TypeName = "jsonb")] public Dictionary<string, object?> Meta { get; set; } = new();
     public Instant? ActivatedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
 
@@ -33,7 +33,7 @@ public class AccountBadge : ModelBase
             Meta = Meta,
             ActivatedAt = ActivatedAt,
             ExpiredAt = ExpiredAt,
-            AccountId = AccountId
+            AccountId = AccountId,
         };
     }
 
@@ -48,10 +48,30 @@ public class AccountBadge : ModelBase
             ActivatedAt = ActivatedAt?.ToTimestamp(),
             ExpiredAt = ExpiredAt?.ToTimestamp(),
             AccountId = AccountId.ToString(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
         proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta));
 
         return proto;
+    }
+    
+    public static AccountBadge FromProtoValue(Shared.Proto.AccountBadge proto)
+    {
+        var badge = new AccountBadge
+        {
+            Id = Guid.Parse(proto.Id),
+            AccountId = Guid.Parse(proto.AccountId),
+            Type = proto.Type,
+            Label = proto.Label,
+            Caption = proto.Caption,
+            ActivatedAt = proto.ActivatedAt?.ToInstant(),
+            ExpiredAt = proto.ExpiredAt?.ToInstant(),
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
+        };
+
+        return badge;
     }
 }
 
@@ -61,7 +81,7 @@ public class BadgeReferenceObject : ModelBase
     public string Type { get; set; } = null!;
     public string? Label { get; set; }
     public string? Caption { get; set; }
-    public Dictionary<string, object>? Meta { get; set; }
+    public Dictionary<string, object?> Meta { get; set; }
     public Instant? ActivatedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
     public Guid AccountId { get; set; }
@@ -78,9 +98,26 @@ public class BadgeReferenceObject : ModelBase
             ExpiredAt = ExpiredAt?.ToTimestamp(),
             AccountId = AccountId.ToString()
         };
-        if (Meta is not null)
-            proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta!));
+        proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta!));
 
         return proto;
+    }
+    
+    
+    public static BadgeReferenceObject FromProtoValue(Shared.Proto.BadgeReferenceObject proto)
+    {
+        var badge = new BadgeReferenceObject
+        {
+            Id = Guid.Parse(proto.Id),
+            Type = proto.Type,
+            Label = proto.Label,
+            Caption = proto.Caption,
+            Meta = GrpcTypeHelper.ConvertFromValueMap(proto.Meta).ToDictionary(),
+            ActivatedAt = proto.ActivatedAt?.ToInstant(),
+            ExpiredAt = proto.ExpiredAt?.ToInstant(),
+            AccountId = Guid.Parse(proto.AccountId)
+        };
+        
+        return badge;
     }
 }

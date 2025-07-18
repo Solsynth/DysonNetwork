@@ -36,6 +36,28 @@ public class VerificationMark
 
         return proto;
     }
+    
+    
+    public static VerificationMark FromProtoValue(Shared.Proto.VerificationMark proto)
+    {
+        return new VerificationMark
+        {
+            Type = proto.Type switch
+            {
+                Proto.VerificationMarkType.Official => VerificationMarkType.Official,
+                Proto.VerificationMarkType.Individual => VerificationMarkType.Individual,
+                Proto.VerificationMarkType.Organization => VerificationMarkType.Organization,
+                Proto.VerificationMarkType.Government => VerificationMarkType.Government,
+                Proto.VerificationMarkType.Creator => VerificationMarkType.Creator,
+                Proto.VerificationMarkType.Developer => VerificationMarkType.Developer,
+                Proto.VerificationMarkType.Parody => VerificationMarkType.Parody,
+                _ => VerificationMarkType.Individual
+            },
+            Title = proto.Title,
+            Description = proto.Description,
+            VerifiedBy = proto.VerifiedBy
+        };
+    }
 }
 
 public enum VerificationMarkType

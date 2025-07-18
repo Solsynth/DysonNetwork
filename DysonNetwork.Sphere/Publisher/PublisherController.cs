@@ -502,8 +502,6 @@ public class PublisherController(
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
-            .Include(publisher => publisher.Picture)
-            .Include(publisher => publisher.Background)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 

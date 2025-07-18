@@ -62,8 +62,6 @@ public class RealtimeCallController(
             .Where(c => c.EndedAt == null)
             .Include(c => c.Room)
             .Include(c => c.Sender)
-            .ThenInclude(c => c.Account)
-            .ThenInclude(c => c.Profile)
             .FirstOrDefaultAsync();
         if (ongoingCall is null) return NotFound();
         return Ok(ongoingCall);

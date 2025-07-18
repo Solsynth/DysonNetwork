@@ -40,7 +40,8 @@ public static class ServiceHelper
                 .CreateAccountServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
                 .GetAwaiter()
                 .GetResult();
-        });  
+        });
+        services.AddSingleton<AccountClientHelper>();
         
         services.AddSingleton<ActionLogService.ActionLogServiceClient>(sp =>
         {
