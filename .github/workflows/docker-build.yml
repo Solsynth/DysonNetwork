@@ -1,4 +1,4 @@
-name: Build and Push Dyson Sphere
+name: Build and Push Microservices
 
 on:
   push:
@@ -7,27 +7,107 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest # x86_64 (default), avoids arm64 native module issues
-
+  build-sphere:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
           username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
-
-      - name: Build and push Docker image
+      - name: Build and push DysonNetwork.Sphere Docker image
         uses: docker/build-push-action@v6
         with:
           file: DysonNetwork.Sphere/Dockerfile
           context: .
           push: true
           tags: xsheep2010/dyson-sphere:latest
+          platforms: linux/amd64
+
+  build-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+      - name: Build and push DysonNetwork.Pass Docker image
+        uses: docker/build-push-action@v6
+        with:
+          file: DysonNetwork.Pass/Dockerfile
+          context: .
+          push: true
+          tags: xsheep2010/dyson-pass:latest
+          platforms: linux/amd64
+
+  build-pusher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+      - name: Build and push DysonNetwork.Pusher Docker image
+        uses: docker/build-push-action@v6
+        with:
+          file: DysonNetwork.Pusher/Dockerfile
+          context: .
+          push: true
+          tags: xsheep2010/dyson-pusher:latest
+          platforms: linux/amd64
+
+  build-drive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+      - name: Build and push DysonNetwork.Drive Docker image
+        uses: docker/build-push-action@v6
+        with:
+          file: DysonNetwork.Drive/Dockerfile
+          context: .
+          push: true
+          tags: xsheep2010/dyson-drive:latest
+          platforms: linux/amd64
+
+  build-gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+      - name: Build and push DysonNetwork.Gateway Docker image
+        uses: docker/build-push-action@v6
+        with:
+          file: DysonNetwork.Gateway/Dockerfile
+          context: .
+          push: true
+          tags: xsheep2010/dyson-gateway:latest
           platforms: linux/amd64
