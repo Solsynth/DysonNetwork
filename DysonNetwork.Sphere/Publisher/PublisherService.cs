@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -10,7 +11,8 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherService(
     AppDatabase db,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    ICacheService cache
+    ICacheService cache,
+    AccountClientHelper accountsHelper
 )
 {
     public async Task<Publisher?> GetPublisherByName(string name)
@@ -375,5 +377,25 @@ public class PublisherService(
             .FirstOrDefaultAsync(m => m.AccountId == accountId);
 
         return member != null && member.Role >= requiredRole;
+    }
+    
+    public async Task<PublisherMember> LoadMemberAccount(PublisherMember member)
+    {
+        var account = await accountsHelper.GetAccount(member.AccountId);
+        member.Account = Pass.Account.Account.FromProtoValue(account);
+        return member;
+    }
+
+    public async Task<List<PublisherMember>> LoadMemberAccounts(ICollection<PublisherMember> members)
+    {
+        var accountIds = members.Select(m => m.AccountId).ToList();
+        var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+
+        return members.Select(m =>
+        {
+            if (accounts.TryGetValue(m.AccountId, out var account))
+                m.Account = Pass.Account.Account.FromProtoValue(account);
+            return m;
+        }).ToList();
     }
 }

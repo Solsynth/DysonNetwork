@@ -63,6 +63,7 @@ public class PublisherMember : ModelBase
     public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
+    [NotMapped] public Account? Account { get; set; }
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }

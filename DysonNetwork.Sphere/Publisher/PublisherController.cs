@@ -76,7 +76,7 @@ public class PublisherController(
             .Include(e => e.Publisher)
             .ToListAsync();
 
-        return members.ToList();
+        return await ps.LoadMemberAccounts(members);
     }
 
     public class PublisherMemberRequest
@@ -565,7 +565,7 @@ public class PublisherController(
             .Take(take)
             .ToListAsync();
 
-        return Ok(members);
+        return Ok(await ps.LoadMemberAccounts(members));
     }
 
     [HttpGet("{name}/members/me")]
@@ -586,7 +586,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
 
         if (member is null) return NotFound();
-        return Ok(member);
+        return Ok(await ps.LoadMemberAccount(member));
     }
 
     [HttpGet("{name}/features")]
