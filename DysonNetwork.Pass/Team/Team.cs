@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -21,14 +22,10 @@ public class Team : ModelBase, IIdentifiedResource
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Bio { get; set; }
 
-    // Outdated fields, for backward compability
-    [MaxLength(32)] public string? PictureId { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
-    [Column(TypeName = "jsonb")] public Account.VerificationMark? Verification { get; set; }
+    [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<TeamMember> Members { get; set; } = new List<TeamMember>();
     [JsonIgnore] public ICollection<TeamFeature> Features { get; set; } = new List<TeamFeature>();

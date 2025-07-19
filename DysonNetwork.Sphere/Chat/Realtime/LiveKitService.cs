@@ -1,11 +1,8 @@
-using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Storage;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Sphere.Chat.Realtime;
@@ -111,7 +108,7 @@ public class LiveKitRealtimeService : IRealtimeService
     }
 
     /// <inheritdoc />
-    public string GetUserToken(Account.Account account, string sessionId, bool isAdmin = false)
+    public string GetUserToken(Account account, string sessionId, bool isAdmin = false)
     {
         var token = _accessToken.WithIdentity(account.Name)
             .WithName(account.Nick)

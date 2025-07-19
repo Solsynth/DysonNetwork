@@ -14,6 +14,9 @@ using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using DysonNetwork.Pass.Auth.OidcProvider.Options;
+using DysonNetwork.Pass.Auth.OidcProvider.Services;
+using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
@@ -164,7 +167,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WalletService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<PaymentService>();
-        services.AddScoped<IRealtimeService, LivekitRealtimeService>();
+        services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
