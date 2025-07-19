@@ -91,7 +91,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                         {
                             { "destination1", new DestinationConfig { Address = serviceUrl } }
                         },
-                        HttpRequest = new ForwarderRequestConfig()
+                        HttpRequest = new ForwarderRequestConfig
                         {
                             ActivityTimeout = directRoute.IsWebsocket ? TimeSpan.FromHours(24) : TimeSpan.FromMinutes(2)
                         }

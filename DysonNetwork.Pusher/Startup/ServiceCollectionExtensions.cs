@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
+using CorePush.Apple;
+using CorePush.Firebase;
 using DysonNetwork.Pusher.Connection;
 using DysonNetwork.Pusher.Email;
 using DysonNetwork.Pusher.Notification;
@@ -136,5 +138,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PushService>();
 
         return services;
+    }
+    
+    public static void AddPushServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<ApnSettings>(configuration.GetSection("PushNotify:Apple"));
+        services.AddHttpClient<ApnSender>();
+
+        services.Configure<FirebaseSettings>(configuration.GetSection("PushNotify:Firebase"));
+        services.AddHttpClient<FirebaseSettings>();
     }
 }

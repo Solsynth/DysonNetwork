@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="CorePush" Version="4.3.0" />
         <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1" />
         <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
