@@ -14,7 +14,7 @@ COPY ["DysonNetwork.Pass/Client/package.json", "DysonNetwork.Pass/Client/package
 
 # Install SPA dependencies
 WORKDIR /src/Client
-RUN npm ci
+RUN npm install
 
 # Copy SPA source
 COPY ["DysonNetwork.Pass/Client/", "./"]
