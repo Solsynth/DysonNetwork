@@ -1,21 +1,15 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Auth;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Developer;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Sticker;
-using DysonNetwork.Sphere.Storage;
-using DysonNetwork.Sphere.Wallet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
 using NodaTime;
-using Npgsql;
 using Quartz;
 
 namespace DysonNetwork.Sphere;
@@ -37,31 +31,6 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<PermissionNode> PermissionNodes { get; set; }
-    public DbSet<PermissionGroup> PermissionGroups { get; set; }
-    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; }
-
-    public DbSet<MagicSpell> MagicSpells { get; set; }
-    public DbSet<Account.Account> Accounts { get; set; }
-    public DbSet<AccountConnection> AccountConnections { get; set; }
-    public DbSet<Profile> AccountProfiles { get; set; }
-    public DbSet<AccountContact> AccountContacts { get; set; }
-    public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; }
-    public DbSet<Relationship> AccountRelationships { get; set; }
-    public DbSet<Status> AccountStatuses { get; set; }
-    public DbSet<CheckInResult> AccountCheckInResults { get; set; }
-    public DbSet<Notification> Notifications { get; set; }
-    public DbSet<NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
-    public DbSet<Badge> Badges { get; set; }
-    public DbSet<ActionLog> ActionLogs { get; set; }
-    public DbSet<AbuseReport> AbuseReports { get; set; }
-
-    public DbSet<Session> AuthSessions { get; set; }
-    public DbSet<Challenge> AuthChallenges { get; set; }
-
-    public DbSet<CloudFile> Files { get; set; }
-    public DbSet<CloudFileReference> FileReferences { get; set; }
-
     public DbSet<Publisher.Publisher> Publishers { get; set; }
     public DbSet<PublisherMember> PublisherMembers { get; set; }
     public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; }
@@ -87,18 +56,11 @@ public class AppDatabase(
     public DbSet<Sticker.Sticker> Stickers { get; set; }
     public DbSet<StickerPack> StickerPacks { get; set; }
 
-    public DbSet<Wallet.Wallet> Wallets { get; set; }
-    public DbSet<WalletPocket> WalletPockets { get; set; }
-    public DbSet<Order> PaymentOrders { get; set; }
-    public DbSet<Transaction> PaymentTransactions { get; set; }
-
     public DbSet<CustomApp> CustomApps { get; set; }
     public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
 
-    public DbSet<Subscription> WalletSubscriptions { get; set; }
-    public DbSet<Coupon> WalletCoupons { get; set; }
-    public DbSet<Connection.WebReader.WebArticle> WebArticles { get; set; }
-    public DbSet<Connection.WebReader.WebFeed> WebFeeds { get; set; }
+    public DbSet<WebReader.WebArticle> WebArticles { get; set; }
+    public DbSet<WebReader.WebFeed> WebFeeds { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -111,63 +73,12 @@ public class AppDatabase(
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
-        optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
-        {
-            var defaultPermissionGroup = await context.Set<PermissionGroup>()
-                .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
-            if (defaultPermissionGroup is null)
-            {
-                context.Set<PermissionGroup>().Add(new PermissionGroup
-                {
-                    Key = "default",
-                    Nodes = new List<string>
-                        {
-                            "posts.create",
-                            "posts.react",
-                            "publishers.create",
-                            "files.create",
-                            "chat.create",
-                            "chat.messages.create",
-                            "chat.realtime.create",
-                            "accounts.statuses.create",
-                            "accounts.statuses.update",
-                            "stickers.packs.create",
-                            "stickers.create"
-                        }.Select(permission =>
-                            PermissionService.NewPermissionNode("group:default", "global", permission, true))
-                        .ToList()
-                });
-                await context.SaveChangesAsync(cancellationToken);
-            }
-        });
-
-        optionsBuilder.UseSeeding((context, _) => {});
-
         base.OnConfiguring(optionsBuilder);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        modelBuilder.Entity<PermissionGroupMember>()
-            .HasKey(pg => new { pg.GroupId, pg.Actor });
-        modelBuilder.Entity<PermissionGroupMember>()
-            .HasOne(pg => pg.Group)
-            .WithMany(g => g.Members)
-            .HasForeignKey(pg => pg.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<Relationship>()
-            .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
-        modelBuilder.Entity<Relationship>()
-            .HasOne(r => r.Account)
-            .WithMany(a => a.OutgoingRelationships)
-            .HasForeignKey(r => r.AccountId);
-        modelBuilder.Entity<Relationship>()
-            .HasOne(r => r.Related)
-            .WithMany(a => a.IncomingRelationships)
-            .HasForeignKey(r => r.RelatedId);
 
         modelBuilder.Entity<PublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
@@ -176,20 +87,10 @@ public class AppDatabase(
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<PublisherMember>()
-            .HasOne(pm => pm.Account)
-            .WithMany()
-            .HasForeignKey(pm => pm.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PublisherSubscription>()
             .HasOne(ps => ps.Publisher)
             .WithMany(p => p.Subscriptions)
             .HasForeignKey(ps => ps.PublisherId)
-            .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<PublisherSubscription>()
-            .HasOne(ps => ps.Account)
-            .WithMany()
-            .HasForeignKey(ps => ps.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Post.Post>()
@@ -237,11 +138,6 @@ public class AppDatabase(
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<RealmMember>()
-            .HasOne(pm => pm.Account)
-            .WithMany()
-            .HasForeignKey(pm => pm.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<RealmTag>()
             .HasKey(rt => new { rt.RealmId, rt.TagId });
@@ -265,11 +161,6 @@ public class AppDatabase(
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.ChatRoomId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<ChatMember>()
-            .HasOne(pm => pm.Account)
-            .WithMany()
-            .HasForeignKey(pm => pm.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Message>()
             .HasOne(m => m.ForwardedMessage)
             .WithMany()
@@ -291,11 +182,10 @@ public class AppDatabase(
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Connection.WebReader.WebFeed>()
+        modelBuilder.Entity<WebReader.WebFeed>()
             .HasIndex(f => f.Url)
             .IsUnique();
-
-        modelBuilder.Entity<Connection.WebReader.WebArticle>()
+        modelBuilder.Entity<WebReader.WebArticle>()
             .HasIndex(a => a.Url)
             .IsUnique();
 
@@ -353,19 +243,6 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
     public async Task Execute(IJobExecutionContext context)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-
-        logger.LogInformation("Cleaning up expired records...");
-
-        // Expired relationships
-        var affectedRows = await db.AccountRelationships
-            .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
-            .ExecuteDeleteAsync();
-        logger.LogDebug("Removed {Count} records of expired relationships.", affectedRows);
-        // Expired permission group members
-        affectedRows = await db.PermissionGroupMembers
-            .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
-            .ExecuteDeleteAsync();
-        logger.LogDebug("Removed {Count} records of expired permission group members.", affectedRows);
 
         logger.LogInformation("Deleting soft-deleted records...");
 

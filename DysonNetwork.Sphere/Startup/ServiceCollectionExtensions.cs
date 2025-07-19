@@ -1,22 +1,12 @@
 using System.Globalization;
-using DysonNetwork.Sphere.Account;
 using DysonNetwork.Sphere.Activity;
-using DysonNetwork.Sphere.Auth;
-using DysonNetwork.Sphere.Auth.OpenId;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Chat.Realtime;
-using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Connection.Handlers;
-using DysonNetwork.Sphere.Email;
 using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Permission;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Sticker;
-using DysonNetwork.Sphere.Storage;
-using DysonNetwork.Sphere.Storage.Handlers;
-using DysonNetwork.Sphere.Wallet;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using NodaTime;
@@ -24,14 +14,12 @@ using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Threading.RateLimiting;
-using DysonNetwork.Sphere.Auth.OidcProvider.Options;
-using DysonNetwork.Sphere.Auth.OidcProvider.Services;
-using DysonNetwork.Sphere.Connection.WebReader;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Discovery;
-using DysonNetwork.Sphere.Safety;
-using DysonNetwork.Sphere.Wallet.PaymentHandlers;
-using tusdotnet.Stores;
 
 namespace DysonNetwork.Sphere.Startup;
 
@@ -53,20 +41,6 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient();
 
-        // Register OIDC services
-        services.AddScoped<OidcService, GoogleOidcService>();
-        services.AddScoped<OidcService, AppleOidcService>();
-        services.AddScoped<OidcService, GitHubOidcService>();
-        services.AddScoped<OidcService, MicrosoftOidcService>();
-        services.AddScoped<OidcService, DiscordOidcService>();
-        services.AddScoped<OidcService, AfdianOidcService>();
-        services.AddScoped<GoogleOidcService>();
-        services.AddScoped<AppleOidcService>();
-        services.AddScoped<GitHubOidcService>();
-        services.AddScoped<MicrosoftOidcService>();
-        services.AddScoped<DiscordOidcService>();
-        services.AddScoped<AfdianOidcService>();
-
         services.AddControllers().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -79,6 +53,11 @@ public static class ServiceCollectionExtensions
                 factory.Create(typeof(SharedResource));
         });
         services.AddRazorPages();
+        
+        services.AddGrpc(options =>
+        {
+            options.EnableDetailedErrors = true;
+        });
 
         services.Configure<RequestLocalizationOptions>(options =>
         {
@@ -112,12 +91,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddCors();
         services.AddAuthorization();
-        services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = AuthConstants.SchemeName;
-                options.DefaultChallengeScheme = AuthConstants.SchemeName;
-            })
-            .AddScheme<DysonTokenAuthOptions, DysonTokenAuthHandler>(AuthConstants.SchemeName, _ => { });
 
         return services;
     }
@@ -168,30 +141,9 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAppFileStorage(this IServiceCollection services, IConfiguration configuration)
-    {
-        var tusStorePath = configuration.GetSection("Tus").GetValue<string>("StorePath")!;
-        Directory.CreateDirectory(tusStorePath);
-        var tusDiskStore = new TusDiskStore(tusStorePath);
-
-        services.AddSingleton(tusDiskStore);
-
-        return services;
-    }
-
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-        services.AddScoped<ActionLogFlushHandler>();
-        services.AddScoped<MessageReadReceiptFlushHandler>();
-        services.AddScoped<LastActiveFlushHandler>();
-        services.AddScoped<PostViewFlushHandler>();
-
-        // The handlers for websocket
-        services.AddScoped<IWebSocketPacketHandler, MessageReadHandler>();
-        services.AddScoped<IWebSocketPacketHandler, MessageTypingHandler>();
-        services.AddScoped<IWebSocketPacketHandler, MessagesSubscribeHandler>();
-        services.AddScoped<IWebSocketPacketHandler, MessagesUnsubscribeHandler>();
 
         return services;
     }
@@ -199,25 +151,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddScoped<CompactTokenService>();
-        services.AddScoped<RazorViewRenderer>();
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoIpService>();
-        services.AddScoped<WebSocketService>();
-        services.AddScoped<EmailService>();
-        services.AddScoped<PermissionService>();
-        services.AddScoped<ActionLogService>();
-        services.AddScoped<AccountService>();
-        services.AddScoped<AccountEventService>();
-        services.AddScoped<ActionLogService>();
-        services.AddScoped<RelationshipService>();
-        services.AddScoped<MagicSpellService>();
-        services.AddScoped<NotificationService>();
-        services.AddScoped<AuthService>();
-        services.AddScoped<AccountUsernameService>();
-        services.AddScoped<FileService>();
-        services.AddScoped<FileReferenceService>();
-        services.AddScoped<FileReferenceMigrationService>();
         services.AddScoped<PublisherService>();
         services.AddScoped<PublisherSubscriptionService>();
         services.AddScoped<ActivityService>();
@@ -229,35 +164,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WalletService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<PaymentService>();
-        services.AddScoped<RealtimeStatusService>();
-        services.AddRealtimeService(configuration);
+        services.AddScoped<IRealtimeService, LivekitRealtimeService>();
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
-        services.AddScoped<AfdianPaymentHandler>();
-        services.AddScoped<SafetyService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<CustomAppService>();
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
-
-        return services;
-    }
-    
-    private static IServiceCollection AddRealtimeService(this IServiceCollection services, IConfiguration configuration)
-    {
-        var provider = configuration["Realtime:Provider"];
-        switch (provider)
-        {
-            case "Cloudflare":
-                services.AddHttpClient<IRealtimeService, CloudflareRealtimeService>();
-                break;
-            case "LiveKit":
-                services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
-                break;
-            default:
-                throw new NotSupportedException($"Realtime provider '{provider}' is not supported.");
-        }
 
         return services;
     }

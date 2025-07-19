@@ -1,5 +1,5 @@
-using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +13,7 @@ namespace DysonNetwork.Sphere.Developer;
 public class DeveloperController(
     AppDatabase db,
     PublisherService ps,
-    ActionLogService als
+    ActionLogService.ActionLogServiceClient als
 )
     : ControllerBase
 {
@@ -63,11 +63,11 @@ public class DeveloperController(
     [Authorize]
     public async Task<ActionResult<List<Publisher.Publisher>>> ListJoinedDevelopers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Publisher)
             .ToListAsync();
@@ -93,8 +93,8 @@ public class DeveloperController(
     [RequiredPermission("global", "developers.create")]
     public async Task<ActionResult<Publisher.Publisher>> EnrollDeveloperProgram(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
@@ -105,7 +105,7 @@ public class DeveloperController(
         var isOwner = await db.PublisherMembers
             .AnyAsync(m =>
                 m.PublisherId == publisher.Id &&
-                m.AccountId == userId &&
+                m.AccountId == accountId &&
                 m.Role == PublisherMemberRole.Owner &&
                 m.JoinedAt != null);
 
@@ -131,6 +131,19 @@ public class DeveloperController(
 
         db.PublisherFeatures.Add(feature);
         await db.SaveChangesAsync();
+
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "developers.enroll",
+            Meta = 
+            { 
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(publisher);
     }

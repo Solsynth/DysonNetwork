@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+        <xsd:element name="root" msdata:IsDataSet="true">
+
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>1.3</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <data name="FortuneTipPositiveTitle_1" xml:space="preserve">
+    <value>Gacha</value>
+  </data>
+    <data name="FortuneTipPositiveContent_1" xml:space="preserve">
+    <value>Golden every pull</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
+    <value>Gacha</value>
+  </data>
+    <data name="FortuneTipNegativeContent_1" xml:space="preserve">
+    <value>Won't pull the card you like</value>
+  </data>
+    <data name="FortuneTipPositiveTitle_2" xml:space="preserve">
+    <value>Gaming</value>
+  </data>
+    <data name="FortuneTipPositiveContent_2" xml:space="preserve">
+    <value>Rank up like a hot knife through butter</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_2" xml:space="preserve">
+    <value>Gaming</value>
+  </data>
+    <data name="FortuneTipNegativeContent_2" xml:space="preserve">
+    <value>Dropping ranks like a landslide</value>
+  </data>
+    <data name="FortuneTipPositiveTitle_3" xml:space="preserve">
+    <value>Lottery</value>
+  </data>
+    <data name="FortuneTipPositiveContent_3" xml:space="preserve">
+    <value>Blessed with luck</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_3" xml:space="preserve">
+    <value>Lottery</value>
+  </data>
+    <data name="FortuneTipNegativeContent_3" xml:space="preserve">
+    <value>Ten pulls, all silence</value>
+  </data>
+    <data name="FortuneTipPositiveTitle_4" xml:space="preserve">
+    <value>Speech</value>
+  </data>
+    <data name="FortuneTipPositiveContent_4" xml:space="preserve">
+    <value>Words flow like gems</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
+    <value>Speech</value>
+  </data>
+    <data name="FortuneTipNegativeContent_4" xml:space="preserve">
+        <value>Be careful what you're saying</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_5" xml:space="preserve">
+    <value>Drawing</value>
+  </data>
+    <data name="FortuneTipPositiveContent_5" xml:space="preserve">
+    <value>Inspiration gushes like a spring</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_5" xml:space="preserve">
+    <value>Drawing</value>
+  </data>
+    <data name="FortuneTipNegativeContent_5" xml:space="preserve">
+    <value>Every stroke weighs a thousand pounds</value>
+  </data>
+    <data name="FortuneTipPositiveTitle_6" xml:space="preserve">
+    <value>Coding</value>
+  </data>
+    <data name="FortuneTipPositiveContent_6" xml:space="preserve">
+    <value>0 error(s), 0 warning(s)</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_6" xml:space="preserve">
+    <value>Coding</value>
+  </data>
+    <data name="FortuneTipNegativeContent_6" xml:space="preserve">
+    <value>114 error(s), 514 warning(s)</value>
+  </data>
+    <data name="FortuneTipPositiveTitle_7" xml:space="preserve">
+    <value>Shopping</value>
+  </data>
+    <data name="FortuneTipPositiveContent_7" xml:space="preserve">
+    <value>Exchange rate at its lowest</value>
+  </data>
+    <data name="FortuneTipNegativeTitle_7" xml:space="preserve">
+    <value>Unboxing</value>
+  </data>
+    <data name="FortuneTipNegativeContent_7" xml:space="preserve">
+    <value>225% tariff</value>
+  </data>
+  <data name="FortuneTipNegativeTitle_1 " xml:space="preserve">
+    <value>Gacha</value>
+  </data>
+</root>

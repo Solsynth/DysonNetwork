@@ -1,7 +1,8 @@
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
-using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,13 +13,15 @@ builder.ConfigureAppKestrel();
 builder.Services.AddAppMetrics();
 
 // Add application services
+builder.Services.AddRegistryService(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
-
-// Add file storage
-builder.Services.AddAppFileStorage(builder.Configuration);
+builder.Services.AddDysonAuth();
+builder.Services.AddAccountService();
+builder.Services.AddPusherService();
+builder.Services.AddDriveService();
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
@@ -38,10 +41,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-// Get the TusDiskStore instance
-var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
-
 // Configure application middleware pipeline
-app.ConfigureAppMiddleware(builder.Configuration, tusDiskStore);
+app.ConfigureAppMiddleware(builder.Configuration);
 
 app.Run();

@@ -1,10 +1,17 @@
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat.Realtime;
+using Livekit.Server.Sdk.Dotnet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Sphere.Chat;
+
+public class RealtimeChatConfiguration
+{
+    public string Endpoint { get; set; } = null!;
+}
 
 [ApiController]
 [Route("/api/chat/realtime")]
@@ -15,6 +22,9 @@ public class RealtimeCallController(
     IRealtimeService realtime
 ) : ControllerBase
 {
+    private readonly RealtimeChatConfiguration _config =
+        configuration.GetSection("RealtimeChat").Get<RealtimeChatConfiguration>()!;
+
     /// <summary>
     /// This endpoint is especially designed for livekit webhooks,
     /// for update the call participates and more.
@@ -27,9 +37,9 @@ public class RealtimeCallController(
         using var reader = new StreamReader(Request.Body);
         var postData = await reader.ReadToEndAsync();
         var authHeader = Request.Headers.Authorization.ToString();
-
+        
         await realtime.ReceiveWebhook(postData, authHeader);
-
+    
         return Ok();
     }
 
@@ -37,10 +47,11 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<RealtimeCall>> GetOngoingCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -51,8 +62,6 @@ public class RealtimeCallController(
             .Where(c => c.EndedAt == null)
             .Include(c => c.Room)
             .Include(c => c.Sender)
-            .ThenInclude(c => c.Account)
-            .ThenInclude(c => c.Profile)
             .FirstOrDefaultAsync();
         if (ongoingCall is null) return NotFound();
         return Ok(ongoingCall);
@@ -62,11 +71,12 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<JoinCallResponse>> JoinCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         // Check if the user is a member of the chat room
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -82,17 +92,39 @@ public class RealtimeCallController(
             return BadRequest("Call session is not properly configured.");
 
         var isAdmin = member.Role >= ChatMemberRole.Moderator;
-        var userToken = await realtime.GetUserTokenAsync(currentUser, ongoingCall.SessionId, isAdmin);
+        var userToken = realtime.GetUserToken(currentUser, ongoingCall.SessionId, isAdmin);
 
         // Get LiveKit endpoint from configuration
-        var endpoint = configuration[$"Realtime:{realtime.ProviderName}:Endpoint"] ?? realtime.ProviderName switch
+        var endpoint = _config.Endpoint ??
+                   throw new InvalidOperationException("LiveKit endpoint configuration is missing");
+
+        // Inject the ChatRoomService
+        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
+
+        // Get current participants from the LiveKit service
+        var participants = new List<CallParticipant>();
+        if (realtime is LiveKitRealtimeService livekitService)
         {
-            // Unusable for sure, just for placeholder
-            "LiveKit" => "https://livekit.cloud",
-            "Cloudflare" => "https://rtk.realtime.cloudflare.com/v2",
-            // Unusable for sure, just for placeholder
-            _ => "https://example.com" 
-        };
+            var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
+            participants = [];
+            
+            foreach (var p in roomParticipants)
+            {
+                var participant = new CallParticipant
+                {
+                    Identity = p.Identity,
+                    Name = p.Name,
+                    AccountId = p.AccountId,
+                    JoinedAt = p.JoinedAt
+                };
+            
+                // Fetch the ChatMember profile if we have an account ID
+                if (p.AccountId.HasValue)
+                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
+            
+                participants.Add(participant);
+            }
+        }
 
         // Create the response model
         var response = new JoinCallResponse
@@ -102,7 +134,8 @@ public class RealtimeCallController(
             Token = userToken,
             CallId = ongoingCall.Id,
             RoomName = ongoingCall.SessionId,
-            IsAdmin = isAdmin
+            IsAdmin = isAdmin,
+            Participants = participants
         };
 
         return Ok(response);
@@ -112,10 +145,11 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<RealtimeCall>> StartCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -131,10 +165,11 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<RealtimeCall>> EndCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == currentUser.Id && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to end a call.");
@@ -160,7 +195,7 @@ public class JoinCallResponse
     public string Provider { get; set; } = null!;
 
     /// <summary>
-    /// The provider server endpoint
+    /// The LiveKit server endpoint
     /// </summary>
     public string Endpoint { get; set; } = null!;
 
@@ -183,6 +218,11 @@ public class JoinCallResponse
     /// Whether the user is the admin of the call
     /// </summary>
     public bool IsAdmin { get; set; }
+    
+    /// <summary>
+    /// Current participants in the call
+    /// </summary>
+    public List<CallParticipant> Participants { get; set; } = new();
 }
 
 /// <summary>
@@ -194,22 +234,22 @@ public class CallParticipant
     /// The participant's identity (username)
     /// </summary>
     public string Identity { get; set; } = null!;
-
+    
     /// <summary>
     /// The participant's display name
     /// </summary>
     public string Name { get; set; } = null!;
-
+    
     /// <summary>
     /// The participant's account ID if available
     /// </summary>
     public Guid? AccountId { get; set; }
-
+    
     /// <summary>
     /// The participant's profile in the chat
     /// </summary>
     public ChatMember? Profile { get; set; }
-
+    
     /// <summary>
     /// When the participant joined the call
     /// </summary>

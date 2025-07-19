@@ -4,6 +4,9 @@ using Livekit.Server.Sdk.Dotnet;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.Text.Json;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Sphere.Chat.Realtime;
 
@@ -14,7 +17,6 @@ public class LiveKitRealtimeService : IRealtimeService
 {
     private readonly AppDatabase _db;
     private readonly ICacheService _cache;
-    private readonly RealtimeStatusService _callStatus;
 
     private readonly ILogger<LiveKitRealtimeService> _logger;
     private readonly RoomServiceClient _roomService;
@@ -25,18 +27,17 @@ public class LiveKitRealtimeService : IRealtimeService
         IConfiguration configuration,
         ILogger<LiveKitRealtimeService> logger,
         AppDatabase db,
-        ICacheService cache,
-        RealtimeStatusService callStatus
+        ICacheService cache
     )
     {
         _logger = logger;
 
         // Get LiveKit configuration from appsettings
-        var host = configuration["Realtime:LiveKit:Endpoint"] ??
+        var host = configuration["RealtimeChat:Endpoint"] ??
                    throw new ArgumentNullException("Endpoint configuration is required");
-        var apiKey = configuration["Realtime:LiveKit:ApiKey"] ??
+        var apiKey = configuration["RealtimeChat:ApiKey"] ??
                      throw new ArgumentNullException("ApiKey configuration is required");
-        var apiSecret = configuration["Realtime:LiveKit:ApiSecret"] ??
+        var apiSecret = configuration["RealtimeChat:ApiSecret"] ??
                         throw new ArgumentNullException("ApiSecret configuration is required");
 
         _roomService = new RoomServiceClient(host, apiKey, apiSecret);
@@ -45,7 +46,6 @@ public class LiveKitRealtimeService : IRealtimeService
 
         _db = db;
         _cache = cache;
-        _callStatus = callStatus;
     }
 
     /// <inheritdoc />
@@ -113,11 +113,6 @@ public class LiveKitRealtimeService : IRealtimeService
     /// <inheritdoc />
     public string GetUserToken(Account.Account account, string sessionId, bool isAdmin = false)
     {
-        return GetUserTokenAsync(account, sessionId, isAdmin).GetAwaiter().GetResult();
-    }
-
-    public Task<string> GetUserTokenAsync(Account.Account account, string sessionId, bool isAdmin = false)
-    {
         var token = _accessToken.WithIdentity(account.Name)
             .WithName(account.Nick)
             .WithGrants(new VideoGrants
@@ -133,7 +128,7 @@ public class LiveKitRealtimeService : IRealtimeService
             .WithMetadata(JsonSerializer.Serialize(new Dictionary<string, string>
                 { { "account_id", account.Id.ToString() } }))
             .WithTtl(TimeSpan.FromHours(1));
-        return Task.FromResult(token.ToJwt());
+        return token.ToJwt();
     }
 
     public async Task ReceiveWebhook(string body, string authHeader)
@@ -164,8 +159,7 @@ public class LiveKitRealtimeService : IRealtimeService
                         evt.Room.Name, evt.Participant.Identity);
 
                     // Broadcast participant list update to all participants
-                    var info = await GetRoomParticipantsAsync(evt.Room.Name);
-                    await _callStatus.BroadcastParticipantUpdate(evt.Room.Name, info);
+                    // await _BroadcastParticipantUpdate(evt.Room.Name);
                 }
 
                 break;
@@ -180,15 +174,14 @@ public class LiveKitRealtimeService : IRealtimeService
                         evt.Room.Name, evt.Participant.Identity);
 
                     // Broadcast participant list update to all participants
-                    var info = await GetRoomParticipantsAsync(evt.Room.Name);
-                    await _callStatus.BroadcastParticipantUpdate(evt.Room.Name, info);
+                    // await _BroadcastParticipantUpdate(evt.Room.Name);
                 }
 
                 break;
         }
     }
-    
-        private static string _GetParticipantsKey(string roomName)
+
+    private static string _GetParticipantsKey(string roomName)
         => $"RoomParticipants_{roomName}";
 
     private async Task _AddParticipantToCache(string roomName, ParticipantInfo participant)
@@ -208,7 +201,7 @@ public class LiveKitRealtimeService : IRealtimeService
         }
 
         // Get the current participants list
-        var participants = await _cache.GetAsync<List<ParticipantInfoItem>>(participantsKey) ??
+        var participants = await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ??
                            [];
 
         // Check if the participant already exists
@@ -248,7 +241,7 @@ public class LiveKitRealtimeService : IRealtimeService
         }
 
         // Get current participants list
-        var participants = await _cache.GetAsync<List<ParticipantInfoItem>>(participantsKey);
+        var participants = await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey);
         if (participants == null || !participants.Any())
             return;
 
@@ -260,24 +253,36 @@ public class LiveKitRealtimeService : IRealtimeService
     }
 
     // Helper method to get participants in a room
-    public async Task<List<ParticipantInfoItem>> GetRoomParticipantsAsync(string roomName)
+    public async Task<List<ParticipantCacheItem>> GetRoomParticipantsAsync(string roomName)
     {
         var participantsKey = _GetParticipantsKey(roomName);
-        return await _cache.GetAsync<List<ParticipantInfoItem>>(participantsKey) ?? [];
+        return await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ?? [];
     }
 
-    private ParticipantInfoItem CreateParticipantCacheItem(ParticipantInfo participant)
+    // Class to represent a participant in the cache
+    public class ParticipantCacheItem
+    {
+        public string Identity { get; set; } = null!;
+        public string Name { get; set; } = null!;
+        public Guid? AccountId { get; set; }
+        public ParticipantInfo.Types.State State { get; set; }
+        public Dictionary<string, string> Metadata { get; set; } = new();
+        public DateTime JoinedAt { get; set; }
+    }
+
+    private ParticipantCacheItem CreateParticipantCacheItem(ParticipantInfo participant)
     {
         // Try to parse account ID from metadata
         Guid? accountId = null;
         var metadata = new Dictionary<string, string>();
 
         if (string.IsNullOrEmpty(participant.Metadata))
-            return new ParticipantInfoItem
+            return new ParticipantCacheItem
             {
                 Identity = participant.Identity,
                 Name = participant.Name,
                 AccountId = accountId,
+                State = participant.State,
                 Metadata = metadata,
                 JoinedAt = DateTime.UtcNow
             };
@@ -295,11 +300,12 @@ public class LiveKitRealtimeService : IRealtimeService
             _logger.LogError(ex, "Failed to parse participant metadata");
         }
 
-        return new ParticipantInfoItem
+        return new ParticipantCacheItem
         {
             Identity = participant.Identity,
             Name = participant.Name,
             AccountId = accountId,
+            State = participant.State,
             Metadata = metadata,
             JoinedAt = DateTime.UtcNow
         };

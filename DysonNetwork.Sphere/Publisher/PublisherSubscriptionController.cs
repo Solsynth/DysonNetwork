@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,14 +31,14 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<SubscriptionStatusResponse>> CheckSubscriptionStatus(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
     
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
     
-        var isSubscribed = await subs.SubscriptionExistsAsync(currentUser.Id, publisher.Id);
+        var isSubscribed = await subs.SubscriptionExistsAsync(Guid.Parse(currentUser.Id), publisher.Id);
     
         return new SubscriptionStatusResponse
         {
@@ -53,7 +54,7 @@ public class PublisherSubscriptionController(
         string name,
         [FromBody] SubscribeRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
     
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
@@ -63,7 +64,7 @@ public class PublisherSubscriptionController(
         try
         {
             var subscription = await subs.CreateSubscriptionAsync(
-                currentUser.Id,
+                Guid.Parse(currentUser.Id),
                 publisher.Id,
                 request.Tier ?? 0
             );
@@ -81,14 +82,14 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult> Unsubscribe(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
 
-        var success = await subs.CancelSubscriptionAsync(currentUser.Id, publisher.Id);
+        var success = await subs.CancelSubscriptionAsync(Guid.Parse(currentUser.Id), publisher.Id);
 
         if (success)
             return Ok(new { message = "Subscription cancelled successfully" });
@@ -104,9 +105,9 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<List<PublisherSubscription>>> GetCurrentSubscriptions()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var subscriptions = await subs.GetAccountSubscriptionsAsync(currentUser.Id);
+        var subscriptions = await subs.GetAccountSubscriptionsAsync(Guid.Parse(currentUser.Id));
         return subscriptions;
     }
 }

@@ -1,7 +1,8 @@
-using DysonNetwork.Sphere.Account;
+using DysonNetwork.Shared;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
@@ -9,10 +10,11 @@ namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherSubscriptionService(
     AppDatabase db,
-    NotificationService nty,
     PostService ps,
     IStringLocalizer<NotificationResource> localizer,
-    ICacheService cache
+    ICacheService cache,
+    PusherService.PusherServiceClient pusher,
+    AccountService.AccountServiceClient accounts
 )
 {
     /// <summary>
@@ -50,7 +52,6 @@ public class PublisherSubscriptionService(
     public async Task<int> NotifySubscriberPost(Post.Post post)
     {
         var subscribers = await db.PublisherSubscriptions
-            .Include(p => p.Account)
             .Where(p => p.PublisherId == post.PublisherId &&
                         p.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
@@ -67,23 +68,35 @@ public class PublisherSubscriptionService(
             { "publisher_id", post.Publisher.Id.ToString() }
         };
 
+
+        var queryRequest = new GetAccountBatchRequest();
+        queryRequest.Id.AddRange(subscribers.DistinctBy(s => s.AccountId).Select(m => m.AccountId.ToString()));
+        var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+
+        var notification = new PushNotification
+        {
+            Topic = "posts.new",
+            Title = localizer["PostSubscriptionTitle", post.Publisher.Name, title],
+            Body = message,
+            IsSavable = true,
+            ActionUri = $"/posts/{post.Id}"
+        };
+        notification.Meta.Add(GrpcTypeHelper.ConvertToValueMap(data));
+
         // Notify each subscriber
         var notifiedCount = 0;
-        foreach (var subscription in subscribers.DistinctBy(s => s.AccountId))
+        foreach (var target in queryResponse.Accounts)
         {
             try
             {
-                AccountService.SetCultureInfo(subscription.Account);
-                await nty.SendNotification(
-                    subscription.Account,
-                    "posts.new",
-                    localizer["PostSubscriptionTitle", post.Publisher.Name, title],
-                    null,
-                    message,
-                    data,
-                    actionUri: $"/posts/{post.Id}"
+                CultureService.SetCultureInfo(target);
+                await pusher.SendPushNotificationToUserAsync(
+                    new SendPushNotificationToUserRequest
+                    {
+                        UserId = target.Id,
+                        Notification = notification
+                    }
                 );
-
                 notifiedCount++;
             }
             catch (Exception)
@@ -117,7 +130,6 @@ public class PublisherSubscriptionService(
     public async Task<List<PublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
     {
         return await db.PublisherSubscriptions
-            .Include(ps => ps.Account)
             .Where(ps => ps.PublisherId == publisherId && ps.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
     }

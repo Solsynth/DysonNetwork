@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Activity;
-using DysonNetwork.Sphere.Storage;
 using NodaTime;
 using NpgsqlTypes;
 
@@ -52,8 +53,6 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
 
-    // Outdated fields, keep for backward compability
-    public ICollection<CloudFile> OutdatedAttachments { get; set; } = new List<CloudFile>();
     [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
 
     [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;
@@ -69,7 +68,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
     [NotMapped] public bool IsTruncated { get; set; } = false;
 
-    public string ResourceIdentifier => $"post/{Id}";
+    public string ResourceIdentifier => $"post:{Id}";
 
     public Activity.Activity ToActivity()
     {
@@ -130,5 +129,4 @@ public class PostReaction : ModelBase
     public Guid PostId { get; set; }
     [JsonIgnore] public Post Post { get; set; } = null!;
     public Guid AccountId { get; set; }
-    public Account.Account Account { get; set; } = null!;
 }

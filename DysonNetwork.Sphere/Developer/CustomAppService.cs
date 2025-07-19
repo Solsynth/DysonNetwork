@@ -1,10 +1,14 @@
-using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Developer;
 
-public class CustomAppService(AppDatabase db, FileReferenceService fileRefService)
+public class CustomAppService(
+    AppDatabase db,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
+    FileService.FileServiceClient files
+)
 {
     public async Task<CustomApp?> CreateAppAsync(
         Publisher.Publisher pub,
@@ -21,36 +25,46 @@ public class CustomAppService(AppDatabase db, FileReferenceService fileRefServic
             OauthConfig = request.OauthConfig,
             PublisherId = pub.Id
         };
-        
+
         if (request.PictureId is not null)
         {
-            var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
+            var picture = await files.GetFileAsync(
+                new GetFileRequest
+                {
+                    Id = request.PictureId
+                }
+            );
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-
-            app.Picture = picture.ToReferenceObject();
+            app.Picture = CloudFileReferenceObject.FromProtoValue(picture);
 
             // Create a new reference
-            await fileRefService.CreateReferenceAsync(
-                picture.Id,
-                "custom-apps.picture",
-                app.ResourceIdentifier 
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = picture.Id,
+                    Usage = "custom-apps.picture",
+                    ResourceId = app.ResourceIdentifier
+                }
             );
         }
-        
         if (request.BackgroundId is not null)
         {
-            var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
+            var background = await files.GetFileAsync(
+                new GetFileRequest { Id = request.BackgroundId }
+            );
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-
-            app.Background = background.ToReferenceObject();
+            app.Background = CloudFileReferenceObject.FromProtoValue(background);
 
             // Create a new reference
-            await fileRefService.CreateReferenceAsync(
-                background.Id,
-                "custom-apps.background",
-                app.ResourceIdentifier 
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = background.Id,
+                    Usage = "custom-apps.background",
+                    ResourceId = app.ResourceIdentifier
+                }
             );
         }
 
@@ -90,39 +104,43 @@ public class CustomAppService(AppDatabase db, FileReferenceService fileRefServic
 
         if (request.PictureId is not null)
         {
-            var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
+            var picture = await files.GetFileAsync(
+                new GetFileRequest
+                {
+                    Id = request.PictureId
+                }
+            );
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-
-            if (app.Picture is not null)
-                await fileRefService.DeleteResourceReferencesAsync(app.ResourceIdentifier, "custom-apps.picture");
-
-            app.Picture = picture.ToReferenceObject();
+            app.Picture = CloudFileReferenceObject.FromProtoValue(picture);
 
             // Create a new reference
-            await fileRefService.CreateReferenceAsync(
-                picture.Id,
-                "custom-apps.picture",
-               app.ResourceIdentifier 
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = picture.Id,
+                    Usage = "custom-apps.picture",
+                    ResourceId = app.ResourceIdentifier
+                }
             );
         }
-        
         if (request.BackgroundId is not null)
         {
-            var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
+            var background = await files.GetFileAsync(
+                new GetFileRequest { Id = request.BackgroundId }
+            );
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-
-            if (app.Background is not null)
-                await fileRefService.DeleteResourceReferencesAsync(app.ResourceIdentifier, "custom-apps.background");
-
-            app.Background = background.ToReferenceObject();
+            app.Background = CloudFileReferenceObject.FromProtoValue(background);
 
             // Create a new reference
-            await fileRefService.CreateReferenceAsync(
-                background.Id,
-                "custom-apps.background",
-                app.ResourceIdentifier 
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = background.Id,
+                    Usage = "custom-apps.background",
+                    ResourceId = app.ResourceIdentifier
+                }
             );
         }
 
@@ -142,8 +160,12 @@ public class CustomAppService(AppDatabase db, FileReferenceService fileRefServic
 
         db.CustomApps.Remove(app);
         await db.SaveChangesAsync();
-        
-        await fileRefService.DeleteResourceReferencesAsync(app.ResourceIdentifier);
+
+        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+            {
+                ResourceId = app.ResourceIdentifier
+            }
+        );
 
         return true;
     }

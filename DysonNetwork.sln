@@ -1,11 +1,22 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Sphere", "DysonNetwork.Sphere\DysonNetwork.Sphere.csproj", "{CFF62EFA-F4C2-4FC7-8D97-25570B4DB452}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A444D180-5B51-49C3-A35D-AA55832BBC66}"
 	ProjectSection(SolutionItems) = preProject
 		compose.yaml = compose.yaml
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Pass", "DysonNetwork.Pass\DysonNetwork.Pass.csproj", "{A8F37E9E-52A4-4159-8227-F2F65CBA0606}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Shared", "DysonNetwork.Shared\DysonNetwork.Shared.csproj", "{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Pusher", "DysonNetwork.Pusher\DysonNetwork.Pusher.csproj", "{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Drive", "DysonNetwork.Drive\DysonNetwork.Drive.csproj", "{8DE0B783-8852-494D-B90A-201ABBB71202}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Gateway", "DysonNetwork.Gateway\DysonNetwork.Gateway.csproj", "{19EB0086-4049-4B78-91C4-EAC37130A006}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,5 +28,25 @@ Global
 		{CFF62EFA-F4C2-4FC7-8D97-25570B4DB452}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CFF62EFA-F4C2-4FC7-8D97-25570B4DB452}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CFF62EFA-F4C2-4FC7-8D97-25570B4DB452}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8F37E9E-52A4-4159-8227-F2F65CBA0606}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8F37E9E-52A4-4159-8227-F2F65CBA0606}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8F37E9E-52A4-4159-8227-F2F65CBA0606}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8F37E9E-52A4-4159-8227-F2F65CBA0606}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB46D1A6-79B4-43FC-A9A9-115CDA26947A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DE0B783-8852-494D-B90A-201ABBB71202}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DE0B783-8852-494D-B90A-201ABBB71202}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DE0B783-8852-494D-B90A-201ABBB71202}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DE0B783-8852-494D-B90A-201ABBB71202}.Release|Any CPU.Build.0 = Release|Any CPU
+		{19EB0086-4049-4B78-91C4-EAC37130A006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19EB0086-4049-4B78-91C4-EAC37130A006}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19EB0086-4049-4B78-91C4-EAC37130A006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19EB0086-4049-4B78-91C4-EAC37130A006}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

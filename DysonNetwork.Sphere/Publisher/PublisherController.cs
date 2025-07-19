@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Sphere.Account;
-using DysonNetwork.Sphere.Permission;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Realm;
-using DysonNetwork.Sphere.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,8 +15,11 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherController(
     AppDatabase db,
     PublisherService ps,
-    FileReferenceService fileRefService,
-    ActionLogService als)
+    AccountService.AccountServiceClient accounts,
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
+    ActionLogService.ActionLogServiceClient als
+)
     : ControllerBase
 {
     [HttpGet("{name}")]
@@ -28,11 +31,10 @@ public class PublisherController(
         if (publisher is null) return NotFound();
         if (publisher.AccountId is null) return Ok(publisher);
 
-        var account = await db.Accounts
-            .Where(a => a.Id == publisher.AccountId)
-            .Include(a => a.Profile)
-            .FirstOrDefaultAsync();
-        publisher.Account = account;
+        var account = await accounts.GetAccountAsync(
+            new GetAccountRequest { Id = publisher.AccountId.Value.ToString() }
+        );
+        publisher.Account = Pass.Account.Account.FromProtoValue(account);
 
         return Ok(publisher);
     }
@@ -49,11 +51,11 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Publisher)
             .ToListAsync();
@@ -65,16 +67,16 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<PublisherMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.Publisher)
             .ToListAsync();
 
-        return members.ToList();
+        return await ps.LoadMemberAccounts(members);
     }
 
     public class PublisherMemberRequest
@@ -88,23 +90,24 @@ public class PublisherController(
     public async Task<ActionResult<PublisherMember>> InviteMember(string name,
         [FromBody] PublisherMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
-        var relatedUser = await db.Accounts.FindAsync(request.RelatedUserId);
-        if (relatedUser is null) return BadRequest("Related user was not found");
+        var relatedUser =
+            await accounts.GetAccountAsync(new GetAccountRequest { Id = request.RelatedUserId.ToString() });
+        if (relatedUser == null) return BadRequest("Related user was not found");
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, request.Role))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
         var newMember = new PublisherMember
         {
-            AccountId = relatedUser.Id,
+            AccountId = Guid.Parse(relatedUser.Id),
             PublisherId = publisher.Id,
             Role = request.Role,
         };
@@ -112,14 +115,18 @@ public class PublisherController(
         db.PublisherMembers.Add(newMember);
         await db.SaveChangesAsync();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherMemberInvite,
-            new Dictionary<string, object>
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.members.invite",
+            Meta =
             {
-                { "publisher_id", publisher.Id },
-                { "account_id", relatedUser.Id }
-            }, Request
-        );
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(newMember);
     }
@@ -128,11 +135,11 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Publisher>> AcceptMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.Publisher.Name == name)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
@@ -142,10 +149,18 @@ public class PublisherController(
         db.Update(member);
         await db.SaveChangesAsync();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherMemberJoin,
-            new Dictionary<string, object> { { "account_id", member.AccountId } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.members.join",
+            Meta =
+            {
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.PublisherId.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(member);
     }
@@ -154,11 +169,11 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.Publisher.Name == name)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
@@ -167,10 +182,18 @@ public class PublisherController(
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherMemberLeave,
-            new Dictionary<string, object> { { "account_id", member.AccountId } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.members.decline",
+            Meta =
+            {
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.PublisherId.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return NoContent();
     }
@@ -179,7 +202,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string name, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
@@ -190,21 +213,27 @@ public class PublisherController(
             .Where(m => m.AccountId == memberId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
+        var accountId = Guid.Parse(currentUser.Id);
         if (member is null) return NotFound("Member was not found");
-        if (!await ps.IsMemberWithRole(publisher.Id, currentUser.Id, PublisherMemberRole.Manager))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(403, "You need at least be a manager to remove members from this publisher.");
 
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherMemberKick,
-            new Dictionary<string, object>
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.members.kick",
+            Meta =
             {
-                { "publisher_id", publisher.Id },
-                { "account_id", memberId }
-            }, Request
-        );
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) },
+                { "kicked_by", Google.Protobuf.WellKnownTypes.Value.ForString(currentUser.Id) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return NoContent();
     }
@@ -224,7 +253,7 @@ public class PublisherController(
     [RequiredPermission("global", "publishers.create")]
     public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var takenName = request.Name ?? currentUser.Name;
         var duplicateNameCount = await db.Publishers
@@ -238,17 +267,25 @@ public class PublisherController(
                 "your name firstly to get your name back."
             );
 
-        CloudFile? picture = null, background = null;
+        CloudFileReferenceObject? picture = null, background = null;
         if (request.PictureId is not null)
         {
-            picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
-            if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+            var queryResult = await files.GetFileAsync(
+                new GetFileRequest { Id = request.PictureId }
+            );
+            if (queryResult is null)
+                throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
+            picture = CloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         if (request.BackgroundId is not null)
         {
-            background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
-            if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+            var queryResult = await files.GetFileAsync(
+                new GetFileRequest { Id = request.BackgroundId }
+            );
+            if (queryResult is null)
+                throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
+            background = CloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         var publisher = await ps.CreateIndividualPublisher(
@@ -260,10 +297,19 @@ public class PublisherController(
             background
         );
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherCreate,
-            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.create",
+            Meta =
+            {
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) },
+                { "publisher_type", Google.Protobuf.WellKnownTypes.Value.ForString("Individual") }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(publisher);
     }
@@ -274,14 +320,15 @@ public class PublisherController(
     public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug,
         [FromBody] PublisherRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmSlug);
         if (realm == null) return NotFound("Realm not found");
 
+        var accountId = Guid.Parse(currentUser.Id);
         var isAdmin = await db.RealmMembers
             .AnyAsync(m =>
-                m.RealmId == realm.Id && m.AccountId == currentUser.Id && m.Role >= RealmMemberRole.Moderator);
+                m.RealmId == realm.Id && m.AccountId == accountId && m.Role >= RealmMemberRole.Moderator);
         if (!isAdmin)
             return StatusCode(403, "You need to be a moderator of the realm to create an organization publisher");
 
@@ -292,17 +339,25 @@ public class PublisherController(
         if (duplicateNameCount > 0)
             return BadRequest("The name you requested has already been taken");
 
-        CloudFile? picture = null, background = null;
+        CloudFileReferenceObject? picture = null, background = null;
         if (request.PictureId is not null)
         {
-            picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
-            if (picture is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+            var queryResult = await files.GetFileAsync(
+                new GetFileRequest { Id = request.PictureId }
+            );
+            if (queryResult is null)
+                throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
+            picture = CloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         if (request.BackgroundId is not null)
         {
-            background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
-            if (background is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+            var queryResult = await files.GetFileAsync(
+                new GetFileRequest { Id = request.BackgroundId }
+            );
+            if (queryResult is null)
+                throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
+            background = CloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         var publisher = await ps.CreateOrganizationPublisher(
@@ -315,10 +370,20 @@ public class PublisherController(
             background
         );
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherCreate,
-            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.create",
+            Meta =
+            {
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) },
+                { "publisher_type", Google.Protobuf.WellKnownTypes.Value.ForString("Organization") },
+                { "realm_slug", Google.Protobuf.WellKnownTypes.Value.ForString(realm.Slug) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(publisher);
     }
@@ -328,8 +393,8 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Publisher>> UpdatePublisher(string name, PublisherRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
@@ -337,7 +402,7 @@ public class PublisherController(
         if (publisher is null) return NotFound();
 
         var member = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
@@ -349,54 +414,81 @@ public class PublisherController(
         if (request.Bio is not null) publisher.Bio = request.Bio;
         if (request.PictureId is not null)
         {
-            var picture = await db.Files.Where(f => f.Id == request.PictureId).FirstOrDefaultAsync();
-            if (picture is null) return BadRequest("Invalid picture id.");
+            var queryResult = await files.GetFileAsync(
+                new GetFileRequest { Id = request.PictureId }
+            );
+            if (queryResult is null)
+                throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
+            var picture = CloudFileReferenceObject.FromProtoValue(queryResult);
 
             // Remove old references for the publisher picture
             if (publisher.Picture is not null)
-            {
-                await fileRefService.DeleteResourceReferencesAsync(publisher.ResourceIdentifier, "publisher.picture");
-            }
+                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+                {
+                    ResourceId = publisher.ResourceIdentifier
+                });
 
-            publisher.Picture = picture.ToReferenceObject();
+            publisher.Picture = picture;
 
-            // Create a new reference
-            await fileRefService.CreateReferenceAsync(
-                picture.Id,
-                "publisher.picture",
-                publisher.ResourceIdentifier
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = picture.Id,
+                    Usage = "publisher.picture",
+                    ResourceId = publisher.ResourceIdentifier
+                }
             );
         }
 
         if (request.BackgroundId is not null)
         {
-            var background = await db.Files.Where(f => f.Id == request.BackgroundId).FirstOrDefaultAsync();
-            if (background is null) return BadRequest("Invalid background id.");
+            var queryResult = await files.GetFileAsync(
+                new GetFileRequest { Id = request.BackgroundId }
+            );
+            if (queryResult is null)
+                throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
+            var background = CloudFileReferenceObject.FromProtoValue(queryResult);
 
             // Remove old references for the publisher background
             if (publisher.Background is not null)
             {
-                await fileRefService.DeleteResourceReferencesAsync(publisher.ResourceIdentifier,
-                    "publisher.background");
+                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+                {
+                    ResourceId = publisher.ResourceIdentifier
+                });
             }
 
-            publisher.Background = background.ToReferenceObject();
+            publisher.Background = background;
 
-            // Create a new reference
-            await fileRefService.CreateReferenceAsync(
-                background.Id,
-                "publisher.background",
-                publisher.ResourceIdentifier
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    FileId = background.Id,
+                    Usage = "publisher.background",
+                    ResourceId = publisher.ResourceIdentifier
+                }
             );
         }
 
         db.Update(publisher);
         await db.SaveChangesAsync();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherUpdate,
-            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.update",
+            Meta =
+            {
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "name_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(!string.IsNullOrEmpty(request.Name)) },
+                { "nick_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(!string.IsNullOrEmpty(request.Nick)) },
+                { "bio_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(!string.IsNullOrEmpty(request.Bio)) },
+                { "picture_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(request.PictureId != null) },
+                { "background_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(request.BackgroundId != null) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return Ok(publisher);
     }
@@ -405,18 +497,16 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Publisher>> DeletePublisher(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
-            .Include(publisher => publisher.Picture)
-            .Include(publisher => publisher.Background)
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 
         var member = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
@@ -426,15 +516,26 @@ public class PublisherController(
         var publisherResourceId = $"publisher:{publisher.Id}";
 
         // Delete all file references for this publisher
-        await fileRefService.DeleteResourceReferencesAsync(publisherResourceId);
+        await fileRefs.DeleteResourceReferencesAsync(
+            new DeleteResourceReferencesRequest { ResourceId = publisherResourceId }
+        );
 
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();
 
-        als.CreateActionLogFromRequest(
-            ActionLogType.PublisherDelete,
-            new Dictionary<string, object> { { "publisher_id", publisher.Id } }, Request
-        );
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "publishers.delete",
+            Meta =
+            {
+                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
+                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) },
+                { "publisher_type", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Type.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
 
         return NoContent();
     }
@@ -451,11 +552,9 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 
-        IQueryable<PublisherMember> query = db.PublisherMembers
+        var query = db.PublisherMembers
             .Where(m => m.PublisherId == publisher.Id)
-            .Where(m => m.JoinedAt != null)
-            .Include(m => m.Account)
-            .ThenInclude(m => m.Profile);
+            .Where(m => m.JoinedAt != null);
 
         var total = await query.CountAsync();
         Response.Headers["X-Total"] = total.ToString();
@@ -466,15 +565,15 @@ public class PublisherController(
             .Take(take)
             .ToListAsync();
 
-        return Ok(members);
+        return Ok(await ps.LoadMemberAccounts(members));
     }
 
     [HttpGet("{name}/members/me")]
     [Authorize]
     public async Task<ActionResult<PublisherMember>> GetCurrentIdentity(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
-        var userId = currentUser.Id;
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers
             .Where(p => p.Name == name)
@@ -482,14 +581,12 @@ public class PublisherController(
         if (publisher is null) return NotFound();
 
         var member = await db.PublisherMembers
-            .Where(m => m.AccountId == userId)
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
-            .Include(m => m.Account)
-            .ThenInclude(m => m.Profile)
             .FirstOrDefaultAsync();
 
         if (member is null) return NotFound();
-        return Ok(member);
+        return Ok(await ps.LoadMemberAccount(member));
     }
 
     [HttpGet("{name}/features")]

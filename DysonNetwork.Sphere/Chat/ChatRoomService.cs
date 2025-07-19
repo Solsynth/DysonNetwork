@@ -1,12 +1,18 @@
-using DysonNetwork.Sphere.Storage;
+using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Account = DysonNetwork.Pass.Account.Account;
 
 namespace DysonNetwork.Sphere.Chat;
 
-public class ChatRoomService(AppDatabase db, ICacheService cache)
+public class ChatRoomService(
+    AppDatabase db,
+    ICacheService cache,
+    AccountClientHelper accountsHelper
+)
 {
-    public const string ChatRoomGroupPrefix = "chatroom:";
+    private const string ChatRoomGroupPrefix = "chatroom:";
     private const string RoomMembersCacheKeyPrefix = "chatroom:members:";
     private const string ChatMemberCacheKey = "chatroom:{0}:member:{1}";
 
@@ -18,12 +24,11 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
             return cachedMembers;
 
         var members = await db.ChatMembers
-            .Include(m => m.Account)
-            .ThenInclude(m => m.Profile)
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.JoinedAt != null)
             .Where(m => m.LeaveAt == null)
             .ToListAsync();
+        members = await LoadMemberAccounts(members);
 
         var chatRoomGroup = ChatRoomGroupPrefix + roomId;
         await cache.SetWithGroupsAsync(cacheKey, members,
@@ -40,14 +45,13 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
         if (member is not null) return member;
 
         member = await db.ChatMembers
-            .Include(m => m.Account)
-            .ThenInclude(m => m.Profile)
-            .Include(m => m.ChatRoom)
-            .ThenInclude(m => m.Realm)
             .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId)
+            .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
 
         if (member == null) return member;
+
+        member = await LoadMemberAccount(member);
         var chatRoomGroup = ChatRoomGroupPrefix + chatRoomId;
         await cache.SetWithGroupsAsync(cacheKey, member,
             [chatRoomGroup],
@@ -87,16 +91,22 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
             .ToList();
         if (directRoomsId.Count == 0) return rooms;
 
-        var directMembers = directRoomsId.Count != 0
+        List<ChatMember> members = directRoomsId.Count != 0
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
                 .Where(m => m.LeaveAt == null)
-                .Include(m => m.Account)
-                .Include(m => m.Account.Profile)
-                .GroupBy(m => m.ChatRoomId)
-                .ToDictionaryAsync(g => g.Key, g => g.ToList())
-            : new Dictionary<Guid, List<ChatMember>>();
+                .ToListAsync()
+            : [];
+        members = await LoadMemberAccounts(members);
+
+        Dictionary<Guid, List<ChatMember>> directMembers = new();
+        foreach (var member in members)
+        {
+            if (!directMembers.ContainsKey(member.ChatRoomId))
+                directMembers[member.ChatRoomId] = [];
+            directMembers[member.ChatRoomId].Add(member);
+        }
 
         return rooms.Select(r =>
         {
@@ -112,12 +122,13 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == room.Id && m.AccountId != userId)
             .Where(m => m.LeaveAt == null)
-            .Include(m => m.Account)
-            .Include(m => m.Account.Profile)
             .ToListAsync();
 
-        if (members.Count > 0)
-            room.DirectMembers = members.Select(ChatMemberTransmissionObject.FromEntity).ToList();
+        if (members.Count <= 0) return room;
+
+        members = await LoadMemberAccounts(members);
+        room.DirectMembers = members.Select(ChatMemberTransmissionObject.FromEntity).ToList();
+
         return room;
     }
 
@@ -130,5 +141,25 @@ public class ChatRoomService(AppDatabase db, ICacheService cache)
         var member = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == accountId);
         return member?.Role >= maxRequiredRole;
+    }
+
+    public async Task<ChatMember> LoadMemberAccount(ChatMember member)
+    {
+        var account = await accountsHelper.GetAccount(member.AccountId);
+        member.Account = Account.FromProtoValue(account);
+        return member;
+    }
+
+    public async Task<List<ChatMember>> LoadMemberAccounts(ICollection<ChatMember> members)
+    {
+        var accountIds = members.Select(m => m.AccountId).ToList();
+        var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+
+        return members.Select(m =>
+        {
+            if (accounts.TryGetValue(m.AccountId, out var account))
+                m.Account = Account.FromProtoValue(account);
+            return m;
+        }).ToList();
     }
 }

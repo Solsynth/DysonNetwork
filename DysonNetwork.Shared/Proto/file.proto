@@ -1,0 +1,294 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/duration.proto";
+
+// CloudFile represents a reference to a file stored in cloud storage.
+// It contains metadata about the file that won't change, helping to reduce database load.
+message CloudFile {
+  // Unique identifier for the file
+  string id = 1;
+
+  // Original name of the file
+  string name = 2;
+
+  // The metadata uses JSON bytes to store to keep the data structure over gRPC
+  // File metadata (e.g., dimensions, duration, etc.)
+  bytes file_meta = 3;
+  // User-defined metadata
+  bytes user_meta = 4;
+
+  // MIME type of the file
+  string mime_type = 5;
+
+  // File content hash (e.g., MD5, SHA-256)
+  string hash = 6;
+
+  // File size in bytes
+  int64 size = 7;
+
+  // Indicates if the file is stored with compression
+  bool has_compression = 8;
+
+  // URL to access the file
+  string url = 9;
+
+  // Content type of the file
+  string content_type = 10;
+
+  // When the file was uploaded
+  google.protobuf.Timestamp uploaded_at = 11;
+}
+
+// Service for file operations
+service FileService {
+  // Get file reference by ID
+  rpc GetFile(GetFileRequest) returns (CloudFile);
+  rpc GetFileBatch(GetFileBatchRequest) returns (GetFileBatchResponse);
+
+  // Update an existing file reference
+  rpc UpdateFile(UpdateFileRequest) returns (CloudFile);
+
+  // Delete a file reference
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty);
+
+  // Load files from references
+  rpc LoadFromReference(LoadFromReferenceRequest) returns (LoadFromReferenceResponse);
+
+  // Check if a file is referenced by any resource
+  rpc IsReferenced(IsReferencedRequest) returns (IsReferencedResponse);
+
+  // Purge cache for a file
+  rpc PurgeCache(PurgeCacheRequest) returns (google.protobuf.Empty);
+}
+
+// Request message for GetFile
+message GetFileRequest {
+  string id = 1;
+}
+
+message GetFileBatchRequest {
+  repeated string ids = 1;
+}
+
+message GetFileBatchResponse {
+  repeated CloudFile files = 1;
+}
+
+// Request message for UpdateFile
+message UpdateFileRequest {
+  CloudFile file = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message FileMetadata {
+  string file_id = 1;
+  string file_name = 2;
+  string content_type = 3;
+  string account_id = 4;
+}
+
+message UploadMetadata {
+  string file_id = 1;
+  string target_remote = 2;
+  string suffix = 3;
+  string content_type = 4;
+}
+
+message DeleteFileRequest {
+  string id = 1;
+  bool purge = 2;
+}
+
+message LoadFromReferenceRequest {
+  repeated string reference_ids = 1;
+}
+
+message LoadFromReferenceResponse {
+  repeated CloudFile files = 1;
+}
+
+message GetReferenceCountRequest {
+  string file_id = 1;
+}
+
+message GetReferenceCountResponse {
+  int32 count = 1;
+}
+
+message IsReferencedRequest {
+  string file_id = 1;
+}
+
+message IsReferencedResponse {
+  bool is_referenced = 1;
+}
+
+message PurgeCacheRequest {
+  string file_id = 1;
+}
+
+// CloudFileReference represents a reference to a CloudFile with additional metadata
+// about its usage in the system.
+message CloudFileReference {
+  // Unique identifier for the reference
+  string id = 1;
+
+  // Reference to the actual file
+  string file_id = 2;
+
+  // The actual file data (optional, can be populated when needed)
+  CloudFile file = 3;
+
+  // Description of how this file is being used
+  string usage = 4;
+
+  // ID of the resource that this file is associated with
+  string resource_id = 5;
+
+  // Optional expiration timestamp for the reference
+  google.protobuf.Timestamp expired_at = 6;
+}
+
+// Request/Response messages for FileReferenceService
+message CreateReferenceRequest {
+  string file_id = 1;
+  string usage = 2;
+  string resource_id = 3;
+  optional google.protobuf.Timestamp expired_at = 4;
+  optional google.protobuf.Duration duration = 5; // Alternative to expired_at
+}
+
+message CreateReferenceBatchRequest {
+  repeated string files_id = 1;
+  string usage = 2;
+  string resource_id = 3;
+  optional google.protobuf.Timestamp expired_at = 4;
+  optional google.protobuf.Duration duration = 5; // Alternative to expired_at
+}
+
+message CreateReferenceBatchResponse {
+  repeated CloudFileReference references = 1;
+}
+
+message GetReferencesRequest {
+  string file_id = 1;
+}
+
+message GetReferencesResponse {
+  repeated CloudFileReference references = 1;
+}
+
+message GetResourceReferencesRequest {
+  string resource_id = 1;
+  string usage = 2; // Optional
+}
+
+message GetResourceFilesRequest {
+  string resource_id = 1;
+  optional string usage = 2;
+}
+
+message GetResourceFilesResponse {
+  repeated CloudFile files = 1;
+}
+
+message DeleteResourceReferencesRequest {
+  string resource_id = 1;
+  optional string usage = 2;
+}
+
+message DeleteResourceReferencesResponse {
+  int32 deleted_count = 1;
+}
+
+message DeleteReferenceRequest {
+  string reference_id = 1;
+}
+
+message DeleteReferenceResponse {
+  bool success = 1;
+}
+
+message UpdateResourceFilesRequest {
+  string resource_id = 1;
+  repeated string file_ids = 2;
+  string usage = 3;
+  google.protobuf.Timestamp expired_at = 4;
+  google.protobuf.Duration duration = 5; // Alternative to expired_at
+}
+
+message UpdateResourceFilesResponse {
+  repeated CloudFileReference references = 1;
+}
+
+message SetReferenceExpirationRequest {
+  string reference_id = 1;
+  google.protobuf.Timestamp expired_at = 2;
+  google.protobuf.Duration duration = 3; // Alternative to expired_at
+}
+
+message SetReferenceExpirationResponse {
+  bool success = 1;
+}
+
+message SetFileReferencesExpirationRequest {
+  string file_id = 1;
+  google.protobuf.Timestamp expired_at = 2;
+}
+
+message SetFileReferencesExpirationResponse {
+  int32 updated_count = 1;
+}
+
+message HasFileReferencesRequest {
+  string file_id = 1;
+}
+
+message HasFileReferencesResponse {
+  bool has_references = 1;
+}
+
+// Service for managing file references
+service FileReferenceService {
+  // Creates a new reference to a file for a specific resource
+  rpc CreateReference(CreateReferenceRequest) returns (CloudFileReference);
+  rpc CreateReferenceBatch(CreateReferenceBatchRequest) returns (CreateReferenceBatchResponse);
+
+  // Gets all references to a file
+  rpc GetReferences(GetReferencesRequest) returns (GetReferencesResponse);
+
+  // Gets the number of references to a file
+  rpc GetReferenceCount(GetReferenceCountRequest) returns (GetReferenceCountResponse);
+
+  // Gets all references for a specific resource and optional usage
+  rpc GetResourceReferences(GetResourceReferencesRequest) returns (GetReferencesResponse);
+
+  // Gets all files referenced by a resource with optional usage filter
+  rpc GetResourceFiles(GetResourceFilesRequest) returns (GetResourceFilesResponse);
+
+  // Deletes references for a specific resource and optional usage
+  rpc DeleteResourceReferences(DeleteResourceReferencesRequest) returns (DeleteResourceReferencesResponse);
+
+  // Deletes a specific file reference
+  rpc DeleteReference(DeleteReferenceRequest) returns (DeleteReferenceResponse);
+
+  // Updates the files referenced by a resource
+  rpc UpdateResourceFiles(UpdateResourceFilesRequest) returns (UpdateResourceFilesResponse);
+
+  // Updates the expiration time for a file reference
+  rpc SetReferenceExpiration(SetReferenceExpirationRequest) returns (SetReferenceExpirationResponse);
+
+  // Updates the expiration time for all references to a file
+  rpc SetFileReferencesExpiration(SetFileReferencesExpirationRequest) returns (SetFileReferencesExpirationResponse);
+
+  // Checks if a file has any references
+  rpc HasFileReferences(HasFileReferencesRequest) returns (HasFileReferencesResponse);
+}

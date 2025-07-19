@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Sphere.Chat.Realtime;
 
@@ -36,7 +37,7 @@ public interface IRealtimeService
     /// <param name="sessionId">The session identifier</param>
     /// <param name="isAdmin">The user is the admin of session</param>
     /// <returns>User-specific token for the session</returns>
-    string GetUserToken(Account.Account account, string sessionId, bool isAdmin = false);
+    string GetUserToken(Account account, string sessionId, bool isAdmin = false);
     
     /// <summary>
     /// Gets a token for user to join the session asynchronously
