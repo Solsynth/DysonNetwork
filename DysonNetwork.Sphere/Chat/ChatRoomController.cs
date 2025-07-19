@@ -634,8 +634,6 @@ public class ChatRoomController(
             .Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.ChatRoom)
-            .Include(e => e.Account)
-            .Include(e => e.Account.Profile)
             .ToListAsync();
 
         var chatRooms = members.Select(m => m.ChatRoom).ToList();
@@ -644,8 +642,8 @@ public class ChatRoomController(
 
         foreach (var member in members.Where(member => member.ChatRoom.Type == ChatRoomType.DirectMessage))
             member.ChatRoom.Members = directMembers[member.ChatRoom.Id];
-
-        return members.ToList();
+        
+        return Ok(await crs.LoadMemberAccounts(members));
     }
 
     [HttpPost("invites/{roomId:guid}/accept")]

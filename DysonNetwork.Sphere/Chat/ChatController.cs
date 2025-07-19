@@ -129,11 +129,11 @@ public partial class ChatController(
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
             .Include(m => m.Sender)
-            .Include(m => m.Sender.Account)
-            .Include(m => m.Sender.Account.Profile)
             .FirstOrDefaultAsync();
 
         if (message is null) return NotFound();
+        
+        message.Sender = await crs.LoadMemberAccount(message.Sender);
 
         return Ok(message);
     }

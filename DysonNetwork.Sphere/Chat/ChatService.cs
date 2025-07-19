@@ -341,6 +341,15 @@ public partial class ChatService(
                 m => m!.ChatRoomId,
                 m => m
             );
+        
+        var messageSenders = messages
+            .Select(m => m.Value!.Sender)
+            .DistinctBy(x => x.Id)
+            .ToList();
+        messageSenders = await crs.LoadMemberAccounts(messageSenders);
+        
+        foreach (var message in messages)
+            message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
 
         return messages;
     }

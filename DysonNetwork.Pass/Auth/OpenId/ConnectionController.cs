@@ -63,7 +63,7 @@ public class ConnectionController(
         return Ok();
     }
 
-    [HttpPost("/auth/connect/apple/mobile")]
+    [HttpPost("/api/auth/connect/apple/mobile")]
     public async Task<ActionResult> ConnectAppleMobile([FromBody] AppleMobileConnectRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)

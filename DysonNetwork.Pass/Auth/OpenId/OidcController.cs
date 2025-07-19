@@ -69,7 +69,8 @@ public class OidcController(
     /// </summary>
     [HttpPost("apple/mobile")]
     public async Task<ActionResult<AuthChallenge>> AppleMobileLogin(
-        [FromBody] AppleMobileSignInRequest request)
+        [FromBody] AppleMobileSignInRequest request
+    )
     {
         try
         {
