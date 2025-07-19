@@ -20,15 +20,6 @@ public static class ApplicationConfiguration
 
         ConfigureForwardedHeaders(app, configuration);
 
-        app.UseCors(opts =>
-            opts.SetIsOriginAllowed(_ => true)
-                .WithExposedHeaders("*")
-                .WithHeaders()
-                .AllowCredentials()
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-        );
-
         app.UseWebSockets();
         app.UseRateLimiter();
         app.UseAuthentication();

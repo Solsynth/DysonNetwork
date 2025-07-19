@@ -63,13 +63,9 @@ public class FileService(
             var cachedFile = await cache.GetAsync<CloudFile>(cacheKey);
 
             if (cachedFile != null)
-            {
                 cachedFiles[fileId] = cachedFile;
-            }
             else
-            {
                 uncachedIds.Add(fileId);
-            }
         }
 
         // Load uncached files from database

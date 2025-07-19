@@ -19,7 +19,7 @@ public abstract class GrpcTypeHelper
     public static readonly JsonSerializerSettings SerializerSettings = new()
     {
         ContractResolver =  new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() },
-        PreserveReferencesHandling = PreserveReferencesHandling.Objects,
+        PreserveReferencesHandling = PreserveReferencesHandling.None,
         NullValueHandling = NullValueHandling.Include,
         DateParseHandling = DateParseHandling.None
     };

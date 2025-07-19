@@ -8,6 +8,15 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+app.UseCors(opts =>
+    opts.SetIsOriginAllowed(_ => true)
+        .WithExposedHeaders("*")
+        .WithHeaders()
+        .AllowCredentials()
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+);
+
 app.MapControllers();
 app.MapReverseProxy();
 

@@ -204,7 +204,7 @@ public class CacheServiceRedis : ICacheService
         _serializerSettings = new JsonSerializerSettings
         {
             ContractResolver = new CamelCasePropertyNamesContractResolver(),
-            PreserveReferencesHandling = PreserveReferencesHandling.Objects,
+            PreserveReferencesHandling = PreserveReferencesHandling.None,
             NullValueHandling = NullValueHandling.Include,
             DateParseHandling = DateParseHandling.None
         };

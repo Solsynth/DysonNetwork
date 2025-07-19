@@ -72,9 +72,6 @@ public class PostController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Post>> GetPost(Guid id)
     {
-        if (HttpContext.Items["IsWebPage"] as bool? ?? true)
-            return RedirectToPage("/Posts/PostDetail", new { PostId = id });
-
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
         List<Guid> userFriends = [];

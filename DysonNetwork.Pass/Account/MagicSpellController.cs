@@ -38,7 +38,7 @@ public class MagicSpellController(AppDatabase db, MagicSpellService sp) : Contro
     }
 
     [HttpPost("{spellWord}/apply")]
-    public async Task<ActionResult> ApplyMagicSpell([FromRoute] string spellWord, [FromBody] MagicSpellApplyRequest request)
+    public async Task<ActionResult> ApplyMagicSpell([FromRoute] string spellWord, [FromBody] MagicSpellApplyRequest? request)
     {
         var word = Uri.UnescapeDataString(spellWord);
         var spell = await db.MagicSpells
@@ -50,7 +50,7 @@ public class MagicSpellController(AppDatabase db, MagicSpellService sp) : Contro
             return NotFound();
         try
         {
-            if (spell.Type == MagicSpellType.AuthPasswordReset && request.NewPassword is not null)
+            if (spell.Type == MagicSpellType.AuthPasswordReset && request?.NewPassword is not null)
                 await sp.ApplyPasswordReset(spell, request.NewPassword);
             else
                 await sp.ApplyMagicSpell(spell);
