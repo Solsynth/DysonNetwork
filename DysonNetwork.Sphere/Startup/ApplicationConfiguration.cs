@@ -21,14 +21,11 @@ public static class ApplicationConfiguration
         ConfigureForwardedHeaders(app, configuration);
 
         app.UseWebSockets();
-        app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<PermissionMiddleware>();
 
-        app.MapControllers().RequireRateLimiting("fixed");
-        app.MapStaticAssets().RequireRateLimiting("fixed");
-        app.MapRazorPages().RequireRateLimiting("fixed");
+        app.MapControllers();
 
         // Map gRPC services
         app.MapGrpcService<WebSocketHandlerGrpc>();
