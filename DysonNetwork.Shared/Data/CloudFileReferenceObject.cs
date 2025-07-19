@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Proto;
-using Google.Protobuf.WellKnownTypes;
+using Google.Protobuf;
 
 namespace DysonNetwork.Shared.Data;
 
@@ -41,10 +41,14 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
         {
             Id = proto.Id,
             Name = proto.Name,
-            FileMeta = proto.FileMeta
-                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertValueToObject(kvp.Value)),
-            UserMeta = proto.UserMeta
-                .ToDictionary(kvp => kvp.Key, kvp => GrpcTypeHelper.ConvertValueToObject(kvp.Value)),
+            FileMeta = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(
+                proto.FileMeta.ToStringUtf8(),
+                GrpcTypeHelper.SystemTextSerializerOptions
+            ) ?? [],
+            UserMeta = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(
+                proto.UserMeta.ToStringUtf8(),
+                GrpcTypeHelper.SystemTextSerializerOptions
+            ) ?? [],
             MimeType = proto.MimeType,
             Hash = proto.Hash,
             Size = proto.Size,
@@ -55,9 +59,9 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
     /// <summary>
     /// Converts the current object to its protobuf representation
     /// </summary>
-    public Proto.CloudFile ToProtoValue()
+    public CloudFile ToProtoValue()
     {
-        var proto = new Proto.CloudFile
+        var proto = new CloudFile
         {
             Id = Id,
             Name = Name,
@@ -70,22 +74,14 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
         };
 
         // Convert file metadata
-        if (FileMeta != null)
-        {
-            foreach (var (key, value) in FileMeta)
-            {
-                proto.FileMeta[key] = Value.ForString(value?.ToString() ?? string.Empty);
-            }
-        }
+        proto.FileMeta = ByteString.CopyFromUtf8(
+            System.Text.Json.JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+        );
 
         // Convert user metadata
-        if (UserMeta != null)
-        {
-            foreach (var (key, value) in UserMeta)
-            {
-                proto.UserMeta[key] = Value.ForString(value?.ToString() ?? string.Empty);
-            }
-        }
+        proto.UserMeta = ByteString.CopyFromUtf8(
+            System.Text.Json.JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+        );
 
         return proto;
     }

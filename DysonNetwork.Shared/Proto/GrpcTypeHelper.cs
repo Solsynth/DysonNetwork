@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Newtonsoft.Json;
@@ -8,7 +9,14 @@ namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    private static readonly JsonSerializerSettings SerializerSettings = new()
+    public static readonly JsonSerializerOptions SystemTextSerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter() }
+    };
+    
+    public static readonly JsonSerializerSettings SerializerSettings = new()
     {
         ContractResolver =  new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() },
         PreserveReferencesHandling = PreserveReferencesHandling.Objects,

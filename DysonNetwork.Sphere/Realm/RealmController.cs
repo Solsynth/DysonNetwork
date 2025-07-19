@@ -62,7 +62,7 @@ public class RealmController(
             .Include(e => e.Realm)
             .ToListAsync();
 
-        return members.ToList();
+        return await rs.LoadMemberAccounts(members);
     }
 
     public class RealmMemberRequest
@@ -256,7 +256,7 @@ public class RealmController(
         //
         //     var result = members.Skip(offset).Take(take).ToList();
         //
-        //     return Ok(result);
+        //     return Ok(await rs.LoadMemberAccounts(result));
         // }
         // else
         // {
@@ -269,7 +269,7 @@ public class RealmController(
                 .Take(take)
                 .ToListAsync();
 
-            return Ok(members);
+            return Ok(await rs.LoadMemberAccounts(members));
         // }
     }
 
@@ -287,7 +287,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
 
         if (member is null) return NotFound();
-        return Ok(member);
+        return Ok(await rs.LoadMemberAccount(member));
     }
 
     [HttpDelete("{slug}/members/me")]

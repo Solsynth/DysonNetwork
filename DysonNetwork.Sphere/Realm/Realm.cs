@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Chat;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,7 @@ public class RealmMember : ModelBase
     public Guid RealmId { get; set; }
     public Realm Realm { get; set; } = null!;
     public Guid AccountId { get; set; }
+    [NotMapped] public Account? Account { get; set; }
 
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }

@@ -19,11 +19,11 @@ message CloudFile {
   // Original name of the file
   string name = 2;
 
+  // The metadata uses JSON bytes to store to keep the data structure over gRPC
   // File metadata (e.g., dimensions, duration, etc.)
-  map<string, google.protobuf.Value> file_meta = 3;
-
+  bytes file_meta = 3;
   // User-defined metadata
-  map<string, google.protobuf.Value> user_meta = 4;
+  bytes user_meta = 4;
 
   // MIME type of the file
   string mime_type = 5;

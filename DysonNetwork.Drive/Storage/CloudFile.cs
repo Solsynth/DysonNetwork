@@ -1,6 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
+using Google.Protobuf;
+using Newtonsoft.Json;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -54,7 +57,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public Instant? UploadedAt { get; set; }
     [MaxLength(128)] public string? UploadedTo { get; set; }
     public bool HasCompression { get; set; } = false;
-    
+
     /// <summary>
     /// The field is set to true if the recycling job plans to delete the file.
     /// Due to the unstable of the recycling job, this doesn't really delete the file until a human verifies it.
@@ -103,7 +106,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     /// <returns>The protobuf message representation of this object</returns>
     public Shared.Proto.CloudFile ToProtoValue()
     {
-        var protoFile = new Shared.Proto.CloudFile
+        var proto = new Shared.Proto.CloudFile
         {
             Id = Id,
             Name = Name ?? string.Empty,
@@ -113,28 +116,18 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
             HasCompression = HasCompression,
             Url = StorageUrl ?? string.Empty,
             ContentType = MimeType ?? string.Empty,
-            UploadedAt = UploadedAt?.ToTimestamp()
+            UploadedAt = UploadedAt?.ToTimestamp(),
+            // Convert file metadata
+            FileMeta = ByteString.CopyFromUtf8(
+                System.Text.Json.JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+            ),
+            // Convert user metadata
+            UserMeta = ByteString.CopyFromUtf8(
+                System.Text.Json.JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+            )
         };
 
-        // Convert FileMeta dictionary
-        if (FileMeta != null)
-        {
-            foreach (var (key, value) in FileMeta)
-            {
-                protoFile.FileMeta[key] = Google.Protobuf.WellKnownTypes.Value.ForString(value?.ToString() ?? string.Empty);
-            }
-        }
-
-        // Convert UserMeta dictionary
-        if (UserMeta != null)
-        {
-            foreach (var (key, value) in UserMeta)
-            {
-                protoFile.UserMeta[key] = Google.Protobuf.WellKnownTypes.Value.ForString(value?.ToString() ?? string.Empty);
-            }
-        }
-
-        return protoFile;
+        return proto;
     }
 }
 
