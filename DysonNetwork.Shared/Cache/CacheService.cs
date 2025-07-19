@@ -206,7 +206,8 @@ public class CacheServiceRedis : ICacheService
             ContractResolver = new CamelCasePropertyNamesContractResolver(),
             PreserveReferencesHandling = PreserveReferencesHandling.None,
             NullValueHandling = NullValueHandling.Include,
-            DateParseHandling = DateParseHandling.None
+            DateParseHandling = DateParseHandling.None,
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
         };
         
         // Configure NodaTime serializers

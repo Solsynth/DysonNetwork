@@ -58,7 +58,7 @@ public class RealmController(
 
         var members = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.JoinedAt == null)
+            .Where(m => m.JoinedAt == null && m.LeaveAt == null)
             .Include(e => e.Realm)
             .ToListAsync();
 

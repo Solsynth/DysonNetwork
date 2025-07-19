@@ -27,12 +27,6 @@ service PusherService {
   // Pushes a packet to a list of devices via WebSocket.
   rpc PushWebSocketPacketToDevices(PushWebSocketPacketToDevicesRequest) returns (google.protobuf.Empty) {}
 
-  // Sends a push notification to a device.
-  rpc SendPushNotification(SendPushNotificationRequest) returns (google.protobuf.Empty) {}
-
-  // Sends a push notification to a list of devices.
-  rpc SendPushNotificationToDevices(SendPushNotificationToDevicesRequest) returns (google.protobuf.Empty) {}
-
   // Sends a push notification to a user.
   rpc SendPushNotificationToUser(SendPushNotificationToUserRequest) returns (google.protobuf.Empty) {}
 
@@ -60,9 +54,9 @@ message SendEmailRequest {
 
 // Represents a WebSocket packet.
 message WebSocketPacket {
-    string type = 1;
-    google.protobuf.Value data = 2;
-    google.protobuf.StringValue error_message = 3;
+  string type = 1;
+  google.protobuf.Value data = 2;
+  google.protobuf.StringValue error_message = 3;
 }
 
 message PushWebSocketPacketRequest {
@@ -87,49 +81,39 @@ message PushWebSocketPacketToDevicesRequest {
 
 // Represents a push notification.
 message PushNotification {
-    string topic = 1;
-    string title = 2;
-    string subtitle = 3;
-    string body = 4;
-    map<string, google.protobuf.Value> meta = 5;
-    optional string action_uri = 6;
-    bool is_silent = 7;
-    bool is_savable = 8;
-}
-
-message SendPushNotificationRequest {
-    string device_id = 1;
-    PushNotification notification = 2;
-}
-
-message SendPushNotificationToDevicesRequest {
-    repeated string device_ids = 1;
-    PushNotification notification = 2;
+  string topic = 1;
+  string title = 2;
+  string subtitle = 3;
+  string body = 4;
+  map<string, google.protobuf.Value> meta = 5;
+  optional string action_uri = 6;
+  bool is_silent = 7;
+  bool is_savable = 8;
 }
 
 message SendPushNotificationToUserRequest {
-    string user_id = 1;
-    PushNotification notification = 2;
+  string user_id = 1;
+  PushNotification notification = 2;
 }
 
 message SendPushNotificationToUsersRequest {
-    repeated string user_ids = 1;
-    PushNotification notification = 2;
+  repeated string user_ids = 1;
+  PushNotification notification = 2;
 }
 
 message UnsubscribePushNotificationsRequest {
-    string device_id = 1;
+  string device_id = 1;
 }
 
 message GetWebsocketConnectionStatusRequest {
-    oneof id {
-        string device_id = 1;
-        string user_id = 2;
-    }
+  oneof id {
+    string device_id = 1;
+    string user_id = 2;
+  }
 }
 
 message GetWebsocketConnectionStatusResponse {
-    bool is_connected = 1;
+  bool is_connected = 1;
 }
 
 

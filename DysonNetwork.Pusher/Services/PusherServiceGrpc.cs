@@ -2,6 +2,7 @@ using DysonNetwork.Pusher.Connection;
 using DysonNetwork.Pusher.Email;
 using DysonNetwork.Pusher.Notification;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
@@ -10,7 +11,8 @@ namespace DysonNetwork.Pusher.Services;
 public class PusherServiceGrpc(
     EmailService emailService,
     WebSocketService websocket,
-    PushService pushService
+    PushService pushService,
+    AccountClientHelper accountsHelper
 ) : PusherService.PusherServiceBase
 {
     public override async Task<Empty> SendEmail(SendEmailRequest request, ServerCallContext context)
@@ -79,56 +81,10 @@ public class PusherServiceGrpc(
         return Task.FromResult(new Empty());
     }
 
-    public override async Task<Empty> SendPushNotification(SendPushNotificationRequest request,
-        ServerCallContext context)
-    {
-        // This is a placeholder implementation. In a real-world scenario, you would
-        // need to retrieve the account from the database based on the device token.
-        var account = new Account();
-        await pushService.SendNotification(
-            account,
-            request.Notification.Topic,
-            request.Notification.Title,
-            request.Notification.Subtitle,
-            request.Notification.Body,
-            GrpcTypeHelper.ConvertFromValueMap(request.Notification.Meta),
-            request.Notification.ActionUri,
-            request.Notification.IsSilent,
-            request.Notification.IsSavable
-        );
-        return new Empty();
-    }
-
-    public override async Task<Empty> SendPushNotificationToDevices(SendPushNotificationToDevicesRequest request,
-        ServerCallContext context)
-    {
-        // This is a placeholder implementation. In a real-world scenario, you would
-        // need to retrieve the accounts from the database based on the device tokens.
-        var account = new Account();
-        foreach (var deviceId in request.DeviceIds)
-        {
-            await pushService.SendNotification(
-                account,
-                request.Notification.Topic,
-                request.Notification.Title,
-                request.Notification.Subtitle,
-                request.Notification.Body,
-                GrpcTypeHelper.ConvertFromValueMap(request.Notification.Meta),
-                request.Notification.ActionUri,
-                request.Notification.IsSilent,
-                request.Notification.IsSavable
-            );
-        }
-
-        return new Empty();
-    }
-
     public override async Task<Empty> SendPushNotificationToUser(SendPushNotificationToUserRequest request,
         ServerCallContext context)
     {
-        // This is a placeholder implementation. In a real-world scenario, you would
-        // need to retrieve the account from the database based on the user ID.
-        var account = new Account();
+        var account = await accountsHelper.GetAccount(Guid.Parse(request.UserId));
         await pushService.SendNotification(
             account,
             request.Notification.Topic,

@@ -48,9 +48,9 @@ public class ChatRoomService(
             .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
-        
+
         if (member == null) return member;
-        
+
         member = await LoadMemberAccount(member);
         var chatRoomGroup = ChatRoomGroupPrefix + chatRoomId;
         await cache.SetWithGroupsAsync(cacheKey, member,
@@ -91,14 +91,22 @@ public class ChatRoomService(
             .ToList();
         if (directRoomsId.Count == 0) return rooms;
 
-        var directMembers = directRoomsId.Count != 0
+        List<ChatMember> members = directRoomsId.Count != 0
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
                 .Where(m => m.LeaveAt == null)
-                .GroupBy(m => m.ChatRoomId)
-                .ToDictionaryAsync(g => g.Key, g => g.ToList())
-            : new Dictionary<Guid, List<ChatMember>>();
+                .ToListAsync()
+            : [];
+        members = await LoadMemberAccounts(members);
+
+        Dictionary<Guid, List<ChatMember>> directMembers = new();
+        foreach (var member in members)
+        {
+            if (!directMembers.ContainsKey(member.ChatRoomId))
+                directMembers[member.ChatRoomId] = [];
+            directMembers[member.ChatRoomId].Add(member);
+        }
 
         return rooms.Select(r =>
         {

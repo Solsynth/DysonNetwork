@@ -6,11 +6,13 @@ namespace DysonNetwork.Gateway;
 
 public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
 {
+    private readonly object _lock = new();
     private readonly IEtcdClient _etcdClient;
     private readonly IConfiguration _configuration;
     private readonly ILogger<RegistryProxyConfigProvider> _logger;
     private readonly CancellationTokenSource _watchCts = new();
-    private CancellationTokenSource _cts = new();
+    private CancellationTokenSource _cts;
+    private IProxyConfig _config;
 
     public RegistryProxyConfigProvider(IEtcdClient etcdClient, IConfiguration configuration,
         ILogger<RegistryProxyConfigProvider> logger)
@@ -18,19 +20,33 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
         _etcdClient = etcdClient;
         _configuration = configuration;
         _logger = logger;
+        _cts = new CancellationTokenSource();
+        _config = LoadConfig();
 
         // Watch for changes in etcd
         _etcdClient.WatchRange("/services/", _ =>
         {
             _logger.LogInformation("Etcd configuration changed. Reloading proxy config.");
-            _cts.Cancel();
-            _cts = new CancellationTokenSource();
+            ReloadConfig();
         }, cancellationToken: _watchCts.Token);
     }
 
-    public IProxyConfig GetConfig()
+    public IProxyConfig GetConfig() => _config;
+
+    private void ReloadConfig()
     {
-        // This will be called by YARP when it needs a new config
+        lock (_lock)
+        {
+            var oldCts = _cts;
+            _cts = new CancellationTokenSource();
+            _config = LoadConfig();
+            oldCts.Cancel();
+            oldCts.Dispose();
+        }
+    }
+
+    private IProxyConfig LoadConfig()
+    {
         _logger.LogInformation("Generating new proxy config.");
         var response = _etcdClient.GetRange("/services/");
         var kvs = response.Kvs;
@@ -184,17 +200,15 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
             _logger.LogInformation("    Added Path-based Route: {Path}", pathRoute.Match.Path);
         }
 
-        return new CustomProxyConfig(routes, clusters);
+        return new CustomProxyConfig(routes, clusters, new Microsoft.Extensions.Primitives.CancellationChangeToken(_cts.Token));
     }
 
-    private class CustomProxyConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+    private class CustomProxyConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, Microsoft.Extensions.Primitives.IChangeToken changeToken)
         : IProxyConfig
     {
         public IReadOnlyList<RouteConfig> Routes { get; } = routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; } = clusters;
-
-        public Microsoft.Extensions.Primitives.IChangeToken ChangeToken { get; } =
-            new Microsoft.Extensions.Primitives.CancellationChangeToken(CancellationToken.None);
+        public Microsoft.Extensions.Primitives.IChangeToken ChangeToken { get; } = changeToken;
     }
 
     public record DirectRouteConfig

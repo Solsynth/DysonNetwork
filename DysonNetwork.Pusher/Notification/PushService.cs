@@ -71,7 +71,7 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
         string? title = null,
         string? subtitle = null,
         string? content = null,
-        Dictionary<string, object>? meta = null,
+        Dictionary<string, object?> meta = null,
         string? actionUri = null,
         bool isSilent = false,
         bool save = true)
@@ -79,7 +79,6 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
         if (title is null && subtitle is null && content is null)
             throw new ArgumentException("Unable to send notification that completely empty.");
 
-        meta ??= new Dictionary<string, object>();
         if (actionUri is not null) meta["action_uri"] = actionUri;
 
         var accountId = Guid.Parse(account.Id!);
@@ -102,7 +101,7 @@ public class PushService(IConfiguration config, AppDatabase db, IHttpClientFacto
         if (!isSilent) _ = DeliveryNotification(notification);
     }
 
-    public async Task DeliveryNotification(Pusher.Notification.Notification notification)
+    public async Task DeliveryNotification(Notification notification)
     {
         // Pushing the notification
         var subscribers = await db.PushSubscriptions

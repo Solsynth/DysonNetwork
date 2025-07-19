@@ -100,6 +100,12 @@ public partial class ChatController(
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+        
+        var members = messages.Select(m => m.Sender).DistinctBy(x => x.Id).ToList();
+        members = await crs.LoadMemberAccounts(members);
+        
+        foreach (var message in messages)
+            message.Sender = members.First(x => x.Id == message.SenderId);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
