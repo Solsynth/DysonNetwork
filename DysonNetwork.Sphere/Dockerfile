@@ -1,18 +1,6 @@
 # -------- Base runtime image --------
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 
-# Install only necessary dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  libfontconfig1 \
-  libfreetype6 \
-  libpng-dev \
-  libharfbuzz0b \
-  libgif7 \
-  libvips \
-  ffmpeg \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
-
 # Use non-root user if defined in Docker run
 USER ${APP_UID:-1000}
 
@@ -23,6 +11,14 @@ EXPOSE 8080 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+
+# Install Node.js 22 and npm
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get -y install --no-install-recommends nodejs \
+    && npm install -g npm \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy everything and build
 COPY . .
