@@ -44,6 +44,7 @@ RUN dotnet build "DysonNetwork.Pass.csproj" -c Release -o /app/build \
 
 # Stage 4: Publish
 FROM build AS publish
+RUN mkdir -p /app/publish/zh-Hans
 RUN dotnet publish "DysonNetwork.Pass.csproj" -c Release -o /app/publish \
     -p:TypeScriptCompileBlocked=true \
     -p:UseRazorBuildServer=false \
