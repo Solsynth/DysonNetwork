@@ -120,28 +120,6 @@
         <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx" />
     </ItemGroup>
 
-    <Target Name="BuildSpa" BeforeTargets="Build">
-        <Message Importance="high" Text="Building SPA with Vite..." />
-        <Exec WorkingDirectory="Client" Command="npm install" />
-        <Exec WorkingDirectory="Client" Command="npm run build" />
-    </Target>
-
-    <Target Name="CopySpa" AfterTargets="Build">
-        <Message Importance="high" Text="Copying SPA to wwwroot..." />
-        <RemoveDir Directories="wwwroot\dist" />
-        <MakeDir Directories="wwwroot\dist" />
-
-        <ItemGroup>
-            <_SpaDistFiles Include="Client\dist\**\*" />
-        </ItemGroup>
-        
-        <Copy SourceFiles="@(SpaDistFiles)" DestinationFolder="wwwroot\dist\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    </Target>
-
-    <ItemGroup>
-        <SpaDistFiles Include="Client\dist\**\*" />
-    </ItemGroup>
-
     <ItemGroup>
       <_ContentIncludedByDefault Remove="Pages\Shared\_Layout.cshtml" />
       <_ContentIncludedByDefault Remove="Pages\Checkpoint\CheckpointPage.cshtml" />

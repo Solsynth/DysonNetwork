@@ -12,30 +12,38 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Install Node.js 22 and npm
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends curl ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get -y install --no-install-recommends nodejs \
-    && npm install -g npm \
-    && rm -rf /var/lib/apt/lists/*
+# Copy only the necessary project files first for better layer caching
+COPY ["DysonNetwork.Sphere/DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
+COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 
-# Copy everything and build
+# Restore NuGet packages
+RUN dotnet restore "DysonNetwork.Sphere/DysonNetwork.Sphere.csproj"
+
+# Copy the rest of the source code
 COPY . .
-WORKDIR /src/DysonNetwork.Sphere
-RUN dotnet restore
-RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
+
+# Build the project (this will skip frontend build as it's not needed)
+WORKDIR "/src/DysonNetwork.Sphere"
+RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build \
+    --no-restore \
+    -p:TypeScriptCompileBlocked=true \
+    -p:UseRazorBuildServer=false
 
 # -------- Publish stage --------
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN mkdir -p /app/publish/zh-Hans
 
-# Trim, ReadyToRun, single-file (optional), no self-contained to keep image small
-RUN dotnet publish -c $BUILD_CONFIGURATION -o /app/publish \
-  -p:PublishReadyToRun=true \
-  -p:TieredPGO=true \
-  -p:SuppressTrimAnalysisWarnings=true
+# Publish the application without frontend assets
+RUN dotnet publish "DysonNetwork.Sphere.csproj" \
+    -c $BUILD_CONFIGURATION \
+    -o /app/publish \
+    --no-restore \
+    --no-build \
+    -p:PublishReadyToRun=true \
+    -p:TieredPGO=true \
+    -p:SuppressTrimAnalysisWarnings=true \
+    -p:TypeScriptCompileBlocked=true \
+    -p:UseRazorBuildServer=false
 
 # -------- Final image --------
 FROM base AS final
