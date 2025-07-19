@@ -1,6 +1,7 @@
 using System.Text;
 using dotnet_etcd.interfaces;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
 
 namespace DysonNetwork.Gateway;
 
@@ -14,8 +15,11 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
     private CancellationTokenSource _cts;
     private IProxyConfig _config;
 
-    public RegistryProxyConfigProvider(IEtcdClient etcdClient, IConfiguration configuration,
-        ILogger<RegistryProxyConfigProvider> logger)
+    public RegistryProxyConfigProvider(
+        IEtcdClient etcdClient,
+        IConfiguration configuration,
+        ILogger<RegistryProxyConfigProvider> logger
+    )
     {
         _etcdClient = etcdClient;
         _configuration = configuration;
@@ -86,6 +90,10 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                         Destinations = new Dictionary<string, DestinationConfig>
                         {
                             { "destination1", new DestinationConfig { Address = serviceUrl } }
+                        },
+                        HttpRequest = new ForwarderRequestConfig()
+                        {
+                            ActivityTimeout = directRoute.IsWebsocket ? TimeSpan.FromHours(24) : TimeSpan.FromMinutes(2)
                         }
                     };
                     clusters.Add(cluster);
@@ -96,7 +104,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                     RouteId = $"direct-{directRoute.Service}-{directRoute.Path.Replace("/", "-")}",
                     ClusterId = directRoute.Service,
                     Match = new RouteMatch { Path = directRoute.Path },
-                    TimeoutPolicy = directRoute.IsWebsocket ? "Disable" : null
+                    Timeout = directRoute.IsWebsocket ? null : TimeSpan.FromSeconds(5),
                 };
                 routes.Add(route);
                 _logger.LogInformation("    Added Direct Route: {Path} -> {Service}", directRoute.Path,
@@ -194,16 +202,25 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                 {
                     new() { { "PathRemovePrefix", $"/{pathAlias}" } },
                     new() { { "PathPrefix", "/api" } }
-                }
+                },
+                Timeout = TimeSpan.FromSeconds(5)
             };
             routes.Add(pathRoute);
             _logger.LogInformation("    Added Path-based Route: {Path}", pathRoute.Match.Path);
         }
 
-        return new CustomProxyConfig(routes, clusters, new Microsoft.Extensions.Primitives.CancellationChangeToken(_cts.Token));
+        return new CustomProxyConfig(
+            routes,
+            clusters,
+            new Microsoft.Extensions.Primitives.CancellationChangeToken(_cts.Token)
+        );
     }
 
-    private class CustomProxyConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, Microsoft.Extensions.Primitives.IChangeToken changeToken)
+    private class CustomProxyConfig(
+        IReadOnlyList<RouteConfig> routes,
+        IReadOnlyList<ClusterConfig> clusters,
+        Microsoft.Extensions.Primitives.IChangeToken changeToken
+    )
         : IProxyConfig
     {
         public IReadOnlyList<RouteConfig> Routes { get; } = routes;
