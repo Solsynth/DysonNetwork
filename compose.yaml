@@ -19,9 +19,7 @@ services:
       retries: 5
 
   gateway:
-    build:
-      context: .
-      dockerfile: DysonNetwork.Gateway/Dockerfile
+    image: xsheep2010/dyson-gateway:latest
     ports:
       - "8000:8080"
     environment:
@@ -34,9 +32,7 @@ services:
         condition: service_healthy
 
   drive:
-    build:
-      context: .
-      dockerfile: DysonNetwork.Drive/Dockerfile
+    image: xsheep2010/dyson-drive:latest
     ports:
       - "8001:8080"
     environment:
@@ -49,9 +45,7 @@ services:
         condition: service_healthy
 
   pass:
-    build:
-      context: .
-      dockerfile: DysonNetwork.Pass/Dockerfile
+    image: xsheep2010/dyson-pass:latest
     ports:
       - "8002:8080"
     environment:
@@ -64,9 +58,7 @@ services:
         condition: service_healthy
 
   pusher:
-    build:
-      context: .
-      dockerfile: DysonNetwork.Pusher/Dockerfile
+    image: xsheep2010/dyson-pusher:latest
     ports:
       - "8003:8080"
     environment:
@@ -79,9 +71,7 @@ services:
         condition: service_healthy
 
   sphere:
-    build:
-      context: .
-      dockerfile: DysonNetwork.Sphere/Dockerfile
+    image: xsheep2010/dyson-sphere:latest
     ports:
       - "8004:8080"
     environment:
