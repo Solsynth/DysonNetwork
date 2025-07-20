@@ -8,6 +8,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+app.UseRequestTimeouts();
 app.UseCors(opts =>
     opts.SetIsOriginAllowed(_ => true)
         .WithExposedHeaders("*")
