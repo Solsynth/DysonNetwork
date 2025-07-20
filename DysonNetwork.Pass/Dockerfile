@@ -6,19 +6,16 @@ EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["DysonNetwork.Pass/DysonNetwork.Pass.csproj", "DysonNetwork.Pass/"]
+COPY . .
 RUN dotnet restore "DysonNetwork.Pass/DysonNetwork.Pass.csproj"
 
 # Copy SPA files
-COPY ["DysonNetwork.Pass/Client/package.json", "DysonNetwork.Pass/Client/package-lock.json*", "DysonNetwork.Pass/Client/"]
 WORKDIR /src/DysonNetwork.Pass/Client
 RUN npm install
-COPY ["DysonNetwork.Pass/Client/", "./"]
 RUN npm run build
 
 # Build .NET app
 WORKDIR /src
-COPY . .
 WORKDIR "/src/DysonNetwork.Pass"
 RUN dotnet build "DysonNetwork.Pass.csproj" -c Release -o /app/build
 
