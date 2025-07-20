@@ -8,11 +8,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddGateway(this IServiceCollection services, IConfiguration configuration)
     {
-        services
-            .AddReverseProxy()
-            .ConfigureHttpClient((context, handler) =>
-            {
-            });
+        services.AddRequestTimeouts();
+        services.AddReverseProxy();
 
         services.AddRegistryService(configuration);
         services.AddSingleton<IProxyConfigProvider, RegistryProxyConfigProvider>();
