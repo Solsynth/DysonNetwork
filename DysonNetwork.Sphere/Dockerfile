@@ -7,10 +7,26 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY . .
+
+# First copy only the solution and project files to restore packages
+COPY ["DysonNetwork.Sphere/DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
+COPY ["DysonNetwork.Pass/DysonNetwork.Pass.csproj", "DysonNetwork.Pass/"]
+COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
+
+# Restore packages
 RUN dotnet restore "DysonNetwork.Sphere/DysonNetwork.Sphere.csproj"
+
+# Copy everything else
+COPY . .
+
+# Create necessary directories for localized resources
+RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net9.0/zh-hans \
+    && mkdir -p /src/DysonNetwork.Pass/bin/Release/net9.0/zh-hans
+
 WORKDIR "/src/DysonNetwork.Sphere"
-RUN dotnet build "./DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/build \
+    -p:SatelliteResourceLanguages=en-US\;zh-hans \
+    -p:GenerateSatelliteAssembliesForCore=true
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
