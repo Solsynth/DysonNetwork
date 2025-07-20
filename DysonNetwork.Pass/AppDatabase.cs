@@ -32,8 +32,6 @@ public class AppDatabase(
     public DbSet<Relationship> AccountRelationships { get; set; }
     public DbSet<Status> AccountStatuses { get; set; }
     public DbSet<CheckInResult> AccountCheckInResults { get; set; }
-    public DbSet<Notification> Notifications { get; set; }
-    public DbSet<NotificationPushSubscription> NotificationPushSubscriptions { get; set; }
     public DbSet<AccountBadge> Badges { get; set; }
     public DbSet<ActionLog> ActionLogs { get; set; }
     public DbSet<AbuseReport> AbuseReports { get; set; }

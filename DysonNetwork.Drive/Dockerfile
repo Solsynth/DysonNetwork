@@ -4,6 +4,18 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
+# Install only necessary dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libfontconfig1 \
+  libfreetype6 \
+  libpng-dev \
+  libharfbuzz0b \
+  libgif7 \
+  libvips \
+  ffmpeg \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
