@@ -9,8 +9,8 @@ public abstract partial class TextSanitizer
     [GeneratedRegex(@"[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFFF0-\uFFFF]")]
     private static partial Regex WeirdUnicodeRegex();
 
-    [GeneratedRegex(@"[\r\n]+")]
-    private static partial Regex NewlineRegex();
+    [GeneratedRegex(@"[\r\n]{2,}")]
+    private static partial Regex MultiNewlineRegex();
 
     public static string? Sanitize(string? text)
     {
@@ -23,7 +23,7 @@ public abstract partial class TextSanitizer
         cleaned = NormalizeFancyUnicode(cleaned);
 
         // Replace multiple newlines with a single newline
-        cleaned = NewlineRegex().Replace(cleaned, "\n");
+        cleaned = MultiNewlineRegex().Replace(cleaned, "\n");
 
         return cleaned;
     }
@@ -31,7 +31,7 @@ public abstract partial class TextSanitizer
     private static string NormalizeFancyUnicode(string input)
     {
         var sb = new StringBuilder(input.Length);
-        foreach (var c in input.Normalize(NormalizationForm.FormKC).Where(c =>
+        foreach (var c in input.Normalize(NormalizationForm.FormC).Where(c =>
                      char.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark))
             sb.Append(c);
 
