@@ -25,7 +25,7 @@ RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net9.0/zh-hans \
 
 WORKDIR "/src/DysonNetwork.Sphere"
 RUN dotnet build "DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/build \
-    -p:SatelliteResourceLanguages=en-US\;zh-hans \
+    -p:SatelliteResourceLanguages='en-US;zh-Hans' \
     -p:GenerateSatelliteAssembliesForCore=true
 
 FROM build AS publish
