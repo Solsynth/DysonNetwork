@@ -24,12 +24,6 @@ public static class KestrelConfiguration
 
             // Load PEM cert and key manually
             var certificate = X509Certificate2.CreateFromPemFile(certPath, keyPath);
-
-            // You MUST call this to make sure the key is usable
-            certificate = certificate.CopyWithPrivateKey(
-                RSA.Create()
-            );
-
             // Now pass the full cert
             options.ListenAnyIP(5001, listenOptions =>
             {
