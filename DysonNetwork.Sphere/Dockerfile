@@ -16,8 +16,11 @@ COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 # Restore packages
 RUN dotnet restore "DysonNetwork.Sphere/DysonNetwork.Sphere.csproj"
 
-# Copy everything else
+# Copy everything except Pass project's config files
 COPY . .
+
+# Remove Pass project's config files to prevent conflicts
+RUN rm -f /src/DysonNetwork.Pass/appsettings*.json /src/DysonNetwork.Pass/version.json
 
 # Create necessary directories for localized resources
 RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net9.0/zh-hans \
