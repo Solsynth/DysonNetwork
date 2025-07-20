@@ -9,7 +9,7 @@ using tusdotnet.Stores;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel and server options
-builder.ConfigureAppKestrel();
+builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);

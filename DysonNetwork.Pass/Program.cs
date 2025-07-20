@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel and server options
-builder.ConfigureAppKestrel();
+builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add metrics and telemetry
 builder.Services.AddAppMetrics();

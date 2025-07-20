@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Startup;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel and server options
-builder.ConfigureAppKestrel();
+builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add metrics and telemetry
 builder.Services.AddAppMetrics();

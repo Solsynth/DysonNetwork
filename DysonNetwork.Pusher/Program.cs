@@ -1,13 +1,14 @@
 using DysonNetwork.Pusher;
 using DysonNetwork.Pusher.Startup;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel and server options
-builder.ConfigureAppKestrel();
+builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
