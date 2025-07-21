@@ -7,7 +7,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DysonNetwork.Pass.Resources {
+namespace DysonNetwork.Sphere.Resources {
     using System;
     
     
@@ -28,7 +28,7 @@ namespace DysonNetwork.Pass.Resources {
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Pass.Resources.AccountEventResource", typeof(AccountEventResource).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.AccountEventResource", typeof(AccountEventResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

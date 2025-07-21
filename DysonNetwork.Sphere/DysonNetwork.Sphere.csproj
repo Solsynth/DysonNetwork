@@ -82,10 +82,6 @@
             <Generator>ResXFileCodeGenerator</Generator>
             <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
         </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\AccountEventResource.resx">
-            <Generator>ResXFileCodeGenerator</Generator>
-            <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
         <EmbeddedResource Update="Resources\Localization\SharedResource.resx">
             <Generator>ResXFileCodeGenerator</Generator>
             <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
@@ -98,18 +94,8 @@
             <Generator>ResXFileCodeGenerator</Generator>
             <LastGenOutput>NotificationResource.Designer.cs</LastGenOutput>
         </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\EmailResource.resx">
-            <Generator>ResXFileCodeGenerator</Generator>
-            <LastGenOutput>Email.LandingResource.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
         <EmbeddedResource Update="Resources\Localization\SharedResource.zh-hans.resx">
             <DependentUpon>SharedResource.resx</DependentUpon>
-        </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\AccountEventResource.zh-hans.resx">
-            <DependentUpon>AccountEventResource.resx</DependentUpon>
-        </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\EmailResource.zh-hans.resx">
-            <DependentUpon>EmailResource.resx</DependentUpon>
         </EmbeddedResource>
         <EmbeddedResource Update="Resources\Localization\NotificationResource.zh-hans.resx">
             <DependentUpon>NotificationResource.resx</DependentUpon>
@@ -117,11 +103,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Update="Resources\Localization\AccountEventResource.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>AccountEventResource.resx</DependentUpon>
-        </Compile>
         <Compile Update="Resources\Localization\SharedResource.Designer.cs">
             <DesignTime>True</DesignTime>
             <AutoGen>True</AutoGen>

@@ -7,7 +7,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DysonNetwork.Pass.Resources.Pages.Emails {
+namespace DysonNetwork.Sphere.Resources.Pages.Emails {
     using System;
     
     
@@ -28,7 +28,7 @@ namespace DysonNetwork.Pass.Resources.Pages.Emails {
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Pass.Resources.Localization.EmailResource", typeof(EmailResource).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.Localization.EmailResource", typeof(EmailResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

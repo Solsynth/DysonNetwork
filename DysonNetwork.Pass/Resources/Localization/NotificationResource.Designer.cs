@@ -7,7 +7,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DysonNetwork.Pass.Resources.Localization {
+namespace DysonNetwork.Sphere.Resources.Localization {
     using System;
     
     
@@ -28,7 +28,7 @@ namespace DysonNetwork.Pass.Resources.Localization {
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Pass.Resources.Localization.NotificationResource", typeof(NotificationResource).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.Localization.NotificationResource", typeof(NotificationResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

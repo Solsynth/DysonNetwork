@@ -11,88 +11,228 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
-    <data name="FortuneTipPositiveTitle_1" xml:space="preserve">
-        <value>抽卡</value>
-    </data>
-    <data name="FortuneTipPositiveContent_1" xml:space="preserve">
-        <value>次次出金</value>
-    </data>
-    <data name="FortuneTipNegativeContent_1" xml:space="preserve">
-        <value>吃大保底</value>
-    </data>
-    <data name="FortuneTipPositiveTitle_2" xml:space="preserve">
-        <value>游戏</value>
-    </data>
-    <data name="FortuneTipPositiveContent_2" xml:space="preserve">
-        <value>升段如破竹</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_2" xml:space="preserve">
-        <value>游戏</value>
-    </data>
-    <data name="FortuneTipNegativeContent_2" xml:space="preserve">
-        <value>掉分如山崩</value>
-    </data>
-    <data name="FortuneTipPositiveTitle_3" xml:space="preserve">
-        <value>抽奖</value>
-    </data>
-    <data name="FortuneTipPositiveContent_3" xml:space="preserve">
-        <value>欧气加身</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_3" xml:space="preserve">
-        <value>抽奖</value>
-    </data>
-    <data name="FortuneTipNegativeContent_3" xml:space="preserve">
-        <value>十连皆寂</value>
-    </data>
-    <data name="FortuneTipPositiveTitle_4" xml:space="preserve">
-        <value>演讲</value>
-    </data>
-    <data name="FortuneTipPositiveContent_4" xml:space="preserve">
-        <value>妙语连珠</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
-        <value>演讲</value>
-    </data>
-    <data name="FortuneTipNegativeContent_4" xml:space="preserve">
-        <value>谨言慎行</value>
-    </data>
-    <data name="FortuneTipPositiveTitle_5" xml:space="preserve">
-        <value>绘图</value>
-    </data>
-    <data name="FortuneTipPositiveContent_5" xml:space="preserve">
-        <value>灵感如泉涌</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_5" xml:space="preserve">
-        <value>绘图</value>
-    </data>
-    <data name="FortuneTipNegativeContent_5" xml:space="preserve">
-        <value>下笔如千斤</value>
-    </data>
-    <data name="FortuneTipPositiveTitle_6" xml:space="preserve">
-        <value>编程</value>
-    </data>
-    <data name="FortuneTipPositiveContent_6" xml:space="preserve">
-        <value>0 error(s), 0 warning(s)</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_6" xml:space="preserve">
-        <value>编程</value>
-    </data>
-    <data name="FortuneTipNegativeContent_6" xml:space="preserve">
-        <value>114 error(s), 514 warning(s)</value>
-    </data>
-    <data name="FortuneTipPositiveTitle_7" xml:space="preserve">
-        <value>购物</value>
-    </data>
-    <data name="FortuneTipPositiveContent_7" xml:space="preserve">
-        <value>汇率低谷</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_7" xml:space="preserve">
-        <value>开箱</value>
-    </data>
-    <data name="FortuneTipNegativeContent_7" xml:space="preserve">
-        <value>225% 关税</value>
-    </data>
-    <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
-        <value>抽卡</value>
-    </data>
+ <data name="FortuneTipPositiveTitle_1" xml:space="preserve">
+    <value>抽卡</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_1" xml:space="preserve">
+    <value>次次出金</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_1" xml:space="preserve">
+    <value>吃大保底</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_2" xml:space="preserve">
+    <value>游戏</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_2" xml:space="preserve">
+    <value>升段如破竹</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_2" xml:space="preserve">
+    <value>游戏</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_2" xml:space="preserve">
+    <value>掉分如山崩</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_3" xml:space="preserve">
+    <value>抽奖</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_3" xml:space="preserve">
+    <value>欧气加身</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_3" xml:space="preserve">
+    <value>抽奖</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_3" xml:space="preserve">
+    <value>十连皆寂</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_4" xml:space="preserve">
+    <value>演讲</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_4" xml:space="preserve">
+    <value>妙语连珠</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
+    <value>演讲</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_4" xml:space="preserve">
+    <value>谨言慎行</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_5" xml:space="preserve">
+    <value>绘图</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_5" xml:space="preserve">
+    <value>灵感如泉涌</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_5" xml:space="preserve">
+    <value>绘图</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_5" xml:space="preserve">
+    <value>下笔如千斤</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_6" xml:space="preserve">
+    <value>编程</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_6" xml:space="preserve">
+    <value>0 error(s), 0 warning(s)</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_6" xml:space="preserve">
+    <value>编程</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_6" xml:space="preserve">
+    <value>114 error(s), 514 warning(s)</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_7" xml:space="preserve">
+    <value>购物</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_7" xml:space="preserve">
+    <value>汇率低谷</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_7" xml:space="preserve">
+    <value>开箱</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_7" xml:space="preserve">
+    <value>225% 关税</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
+    <value>抽卡</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_8" xml:space="preserve">
+    <value>学习</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_8" xml:space="preserve">
+    <value>效率200%</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_8" xml:space="preserve">
+    <value>学习</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_8" xml:space="preserve">
+    <value>效率50%</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_9" xml:space="preserve">
+    <value>编曲</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_9" xml:space="preserve">
+    <value>灵感爆棚</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_9" xml:space="preserve">
+    <value>编曲</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_9" xml:space="preserve">
+    <value>FL Studio未响应</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_10" xml:space="preserve">
+    <value>摄影</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_10" xml:space="preserve">
+    <value>刀锐奶化</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_10" xml:space="preserve">
+    <value>摄影</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_10" xml:space="preserve">
+    <value>"NO CARD"</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_11" xml:space="preserve">
+    <value>焊 PCB</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_11" xml:space="preserve">
+    <value>上电，启动，好耶！</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_11" xml:space="preserve">
+    <value>焊 PCB</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_11" xml:space="preserve">
+    <value>斯~不烫</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_12" xml:space="preserve">
+    <value>AE 启动</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_12" xml:space="preserve">
+    <value>帧渲染时间 20ms</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_12" xml:space="preserve">
+    <value>AE 启动</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_12" xml:space="preserve">
+    <value>咩~</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_13" xml:space="preserve">
+    <value>航拍</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_13" xml:space="preserve">
+    <value>”可以起飞“</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_13" xml:space="preserve">
+    <value>航拍</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_13" xml:space="preserve">
+    <value>”信号弱，请调整天线/飞机遭遇强风/飞机 GPS 受干扰“</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveTitle_14" xml:space="preserve">
+    <value>调色</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_14" xml:space="preserve">
+    <value>色彩准确强如怪，拼尽全力无法战胜</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeTitle_14" xml:space="preserve">
+    <value>调色</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_14" xml:space="preserve">
+    <value>甲：我要五彩斑斓的黑</value>
+    <comment/>
+  </data>
 </root>
