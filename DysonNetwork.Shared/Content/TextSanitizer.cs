@@ -6,35 +6,23 @@ namespace DysonNetwork.Shared.Content;
 
 public abstract partial class TextSanitizer
 {
-    [GeneratedRegex(@"[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFFF0-\uFFFF]")]
-    private static partial Regex WeirdUnicodeRegex();
-
-    [GeneratedRegex(@"[\r\n]{2,}")]
-    private static partial Regex MultiNewlineRegex();
-
     public static string? Sanitize(string? text)
     {
-        if (text is null) return null;
+        if (string.IsNullOrEmpty(text)) return text;
 
-        // Normalize weird Unicode characters
-        var cleaned = WeirdUnicodeRegex().Replace(text, "");
+        // List of control characters to preserve
+        var preserveControlChars = new[] { '\n', '\r', '\t', ' ' };
 
-        // Normalize bold/italic/fancy unicode letters to ASCII
-        cleaned = NormalizeFancyUnicode(cleaned);
+        var filtered = new StringBuilder();
+        foreach (var ch in from ch in text
+                 let category = CharUnicodeInfo.GetUnicodeCategory(ch)
+                 where category is not UnicodeCategory.Control || preserveControlChars.Contains(ch)
+                 where category is not (UnicodeCategory.Format or UnicodeCategory.NonSpacingMark)
+                 select ch)
+        {
+            filtered.Append(ch);
+        }
 
-        // Replace multiple newlines with a single newline
-        cleaned = MultiNewlineRegex().Replace(cleaned, "\n");
-
-        return cleaned;
-    }
-
-    private static string NormalizeFancyUnicode(string input)
-    {
-        var sb = new StringBuilder(input.Length);
-        foreach (var c in input.Normalize(NormalizationForm.FormC).Where(c =>
-                     char.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark))
-            sb.Append(c);
-
-        return sb.ToString();
+        return filtered.ToString();
     }
 }
