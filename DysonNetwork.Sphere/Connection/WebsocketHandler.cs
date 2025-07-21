@@ -6,7 +6,7 @@ using Grpc.Core;
 
 namespace DysonNetwork.Sphere.Connection;
 
-public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, ChatRoomService crs)
+public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, ChatRoomService crs, ChatService cs)
     : PusherHandlerService.PusherHandlerServiceBase
 {
     public override async Task<Empty> ReceiveWebSocketPacket(
@@ -34,8 +34,10 @@ public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, Chat
 
         if (packet.Data == null)
         {
-            await SendErrorResponse(request,
-                "Mark message as read requires you to provide the ChatRoomId and MessageId");
+            await SendErrorResponse(
+                request,
+                "Mark message as read requires you to provide the ChatRoomId"
+            );
             return;
         }
 
@@ -56,11 +58,8 @@ public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, Chat
             await SendErrorResponse(request, "User is not a member of the chat room.");
             return;
         }
-
-        var readReceipt = new MessageReadReceipt { SenderId = sender.Id };
-
-        var bufferService = context.GetHttpContext().RequestServices.GetRequiredService<FlushBufferService>();
-        bufferService.Enqueue(readReceipt);
+        
+        await cs.ReadChatRoomAsync(Guid.Parse(currentUser.Id), requestData.ChatRoomId);
     }
 
     private async Task HandleMessageTyping(ReceiveWebSocketPacketRequest request, ServerCallContext context)

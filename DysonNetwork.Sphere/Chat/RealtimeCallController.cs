@@ -19,6 +19,7 @@ public class RealtimeCallController(
     IConfiguration configuration,
     AppDatabase db,
     ChatService cs,
+    ChatRoomService crs,
     IRealtimeService realtime
 ) : ControllerBase
 {
@@ -64,6 +65,7 @@ public class RealtimeCallController(
             .Include(c => c.Sender)
             .FirstOrDefaultAsync();
         if (ongoingCall is null) return NotFound();
+        ongoingCall.Sender = await crs.LoadMemberAccount(ongoingCall.Sender);
         return Ok(ongoingCall);
     }
 
