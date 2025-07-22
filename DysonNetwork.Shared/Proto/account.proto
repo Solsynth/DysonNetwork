@@ -218,6 +218,7 @@ service AccountService {
   // Account Operations
   rpc GetAccount(GetAccountRequest) returns (Account) {}
   rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
+  rpc LookupAccountBatch(LookupAccountBatchRequest) returns (GetAccountBatchResponse) {}
   rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
 
   // Profile Operations
@@ -290,6 +291,10 @@ message GetAccountRequest {
 
 message GetAccountBatchRequest {
   repeated string id = 1;  // Account ID to retrieve
+}
+
+message LookupAccountBatchRequest {
+  repeated string names = 1;
 }
 
 message GetAccountBatchResponse {

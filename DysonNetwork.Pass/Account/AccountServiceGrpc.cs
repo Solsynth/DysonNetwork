@@ -57,6 +57,19 @@ public class AccountServiceGrpc(
         return response;
     }
 
+    public override async Task<GetAccountBatchResponse> LookupAccountBatch(LookupAccountBatchRequest request, ServerCallContext context)
+    {
+        var accountNames = request.Names.ToList();
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => accountNames.Contains(a.Name))
+            .Include(a => a.Profile)
+            .ToListAsync();
+        var response = new GetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
     public override async Task<ListAccountsResponse> ListAccounts(ListAccountsRequest request,
         ServerCallContext context)
     {

@@ -16,7 +16,8 @@ public partial class ChatController(
     AppDatabase db,
     ChatService cs,
     ChatRoomService crs,
-    FileService.FileServiceClient files
+    FileService.FileServiceClient files,
+    AccountService.AccountServiceClient accounts
 ) : ControllerBase
 {
     public class MarkMessageReadRequest
@@ -213,8 +214,14 @@ public partial class ChatController(
                 .ToList();
             if (mentioned.Count > 0)
             {
+                var queryRequest = new LookupAccountBatchRequest();
+                queryRequest.Names.AddRange(mentioned);
+                var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
+                var mentionedId = queryResponse
+                    .Select(a => Guid.Parse(a.Id))
+                    .ToList();
                 var mentionedMembers = await db.ChatMembers
-                    .Where(m => mentioned.Contains(m.Account.Name))
+                    .Where(m => mentionedId.Contains(m.AccountId))
                     .Select(m => m.Id)
                     .ToListAsync();
                 message.MembersMentioned = mentionedMembers;
