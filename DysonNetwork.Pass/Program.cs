@@ -34,7 +34,6 @@ builder.Services.AddAppScheduledJobs();
 
 builder.Services.AddTransient<IPageDataProvider, VersionPageData>();
 builder.Services.AddTransient<IPageDataProvider, CaptchaPageData>();
-builder.Services.AddTransient<IPageDataProvider, SpellPageData>();
 
 var app = builder.Build();
 

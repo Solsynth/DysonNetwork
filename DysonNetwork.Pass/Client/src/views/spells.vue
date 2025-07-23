@@ -58,7 +58,7 @@ const submitting = ref(false)
 const done = ref(false)
 
 const spellTypes = [
-  'Account Acivation',
+  'Account Activation',
   'Account Deactivation',
   'Account Deletion',
   'Reset Password',
@@ -66,12 +66,6 @@ const spellTypes = [
 ]
 
 async function fetchSpell() {
-  // @ts-ignore
-  if (window.__APP_DATA__ != null) {
-    // @ts-ignore
-    spell.value = window.__APP_DATA__['Spell']
-    return
-  }
   const resp = await fetch(`/api/spells/${encodeURIComponent(spellWord)}`)
   if (resp.status === 200) {
     const data = await resp.json()
