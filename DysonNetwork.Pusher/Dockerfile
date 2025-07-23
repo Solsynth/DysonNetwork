@@ -4,7 +4,7 @@ EXPOSE 8080
 EXPOSE 8081
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libkrb53
+    libkrb5-dev
 
 USER $APP_UID
 
