@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
+using Newtonsoft.Json;
 
 namespace DysonNetwork.Shared.Data;
 
@@ -41,13 +42,13 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
         {
             Id = proto.Id,
             Name = proto.Name,
-            FileMeta = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            FileMeta = JsonConvert.DeserializeObject<Dictionary<string, object?>>(
                 proto.FileMeta.ToStringUtf8(),
-                GrpcTypeHelper.SystemTextSerializerOptions
+                GrpcTypeHelper.SerializerSettings
             ) ?? [],
-            UserMeta = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            UserMeta = JsonConvert.DeserializeObject<Dictionary<string, object?>>(
                 proto.UserMeta.ToStringUtf8(),
-                GrpcTypeHelper.SystemTextSerializerOptions
+                GrpcTypeHelper.SerializerSettings
             ) ?? [],
             MimeType = proto.MimeType,
             Hash = proto.Hash,
@@ -75,12 +76,12 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
 
         // Convert file metadata
         proto.FileMeta = ByteString.CopyFromUtf8(
-            System.Text.Json.JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+            JsonConvert.SerializeObject(FileMeta, GrpcTypeHelper.SerializerSettings)
         );
 
         // Convert user metadata
         proto.UserMeta = ByteString.CopyFromUtf8(
-            System.Text.Json.JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+            JsonConvert.SerializeObject(UserMeta, GrpcTypeHelper.SerializerSettings)
         );
 
         return proto;

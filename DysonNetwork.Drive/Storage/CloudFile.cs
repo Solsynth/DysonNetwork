@@ -119,11 +119,11 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
             UploadedAt = UploadedAt?.ToTimestamp(),
             // Convert file metadata
             FileMeta = ByteString.CopyFromUtf8(
-                System.Text.Json.JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+                JsonConvert.SerializeObject(FileMeta, GrpcTypeHelper.SerializerSettings)
             ),
             // Convert user metadata
             UserMeta = ByteString.CopyFromUtf8(
-                System.Text.Json.JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SystemTextSerializerOptions)
+                JsonConvert.SerializeObject(UserMeta, GrpcTypeHelper.SerializerSettings)
             )
         };
 

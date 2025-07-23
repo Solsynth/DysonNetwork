@@ -9,13 +9,6 @@ namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    public static readonly JsonSerializerOptions SystemTextSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter() }
-    };
-    
     public static readonly JsonSerializerSettings SerializerSettings = new()
     {
         ContractResolver =  new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() },
