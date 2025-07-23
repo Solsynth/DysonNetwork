@@ -32,7 +32,7 @@ public class Account : ModelBase
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
-    
+
     [NotMapped] public SubscriptionReferenceObject? PerkSubscription { get; set; }
 
     public Shared.Proto.Account ToProtoValue()
@@ -46,6 +46,7 @@ public class Account : ModelBase
             ActivatedAt = ActivatedAt?.ToTimestamp(),
             IsSuperuser = IsSuperuser,
             Profile = Profile.ToProtoValue(),
+            PerkSubscription = PerkSubscription?.ToProtoValue(),
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp()
         };
@@ -72,6 +73,9 @@ public class Account : ModelBase
             Language = proto.Language,
             ActivatedAt = proto.ActivatedAt?.ToInstant(),
             IsSuperuser = proto.IsSuperuser,
+            PerkSubscription = proto.PerkSubscription is not null
+                ? SubscriptionReferenceObject.FromProtoValue(proto.PerkSubscription)
+                : null,
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant(),
         };

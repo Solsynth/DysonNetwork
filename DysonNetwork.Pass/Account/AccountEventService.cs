@@ -10,7 +10,7 @@ namespace DysonNetwork.Pass.Account;
 
 public class AccountEventService(
     AppDatabase db,
-    PaymentService payment,
+    Wallet.PaymentService payment,
     ICacheService cache,
     IStringLocalizer<Localization.AccountEventResource> localizer,
     PusherService.PusherServiceClient pusher

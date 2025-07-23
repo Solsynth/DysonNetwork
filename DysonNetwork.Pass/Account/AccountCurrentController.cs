@@ -39,7 +39,7 @@ public class AccountCurrentController(
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
         
-        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
+        var perk = await subscriptions.GetPerkSubscriptionAsync(account!.Id);
         account.PerkSubscription = perk?.ToReference();
 
         return Ok(account);

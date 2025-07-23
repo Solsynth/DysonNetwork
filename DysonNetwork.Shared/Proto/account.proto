@@ -10,6 +10,7 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 
 import 'file.proto';
+import 'wallet.proto';
 
 // Account represents a user account in the system
 message Account {
@@ -21,6 +22,7 @@ message Account {
   bool is_superuser = 6;
 
   AccountProfile profile = 7;
+  optional SubscriptionReferenceObject perk_subscription = 16;
   repeated AccountContact contacts = 8;
   repeated AccountBadge badges = 9;
   repeated AccountAuthFactor auth_factors = 10;

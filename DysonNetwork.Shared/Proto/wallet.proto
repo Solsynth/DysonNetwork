@@ -1,0 +1,213 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/duration.proto";
+
+message Wallet {
+    string id = 1;
+    repeated WalletPocket pockets = 2;
+    string account_id = 3;
+}
+
+message WalletPocket {
+    string id = 1;
+    string currency = 2;
+    // Using string for decimal to avoid precision loss.
+    string amount = 3;
+    string wallet_id = 4;
+}
+
+enum SubscriptionStatus {
+    // Using proto3 enum naming convention
+    SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+    SUBSCRIPTION_STATUS_UNPAID = 1;
+    SUBSCRIPTION_STATUS_ACTIVE = 2;
+    SUBSCRIPTION_STATUS_EXPIRED = 3;
+    SUBSCRIPTION_STATUS_CANCELLED = 4;
+}
+
+message Subscription {
+    string id = 1;
+    google.protobuf.Timestamp begun_at = 2;
+    optional google.protobuf.Timestamp ended_at = 3;
+    string identifier = 4;
+    bool is_active = 5;
+    bool is_free_trial = 6;
+    SubscriptionStatus status = 7;
+    string payment_method = 8;
+    PaymentDetails payment_details = 9;
+    // Using string for decimal to avoid precision loss.
+    string base_price = 10;
+    optional string coupon_id = 11;
+    optional Coupon coupon = 12;
+    optional google.protobuf.Timestamp renewal_at = 13;
+    string account_id = 14;
+    bool is_available = 15;
+    // Using string for decimal to avoid precision loss.
+    string final_price = 16;
+}
+
+message SubscriptionReferenceObject {
+    string id = 1;
+    string identifier = 2;
+    google.protobuf.Timestamp begun_at = 3;
+    optional google.protobuf.Timestamp ended_at = 4;
+    bool is_active = 5;
+    bool is_available = 6;
+    bool is_free_trial = 7;
+    SubscriptionStatus status = 8;
+    // Using string for decimal to avoid precision loss.
+    string base_price = 9;
+    // Using string for decimal to avoid precision loss.
+    string final_price = 10;
+    optional google.protobuf.Timestamp renewal_at = 11;
+    string account_id = 12;
+    optional string display_name = 13;
+}
+
+message PaymentDetails {
+    string currency = 1;
+    optional string order_id = 2;
+}
+
+message Coupon {
+    string id = 1;
+    optional string identifier = 2;
+    optional string code = 3;
+    optional google.protobuf.Timestamp affected_at = 4;
+    optional google.protobuf.Timestamp expired_at = 5;
+    // Using string for decimal to avoid precision loss.
+    optional string discount_amount = 6;
+    optional google.protobuf.DoubleValue discount_rate = 7;
+    optional google.protobuf.Int32Value max_usage = 8;
+}
+
+service WalletService {
+    rpc GetWallet(GetWalletRequest) returns (Wallet);
+    rpc CreateWallet(CreateWalletRequest) returns (Wallet);
+    rpc GetOrCreateWalletPocket(GetOrCreateWalletPocketRequest) returns (WalletPocket);
+}
+
+message GetWalletRequest {
+    string account_id = 1;
+}
+
+message CreateWalletRequest {
+    string account_id = 1;
+}
+
+message GetOrCreateWalletPocketRequest {
+    string wallet_id = 1;
+    string currency = 2;
+    optional string initial_amount = 3;
+}
+
+service PaymentService {
+    rpc CreateOrder(CreateOrderRequest) returns (Order);
+    rpc CreateTransactionWithAccount(CreateTransactionWithAccountRequest) returns (Transaction);
+    rpc CreateTransaction(CreateTransactionRequest) returns (Transaction);
+    rpc PayOrder(PayOrderRequest) returns (Order);
+    rpc CancelOrder(CancelOrderRequest) returns (Order);
+    rpc RefundOrder(RefundOrderRequest) returns (RefundOrderResponse);
+    rpc Transfer(TransferRequest) returns (Transaction);
+}
+
+message CreateOrderRequest {
+    optional string payee_wallet_id = 1;
+    string currency = 2;
+    string amount = 3;
+    optional google.protobuf.Duration expiration = 4;
+    optional string app_identifier = 5;
+    // Using bytes for meta to represent JSON.
+    optional bytes meta = 6;
+    bool reuseable = 7;
+}
+
+message Order {
+    string id = 1;
+    optional string payee_wallet_id = 2;
+    string currency = 3;
+    string amount = 4;
+    google.protobuf.Timestamp expired_at = 5;
+    optional string app_identifier = 6;
+    // Using bytes for meta to represent JSON.
+    optional bytes meta = 7;
+    OrderStatus status = 8;
+    optional string transaction_id = 9;
+    optional Transaction transaction = 10;
+    optional string remarks = 11;
+}
+
+enum OrderStatus {
+    ORDER_STATUS_UNSPECIFIED = 0;
+    ORDER_STATUS_UNPAID = 1;
+    ORDER_STATUS_PAID = 2;
+    ORDER_STATUS_EXPIRED = 3;
+    ORDER_STATUS_CANCELLED = 4;
+    ORDER_STATUS_FINISHED = 5;
+}
+
+message Transaction {
+    string id = 1;
+    optional string payer_wallet_id = 2;
+    optional string payee_wallet_id = 3;
+    string currency = 4;
+    string amount = 5;
+    optional string remarks = 6;
+    TransactionType type = 7;
+}
+
+enum TransactionType {
+    TRANSACTION_TYPE_UNSPECIFIED = 0;
+    TRANSACTION_TYPE_SYSTEM = 1;
+    TRANSACTION_TYPE_ORDER = 2;
+    TRANSACTION_TYPE_TRANSFER = 3;
+}
+
+message CreateTransactionWithAccountRequest {
+    optional string payer_account_id = 1;
+    optional string payee_account_id = 2;
+    string currency = 3;
+    string amount = 4;
+    optional string remarks = 5;
+    TransactionType type = 6;
+}
+
+message CreateTransactionRequest {
+    optional string payer_wallet_id = 1;
+    optional string payee_wallet_id = 2;
+    string currency = 3;
+    string amount = 4;
+    optional string remarks = 5;
+    TransactionType type = 6;
+}
+
+message PayOrderRequest {
+    string order_id = 1;
+    string payer_wallet_id = 2;
+}
+
+message CancelOrderRequest {
+    string order_id = 1;
+}
+
+message RefundOrderRequest {
+    string order_id = 1;
+}
+
+message RefundOrderResponse {
+    Order order = 1;
+    Transaction refund_transaction = 2;
+}
+
+message TransferRequest {
+    string payer_account_id = 1;
+    string payee_account_id = 2;
+    string currency = 3;
+    string amount = 4;
+}

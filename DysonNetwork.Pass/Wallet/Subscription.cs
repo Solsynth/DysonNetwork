@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Globalization;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Wallet;
 
@@ -199,6 +201,44 @@ public class Subscription : ModelBase
             AccountId = AccountId
         };
     }
+
+    public Shared.Proto.Subscription ToProtoValue() => new()
+    {
+        Id = Id.ToString(),
+        BegunAt = BegunAt.ToTimestamp(),
+        EndedAt = EndedAt?.ToTimestamp(),
+        Identifier = Identifier,
+        IsActive = IsActive,
+        IsFreeTrial = IsFreeTrial,
+        Status = (Shared.Proto.SubscriptionStatus)Status,
+        PaymentMethod = PaymentMethod,
+        PaymentDetails = PaymentDetails.ToProtoValue(),
+        BasePrice = BasePrice.ToString(),
+        CouponId = CouponId?.ToString(),
+        Coupon = Coupon?.ToProtoValue(),
+        RenewalAt = RenewalAt?.ToTimestamp(),
+        AccountId = AccountId.ToString(),
+        IsAvailable = IsAvailable,
+        FinalPrice = FinalPrice.ToString(),
+    };
+
+    public static Subscription FromProtoValue(Shared.Proto.Subscription proto) => new()
+    {
+        Id = Guid.Parse(proto.Id),
+        BegunAt = proto.BegunAt.ToInstant(),
+        EndedAt = proto.EndedAt?.ToInstant(),
+        Identifier = proto.Identifier,
+        IsActive = proto.IsActive,
+        IsFreeTrial = proto.IsFreeTrial,
+        Status = (SubscriptionStatus)proto.Status,
+        PaymentMethod = proto.PaymentMethod,
+        PaymentDetails = PaymentDetails.FromProtoValue(proto.PaymentDetails),
+        BasePrice = decimal.Parse(proto.BasePrice),
+        CouponId = proto.HasCouponId ? Guid.Parse(proto.CouponId) : null,
+        Coupon = proto.Coupon is not null ? Coupon.FromProtoValue(proto.Coupon) : null,
+        RenewalAt = proto.RenewalAt?.ToInstant(),
+        AccountId = Guid.Parse(proto.AccountId),
+    };
 }
 
 /// <summary>
@@ -227,12 +267,57 @@ public class SubscriptionReferenceObject : ModelBase
     public string? DisplayName => SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(Identifier, out var name) 
         ? name 
         : null;
+
+    public Shared.Proto.SubscriptionReferenceObject ToProtoValue() => new()
+    {
+        Id = Id.ToString(),
+        Identifier = Identifier,
+        BegunAt = BegunAt.ToTimestamp(),
+        EndedAt = EndedAt?.ToTimestamp(),
+        IsActive = IsActive,
+        IsAvailable = IsAvailable,
+        IsFreeTrial = IsFreeTrial,
+        Status = (Shared.Proto.SubscriptionStatus)Status,
+        BasePrice = BasePrice.ToString(CultureInfo.CurrentCulture),
+        FinalPrice = FinalPrice.ToString(CultureInfo.CurrentCulture),
+        RenewalAt = RenewalAt?.ToTimestamp(),
+        AccountId = AccountId.ToString(),
+        DisplayName = DisplayName,
+    };
+
+    public static SubscriptionReferenceObject FromProtoValue(Shared.Proto.SubscriptionReferenceObject proto) => new()
+    {
+        Id = Guid.Parse(proto.Id),
+        Identifier = proto.Identifier,
+        BegunAt = proto.BegunAt.ToInstant(),
+        EndedAt = proto.EndedAt?.ToInstant(),
+        IsActive = proto.IsActive,
+        IsAvailable = proto.IsAvailable,
+        IsFreeTrial = proto.IsFreeTrial,
+        Status = (SubscriptionStatus)proto.Status,
+        BasePrice = decimal.Parse(proto.BasePrice),
+        FinalPrice = decimal.Parse(proto.FinalPrice),
+        RenewalAt = proto.RenewalAt?.ToInstant(),
+        AccountId = Guid.Parse(proto.AccountId),
+    };
 }
 
 public class PaymentDetails
 {
     public string Currency { get; set; } = null!;
     public string? OrderId { get; set; }
+
+    public Shared.Proto.PaymentDetails ToProtoValue() => new()
+    {
+        Currency = Currency,
+        OrderId = OrderId,
+    };
+
+    public static PaymentDetails FromProtoValue(Shared.Proto.PaymentDetails proto) => new()
+    {
+        Currency = proto.Currency,
+        OrderId = proto.OrderId,
+    };
 }
 
 /// <summary>
@@ -281,4 +366,28 @@ public class Coupon : ModelBase
     /// Leave it to null to use it unlimited.
     /// </summary>
     public int? MaxUsage { get; set; }
+
+    public Shared.Proto.Coupon ToProtoValue() => new()
+    {
+        Id = Id.ToString(),
+        Identifier = Identifier,
+        Code = Code,
+        AffectedAt = AffectedAt?.ToTimestamp(),
+        ExpiredAt = ExpiredAt?.ToTimestamp(),
+        DiscountAmount = DiscountAmount?.ToString(),
+        DiscountRate = DiscountRate,
+        MaxUsage = MaxUsage,
+    };
+
+    public static Coupon FromProtoValue(Shared.Proto.Coupon proto) => new()
+    {
+        Id = Guid.Parse(proto.Id),
+        Identifier = proto.Identifier,
+        Code = proto.Code,
+        AffectedAt = proto.AffectedAt?.ToInstant(),
+        ExpiredAt = proto.ExpiredAt?.ToInstant(),
+        DiscountAmount = proto.HasDiscountAmount ? decimal.Parse(proto.DiscountAmount) : null,
+        DiscountRate = proto.DiscountRate,
+        MaxUsage = proto.MaxUsage,
+    };
 }
