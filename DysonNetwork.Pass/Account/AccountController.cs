@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
+using DysonNetwork.Pass.Wallet;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -12,6 +13,7 @@ public class AccountController(
     AppDatabase db,
     AuthService auth,
     AccountService accounts,
+    SubscriptionService subscriptions,
     AccountEventService events
 ) : ControllerBase
 {
@@ -25,7 +27,12 @@ public class AccountController(
             .Include(e => e.Profile)
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
-        return account is null ? new NotFoundResult() : account;
+        if (account is null) return new NotFoundResult();
+        
+        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
+        account.PerkSubscription = perk?.ToReference();
+        
+        return account;
     }
 
     [HttpGet("{name}/badges")]

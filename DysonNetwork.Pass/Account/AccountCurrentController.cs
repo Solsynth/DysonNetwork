@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +19,7 @@ namespace DysonNetwork.Pass.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
+    SubscriptionService subscriptions,
     AccountEventService events,
     AuthService auth,
     FileService.FileServiceClient files,
@@ -36,6 +38,9 @@ public class AccountCurrentController(
             .Include(e => e.Profile)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
+        
+        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
+        account.PerkSubscription = perk?.ToReference();
 
         return Ok(account);
     }

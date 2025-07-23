@@ -1,15 +1,16 @@
+using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Account;
 
 public class AccountServiceGrpc(
     AppDatabase db,
     RelationshipService relationships,
+    SubscriptionService subscriptions,
     IClock clock,
     ILogger<AccountServiceGrpc> logger
 )
@@ -34,6 +35,9 @@ public class AccountServiceGrpc(
         if (account == null)
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, $"Account {request.Id} not found"));
 
+        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
+        account.PerkSubscription = perk?.ToReference();
+
         return account.ToProtoValue();
     }
 
@@ -51,13 +55,21 @@ public class AccountServiceGrpc(
             .Where(a => accountIds.Contains(a.Id))
             .Include(a => a.Profile)
             .ToListAsync();
+        
+        var perks = await subscriptions.GetPerkSubscriptionsAsync(
+            accounts.Select(x => x.Id).ToList()
+        );
+        foreach (var account in accounts)
+            if (perks.TryGetValue(account.Id, out var perk))
+                account.PerkSubscription = perk?.ToReference();
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
     }
 
-    public override async Task<GetAccountBatchResponse> LookupAccountBatch(LookupAccountBatchRequest request, ServerCallContext context)
+    public override async Task<GetAccountBatchResponse> LookupAccountBatch(LookupAccountBatchRequest request,
+        ServerCallContext context)
     {
         var accountNames = request.Names.ToList();
         var accounts = await _db.Accounts
@@ -65,6 +77,14 @@ public class AccountServiceGrpc(
             .Where(a => accountNames.Contains(a.Name))
             .Include(a => a.Profile)
             .ToListAsync();
+        
+        var perks = await subscriptions.GetPerkSubscriptionsAsync(
+            accounts.Select(x => x.Id).ToList()
+        );
+        foreach (var account in accounts)
+            if (perks.TryGetValue(account.Id, out var perk))
+                account.PerkSubscription = perk?.ToReference();
+        
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
@@ -100,6 +120,13 @@ public class AccountServiceGrpc(
             .Take(request.PageSize)
             .Include(a => a.Profile)
             .ToListAsync();
+
+        var perks = await subscriptions.GetPerkSubscriptionsAsync(
+            accounts.Select(x => x.Id).ToList()
+        );
+        foreach (var account in accounts)
+            if (perks.TryGetValue(account.Id, out var perk))
+                account.PerkSubscription = perk?.ToReference();
 
         var response = new ListAccountsResponse
         {

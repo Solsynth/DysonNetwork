@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
@@ -377,7 +379,10 @@ public class SubscriptionService(
     public async Task<Subscription?> GetSubscriptionAsync(Guid accountId, params string[] identifiers)
     {
         // Create a unique cache key for this subscription
-        var cacheKey = $"{SubscriptionCacheKeyPrefix}{accountId}:{string.Join(",", identifiers)}";
+        var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(string.Join(",", identifiers)));
+        var hashIdentifier = Convert.ToHexStringLower(hashBytes);
+
+        var cacheKey = $"{SubscriptionCacheKeyPrefix}{accountId}:{hashIdentifier}";
 
         // Try to get the subscription from cache first
         var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
@@ -397,5 +402,72 @@ public class SubscriptionService(
             await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(30));
 
         return subscription;
+    }
+
+    private const string SubscriptionPerkCacheKeyPrefix = "subscription:perk:";
+
+    private static readonly List<string> PerkIdentifiers =
+        [SubscriptionType.Stellar, SubscriptionType.Nova, SubscriptionType.Supernova];
+
+    public async Task<Subscription?> GetPerkSubscriptionAsync(Guid accountId)
+    {
+        var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{accountId}";
+
+        // Try to get the subscription from cache first
+        var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
+        if (found && cachedSubscription != null)
+        {
+            return cachedSubscription;
+        }
+
+        // If not in cache, get from database
+        var subscription = await db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId && PerkIdentifiers.Contains(s.Identifier))
+            .OrderByDescending(s => s.BegunAt)
+            .FirstOrDefaultAsync();
+
+        // Cache the result if found (with 30 minutes expiry)
+        if (subscription != null)
+            await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(30));
+
+        return subscription;
+    }
+
+
+    public async Task<Dictionary<Guid, Subscription?>> GetPerkSubscriptionsAsync(List<Guid> accountIds)
+    {
+        var result = new Dictionary<Guid, Subscription?>();
+        var missingAccountIds = new List<Guid>();
+
+        // Try to get the subscription from cache first
+        foreach (var accountId in accountIds)
+        {
+            var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{accountId}";
+            var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
+            if (found && cachedSubscription != null)
+                result[accountId] = cachedSubscription;
+            else
+                missingAccountIds.Add(accountId);
+        }
+
+        if (missingAccountIds.Count <= 0) return result;
+
+        // If not in cache, get from database
+        var subscriptions = await db.WalletSubscriptions
+            .Where(s => missingAccountIds.Contains(s.AccountId))
+            .Where(s => PerkIdentifiers.Contains(s.Identifier))
+            .ToListAsync();
+
+        // Group the subscriptions by account id
+        foreach (var subscription in subscriptions)
+        {
+            result[subscription.AccountId] = subscription;
+
+            // Cache the result if found (with 30 minutes expiry)
+            var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{subscription.AccountId}";
+            await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(30));
+        }
+
+        return result;
     }
 }

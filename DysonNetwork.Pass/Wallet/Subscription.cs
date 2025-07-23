@@ -176,6 +176,57 @@ public class Subscription : ModelBase
             return BasePrice;
         }
     }
+
+    /// <summary>
+    /// Returns a reference object that contains a subset of subscription data
+    /// suitable for client-side use, with sensitive information removed.
+    /// </summary>
+    public SubscriptionReferenceObject ToReference()
+    {
+        return new SubscriptionReferenceObject
+        {
+            Id = Id,
+            Identifier = Identifier,
+            BegunAt = BegunAt,
+            EndedAt = EndedAt,
+            IsActive = IsActive,
+            IsAvailable = IsAvailable,
+            IsFreeTrial = IsFreeTrial,
+            Status = Status,
+            BasePrice = BasePrice,
+            FinalPrice = FinalPrice,
+            RenewalAt = RenewalAt,
+            AccountId = AccountId
+        };
+    }
+}
+
+/// <summary>
+/// A reference object for Subscription that contains only non-sensitive information
+/// suitable for client-side use.
+/// </summary>
+public class SubscriptionReferenceObject : ModelBase
+{
+    public Guid Id { get; set; }
+    public string Identifier { get; set; } = null!;
+    public Instant BegunAt { get; set; }
+    public Instant? EndedAt { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsAvailable { get; set; }
+    public bool IsFreeTrial { get; set; }
+    public SubscriptionStatus Status { get; set; }
+    public decimal BasePrice { get; set; }
+    public decimal FinalPrice { get; set; }
+    public Instant? RenewalAt { get; set; }
+    public Guid AccountId { get; set; }
+
+    /// <summary>
+    /// Gets the human-readable name of the subscription type if available.
+    /// </summary>
+    [NotMapped]
+    public string? DisplayName => SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(Identifier, out var name) 
+        ? name 
+        : null;
 }
 
 public class PaymentDetails

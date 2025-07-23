@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -31,6 +32,8 @@ public class Account : ModelBase
 
     [JsonIgnore] public ICollection<Relationship> OutgoingRelationships { get; set; } = new List<Relationship>();
     [JsonIgnore] public ICollection<Relationship> IncomingRelationships { get; set; } = new List<Relationship>();
+    
+    [NotMapped] public SubscriptionReferenceObject? PerkSubscription { get; set; }
 
     public Shared.Proto.Account ToProtoValue()
     {
