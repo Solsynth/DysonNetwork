@@ -15,9 +15,12 @@ public class AuthController(
     AccountService accounts,
     AuthService auth,
     GeoIpService geo,
-    ActionLogService als
+    ActionLogService als,
+    IConfiguration configuration
 ) : ControllerBase
 {
+    private readonly string CookieDomain = configuration["AuthToken:CookieDomain"]!;
+    
     public class ChallengeRequest
     {
         [Required] public ChallengePlatform Platform { get; set; }
@@ -80,8 +83,8 @@ public class AuthController(
             .ThenInclude(e => e.Profile)
             .FirstOrDefaultAsync(e => e.Id == id);
 
-        return challenge is null 
-            ? NotFound("Auth challenge was not found.") 
+        return challenge is null
+            ? NotFound("Auth challenge was not found.")
             : challenge;
     }
 
@@ -249,11 +252,19 @@ public class AuthController(
                 await db.SaveChangesAsync();
 
                 var tk = auth.CreateToken(session);
+                Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
+                    Domain = CookieDomain,
+                    Expires = DateTime.UtcNow.AddDays(30)
+                });
+
                 return Ok(new TokenExchangeResponse { Token = tk });
-            case "refresh_token":
-            // Since we no longer need the refresh token
-            // This case is blank for now, thinking to mock it if the OIDC standard requires it
             default:
+                // Since we no longer need the refresh token
+                // This case is blank for now, thinking to mock it if the OIDC standard requires it
                 return BadRequest("Unsupported grant type.");
         }
     }
@@ -263,5 +274,18 @@ public class AuthController(
     {
         var result = await auth.ValidateCaptcha(token);
         return result ? Ok() : BadRequest();
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete(AuthConstants.CookieTokenName, new CookieOptions
+        {
+            Domain = CookieDomain,
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax
+        });
+        return Ok();
     }
 }

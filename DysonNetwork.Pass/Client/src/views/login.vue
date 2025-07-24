@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { NCard, NSpace, NInput, NButton, NSpin, NAlert, NProgress } from 'naive-ui'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+
 import FingerprintJS from '@fingerprintjs/fingerprintjs'
 
 // State management
@@ -190,6 +192,9 @@ async function handleVerifyFactor() {
   }
 }
 
+const userStore = useUserStore()
+const route = useRoute()
+
 async function exchangeToken() {
   isLoading.value = true
   error.value = null
@@ -210,7 +215,14 @@ async function exchangeToken() {
 
     const { token } = await response.json()
     localStorage.setItem('authToken', token)
-    await router.push('/')
+    await userStore.fetchUser()
+
+    const redirectUri = route.query.redirect_uri as string
+    if (redirectUri) {
+      window.location.href = redirectUri
+    } else {
+      await router.push('/')
+    }
   } catch (e: any) {
     error.value = e.message
     stage.value = 'select-factor' // Go back if token exchange fails
@@ -253,6 +265,11 @@ function getFactorName(factorType: number) {
             <n-button type="primary" block class="mt-4" size="large" @click="handleFindAccount">
               Continue
             </n-button>
+            <div class="mt-3 text-sm text-center opacity-75">
+              <n-button text block @click="router.push('/create-account')" size="tiny">
+                Don't have an account? Create one!
+              </n-button>
+            </div>
           </div>
 
           <!-- Stage 2: Select Factor -->
