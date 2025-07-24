@@ -165,7 +165,7 @@ public class AccountEventService(
         PurgeStatusCache(user.Id);
     }
 
-    private const int FortuneTipCount = 7; // This will be the max index for each type (positive/negative)
+    private const int FortuneTipCount = 14; // This will be the max index for each type (positive/negative)
     private const string CaptchaCacheKey = "CheckInCaptcha_";
     private const int CaptchaProbabilityPercent = 20;
 

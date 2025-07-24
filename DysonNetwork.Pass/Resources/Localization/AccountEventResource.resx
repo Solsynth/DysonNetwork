@@ -110,4 +110,7 @@
   <data name="FortuneTipNegativeTitle_1 " xml:space="preserve">
     <value>Gacha</value>
   </data>
+  <data name="FortuneTipPositiveContent_14" xml:space="preserve">
+    <value />
+  </data>
 </root>

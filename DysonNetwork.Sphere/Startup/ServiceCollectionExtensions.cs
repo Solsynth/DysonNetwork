@@ -14,10 +14,6 @@ using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Threading.RateLimiting;
-using DysonNetwork.Pass.Auth.OidcProvider.Options;
-using DysonNetwork.Pass.Auth.OidcProvider.Services;
-using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Sphere.WebReader;
@@ -164,18 +160,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ChatRoomService>();
         services.AddScoped<ChatService>();
         services.AddScoped<StickerService>();
-        services.AddScoped<WalletService>();
-        services.AddScoped<SubscriptionService>();
-        services.AddScoped<PaymentService>();
         services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<CustomAppService>();
         
-        services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
-        services.AddScoped<OidcProviderService>();
-
         return services;
     }
 }

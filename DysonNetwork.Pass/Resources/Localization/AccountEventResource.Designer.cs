@@ -28,7 +28,7 @@ namespace DysonNetwork.Sphere.Resources {
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.AccountEventResource", typeof(AccountEventResource).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Pass.Resources.Localization.AccountEventResource", typeof(AccountEventResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -216,6 +216,12 @@ namespace DysonNetwork.Sphere.Resources {
         internal static string FortuneTipNegativeTitle_1_ {
             get {
                 return ResourceManager.GetString("FortuneTipNegativeTitle_1 ", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_14 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_14", resourceCulture);
             }
         }
     }
