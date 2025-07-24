@@ -19,6 +19,9 @@ public static class KestrelConfiguration
             options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
             options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
             
+            var configuredUrl = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+            if (!string.IsNullOrEmpty(configuredUrl)) return;
+            
             var certPath = configuration["Service:ClientCert"]!;
             var keyPath = configuration["Service:ClientKey"]!;
 
