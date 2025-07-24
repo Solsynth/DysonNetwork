@@ -59,7 +59,7 @@ public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, Chat
             return;
         }
         
-        await cs.ReadChatRoomAsync(Guid.Parse(currentUser.Id), requestData.ChatRoomId);
+        await cs.ReadChatRoomAsync(requestData.ChatRoomId, Guid.Parse(currentUser.Id));
     }
 
     private async Task HandleMessageTyping(ReceiveWebSocketPacketRequest request, ServerCallContext context)
