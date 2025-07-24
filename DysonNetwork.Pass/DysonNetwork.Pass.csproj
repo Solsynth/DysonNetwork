@@ -4,7 +4,6 @@
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <EnableDefaultContentItems>false</EnableDefaultContentItems>
     </PropertyGroup>
 
     <ItemGroup>
@@ -150,11 +149,9 @@
         <AdditionalFiles Include="Resources\Localization\SharedResource.resx"/>
         <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx"/>
     </ItemGroup>
-
+    
     <ItemGroup>
-        <Content Remove="Client\**"/>
-        <Compile Remove="Client\**"/>
-        <Compile Remove="wwwroot\dist\assets\Captcha.js"/>
+        <Content Remove="wwwroot/dist/assets/Captcha.js" />
     </ItemGroup>
 
 </Project>
