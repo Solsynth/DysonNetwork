@@ -107,7 +107,7 @@ public class PusherServiceGrpc(
             Topic = request.Notification.Topic,
             Title = request.Notification.Title,
             Subtitle = request.Notification.Subtitle, Content = request.Notification.Body,
-            Meta = GrpcTypeHelper.ConvertFromValueMap(request.Notification.Meta),
+            Meta = GrpcTypeHelper.ConvertFromValueMap(request.Notification.Meta)
         };
         if (request.Notification.ActionUri is not null)
             notification.Meta["action_uri"] = request.Notification.ActionUri;

@@ -220,7 +220,6 @@ public partial class ChatService(
                 ["images"] = message.Attachments
                     .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
                     .Select(a => a.Id).ToList(),
-                ["action_uri"] = $"/chat/{room.Id}"
             };
         if (sender.Account.Profile is not { Picture: null })
             metaDict["pfp"] = sender.Account.Profile.Picture.Id;
@@ -234,7 +233,8 @@ public partial class ChatService(
             Body = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<no content>",
-            IsSavable = false
+            ActionUri = $"/chat/{room.Id}",
+            IsSavable = false,
         };
         notification.Meta.Add(GrpcTypeHelper.ConvertToValueMap(metaDict));
 

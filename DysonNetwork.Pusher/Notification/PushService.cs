@@ -238,7 +238,7 @@ public class PushService
                             {
                                 ["id"] = notification.Id,
                                 ["topic"] = notification.Topic,
-                                ["meta"] = notification.Meta ?? new Dictionary<string, object>()
+                                ["meta"] = notification.Meta
                             }
                         }
                     });
@@ -259,13 +259,14 @@ public class PushService
                     var payload = new Dictionary<string, object?>
                     {
                         ["topic"] = _apnsTopic,
+                        ["type"] = notification.Topic,
                         ["aps"] = new Dictionary<string, object?>
                         {
                             ["alert"] = alertDict,
                             ["sound"] = notification.Priority >= 5 ? "default" : null,
                             ["mutable-content"] = 1
                         },
-                        ["meta"] = notification.Meta ?? new Dictionary<string, object>()
+                        ["meta"] = notification.Meta
                     };
 
                     await _apns.SendAsync(
