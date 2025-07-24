@@ -72,7 +72,6 @@ public partial class PostService(
     }
 
     public async Task<Post> PostAsync(
-        Account user,
         Post post,
         List<string>? attachments = null,
         List<string>? tags = null,

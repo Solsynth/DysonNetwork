@@ -1,20 +1,26 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
+using DysonNetwork.Shared.Data;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    public static readonly JsonSerializerSettings SerializerSettings = new()
+    public static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        ContractResolver =  new DefaultContractResolver { NamingStrategy = new SnakeCaseNamingStrategy() },
-        PreserveReferencesHandling = PreserveReferencesHandling.None,
-        NullValueHandling = NullValueHandling.Include,
-        DateParseHandling = DateParseHandling.None
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        PropertyNameCaseInsensitive = true,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver
+        {
+            Modifiers = { JsonExtensions.UnignoreAllProperties() }
+        }
     };
 
     public static MapField<string, Value> ConvertToValueMap(Dictionary<string, object> source)
@@ -31,7 +37,7 @@ public abstract class GrpcTypeHelper
                 double d => Value.ForNumber(d),
                 bool b => Value.ForBool(b),
                 null => Value.ForNull(),
-                _ => Value.ForString(JsonConvert.SerializeObject(kvp.Value, SerializerSettings)) // fallback to JSON string
+                _ => Value.ForString(JsonSerializer.Serialize(kvp.Value, SerializerOptions)) // fallback to JSON string
             };
         }
         return result;
@@ -49,7 +55,7 @@ public abstract class GrpcTypeHelper
                     try
                     {
                         // Try to parse as JSON object or primitive
-                        result[kvp.Key] = JsonConvert.DeserializeObject(value.StringValue, SerializerSettings);
+                        result[kvp.Key] = JsonNode.Parse(value.StringValue)?.AsObject() ?? JsonObject.Create(new JsonElement());
                     }
                     catch
                     {
@@ -67,10 +73,22 @@ public abstract class GrpcTypeHelper
                     result[kvp.Key] = null;
                     break;
                 case Value.KindOneofCase.StructValue:
-                    result[kvp.Key] = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value.StructValue.Fields.ToDictionary(f => f.Key, f => ConvertValueToObject(f.Value)), SerializerSettings));
+                    result[kvp.Key] = JsonSerializer.Deserialize<JsonElement>(
+                        JsonSerializer.Serialize(
+                            value.StructValue.Fields.ToDictionary(f => f.Key, f => ConvertValueToObject(f.Value)), 
+                            SerializerOptions
+                        ),
+                        SerializerOptions
+                    );
                     break;
                 case Value.KindOneofCase.ListValue:
-                    result[kvp.Key] = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value.ListValue.Values.Select(ConvertValueToObject).ToList(), SerializerSettings), SerializerSettings);
+                    result[kvp.Key] = JsonSerializer.Deserialize<JsonElement>(
+                        JsonSerializer.Serialize(
+                            value.ListValue.Values.Select(ConvertValueToObject).ToList(),
+                            SerializerOptions
+                        ),
+                        SerializerOptions
+                    );
                     break;
                 default:
                     result[kvp.Key] = null;
@@ -88,7 +106,7 @@ public abstract class GrpcTypeHelper
             Value.KindOneofCase.NumberValue => value.NumberValue,
             Value.KindOneofCase.BoolValue => value.BoolValue,
             Value.KindOneofCase.NullValue => null,
-            _ => JsonConvert.DeserializeObject(JsonConvert.SerializeObject(value, SerializerSettings))
+            _ => JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(value, SerializerOptions), SerializerOptions)
         };
     }
     
@@ -96,8 +114,8 @@ public abstract class GrpcTypeHelper
     {
         return value.KindCase switch
         {
-            Value.KindOneofCase.StringValue => JsonConvert.DeserializeObject<T>(value.StringValue, SerializerSettings),
-            _ => JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(value, SerializerSettings))
+            Value.KindOneofCase.StringValue => JsonSerializer.Deserialize<T>(value.StringValue, SerializerOptions),
+            _ => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, SerializerOptions), SerializerOptions)
         };
     }
     
@@ -112,7 +130,7 @@ public abstract class GrpcTypeHelper
             double d => Value.ForNumber(d),
             bool b => Value.ForBool(b),
             null => Value.ForNull(),
-            _ => Value.ForString(JsonConvert.SerializeObject(obj, SerializerSettings)) // fallback to JSON string
+            _ => Value.ForString(JsonSerializer.Serialize(obj, SerializerOptions)) // fallback to JSON string
         };
     }
     
@@ -123,7 +141,7 @@ public abstract class GrpcTypeHelper
         return obj switch
         {
             null => Value.ForNull(),
-            _ => Value.ForString(JsonConvert.SerializeObject(obj, SerializerSettings))
+            _ => Value.ForString(JsonSerializer.Serialize(obj, SerializerOptions))
         };
     }
 }

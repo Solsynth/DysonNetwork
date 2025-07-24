@@ -3,7 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
-using Newtonsoft.Json;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -119,11 +118,11 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
             UploadedAt = UploadedAt?.ToTimestamp(),
             // Convert file metadata
             FileMeta = ByteString.CopyFromUtf8(
-                JsonConvert.SerializeObject(FileMeta, GrpcTypeHelper.SerializerSettings)
+                System.Text.Json.JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SerializerOptions)
             ),
             // Convert user metadata
             UserMeta = ByteString.CopyFromUtf8(
-                JsonConvert.SerializeObject(UserMeta, GrpcTypeHelper.SerializerSettings)
+                System.Text.Json.JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SerializerOptions)
             )
         };
 

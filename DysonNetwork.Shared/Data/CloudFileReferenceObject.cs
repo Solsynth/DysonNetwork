@@ -1,6 +1,6 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
-using Newtonsoft.Json;
 
 namespace DysonNetwork.Shared.Data;
 
@@ -42,14 +42,20 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
         {
             Id = proto.Id,
             Name = proto.Name,
-            FileMeta = JsonConvert.DeserializeObject<Dictionary<string, object?>>(
+            FileMeta = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                 proto.FileMeta.ToStringUtf8(),
-                GrpcTypeHelper.SerializerSettings
-            ) ?? [],
-            UserMeta = JsonConvert.DeserializeObject<Dictionary<string, object?>>(
+                GrpcTypeHelper.SerializerOptions
+            )?.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.ValueKind == JsonValueKind.Undefined ? null : kvp.Value.Deserialize<object?>(GrpcTypeHelper.SerializerOptions)
+            ) ?? new Dictionary<string, object?>(),
+            UserMeta = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
                 proto.UserMeta.ToStringUtf8(),
-                GrpcTypeHelper.SerializerSettings
-            ) ?? [],
+                GrpcTypeHelper.SerializerOptions
+            )?.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.ValueKind == JsonValueKind.Undefined ? null : kvp.Value.Deserialize<object?>(GrpcTypeHelper.SerializerOptions)
+            ) ?? new Dictionary<string, object?>(),
             MimeType = proto.MimeType,
             Hash = proto.Hash,
             Size = proto.Size,
@@ -76,12 +82,12 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
 
         // Convert file metadata
         proto.FileMeta = ByteString.CopyFromUtf8(
-            JsonConvert.SerializeObject(FileMeta, GrpcTypeHelper.SerializerSettings)
+            JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SerializerOptions)
         );
 
         // Convert user metadata
         proto.UserMeta = ByteString.CopyFromUtf8(
-            JsonConvert.SerializeObject(UserMeta, GrpcTypeHelper.SerializerSettings)
+            JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SerializerOptions)
         );
 
         return proto;

@@ -281,7 +281,6 @@ public class PostController(
         try
         {
             post = await ps.PostAsync(
-                currentUser,
                 post,
                 attachments: request.Attachments,
                 tags: request.Tags,

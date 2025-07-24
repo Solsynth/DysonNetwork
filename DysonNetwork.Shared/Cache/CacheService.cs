@@ -1,7 +1,9 @@
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using DysonNetwork.Shared.Data;
 using NodaTime;
-using NodaTime.Serialization.JsonNet;
+using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 
 namespace DysonNetwork.Shared.Cache;
@@ -43,7 +45,7 @@ public interface ICacheService
     /// Gets a value from the cache
     /// </summary>
     Task<T?> GetAsync<T>(string key);
-    
+
     /// <summary>
     /// Get a value from the cache with the found status
     /// </summary>
@@ -186,7 +188,7 @@ public class RedisDistributedLock : IDistributedLock
 public class CacheServiceRedis : ICacheService
 {
     private readonly IDatabase _database;
-    private readonly JsonSerializerSettings _serializerSettings;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     // Global prefix for all cache keys
     public const string GlobalKeyPrefix = "dyson:";
@@ -199,19 +201,18 @@ public class CacheServiceRedis : ICacheService
     {
         var rds = redis ?? throw new ArgumentNullException(nameof(redis));
         _database = rds.GetDatabase();
-        
-        // Configure Newtonsoft.Json with proper NodaTime serialization
-        _serializerSettings = new JsonSerializerSettings
+
+        // Configure System.Text.Json with proper NodaTime serialization
+        _jsonOptions = new JsonSerializerOptions
         {
-            ContractResolver = new CamelCasePropertyNamesContractResolver(),
-            PreserveReferencesHandling = PreserveReferencesHandling.None,
-            NullValueHandling = NullValueHandling.Include,
-            DateParseHandling = DateParseHandling.None,
-            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver
+            {
+                Modifiers = { JsonExtensions.UnignoreAllProperties() },
+            },
+            ReferenceHandler = ReferenceHandler.Preserve,
         };
-        
-        // Configure NodaTime serializers
-        _serializerSettings.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+        _jsonOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+        _jsonOptions.PropertyNameCaseInsensitive = true;
     }
 
     public async Task<bool> SetAsync<T>(string key, T value, TimeSpan? expiry = null)
@@ -220,7 +221,7 @@ public class CacheServiceRedis : ICacheService
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
-        var serializedValue = JsonConvert.SerializeObject(value, _serializerSettings);
+        var serializedValue = JsonSerializer.Serialize(value, _jsonOptions);
         return await _database.StringSetAsync(key, serializedValue, expiry);
     }
 
@@ -235,8 +236,8 @@ public class CacheServiceRedis : ICacheService
         if (value.IsNullOrEmpty)
             return default;
 
-        // For NodaTime serialization, use the configured serializer settings
-        return JsonConvert.DeserializeObject<T>(value!, _serializerSettings);
+        // For NodaTime serialization, use the configured JSON options
+        return JsonSerializer.Deserialize<T>(value!, _jsonOptions);
     }
 
     public async Task<(bool found, T? value)> GetAsyncWithStatus<T>(string key)
@@ -250,8 +251,8 @@ public class CacheServiceRedis : ICacheService
         if (value.IsNullOrEmpty)
             return (false, default);
 
-        // For NodaTime serialization, use the configured serializer settings
-        return (true, JsonConvert.DeserializeObject<T>(value!, _serializerSettings));
+        // For NodaTime serialization, use the configured JSON options
+        return (true, JsonSerializer.Deserialize<T>(value!, _jsonOptions));
     }
 
     public async Task<bool> RemoveAsync(string key)
