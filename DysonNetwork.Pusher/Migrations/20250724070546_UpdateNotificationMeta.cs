@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace DysonNetwork.Pusher.Migrations
 {
     /// <inheritdoc />
-    public partial class UpdateDatabaseSomehow : Migration
+    public partial class UpdateNotificationMeta : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

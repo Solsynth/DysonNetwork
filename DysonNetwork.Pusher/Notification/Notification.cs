@@ -14,7 +14,7 @@ public class Notification : ModelBase
     [MaxLength(1024)] public string? Title { get; set; }
     [MaxLength(2048)] public string? Subtitle { get; set; }
     [MaxLength(4096)] public string? Content { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object?> Meta { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object?> Meta { get; set; } = new();
     public int Priority { get; set; } = 10;
     public Instant? ViewedAt { get; set; }
 

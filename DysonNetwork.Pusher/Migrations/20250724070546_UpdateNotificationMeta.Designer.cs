@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Pusher.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250724065831_UpdateDatabaseSomehow")]
-    partial class UpdateDatabaseSomehow
+    [Migration("20250724070546_UpdateNotificationMeta")]
+    partial class UpdateNotificationMeta
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
