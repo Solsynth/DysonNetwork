@@ -156,19 +156,10 @@
       <_ContentIncludedByDefault Remove="Pages\Shared\_Layout.cshtml" />
       <_ContentIncludedByDefault Remove="Pages\Checkpoint\CheckpointPage.cshtml" />
       <_ContentIncludedByDefault Remove="Pages\Spell\MagicSpellPage.cshtml" />
-      <_ContentIncludedByDefault Remove="Client\.prettierrc.json" />
-      <_ContentIncludedByDefault Remove="Client\package.json" />
-      <_ContentIncludedByDefault Remove="Client\tsconfig.app.json" />
-      <_ContentIncludedByDefault Remove="Client\tsconfig.json" />
-      <_ContentIncludedByDefault Remove="Client\tsconfig.node.json" />
     </ItemGroup>
 
     <ItemGroup>
       <Content Remove="Client\**" />
     </ItemGroup>
-
-    <ItemGroup>
-      <None Remove="Client\**" />
-    </ItemGroup>
-
+    
 </Project>
