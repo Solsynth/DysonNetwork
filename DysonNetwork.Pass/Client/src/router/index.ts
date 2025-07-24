@@ -17,7 +17,12 @@ const router = createRouter({
       path: '/spells/:word',
       name: 'spells',
       component: () => import('../views/spells.vue'),
-    }
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/login.vue'),
+    },
   ],
 })
 
