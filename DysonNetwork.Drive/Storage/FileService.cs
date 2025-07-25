@@ -161,7 +161,7 @@ public class FileService(
     /// </summary>
     private async Task ExtractMetadataAsync(CloudFile file, string filePath, Stream stream)
     {
-        switch (file.MimeType.Split('/')[0])
+        switch (file.MimeType?.Split('/')[0])
         {
             case "image":
                 try
@@ -201,6 +201,7 @@ public class FileService(
                 }
                 catch (Exception ex)
                 {
+                    file.FileMeta = new Dictionary<string, object?>();
                     logger.LogError(ex, "Failed to analyze image file {FileId}", file.Id);
                 }
 
