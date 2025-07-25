@@ -47,6 +47,8 @@ using (var scope = app.Services.CreateScope())
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration, builder.Environment.ContentRootPath);
 
+app.MapGatewayProxy();
+
 app.MapPages(Path.Combine(builder.Environment.WebRootPath, "dist", "index.html"));
 
 // Configure gRPC

@@ -8,7 +8,8 @@ public static class RegistryStartup
 {
     public static IServiceCollection AddRegistryService(
         this IServiceCollection services,
-        IConfiguration configuration
+        IConfiguration configuration,
+        bool addForwarder = true
     )
     {
         services.AddEtcdClient(options =>
@@ -18,6 +19,9 @@ public static class RegistryStartup
         });
         services.AddSingleton<ServiceRegistry>();
         services.AddHostedService<RegistryHostedService>();
+
+        if (addForwarder)
+            services.AddHttpForwarder();
 
         return services;
     }

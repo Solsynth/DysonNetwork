@@ -45,4 +45,11 @@ public class ServiceRegistry(IEtcdClient etcd, ILogger<ServiceRegistry> logger)
         var key = $"/services/{serviceName}";
         await etcd.DeleteAsync(key);
     }
+
+    public async Task<string?> GetServiceUrl(string serviceName)
+    {
+        var key = $"/services/{serviceName}";
+        var response = await etcd.GetAsync(key);
+        return response.Kvs.Count == 0 ? null : response.Kvs[0].Value.ToStringUtf8();
+    }
 }

@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DysonNetwork.Shared.Registry;
 
-public static class ServiceHelper
+public static class ServiceInjectionHelper
 {
     public static IServiceCollection AddPusherService(this IServiceCollection services)
     {
