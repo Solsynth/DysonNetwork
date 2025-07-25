@@ -271,7 +271,7 @@ public class FileService(
             {
                 case "image" when !AnimatedImageTypes.Contains(contentType):
                     newMimeType = "image/webp";
-                    using (var vipsImage = Image.NewFromFile(originalFilePath, access: Enums.Access.Sequential))
+                    using (var vipsImage = Image.NewFromFile(originalFilePath))
                     {
                         var imageToWrite = vipsImage;
     
