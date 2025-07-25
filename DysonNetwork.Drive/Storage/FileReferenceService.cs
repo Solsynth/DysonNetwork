@@ -7,7 +7,7 @@ namespace DysonNetwork.Drive.Storage;
 
 public class FileReferenceService(AppDatabase db, FileService fileService, ICacheService cache)
 {
-    private const string CacheKeyPrefix = "fileref:";
+    private const string CacheKeyPrefix = "file:ref:";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     /// <summary>
@@ -31,6 +31,19 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         var finalExpiration = expiredAt;
         if (duration.HasValue)
             finalExpiration = SystemClock.Instance.GetCurrentInstant() + duration.Value;
+
+        var file = await db.Files
+            .Where(f => f.Id == fileId)
+            .Include(f => f.Pool)
+            .FirstOrDefaultAsync();
+        if (file is null) throw new InvalidOperationException("File not found");
+        if (file.Pool?.StorageConfig.Expiration != null)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var expectedDuration = finalExpiration - now;
+            if (finalExpiration == null || expectedDuration > file.Pool.StorageConfig.Expiration)
+                finalExpiration = now.Plus(file.Pool.StorageConfig.Expiration.Value);
+        }
 
         var reference = new CloudFileReference
         {

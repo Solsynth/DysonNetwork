@@ -37,7 +37,7 @@ public class FileController(
 
         if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
 
-        if (file.UploadedTo is null)
+        if (!file.PoolId.HasValue)
         {
             var tusStorePath = configuration.GetValue<string>("Tus:StorePath")!;
             var filePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
@@ -45,7 +45,7 @@ public class FileController(
             return PhysicalFile(filePath, file.MimeType ?? "application/octet-stream", file.Name);
         }
 
-        var dest = fs.GetRemoteStorageConfig(file.UploadedTo);
+        var dest = await fs.GetRemoteStorageConfig(file.PoolId.Value);
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
         if (!original && file.HasCompression)

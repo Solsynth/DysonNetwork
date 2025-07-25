@@ -3,25 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
+using Newtonsoft.Json;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Drive.Storage;
-
-public class RemoteStorageConfig
-{
-    public string Id { get; set; } = string.Empty;
-    public string Label { get; set; } = string.Empty;
-    public string Region { get; set; } = string.Empty;
-    public string Bucket { get; set; } = string.Empty;
-    public string Endpoint { get; set; } = string.Empty;
-    public string SecretId { get; set; } = string.Empty;
-    public string SecretKey { get; set; } = string.Empty;
-    public bool EnableSigned { get; set; }
-    public bool EnableSsl { get; set; }
-    public string? ImageProxy { get; set; }
-    public string? AccessProxy { get; set; }
-}
 
 /// <summary>
 /// The class that used in jsonb columns which referenced the cloud file.
@@ -54,9 +40,15 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [MaxLength(256)] public string? Hash { get; set; }
     public long Size { get; set; }
     public Instant? UploadedAt { get; set; }
-    [MaxLength(128)] public string? UploadedTo { get; set; }
     public bool HasCompression { get; set; } = false;
     public bool HasThumbnail { get; set; } = false;
+
+    [JsonIgnore] public FilePool? Pool { get; set; }
+    public Guid? PoolId { get; set; }
+
+    [Obsolete("Deprecated, use PoolId instead. For database migration only.")]
+    [MaxLength(128)]
+    public string? UploadedTo { get; set; }
 
     /// <summary>
     /// The field is set to true if the recycling job plans to delete the file.

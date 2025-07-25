@@ -164,7 +164,7 @@ public class ConnectionController(
     }
 
     [AllowAnonymous]
-    [Route("/api/auth/callback/{provider}")]
+    [Route("/auth/callback/{provider}")]
     [HttpGet, HttpPost]
     public async Task<IActionResult> HandleCallback([FromRoute] string provider)
     {

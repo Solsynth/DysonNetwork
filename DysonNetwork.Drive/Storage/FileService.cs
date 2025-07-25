@@ -132,7 +132,7 @@ public class FileService(
             file.SensitiveMarks = existingFile.SensitiveMarks;
             file.MimeType = existingFile.MimeType;
             file.UploadedAt = existingFile.UploadedAt;
-            file.UploadedTo = existingFile.UploadedTo;
+            file.PoolId = existingFile.PoolId;
 
             db.Files.Add(file);
             await db.SaveChangesAsync();
@@ -342,9 +342,9 @@ public class FileService(
 
             if (uploads.Count > 0)
             {
-                var uploadedTo = configuration.GetValue<string>("Storage:PreferredRemote")!;
+                var destPool = Guid.Parse(configuration.GetValue<string>("Storage:PreferredRemote")!);
                 var uploadTasks = uploads.Select(item =>
-                    nfs.UploadFileToRemoteAsync(storageId, uploadedTo, item.FilePath, item.Suffix, item.ContentType,
+                    nfs.UploadFileToRemoteAsync(storageId, destPool, item.FilePath, item.Suffix, item.ContentType,
                         item.SelfDestruct)
                 ).ToList();
 
@@ -358,7 +358,7 @@ public class FileService(
                 var now = SystemClock.Instance.GetCurrentInstant();
                 await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
                     .SetProperty(f => f.UploadedAt, now)
-                    .SetProperty(f => f.UploadedTo, uploadedTo)
+                    .SetProperty(f => f.PoolId, destPool)
                     .SetProperty(f => f.MimeType, newMimeType)
                     .SetProperty(f => f.HasCompression, hasCompression)
                     .SetProperty(f => f.HasThumbnail, hasThumbnail)
@@ -411,7 +411,7 @@ public class FileService(
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    public async Task UploadFileToRemoteAsync(string storageId, string targetRemote, string filePath,
+    public async Task UploadFileToRemoteAsync(string storageId, Guid targetRemote, string filePath,
         string? suffix = null, string? contentType = null, bool selfDestruct = false)
     {
         await using var fileStream = File.OpenRead(filePath);
@@ -419,15 +419,15 @@ public class FileService(
         if (selfDestruct) File.Delete(filePath);
     }
 
-    public async Task UploadFileToRemoteAsync(string storageId, string targetRemote, Stream stream,
+    public async Task UploadFileToRemoteAsync(string storageId, Guid targetRemote, Stream stream,
         string? suffix = null, string? contentType = null)
     {
-        var dest = GetRemoteStorageConfig(targetRemote);
-        var client = CreateMinioClient(dest);
-        if (client is null)
+        var dest = await GetRemoteStorageConfig(targetRemote);
+        if (dest is null)
             throw new InvalidOperationException(
                 $"Failed to configure client for remote destination '{targetRemote}'"
             );
+        var client = CreateMinioClient(dest);
 
         var bucket = dest.Bucket;
         contentType ??= "application/octet-stream";
@@ -495,31 +495,32 @@ public class FileService(
     public async Task DeleteFileDataAsync(CloudFile file)
     {
         if (file.StorageId is null) return;
-        if (file.UploadedTo is null) return;
+        if (!file.PoolId.HasValue) return;
 
         // Check if any other file with the same storage ID is referenced
-        var otherFilesWithSameStorageId = await db.Files
+        var sameOriginFiles = await db.Files
             .Where(f => f.StorageId == file.StorageId && f.Id != file.Id)
             .Select(f => f.Id)
             .ToListAsync();
 
         // Check if any of these files are referenced
         var anyReferenced = false;
-        if (otherFilesWithSameStorageId.Any())
+        if (sameOriginFiles.Count != 0)
         {
             anyReferenced = await db.FileReferences
-                .Where(r => otherFilesWithSameStorageId.Contains(r.FileId))
+                .Where(r => sameOriginFiles.Contains(r.FileId))
                 .AnyAsync();
         }
 
         // If any other file with the same storage ID is referenced, don't delete the actual file data
         if (anyReferenced) return;
 
-        var dest = GetRemoteStorageConfig(file.UploadedTo);
+        var dest = await GetRemoteStorageConfig(file.PoolId.Value);
+        if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
         var client = CreateMinioClient(dest);
         if (client is null)
             throw new InvalidOperationException(
-                $"Failed to configure client for remote destination '{file.UploadedTo}'"
+                $"Failed to configure client for remote destination '{file.PoolId}'"
             );
 
         var bucket = dest.Bucket;
@@ -546,12 +547,29 @@ public class FileService(
         }
     }
 
-    public RemoteStorageConfig GetRemoteStorageConfig(string destination)
+    public async Task<FilePool?> GetPoolAsync(Guid destination)
     {
-        var destinations = configuration.GetSection("Storage:Remote").Get<List<RemoteStorageConfig>>()!;
-        var dest = destinations.FirstOrDefault(d => d.Id == destination);
-        if (dest is null) throw new InvalidOperationException($"Remote destination '{destination}' not found");
-        return dest;
+        var cacheKey = $"file:pool:{destination}";
+        var cachedResult = await cache.GetAsync<FilePool?>(cacheKey);
+        if (cachedResult != null) return cachedResult;
+
+        var pool = await db.Pools.FirstOrDefaultAsync(p => p.Id == destination);
+        if (pool != null)
+            await cache.SetAsync(cacheKey, pool);
+
+        return pool;
+    }
+
+    public async Task<RemoteStorageConfig?> GetRemoteStorageConfig(Guid destination)
+    {
+        var pool = await GetPoolAsync(destination);
+        return pool?.StorageConfig;
+    }
+
+    public async Task<RemoteStorageConfig?> GetRemoteStorageConfig(string destination)
+    {
+        var id = Guid.Parse(destination);
+        return await GetRemoteStorageConfig(id);
     }
 
     public IMinioClient? CreateMinioClient(RemoteStorageConfig dest)

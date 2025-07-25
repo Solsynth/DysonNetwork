@@ -15,6 +15,8 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
+    public DbSet<FilePool> Pools { get; set; } = null!;
+    
     public DbSet<CloudFile> Files { get; set; } = null!;
     public DbSet<CloudFileReference> FileReferences { get; set; } = null!;
     
