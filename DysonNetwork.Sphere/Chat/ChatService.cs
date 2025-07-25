@@ -260,7 +260,8 @@ public partial class ChatService(
             }
             else if (member.Notify == ChatMemberNotify.Mentions) continue;
 
-            accountsToNotify.Add(member.Account.ToProtoValue());
+            if (member.Account is not null)
+                accountsToNotify.Add(member.Account.ToProtoValue());
         }
 
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");

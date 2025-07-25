@@ -10,6 +10,8 @@ using Minio.DataModel.Args;
 using NetVips;
 using NodaTime;
 using tusdotnet.Stores;
+using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -92,13 +94,11 @@ public class FileService(
             .ToList();
     }
 
-    private static readonly string TempFilePrefix = "dyn-cloudfile";
+    private const string TempFilePrefix = "dyn-cloudfile";
 
     private static readonly string[] AnimatedImageTypes =
         ["image/gif", "image/apng", "image/webp", "image/avif"];
 
-    // The analysis file method no longer will remove the GPS EXIF data
-    // It should be handled on the client side, and for some specific cases it should be keep
     public async Task<CloudFile> ProcessNewFileAsync(
         Account account,
         string fileId,
@@ -107,8 +107,6 @@ public class FileService(
         string? contentType
     )
     {
-        var result = new List<(string filePath, string suffix)>();
-
         var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
         var fileSize = stream.Length;
         var hash = await HashFileAsync(stream, fileSize: fileSize);
@@ -124,82 +122,95 @@ public class FileService(
             AccountId = Guid.Parse(account.Id)
         };
 
-        var existingFile = await db.Files.FirstOrDefaultAsync(f => f.Hash == hash);
-        file.StorageId = existingFile is not null ? existingFile.StorageId : file.Id;
+        var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);
+        file.StorageId = existingFile?.StorageId ?? file.Id;
 
         if (existingFile is not null)
         {
             file.FileMeta = existingFile.FileMeta;
             file.HasCompression = existingFile.HasCompression;
             file.SensitiveMarks = existingFile.SensitiveMarks;
+            file.MimeType = existingFile.MimeType;
+            file.UploadedAt = existingFile.UploadedAt;
+            file.UploadedTo = existingFile.UploadedTo;
 
             db.Files.Add(file);
             await db.SaveChangesAsync();
+            // Since the file content is a duplicate, we can delete the new upload and we are done.
+            await stream.DisposeAsync();
+            await store.DeleteFileAsync(file.Id, CancellationToken.None);
             return file;
         }
 
-        switch (contentType.Split('/')[0])
+        // Extract metadata on the current thread for a faster initial response
+        await ExtractMetadataAsync(file, ogFilePath, stream);
+
+        db.Files.Add(file);
+        await db.SaveChangesAsync();
+
+        // Offload optimization (image conversion, thumbnailing) and uploading to a background task
+        _ = Task.Run(() =>
+            ProcessAndUploadInBackgroundAsync(file.Id, file.StorageId, contentType, ogFilePath, stream));
+
+        return file;
+    }
+
+    /// <summary>
+    /// Extracts metadata from the file based on its content type.
+    /// This runs synchronously to ensure the initial database record has basic metadata.
+    /// </summary>
+    private async Task ExtractMetadataAsync(CloudFile file, string filePath, Stream stream)
+    {
+        switch (file.MimeType.Split('/')[0])
         {
             case "image":
-                var blurhash =
-                    BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(
-                        xComponent: 3,
-                        yComponent: 3,
-                        filename: ogFilePath
-                    );
-
-                // Rewind stream
-                stream.Position = 0;
-
-                // Use NetVips for the rest
-                using (var vipsImage = NetVips.Image.NewFromStream(stream))
+                try
                 {
+                    var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(3, 3, filePath);
+                    stream.Position = 0;
+
+                    using var vipsImage = Image.NewFromStream(stream);
                     var width = vipsImage.Width;
                     var height = vipsImage.Height;
-                    var format = vipsImage.Get("vips-loader") ?? "unknown";
+                    var orientation = vipsImage.Get("orientation") as int? ?? 1;
 
-                    // Try to get orientation from exif data
-                    var orientation = 1;
                     var meta = new Dictionary<string, object?>
                     {
                         ["blur"] = blurhash,
-                        ["format"] = format,
+                        ["format"] = vipsImage.Get("vips-loader") ?? "unknown",
                         ["width"] = width,
                         ["height"] = height,
                         ["orientation"] = orientation,
                     };
-                    Dictionary<string, object> exif = [];
+                    var exif = new Dictionary<string, object>();
 
                     foreach (var field in vipsImage.GetFields())
                     {
+                        if (IsIgnoredField(field)) continue;
                         var value = vipsImage.Get(field);
-
-                        // Skip GPS-related EXIF fields to remove location data
-                        if (IsIgnoredField(field))
-                            continue;
-
-                        if (field.StartsWith("exif-")) exif[field.Replace("exif-", "")] = value;
-                        else meta[field] = value;
-
-                        if (field == "orientation") orientation = (int)value;
+                        if (field.StartsWith("exif-"))
+                            exif[field.Replace("exif-", "")] = value;
+                        else
+                            meta[field] = value;
                     }
 
-                    if (orientation is 6 or 8)
-                        (width, height) = (height, width);
-
-                    var aspectRatio = height != 0 ? (double)width / height : 0;
-
+                    if (orientation is 6 or 8) (width, height) = (height, width);
                     meta["exif"] = exif;
-                    meta["ratio"] = aspectRatio;
+                    meta["ratio"] = height != 0 ? (double)width / height : 0;
                     file.FileMeta = meta;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to analyze image file {FileId}", file.Id);
                 }
 
                 break;
+
             case "video":
             case "audio":
                 try
                 {
-                    var mediaInfo = await FFProbe.AnalyseAsync(ogFilePath);
+                    var mediaInfo = await FFProbe.AnalyseAsync(filePath);
                     file.FileMeta = new Dictionary<string, object?>
                     {
                         ["duration"] = mediaInfo.Duration.TotalSeconds,
@@ -207,116 +218,152 @@ public class FileService(
                         ["format_long_name"] = mediaInfo.Format.FormatLongName,
                         ["start_time"] = mediaInfo.Format.StartTime.ToString(),
                         ["bit_rate"] = mediaInfo.Format.BitRate.ToString(CultureInfo.InvariantCulture),
-                        ["tags"] = mediaInfo.Format.Tags ?? [],
+                        ["tags"] = mediaInfo.Format.Tags ?? new Dictionary<string, string>(),
                         ["chapters"] = mediaInfo.Chapters,
+                        // Add detailed stream information
+                        ["video_streams"] = mediaInfo.VideoStreams.Select(s => new
+                        {
+                            s.AvgFrameRate, s.BitRate, s.CodecName, s.Duration, s.Height, s.Width, s.Language,
+                            s.PixelFormat, s.Rotation
+                        }).ToList(),
+                        ["audio_streams"] = mediaInfo.AudioStreams.Select(s => new
+                            {
+                                s.BitRate, s.Channels, s.ChannelLayout, s.CodecName, s.Duration, s.Language,
+                                s.SampleRateHz
+                            })
+                            .ToList(),
                     };
                     if (mediaInfo.PrimaryVideoStream is not null)
-                        file.FileMeta["ratio"] =
-                            mediaInfo.PrimaryVideoStream.Width / mediaInfo.PrimaryVideoStream.Height;
+                        file.FileMeta["ratio"] = (double)mediaInfo.PrimaryVideoStream.Width /
+                                                 mediaInfo.PrimaryVideoStream.Height;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError("File analyzed failed, unable collect video / audio information: {Message}",
-                        ex.Message);
+                    logger.LogError(ex, "Failed to analyze media file {FileId}", file.Id);
                 }
 
                 break;
         }
+    }
 
-        db.Files.Add(file);
-        await db.SaveChangesAsync();
+    /// <summary>
+    /// Handles file optimization (image compression, video thumbnailing) and uploads to remote storage in the background.
+    /// </summary>
+    private async Task ProcessAndUploadInBackgroundAsync(string fileId, string storageId, string contentType,
+        string originalFilePath, Stream stream)
+    {
+        await using var bgStream = stream; // Ensure stream is disposed at the end of this task
+        using var scope = scopeFactory.CreateScope();
+        var nfs = scope.ServiceProvider.GetRequiredService<FileService>();
+        var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
-        _ = Task.Run(async () =>
+        var uploads = new List<(string FilePath, string Suffix, string ContentType, bool SelfDestruct)>();
+        var newMimeType = contentType;
+        var hasCompression = false;
+        var hasThumbnail = false;
+
+        try
         {
-            using var scope = scopeFactory.CreateScope();
-            var nfs = scope.ServiceProvider.GetRequiredService<FileService>();
+            logger.LogInformation("Processing file {FileId} in background...", fileId);
 
-            try
+            switch (contentType.Split('/')[0])
             {
-                logger.LogInformation("Processed file {fileId}, now trying optimizing if possible...", fileId);
-
-                if (contentType.Split('/')[0] == "image")
-                {
-                    // Skip compression for animated image types
-                    var animatedMimeTypes = AnimatedImageTypes;
-                    if (Enumerable.Contains(animatedMimeTypes, contentType))
+                case "image" when !AnimatedImageTypes.Contains(contentType):
+                    newMimeType = "image/webp";
+                    using (var vipsImage = Image.NewFromFile(originalFilePath, access: Enums.Access.Sequential))
                     {
-                        logger.LogInformation(
-                            "File {fileId} is an animated image (MIME: {mime}), skipping WebP conversion.", fileId,
-                            contentType
-                        );
-                        var tempFilePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                        result.Add((tempFilePath, string.Empty));
-                        return;
+                        var imageToWrite = vipsImage;
+    
+                        if (vipsImage.Interpretation is Enums.Interpretation.Scrgb or Enums.Interpretation.Xyz)
+                        {
+                            imageToWrite = vipsImage.Colourspace(Enums.Interpretation.Srgb);
+                        }
+
+                        var webpPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.webp");
+                        imageToWrite.Autorot().WriteToFile(webpPath,
+                            new VOption { { "lossless", true }, { "strip", true } });
+                        uploads.Add((webpPath, string.Empty, newMimeType, true));
+
+                        if (imageToWrite.Width * imageToWrite.Height >= 1024 * 1024)
+                        {
+                            var scale = 1024.0 / Math.Max(imageToWrite.Width, imageToWrite.Height);
+                            var compressedPath =
+                                Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}-compressed.webp");
+                            using var compressedImage = imageToWrite.Resize(scale);
+                            compressedImage.Autorot().WriteToFile(compressedPath,
+                                new VOption { { "Q", 80 }, { "strip", true } });
+                            uploads.Add((compressedPath, ".compressed", newMimeType, true));
+                            hasCompression = true;
+                        }
+
+                        if (!ReferenceEquals(imageToWrite, vipsImage))
+                        {
+                            imageToWrite.Dispose(); // Clean up manually created colourspace-converted image
+                        }
                     }
 
-                    file.MimeType = "image/webp";
+                    break;
 
-                    using var vipsImage = Image.NewFromFile(ogFilePath);
-                    var imagePath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}");
-                    vipsImage.Autorot().WriteToFile(imagePath + ".webp",
-                        new VOption { { "lossless", true }, { "strip", true } });
-                    result.Add((imagePath + ".webp", string.Empty));
-
-                    if (vipsImage.Width * vipsImage.Height >= 1024 * 1024)
+                case "video":
+                    uploads.Add((originalFilePath, string.Empty, contentType, false));
+                    var thumbnailPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.thumbnail.webp");
+                    try
                     {
-                        var scale = 1024.0 / Math.Max(vipsImage.Width, vipsImage.Height);
-                        var imageCompressedPath =
-                            Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{file.Id}-compressed");
-
-                        // Create and save image within the same synchronous block to avoid disposal issues
-                        using var compressedImage = vipsImage.Resize(scale);
-                        compressedImage.Autorot().WriteToFile(imageCompressedPath + ".webp",
-                            new VOption { { "Q", 80 }, { "strip", true } });
-
-                        result.Add((imageCompressedPath + ".webp", ".compressed"));
-                        file.HasCompression = true;
+                        var mediaInfo = await FFProbe.AnalyseAsync(originalFilePath);
+                        var snapshotTime = mediaInfo.Duration > TimeSpan.FromSeconds(5)
+                            ? TimeSpan.FromSeconds(5)
+                            : TimeSpan.FromSeconds(1);
+                        await FFMpeg.SnapshotAsync(originalFilePath, thumbnailPath, captureTime: snapshotTime);
+                        uploads.Add((thumbnailPath, ".thumbnail.webp", "image/webp", true));
+                        hasThumbnail = true;
                     }
-                }
-                else
-                {
-                    // No extra process for video, add it to the upload queue.
-                    result.Add((ogFilePath, string.Empty));
-                }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
+                    }
 
-                logger.LogInformation("Optimized file {fileId}, now uploading...", fileId);
+                    break;
 
-                if (result.Count > 0)
-                {
-                    List<Task<CloudFile>> tasks = [];
-                    tasks.AddRange(result.Select(item =>
-                        nfs.UploadFileToRemoteAsync(file, item.filePath, null, item.suffix, true))
-                    );
+                default:
+                    uploads.Add((originalFilePath, string.Empty, contentType, false));
+                    break;
+            }
 
-                    await Task.WhenAll(tasks);
-                    file = await tasks.First();
-                }
-                else
-                {
-                    file = await nfs.UploadFileToRemoteAsync(file, stream, null);
-                }
+            logger.LogInformation("Optimized file {FileId}, now uploading...", fileId);
 
-                logger.LogInformation("Uploaded file {fileId} done!", fileId);
+            if (uploads.Count > 0)
+            {
+                var uploadedTo = configuration.GetValue<string>("Storage:PreferredRemote")!;
+                var uploadTasks = uploads.Select(item =>
+                    nfs.UploadFileToRemoteAsync(storageId, uploadedTo, item.FilePath, item.Suffix, item.ContentType,
+                        item.SelfDestruct)
+                ).ToList();
 
-                var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-                await scopedDb.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(setter => setter
-                    .SetProperty(f => f.UploadedAt, file.UploadedAt)
-                    .SetProperty(f => f.UploadedTo, file.UploadedTo)
-                    .SetProperty(f => f.MimeType, file.MimeType)
-                    .SetProperty(f => f.HasCompression, file.HasCompression)
+                await Task.WhenAll(uploadTasks);
+
+                logger.LogInformation("Uploaded file {FileId} done!", fileId);
+
+                var fileToUpdate = await scopedDb.Files.FirstAsync(f => f.Id == fileId);
+                if (hasThumbnail) fileToUpdate.HasThumbnail = true;
+
+                await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
+                    .SetProperty(f => f.UploadedAt, Instant.FromDateTimeUtc(DateTime.UtcNow))
+                    .SetProperty(f => f.UploadedTo, uploadedTo)
+                    .SetProperty(f => f.MimeType, newMimeType)
+                    .SetProperty(f => f.HasCompression, hasCompression)
+                    .SetProperty(f => f.HasThumbnail, hasThumbnail)
                 );
             }
-            catch (Exception err)
-            {
-                logger.LogError(err, "Failed to process {fileId}", fileId);
-            }
-
-            await stream.DisposeAsync();
-            await store.DeleteFileAsync(file.Id, CancellationToken.None);
-            await nfs._PurgeCacheAsync(file.Id);
-        });
-
-        return file;
+        }
+        catch (Exception err)
+        {
+            logger.LogError(err, "Failed to process and upload {FileId}", fileId);
+        }
+        finally
+        {
+            await store.DeleteFileAsync(fileId, CancellationToken.None);
+            await nfs._PurgeCacheAsync(fileId);
+        }
     }
 
     private static async Task<string> HashFileAsync(Stream stream, int chunkSize = 1024 * 1024, long? fileSize = null)
@@ -327,6 +374,7 @@ public class FileService(
 
         using var md5 = MD5.Create();
         var hashBytes = await md5.ComputeHashAsync(stream);
+        stream.Position = 0; // Reset stream position after reading
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
@@ -349,45 +397,38 @@ public class FileService(
         }
 
         var hash = md5.ComputeHash(buffer, 0, bytesRead);
+        stream.Position = 0; // Reset stream position
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    public async Task<CloudFile> UploadFileToRemoteAsync(CloudFile file, string filePath, string? targetRemote,
-        string? suffix = null, bool selfDestruct = false)
+    public async Task UploadFileToRemoteAsync(string storageId, string targetRemote, string filePath,
+        string? suffix = null, string? contentType = null, bool selfDestruct = false)
     {
-        var fileStream = File.OpenRead(filePath);
-        var result = await UploadFileToRemoteAsync(file, fileStream, targetRemote, suffix);
+        await using var fileStream = File.OpenRead(filePath);
+        await UploadFileToRemoteAsync(storageId, targetRemote, fileStream, suffix, contentType);
         if (selfDestruct) File.Delete(filePath);
-        return result;
     }
 
-    public async Task<CloudFile> UploadFileToRemoteAsync(CloudFile file, Stream stream, string? targetRemote,
-        string? suffix = null)
+    public async Task UploadFileToRemoteAsync(string storageId, string targetRemote, Stream stream,
+        string? suffix = null, string? contentType = null)
     {
-        if (file.UploadedAt.HasValue) return file;
-
-        file.UploadedTo = targetRemote ?? configuration.GetValue<string>("Storage:PreferredRemote")!;
-
-        var dest = GetRemoteStorageConfig(file.UploadedTo);
+        var dest = GetRemoteStorageConfig(targetRemote);
         var client = CreateMinioClient(dest);
         if (client is null)
             throw new InvalidOperationException(
-                $"Failed to configure client for remote destination '{file.UploadedTo}'"
+                $"Failed to configure client for remote destination '{targetRemote}'"
             );
 
         var bucket = dest.Bucket;
-        var contentType = file.MimeType ?? "application/octet-stream";
+        contentType ??= "application/octet-stream";
 
         await client.PutObjectAsync(new PutObjectArgs()
             .WithBucket(bucket)
-            .WithObject(string.IsNullOrWhiteSpace(suffix) ? file.Id : file.Id + suffix)
-            .WithStreamData(stream) // Fix this disposed
+            .WithObject(string.IsNullOrWhiteSpace(suffix) ? storageId : storageId + suffix)
+            .WithStreamData(stream)
             .WithObjectSize(stream.Length)
             .WithContentType(contentType)
         );
-
-        file.UploadedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        return file;
     }
 
     public async Task<CloudFile> UpdateFileAsync(CloudFile file, FieldMask updateMask)
@@ -398,58 +439,38 @@ public class FileService(
             throw new InvalidOperationException($"File with ID {file.Id} not found.");
         }
 
+        var updatable = new UpdatableCloudFile(existingFile);
+
         foreach (var path in updateMask.Paths)
         {
             switch (path)
             {
                 case "name":
-                    existingFile.Name = file.Name;
+                    updatable.Name = file.Name;
                     break;
                 case "description":
-                    existingFile.Description = file.Description;
+                    updatable.Description = file.Description;
                     break;
                 case "file_meta":
-                    existingFile.FileMeta = file.FileMeta;
+                    updatable.FileMeta = file.FileMeta;
                     break;
                 case "user_meta":
-                    existingFile.UserMeta = file.UserMeta;
-                    break;
-                case "mime_type":
-                    existingFile.MimeType = file.MimeType;
-                    break;
-                case "hash":
-                    existingFile.Hash = file.Hash;
-                    break;
-                case "size":
-                    existingFile.Size = file.Size;
-                    break;
-                case "uploaded_at":
-                    existingFile.UploadedAt = file.UploadedAt;
-                    break;
-                case "uploaded_to":
-                    existingFile.UploadedTo = file.UploadedTo;
-                    break;
-                case "has_compression":
-                    existingFile.HasCompression = file.HasCompression;
+                    updatable.UserMeta = file.UserMeta;
                     break;
                 case "is_marked_recycle":
-                    existingFile.IsMarkedRecycle = file.IsMarkedRecycle;
-                    break;
-                case "storage_id":
-                    existingFile.StorageId = file.StorageId;
-                    break;
-                case "storage_url":
-                    existingFile.StorageUrl = file.StorageUrl;
+                    updatable.IsMarkedRecycle = file.IsMarkedRecycle;
                     break;
                 default:
-                    logger.LogWarning("Attempted to update unknown field: {Field}", path);
+                    logger.LogWarning("Attempted to update unmodifiable field: {Field}", path);
                     break;
             }
         }
 
-        await db.SaveChangesAsync();
+        await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(updatable.ToSetPropertyCalls());
+
         await _PurgeCacheAsync(file.Id);
-        return existingFile;
+        // Re-fetch the file to return the updated state
+        return await db.Files.AsNoTracking().FirstAsync(f => f.Id == file.Id);
     }
 
     public async Task DeleteFileAsync(CloudFile file)
@@ -618,46 +639,46 @@ public class FileService(
     }
 
     /// <summary>
-    /// Checks if an EXIF field contains GPS location data
+    /// Checks if an EXIF field should be ignored (e.g., GPS data).
     /// </summary>
-    /// <param name="fieldName">The EXIF field name</param>
-    /// <returns>True if the field contains GPS data, false otherwise</returns>
-    private static bool IsGpsExifField(string fieldName)
+    private static bool IsIgnoredField(string fieldName)
     {
         // Common GPS EXIF field names
         var gpsFields = new[]
         {
-            "gps-latitude",
-            "gps-longitude",
-            "gps-altitude",
-            "gps-latitude-ref",
-            "gps-longitude-ref",
-            "gps-altitude-ref",
-            "gps-timestamp",
-            "gps-datestamp",
-            "gps-speed",
-            "gps-speed-ref",
-            "gps-track",
-            "gps-track-ref",
-            "gps-img-direction",
-            "gps-img-direction-ref",
-            "gps-dest-latitude",
-            "gps-dest-longitude",
-            "gps-dest-latitude-ref",
-            "gps-dest-longitude-ref",
-            "gps-processing-method",
+            "gps-latitude", "gps-longitude", "gps-altitude", "gps-latitude-ref", "gps-longitude-ref",
+            "gps-altitude-ref", "gps-timestamp", "gps-datestamp", "gps-speed", "gps-speed-ref", "gps-track",
+            "gps-track-ref", "gps-img-direction", "gps-img-direction-ref", "gps-dest-latitude",
+            "gps-dest-longitude", "gps-dest-latitude-ref", "gps-dest-longitude-ref", "gps-processing-method",
             "gps-area-information"
         };
 
-        return gpsFields.Any(gpsField =>
-            fieldName.Equals(gpsField, StringComparison.OrdinalIgnoreCase) ||
-            fieldName.StartsWith("gps", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool IsIgnoredField(string fieldName)
-    {
-        if (IsGpsExifField(fieldName)) return true;
+        if (fieldName.StartsWith("exif-GPS")) return true;
+        if (fieldName.StartsWith("ifd3-GPS")) return true;
         if (fieldName.EndsWith("-data")) return true;
-        return false;
+        return gpsFields.Any(gpsField => fieldName.StartsWith(gpsField, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+/// <summary>
+/// A helper class to build an ExecuteUpdateAsync call for CloudFile.
+/// </summary>
+file class UpdatableCloudFile(CloudFile file)
+{
+    public string Name { get; set; } = file.Name;
+    public string? Description { get; set; } = file.Description;
+    public Dictionary<string, object?>? FileMeta { get; set; } = file.FileMeta;
+    public Dictionary<string, object?>? UserMeta { get; set; } = file.UserMeta;
+    public bool IsMarkedRecycle { get; set; } = file.IsMarkedRecycle;
+
+    public Expression<Func<SetPropertyCalls<CloudFile>, SetPropertyCalls<CloudFile>>> ToSetPropertyCalls()
+    {
+        var userMeta = UserMeta ?? new Dictionary<string, object?>();
+        return setter => setter
+            .SetProperty(f => f.Name, Name)
+            .SetProperty(f => f.Description, Description)
+            .SetProperty(f => f.FileMeta, FileMeta)
+            .SetProperty(f => f.UserMeta, userMeta!)
+            .SetProperty(f => f.IsMarkedRecycle, IsMarkedRecycle);
     }
 }

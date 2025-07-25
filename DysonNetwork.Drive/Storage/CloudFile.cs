@@ -56,6 +56,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public Instant? UploadedAt { get; set; }
     [MaxLength(128)] public string? UploadedTo { get; set; }
     public bool HasCompression { get; set; } = false;
+    public bool HasThumbnail { get; set; } = false;
 
     /// <summary>
     /// The field is set to true if the recycling job plans to delete the file.

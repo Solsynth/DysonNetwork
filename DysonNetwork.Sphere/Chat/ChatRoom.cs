@@ -74,7 +74,7 @@ public class ChatMember : ModelBase
     public Guid ChatRoomId { get; set; }
     public ChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public Account Account { get; set; } = null!;
+    [NotMapped] public Account? Account { get; set; }
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
