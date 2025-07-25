@@ -1,8 +1,8 @@
 <template>
   <div class="max-w-3xl mx-auto p-8">
     <div class="flex items-center gap-6 mb-8">
-      <n-avatar round :size="100" :alt="userStore.user.name">
-        <n-icon size="48">
+      <n-avatar round :size="100" :alt="userStore.user.name" :src="userPicture">
+        <n-icon size="48" v-if="!userPicture">
           <person-round />
         </n-icon>
       </n-avatar>
@@ -50,6 +50,13 @@
 import { NAvatar, NText, NProgress, NH3, NP, NButton, NIcon } from 'naive-ui'
 import { PersonRound, LaunchOutlined } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
+import { computed } from 'vue'
 
 const userStore = useUserStore()
+
+const userPicture = computed(() => {
+  return userStore.user.profile.picture
+    ? `/cgi/drive/files/${userStore.user.profile.picture.id}`
+    : undefined
+})
 </script>

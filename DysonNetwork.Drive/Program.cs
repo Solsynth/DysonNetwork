@@ -1,7 +1,9 @@
 using DysonNetwork.Drive;
+using DysonNetwork.Drive.Pages.Data;
 using DysonNetwork.Drive.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using tusdotnet.Stores;
@@ -30,6 +32,8 @@ builder.Services.AddAppBusinessServices();
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
 
+builder.Services.AddTransient<IPageDataProvider, VersionPageData>();
+
 var app = builder.Build();
 
 // Run database migrations
@@ -43,6 +47,10 @@ var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(tusDiskStore);
+
+app.MapGatewayProxy();
+
+app.MapPages(Path.Combine(app.Environment.WebRootPath, "dist", "index.html"));
 
 // Configure gRPC
 app.ConfigureGrpcServices();

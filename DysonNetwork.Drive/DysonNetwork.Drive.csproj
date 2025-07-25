@@ -68,4 +68,13 @@
     <ItemGroup>
       <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Pages\Emails\AccountDeletionEmail.razor" />
+      <_ContentIncludedByDefault Remove="Pages\Emails\ContactVerificationEmail.razor" />
+      <_ContentIncludedByDefault Remove="Pages\Emails\EmailLayout.razor" />
+      <_ContentIncludedByDefault Remove="Pages\Emails\LandingEmail.razor" />
+      <_ContentIncludedByDefault Remove="Pages\Emails\PasswordResetEmail.razor" />
+      <_ContentIncludedByDefault Remove="Pages\Emails\VerificationEmail.razor" />
+    </ItemGroup>
 </Project>

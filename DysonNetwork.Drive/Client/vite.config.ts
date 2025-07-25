@@ -29,11 +29,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5090',
+        target: 'http://localhost:5216',
         changeOrigin: true,
       },
       '/cgi': {
-        target: 'http://localhost:5090',
+        target: 'http://localhost:5216',
         changeOrigin: true,
       }
     },

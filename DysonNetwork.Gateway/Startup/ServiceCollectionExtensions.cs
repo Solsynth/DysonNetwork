@@ -23,7 +23,7 @@ public static class ServiceCollectionExtensions
                 };
             });
 
-        services.AddRegistryService(configuration);
+        services.AddRegistryService(configuration, addForwarder: false);
         services.AddSingleton<IProxyConfigProvider, RegistryProxyConfigProvider>();
 
         return services;
