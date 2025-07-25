@@ -172,7 +172,15 @@ public class FileService(
                     using var vipsImage = Image.NewFromStream(stream);
                     var width = vipsImage.Width;
                     var height = vipsImage.Height;
-                    var orientation = vipsImage.Get("orientation") as int? ?? 1;
+                    var orientation = 1;
+                    try
+                    {
+                        orientation = vipsImage.Get("orientation") as int? ?? 1;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
 
                     var meta = new Dictionary<string, object?>
                     {
@@ -274,7 +282,7 @@ public class FileService(
                     using (var vipsImage = Image.NewFromFile(originalFilePath))
                     {
                         var imageToWrite = vipsImage;
-    
+
                         if (vipsImage.Interpretation is Enums.Interpretation.Scrgb or Enums.Interpretation.Xyz)
                         {
                             imageToWrite = vipsImage.Colourspace(Enums.Interpretation.Srgb);
@@ -347,8 +355,9 @@ public class FileService(
                 var fileToUpdate = await scopedDb.Files.FirstAsync(f => f.Id == fileId);
                 if (hasThumbnail) fileToUpdate.HasThumbnail = true;
 
+                var now = SystemClock.Instance.GetCurrentInstant();
                 await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
-                    .SetProperty(f => f.UploadedAt, Instant.FromDateTimeUtc(DateTime.UtcNow))
+                    .SetProperty(f => f.UploadedAt, now)
                     .SetProperty(f => f.UploadedTo, uploadedTo)
                     .SetProperty(f => f.MimeType, newMimeType)
                     .SetProperty(f => f.HasCompression, hasCompression)
