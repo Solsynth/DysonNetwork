@@ -32,7 +32,3 @@ async function fetchVersion() {
 
 onMounted(() => fetchVersion())
 </script>
-
-<style scoped>
-/* Add any specific styles here if needed, though Tailwind should handle most. */
-</style>

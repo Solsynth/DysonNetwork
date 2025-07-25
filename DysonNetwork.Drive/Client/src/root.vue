@@ -6,6 +6,7 @@ import { NGlobalStyle, NConfigProvider, NMessageProvider, lightTheme, darkTheme 
 import { usePreferredDark } from '@vueuse/core'
 import { useUserStore } from './stores/user'
 import { onMounted } from 'vue'
+import { useServicesStore } from './stores/services'
 
 const themeOverrides = {
   common: {
@@ -20,9 +21,13 @@ const themeOverrides = {
 const isDark = usePreferredDark()
 
 const userStore = useUserStore()
+const servicesStore = useServicesStore()
 
 onMounted(() => {
+  userStore.initialize()
+
   userStore.fetchUser()
+  servicesStore.fetchServices()
 })
 </script>
 

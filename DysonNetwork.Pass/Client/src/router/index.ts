@@ -42,8 +42,8 @@ router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
 
   // Initialize user state if not already initialized
-  if (!userStore.user && localStorage.getItem('authToken')) {
-    await userStore.initialize()
+  if (!userStore.user) {
+    await userStore.fetchUser(false)
   }
 
   if (to.matched.some((record) => record.meta.requiresAuth) && !userStore.isAuthenticated) {

@@ -37,9 +37,6 @@ const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
 
-// Initialize user state on component mount
-userStore.initialize()
-
 const hideUserMenu = computed(() => {
   return ['captcha', 'spells', 'login', 'create-account'].includes(route.name as string)
 })

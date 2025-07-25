@@ -42,6 +42,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public Instant? UploadedAt { get; set; }
     public bool HasCompression { get; set; } = false;
     public bool HasThumbnail { get; set; } = false;
+    public bool IsEncrypted { get; set; } = false;
 
     [JsonIgnore] public FilePool? Pool { get; set; }
     public Guid? PoolId { get; set; }

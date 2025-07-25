@@ -27,18 +27,14 @@ import { NLayout, NLayoutHeader, NLayoutContent, NButton, NDropdown, NIcon } fro
 import {
   LogInOutlined,
   PersonAddAlt1Outlined,
-  LogOutOutlined,
   PersonOutlineRound,
 } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
 import { useRoute, useRouter } from 'vue-router'
+import { useServicesStore } from '@/stores/services'
 
 const userStore = useUserStore()
 const route = useRoute()
-const router = useRouter()
-
-// Initialize user state on component mount
-userStore.initialize()
 
 const hideUserMenu = computed(() => {
   return ['captcha', 'spells', 'login', 'create-account'].includes(route.name as string)
@@ -71,31 +67,22 @@ const userOptions = computed(() => [
       h(NIcon, null, {
         default: () => h(PersonOutlineRound),
       }),
-  },
-  {
-    label: 'Logout',
-    key: 'logout',
-    icon: () =>
-      h(NIcon, null, {
-        default: () => h(LogOutOutlined),
-      }),
-  },
+  }
 ])
+
+const servicesStore = useServicesStore()
 
 function handleGuestMenuSelect(key: string) {
   if (key === 'login') {
-    router.push('/login')
+    window.open(servicesStore.getSerivceUrl('DysonNetwork.Pass', 'login')!, '_blank')
   } else if (key === 'create-account') {
-    router.push('/create-account')
+    window.open(servicesStore.getSerivceUrl('DysonNetwork.Pass', 'create-account')!, '_blank')
   }
 }
 
 function handleUserMenuSelect(key: string) {
-  if (key === 'logout') {
-    userStore.logout()
-    router.push('/login')
-  } else if (key === 'profile') {
-    router.push('/accounts/me') // Assuming you have a profile page
+  if (key === 'profile') {
+    window.open(servicesStore.getSerivceUrl('DysonNetwork.Pass', 'accounts/me')!, '_blank')
   }
 }
 </script>

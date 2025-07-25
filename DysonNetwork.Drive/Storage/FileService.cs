@@ -104,13 +104,23 @@ public class FileService(
         string fileId,
         Stream stream,
         string fileName,
-        string? contentType
+        string? contentType,
+        string? encryptPassword
     )
     {
         var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
         var fileSize = stream.Length;
-        var hash = await HashFileAsync(stream, fileSize: fileSize);
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
+
+        if (!string.IsNullOrWhiteSpace(encryptPassword))
+        {
+            var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
+            FileEncryptor.EncryptFile(ogFilePath, encryptedPath, encryptPassword);
+            File.Delete(ogFilePath); // Delete original unencrypted
+            File.Move(encryptedPath, ogFilePath); // Replace the original one with encrypted
+        }
+        
+        var hash = await HashFileAsync(stream, fileSize: fileSize);
 
         var file = new CloudFile
         {
@@ -119,7 +129,8 @@ public class FileService(
             MimeType = contentType,
             Size = fileSize,
             Hash = hash,
-            AccountId = Guid.Parse(account.Id)
+            AccountId = Guid.Parse(account.Id),
+            IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword)
         };
 
         var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);

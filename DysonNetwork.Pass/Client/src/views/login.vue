@@ -30,7 +30,6 @@ onMounted(async () => {
   const fp = await FingerprintJS.load()
   const result = await fp.get()
   deviceId.value = result.visitorId
-  localStorage.setItem('deviceId', deviceId.value)
 })
 
 const selectedFactor = computed(() => {
@@ -214,7 +213,6 @@ async function exchangeToken() {
     }
 
     const { token } = await response.json()
-    localStorage.setItem('authToken', token)
     await userStore.fetchUser()
 
     const redirectUri = route.query.redirect_uri as string

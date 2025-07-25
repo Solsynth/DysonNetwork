@@ -7,8 +7,6 @@ namespace DysonNetwork.Drive.Storage;
 
 public class RemoteStorageConfig
 {
-    public string Id { get; set; } = string.Empty;
-    public string Label { get; set; } = string.Empty;
     public string Region { get; set; } = string.Empty;
     public string Bucket { get; set; } = string.Empty;
     public string Endpoint { get; set; } = string.Empty;

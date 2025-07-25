@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -11,19 +11,13 @@ export const useUserStore = defineStore('user', () => {
   const isAuthenticated = computed(() => !!user.value)
 
   // Actions
-  async function fetchUser() {
-    const token = localStorage.getItem('authToken')
-    if (!token) {
-      return // No token, no need to fetch
-    }
-
+  async function fetchUser(reload = true) {
+    if (!reload && user.value) return // Skip fetching if already loaded and not forced to
     isLoading.value = true
     error.value = null
     try {
       const response = await fetch('/api/accounts/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include',
       })
 
       if (!response.ok) {
@@ -50,9 +44,21 @@ export const useUserStore = defineStore('user', () => {
     // router.push('/login')
   }
 
-  async function initialize() {
-    await fetchUser()
-  }
+  watch(
+    user,
+    (_) => {
+      // Broadcast user changes to other subapps
+      window.parent.postMessage(
+        {
+          type: 'DY:LOGIN_STATUS_CHANGE',
+          data: user.value != null,
+        },
+        '*',
+      )
+      console.log(`[SYNC] Message sent to parent: Login status changed to ${status}`)
+    },
+    { immediate: true, deep: true },
+  )
 
   return {
     user,
@@ -61,6 +67,5 @@ export const useUserStore = defineStore('user', () => {
     isAuthenticated,
     fetchUser,
     logout,
-    initialize
   }
 })

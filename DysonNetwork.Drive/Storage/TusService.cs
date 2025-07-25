@@ -62,8 +62,17 @@ public abstract class TusService
 
                 var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
 
+                var encryptPassword = httpContext.Request.Headers["X-FilePass"].FirstOrDefault();
+
                 var fileService = services.GetRequiredService<FileService>();
-                var info = await fileService.ProcessNewFileAsync(user, file.Id, fileStream, fileName, contentType);
+                var info = await fileService.ProcessNewFileAsync(
+                    user,
+                    file.Id,
+                    fileStream,
+                    fileName,
+                    contentType,
+                    encryptPassword
+                );
 
                 using var finalScope = eventContext.HttpContext.RequestServices.CreateScope();
                 var jsonOptions = finalScope.ServiceProvider.GetRequiredService<IOptions<JsonOptions>>().Value

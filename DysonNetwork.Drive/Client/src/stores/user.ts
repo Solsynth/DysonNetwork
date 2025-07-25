@@ -43,8 +43,24 @@ export const useUserStore = defineStore('user', () => {
     // router.push('/login')
   }
 
-  async function initialize() {
-    await fetchUser()
+  function initialize() {
+    const allowedOrigin = import.meta.env.DEV ? window.location.origin : 'https://id.solian.app'
+    window.addEventListener('message', (event) => {
+      // IMPORTANT: Always check the origin of the message for security!
+      // This prevents malicious scripts from sending fake login status updates.
+      // Ensure event.origin exactly matches your identity service's origin.
+      if (event.origin !== allowedOrigin) {
+        console.warn(`[SYNC] Message received from unexpected origin: ${event.origin}. Ignoring.`)
+        return // Ignore messages from unknown origins
+      }
+
+      // Check if the message is the type we're expecting
+      if (event.data && event.data.type === 'DY:LOGIN_STATUS_CHANGE') {
+        const { loggedIn } = event.data
+        console.log(`[SYNC] Received login status change: ${loggedIn}`)
+        fetchUser() // Re-fetch user data on login status change
+      }
+    })
   }
 
   return {
