@@ -44,6 +44,10 @@ public abstract class TusService
                     if (!allowed.HasPermission)
                         eventContext.FailRequest(HttpStatusCode.Forbidden);
                 }
+
+                var filePool = httpContext.Request.Headers["X-FilePool"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(filePool) && !Guid.TryParse(filePool, out _))
+                    eventContext.FailRequest(HttpStatusCode.BadRequest, "Invalid file pool id");
             },
             OnFileCompleteAsync = async eventContext =>
             {
@@ -62,12 +66,17 @@ public abstract class TusService
 
                 var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
 
+                var filePool = httpContext.Request.Headers["X-FilePool"].FirstOrDefault();
                 var encryptPassword = httpContext.Request.Headers["X-FilePass"].FirstOrDefault();
+
+                if (string.IsNullOrEmpty(filePool))
+                    filePool = configuration["Storage:PreferredRemote"];
 
                 var fileService = services.GetRequiredService<FileService>();
                 var info = await fileService.ProcessNewFileAsync(
                     user,
                     file.Id,
+                    filePool,
                     fileStream,
                     fileName,
                     contentType,
@@ -89,7 +98,7 @@ public abstract class TusService
                 if (gatewayUrl is not null)
                     eventContext.SetUploadUrl(new Uri(gatewayUrl + "/drive/tus/" + eventContext.FileId));
                 return Task.CompletedTask;
-            }
+            },
         }
     };
 }

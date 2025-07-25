@@ -102,24 +102,30 @@ public class FileService(
     public async Task<CloudFile> ProcessNewFileAsync(
         Account account,
         string fileId,
+        string filePool,
         Stream stream,
         string fileName,
         string? contentType,
         string? encryptPassword
     )
     {
+        var pool = await GetPoolAsync(Guid.Parse(filePool));
+        if (pool is null) throw new InvalidOperationException("Pool not found");
+
         var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
         var fileSize = stream.Length;
         contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
 
         if (!string.IsNullOrWhiteSpace(encryptPassword))
         {
+            if (!pool.AllowEncryption) throw new InvalidOperationException("Encryption is not allowed in this pool");
             var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
             FileEncryptor.EncryptFile(ogFilePath, encryptedPath, encryptPassword);
             File.Delete(ogFilePath); // Delete original unencrypted
             File.Move(encryptedPath, ogFilePath); // Replace the original one with encrypted
+            contentType = "application/octet-stream";
         }
-        
+
         var hash = await HashFileAsync(stream, fileSize: fileSize);
 
         var file = new CloudFile
@@ -154,14 +160,15 @@ public class FileService(
         }
 
         // Extract metadata on the current thread for a faster initial response
-        await ExtractMetadataAsync(file, ogFilePath, stream);
+        if (!pool.NoMetadata)
+            await ExtractMetadataAsync(file, ogFilePath, stream);
 
         db.Files.Add(file);
         await db.SaveChangesAsync();
 
         // Offload optimization (image conversion, thumbnailing) and uploading to a background task
         _ = Task.Run(() =>
-            ProcessAndUploadInBackgroundAsync(file.Id, file.StorageId, contentType, ogFilePath, stream));
+            ProcessAndUploadInBackgroundAsync(file.Id, filePool, file.StorageId, contentType, ogFilePath, stream));
 
         return file;
     }
@@ -269,9 +276,18 @@ public class FileService(
     /// <summary>
     /// Handles file optimization (image compression, video thumbnailing) and uploads to remote storage in the background.
     /// </summary>
-    private async Task ProcessAndUploadInBackgroundAsync(string fileId, string storageId, string contentType,
-        string originalFilePath, Stream stream)
+    private async Task ProcessAndUploadInBackgroundAsync(
+        string fileId,
+        string remoteId,
+        string storageId,
+        string contentType,
+        string originalFilePath,
+        Stream stream
+    )
     {
+        var pool = await GetPoolAsync(Guid.Parse(remoteId));
+        if (pool is null) return;
+
         await using var bgStream = stream; // Ensure stream is disposed at the end of this task
         using var scope = scopeFactory.CreateScope();
         var nfs = scope.ServiceProvider.GetRequiredService<FileService>();
@@ -286,74 +302,76 @@ public class FileService(
         {
             logger.LogInformation("Processing file {FileId} in background...", fileId);
 
-            switch (contentType.Split('/')[0])
-            {
-                case "image" when !AnimatedImageTypes.Contains(contentType):
-                    newMimeType = "image/webp";
-                    using (var vipsImage = Image.NewFromFile(originalFilePath))
-                    {
-                        var imageToWrite = vipsImage;
-
-                        if (vipsImage.Interpretation is Enums.Interpretation.Scrgb or Enums.Interpretation.Xyz)
+            if (!pool.NoOptimization)
+                switch (contentType.Split('/')[0])
+                {
+                    case "image" when !AnimatedImageTypes.Contains(contentType):
+                        newMimeType = "image/webp";
+                        using (var vipsImage = Image.NewFromFile(originalFilePath))
                         {
-                            imageToWrite = vipsImage.Colourspace(Enums.Interpretation.Srgb);
+                            var imageToWrite = vipsImage;
+
+                            if (vipsImage.Interpretation is Enums.Interpretation.Scrgb or Enums.Interpretation.Xyz)
+                            {
+                                imageToWrite = vipsImage.Colourspace(Enums.Interpretation.Srgb);
+                            }
+
+                            var webpPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.webp");
+                            imageToWrite.Autorot().WriteToFile(webpPath,
+                                new VOption { { "lossless", true }, { "strip", true } });
+                            uploads.Add((webpPath, string.Empty, newMimeType, true));
+
+                            if (imageToWrite.Width * imageToWrite.Height >= 1024 * 1024)
+                            {
+                                var scale = 1024.0 / Math.Max(imageToWrite.Width, imageToWrite.Height);
+                                var compressedPath =
+                                    Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}-compressed.webp");
+                                using var compressedImage = imageToWrite.Resize(scale);
+                                compressedImage.Autorot().WriteToFile(compressedPath,
+                                    new VOption { { "Q", 80 }, { "strip", true } });
+                                uploads.Add((compressedPath, ".compressed", newMimeType, true));
+                                hasCompression = true;
+                            }
+
+                            if (!ReferenceEquals(imageToWrite, vipsImage))
+                            {
+                                imageToWrite.Dispose(); // Clean up manually created colourspace-converted image
+                            }
                         }
 
-                        var webpPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.webp");
-                        imageToWrite.Autorot().WriteToFile(webpPath,
-                            new VOption { { "lossless", true }, { "strip", true } });
-                        uploads.Add((webpPath, string.Empty, newMimeType, true));
+                        break;
 
-                        if (imageToWrite.Width * imageToWrite.Height >= 1024 * 1024)
+                    case "video":
+                        uploads.Add((originalFilePath, string.Empty, contentType, false));
+                        var thumbnailPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.thumbnail.webp");
+                        try
                         {
-                            var scale = 1024.0 / Math.Max(imageToWrite.Width, imageToWrite.Height);
-                            var compressedPath =
-                                Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}-compressed.webp");
-                            using var compressedImage = imageToWrite.Resize(scale);
-                            compressedImage.Autorot().WriteToFile(compressedPath,
-                                new VOption { { "Q", 80 }, { "strip", true } });
-                            uploads.Add((compressedPath, ".compressed", newMimeType, true));
-                            hasCompression = true;
+                            var mediaInfo = await FFProbe.AnalyseAsync(originalFilePath);
+                            var snapshotTime = mediaInfo.Duration > TimeSpan.FromSeconds(5)
+                                ? TimeSpan.FromSeconds(5)
+                                : TimeSpan.FromSeconds(1);
+                            await FFMpeg.SnapshotAsync(originalFilePath, thumbnailPath, captureTime: snapshotTime);
+                            uploads.Add((thumbnailPath, ".thumbnail.webp", "image/webp", true));
+                            hasThumbnail = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
                         }
 
-                        if (!ReferenceEquals(imageToWrite, vipsImage))
-                        {
-                            imageToWrite.Dispose(); // Clean up manually created colourspace-converted image
-                        }
-                    }
+                        break;
 
-                    break;
-
-                case "video":
-                    uploads.Add((originalFilePath, string.Empty, contentType, false));
-                    var thumbnailPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.thumbnail.webp");
-                    try
-                    {
-                        var mediaInfo = await FFProbe.AnalyseAsync(originalFilePath);
-                        var snapshotTime = mediaInfo.Duration > TimeSpan.FromSeconds(5)
-                            ? TimeSpan.FromSeconds(5)
-                            : TimeSpan.FromSeconds(1);
-                        await FFMpeg.SnapshotAsync(originalFilePath, thumbnailPath, captureTime: snapshotTime);
-                        uploads.Add((thumbnailPath, ".thumbnail.webp", "image/webp", true));
-                        hasThumbnail = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
-                    }
-
-                    break;
-
-                default:
-                    uploads.Add((originalFilePath, string.Empty, contentType, false));
-                    break;
-            }
+                    default:
+                        uploads.Add((originalFilePath, string.Empty, contentType, false));
+                        break;
+                }
+            else uploads.Add((originalFilePath, string.Empty, contentType, false));
 
             logger.LogInformation("Optimized file {FileId}, now uploading...", fileId);
 
             if (uploads.Count > 0)
             {
-                var destPool = Guid.Parse(configuration.GetValue<string>("Storage:PreferredRemote")!);
+                var destPool = Guid.Parse(remoteId!);
                 var uploadTasks = uploads.Select(item =>
                     nfs.UploadFileToRemoteAsync(storageId, destPool, item.FilePath, item.Suffix, item.ContentType,
                         item.SelfDestruct)

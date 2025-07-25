@@ -30,6 +30,11 @@ public class FilePool : ModelBase, IIdentifiedResource
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [Column(TypeName = "jsonb")] public RemoteStorageConfig StorageConfig { get; set; } = new();
     [Column(TypeName = "jsonb")] public BillingConfig BillingConfig { get; set; } = new();
-    
+    public bool NoOptimization { get; set; } = false;
+    public bool NoMetadata { get; set; } = false;
+    public bool AllowEncryption { get; set; } = true;
+    public bool AllowAnonymous { get; set; } = true;
+    public int RequirePrivilege { get; set; } = 0;
+
     public string ResourceIdentifier => $"file-pool/{Id}";
 }

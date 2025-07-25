@@ -15,7 +15,7 @@ export const useUserStore = defineStore('user', () => {
     isLoading.value = true
     error.value = null
     try {
-      const response = await fetch('/api/accounts/me', {
+      const response = await fetch('/cgi/id/accounts/me', {
         credentials: 'include',
       })
 
