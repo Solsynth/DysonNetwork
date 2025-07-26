@@ -21,7 +21,7 @@ public class RemoteStorageConfig
 
 public class BillingConfig
 {
-    public double CostMultiplier { get; set; } = 1.0;
+    public double? CostMultiplier { get; set; } = 1.0;
 }
 
 public class PolicyConfig
