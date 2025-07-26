@@ -45,6 +45,7 @@ public class FileService(
 
         var file = await db.Files
             .Where(f => f.Id == fileId)
+            .Include(f => f.Pool)
             .FirstOrDefaultAsync();
 
         if (file != null)
@@ -75,6 +76,7 @@ public class FileService(
         {
             var dbFiles = await db.Files
                 .Where(f => uncachedIds.Contains(f.Id))
+                .Include(f => f.Pool)
                 .ToListAsync();
 
             // Add to cache
@@ -118,7 +120,7 @@ public class FileService(
 
         if (!string.IsNullOrWhiteSpace(encryptPassword))
         {
-            if (!pool.AllowEncryption) throw new InvalidOperationException("Encryption is not allowed in this pool");
+            if (!pool.PolicyConfig.AllowEncryption) throw new InvalidOperationException("Encryption is not allowed in this pool");
             var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
             FileEncryptor.EncryptFile(ogFilePath, encryptedPath, encryptPassword);
             File.Delete(ogFilePath); // Delete original unencrypted
@@ -136,7 +138,7 @@ public class FileService(
             Size = fileSize,
             Hash = hash,
             AccountId = Guid.Parse(account.Id),
-            IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.AllowEncryption
+            IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.PolicyConfig.AllowEncryption
         };
 
         var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);
@@ -160,7 +162,7 @@ public class FileService(
         }
 
         // Extract metadata on the current thread for a faster initial response
-        if (!pool.NoMetadata)
+        if (!pool.PolicyConfig.NoMetadata)
             await ExtractMetadataAsync(file, ogFilePath, stream);
 
         db.Files.Add(file);
@@ -302,7 +304,7 @@ public class FileService(
         {
             logger.LogInformation("Processing file {FileId} in background...", fileId);
 
-            if (!pool.NoOptimization)
+            if (!pool.PolicyConfig.NoOptimization)
                 switch (contentType.Split('/')[0])
                 {
                     case "image" when !AnimatedImageTypes.Contains(contentType):

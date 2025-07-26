@@ -24,19 +24,26 @@ public class BillingConfig
     public double CostMultiplier { get; set; } = 1.0;
 }
 
-public class FilePool : ModelBase, IIdentifiedResource
+public class PolicyConfig
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    [MaxLength(1024)] public string Name { get; set; } = string.Empty;
-    [Column(TypeName = "jsonb")] public RemoteStorageConfig StorageConfig { get; set; } = new();
-    [Column(TypeName = "jsonb")] public BillingConfig BillingConfig { get; set; } = new();
     public bool PublicIndexable { get; set; } = false;
     public bool PublicUsable { get; set; } = false;
     public bool NoOptimization { get; set; } = false;
     public bool NoMetadata { get; set; } = false;
     public bool AllowEncryption { get; set; } = true;
     public bool AllowAnonymous { get; set; } = true;
-    public int RequirePrivilege { get; set; } = 0;
+    public List<string>? AcceptTypes { get; set; }
+    public long? MaxFileSize { get; set; }
+    public int RequirePrivilege { get; set; } = 0; 
+}
+
+public class FilePool : ModelBase, IIdentifiedResource
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(1024)] public string Name { get; set; } = string.Empty;
+    [Column(TypeName = "jsonb")] public RemoteStorageConfig StorageConfig { get; set; } = new();
+    [Column(TypeName = "jsonb")] public BillingConfig BillingConfig { get; set; } = new();
+    [Column(TypeName = "jsonb")] public PolicyConfig PolicyConfig { get; set; } = new();
     
     public Guid? AccountId { get; set; }
 

@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Proto;
+using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +46,14 @@ public class FileController(
             return PhysicalFile(filePath, file.MimeType ?? "application/octet-stream", file.Name);
         }
 
-        var dest = await fs.GetRemoteStorageConfig(file.PoolId.Value);
+        var pool = await fs.GetPoolAsync(file.PoolId.Value);
+        if (pool is null) return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
+        var dest = pool.StorageConfig;
+
+        if (!pool.PolicyConfig.AllowAnonymous)
+            if(HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+                // TODO: Provide ability to add access log
+        
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
         if (!original && file.HasCompression)
@@ -115,7 +123,7 @@ public class FileController(
     [HttpGet("{id}/info")]
     public async Task<ActionResult<CloudFile>> GetFileInfo(string id)
     {
-        var file = await db.Files.FindAsync(id);
+        var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
 
         return file;

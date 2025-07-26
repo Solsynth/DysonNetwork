@@ -17,7 +17,7 @@ public class FilePoolController(AppDatabase db) : ControllerBase
 
         var accountId = Guid.Parse(currentUser.Id);
         var pools = await db.Pools
-            .Where(p => p.PublicUsable || p.AccountId == accountId)
+            .Where(p => p.PolicyConfig.PublicUsable || p.AccountId == accountId)
             .ToListAsync();
 
         return Ok(pools);

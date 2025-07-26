@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using DysonNetwork.Drive.Storage;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
@@ -13,6 +14,28 @@ namespace DysonNetwork.Drive.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterColumn<Dictionary<string, object>>(
+                name: "file_meta",
+                table: "files",
+                type: "jsonb",
+                nullable: true,
+                oldClrType: typeof(Dictionary<string, object>),
+                oldType: "jsonb");
+
+            migrationBuilder.AddColumn<bool>(
+                name: "has_thumbnail",
+                table: "files",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "is_encrypted",
+                table: "files",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
             migrationBuilder.AddColumn<Guid>(
                 name: "pool_id",
                 table: "files",
@@ -27,6 +50,8 @@ namespace DysonNetwork.Drive.Migrations
                     name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
                     storage_config = table.Column<RemoteStorageConfig>(type: "jsonb", nullable: false),
                     billing_config = table.Column<BillingConfig>(type: "jsonb", nullable: false),
+                    policy_config = table.Column<PolicyConfig>(type: "jsonb", nullable: false),
+                    account_id = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
@@ -64,8 +89,25 @@ namespace DysonNetwork.Drive.Migrations
                 table: "files");
 
             migrationBuilder.DropColumn(
+                name: "has_thumbnail",
+                table: "files");
+
+            migrationBuilder.DropColumn(
+                name: "is_encrypted",
+                table: "files");
+
+            migrationBuilder.DropColumn(
                 name: "pool_id",
                 table: "files");
+
+            migrationBuilder.AlterColumn<Dictionary<string, object>>(
+                name: "file_meta",
+                table: "files",
+                type: "jsonb",
+                nullable: false,
+                oldClrType: typeof(Dictionary<string, object>),
+                oldType: "jsonb",
+                oldNullable: true);
         }
     }
 }

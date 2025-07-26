@@ -16,8 +16,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Drive.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250726034305_FilePoolAuthorize")]
-    partial class FilePoolAuthorize
+    [Migration("20250726103203_AddCloudFilePool")]
+    partial class AddCloudFilePool
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -199,14 +199,6 @@ namespace DysonNetwork.Drive.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<bool>("AllowAnonymous")
-                        .HasColumnType("boolean")
-                        .HasColumnName("allow_anonymous");
-
-                    b.Property<bool>("AllowEncryption")
-                        .HasColumnType("boolean")
-                        .HasColumnName("allow_encryption");
-
                     b.Property<BillingConfig>("BillingConfig")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -226,25 +218,10 @@ namespace DysonNetwork.Drive.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
-                    b.Property<bool>("NoMetadata")
-                        .HasColumnType("boolean")
-                        .HasColumnName("no_metadata");
-
-                    b.Property<bool>("NoOptimization")
-                        .HasColumnType("boolean")
-                        .HasColumnName("no_optimization");
-
-                    b.Property<bool>("PublicIndexable")
-                        .HasColumnType("boolean")
-                        .HasColumnName("public_indexable");
-
-                    b.Property<bool>("PublicUsable")
-                        .HasColumnType("boolean")
-                        .HasColumnName("public_usable");
-
-                    b.Property<int>("RequirePrivilege")
-                        .HasColumnType("integer")
-                        .HasColumnName("require_privilege");
+                    b.Property<PolicyConfig>("PolicyConfig")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("policy_config");
 
                     b.Property<RemoteStorageConfig>("StorageConfig")
                         .IsRequired()

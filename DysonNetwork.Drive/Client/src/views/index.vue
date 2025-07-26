@@ -149,7 +149,8 @@ const renderSingleSelectTag: SelectRenderTag = ({ option }) => {
   )
 }
 
-function renderPoolSelectLabel(option: SelectOption & SnFilePool, selected: boolean) {
+function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
+  const policy: any = option.policy_config
   return h(
     'div',
     {
@@ -171,7 +172,7 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool, selected: bool
           },
         },
         [
-          option.public_usable &&
+          policy.public_usable &&
             h(
               NTag,
               {
@@ -181,7 +182,7 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool, selected: bool
               },
               { default: () => 'Public Shared' },
             ),
-          option.public_indexable &&
+          policy.public_indexable &&
             h(
               NTag,
               {
@@ -191,7 +192,7 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool, selected: bool
               },
               { default: () => 'Public Indexable' },
             ),
-          option.allow_encryption &&
+          policy.allow_encryption &&
             h(
               NTag,
               {
