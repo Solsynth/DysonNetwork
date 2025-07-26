@@ -28,7 +28,7 @@ import { formatBytes } from '@/views/format'
 
 const props = defineProps<{
   modelValue: string | null
-  placeholder: string | undefined
+  placeholder?: string | undefined
 }>()
 
 const emit = defineEmits(['update:modelValue', 'update:pool'])
