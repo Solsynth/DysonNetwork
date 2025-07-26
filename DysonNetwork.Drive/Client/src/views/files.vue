@@ -143,6 +143,7 @@ import { useRoute } from 'vue-router'
 import { computed, onMounted, ref } from 'vue'
 
 import { downloadAndDecryptFile } from './secure'
+import { formatBytes } from './format'
 
 import hljs from 'highlight.js/lib/core'
 import json from 'highlight.js/lib/languages/json'
@@ -199,14 +200,5 @@ function downloadFile() {
   } else {
     window.open(fileSource.value, '_blank')
   }
-}
-
-function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const dm = decimals < 0 ? 0 : decimals
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
 }
 </script>

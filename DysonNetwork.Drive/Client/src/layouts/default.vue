@@ -15,7 +15,7 @@
         </n-dropdown>
       </div>
     </n-layout-header>
-    <n-layout-content embedded content-style="padding: 24px;">
+    <n-layout-content embedded>
       <router-view />
     </n-layout-content>
   </n-layout>
@@ -28,12 +28,15 @@ import {
   LogInOutlined,
   PersonAddAlt1Outlined,
   PersonOutlineRound,
+  DataUsageRound,
 } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
 import { useRoute, useRouter } from 'vue-router'
 import { useServicesStore } from '@/stores/services'
 
 const userStore = useUserStore()
+
+const router = useRouter()
 const route = useRoute()
 
 const hideUserMenu = computed(() => {
@@ -61,13 +64,21 @@ const guestOptions = [
 
 const userOptions = computed(() => [
   {
+    label: 'Usage',
+    key: 'dashboardUsage',
+    icon: () =>
+      h(NIcon, null, {
+        default: () => h(DataUsageRound),
+      }),
+  },
+  {
     label: 'Profile',
     key: 'profile',
     icon: () =>
       h(NIcon, null, {
         default: () => h(PersonOutlineRound),
       }),
-  }
+  },
 ])
 
 const servicesStore = useServicesStore()
@@ -83,6 +94,8 @@ function handleGuestMenuSelect(key: string) {
 function handleUserMenuSelect(key: string) {
   if (key === 'profile') {
     window.open(servicesStore.getSerivceUrl('DysonNetwork.Pass', 'accounts/me')!, '_blank')
+  } else {
+    router.push({ name: key })
   }
 }
 </script>

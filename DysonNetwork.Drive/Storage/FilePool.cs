@@ -41,6 +41,7 @@ public class FilePool : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string Name { get; set; } = string.Empty;
+    [MaxLength(8192)] public string Description { get; set; } = string.Empty;
     [Column(TypeName = "jsonb")] public RemoteStorageConfig StorageConfig { get; set; } = new();
     [Column(TypeName = "jsonb")] public BillingConfig BillingConfig { get; set; } = new();
     [Column(TypeName = "jsonb")] public PolicyConfig PolicyConfig { get; set; } = new();

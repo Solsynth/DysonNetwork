@@ -156,9 +156,9 @@ public abstract class TusService
 
                 var metadata = eventContext.Metadata;
                 var contentType = metadata.TryGetValue("content-type", out var ct) ? ct.GetString(Encoding.UTF8) : null;
-                
+
                 var scope = eventContext.HttpContext.RequestServices.CreateScope();
-                
+
                 var rejected = false;
 
                 var fs = scope.ServiceProvider.GetRequiredService<FileService>();
@@ -173,9 +173,22 @@ public abstract class TusService
 
                 // Do the policy check
                 var policy = pool!.PolicyConfig;
+                if (!rejected && !pool.PolicyConfig.AllowEncryption)
+                {
+                    var encryptPassword = eventContext.HttpContext.Request.Headers["X-FilePass"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(encryptPassword))
+                    {
+                        eventContext.FailRequest(
+                            HttpStatusCode.Forbidden,
+                            "File encryption is not allowed in this pool"
+                        );
+                        rejected = true;
+                    }
+                }
+
                 if (!rejected && policy.AcceptTypes is not null)
                 {
-                    if (contentType is null)
+                    if (string.IsNullOrEmpty(contentType))
                     {
                         eventContext.FailRequest(
                             HttpStatusCode.BadRequest,

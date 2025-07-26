@@ -11,7 +11,8 @@ export const useUserStore = defineStore('user', () => {
   const isAuthenticated = computed(() => !!user.value)
 
   // Actions
-  async function fetchUser() {
+  async function fetchUser(reload = true) {
+    if (!reload && user.value) return
     isLoading.value = true
     error.value = null
     try {
@@ -21,9 +22,6 @@ export const useUserStore = defineStore('user', () => {
 
       if (!response.ok) {
         // If the token is invalid, clear it and the user state
-        if (response.status === 401) {
-          logout()
-        }
         throw new Error('Failed to fetch user information.')
       }
 
@@ -34,13 +32,6 @@ export const useUserStore = defineStore('user', () => {
     } finally {
       isLoading.value = false
     }
-  }
-
-  function logout() {
-    user.value = null
-    localStorage.removeItem('authToken')
-    // Optionally, redirect to login page
-    // router.push('/login')
   }
 
   function initialize() {
@@ -69,7 +60,6 @@ export const useUserStore = defineStore('user', () => {
     error,
     isAuthenticated,
     fetchUser,
-    logout,
     initialize,
   }
 })

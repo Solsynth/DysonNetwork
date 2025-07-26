@@ -49,7 +49,9 @@
               type="password"
               class="mb-2"
             />
-            <p class="pl-1 text-xs opacity-75 mt-[-4px]">Only available for Stellar Program and certian file pool.</p>
+            <p class="pl-1 text-xs opacity-75 mt-[-4px]">
+              Only available for Stellar Program and certian file pool.
+            </p>
           </div>
         </n-card>
       </n-collapse-transition>
@@ -110,11 +112,15 @@ import {
   type SelectOption,
   type SelectRenderTag,
   type UploadFileInfo,
+  useMessage,
+  NDivider,
+  NTooltip,
 } from 'naive-ui'
 import { computed, h, onMounted, ref } from 'vue'
 import { CloudUploadRound } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
 import type { SnFilePool } from '@/types/pool'
+import { formatBytes } from './format'
 
 import * as tus from 'tus-js-client'
 
@@ -160,6 +166,42 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
     },
     [
       h('div', null, [option.name as string]),
+      option.description &&
+        h(
+          'div',
+          {
+            style: {
+              fontSize: '0.875rem',
+              opacity: '0.75',
+            },
+          },
+          option.description,
+        ),
+      h(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            marginBottom: '4px',
+            fontSize: '0.75rem',
+            opacity: '0.75',
+          },
+        },
+        [
+          policy.max_file_size && h('span', `Max ${formatBytes(policy.max_file_size)}`),
+          policy.accept_types &&
+            h(
+              NTooltip,
+              {},
+              {
+                trigger: () => h('span', `Accept limited types`),
+                default: () => h('span', policy.accept_types.join(', ')),
+              },
+            ),
+        ].flatMap((el, idx, arr) =>
+          idx < arr.length - 1 ? [el, h(NDivider, { vertical: true })] : [el],
+        ),
+      ),
       h(
         'div',
         {
@@ -228,6 +270,8 @@ const currentFilePool = computed(() => {
   return pools.value?.find((pool) => pool.id === filePool.value) ?? null
 })
 
+const messageDisplay = useMessage()
+
 function customRequest({
   file,
   data,
@@ -246,13 +290,21 @@ function customRequest({
     retryDelays: [0, 3000, 5000, 10000, 20000],
     metadata: {
       filename: file.name,
-      filetype: file.type ?? 'application/octet-stream',
+      'content-type': file.type ?? 'application/octet-stream',
     },
     headers: {
       ...requestHeaders,
       ...headers,
     },
     onError: function (error) {
+      if (error instanceof tus.DetailedError) {
+        const failedBody = error.originalResponse?.getBody()
+        if (failedBody != null)
+          messageDisplay.error(`Upload failed: ${failedBody}`, {
+            duration: 10000,
+            closable: true,
+          })
+      }
       console.error('[DRIVE] Upload failed:', error)
       onError()
     },
@@ -290,8 +342,7 @@ function createThumbnailUrl(
 
 function customDownload(file: UploadFileInfo) {
   const { url, name } = file
-  if (!url)
-    return
+  if (!url) return
   window.open(url.replace('/api', ''), '_blank')
 }
 
