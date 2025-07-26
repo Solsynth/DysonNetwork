@@ -73,7 +73,7 @@ public abstract class TusService
                     {
                         eventContext.FailRequest(
                             HttpStatusCode.Forbidden,
-                            $"You need to have join the Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use this pool"
+                            $"You need to have join the Stellar Program to use this pool"
                         );
                         return;
                     }
@@ -84,7 +84,7 @@ public abstract class TusService
                     {
                         eventContext.FailRequest(
                             HttpStatusCode.Forbidden,
-                            $"You need to have join the Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use this pool"
+                            $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use this pool, you are tier {privilege}"
                         );
                         return;
                     }
