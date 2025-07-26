@@ -209,10 +209,18 @@ public partial class ChatService(
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
+        if (sender.Account is null)
+            sender = await scopedCrs.LoadMemberAccount(sender);
+        if (sender.Account is null)
+            throw new InvalidOperationException(
+                "Sender account is null, this should never happen. Sender id: " +
+                sender.Id
+            );
+
         var metaDict =
             new Dictionary<string, object>
             {
-                ["sender_name"] = sender.Nick ?? sender.Account.Nick,
+                ["sender_name"] = sender.Nick ?? sender.Account!.Nick,
                 ["user_id"] = sender.AccountId,
                 ["sender_id"] = sender.Id,
                 ["message_id"] = message.Id,
@@ -221,8 +229,8 @@ public partial class ChatService(
                     .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
                     .Select(a => a.Id).ToList(),
             };
-        if (sender.Account.Profile is not { Picture: null })
-            metaDict["pfp"] = sender.Account.Profile.Picture.Id;
+        if (sender.Account!.Profile is not { Picture: null })
+            metaDict["pfp"] = sender.Account!.Profile.Picture.Id;
         if (!string.IsNullOrEmpty(room.Name))
             metaDict["room_name"] = room.Name;
 
