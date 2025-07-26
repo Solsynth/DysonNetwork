@@ -126,7 +126,7 @@ public class FileService(
             contentType = "application/octet-stream";
         }
 
-        var hash = await HashFileAsync(stream, fileSize: fileSize);
+        var hash = await HashFileAsync(ogFilePath);
 
         var file = new CloudFile
         {
@@ -136,7 +136,7 @@ public class FileService(
             Size = fileSize,
             Hash = hash,
             AccountId = Guid.Parse(account.Id),
-            IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword)
+            IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.AllowEncryption
         };
 
         var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);
@@ -274,7 +274,7 @@ public class FileService(
     }
 
     /// <summary>
-    /// Handles file optimization (image compression, video thumbnailing) and uploads to remote storage in the background.
+    /// Handles file optimization (image compression, video thumbnail) and uploads to remote storage in the background.
     /// </summary>
     private async Task ProcessAndUploadInBackgroundAsync(
         string fileId,
@@ -350,15 +350,23 @@ public class FileService(
                             var snapshotTime = mediaInfo.Duration > TimeSpan.FromSeconds(5)
                                 ? TimeSpan.FromSeconds(5)
                                 : TimeSpan.FromSeconds(1);
+
                             await FFMpeg.SnapshotAsync(originalFilePath, thumbnailPath, captureTime: snapshotTime);
-                            uploads.Add((thumbnailPath, ".thumbnail.webp", "image/webp", true));
-                            hasThumbnail = true;
+
+                            if (File.Exists(thumbnailPath))
+                            {
+                                uploads.Add((thumbnailPath, ".thumbnail.webp", "image/webp", true));
+                                hasThumbnail = true;
+                            }
+                            else
+                            {
+                                logger.LogWarning("FFMpeg did not produce thumbnail for video {FileId}", fileId);
+                            }
                         }
                         catch (Exception ex)
                         {
                             logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
                         }
-
                         break;
 
                     default:
@@ -405,11 +413,12 @@ public class FileService(
         }
     }
 
-    private static async Task<string> HashFileAsync(Stream stream, int chunkSize = 1024 * 1024, long? fileSize = null)
+    private static async Task<string> HashFileAsync(string filePath, int chunkSize = 1024 * 1024)
     {
-        fileSize ??= stream.Length;
+        using var stream = File.OpenRead(filePath);
+        var fileSize = stream.Length;
         if (fileSize > chunkSize * 1024 * 5)
-            return await HashFastApproximateAsync(stream, chunkSize);
+            return await HashFastApproximateAsync(filePath, chunkSize);
 
         using var md5 = MD5.Create();
         var hashBytes = await md5.ComputeHashAsync(stream);
@@ -417,8 +426,10 @@ public class FileService(
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
-    private static async Task<string> HashFastApproximateAsync(Stream stream, int chunkSize = 1024 * 1024)
+    private static async Task<string> HashFastApproximateAsync(string filePath, int chunkSize = 1024 * 1024)
     {
+        await using var stream = File.OpenRead(filePath);
+        
         // Scale the chunk size to kB level
         chunkSize *= 1024;
 

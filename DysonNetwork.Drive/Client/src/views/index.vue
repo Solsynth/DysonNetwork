@@ -60,8 +60,11 @@
         with-credentials
         show-preview-button
         list-type="image"
+        show-download-button
         :custom-request="customRequest"
+        :custom-download="customDownload"
         :create-thumbnail-url="createThumbnailUrl"
+        @preview="customPreview"
       >
         <n-upload-dragger>
           <div style="margin-bottom: 12px">
@@ -102,11 +105,11 @@ import {
   NSelect,
   NTag,
   NCollapseTransition,
-  NFormItem,
   type UploadCustomRequestOptions,
   type UploadSettledFileInfo,
   type SelectOption,
   type SelectRenderTag,
+  type UploadFileInfo,
 } from 'naive-ui'
 import { computed, h, onMounted, ref } from 'vue'
 import { CloudUploadRound } from '@vicons/material'
@@ -282,5 +285,19 @@ function createThumbnailUrl(
 ): string | undefined {
   if (!fileInfo) return undefined
   return fileInfo.url ?? undefined
+}
+
+function customDownload(file: UploadFileInfo) {
+  const { url, name } = file
+  if (!url)
+    return
+  window.open(url.replace('/api', ''), '_blank')
+}
+
+function customPreview(file: UploadFileInfo, detail: { event: MouseEvent }) {
+  detail.event.preventDefault()
+  const { url, type } = file
+  if (!url) return
+  window.open(url.replace('/api', ''), '_blank')
 }
 </script>

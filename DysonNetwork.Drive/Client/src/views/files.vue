@@ -12,7 +12,8 @@
             </n-alert>
           </div>
           <div v-else>
-            <n-image v-if="fileType === 'image'" :src="fileSource" />
+            <n-image v-if="fileType === 'image'" :src="fileSource" class="w-full" />
+            <video v-else-if="fileType === 'video'" :src="fileSource" controls class="w-full" />
           </div>
         </n-gi>
 
@@ -83,7 +84,25 @@
               v-model:value="filePass"
               type="password"
             />
-            <n-button @click="downloadFile">Download</n-button>
+            <div class="flex gap-2">
+              <n-button class="flex-grow-1" @click="downloadFile">Download</n-button>
+              <n-popover placement="bottom" trigger="hover">
+                <template #trigger>
+                  <n-button>
+                    <n-icon>
+                      <qr-code-round />
+                    </n-icon>
+                  </n-button>
+                </template>
+                <n-qr-code
+                  type="svg"
+                  :value="currentUrl"
+                  :size="160"
+                  icon-src="/favicon.png"
+                  error-correction-level="H"
+                />
+              </n-popover>
+            </div>
           </div>
           <div v-else>
             <n-progress processing :percentage="progress" />
@@ -109,9 +128,17 @@ import {
   NCode,
   NGrid,
   NGi,
+  NPopover,
+  NQrCode,
   useMessage,
 } from 'naive-ui'
-import { DataUsageRound, InfoRound, DetailsRound, FileUploadOutlined } from '@vicons/material'
+import {
+  DataUsageRound,
+  InfoRound,
+  DetailsRound,
+  FileUploadOutlined,
+  QrCodeRound,
+} from '@vicons/material'
 import { useRoute } from 'vue-router'
 import { computed, onMounted, ref } from 'vue'
 
@@ -134,6 +161,8 @@ const progress = ref<number | undefined>(0)
 const showTechDetails = ref<boolean>(false)
 
 const messageDisplay = useMessage()
+
+const currentUrl = window.location.href
 
 const fileInfo = ref<any>(null)
 async function fetchFileInfo() {
@@ -161,10 +190,11 @@ function downloadFile() {
     return
   }
   if (fileInfo.value.is_encrypted) {
-    downloadAndDecryptFile(fileSource.value, filePass.value, (p: number) => {
+    downloadAndDecryptFile(fileSource.value, filePass.value, fileInfo.value.name, (p: number) => {
       progress.value = p * 100
     }).catch((err) => {
       messageDisplay.error('Download failed: ' + err.message, { closable: true, duration: 10000 })
+      progress.value = undefined
     })
   } else {
     window.open(fileSource.value, '_blank')
