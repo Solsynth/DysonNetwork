@@ -14,6 +14,15 @@
           <div v-else>
             <n-image v-if="fileType === 'image'" :src="fileSource" class="w-full" />
             <video v-else-if="fileType === 'video'" :src="fileSource" controls class="w-full" />
+            <audio v-else-if="fileType === 'audio'" :src="fileSource" controls class="w-full" />
+            <n-result
+              status="418"
+              title="Preview Unavailable"
+              description="How can you preview this file?"
+              size="small"
+              class="py-6"
+              v-else
+            />
           </div>
         </n-gi>
 
