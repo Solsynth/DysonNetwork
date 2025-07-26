@@ -2,7 +2,7 @@
   <div class="h-full flex items-center justify-center">
     <n-card class="max-w-lg text-center" title="Captcha Verification">
       <div class="mb-4 mt-2">
-        <Captcha :provider="provider" :api-key="apiKey" @verified="onCaptchaVerified" />
+        <captcha-widget :provider="provider" :api-key="apiKey" @verified="onCaptchaVerified" />
       </div>
       <div class="text-sm">
         <div class="font-semibold mb-1">Solar Network Anti-Robot</div>
@@ -41,7 +41,7 @@
 import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { NCard } from 'naive-ui';
-import Captcha from '@/components/Captcha.vue';
+import CaptchaWidget from '@/components/CaptchaWidget.vue';
 
 const route = useRoute();
 

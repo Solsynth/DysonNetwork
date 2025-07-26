@@ -29,7 +29,7 @@
 
           <n-form-item path="captchaToken">
             <div class="flex justify-center w-full">
-              <captcha
+              <captcha-widget
                 :provider="captchaProvider"
                 :api-key="captchaApiKey"
                 @verified="onCaptchaVerified"
@@ -77,7 +77,7 @@ import {
   type FormRules,
   useMessage,
 } from 'naive-ui'
-import Captcha from '@/components/Captcha.vue'
+import CaptchaWidget from '@/components/CaptchaWidget.vue'
 
 const router = useRouter()
 const formRef = ref<FormInst | null>(null)
