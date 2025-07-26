@@ -26,7 +26,7 @@ public class FileService(
 {
     private const string CacheKeyPrefix = "file:";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
-    
+
     /// <summary>
     /// The api for getting file meta with cache,
     /// the best use case is for accessing the file data.
@@ -108,11 +108,21 @@ public class FileService(
         Stream stream,
         string fileName,
         string? contentType,
-        string? encryptPassword
+        string? encryptPassword,
+        Instant? expiredAt
     )
     {
         var pool = await GetPoolAsync(Guid.Parse(filePool));
         if (pool is null) throw new InvalidOperationException("Pool not found");
+
+        if (pool.StorageConfig.Expiration is not null && expiredAt.HasValue)
+        {
+            var expectedExpiration = SystemClock.Instance.GetCurrentInstant() - expiredAt.Value;
+            var effectiveExpiration = pool.StorageConfig.Expiration < expectedExpiration
+                ? pool.StorageConfig.Expiration
+                : expectedExpiration;
+            expiredAt = SystemClock.Instance.GetCurrentInstant() + effectiveExpiration;
+        }
 
         var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
         var fileSize = stream.Length;
@@ -120,7 +130,8 @@ public class FileService(
 
         if (!string.IsNullOrWhiteSpace(encryptPassword))
         {
-            if (!pool.PolicyConfig.AllowEncryption) throw new InvalidOperationException("Encryption is not allowed in this pool");
+            if (!pool.PolicyConfig.AllowEncryption)
+                throw new InvalidOperationException("Encryption is not allowed in this pool");
             var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
             FileEncryptor.EncryptFile(ogFilePath, encryptedPath, encryptPassword);
             File.Delete(ogFilePath); // Delete original unencrypted
@@ -137,6 +148,7 @@ public class FileService(
             MimeType = contentType,
             Size = fileSize,
             Hash = hash,
+            ExpiredAt = expiredAt,
             AccountId = Guid.Parse(account.Id),
             IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.PolicyConfig.AllowEncryption
         };
@@ -369,6 +381,7 @@ public class FileService(
                         {
                             logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
                         }
+
                         break;
 
                     default:
@@ -431,7 +444,7 @@ public class FileService(
     private static async Task<string> HashFastApproximateAsync(string filePath, int chunkSize = 1024 * 1024)
     {
         await using var stream = File.OpenRead(filePath);
-        
+
         // Scale the chunk size to kB level
         chunkSize *= 1024;
 

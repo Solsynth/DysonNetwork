@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using NodaTime;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
 using tusdotnet.Models.Configuration;
@@ -112,6 +113,11 @@ public abstract class TusService
                 if (string.IsNullOrEmpty(filePool))
                     filePool = configuration["Storage:PreferredRemote"];
 
+                Instant? expiredAt = null;
+                var expiredString = httpContext.Request.Headers["X-FileExpire"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(expiredString) && int.TryParse(expiredString, out var expired))
+                    expiredAt = Instant.FromUnixTimeSeconds(expired);
+
                 try
                 {
                     var fileService = services.GetRequiredService<FileService>();
@@ -122,7 +128,8 @@ public abstract class TusService
                         fileStream,
                         fileName,
                         contentType,
-                        encryptPassword
+                        encryptPassword,
+                        expiredAt
                     );
 
                     using var finalScope = eventContext.HttpContext.RequestServices.CreateScope();

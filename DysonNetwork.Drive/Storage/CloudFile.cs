@@ -38,6 +38,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
     [MaxLength(256)] public string? MimeType { get; set; }
     [MaxLength(256)] public string? Hash { get; set; }
+    public Instant? ExpiredAt { get; set; }
     public long Size { get; set; }
     public Instant? UploadedAt { get; set; }
     public bool HasCompression { get; set; } = false;

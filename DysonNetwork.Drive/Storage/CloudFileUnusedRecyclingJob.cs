@@ -15,11 +15,19 @@ public class CloudFileUnusedRecyclingJob(
     {
         logger.LogInformation("Marking unused cloud files...");
 
+        var recyclablePools = await db.Pools
+            .Where(p => p.PolicyConfig.EnableRecycle)
+            .Select(p => p.Id)
+            .ToListAsync();
+
         var now = SystemClock.Instance.GetCurrentInstant();
         const int batchSize = 1000; // Process larger batches for efficiency
         var processedCount = 0;
         var markedCount = 0;
-        var totalFiles = await db.Files.Where(f => !f.IsMarkedRecycle).CountAsync();
+        var totalFiles = await db.Files
+            .Where(f => f.PoolId.HasValue && recyclablePools.Contains(f.PoolId.Value))
+            .Where(f => !f.IsMarkedRecycle)
+            .CountAsync();
 
         logger.LogInformation("Found {TotalFiles} files to check for unused status", totalFiles);
 
@@ -35,13 +43,12 @@ public class CloudFileUnusedRecyclingJob(
         {
             // Query for the next batch of files using keyset pagination
             var filesQuery = db.Files
+                .Where(f => f.PoolId.HasValue && recyclablePools.Contains(f.PoolId.Value))
                 .Where(f => !f.IsMarkedRecycle)
                 .Where(f => f.CreatedAt <= ageThreshold); // Only process older files first
 
             if (lastProcessedId != null)
-            {
                 filesQuery = filesQuery.Where(f => string.Compare(f.Id, lastProcessedId) > 0);
-            }
 
             var fileBatch = await filesQuery
                 .OrderBy(f => f.Id) // Ensure consistent ordering for pagination
@@ -84,9 +91,17 @@ public class CloudFileUnusedRecyclingJob(
             {
                 logger.LogInformation(
                     "Progress: processed {ProcessedCount}/{TotalFiles} files, marked {MarkedCount} for recycling",
-                    processedCount, totalFiles, markedCount);
+                    processedCount,
+                    totalFiles,
+                    markedCount
+                );
             }
         }
+        
+        var expiredCount = await db.Files
+            .Where(f => f.ExpiredAt.HasValue && f.ExpiredAt.Value <= now)
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsMarkedRecycle, true));
+        markedCount += expiredCount;
 
         logger.LogInformation("Completed marking {MarkedCount} files for recycling", markedCount);
     }

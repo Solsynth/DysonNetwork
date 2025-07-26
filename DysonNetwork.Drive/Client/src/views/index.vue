@@ -38,20 +38,31 @@
 
       <n-collapse-transition :show="modeAdvanced">
         <n-card title="Advance Options" size="small" class="mb-3">
-          <div>
-            <p class="pl-1 mb-0.5">File Password</p>
-            <n-input
-              v-model:value="filePass"
-              :disabled="!currentFilePool?.allow_encryption"
-              placeholder="Enter password to protect the file"
-              show-password-toggle
-              size="large"
-              type="password"
-              class="mb-2"
-            />
-            <p class="pl-1 text-xs opacity-75 mt-[-4px]">
-              Only available for Stellar Program and certian file pool.
-            </p>
+          <div class="flex flex-col gap-3">
+            <div>
+              <p class="pl-1 mb-0.5">File Password</p>
+              <n-input
+                v-model:value="filePass"
+                :disabled="!currentFilePool?.allow_encryption"
+                placeholder="Enter password to protect the file"
+                show-password-toggle
+                size="large"
+                type="password"
+                class="mb-2"
+              />
+              <p class="pl-1 text-xs opacity-75 mt-[-4px]">
+                Only available for Stellar Program and certian file pool.
+              </p>
+            </div>
+            <div>
+              <p class="pl-1 mb-0.5">File Expiration Date</p>
+              <n-date-picker
+                v-model:value="fileExpire"
+                type="datetime"
+                clearable
+                :is-date-disabled="disablePreviousDate"
+              />
+            </div>
           </div>
         </n-card>
       </n-collapse-transition>
@@ -107,6 +118,7 @@ import {
   NSelect,
   NTag,
   NCollapseTransition,
+  NDatePicker,
   type UploadCustomRequestOptions,
   type UploadSettledFileInfo,
   type SelectOption,
@@ -155,6 +167,8 @@ const renderSingleSelectTag: SelectRenderTag = ({ option }) => {
   )
 }
 
+const perkPrivilegeList = ['Stellar', 'Nova', 'Supernova']
+
 function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
   const policy: any = option.policy_config
   return h(
@@ -198,9 +212,14 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
                 default: () => h('span', policy.accept_types.join(', ')),
               },
             ),
-        ].flatMap((el, idx, arr) =>
-          idx < arr.length - 1 ? [el, h(NDivider, { vertical: true })] : [el],
-        ),
+          policy.require_privilege &&
+            h('span', `Require ${perkPrivilegeList[policy.require_privilege - 1]} Program`),
+            h('span', `Cost x${option.billing_config.cost_multiplier.toFixed(1)} NSD`)
+        ]
+          .filter((el) => el)
+          .flatMap((el, idx, arr) =>
+            idx < arr.length - 1 ? [el, h(NDivider, { vertical: true })] : [el],
+          ),
       ),
       h(
         'div',
@@ -244,7 +263,7 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
               },
               { default: () => 'Allow Encryption' },
             ),
-          option.allow_anonymous &&
+          policy.allow_anonymous &&
             h(
               NTag,
               {
@@ -253,6 +272,16 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
                 round: true,
               },
               { default: () => 'Allow Anonymous' },
+            ),
+          policy.enable_recycle &&
+            h(
+              NTag,
+              {
+                type: 'info',
+                size: 'small',
+                round: true,
+              },
+              { default: () => 'Recycle Enabled' },
             ),
         ],
       ),
@@ -264,6 +293,7 @@ const modeAdvanced = ref(false)
 
 const filePool = ref<string | null>(null)
 const filePass = ref<string>('')
+const fileExpire = ref<number | null>(null)
 
 const currentFilePool = computed(() => {
   if (!filePool.value) return null
@@ -285,6 +315,7 @@ function customRequest({
   const requestHeaders: Record<string, string> = {}
   if (filePool.value) requestHeaders['X-FilePool'] = filePool.value
   if (filePass.value) requestHeaders['X-FilePass'] = filePass.value
+  if (fileExpire.value) requestHeaders['X-FileExpire'] = fileExpire.value.toString()
   const upload = new tus.Upload(file.file, {
     endpoint: '/api/tus',
     retryDelays: [0, 3000, 5000, 10000, 20000],
@@ -351,5 +382,9 @@ function customPreview(file: UploadFileInfo, detail: { event: MouseEvent }) {
   const { url, type } = file
   if (!url) return
   window.open(url.replace('/api', ''), '_blank')
+}
+
+function disablePreviousDate(ts: number) {
+  return ts <= Date.now()
 }
 </script>

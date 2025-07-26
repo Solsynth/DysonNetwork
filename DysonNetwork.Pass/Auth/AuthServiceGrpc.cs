@@ -1,3 +1,4 @@
+using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
@@ -8,6 +9,7 @@ namespace DysonNetwork.Pass.Auth;
 
 public class AuthServiceGrpc(
     AuthService authService,
+    SubscriptionService subscriptions,
     ICacheService cache,
     AppDatabase db
 )
@@ -36,6 +38,9 @@ public class AuthServiceGrpc(
         var now = SystemClock.Instance.GetCurrentInstant();
         if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
             return new AuthenticateResponse { Valid = false, Message = "Session has been expired." };
+        
+        var perk = await subscriptions.GetPerkSubscriptionAsync(session.AccountId);
+        session.Account.PerkSubscription = perk?.ToReference();
 
         await cache.SetWithGroupsAsync(
             $"auth:{sessionId}",

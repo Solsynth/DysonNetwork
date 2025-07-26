@@ -32,19 +32,6 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         if (duration.HasValue)
             finalExpiration = SystemClock.Instance.GetCurrentInstant() + duration.Value;
 
-        var file = await db.Files
-            .Where(f => f.Id == fileId)
-            .Include(f => f.Pool)
-            .FirstOrDefaultAsync();
-        if (file is null) throw new InvalidOperationException("File not found");
-        if (file.Pool?.StorageConfig.Expiration != null)
-        {
-            var now = SystemClock.Instance.GetCurrentInstant();
-            var expectedDuration = finalExpiration - now;
-            if (finalExpiration == null || expectedDuration > file.Pool.StorageConfig.Expiration)
-                finalExpiration = now.Plus(file.Pool.StorageConfig.Expiration.Value);
-        }
-
         var reference = new CloudFileReference
         {
             FileId = fileId,

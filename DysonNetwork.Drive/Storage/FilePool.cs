@@ -26,6 +26,7 @@ public class BillingConfig
 
 public class PolicyConfig
 {
+    public bool EnableRecycle { get; set; } = false;
     public bool PublicIndexable { get; set; } = false;
     public bool PublicUsable { get; set; } = false;
     public bool NoOptimization { get; set; } = false;
