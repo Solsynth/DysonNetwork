@@ -146,16 +146,17 @@ public class FileController(
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Pool)
             .OrderByDescending(e => e.CreatedAt)
-            .Skip(offset)
-            .Take(take);
+            .AsQueryable();
 
         if (pool.HasValue) query = query.Where(e => e.PoolId == pool);
-
-        var files = await query.ToListAsync();
-
+        
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
 
+        var files = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
 
         return Ok(files);
     }

@@ -1,6 +1,22 @@
 <template>
   <section class="h-full px-5 py-4">
-    <n-data-table :columns="tableColumns" :data="files" :pagination="tablePagination" />
+    <div class="flex flex-col gap-3 mb-3">
+      <file-pool-select
+        v-model="filePool"
+        placeholder="Filter by file pool"
+        class="max-w-[480px]"
+        @update:pool="fetchFiles"
+      />
+    </div>
+    <n-data-table
+      remote
+      :row-key="(row) => row.id"
+      :columns="tableColumns"
+      :data="files"
+      :loading="loading"
+      :pagination="tablePagination"
+      @page-change="handlePageChange"
+    />
   </section>
 </template>
 
@@ -27,10 +43,12 @@ import {
 import { h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatBytes } from '../format'
+import FilePoolSelect from '@/components/FilePoolSelect.vue'
 
 const router = useRouter()
 
 const files = ref<any[]>([])
+const filePool = ref<string | null>(null)
 
 const tableColumns: DataTableColumns<any> = [
   {
@@ -95,7 +113,6 @@ const tableColumns: DataTableColumns<any> = [
         h(
           NButton,
           {
-            quaternary: true,
             circle: true,
             text: true,
             onClick: () => {
@@ -109,7 +126,6 @@ const tableColumns: DataTableColumns<any> = [
         h(
           NButton,
           {
-            quaternary: true,
             circle: true,
             text: true,
             type: 'error',
@@ -129,11 +145,19 @@ const tableColumns: DataTableColumns<any> = [
 const tablePagination = ref<PaginationProps>({
   page: 1,
   itemCount: 0,
+  pageSize: 10,
+  showSizePicker: true,
+  pageSizes: [10, 20, 30, 40, 50],
 })
 
 async function fetchFiles() {
+  if (loading.value) return
   try {
-    const response = await fetch('/api/files/me')
+    loading.value = true
+    const pag = tablePagination.value
+    const response = await fetch(
+      `/api/files/me?take=${pag.pageSize}&offset=${(pag.page! - 1) * pag.pageSize!}${filePool.value ? '&pool=' + filePool.value : ''}`,
+    )
     if (!response.ok) {
       throw new Error('Network response was not ok')
     }
@@ -142,9 +166,18 @@ async function fetchFiles() {
     tablePagination.value.itemCount = parseInt(response.headers.get('x-total') ?? '0')
   } catch (error) {
     console.error('Failed to fetch files:', error)
+  } finally {
+    loading.value = false
   }
 }
 onMounted(() => fetchFiles())
+
+function handlePageChange(page: number) {
+  tablePagination.value.page = page
+  fetchFiles()
+}
+
+const loading = ref(false)
 
 const dialog = useDialog()
 const messageDialog = useMessage()

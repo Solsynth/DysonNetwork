@@ -23,17 +23,7 @@
       </template>
 
       <div class="mb-3">
-        <n-select
-          v-model:value="filePool"
-          :options="pools ?? []"
-          :render-label="renderPoolSelectLabel"
-          :render-tag="renderSingleSelectTag"
-          value-field="id"
-          label-field="name"
-          placeholder="Select a file pool to upload"
-          clearable
-          size="large"
-        />
+        <file-pool-select v-model="filePool" @update:pool="currentFilePool = $event" />
       </div>
 
       <n-collapse-transition :show="modeAdvanced">
@@ -133,6 +123,8 @@ import { CloudUploadRound } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
 import type { SnFilePool } from '@/types/pool'
 import { formatBytes } from './format'
+
+import FilePoolSelect from '@/components/FilePoolSelect.vue'
 
 import * as tus from 'tus-js-client'
 
