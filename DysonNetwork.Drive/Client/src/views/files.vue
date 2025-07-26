@@ -2,8 +2,8 @@
   <section class="min-h-full relative flex items-center justify-center">
     <n-spin v-if="!fileInfo && !error" />
     <n-result status="404" title="No file was found" :description="error" v-else-if="error" />
-    <n-card class="max-w-4xl my-4" v-else>
-      <n-grid :cols="2" x-gap="16">
+    <n-card class="max-w-4xl my-4 mx-8" v-else>
+      <n-grid cols="1 m:2" x-gap="16" y-gap="16" responsive="screen">
         <n-gi>
           <div v-if="fileInfo.is_encrypted">
             <n-alert type="info" size="small" title="Encrypted file">
