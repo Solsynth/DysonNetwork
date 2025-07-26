@@ -27,6 +27,12 @@ const router = createRouter({
           component: () => import('../views/dashboard/usage.vue'),
           meta: { requiresAuth: true },
         },
+        {
+          path: 'files',
+          name: 'dashboardFiles',
+          component: () => import('../views/dashboard/files.vue'),
+          meta: { requiresAuth: true },
+        }
       ],
     },
     {
@@ -42,7 +48,7 @@ router.beforeEach(async (to, from, next) => {
   const servicesStore = useServicesStore()
 
   // Initialize user state if not already initialized
-  if (!userStore.user && localStorage.getItem('authToken')) {
+  if (!userStore.user) {
     await userStore.fetchUser()
   }
 

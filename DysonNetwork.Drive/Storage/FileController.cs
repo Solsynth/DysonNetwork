@@ -47,13 +47,15 @@ public class FileController(
         }
 
         var pool = await fs.GetPoolAsync(file.PoolId.Value);
-        if (pool is null) return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
+        if (pool is null)
+            return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
         var dest = pool.StorageConfig;
 
         if (!pool.PolicyConfig.AllowAnonymous)
-            if(HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-                // TODO: Provide ability to add access log
-        
+            if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+                return Unauthorized();
+        // TODO: Provide ability to add access log
+
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
         if (!original && file.HasCompression)
@@ -127,6 +129,34 @@ public class FileController(
         if (file is null) return NotFound();
 
         return file;
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<List<CloudFile>>> GetMyFiles(
+        [FromQuery] Guid? pool,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var query = db.Files
+            .Where(e => e.AccountId == accountId)
+            .Include(e => e.Pool)
+            .Skip(offset)
+            .Take(take);
+
+        if (pool.HasValue) query = query.Where(e => e.PoolId == pool);
+
+        var files = await query.ToListAsync();
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+
+        return Ok(files);
     }
 
     [Authorize]

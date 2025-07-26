@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { DataUsageRound } from '@vicons/material'
+import { DataUsageRound, AllInboxFilled } from '@vicons/material'
 import { NIcon, NLayout, NLayoutSider, NMenu, type MenuOption } from 'naive-ui'
 import { h, type Component } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
@@ -34,6 +34,11 @@ const menuOptions: MenuOption[] = [
     key: 'dashboardUsage',
     icon: renderIcon(DataUsageRound),
   },
+  {
+    label: 'Files',
+    key: 'dashboardFiles',
+    icon: renderIcon(AllInboxFilled),
+  }
 ]
 
 function updateMenuSelect(key: string) {
