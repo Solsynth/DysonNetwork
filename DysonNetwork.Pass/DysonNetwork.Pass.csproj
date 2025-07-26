@@ -150,8 +150,4 @@
         <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx"/>
     </ItemGroup>
     
-    <ItemGroup>
-        <Content Remove="wwwroot/dist/assets/Captcha.js" />
-    </ItemGroup>
-
 </Project>
