@@ -46,7 +46,7 @@ using (var scope = app.Services.CreateScope())
 var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
 
 // Configure application middleware pipeline
-app.ConfigureAppMiddleware(tusDiskStore);
+app.ConfigureAppMiddleware(tusDiskStore, builder.Environment.ContentRootPath);
 
 app.MapGatewayProxy();
 

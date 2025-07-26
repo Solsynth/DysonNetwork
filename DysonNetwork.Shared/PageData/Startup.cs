@@ -8,6 +8,20 @@ namespace DysonNetwork.Shared.PageData;
 
 public static class PageStartup
 {
+    /// <summary>
+    /// The method setup the single page application routes for you.
+    /// Before you calling this, ensure you have setup the static files and default files:
+    /// <code>
+    ///    app.UseDefaultFiles();
+    ///    app.UseStaticFiles(new StaticFileOptions
+    ///    {
+    ///        FileProvider = new PhysicalFileProvider(Path.Combine(contentRoot, "wwwroot", "dist"))
+    ///    });
+    /// </code>
+    /// </summary>
+    /// <param name="app"></param>
+    /// <param name="defaultFile"></param>
+    /// <returns></returns>
     public static WebApplication MapPages(this WebApplication app, string defaultFile)
     {
 #pragma warning disable ASP0016
