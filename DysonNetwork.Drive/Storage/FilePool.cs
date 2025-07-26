@@ -11,8 +11,8 @@ public class RemoteStorageConfig
     public string Region { get; set; } = string.Empty;
     public string Bucket { get; set; } = string.Empty;
     public string Endpoint { get; set; } = string.Empty;
-    [JsonIgnore] public string SecretId { get; set; } = string.Empty;
-    [JsonIgnore] public string SecretKey { get; set; } = string.Empty;
+    public string SecretId { get; set; } = string.Empty;
+    public string SecretKey { get; set; } = string.Empty;
     public bool EnableSigned { get; set; }
     public bool EnableSsl { get; set; }
     public string? ImageProxy { get; set; }

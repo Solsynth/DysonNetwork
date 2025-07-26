@@ -19,6 +19,12 @@ public class FilePoolController(AppDatabase db) : ControllerBase
         var pools = await db.Pools
             .Where(p => p.PolicyConfig.PublicUsable || p.AccountId == accountId)
             .ToListAsync();
+        pools = pools.Select(p =>
+        {
+            p.StorageConfig.SecretId = string.Empty;
+            p.StorageConfig.SecretKey = string.Empty;
+            return p;
+        }).ToList();
 
         return Ok(pools);
     }
