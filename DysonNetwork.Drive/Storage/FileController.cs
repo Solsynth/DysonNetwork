@@ -145,6 +145,7 @@ public class FileController(
         var query = db.Files
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Pool)
+            .OrderByDescending(e => e.CreatedAt)
             .Skip(offset)
             .Take(take);
 
