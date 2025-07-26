@@ -13,6 +13,13 @@ public static class PageStartup
 #pragma warning disable ASP0016
         app.MapFallback(async context =>
         {
+            if (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/cgi"))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                await context.Response.WriteAsync("Not found");
+                return;
+            }
+            
             var html = await File.ReadAllTextAsync(defaultFile);
 
             using var scope = app.Services.CreateScope();

@@ -22,16 +22,37 @@
         </div>
       </template>
 
-      <div class="mb-3" v-if="modeAdvanced">
-        <n-input
-          v-model:value="filePass"
-          placeholder="Enter password to protect the file"
+      <div class="mb-3">
+        <n-select
+          v-model:value="filePool"
+          :options="pools ?? []"
+          :render-label="renderPoolSelectLabel"
+          :render-tag="renderSingleSelectTag"
+          value-field="id"
+          label-field="name"
+          placeholder="Select a file pool to upload"
           clearable
           size="large"
-          type="password"
-          class="mb-2"
         />
       </div>
+
+      <n-collapse-transition :show="modeAdvanced">
+        <n-card title="Advance Options" size="small" class="mb-3">
+          <div>
+            <p class="pl-1 mb-0.5">File Password</p>
+            <n-input
+              v-model:value="filePass"
+              :disabled="!currentFilePool?.allow_encryption"
+              placeholder="Enter password to protect the file"
+              show-password-toggle
+              size="large"
+              type="password"
+              class="mb-2"
+            />
+            <p class="pl-1 text-xs opacity-75 mt-[-4px]">Only available for Stellar Program and certian file pool.</p>
+          </div>
+        </n-card>
+      </n-collapse-transition>
 
       <n-upload
         multiple
@@ -45,7 +66,7 @@
         <n-upload-dragger>
           <div style="margin-bottom: 12px">
             <n-icon size="48" :depth="3">
-              <upload-outlined />
+              <cloud-upload-round />
             </n-icon>
           </div>
           <n-text style="font-size: 16px"> Click or drag a file to this area to upload </n-text>
@@ -78,29 +99,130 @@ import {
   NP,
   NInput,
   NSwitch,
+  NSelect,
+  NTag,
+  NCollapseTransition,
+  NFormItem,
   type UploadCustomRequestOptions,
   type UploadSettledFileInfo,
+  type SelectOption,
+  type SelectRenderTag,
 } from 'naive-ui'
-import { onMounted, ref } from 'vue'
-import { UploadOutlined } from '@vicons/material'
+import { computed, h, onMounted, ref } from 'vue'
+import { CloudUploadRound } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
+import type { SnFilePool } from '@/types/pool'
 
 import * as tus from 'tus-js-client'
 
 const userStore = useUserStore()
 
 const version = ref<any>(null)
-
 async function fetchVersion() {
   const resp = await fetch('/api/version')
   version.value = await resp.json()
 }
-
 onMounted(() => fetchVersion())
+
+type SnFilePoolOption = SnFilePool & any
+
+const pools = ref<SnFilePoolOption[] | undefined>()
+async function fetchPools() {
+  const resp = await fetch('/api/pools')
+  pools.value = await resp.json()
+}
+onMounted(() => fetchPools())
+
+const renderSingleSelectTag: SelectRenderTag = ({ option }) => {
+  return h(
+    'div',
+    {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+      },
+    },
+    [option.name as string],
+  )
+}
+
+function renderPoolSelectLabel(option: SelectOption & SnFilePool, selected: boolean) {
+  return h(
+    'div',
+    {
+      style: {
+        padding: '8px 2px',
+      },
+    },
+    [
+      h('div', null, [option.name as string]),
+      h(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            gap: '0.25rem',
+            marginTop: '2px',
+            marginLeft: '-2px',
+            marginRight: '-2px',
+          },
+        },
+        [
+          option.public_usable &&
+            h(
+              NTag,
+              {
+                type: 'info',
+                size: 'small',
+                round: true,
+              },
+              { default: () => 'Public Shared' },
+            ),
+          option.public_indexable &&
+            h(
+              NTag,
+              {
+                type: 'success',
+                size: 'small',
+                round: true,
+              },
+              { default: () => 'Public Indexable' },
+            ),
+          option.allow_encryption &&
+            h(
+              NTag,
+              {
+                type: 'warning',
+                size: 'small',
+                round: true,
+              },
+              { default: () => 'Allow Encryption' },
+            ),
+          option.allow_anonymous &&
+            h(
+              NTag,
+              {
+                type: 'info',
+                size: 'small',
+                round: true,
+              },
+              { default: () => 'Allow Anonymous' },
+            ),
+        ],
+      ),
+    ],
+  )
+}
 
 const modeAdvanced = ref(false)
 
+const filePool = ref<string | null>(null)
 const filePass = ref<string>('')
+
+const currentFilePool = computed(() => {
+  if (!filePool.value) return null
+  return pools.value?.find((pool) => pool.id === filePool.value) ?? null
+})
 
 function customRequest({
   file,
@@ -112,6 +234,9 @@ function customRequest({
   onError,
   onProgress,
 }: UploadCustomRequestOptions) {
+  const requestHeaders: Record<string, string> = {}
+  if (filePool.value) requestHeaders['X-FilePool'] = filePool.value
+  if (filePass.value) requestHeaders['X-FilePass'] = filePass.value
   const upload = new tus.Upload(file.file, {
     endpoint: '/api/tus',
     retryDelays: [0, 3000, 5000, 10000, 20000],
@@ -120,7 +245,7 @@ function customRequest({
       filetype: file.type ?? 'application/octet-stream',
     },
     headers: {
-      'X-FilePass': filePass.value,
+      ...requestHeaders,
       ...headers,
     },
     onError: function (error) {
@@ -151,7 +276,10 @@ function customRequest({
   })
 }
 
-function createThumbnailUrl(_file: File | null, fileInfo: UploadSettledFileInfo): string | undefined {
+function createThumbnailUrl(
+  _file: File | null,
+  fileInfo: UploadSettledFileInfo,
+): string | undefined {
   if (!fileInfo) return undefined
   return fileInfo.url ?? undefined
 }
