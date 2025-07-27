@@ -45,7 +45,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public bool HasThumbnail { get; set; } = false;
     public bool IsEncrypted { get; set; } = false;
 
-    [JsonIgnore] public FilePool? Pool { get; set; }
+    public FilePool? Pool { get; set; }
     public Guid? PoolId { get; set; }
     [JsonIgnore] public FileBundle? Bundle { get; set; }
     public Guid? BundleId { get; set; }
