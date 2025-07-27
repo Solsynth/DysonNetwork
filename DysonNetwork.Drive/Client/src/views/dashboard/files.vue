@@ -125,6 +125,7 @@ const tableColumns: DataTableColumns<any> = [
     title: 'Pool',
     key: 'pool',
     render(row: any) {
+      if (!row.pool) return 'Unstored'
       return h(
         NTooltip,
         {},
