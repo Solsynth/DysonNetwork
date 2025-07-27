@@ -89,7 +89,7 @@ import type { SnFilePool } from '@/types/pool'
 
 import * as tus from 'tus-js-client'
 
-const props = defineProps<{ filePool: string | null; modeAdvanced: boolean; pools: SnFilePool[] }>()
+const props = defineProps<{ filePool: string | null; modeAdvanced: boolean; pools: SnFilePool[]; bundleId?: string }>()
 
 const filePass = ref<string>('')
 const fileExpire = ref<number | null>(null)
@@ -117,6 +117,7 @@ function customRequest({
   if (props.filePool) requestHeaders['X-FilePool'] = props.filePool
   if (filePass.value) requestHeaders['X-FilePass'] = filePass.value
   if (fileExpire.value) requestHeaders['X-FileExpire'] = fileExpire.value.toString()
+  if (props.bundleId) requestHeaders['X-FileBundle'] = props.bundleId
   const upload = new tus.Upload(file.file, {
     endpoint: '/api/tus',
     retryDelays: [0, 3000, 5000, 10000, 20000],

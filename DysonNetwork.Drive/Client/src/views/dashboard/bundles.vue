@@ -50,17 +50,12 @@ const tableColumns: DataTableColumns<any> = [
         },
       )
     },
+    maxWidth: 80,
   },
   {
     title: 'Description',
     key: 'description',
-  },
-  {
-    title: 'Files',
-    key: 'files',
-    render(row: any) {
-      return row.files.length
-    },
+    maxWidth: 180,
   },
   {
     title: 'Expired At',

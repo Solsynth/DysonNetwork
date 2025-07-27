@@ -16,6 +16,11 @@ const router = createRouter({
       component: () => import('../views/files.vue'),
     },
     {
+      path: '/bundles/:bundleId',
+      name: 'bundleDetails',
+      component: () => import('../views/bundles.vue'),
+    },
+    {
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('../layouts/dashboard.vue'),

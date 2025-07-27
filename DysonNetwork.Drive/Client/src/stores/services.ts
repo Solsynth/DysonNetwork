@@ -19,7 +19,7 @@ export const useServicesStore = defineStore('services', () => {
   }
 
   function getSerivceUrl(serviceName: string, ...parts: string[]): string | null {
-    let baseUrl = services.value[serviceName] || null
+    const baseUrl = services.value[serviceName] || null
     return baseUrl ? `${baseUrl}/${parts.join('/')}` : null
   }
 

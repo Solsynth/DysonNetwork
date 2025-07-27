@@ -165,6 +165,7 @@ const error = ref<string | null>(null)
 
 const filePass = ref<string>('')
 const fileId = route.params.fileId
+const passcode = route.query.passcode as string | undefined
 
 const progress = ref<number | undefined>(0)
 
@@ -177,7 +178,11 @@ const currentUrl = window.location.href
 const fileInfo = ref<any>(null)
 async function fetchFileInfo() {
   try {
-    const resp = await fetch('/api/files/' + fileId + '/info')
+    let url = '/api/files/' + fileId + '/info'
+    if (passcode) {
+      url += `?passcode=${passcode}`
+    }
+    const resp = await fetch(url)
     if (!resp.ok) {
       throw new Error('Failed to fetch file info: ' + resp.statusText)
     }
@@ -192,7 +197,13 @@ const fileType = computed(() => {
   if (!fileInfo.value) return 'unknown'
   return fileInfo.value.mime_type?.split('/')[0] || 'unknown'
 })
-const fileSource = computed(() => `/api/files/${fileId}`)
+const fileSource = computed(() => {
+  let url = `/api/files/${fileId}`
+  if (passcode) {
+    url += `?passcode=${passcode}`
+  }
+  return url
+})
 
 function downloadFile() {
   if (fileInfo.value.is_encrypted && !filePass.value) {

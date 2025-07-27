@@ -99,6 +99,7 @@ const tableColumns: DataTableColumns<any> = [
   {
     title: 'Name',
     key: 'name',
+    maxWidth: 180,
     render(row: any) {
       return h(
         NButton,

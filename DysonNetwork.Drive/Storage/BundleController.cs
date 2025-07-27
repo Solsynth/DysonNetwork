@@ -20,7 +20,7 @@ public class BundleController(AppDatabase db) : ControllerBase
 
         public Instant? ExpiredAt { get; set; }
     }
-    
+
     [HttpGet("{id:guid}")]
     [Authorize]
     public async Task<ActionResult<FileBundle>> GetBundle([FromRoute] Guid id, [FromQuery] string? passcode)
@@ -35,13 +35,14 @@ public class BundleController(AppDatabase db) : ControllerBase
             .FirstOrDefaultAsync();
         if (bundle is null) return NotFound();
         if (!bundle.VerifyPasscode(passcode)) return Forbid();
-        
+
         return Ok(bundle);
     }
 
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<List<FileBundle>>> ListBundles(
+        [FromQuery] string? term,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -53,10 +54,12 @@ public class BundleController(AppDatabase db) : ControllerBase
             .Where(e => e.AccountId == accountId)
             .OrderByDescending(e => e.CreatedAt)
             .AsQueryable();
+        if (!string.IsNullOrEmpty(term))
+            query = query.Where(e => EF.Functions.ILike(e.Name, $"%{term}%"));
 
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
-        
+
         var bundles = await query
             .Skip(offset)
             .Take(take)
@@ -114,7 +117,7 @@ public class BundleController(AppDatabase db) : ControllerBase
                 return StatusCode(403, "You must have a subscription to change the slug of a bundle");
             bundle.Slug = request.Slug;
         }
-        
+
         if (request.Name != null) bundle.Name = request.Name;
         if (request.Description != null) bundle.Description = request.Description;
         if (request.ExpiredAt != null) bundle.ExpiredAt = request.ExpiredAt;
