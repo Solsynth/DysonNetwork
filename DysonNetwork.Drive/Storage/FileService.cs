@@ -548,20 +548,23 @@ public class FileService(
         await DeleteFileDataAsync(file);
     }
 
-    private async Task DeleteFileDataAsync(CloudFile file)
+    private async Task DeleteFileDataAsync(CloudFile file, bool force = false)
     {
         if (file.StorageId is null) return;
         if (!file.PoolId.HasValue) return;
 
-        // Check if any other file with the same storage ID is referenced
-        var sameOriginFiles = await db.Files
-            .Where(f => f.StorageId == file.StorageId && f.Id != file.Id)
-            .Select(f => f.Id)
-            .ToListAsync();
+        if (!force)
+        {
+            // Check if any other file with the same storage ID is referenced
+            var sameOriginFiles = await db.Files
+                .Where(f => f.StorageId == file.StorageId && f.Id != file.Id)
+                .Select(f => f.Id)
+                .ToListAsync();
 
-        // Check if any of these files are referenced
-        if (sameOriginFiles.Count != 0)
-            return;
+            // Check if any of these files are referenced
+            if (sameOriginFiles.Count != 0)
+                return;
+        }
 
         // If any other file with the same storage ID is referenced, don't delete the actual file data
         var dest = await GetRemoteStorageConfig(file.PoolId.Value);
@@ -593,6 +596,7 @@ public class FileService(
                 logger.LogWarning("Failed to delete compressed version of file {fileId}", file.Id);
             }
         }
+
         if (file.HasThumbnail)
         {
             try
@@ -755,7 +759,7 @@ public class FileService(
             .Where(f => f.AccountId == accountId && f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(DeleteFileDataAsync);
+        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
         await Task.WhenAll(tasks);
         var fileIds = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIds);
@@ -770,7 +774,7 @@ public class FileService(
             .Where(f => f.PoolId == poolId && f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(DeleteFileDataAsync);
+        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
         await Task.WhenAll(tasks);
         var fileIds = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIds);
@@ -785,7 +789,7 @@ public class FileService(
             .Where(f => f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(DeleteFileDataAsync);
+        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
         await Task.WhenAll(tasks);
         var fileIds = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIds);
