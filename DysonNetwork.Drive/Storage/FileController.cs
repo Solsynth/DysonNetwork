@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -136,6 +137,7 @@ public class FileController(
     [HttpGet("me")]
     public async Task<ActionResult<List<CloudFile>>> GetMyFiles(
         [FromQuery] Guid? pool,
+        [FromQuery] bool recycled = false,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -144,6 +146,7 @@ public class FileController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var query = db.Files
+            .Where(e => e.IsMarkedRecycle == recycled)
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Pool)
             .OrderByDescending(e => e.CreatedAt)
@@ -181,5 +184,25 @@ public class FileController(
         await db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    [Authorize]
+    [HttpDelete("me/recycle")]
+    public async Task<ActionResult> DeleteMyRecycledFiles()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var count = await fs.DeleteAccountRecycledFilesAsync(accountId);
+        return Ok(new { Count = count });
+    }
+    
+    [Authorize]
+    [HttpDelete("recycle")]
+    [RequiredPermission("maintenance", "files.delete.recycle")]
+    public async Task<ActionResult> DeleteAllRecycledFiles()
+    {
+        var count = await fs.DeleteAllRecycledFilesAsync();
+        return Ok(new { Count = count });
     }
 }

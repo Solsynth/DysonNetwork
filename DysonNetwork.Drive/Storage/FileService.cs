@@ -370,7 +370,7 @@ public class FileService(
 
                             if (File.Exists(thumbnailPath))
                             {
-                                uploads.Add((thumbnailPath, ".thumbnail.webp", "image/webp", true));
+                                uploads.Add((thumbnailPath, ".thumbnail", "image/webp", true));
                                 hasThumbnail = true;
                             }
                             else
@@ -544,11 +544,11 @@ public class FileService(
         db.Remove(file);
         await db.SaveChangesAsync();
         await _PurgeCacheAsync(file.Id);
-        
+
         await DeleteFileDataAsync(file);
     }
 
-    public async Task DeleteFileDataAsync(CloudFile file)
+    private async Task DeleteFileDataAsync(CloudFile file)
     {
         if (file.StorageId is null) return;
         if (!file.PoolId.HasValue) return;
@@ -581,7 +581,6 @@ public class FileService(
 
         if (file.HasCompression)
         {
-            // Also remove the compressed version if it exists
             try
             {
                 await client.RemoveObjectAsync(
@@ -592,6 +591,20 @@ public class FileService(
             {
                 // Ignore errors when deleting compressed version
                 logger.LogWarning("Failed to delete compressed version of file {fileId}", file.Id);
+            }
+        }
+        if (file.HasThumbnail)
+        {
+            try
+            {
+                await client.RemoveObjectAsync(
+                    new RemoveObjectArgs().WithBucket(bucket).WithObject(objectId + ".thumbnail")
+                );
+            }
+            catch
+            {
+                // Ignore errors when deleting thumbnail
+                logger.LogWarning("Failed to delete thumbnail of file {fileId}", file.Id);
             }
         }
     }
@@ -734,6 +747,51 @@ public class FileService(
         if (fieldName.StartsWith("ifd3-GPS")) return true;
         if (fieldName.EndsWith("-data")) return true;
         return gpsFields.Any(gpsField => fieldName.StartsWith(gpsField, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<int> DeleteAccountRecycledFilesAsync(Guid accountId)
+    {
+        var files = await db.Files
+            .Where(f => f.AccountId == accountId && f.IsMarkedRecycle)
+            .ToListAsync();
+        var count = files.Count;
+        var tasks = files.Select(DeleteFileDataAsync);
+        await Task.WhenAll(tasks);
+        var fileIds = files.Select(f => f.Id).ToList();
+        await _PurgeCacheRangeAsync(fileIds);
+        db.RemoveRange(files);
+        await db.SaveChangesAsync();
+        return count;
+    }
+
+    public async Task<int> DeletePoolRecycledFilesAsync(Guid poolId)
+    {
+        var files = await db.Files
+            .Where(f => f.PoolId == poolId && f.IsMarkedRecycle)
+            .ToListAsync();
+        var count = files.Count;
+        var tasks = files.Select(DeleteFileDataAsync);
+        await Task.WhenAll(tasks);
+        var fileIds = files.Select(f => f.Id).ToList();
+        await _PurgeCacheRangeAsync(fileIds);
+        db.RemoveRange(files);
+        await db.SaveChangesAsync();
+        return count;
+    }
+
+    public async Task<int> DeleteAllRecycledFilesAsync()
+    {
+        var files = await db.Files
+            .Where(f => f.IsMarkedRecycle)
+            .ToListAsync();
+        var count = files.Count;
+        var tasks = files.Select(DeleteFileDataAsync);
+        await Task.WhenAll(tasks);
+        var fileIds = files.Select(f => f.Id).ToList();
+        await _PurgeCacheRangeAsync(fileIds);
+        db.RemoveRange(files);
+        await db.SaveChangesAsync();
+        return count;
     }
 }
 

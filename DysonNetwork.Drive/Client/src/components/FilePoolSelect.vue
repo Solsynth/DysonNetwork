@@ -8,8 +8,8 @@
     value-field="id"
     label-field="name"
     :placeholder="props.placeholder || 'Select a file pool to upload'"
+    :size="props.size || 'large'"
     clearable
-    size="large"
   />
 </template>
 
@@ -29,6 +29,7 @@ import { formatBytes } from '@/views/format'
 const props = defineProps<{
   modelValue: string | null
   placeholder?: string | undefined
+  size?: 'tiny' | 'small' | 'medium' | 'large' | undefined
 }>()
 
 const emit = defineEmits(['update:modelValue', 'update:pool'])
