@@ -7,6 +7,7 @@
       :description="error"
       v-else-if="error === '404'"
     />
+
     <n-card class="max-w-md my-4 mx-8" v-else-if="error === '403'">
       <n-result
         status="403"
@@ -30,11 +31,16 @@
         </template>
       </n-result>
     </n-card>
+
     <n-card class="max-w-4xl my-4 mx-8" v-else>
       <n-grid cols="1 m:2" x-gap="16" y-gap="16" responsive="screen">
         <n-gi>
           <n-card title="Content" size="small">
-            <n-list size="small" v-if="bundleInfo.files && bundleInfo.files.length > 0" no-padding>
+            <n-list
+              size="small"
+              v-if="bundleInfo.files && bundleInfo.files.length > 0"
+              style="padding: 0"
+            >
               <n-list-item v-for="file in bundleInfo.files" :key="file.id">
                 <n-thing :title="file.name" :description="formatBytes(file.size)">
                   <template #header-extra>
@@ -44,6 +50,26 @@
               </n-list-item>
             </n-list>
             <n-empty v-else description="No files in this bundle" />
+            <template #footer>
+              <n-collapse-transition :show="!!downloadProgress">
+                <n-progress
+                  type="line"
+                  :percentage="downloadProgress"
+                  indicator-placement="inside"
+                  :status="downloadStatus"
+                  processing
+                  class="mb-4"
+                />
+              </n-collapse-transition>
+              <n-button
+                type="primary"
+                block
+                :disabled="!bundleInfo.files || bundleInfo.files.length === 0 || downloading"
+                @click="downloadAllFiles"
+              >
+                Download All
+              </n-button>
+            </template>
           </n-card>
         </n-gi>
 
@@ -72,6 +98,13 @@
               <span>{{ bundleInfo.passcode ? 'Yes' : 'No' }}</span>
             </div>
           </n-card>
+          <n-input
+            v-model:value="filePass"
+            type="password"
+            size="large"
+            placeholder="File password file decrypt"
+            class="mt-3"
+          />
         </n-gi>
       </n-grid>
     </n-card>
@@ -93,12 +126,16 @@ import {
   NEmpty,
   NInput,
   NAlert,
+  NProgress,
+  NCollapseTransition,
+  useMessage,
 } from 'naive-ui'
 import { CalendarTodayRound, LockRound } from '@vicons/material'
 import { useRoute, useRouter } from 'vue-router'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 import { formatBytes } from './format' // Assuming format.ts is in the same directory
+import { downloadAndDecryptFile } from './secure'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,6 +144,20 @@ const error = ref<string | null>(null)
 const bundleId = route.params.bundleId
 const passcode = ref<string>('')
 const passcodeError = ref<string | null>(null)
+
+const filePass = ref<string>('')
+
+const downloading = ref(false)
+const downloadProgress = ref<number | undefined>()
+const downloadStatus = ref<'success' | 'error' | 'info'>('info')
+
+watch(
+  route,
+  (value) => {
+    if (value.query.passcode) passcode.value = value.query.passcode.toString()
+  },
+  { immediate: true, deep: true },
+)
 
 const bundleInfo = ref<any>(null)
 async function fetchBundleInfo() {
@@ -138,5 +189,67 @@ onMounted(() => fetchBundleInfo())
 
 function goToFileDetails(fileId: string) {
   router.push({ path: `/files/${fileId}`, query: { passcode: passcode.value } })
+}
+
+const messageDisplay = useMessage()
+
+async function downloadAllFiles() {
+  if (!bundleInfo.value || !bundleInfo.value.files || bundleInfo.value.files.length === 0) {
+    return
+  }
+
+  downloading.value = true
+  downloadProgress.value = 0
+  downloadStatus.value = 'info'
+
+  const totalFiles = bundleInfo.value.files.length
+  let completedDownloads = 0
+
+  for (const file of bundleInfo.value.files) {
+    let url = `/api/files/${file.id}`
+    if (passcode.value) {
+      url += `?passcode=${passcode.value}`
+    }
+
+    if (file.is_encrypted) {
+      downloadAndDecryptFile(file, filePass.value, file.name, () => {})
+        .catch((err) => {
+          messageDisplay.error('Download failed: ' + err.message, {
+            closable: true,
+            duration: 10000,
+          })
+        })
+        .finally(() => {
+          completedDownloads++
+          downloadProgress.value = (completedDownloads / totalFiles) * 100
+        })
+    } else {
+      try {
+        const res = await fetch(url, { credentials: 'include' })
+        if (!res.ok) {
+          throw new Error(`Failed to download ${file.name}: ${res.statusText}`)
+        }
+        const blob = await res.blob()
+        const blobUrl = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = file.name || 'download' // fallback name
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(blobUrl)
+
+        if (completedDownloads === totalFiles) {
+          downloadStatus.value = 'success'
+        }
+      } catch (err) {
+        messageDisplay.error(`Download failed for ${file.name}: ${err}`)
+        downloadStatus.value = 'error'
+      } finally {
+        completedDownloads++
+        downloadProgress.value = (completedDownloads / totalFiles) * 100
+      }
+    }
+  }
 }
 </script>

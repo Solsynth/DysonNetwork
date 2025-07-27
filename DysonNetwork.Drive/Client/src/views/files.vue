@@ -86,7 +86,7 @@
             </n-card>
           </div>
 
-          <div class="flex flex-col gap-3" v-if="!progress">
+          <div class="flex flex-col gap-3">
             <n-input
               v-if="fileInfo.is_encrypted"
               placeholder="Password"
@@ -113,9 +113,14 @@
               </n-popover>
             </div>
           </div>
-          <div v-else>
-            <n-progress processing :percentage="progress" />
-          </div>
+          <n-collapse-transition :show="!!progress">
+            <n-progress
+              :processing="!!progress && progress < 100"
+              :percentage="progress"
+              indicator-placement="inside"
+              class="mt-4"
+            />
+          </n-collapse-transition>
         </n-gi>
       </n-grid>
     </n-card>
@@ -205,7 +210,7 @@ const fileSource = computed(() => {
   return url
 })
 
-function downloadFile() {
+async function downloadFile() {
   if (fileInfo.value.is_encrypted && !filePass.value) {
     messageDisplay.error('Please enter the password to download the file.')
     return
@@ -218,7 +223,40 @@ function downloadFile() {
       progress.value = undefined
     })
   } else {
-    window.open(fileSource.value, '_blank')
+    const res = await fetch(fileSource.value, { credentials: 'include' })
+    if (!res.ok) {
+      throw new Error(`Failed to download ${fileInfo.value.name}: ${res.statusText}`)
+    }
+
+    const contentLength = res.headers.get('content-length')
+    if (!contentLength) {
+      throw new Error('Content-Length response header is missing.')
+    }
+
+    const total = parseInt(contentLength, 10)
+    const reader = res.body!.getReader()
+    const chunks: Uint8Array[] = []
+    let received = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        chunks.push(value)
+        received += value.length
+        progress.value = (received / total) * 100
+      }
+    }
+
+    const blob = new Blob(chunks)
+    const blobUrl = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = fileInfo.value.name || 'download'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(blobUrl)
   }
 }
 </script>
