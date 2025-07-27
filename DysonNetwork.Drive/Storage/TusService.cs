@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Drive.Billing;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,6 @@ using NodaTime;
 using tusdotnet.Interfaces;
 using tusdotnet.Models;
 using tusdotnet.Models.Configuration;
-using tusdotnet.Stores;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -86,7 +86,6 @@ public abstract class TusService
                             HttpStatusCode.Forbidden,
                             $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use this pool, you are tier {privilege}"
                         );
-                        return;
                     }
                 }
             },
@@ -140,8 +139,10 @@ public abstract class TusService
                 }
                 catch (Exception ex)
                 {
+                    var logger = services.GetRequiredService<ILogger<TusService>>();
                     eventContext.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
                     await eventContext.HttpContext.Response.WriteAsync(ex.Message);
+                    logger.LogError(ex, "Error handling file upload...");
                 }
                 finally
                 {
@@ -151,6 +152,13 @@ public abstract class TusService
             },
             OnBeforeCreateAsync = async eventContext =>
             {
+                var httpContext = eventContext.HttpContext;
+                if (httpContext.Items["CurrentUser"] is not Account currentUser)
+                {
+                    eventContext.FailRequest(HttpStatusCode.Unauthorized);
+                    return;
+                }
+
                 var filePool = eventContext.HttpContext.Request.Headers["X-FilePool"].FirstOrDefault();
                 if (string.IsNullOrEmpty(filePool)) filePool = configuration["Storage:PreferredRemote"];
                 if (!Guid.TryParse(filePool, out _))
@@ -223,6 +231,25 @@ public abstract class TusService
                     }
                 }
 
+                if (!rejected)
+                {
+                    var quotaService = scope.ServiceProvider.GetRequiredService<QuotaService>();
+                    var accountId = Guid.Parse(currentUser.Id);
+                    var (ok, billableUnit, quota) = await quotaService.IsFileAcceptable(
+                        accountId,
+                        pool.BillingConfig.CostMultiplier ?? 1.0,
+                        eventContext.UploadLength
+                    );
+                    if (!ok)
+                    {
+                        eventContext.FailRequest(
+                            HttpStatusCode.Forbidden,
+                            $"File size {billableUnit} MiB is exceed than the user's quota {quota} MiB"
+                        );
+                        rejected = true;
+                    }
+                }
+
                 if (rejected)
                     logger.LogInformation("File rejected #{FileId}", eventContext.FileId);
             },
@@ -230,7 +257,7 @@ public abstract class TusService
             {
                 var directUpload = eventContext.HttpContext.Request.Headers["X-DirectUpload"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(directUpload)) return Task.CompletedTask;
-                
+
                 var gatewayUrl = configuration["GatewayUrl"];
                 if (gatewayUrl is not null)
                     eventContext.SetUploadUrl(new Uri(gatewayUrl + "/drive/tus/" + eventContext.FileId));

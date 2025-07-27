@@ -1,6 +1,6 @@
 <template>
   <section class="h-full relative flex items-center justify-center">
-    <n-card class="max-w-lg" title="About" v-if="!userStore.user">
+    <n-card class="max-w-lg my-4 mx-8" title="About" v-if="!userStore.user">
       <p>Welcome to the <b>Solar Drive</b></p>
       <p>We help you upload, collect, and share files with ease in mind.</p>
       <p>To continue, login first.</p>
@@ -21,6 +21,13 @@
           <n-switch v-model:value="modeAdvanced" size="small" />
         </div>
       </template>
+
+      <n-collapse-transition :show="showRecycleHint">
+        <n-alert size="small" type="warning" title="Recycle Enabled" class="mb-3">
+          You're uploading to a pool which enabled recycle. If the file you uploaded didn't
+          referenced from the Solar Network. It will be marked and will be deleted some while later.
+        </n-alert>
+      </n-collapse-transition>
 
       <div class="mb-3">
         <file-pool-select v-model="filePool" @update:pool="currentFilePool = $event" />
@@ -107,6 +114,7 @@ import {
   NSwitch,
   NCollapseTransition,
   NDatePicker,
+  NAlert,
   type UploadCustomRequestOptions,
   type UploadSettledFileInfo,
   type UploadFileInfo,
@@ -148,6 +156,10 @@ const fileExpire = ref<number | null>(null)
 const currentFilePool = computed(() => {
   if (!filePool.value) return null
   return pools.value?.find((pool) => pool.id === filePool.value) ?? null
+})
+const showRecycleHint = computed(() => {
+  if (!filePool.value) return true
+  return currentFilePool.value.policy_config?.enable_recycle || false
 })
 
 const messageDisplay = useMessage()

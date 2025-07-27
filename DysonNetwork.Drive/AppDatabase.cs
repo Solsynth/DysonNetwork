@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using DysonNetwork.Drive.Billing;
 using DysonNetwork.Drive.Storage;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<FilePool> Pools { get; set; } = null!;
+    public DbSet<QuotaRecord> QuotaRecords { get; set; } = null!;
     
     public DbSet<CloudFile> Files { get; set; } = null!;
     public DbSet<CloudFileReference> FileReferences { get; set; } = null!;

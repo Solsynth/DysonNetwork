@@ -122,7 +122,7 @@ function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
             ),
           policy.require_privilege &&
             h('span', `Require ${perkPrivilegeList[policy.require_privilege - 1]} Program`),
-          h('span', `Cost x${option.billing_config.cost_multiplier.toFixed(1)} NSD`),
+          h('span', `Cost x${option.billing_config.cost_multiplier.toFixed(1)}`),
         ]
           .filter((el) => el)
           .flatMap((el, idx, arr) =>

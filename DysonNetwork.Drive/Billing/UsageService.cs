@@ -12,27 +12,27 @@ public class UsageDetails
     public required long FileCount { get; set; }
 }
 
-public class UsageDetailsWithPercentage : UsageDetails
-{
-    public required double Percentage { get; set; }
-}
-
 public class TotalUsageDetails
 {
-    public required List<UsageDetailsWithPercentage> PoolUsages { get; set; }
+    public required List<UsageDetails> PoolUsages { get; set; }
     public required long TotalUsageBytes { get; set; }
-    public required double TotalCost { get; set; }
     public required long TotalFileCount { get; set; }
+    
+    // Quota, cannot be loaded in the service, cause circular dependency
+    // Let the controller do the calculation
+    public long? TotalQuota { get; set; }
+    public long? UsedQuota { get; set; }
 }
 
 public class UsageService(AppDatabase db)
 {
-    public async Task<TotalUsageDetails> GetTotalUsage()
+    public async Task<TotalUsageDetails> GetTotalUsage(Guid accountId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var fileQuery = db.Files
             .Where(f => !f.IsMarkedRecycle)
             .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
+            .Where(f => f.AccountId == accountId)
             .AsQueryable();
         
         var poolUsages = await db.Pools
@@ -56,26 +56,16 @@ public class UsageService(AppDatabase db)
         var totalCost = poolUsages.Sum(p => p.Cost);
         var totalFileCount = poolUsages.Sum(p => p.FileCount);
 
-        var poolUsagesWithPercentage = poolUsages.Select(p => new UsageDetailsWithPercentage
-        {
-            PoolId = p.PoolId,
-            PoolName = p.PoolName,
-            UsageBytes = p.UsageBytes,
-            Cost = p.Cost,
-            FileCount = p.FileCount,
-            Percentage = totalUsage > 0 ? (double)p.UsageBytes / totalUsage : 0
-        }).ToList();
-
         return new TotalUsageDetails
         {
-            PoolUsages = poolUsagesWithPercentage,
+            PoolUsages = poolUsages,
             TotalUsageBytes = totalUsage,
-            TotalCost = totalCost,
-            TotalFileCount = totalFileCount
+            TotalFileCount = totalFileCount,
+            UsedQuota = await GetTotalBillableUsage()
         };
     }
 
-    public async Task<UsageDetails?> GetPoolUsage(Guid poolId)
+    public async Task<UsageDetails?> GetPoolUsage(Guid poolId, Guid accountId)
     {
         var pool = await db.Pools.FindAsync(poolId);
         if (pool == null)
@@ -87,6 +77,7 @@ public class UsageService(AppDatabase db)
         var fileQuery = db.Files
             .Where(f => !f.IsMarkedRecycle)
             .Where(f => f.ExpiredAt.HasValue && f.ExpiredAt > now)
+            .Where(f => f.AccountId == accountId)
             .AsQueryable();
 
         var usageBytes = await fileQuery
@@ -106,5 +97,25 @@ public class UsageService(AppDatabase db)
             Cost = cost,
             FileCount = fileCount
         };
+    }
+
+    public async Task<long> GetTotalBillableUsage()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var files = await db.Files
+            .Where(f => f.PoolId.HasValue)
+            .Where(f => !f.IsMarkedRecycle)
+            .Include(f => f.Pool)
+            .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
+            .Select(f => new
+            {
+                f.Size,
+                Multiplier = f.Pool!.BillingConfig.CostMultiplier ?? 1.0
+            })
+            .ToListAsync();
+
+        var totalCost = files.Sum(f => f.Size * f.Multiplier) / 1024.0 / 1024.0;
+
+        return (long)Math.Ceiling(totalCost);
     }
 }

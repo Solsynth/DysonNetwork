@@ -64,7 +64,7 @@ const guestOptions = [
 
 const userOptions = computed(() => [
   {
-    label: 'Usage',
+    label: 'Dashboard',
     key: 'dashboardUsage',
     icon: () =>
       h(NIcon, null, {
