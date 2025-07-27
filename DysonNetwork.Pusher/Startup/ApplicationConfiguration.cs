@@ -20,7 +20,7 @@ public static class ApplicationConfiguration
         app.UseCors(opts =>
             opts.SetIsOriginAllowed(_ => true)
                 .WithExposedHeaders("*")
-                .WithHeaders()
+                .WithHeaders("*")
                 .AllowCredentials()
                 .AllowAnyHeader()
                 .AllowAnyMethod()

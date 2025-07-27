@@ -19,6 +19,15 @@ public static class ApplicationBuilderExtensions
         app.UseAuthorization();
         app.MapControllers();
         
+        app.UseCors(opts =>
+            opts.SetIsOriginAllowed(_ => true)
+                .WithExposedHeaders("*")
+                .WithHeaders("*")
+                .AllowCredentials()
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+        );
+        
         app.UseDefaultFiles();
         app.UseStaticFiles(new StaticFileOptions
         {

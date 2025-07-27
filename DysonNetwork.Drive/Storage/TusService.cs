@@ -228,6 +228,9 @@ public abstract class TusService
             },
             OnCreateCompleteAsync = eventContext =>
             {
+                var directUpload = eventContext.HttpContext.Request.Headers["X-DirectUpload"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(directUpload)) return Task.CompletedTask;
+                
                 var gatewayUrl = configuration["GatewayUrl"];
                 if (gatewayUrl is not null)
                     eventContext.SetUploadUrl(new Uri(gatewayUrl + "/drive/tus/" + eventContext.FileId));

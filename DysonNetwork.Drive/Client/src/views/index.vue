@@ -174,6 +174,7 @@ function customRequest({
       'content-type': file.type ?? 'application/octet-stream',
     },
     headers: {
+      'X-DirectUpload': 'true',
       ...requestHeaders,
       ...headers,
     },

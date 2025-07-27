@@ -11,7 +11,7 @@ using tusdotnet.Stores;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel and server options
-builder.ConfigureAppKestrel(builder.Configuration);
+builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxValue);
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
