@@ -223,7 +223,7 @@ async function downloadFile() {
       progress.value = undefined
     })
   } else {
-    const res = await fetch(fileSource.value, { credentials: 'include' })
+    const res = await fetch(fileSource.value)
     if (!res.ok) {
       throw new Error(`Failed to download ${fileInfo.value.name}: ${res.statusText}`)
     }

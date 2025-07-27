@@ -225,7 +225,7 @@ async function downloadAllFiles() {
         })
     } else {
       try {
-        const res = await fetch(url, { credentials: 'include' })
+        const res = await fetch(url)
         if (!res.ok) {
           throw new Error(`Failed to download ${file.name}: ${res.statusText}`)
         }
