@@ -180,6 +180,8 @@ public class FileService(
 
         db.Files.Add(file);
         await db.SaveChangesAsync();
+        
+        file.StorageId ??= file.Id;
 
         // Offload optimization (image conversion, thumbnailing) and uploading to a background task
         _ = Task.Run(() =>
@@ -397,8 +399,14 @@ public class FileService(
             {
                 var destPool = Guid.Parse(remoteId!);
                 var uploadTasks = uploads.Select(item =>
-                    nfs.UploadFileToRemoteAsync(storageId, destPool, item.FilePath, item.Suffix, item.ContentType,
-                        item.SelfDestruct)
+                    nfs.UploadFileToRemoteAsync(
+                        storageId,
+                        destPool,
+                        item.FilePath,
+                        item.Suffix,
+                        item.ContentType,
+                        item.SelfDestruct
+                    )
                 ).ToList();
 
                 await Task.WhenAll(uploadTasks);
@@ -488,7 +496,7 @@ public class FileService(
         var bucket = dest.Bucket;
         contentType ??= "application/octet-stream";
 
-        await client.PutObjectAsync(new PutObjectArgs()
+        await client!.PutObjectAsync(new PutObjectArgs()
             .WithBucket(bucket)
             .WithObject(string.IsNullOrWhiteSpace(suffix) ? storageId : storageId + suffix)
             .WithStreamData(stream)
