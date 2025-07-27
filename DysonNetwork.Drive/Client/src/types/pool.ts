@@ -4,6 +4,7 @@ export interface SnFilePool {
   description: string
   storage_config: StorageConfig
   billing_config: BillingConfig
+  policy_config: any
   public_indexable: boolean
   public_usable: boolean
   no_optimization: boolean

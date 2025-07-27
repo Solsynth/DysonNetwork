@@ -2,8 +2,8 @@
   <div>
     <n-collapse-transition :show="showRecycleHint">
       <n-alert size="small" type="warning" title="Recycle Enabled" class="mb-3">
-        You're uploading to a pool which enabled recycle. If the file you uploaded didn't
-        referenced from the Solar Network. It will be marked and will be deleted some while later.
+        You're uploading to a pool which enabled recycle. If the file you uploaded didn't referenced
+        from the Solar Network. It will be marked and will be deleted some while later.
       </n-alert>
     </n-collapse-transition>
 
@@ -89,7 +89,12 @@ import type { SnFilePool } from '@/types/pool'
 
 import * as tus from 'tus-js-client'
 
-const props = defineProps<{ filePool: string | null; modeAdvanced: boolean; pools: SnFilePool[]; bundleId?: string }>()
+const props = defineProps<{
+  filePool: string | null
+  modeAdvanced: boolean
+  pools: SnFilePool[]
+  bundleId?: string
+}>()
 
 const filePass = ref<string>('')
 const fileExpire = ref<number | null>(null)
@@ -100,7 +105,7 @@ const currentFilePool = computed(() => {
 })
 const showRecycleHint = computed(() => {
   if (!props.filePool) return true
-  return currentFilePool.value.policy_config?.enable_recycle || false
+  return currentFilePool.value?.policy_config?.enable_recycle || false
 })
 
 const messageDisplay = useMessage()
