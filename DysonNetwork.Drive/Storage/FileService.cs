@@ -153,25 +153,26 @@ public class FileService(
             IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.PolicyConfig.AllowEncryption
         };
 
-        var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);
-        file.StorageId = existingFile?.StorageId ?? file.Id;
-
-        if (existingFile is not null)
-        {
-            file.FileMeta = existingFile.FileMeta;
-            file.HasCompression = existingFile.HasCompression;
-            file.SensitiveMarks = existingFile.SensitiveMarks;
-            file.MimeType = existingFile.MimeType;
-            file.UploadedAt = existingFile.UploadedAt;
-            file.PoolId = existingFile.PoolId;
-
-            db.Files.Add(file);
-            await db.SaveChangesAsync();
-            // Since the file content is a duplicate, we can delete the new upload and we are done.
-            await stream.DisposeAsync();
-            await store.DeleteFileAsync(file.Id, CancellationToken.None);
-            return file;
-        }
+        // TODO: Enable the feature later
+        // var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);
+        // file.StorageId = existingFile?.StorageId ?? file.Id;
+        //
+        // if (existingFile is not null)
+        // {
+        //     file.FileMeta = existingFile.FileMeta;
+        //     file.HasCompression = existingFile.HasCompression;
+        //     file.SensitiveMarks = existingFile.SensitiveMarks;
+        //     file.MimeType = existingFile.MimeType;
+        //     file.UploadedAt = existingFile.UploadedAt;
+        //     file.PoolId = existingFile.PoolId;
+        //
+        //     db.Files.Add(file);
+        //     await db.SaveChangesAsync();
+        //     // Since the file content is a duplicate, we can delete the new upload and we are done.
+        //     await stream.DisposeAsync();
+        //     await store.DeleteFileAsync(file.Id, CancellationToken.None);
+        //     return file;
+        // }
 
         // Extract metadata on the current thread for a faster initial response
         if (!pool.PolicyConfig.NoMetadata)
@@ -540,11 +541,11 @@ public class FileService(
 
     public async Task DeleteFileAsync(CloudFile file)
     {
-        await DeleteFileDataAsync(file);
-
         db.Remove(file);
         await db.SaveChangesAsync();
         await _PurgeCacheAsync(file.Id);
+        
+        await DeleteFileDataAsync(file);
     }
 
     public async Task DeleteFileDataAsync(CloudFile file)
@@ -559,17 +560,10 @@ public class FileService(
             .ToListAsync();
 
         // Check if any of these files are referenced
-        var anyReferenced = false;
         if (sameOriginFiles.Count != 0)
-        {
-            anyReferenced = await db.FileReferences
-                .Where(r => sameOriginFiles.Contains(r.FileId))
-                .AnyAsync();
-        }
+            return;
 
         // If any other file with the same storage ID is referenced, don't delete the actual file data
-        if (anyReferenced) return;
-
         var dest = await GetRemoteStorageConfig(file.PoolId.Value);
         if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
         var client = CreateMinioClient(dest);

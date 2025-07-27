@@ -35,6 +35,7 @@ public class FileController(
 
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
+        if (file.IsMarkedRecycle) return StatusCode(StatusCodes.Status410Gone, "The file has been recycled.");
 
         if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
 
@@ -149,7 +150,7 @@ public class FileController(
             .AsQueryable();
 
         if (pool.HasValue) query = query.Where(e => e.PoolId == pool);
-        
+
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
 

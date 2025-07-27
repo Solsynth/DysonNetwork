@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Drive.Billing;
 
@@ -28,15 +29,21 @@ public class UsageService(AppDatabase db)
 {
     public async Task<TotalUsageDetails> GetTotalUsage()
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var fileQuery = db.Files
+            .Where(f => !f.IsMarkedRecycle)
+            .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
+            .AsQueryable();
+        
         var poolUsages = await db.Pools
             .Select(p => new UsageDetails
             {
                 PoolId = p.Id,
                 PoolName = p.Name,
-                UsageBytes = db.Files
+                UsageBytes = fileQuery
                     .Where(f => f.PoolId == p.Id)
                     .Sum(f => f.Size),
-                Cost = db.Files
+                Cost = fileQuery
                            .Where(f => f.PoolId == p.Id)
                            .Sum(f => f.Size) / 1024.0 / 1024.0 *
                        (p.BillingConfig.CostMultiplier ?? 1.0),
@@ -75,13 +82,17 @@ public class UsageService(AppDatabase db)
         {
             return null;
         }
+        
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var fileQuery = db.Files
+            .Where(f => !f.IsMarkedRecycle)
+            .Where(f => f.ExpiredAt.HasValue && f.ExpiredAt > now)
+            .AsQueryable();
 
-        var usageBytes = await db.Files
-            .Where(f => f.PoolId == poolId)
+        var usageBytes = await fileQuery
             .SumAsync(f => f.Size);
 
-        var fileCount = await db.Files
-            .Where(f => f.PoolId == poolId)
+        var fileCount = await fileQuery
             .CountAsync();
 
         var cost = usageBytes / 1024.0 / 1024.0 *
