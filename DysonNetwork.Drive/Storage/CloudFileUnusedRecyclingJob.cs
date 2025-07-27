@@ -7,12 +7,27 @@ namespace DysonNetwork.Drive.Storage;
 public class CloudFileUnusedRecyclingJob(
     AppDatabase db,
     FileReferenceService fileRefService,
-    ILogger<CloudFileUnusedRecyclingJob> logger
+    ILogger<CloudFileUnusedRecyclingJob> logger,
+    IConfiguration configuration
 )
     : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
+        logger.LogInformation("Cleaning tus cloud files...");
+        var storePath = configuration["Tus:StorePath"];
+        if (Directory.Exists(storePath))
+        {
+            var oneHourAgo = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
+            var files = Directory.GetFiles(storePath);
+            foreach (var file in files)
+            {
+                var creationTime = File.GetCreationTime(file).ToUniversalTime();
+                if (creationTime < oneHourAgo.ToDateTimeUtc())
+                    File.Delete(file);
+            }
+        }
+        
         logger.LogInformation("Marking unused cloud files...");
 
         var recyclablePools = await db.Pools

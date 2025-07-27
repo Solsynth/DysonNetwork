@@ -48,11 +48,9 @@ public class FileExpirationJob(AppDatabase db, FileService fileService, ILogger<
             if (remainingReferences == 0)
             {
                 var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
-                if (file != null)
-                {
-                    logger.LogInformation("Deleting file {fileId} as all references have expired", fileId);
-                    await fileService.DeleteFileAsync(file);
-                }
+                if (file == null) continue;
+                logger.LogInformation("Deleting file {fileId} as all references have expired", fileId);
+                await fileService.DeleteFileAsync(file);
             }
             else
             {

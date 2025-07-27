@@ -142,8 +142,6 @@ public abstract class TusService
                 {
                     eventContext.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
                     await eventContext.HttpContext.Response.WriteAsync(ex.Message);
-                    if (eventContext.Store is TusDiskStore disk)
-                        await disk.DeleteFileAsync(file.Id, eventContext.CancellationToken);
                 }
                 finally
                 {

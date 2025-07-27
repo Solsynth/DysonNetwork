@@ -170,7 +170,6 @@ public class FileService(
         //     await db.SaveChangesAsync();
         //     // Since the file content is a duplicate, we can delete the new upload and we are done.
         //     await stream.DisposeAsync();
-        //     await store.DeleteFileAsync(file.Id, CancellationToken.None);
         //     return file;
         // }
 
@@ -432,7 +431,6 @@ public class FileService(
         }
         finally
         {
-            await store.DeleteFileAsync(fileId, CancellationToken.None);
             await nfs._PurgeCacheAsync(fileId);
         }
     }

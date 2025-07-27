@@ -105,24 +105,17 @@ import {
   NP,
   NInput,
   NSwitch,
-  NSelect,
-  NTag,
   NCollapseTransition,
   NDatePicker,
   type UploadCustomRequestOptions,
   type UploadSettledFileInfo,
-  type SelectOption,
-  type SelectRenderTag,
   type UploadFileInfo,
   useMessage,
-  NDivider,
-  NTooltip,
 } from 'naive-ui'
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { CloudUploadRound } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
 import type { SnFilePool } from '@/types/pool'
-import { formatBytes } from './format'
 
 import FilePoolSelect from '@/components/FilePoolSelect.vue'
 
@@ -146,141 +139,6 @@ async function fetchPools() {
 }
 onMounted(() => fetchPools())
 
-const renderSingleSelectTag: SelectRenderTag = ({ option }) => {
-  return h(
-    'div',
-    {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-      },
-    },
-    [option.name as string],
-  )
-}
-
-const perkPrivilegeList = ['Stellar', 'Nova', 'Supernova']
-
-function renderPoolSelectLabel(option: SelectOption & SnFilePool) {
-  const policy: any = option.policy_config
-  return h(
-    'div',
-    {
-      style: {
-        padding: '8px 2px',
-      },
-    },
-    [
-      h('div', null, [option.name as string]),
-      option.description &&
-        h(
-          'div',
-          {
-            style: {
-              fontSize: '0.875rem',
-              opacity: '0.75',
-            },
-          },
-          option.description,
-        ),
-      h(
-        'div',
-        {
-          style: {
-            display: 'flex',
-            marginBottom: '4px',
-            fontSize: '0.75rem',
-            opacity: '0.75',
-          },
-        },
-        [
-          policy.max_file_size && h('span', `Max ${formatBytes(policy.max_file_size)}`),
-          policy.accept_types &&
-            h(
-              NTooltip,
-              {},
-              {
-                trigger: () => h('span', `Accept limited types`),
-                default: () => h('span', policy.accept_types.join(', ')),
-              },
-            ),
-          policy.require_privilege &&
-            h('span', `Require ${perkPrivilegeList[policy.require_privilege - 1]} Program`),
-            h('span', `Cost x${option.billing_config.cost_multiplier.toFixed(1)} NSD`)
-        ]
-          .filter((el) => el)
-          .flatMap((el, idx, arr) =>
-            idx < arr.length - 1 ? [el, h(NDivider, { vertical: true })] : [el],
-          ),
-      ),
-      h(
-        'div',
-        {
-          style: {
-            display: 'flex',
-            gap: '0.25rem',
-            marginTop: '2px',
-            marginLeft: '-2px',
-            marginRight: '-2px',
-          },
-        },
-        [
-          policy.public_usable &&
-            h(
-              NTag,
-              {
-                type: 'info',
-                size: 'small',
-                round: true,
-              },
-              { default: () => 'Public Shared' },
-            ),
-          policy.public_indexable &&
-            h(
-              NTag,
-              {
-                type: 'success',
-                size: 'small',
-                round: true,
-              },
-              { default: () => 'Public Indexable' },
-            ),
-          policy.allow_encryption &&
-            h(
-              NTag,
-              {
-                type: 'warning',
-                size: 'small',
-                round: true,
-              },
-              { default: () => 'Allow Encryption' },
-            ),
-          policy.allow_anonymous &&
-            h(
-              NTag,
-              {
-                type: 'info',
-                size: 'small',
-                round: true,
-              },
-              { default: () => 'Allow Anonymous' },
-            ),
-          policy.enable_recycle &&
-            h(
-              NTag,
-              {
-                type: 'info',
-                size: 'small',
-                round: true,
-              },
-              { default: () => 'Recycle Enabled' },
-            ),
-        ],
-      ),
-    ],
-  )
-}
-
 const modeAdvanced = ref(false)
 
 const filePool = ref<string | null>(null)
@@ -296,10 +154,8 @@ const messageDisplay = useMessage()
 
 function customRequest({
   file,
-  data,
   headers,
   withCredentials,
-  action,
   onFinish,
   onError,
   onProgress,
@@ -311,6 +167,8 @@ function customRequest({
   const upload = new tus.Upload(file.file, {
     endpoint: '/api/tus',
     retryDelays: [0, 3000, 5000, 10000, 20000],
+    removeFingerprintOnSuccess: false,
+    uploadDataDuringCreation: false,
     metadata: {
       filename: file.name,
       'content-type': file.type ?? 'application/octet-stream',
@@ -319,6 +177,7 @@ function customRequest({
       ...requestHeaders,
       ...headers,
     },
+    onShouldRetry: () => false,
     onError: function (error) {
       if (error instanceof tus.DetailedError) {
         const failedBody = error.originalResponse?.getBody()
@@ -364,14 +223,14 @@ function createThumbnailUrl(
 }
 
 function customDownload(file: UploadFileInfo) {
-  const { url, name } = file
+  const { url } = file
   if (!url) return
   window.open(url.replace('/api', ''), '_blank')
 }
 
 function customPreview(file: UploadFileInfo, detail: { event: MouseEvent }) {
   detail.event.preventDefault()
-  const { url, type } = file
+  const { url } = file
   if (!url) return
   window.open(url.replace('/api', ''), '_blank')
 }
