@@ -22,15 +22,10 @@ public class BundleController(AppDatabase db) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [Authorize]
     public async Task<ActionResult<FileBundle>> GetBundle([FromRoute] Guid id, [FromQuery] string? passcode)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
-
         var bundle = await db.Bundles
             .Where(e => e.Id == id)
-            .Where(e => e.AccountId == accountId)
             .Include(e => e.Files)
             .FirstOrDefaultAsync();
         if (bundle is null) return NotFound();

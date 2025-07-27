@@ -52,6 +52,9 @@
           </div>
 
           <div v-if="bundleUploadMode" class="mt-3">
+            <div class="mb-3">
+              <file-pool-select v-model="filePool" @update:pool="currentFilePool = $event" />
+            </div>
             <upload-area
               :filePool="filePool"
               :pools="pools as SnFilePool[]"
