@@ -46,6 +46,7 @@ public class FileService(
         var file = await db.Files
             .Where(f => f.Id == fileId)
             .Include(f => f.Pool)
+            .Include(f => f.Bundle)
             .FirstOrDefaultAsync();
 
         if (file != null)
@@ -105,6 +106,7 @@ public class FileService(
         Account account,
         string fileId,
         string filePool,
+        string? fileBundleId,
         Stream stream,
         string fileName,
         string? contentType,
@@ -112,6 +114,8 @@ public class FileService(
         Instant? expiredAt
     )
     {
+        var accountId = Guid.Parse(account.Id);
+        
         var pool = await GetPoolAsync(Guid.Parse(filePool));
         if (pool is null) throw new InvalidOperationException("Pool not found");
 
@@ -123,6 +127,17 @@ public class FileService(
                 : expectedExpiration;
             expiredAt = SystemClock.Instance.GetCurrentInstant() + effectiveExpiration;
         }
+        
+        var bundle = fileBundleId is not null
+            ? await GetBundleAsync(Guid.Parse(fileBundleId), accountId)
+            : null;
+        if (fileBundleId is not null && bundle is null)
+        {
+            throw new InvalidOperationException("Bundle not found");
+        }
+        
+        if (bundle?.ExpiredAt != null) 
+            expiredAt = bundle.ExpiredAt.Value;
 
         var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
         var fileSize = stream.Length;
@@ -149,6 +164,7 @@ public class FileService(
             Size = fileSize,
             Hash = hash,
             ExpiredAt = expiredAt,
+            BundleId = bundle?.Id,
             AccountId = Guid.Parse(account.Id),
             IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.PolicyConfig.AllowEncryption
         };
@@ -611,6 +627,15 @@ public class FileService(
                 logger.LogWarning("Failed to delete thumbnail of file {fileId}", file.Id);
             }
         }
+    }
+
+    public async Task<FileBundle?> GetBundleAsync(Guid id, Guid accountId)
+    {
+        var bundle = await db.Bundles
+            .Where(e => e.Id == id)
+            .Where(e => e.AccountId == accountId)
+            .FirstOrDefaultAsync();
+        return bundle;
     }
 
     public async Task<FilePool?> GetPoolAsync(Guid destination)

@@ -15,7 +15,10 @@ namespace DysonNetwork.Drive.Storage;
 
 public abstract class TusService
 {
-    public static DefaultTusConfiguration BuildConfiguration(ITusStore store, IConfiguration configuration) => new()
+    public static DefaultTusConfiguration BuildConfiguration(
+        ITusStore store,
+        IConfiguration configuration
+    ) => new()
     {
         Store = store,
         Events = new Events
@@ -88,6 +91,12 @@ public abstract class TusService
                         );
                     }
                 }
+                
+                var bundleId = eventContext.HttpContext.Request.Headers["X-FileBundle"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(bundleId) && !Guid.TryParse(bundleId, out _))
+                {
+                    eventContext.FailRequest(HttpStatusCode.BadRequest, "Invalid file bundle id");
+                }
             },
             OnFileCompleteAsync = async eventContext =>
             {
@@ -107,6 +116,7 @@ public abstract class TusService
                 var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
 
                 var filePool = httpContext.Request.Headers["X-FilePool"].FirstOrDefault();
+                var bundleId = eventContext.HttpContext.Request.Headers["X-FileBundle"].FirstOrDefault();
                 var encryptPassword = httpContext.Request.Headers["X-FilePass"].FirstOrDefault();
 
                 if (string.IsNullOrEmpty(filePool))
@@ -116,7 +126,7 @@ public abstract class TusService
                 var expiredString = httpContext.Request.Headers["X-FileExpire"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(expiredString) && int.TryParse(expiredString, out var expired))
                     expiredAt = Instant.FromUnixTimeSeconds(expired);
-
+                
                 try
                 {
                     var fileService = services.GetRequiredService<FileService>();
@@ -124,6 +134,7 @@ public abstract class TusService
                         user,
                         file.Id,
                         filePool!,
+                        bundleId,
                         fileStream,
                         fileName,
                         contentType,
@@ -158,12 +169,20 @@ public abstract class TusService
                     eventContext.FailRequest(HttpStatusCode.Unauthorized);
                     return;
                 }
+                var accountId = Guid.Parse(currentUser.Id);
 
-                var filePool = eventContext.HttpContext.Request.Headers["X-FilePool"].FirstOrDefault();
-                if (string.IsNullOrEmpty(filePool)) filePool = configuration["Storage:PreferredRemote"];
-                if (!Guid.TryParse(filePool, out _))
+                var poolId = eventContext.HttpContext.Request.Headers["X-FilePool"].FirstOrDefault();
+                if (string.IsNullOrEmpty(poolId)) poolId = configuration["Storage:PreferredRemote"];
+                if (!Guid.TryParse(poolId, out _))
                 {
                     eventContext.FailRequest(HttpStatusCode.BadRequest, "Invalid file pool id");
+                    return;
+                }
+
+                var bundleId = eventContext.HttpContext.Request.Headers["X-FileBundle"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(bundleId) && !Guid.TryParse(bundleId, out _))
+                {
+                    eventContext.FailRequest(HttpStatusCode.BadRequest, "Invalid file bundle id");
                     return;
                 }
 
@@ -175,7 +194,7 @@ public abstract class TusService
                 var rejected = false;
 
                 var fs = scope.ServiceProvider.GetRequiredService<FileService>();
-                var pool = await fs.GetPoolAsync(Guid.Parse(filePool!));
+                var pool = await fs.GetPoolAsync(Guid.Parse(poolId!));
                 if (pool is null)
                 {
                     eventContext.FailRequest(HttpStatusCode.BadRequest, "Pool not found");
@@ -234,7 +253,6 @@ public abstract class TusService
                 if (!rejected)
                 {
                     var quotaService = scope.ServiceProvider.GetRequiredService<QuotaService>();
-                    var accountId = Guid.Parse(currentUser.Id);
                     var (ok, billableUnit, quota) = await quotaService.IsFileAcceptable(
                         accountId,
                         pool.BillingConfig.CostMultiplier ?? 1.0,

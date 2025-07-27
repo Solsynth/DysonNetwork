@@ -17,6 +17,8 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<FilePool> Pools { get; set; } = null!;
+    public DbSet<FileBundle> Bundles { get; set; } = null!;
+    
     public DbSet<QuotaRecord> QuotaRecords { get; set; } = null!;
     
     public DbSet<CloudFile> Files { get; set; } = null!;

@@ -32,7 +32,19 @@ const router = createRouter({
           name: 'dashboardFiles',
           component: () => import('../views/dashboard/files.vue'),
           meta: { requiresAuth: true },
-        }
+        },
+        {
+          path: 'bundles',
+          name: 'dashboardBundles',
+          component: () => import('../views/dashboard/bundles.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'quotas',
+          name: 'dashboardQuota',
+          component: () => import('../views/dashboard/quotas.vue'),
+          meta: { requiresAuth: true },
+        },
       ],
     },
     {

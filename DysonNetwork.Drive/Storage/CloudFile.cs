@@ -47,6 +47,8 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
 
     [JsonIgnore] public FilePool? Pool { get; set; }
     public Guid? PoolId { get; set; }
+    [JsonIgnore] public FileBundle? Bundle { get; set; }
+    public Guid? BundleId { get; set; }
 
     [Obsolete("Deprecated, use PoolId instead. For database migration only.")]
     [MaxLength(128)]

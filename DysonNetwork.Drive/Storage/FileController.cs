@@ -22,7 +22,8 @@ public class FileController(
         string id,
         [FromQuery] bool download = false,
         [FromQuery] bool original = false,
-        [FromQuery] string? overrideMimeType = null
+        [FromQuery] string? overrideMimeType = null,
+        [FromQuery] string? passcode = null
     )
     {
         // Support the file extension for client side data recognize
@@ -36,6 +37,10 @@ public class FileController(
 
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
+        if (file.IsMarkedRecycle) return StatusCode(StatusCodes.Status410Gone, "The file has been recycled.");
+
+        if (file.Bundle is not null && !file.Bundle.VerifyPasscode(passcode))
+            return StatusCode(StatusCodes.Status403Forbidden, "The passcode is incorrect.");
 
         if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
 
@@ -46,7 +51,7 @@ public class FileController(
             if (!System.IO.File.Exists(filePath)) return new NotFoundResult();
             return PhysicalFile(filePath, file.MimeType ?? "application/octet-stream", file.Name);
         }
-
+        
         var pool = await fs.GetPoolAsync(file.PoolId.Value);
         if (pool is null)
             return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");

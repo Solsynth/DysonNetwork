@@ -47,13 +47,12 @@ public class UsageService(AppDatabase db)
                            .Where(f => f.PoolId == p.Id)
                            .Sum(f => f.Size) / 1024.0 / 1024.0 *
                        (p.BillingConfig.CostMultiplier ?? 1.0),
-                FileCount = db.Files
+                FileCount = fileQuery
                     .Count(f => f.PoolId == p.Id)
             })
             .ToListAsync();
 
         var totalUsage = poolUsages.Sum(p => p.UsageBytes);
-        var totalCost = poolUsages.Sum(p => p.Cost);
         var totalFileCount = poolUsages.Sum(p => p.FileCount);
 
         return new TotalUsageDetails

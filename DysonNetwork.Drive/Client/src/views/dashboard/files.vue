@@ -140,7 +140,7 @@ const tableColumns: DataTableColumns<any> = [
     title: 'Expired At',
     key: 'expired_at',
     render(row: any) {
-      if (!row.expired_at) return 'Keep-alive'
+      if (!row.expired_at) return 'Never'
       return new Date(row.expired_at).toLocaleString()
     },
   },
