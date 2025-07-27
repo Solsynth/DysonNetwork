@@ -437,25 +437,19 @@ public class FileService(
 
     private static async Task<string> HashFileAsync(string filePath, int chunkSize = 1024 * 1024)
     {
-        using var stream = File.OpenRead(filePath);
-        var fileSize = stream.Length;
-        if (fileSize > chunkSize * 1024 * 5)
+        var fileInfo = new FileInfo(filePath);
+        if (fileInfo.Length > chunkSize * 1024 * 5)
             return await HashFastApproximateAsync(filePath, chunkSize);
-
+        
+        await using var stream = File.OpenRead(filePath);
         using var md5 = MD5.Create();
         var hashBytes = await md5.ComputeHashAsync(stream);
-        stream.Position = 0; // Reset stream position after reading
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
     private static async Task<string> HashFastApproximateAsync(string filePath, int chunkSize = 1024 * 1024)
     {
         await using var stream = File.OpenRead(filePath);
-
-        // Scale the chunk size to kB level
-        chunkSize *= 1024;
-
-        using var md5 = MD5.Create();
 
         var buffer = new byte[chunkSize * 2];
         var fileLength = stream.Length;
@@ -468,7 +462,7 @@ public class FileService(
             bytesRead += await stream.ReadAsync(buffer.AsMemory(chunkSize, chunkSize));
         }
 
-        var hash = md5.ComputeHash(buffer, 0, bytesRead);
+        var hash = MD5.HashData(buffer.AsSpan(0, bytesRead));
         stream.Position = 0; // Reset stream position
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
