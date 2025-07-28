@@ -51,11 +51,13 @@ const tableColumns: DataTableColumns<any> = [
       )
     },
     maxWidth: 80,
+    ellipsis: true,
   },
   {
     title: 'Description',
     key: 'description',
     maxWidth: 180,
+    ellipsis: true,
   },
   {
     title: 'Expired At',
