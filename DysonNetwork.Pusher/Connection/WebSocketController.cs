@@ -62,7 +62,8 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         {
             ws.Disconnect(connectionKey);
             logger.LogInformation(
-                $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}");
+                $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}"
+            );
         }
     }
 
@@ -78,16 +79,15 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         var buffer = new byte[1024 * 4];
         try
         {
-            var receiveResult = await webSocket.ReceiveAsync(
-                new ArraySegment<byte>(buffer),
-                cancellationToken
-            );
-            while (!receiveResult.CloseStatus.HasValue)
+            while (true)
             {
-                receiveResult = await webSocket.ReceiveAsync(
+                var receiveResult = await webSocket.ReceiveAsync(
                     new ArraySegment<byte>(buffer),
                     cancellationToken
                 );
+
+                if (receiveResult.CloseStatus.HasValue)
+                    break;
 
                 var packet = WebSocketPacket.FromBytes(buffer[..receiveResult.Count]);
                 _ = ws.HandlePacket(currentUser, connectionKey.DeviceId, packet, webSocket);
