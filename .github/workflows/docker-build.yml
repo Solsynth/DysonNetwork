@@ -10,8 +10,6 @@ jobs:
   build-sphere:
     runs-on: ubuntu-latest
     steps:
-      - name: Set lowercase org name
-        run: echo "ORG_LOWER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -25,7 +23,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ env.ORG_LOWER }}
+          username: ${{ vars.PACKAGE_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Sphere Docker image
         uses: docker/build-push-action@v6
@@ -39,8 +37,6 @@ jobs:
   build-pass:
     runs-on: ubuntu-latest
     steps:
-      - name: Set lowercase org name
-        run: echo "ORG_LOWER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -54,7 +50,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ env.ORG_LOWER }}
+          username: ${{ vars.PACKAGE_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Pass Docker image
         uses: docker/build-push-action@v6
@@ -68,8 +64,6 @@ jobs:
   build-pusher:
     runs-on: ubuntu-latest
     steps:
-      - name: Set lowercase org name
-        run: echo "ORG_LOWER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -83,7 +77,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ env.ORG_LOWER }}
+          username: ${{ vars.PACKAGE_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Pusher Docker image
         uses: docker/build-push-action@v6
@@ -97,8 +91,6 @@ jobs:
   build-drive:
     runs-on: ubuntu-latest
     steps:
-      - name: Set lowercase org name
-        run: echo "ORG_LOWER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -112,7 +104,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ env.ORG_LOWER }}
+          username: ${{ vars.PACKAGE_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Drive Docker image
         uses: docker/build-push-action@v6
@@ -126,8 +118,6 @@ jobs:
   build-gateway:
     runs-on: ubuntu-latest
     steps:
-      - name: Set lowercase org name
-        run: echo "ORG_LOWER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -141,7 +131,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ env.ORG_LOWER }}
+          username: ${{ vars.PACKAGE_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Gateway Docker image
         uses: docker/build-push-action@v6
