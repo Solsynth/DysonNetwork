@@ -31,7 +31,7 @@ public class PusherServiceGrpc(
         var packet = new Connection.WebSocketPacket
         {
             Type = request.Packet.Type,
-            Data = request.Packet.Data,
+            Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
         websocket.SendPacketToAccount(request.UserId, packet);
@@ -44,7 +44,7 @@ public class PusherServiceGrpc(
         var packet = new Connection.WebSocketPacket
         {
             Type = request.Packet.Type,
-            Data = request.Packet.Data,
+            Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
         foreach (var userId in request.UserIds)
@@ -59,7 +59,7 @@ public class PusherServiceGrpc(
         var packet = new Connection.WebSocketPacket
         {
             Type = request.Packet.Type,
-            Data = request.Packet.Data,
+            Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
         websocket.SendPacketToDevice(request.DeviceId, packet);
@@ -72,7 +72,7 @@ public class PusherServiceGrpc(
         var packet = new Connection.WebSocketPacket
         {
             Type = request.Packet.Type,
-            Data = request.Packet.Data,
+            Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
         foreach (var deviceId in request.DeviceIds)
@@ -106,7 +106,8 @@ public class PusherServiceGrpc(
         {
             Topic = request.Notification.Topic,
             Title = request.Notification.Title,
-            Subtitle = request.Notification.Subtitle, Content = request.Notification.Body,
+            Subtitle = request.Notification.Subtitle,
+            Content = request.Notification.Body,
             Meta = GrpcTypeHelper.ConvertFromValueMap(request.Notification.Meta)
         };
         if (request.Notification.ActionUri is not null)
@@ -116,17 +117,20 @@ public class PusherServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<Empty> UnsubscribePushNotifications(UnsubscribePushNotificationsRequest request, ServerCallContext context)
+    public override async Task<Empty> UnsubscribePushNotifications(UnsubscribePushNotificationsRequest request,
+        ServerCallContext context)
     {
         await pushService.UnsubscribeDevice(request.DeviceId);
         return new Empty();
     }
 
-    public override Task<GetWebsocketConnectionStatusResponse> GetWebsocketConnectionStatus(GetWebsocketConnectionStatusRequest request, ServerCallContext context)
+    public override Task<GetWebsocketConnectionStatusResponse> GetWebsocketConnectionStatus(
+        GetWebsocketConnectionStatusRequest request, ServerCallContext context)
     {
         var isConnected = request.IdCase switch
         {
-            GetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId => websocket.GetDeviceIsConnected(request.DeviceId),
+            GetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId =>
+                websocket.GetDeviceIsConnected(request.DeviceId),
             GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => websocket.GetAccountIsConnected(request.UserId),
             _ => false
         };
