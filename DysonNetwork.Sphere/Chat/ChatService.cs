@@ -249,15 +249,6 @@ public partial class ChatService(
         List<Account> accountsToNotify = [];
         foreach (var member in members)
         {
-            await scopedNty.PushWebSocketPacketToUsersAsync(new PushWebSocketPacketToUsersRequest
-            {
-                Packet = new WebSocketPacket
-                {
-                    Type = type,
-                    Data = GrpcTypeHelper.ConvertObjectToByteString(message),
-                },
-            });
-
             if (member.AccountId == sender.AccountId) continue;
             if (member.Notify == ChatMemberNotify.None) continue;
             // if (scopedWs.IsUserSubscribedToChatRoom(member.AccountId, room.Id.ToString())) continue;
@@ -271,6 +262,17 @@ public partial class ChatService(
             if (member.Account is not null)
                 accountsToNotify.Add(member.Account.ToProtoValue());
         }
+
+        var request = new PushWebSocketPacketToUsersRequest
+        {
+            Packet = new WebSocketPacket
+            {
+                Type = type,
+                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
+            },
+        };
+        request.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
+        await scopedNty.PushWebSocketPacketToUsersAsync(request);
 
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
         // Only send notifications if there are accounts to notify
