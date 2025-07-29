@@ -17,7 +17,7 @@ public class QuotaService(
     {
         // The billable unit is MiB
         var billableUnit = (long)Math.Ceiling(newFileSize / 1024.0 / 1024.0 * costMultiplier);
-        var totalBillableUsage = await usage.GetTotalBillableUsage();
+        var totalBillableUsage = await usage.GetTotalBillableUsage(accountId);
         var quota = await GetQuota(accountId);
         return (totalBillableUsage + billableUnit <= quota, billableUnit, quota);
     }

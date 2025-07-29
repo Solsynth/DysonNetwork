@@ -60,7 +60,7 @@ public class UsageService(AppDatabase db)
             PoolUsages = poolUsages,
             TotalUsageBytes = totalUsage,
             TotalFileCount = totalFileCount,
-            UsedQuota = await GetTotalBillableUsage()
+            UsedQuota = await GetTotalBillableUsage(accountId)
         };
     }
 
@@ -98,10 +98,11 @@ public class UsageService(AppDatabase db)
         };
     }
 
-    public async Task<long> GetTotalBillableUsage()
+    public async Task<long> GetTotalBillableUsage(Guid accountId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var files = await db.Files
+            .Where(f => f.AccountId == accountId)
             .Where(f => f.PoolId.HasValue)
             .Where(f => !f.IsMarkedRecycle)
             .Include(f => f.Pool)

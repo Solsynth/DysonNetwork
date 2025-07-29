@@ -262,7 +262,7 @@ public abstract class TusService
                     {
                         eventContext.FailRequest(
                             HttpStatusCode.Forbidden,
-                            $"File size {billableUnit} MiB is exceed than the user's quota {quota} MiB"
+                            $"File size {billableUnit} MiB is exceeded the user's quota {quota} MiB"
                         );
                         rejected = true;
                     }
