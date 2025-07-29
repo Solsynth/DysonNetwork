@@ -42,20 +42,8 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
         {
             Id = proto.Id,
             Name = proto.Name,
-            FileMeta = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                proto.FileMeta.ToStringUtf8(),
-                GrpcTypeHelper.SerializerOptions
-            )?.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.ValueKind == JsonValueKind.Undefined ? null : kvp.Value.Deserialize<object?>(GrpcTypeHelper.SerializerOptions)
-            ) ?? new Dictionary<string, object?>(),
-            UserMeta = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
-                proto.UserMeta.ToStringUtf8(),
-                GrpcTypeHelper.SerializerOptions
-            )?.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.ValueKind == JsonValueKind.Undefined ? null : kvp.Value.Deserialize<object?>(GrpcTypeHelper.SerializerOptions)
-            ) ?? new Dictionary<string, object?>(),
+            FileMeta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(proto.FileMeta) ?? [],
+            UserMeta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(proto.UserMeta) ?? [],
             MimeType = proto.MimeType,
             Hash = proto.Hash,
             Size = proto.Size,
@@ -81,14 +69,10 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
         };
 
         // Convert file metadata
-        proto.FileMeta = ByteString.CopyFromUtf8(
-            JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SerializerOptions)
-        );
+        proto.FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta);
 
         // Convert user metadata
-        proto.UserMeta = ByteString.CopyFromUtf8(
-            JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SerializerOptions)
-        );
+        proto.UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta);
 
         return proto;
     }

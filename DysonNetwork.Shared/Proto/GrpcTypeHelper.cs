@@ -5,14 +5,14 @@ using System.Text.Json.Serialization.Metadata;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using DysonNetwork.Shared.Data;
-using Newtonsoft.Json;
+using Google.Protobuf;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    public static readonly JsonSerializerOptions SerializerOptions = new()
+    public static readonly JsonSerializerOptions? SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
@@ -75,7 +75,7 @@ public abstract class GrpcTypeHelper
                 case Value.KindOneofCase.StructValue:
                     result[kvp.Key] = JsonSerializer.Deserialize<JsonElement>(
                         JsonSerializer.Serialize(
-                            value.StructValue.Fields.ToDictionary(f => f.Key, f => ConvertValueToObject(f.Value)), 
+                            value.StructValue.Fields.ToDictionary(f => f.Key, f => ConvertValueToObject(f.Value)),
                             SerializerOptions
                         ),
                         SerializerOptions
@@ -109,7 +109,7 @@ public abstract class GrpcTypeHelper
             _ => JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(value, SerializerOptions), SerializerOptions)
         };
     }
-    
+
     public static T? ConvertValueToClass<T>(Value value)
     {
         return value.KindCase switch
@@ -118,7 +118,7 @@ public abstract class GrpcTypeHelper
             _ => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, SerializerOptions), SerializerOptions)
         };
     }
-    
+
     public static Value ConvertObjectToValue(object? obj)
     {
         return obj switch
@@ -133,7 +133,7 @@ public abstract class GrpcTypeHelper
             _ => Value.ForString(JsonSerializer.Serialize(obj, SerializerOptions)) // fallback to JSON string
         };
     }
-    
+
     public static Value ConvertClassToValue<T>(T obj)
     {
         if (obj is JsonElement element)
@@ -143,5 +143,17 @@ public abstract class GrpcTypeHelper
             null => Value.ForNull(),
             _ => Value.ForString(JsonSerializer.Serialize(obj, SerializerOptions))
         };
+    }
+
+    public static ByteString ConvertObjectToByteString(object? obj)
+    {
+        return ByteString.CopyFromUtf8(
+            JsonSerializer.Serialize(obj, SerializerOptions)
+        );
+    }
+    
+    public static T? ConvertByteStringToObject<T>(ByteString bytes)
+    {
+        return JsonSerializer.Deserialize<T>(bytes.ToStringUtf8(), SerializerOptions);
     }
 }

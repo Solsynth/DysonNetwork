@@ -114,13 +114,9 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
             ContentType = MimeType ?? string.Empty,
             UploadedAt = UploadedAt?.ToTimestamp(),
             // Convert file metadata
-            FileMeta = ByteString.CopyFromUtf8(
-                System.Text.Json.JsonSerializer.Serialize(FileMeta, GrpcTypeHelper.SerializerOptions)
-            ),
+            FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta),
             // Convert user metadata
-            UserMeta = ByteString.CopyFromUtf8(
-                System.Text.Json.JsonSerializer.Serialize(UserMeta, GrpcTypeHelper.SerializerOptions)
-            )
+            UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta),
         };
 
         return proto;

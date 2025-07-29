@@ -77,7 +77,7 @@ public class WebSocketPacket
         return new Shared.Proto.WebSocketPacket
         {
             Type = Type,
-            Data = GrpcTypeHelper.ConvertClassToValue(Data),
+            Data = GrpcTypeHelper.ConvertObjectToByteString(Data),
             ErrorMessage = ErrorMessage
         };
     }
@@ -87,7 +87,7 @@ public class WebSocketPacket
         return new WebSocketPacket
         {
             Type = packet.Type,
-            Data = GrpcTypeHelper.ConvertValueToObject(packet.Data),
+            Data = GrpcTypeHelper.ConvertByteStringToObject<object?>(packet.Data),
             ErrorMessage = packet.ErrorMessage
         };
     }

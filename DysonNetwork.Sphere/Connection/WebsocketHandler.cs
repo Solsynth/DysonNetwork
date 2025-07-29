@@ -41,7 +41,7 @@ public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, Chat
             return;
         }
 
-        var requestData = GrpcTypeHelper.ConvertValueToClass<ChatController.MarkMessageReadRequest>(packet.Data);
+        var requestData = GrpcTypeHelper.ConvertByteStringToObject<ChatController.MarkMessageReadRequest>(packet.Data);
         if (requestData == null)
         {
             await SendErrorResponse(request, "Invalid request data");
@@ -73,7 +73,7 @@ public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, Chat
             return;
         }
 
-        var requestData = GrpcTypeHelper.ConvertValueToClass<ChatController.ChatRoomWsUniversalRequest>(packet.Data);
+        var requestData = GrpcTypeHelper.ConvertByteStringToObject<ChatController.ChatRoomWsUniversalRequest>(packet.Data);
         if (requestData == null)
         {
             await SendErrorResponse(request, "Invalid request data");
@@ -93,7 +93,7 @@ public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, Chat
         var responsePacket = new WebSocketPacket
         {
             Type = "messages.typing",
-            Data = GrpcTypeHelper.ConvertObjectToValue(new
+            Data = GrpcTypeHelper.ConvertObjectToByteString(new
             {
                 room_id = sender.ChatRoomId,
                 sender_id = sender.Id,

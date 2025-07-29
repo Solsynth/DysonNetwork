@@ -55,7 +55,7 @@ message SendEmailRequest {
 // Represents a WebSocket packet.
 message WebSocketPacket {
   string type = 1;
-  google.protobuf.Value data = 2;
+  bytes data = 2;
   google.protobuf.StringValue error_message = 3;
 }
 
