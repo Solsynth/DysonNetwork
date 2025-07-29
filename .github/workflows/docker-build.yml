@@ -23,7 +23,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ vars.PACKAGE_OWNER }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Sphere Docker image
         uses: docker/build-push-action@v6
@@ -31,7 +31,7 @@ jobs:
           file: DysonNetwork.Sphere/Dockerfile
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dyson-sphere:latest
+          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-sphere:latest
           platforms: linux/amd64
 
   build-pass:
@@ -50,7 +50,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ vars.PACKAGE_OWNER }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Pass Docker image
         uses: docker/build-push-action@v6
@@ -58,7 +58,7 @@ jobs:
           file: DysonNetwork.Pass/Dockerfile
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dyson-pass:latest
+          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-pass:latest
           platforms: linux/amd64
 
   build-pusher:
@@ -77,7 +77,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ vars.PACKAGE_OWNER }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Pusher Docker image
         uses: docker/build-push-action@v6
@@ -85,7 +85,7 @@ jobs:
           file: DysonNetwork.Pusher/Dockerfile
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dyson-pusher:latest
+          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-pusher:latest
           platforms: linux/amd64
 
   build-drive:
@@ -104,7 +104,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ vars.PACKAGE_OWNER }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Drive Docker image
         uses: docker/build-push-action@v6
@@ -112,7 +112,7 @@ jobs:
           file: DysonNetwork.Drive/Dockerfile
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dyson-drive:latest
+          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-drive:latest
           platforms: linux/amd64
 
   build-gateway:
@@ -131,7 +131,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ vars.PACKAGE_OWNER }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push DysonNetwork.Gateway Docker image
         uses: docker/build-push-action@v6
@@ -139,5 +139,5 @@ jobs:
           file: DysonNetwork.Gateway/Dockerfile
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dyson-gateway:latest
+          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-gateway:latest
           platforms: linux/amd64
