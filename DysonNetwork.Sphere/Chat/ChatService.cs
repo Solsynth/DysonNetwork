@@ -254,7 +254,7 @@ public partial class ChatService(
                 Packet = new WebSocketPacket
                 {
                     Type = type,
-                    Data = GrpcTypeHelper.ConvertObjectToByteString(metaDict),
+                    Data = GrpcTypeHelper.ConvertObjectToByteString(message),
                 },
             });
 
