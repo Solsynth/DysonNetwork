@@ -18,7 +18,6 @@ public static class ServiceCollectionExtensions
                 var caCert = X509CertificateLoader.LoadCertificateFromFile(configuration["CaCert"]!);
                 handler.SslOptions = new SslClientAuthenticationOptions
                 {
-                    // TODO: check the ca in the future, for now just trust it, i need sleep
                     RemoteCertificateValidationCallback = (sender, cert, chain, errors) => true
                 };
             });

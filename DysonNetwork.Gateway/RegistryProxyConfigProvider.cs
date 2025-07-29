@@ -91,10 +91,6 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                         {
                             { "destination1", new DestinationConfig { Address = serviceUrl } }
                         },
-                        HttpRequest = new ForwarderRequestConfig
-                        {
-                            ActivityTimeout = directRoute.IsWebSocket ? TimeSpan.FromHours(24) : TimeSpan.FromMinutes(2)
-                        }
                     };
                     clusters.Add(cluster);
                 }
@@ -104,7 +100,6 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                     RouteId = $"direct-{directRoute.Service}-{directRoute.Path.Replace("/", "-")}",
                     ClusterId = directRoute.Service,
                     Match = new RouteMatch { Path = directRoute.Path },
-                    Timeout = directRoute.IsWebSocket ? null : TimeSpan.FromSeconds(5),
                 };
                 routes.Add(route);
                 _logger.LogInformation("    Added Direct Route: {Path} -> {Service}", directRoute.Path,
@@ -232,7 +227,6 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
     {
         public required string Path { get; set; }
         public required string Service { get; set; }
-        public bool IsWebSocket { get; set; } = false;
     }
 
     public virtual void Dispose()
