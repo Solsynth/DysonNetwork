@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -8,8 +9,14 @@ namespace DysonNetwork.Pusher.Connection;
 public class WebSocketPacket
 {
     public string Type { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public object? Data { get; set; } = null!;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Endpoint { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ErrorMessage { get; set; }
 
     /// <summary>
@@ -74,7 +81,7 @@ public class WebSocketPacket
             ErrorMessage = ErrorMessage
         };
     }
-    
+
     public static WebSocketPacket FromProtoValue(Shared.Proto.WebSocketPacket packet)
     {
         return new WebSocketPacket

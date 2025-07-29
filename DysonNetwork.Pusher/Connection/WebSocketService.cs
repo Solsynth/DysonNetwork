@@ -109,6 +109,20 @@ public class WebSocketService
         WebSocket socket
     )
     {
+        if (packet.Type == WebSocketPacketType.Ping)
+        {
+            await socket.SendAsync(
+                new ArraySegment<byte>(new WebSocketPacket
+                {
+                    Type = WebSocketPacketType.Pong
+                }.ToBytes()),
+                WebSocketMessageType.Binary,
+                true,
+                CancellationToken.None
+            );
+            return;
+        }
+
         if (_handlerMap.TryGetValue(packet.Type, out var handler))
         {
             await handler.HandleAsync(currentUser, deviceId, packet, socket, this);
