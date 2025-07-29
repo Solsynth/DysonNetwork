@@ -241,10 +241,10 @@ public partial class ChatService(
             Body = !string.IsNullOrEmpty(message.Content)
                 ? message.Content[..Math.Min(message.Content.Length, 100)]
                 : "<no content>",
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
         };
-        notification.Meta.Add(GrpcTypeHelper.ConvertToValueMap(metaDict));
 
         List<Account> accountsToNotify = [];
         foreach (var member in members)

@@ -362,9 +362,12 @@ public class SubscriptionService(
             Topic = "subscriptions.begun",
             Title = localizer["SubscriptionAppliedTitle", humanReadableName],
             Body = localizer["SubscriptionAppliedBody", duration, humanReadableName],
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
+            {
+                ["subscription_id"] = subscription.Id.ToString()
+            }),
             IsSavable = true
         };
-        notification.Meta.Add("subscription_id", Value.ForString(subscription.Id.ToString()));
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {

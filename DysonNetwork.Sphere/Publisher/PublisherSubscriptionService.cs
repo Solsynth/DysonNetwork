@@ -78,10 +78,10 @@ public class PublisherSubscriptionService(
             Topic = "posts.new",
             Title = localizer["PostSubscriptionTitle", post.Publisher.Name, title],
             Body = message,
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
             IsSavable = true,
             ActionUri = $"/posts/{post.Id}"
         };
-        notification.Meta.Add(GrpcTypeHelper.ConvertToValueMap(data));
 
         // Notify each subscriber
         var notifiedCount = 0;
