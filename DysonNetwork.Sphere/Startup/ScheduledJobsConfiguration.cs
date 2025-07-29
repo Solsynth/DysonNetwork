@@ -1,3 +1,4 @@
+using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.WebReader;
 using Quartz;
 
@@ -16,15 +17,15 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
-            // var postViewFlushJob = new JobKey("PostViewFlush");
-            // q.AddJob<PostViewFlushJob>(opts => opts.WithIdentity(postViewFlushJob));
-            // q.AddTrigger(opts => opts
-            //     .ForJob(postViewFlushJob)
-            //     .WithIdentity("PostViewFlushTrigger")
-            //     .WithSimpleSchedule(o => o
-            //         .WithIntervalInMinutes(1)
-            //         .RepeatForever())
-            // );
+            var postViewFlushJob = new JobKey("PostViewFlush");
+            q.AddJob<PostViewFlushJob>(opts => opts.WithIdentity(postViewFlushJob));
+            q.AddTrigger(opts => opts
+                .ForJob(postViewFlushJob)
+                .WithIdentity("PostViewFlushTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
 
             var webFeedScraperJob = new JobKey("WebFeedScraper");
             q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity(webFeedScraperJob));
