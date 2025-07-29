@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 
 namespace DysonNetwork.Shared.Cache;
 
@@ -7,7 +8,7 @@ public interface IFlushHandler<T>
     Task FlushAsync(IReadOnlyList<T> items);
 }
 
-public class FlushBufferService
+public class FlushBufferService(ILogger<FlushBufferService> logger)
 {
     private readonly Dictionary<Type, object> _buffers = new();
     private readonly Lock _lockObject = new();
@@ -49,8 +50,9 @@ public class FlushBufferService
         {
             await handler.FlushAsync(workingQueue);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Error flushing {Count} items {ItemType}", workingQueue.Count, typeof(T));
             // If flush fails, re-queue the items
             foreach (var item in workingQueue)
                 buffer.Enqueue(item);
