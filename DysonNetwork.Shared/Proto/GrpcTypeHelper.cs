@@ -6,13 +6,15 @@ using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using DysonNetwork.Shared.Data;
 using Google.Protobuf;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    public static readonly JsonSerializerOptions? SerializerOptions = new()
+    private static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
@@ -21,7 +23,7 @@ public abstract class GrpcTypeHelper
         {
             Modifiers = { JsonExtensions.UnignoreAllProperties() }
         }
-    };
+    }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
     public static MapField<string, Value> ConvertToValueMap(Dictionary<string, object> source)
     {
