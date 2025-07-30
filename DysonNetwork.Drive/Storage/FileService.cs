@@ -565,7 +565,6 @@ public class FileService(
 
     public async Task DeleteFileDataAsync(CloudFile file, bool force = false)
     {
-        if (file.StorageId is null) return;
         if (!file.PoolId.HasValue) return;
 
         if (!force)
