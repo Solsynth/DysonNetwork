@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Globalization;
 using FFMpegCore;
 using System.Security.Cryptography;
@@ -115,7 +116,7 @@ public class FileService(
     )
     {
         var accountId = Guid.Parse(account.Id);
-        
+
         var pool = await GetPoolAsync(Guid.Parse(filePool));
         if (pool is null) throw new InvalidOperationException("Pool not found");
 
@@ -127,7 +128,7 @@ public class FileService(
                 : expectedExpiration;
             expiredAt = SystemClock.Instance.GetCurrentInstant() + effectiveExpiration;
         }
-        
+
         var bundle = fileBundleId is not null
             ? await GetBundleAsync(Guid.Parse(fileBundleId), accountId)
             : null;
@@ -135,8 +136,8 @@ public class FileService(
         {
             throw new InvalidOperationException("Bundle not found");
         }
-        
-        if (bundle?.ExpiredAt != null) 
+
+        if (bundle?.ExpiredAt != null)
             expiredAt = bundle.ExpiredAt.Value;
 
         var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
@@ -169,33 +170,13 @@ public class FileService(
             IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.PolicyConfig.AllowEncryption
         };
 
-        // TODO: Enable the feature later
-        // var existingFile = await db.Files.AsNoTracking().FirstOrDefaultAsync(f => f.Hash == hash);
-        // file.StorageId = existingFile?.StorageId ?? file.Id;
-        //
-        // if (existingFile is not null)
-        // {
-        //     file.FileMeta = existingFile.FileMeta;
-        //     file.HasCompression = existingFile.HasCompression;
-        //     file.SensitiveMarks = existingFile.SensitiveMarks;
-        //     file.MimeType = existingFile.MimeType;
-        //     file.UploadedAt = existingFile.UploadedAt;
-        //     file.PoolId = existingFile.PoolId;
-        //
-        //     db.Files.Add(file);
-        //     await db.SaveChangesAsync();
-        //     // Since the file content is a duplicate, we can delete the new upload and we are done.
-        //     await stream.DisposeAsync();
-        //     return file;
-        // }
-
         // Extract metadata on the current thread for a faster initial response
         if (!pool.PolicyConfig.NoMetadata)
             await ExtractMetadataAsync(file, ogFilePath, stream);
 
         db.Files.Add(file);
         await db.SaveChangesAsync();
-        
+
         file.StorageId ??= file.Id;
 
         // Offload optimization (image conversion, thumbnailing) and uploading to a background task
@@ -272,6 +253,8 @@ public class FileService(
                     var mediaInfo = await FFProbe.AnalyseAsync(filePath);
                     file.FileMeta = new Dictionary<string, object?>
                     {
+                        ["width"] = mediaInfo.PrimaryVideoStream?.Width,
+                        ["height"] = mediaInfo.PrimaryVideoStream?.Height,
                         ["duration"] = mediaInfo.Duration.TotalSeconds,
                         ["format_name"] = mediaInfo.Format.FormatName,
                         ["format_long_name"] = mediaInfo.Format.FormatLongName,
@@ -284,7 +267,7 @@ public class FileService(
                         {
                             s.AvgFrameRate, s.BitRate, s.CodecName, s.Duration, s.Height, s.Width, s.Language,
                             s.PixelFormat, s.Rotation
-                        }).ToList(),
+                        }).Where(s => double.IsNormal(s.AvgFrameRate)).ToList(),
                         ["audio_streams"] = mediaInfo.AudioStreams.Select(s => new
                             {
                                 s.BitRate, s.Channels, s.ChannelLayout, s.CodecName, s.Duration, s.Language,
@@ -375,19 +358,24 @@ public class FileService(
 
                     case "video":
                         uploads.Add((originalFilePath, string.Empty, contentType, false));
-                        var thumbnailPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.thumbnail.webp");
+
+                        var thumbnailPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.thumbnail.jpg");
                         try
                         {
-                            var mediaInfo = await FFProbe.AnalyseAsync(originalFilePath);
-                            var snapshotTime = mediaInfo.Duration > TimeSpan.FromSeconds(5)
-                                ? TimeSpan.FromSeconds(5)
-                                : TimeSpan.FromSeconds(1);
-
-                            await FFMpeg.SnapshotAsync(originalFilePath, thumbnailPath, captureTime: snapshotTime);
+                            await FFMpegArguments
+                                .FromFileInput(originalFilePath, verifyExists: true)
+                                .OutputToFile(thumbnailPath, overwrite: true, options => options
+                                    .Seek(TimeSpan.FromSeconds(0))
+                                    .WithFrameOutputCount(1)
+                                    .WithCustomArgument("-q:v 2")
+                                )
+                                .NotifyOnOutput(line => logger.LogInformation("[FFmpeg] {Line}", line))
+                                .NotifyOnError(line => logger.LogWarning("[FFmpeg] {Line}", line))
+                                .ProcessAsynchronously();
 
                             if (File.Exists(thumbnailPath))
                             {
-                                uploads.Add((thumbnailPath, ".thumbnail", "image/webp", true));
+                                uploads.Add((thumbnailPath, ".thumbnail", "image/jpeg", true));
                                 hasThumbnail = true;
                             }
                             else
@@ -456,7 +444,7 @@ public class FileService(
         var fileInfo = new FileInfo(filePath);
         if (fileInfo.Length > chunkSize * 1024 * 5)
             return await HashFastApproximateAsync(filePath, chunkSize);
-        
+
         await using var stream = File.OpenRead(filePath);
         using var md5 = MD5.Create();
         var hashBytes = await md5.ComputeHashAsync(stream);
@@ -483,16 +471,27 @@ public class FileService(
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    public async Task UploadFileToRemoteAsync(string storageId, Guid targetRemote, string filePath,
-        string? suffix = null, string? contentType = null, bool selfDestruct = false)
+    private async Task UploadFileToRemoteAsync(
+        string storageId,
+        Guid targetRemote,
+        string filePath,
+        string? suffix = null,
+        string? contentType = null,
+        bool selfDestruct = false
+    )
     {
         await using var fileStream = File.OpenRead(filePath);
         await UploadFileToRemoteAsync(storageId, targetRemote, fileStream, suffix, contentType);
         if (selfDestruct) File.Delete(filePath);
     }
 
-    public async Task UploadFileToRemoteAsync(string storageId, Guid targetRemote, Stream stream,
-        string? suffix = null, string? contentType = null)
+    private async Task UploadFileToRemoteAsync(
+        string storageId,
+        Guid targetRemote,
+        Stream stream,
+        string? suffix = null,
+        string? contentType = null
+    )
     {
         var dest = await GetRemoteStorageConfig(targetRemote);
         if (dest is null)
@@ -564,7 +563,7 @@ public class FileService(
         await DeleteFileDataAsync(file);
     }
 
-    private async Task DeleteFileDataAsync(CloudFile file, bool force = false)
+    public async Task DeleteFileDataAsync(CloudFile file, bool force = false)
     {
         if (file.StorageId is null) return;
         if (!file.PoolId.HasValue) return;
