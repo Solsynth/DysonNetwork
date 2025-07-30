@@ -665,7 +665,7 @@ public static class PostQueryExtensions
         bool isListing = false
     )
     {
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var now = SystemClock.Instance.GetCurrentInstant();
         var publishersId = publishers.Select(e => e.Id).ToList();
 
         source = isListing switch

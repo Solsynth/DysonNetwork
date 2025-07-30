@@ -18,15 +18,18 @@ public class ActivityService(
 {
     private static double CalculateHotRank(Post.Post post, Instant now)
     {
-        var score = post.Upvotes - post.Downvotes;
+        var score = post.Upvotes - post.Downvotes + post.RepliesCount;
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var hours = (now - postTime).TotalHours;
         // Add 1 to score to prevent negative results for posts with more downvotes than upvotes
         return (score + 1) / Math.Pow(hours + 2, 1.8);
     }
 
-    public async Task<List<Activity>> GetActivitiesForAnyone(int take, Instant? cursor,
-        HashSet<string>? debugInclude = null)
+    public async Task<List<Activity>> GetActivitiesForAnyone(
+        int take,
+        Instant? cursor,
+        HashSet<string>? debugInclude = null
+    )
     {
         var activities = new List<Activity>();
         debugInclude ??= new HashSet<string>();
@@ -126,7 +129,9 @@ public class ActivityService(
     {
         var activities = new List<Activity>();
         var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+        {
+            AccountId = currentUser.Id
+        });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
         debugInclude ??= [];
@@ -203,12 +208,14 @@ public class ActivityService(
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
 
         // Build the query based on the filter
+        var userPublishersId = userPublishers.Select(e => e.Id).ToList();
         var postsQuery = db.Posts
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Where(p => cursor == null || p.PublishedAt < cursor)
+            .Where(p => p.RepliedPost == null || userPublishersId.Contains(p.RepliedPost.PublisherId))
             .OrderByDescending(p => p.PublishedAt)
             .AsQueryable();
 
