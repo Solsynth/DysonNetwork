@@ -22,6 +22,7 @@ public class FileController(
         string id,
         [FromQuery] bool download = false,
         [FromQuery] bool original = false,
+        [FromQuery] bool thumbnail = false,
         [FromQuery] string? overrideMimeType = null,
         [FromQuery] string? passcode = null
     )
@@ -51,7 +52,7 @@ public class FileController(
             if (!System.IO.File.Exists(filePath)) return new NotFoundResult();
             return PhysicalFile(filePath, file.MimeType ?? "application/octet-stream", file.Name);
         }
-        
+
         var pool = await fs.GetPoolAsync(file.PoolId.Value);
         if (pool is null)
             return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
@@ -64,7 +65,9 @@ public class FileController(
 
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
-        if (!original && file.HasCompression)
+        if (thumbnail && file.HasThumbnail)
+            fileName += ".thumbnail";
+        else if (!original && file.HasCompression)
             fileName += ".compressed";
 
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
@@ -88,7 +91,8 @@ public class FileController(
             var client = fs.CreateMinioClient(dest);
             if (client is null)
                 return BadRequest(
-                    "Failed to configure client for remote destination, file got an invalid storage remote.");
+                    "Failed to configure client for remote destination, file got an invalid storage remote."
+                );
 
             var headers = new Dictionary<string, string>();
             if (fileExtension is not null)
@@ -198,7 +202,7 @@ public class FileController(
         var count = await fs.DeleteAccountRecycledFilesAsync(accountId);
         return Ok(new { Count = count });
     }
-    
+
     [Authorize]
     [HttpDelete("recycle")]
     [RequiredPermission("maintenance", "files.delete.recycle")]
