@@ -554,6 +554,9 @@ public partial class ChatService(
         if (content is not null)
             _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(message));
 
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
+
         _ = DeliverMessageAsync(
             message,
             message.Sender,
