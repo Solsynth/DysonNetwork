@@ -74,7 +74,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<ChatRoom>> CreateDirectMessage([FromBody] DirectMessageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var relatedUser = await accounts.GetAccountAsync(

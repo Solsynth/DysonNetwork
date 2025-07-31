@@ -1,7 +1,7 @@
-using DysonNetwork.Pass.Account;
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
