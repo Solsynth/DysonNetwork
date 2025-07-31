@@ -101,16 +101,18 @@ public class ActivityService(
                 reactionMaps.TryGetValue(post.Id, out var count) ? count : new Dictionary<string, int>();
 
         // Rank and sort
+        // TODO: This feature is disabled for now
+        /*
         var now = SystemClock.Instance.GetCurrentInstant();
         var rankedPosts = posts
             .Select(p => new { Post = p, Rank = CalculateHotRank(p, now) })
             .OrderByDescending(x => x.Rank)
             .Select(x => x.Post)
             .Take(take)
-            .ToList();
+            .ToList(); */
 
         // Formatting data
-        foreach (var post in rankedPosts)
+        foreach (var post in posts)
             activities.Add(post.ToActivity());
 
         if (activities.Count == 0)
@@ -242,16 +244,18 @@ public class ActivityService(
         }
 
         // Rank and sort
+        // TODO: This feature is disabled for now
+        /*
         var now = SystemClock.Instance.GetCurrentInstant();
         var rankedPosts = posts
             .Select(p => new { Post = p, Rank = CalculateHotRank(p, now) })
             .OrderByDescending(x => x.Rank)
             .Select(x => x.Post)
             .Take(take)
-            .ToList();
+            .ToList(); */
 
         // Formatting data
-        activities.AddRange(rankedPosts.Select(post => post.ToActivity()));
+        activities.AddRange(posts.Select(post => post.ToActivity()));
 
         if (activities.Count == 0)
             activities.Add(Activity.Empty());
