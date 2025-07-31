@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
 using DysonNetwork.Pass.Handlers;
+using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
 using SystemClock = NodaTime.SystemClock;
 
@@ -42,6 +43,7 @@ public class DysonTokenAuthHandler(
     UrlEncoder encoder,
     AppDatabase database,
     OidcProviderService oidc,
+    SubscriptionService subscriptions,
     ICacheService cache,
     FlushBufferService fbs
 )
@@ -79,6 +81,9 @@ public class DysonTokenAuthHandler(
 
                 if (session is not null)
                 {
+                    var perk = await subscriptions.GetPerkSubscriptionAsync(session.AccountId);
+                    session.Account.PerkSubscription = perk?.ToReference();
+
                     // Store in cache for future requests
                     await cache.SetWithGroupsAsync(
                         $"auth:{sessionId}",
@@ -177,7 +182,8 @@ public class DysonTokenAuthHandler(
 
                         // Verify signature
                         var signature = Base64UrlDecode(parts[1]);
-                        return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                        return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256,
+                            RSASignaturePadding.Pkcs1);
                     }
                     catch
                     {
@@ -232,7 +238,7 @@ public class DysonTokenAuthHandler(
             {
                 var token = authHeader["Bearer ".Length..].Trim();
                 var parts = token.Split('.');
-                
+
                 return new TokenInfo
                 {
                     Token = token,
