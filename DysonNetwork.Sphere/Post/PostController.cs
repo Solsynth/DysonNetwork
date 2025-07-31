@@ -151,6 +151,30 @@ public class PostController(
         return Ok(posts);
     }
 
+    [HttpGet("{id:guid}/reactions")]
+    public async Task<ActionResult<List<PostReaction>>> GetReactions(
+        Guid id,
+        [FromQuery] string? symbol = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        var query = db.PostReactions
+            .Where(e => e.PostId == id);
+        if (symbol is not null) query = query.Where(e => e.Symbol == symbol);
+        
+        var totalCount = await query.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+        
+        var reactions = await query
+            .OrderBy(r => r.Symbol)
+            .ThenByDescending(r => r.CreatedAt)
+            .Take(take)
+            .Skip(offset)
+            .ToListAsync();
+        return Ok(reactions);
+    }
+
     [HttpGet("{id:guid}/replies/featured")]
     public async Task<ActionResult<Post>> GetFeaturedReply(Guid id)
     {
@@ -165,7 +189,7 @@ public class PostController(
         }
 
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
-        
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var post = await db.Posts
             .Where(e => e.RepliedPostId == id)
@@ -181,7 +205,7 @@ public class PostController(
 
         // Track view - use the account ID as viewer ID if user is logged in
         await ps.IncreaseViewCount(post.Id, currentUser?.Id);
-        
+
         return await ps.LoadPostInfo(post);
     }
 
