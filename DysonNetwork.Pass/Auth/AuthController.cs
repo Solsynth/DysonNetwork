@@ -19,7 +19,7 @@ public class AuthController(
     IConfiguration configuration
 ) : ControllerBase
 {
-    private readonly string CookieDomain = configuration["AuthToken:CookieDomain"]!;
+    private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
     
     public class ChallengeRequest
     {
@@ -257,7 +257,7 @@ public class AuthController(
                     HttpOnly = true,
                     Secure = true,
                     SameSite = SameSiteMode.Lax,
-                    Domain = CookieDomain,
+                    Domain = _cookieDomain,
                     Expires = DateTime.UtcNow.AddDays(30)
                 });
 
@@ -281,7 +281,7 @@ public class AuthController(
     {
         Response.Cookies.Delete(AuthConstants.CookieTokenName, new CookieOptions
         {
-            Domain = CookieDomain,
+            Domain = _cookieDomain,
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Lax

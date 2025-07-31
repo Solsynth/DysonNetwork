@@ -119,7 +119,8 @@ public class PostController(
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
                 { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
-        } 
+        }
+
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var queryable = db.Posts
@@ -148,6 +149,22 @@ public class PostController(
 
         Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(posts);
+    }
+
+    [HttpGet("{id:guid}/replies/featured")]
+    public async Task<ActionResult<Post>> GetFeaturedReply(Guid id)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var post = await db.Posts
+            .Where(e => e.RepliedPostId == id)
+            .OrderByDescending(p =>
+                p.Upvotes * 2 -
+                p.Downvotes +
+                ((p.CreatedAt - now).TotalMinutes < 60 ? 5 : 0)
+            )
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+        return await ps.LoadPostInfo(post);
     }
 
     [HttpGet("{id:guid}/replies")]
