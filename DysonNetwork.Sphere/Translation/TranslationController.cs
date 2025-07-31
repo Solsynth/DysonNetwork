@@ -24,8 +24,8 @@ public class TranslationController(ITranslationProvider provider, ICacheService 
     [Authorize]
     public async Task<ActionResult<string>> Translate(
         [FromBody] string text,
-        [FromQuery(Name = "from")] string targetLanguage,
-        [FromQuery(Name = "to")] string? sourceLanguage
+        [FromQuery(Name = "to")] string targetLanguage,
+        [FromQuery(Name = "from")] string? sourceLanguage
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
