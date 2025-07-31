@@ -28,11 +28,11 @@ public static class ScheduledJobsConfiguration
             );
 
             var webFeedScraperJob = new JobKey("WebFeedScraper");
-            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity(webFeedScraperJob));
+            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity(webFeedScraperJob).StoreDurably());
             q.AddTrigger(opts => opts
                 .ForJob(webFeedScraperJob)
                 .WithIdentity("WebFeedScraperTrigger")
-                .WithSimpleSchedule(o => o.WithIntervalInHours(24).RepeatForever())
+                .WithCronSchedule("0 0 0 * * ?")
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
