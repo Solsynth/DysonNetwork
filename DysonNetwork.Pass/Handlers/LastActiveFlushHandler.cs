@@ -53,10 +53,18 @@ public class LastActiveFlushHandler(IServiceProvider srp, ILogger<LastActiveFlus
     }
 }
 
-public class LastActiveFlushJob(FlushBufferService fbs, ActionLogFlushHandler hdl) : IJob
+public class LastActiveFlushJob(FlushBufferService fbs, ActionLogFlushHandler hdl, ILogger<LastActiveFlushJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        await fbs.FlushAsync(hdl);
+        try
+        {
+            logger.LogInformation("Running LastActiveInfo flush job...");
+            await fbs.FlushAsync(hdl);
+            logger.LogInformation("Completed LastActiveInfo flush job...");
+        } catch (Exception ex)
+        {
+            logger.LogError(ex, "Error running LastActiveInfo job...");
+        }
     }
 }
