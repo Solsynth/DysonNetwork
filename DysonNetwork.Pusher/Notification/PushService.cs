@@ -142,8 +142,15 @@ public class PushService
         if (!isSilent) _ = DeliveryNotification(notification);
     }
 
-    public async Task DeliveryNotification(Notification notification)
+    private async Task DeliveryNotification(Notification notification)
     {
+        _logger.LogInformation(
+            "Delivering notification: {NotificationTopic} #{NotificationId} with meta {NotificationMeta}",
+            notification.Topic,
+            notification.Id,
+            notification.Meta
+        );
+
         // Pushing the notification
         var subscribers = await _db.PushSubscriptions
             .Where(s => s.AccountId == notification.AccountId)
@@ -184,6 +191,13 @@ public class PushService
             }).ToList();
             await _db.BulkInsertAsync(notifications);
         }
+        
+        _logger.LogInformation(
+            "Delivering notification in batch: {NotificationTopic} #{NotificationId} with meta {NotificationMeta}",
+            notification.Topic,
+            notification.Id,
+            notification.Meta
+        );
 
         var subscribers = await _db.PushSubscriptions
             .Where(s => accounts.Contains(s.AccountId))

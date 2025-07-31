@@ -85,7 +85,7 @@ message PushNotification {
   string title = 2;
   string subtitle = 3;
   string body = 4;
-  bytes meta = 5;
+  optional bytes meta = 5;
   optional string action_uri = 6;
   bool is_silent = 7;
   bool is_savable = 8;

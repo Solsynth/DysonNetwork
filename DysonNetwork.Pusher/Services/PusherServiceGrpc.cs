@@ -91,7 +91,9 @@ public class PusherServiceGrpc(
             request.Notification.Title,
             request.Notification.Subtitle,
             request.Notification.Body,
-            GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? [],
+            request.Notification.HasMeta
+                ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
+                : [],
             request.Notification.ActionUri,
             request.Notification.IsSilent,
             request.Notification.IsSavable
@@ -108,8 +110,9 @@ public class PusherServiceGrpc(
             Title = request.Notification.Title,
             Subtitle = request.Notification.Subtitle,
             Content = request.Notification.Body,
-            Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ??
-                   []
+            Meta = request.Notification.HasMeta
+                ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
+                : [],
         };
         if (request.Notification.ActionUri is not null)
             notification.Meta["action_uri"] = request.Notification.ActionUri;
