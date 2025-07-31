@@ -182,7 +182,8 @@ public partial class PostService(
                                     Title = localizer["PostReplyTitle", sender.Nick],
                                     Body = string.IsNullOrWhiteSpace(post.Title)
                                         ? localizer["PostReplyBody", sender.Nick, ChopPostForNotification(post).content]
-                                        : localizer["PostReplyContentBody", sender.Nick, post.Title, ChopPostForNotification(post).content],
+                                        : localizer["PostReplyContentBody", sender.Nick, post.Title,
+                                            ChopPostForNotification(post).content],
                                     IsSavable = true,
                                     ActionUri = $"/posts/{post.Id}"
                                 }
@@ -519,6 +520,24 @@ public partial class PostService(
             );
     }
 
+    public async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds, Guid accountId)
+    {
+        var reactions = await db.Set<PostReaction>()
+            .Where(r => postIds.Contains(r.PostId) && r.AccountId == accountId)
+            .Select(r => new { r.PostId, r.Symbol })
+            .ToListAsync();
+
+        return postIds.ToDictionary(
+            postId => postId,
+            postId => reactions
+                .Where(r => r.PostId == postId)
+                .ToDictionary(
+                    r => r.Symbol,
+                    _ => true
+                )
+        );
+    }
+
     /// <summary>
     /// Increases the view count for a post.
     /// Uses the flush buffer service to batch database updates for better performance.
@@ -595,20 +614,28 @@ public partial class PostService(
         var postsId = posts.Select(e => e.Id).ToList();
 
         var reactionMaps = await GetPostReactionMapBatch(postsId);
+        var reactionMadeMap = currentUser is not null
+            ? await GetPostReactionMadeMapBatch(postsId, Guid.Parse(currentUser.Id))
+            : new Dictionary<Guid, Dictionary<string, bool>>();
         var repliesCountMap = await GetPostRepliesCountBatch(postsId);
 
         foreach (var post in posts)
         {
-            // Set reactions count
+            // Set reaction count
             post.ReactionsCount = reactionMaps.TryGetValue(post.Id, out var count)
                 ? count
                 : new Dictionary<string, int>();
 
-            // Set replies count
+            // Set reaction made status
+            post.ReactionsMade = reactionMadeMap.TryGetValue(post.Id, out var made)
+                ? made
+                : [];
+            
+            // Set reply count
             post.RepliesCount = repliesCountMap.TryGetValue(post.Id, out var repliesCount)
                 ? repliesCount
                 : 0;
-
+            
             // Track view for each post in the list
             if (currentUser != null)
                 await IncreaseViewCount(post.Id, currentUser.Id);

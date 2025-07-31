@@ -47,6 +47,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public int Downvotes { get; set; }
     [NotMapped] public Dictionary<string, int> ReactionsCount { get; set; } = new();
     [NotMapped] public int RepliesCount { get; set; }
+    [NotMapped] public Dictionary<string, bool>? ReactionsMade { get; set; }
 
     public Guid? RepliedPostId { get; set; }
     public Post? RepliedPost { get; set; }
