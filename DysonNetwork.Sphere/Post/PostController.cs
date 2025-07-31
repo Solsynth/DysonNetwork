@@ -95,7 +95,7 @@ public class PostController(
         post = await ps.LoadPostInfo(post, currentUser);
 
         // Track view - use the account ID as viewer ID if user is logged in
-        await ps.IncreaseViewCount(post.Id, currentUser?.Id.ToString());
+        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
 
         return Ok(post);
     }
@@ -154,6 +154,18 @@ public class PostController(
     [HttpGet("{id:guid}/replies/featured")]
     public async Task<ActionResult<Post>> GetFeaturedReply(Guid id)
     {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+        
         var now = SystemClock.Instance.GetCurrentInstant();
         var post = await db.Posts
             .Where(e => e.RepliedPostId == id)
@@ -162,8 +174,14 @@ public class PostController(
                 p.Downvotes +
                 ((p.CreatedAt - now).TotalMinutes < 60 ? 5 : 0)
             )
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
+        post = await ps.LoadPostInfo(post, currentUser);
+
+        // Track view - use the account ID as viewer ID if user is logged in
+        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
+        
         return await ps.LoadPostInfo(post);
     }
 
