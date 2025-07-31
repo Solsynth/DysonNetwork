@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Sphere.Translation;
 
 [ApiController]
-[Route("translate")]
+[Route("/api/translate")]
 public class TranslationController(ITranslationProvider provider) : ControllerBase
 {
     [HttpPost]
