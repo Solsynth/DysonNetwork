@@ -10,7 +10,7 @@ public class TranslationController(ITranslationProvider provider) : ControllerBa
 {
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<string>> Translate([FromBody] string text, [FromQuery] string targetLanguage)
+    public async Task<ActionResult<string>> Translate([FromBody] string text, [FromQuery(Name = "lang")] string targetLanguage)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         if (currentUser.PerkSubscription is null)
