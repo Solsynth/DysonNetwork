@@ -19,6 +19,7 @@ using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Discovery;
+using DysonNetwork.Sphere.Translation;
 
 namespace DysonNetwork.Sphere.Startup;
 
@@ -166,7 +167,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<CustomAppService>();
-        
+
+        var translationProvider = configuration["Translation:Provider"]?.ToLower();
+        switch (translationProvider)
+        {
+            case "tencent":
+                services.AddScoped<ITranslationProvider, TencentTranslation>();
+                break;
+        }
+
         return services;
     }
 }
