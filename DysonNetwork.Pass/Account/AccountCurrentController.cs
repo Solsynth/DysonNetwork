@@ -38,7 +38,7 @@ public class AccountCurrentController(
             .Include(e => e.Profile)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
-        
+
         var perk = await subscriptions.GetPerkSubscriptionAsync(account!.Id);
         account.PerkSubscription = perk?.ToReference();
 
@@ -120,6 +120,7 @@ public class AccountCurrentController(
             );
             profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
         }
+
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
@@ -255,13 +256,27 @@ public class AccountCurrentController(
     }
 
     [HttpPost("check-in")]
-    public async Task<ActionResult<CheckInResult>> DoCheckIn([FromBody] string? captchaToken)
+    public async Task<ActionResult<CheckInResult>> DoCheckIn(
+        [FromBody] string? captchaToken,
+        [FromQuery] Instant? backdated = null
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var isAvailable = await events.CheckInDailyIsAvailable(currentUser);
-        if (!isAvailable)
-            return BadRequest("Check-in is not available for today.");
+        if (backdated is null)
+        {
+            var isAvailable = await events.CheckInDailyIsAvailable(currentUser);
+            if (!isAvailable)
+                return BadRequest("Check-in is not available for today.");
+        }
+        else
+        {
+            if (currentUser.PerkSubscription is null)
+                return StatusCode(403, "You need to have a subscription to check-in backdated.");
+            var isAvailable = await events.CheckInBackdatedIsAvailable(currentUser, backdated.Value);
+            if (!isAvailable)
+                return BadRequest("Check-in is not available for this date.");
+        }
 
         try
         {
@@ -269,9 +284,10 @@ public class AccountCurrentController(
             return needsCaptcha switch
             {
                 true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,
-                    "Captcha is required for this check-in."),
+                    "Captcha is required for this check-in."
+                ),
                 true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest("Invalid captcha token."),
-                _ => await events.CheckInDaily(currentUser)
+                _ => await events.CheckInDaily(currentUser, backdated)
             };
         }
         catch (InvalidOperationException ex)

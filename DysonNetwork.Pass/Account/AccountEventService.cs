@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using NodaTime.Extensions;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -166,7 +167,7 @@ public class AccountEventService(
     }
 
     private const int FortuneTipCount = 14; // This will be the max index for each type (positive/negative)
-    private const string CaptchaCacheKey = "CheckInCaptcha_";
+    private const string CaptchaCacheKey = "checkin:captcha:";
     private const int CaptchaProbabilityPercent = 20;
 
     public async Task<bool> CheckInDailyDoAskCaptcha(Account user)
@@ -198,9 +199,55 @@ public class AccountEventService(
         return lastDate < currentDate;
     }
 
-    public const string CheckInLockKey = "CheckInLock_";
+    public async Task<bool> CheckInBackdatedIsAvailable(Account user, Instant backdated)
+    {
+        var aDay = Duration.FromDays(1);
+        var backdatedStart = backdated.ToDateTimeUtc().Date.ToInstant();
+        var backdatedEnd = backdated.Plus(aDay).ToDateTimeUtc().Date.ToInstant();
 
-    public async Task<CheckInResult> CheckInDaily(Account user)
+        var backdatedDate = backdated.ToDateTimeUtc();
+        var backdatedMonthStart = new DateTime(
+            backdatedDate.Year,
+            backdatedDate.Month,
+            1,
+            0,
+            0,
+            0
+        ).ToInstant();
+        var backdatedMonthEnd =
+            new DateTime(
+                backdatedDate.Year,
+                backdatedDate.Month,
+                DateTime.DaysInMonth(
+                    backdatedDate.Year,
+                    backdatedDate.Month
+                ),
+                23,
+                59,
+                59
+            ).ToInstant();
+
+        // The first check, if that day already has a check-in
+        var lastCheckIn = await db.AccountCheckInResults
+            .Where(x => x.AccountId == user.Id)
+            .Where(x => x.CreatedAt >= backdatedStart && x.CreatedAt < backdatedEnd)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (lastCheckIn is not null) return false;
+
+        // The second check, is the user reached the max backdated check-ins limit,
+        // which is once a week, which is 4 times a month
+        var backdatedCheckInMonths = await db.AccountCheckInResults
+            .Where(x => x.AccountId == user.Id)
+            .Where(x => x.CreatedAt >= backdatedMonthStart && x.CreatedAt < backdatedMonthEnd)
+            .Where(x => x.BackdatedFrom != null)
+            .CountAsync();
+        return backdatedCheckInMonths < 4;
+    }
+
+    public const string CheckInLockKey = "checkin:lock:";
+
+    public async Task<CheckInResult> CheckInDaily(Account user, Instant? backdated = null)
     {
         var lockKey = $"{CheckInLockKey}{user.Id}";
 
@@ -254,7 +301,9 @@ public class AccountEventService(
             Level = (CheckInResultLevel)Random.Next(Enum.GetValues<CheckInResultLevel>().Length),
             AccountId = user.Id,
             RewardExperience = 100,
-            RewardPoints = 10,
+            RewardPoints = backdated.HasValue ? null : 10,
+            BackdatedFrom = backdated.HasValue ? SystemClock.Instance.GetCurrentInstant() : null,
+            CreatedAt = backdated ?? SystemClock.Instance.GetCurrentInstant(),
         };
 
         var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
@@ -298,7 +347,7 @@ public class AccountEventService(
 
         var statuses = await db.AccountStatuses
             .AsNoTracking()
-            .TagWith("GetEventCalendar_Statuses")
+            .TagWith("eventcal:statuses")
             .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
             .Select(x => new Status
             {
@@ -316,7 +365,7 @@ public class AccountEventService(
 
         var checkIn = await db.AccountCheckInResults
             .AsNoTracking()
-            .TagWith("GetEventCalendar_CheckIn")
+            .TagWith("eventcal:checkin")
             .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
             .ToListAsync();
 

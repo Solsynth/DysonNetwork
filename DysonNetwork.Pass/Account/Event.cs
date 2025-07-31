@@ -46,6 +46,8 @@ public class CheckInResult : ModelBase
     
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
+    
+    public Instant? BackdatedFrom { get; set; }
 }
 
 public class FortuneTip
