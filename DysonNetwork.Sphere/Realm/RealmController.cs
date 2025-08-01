@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Google.Protobuf.WellKnownTypes;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace DysonNetwork.Sphere.Realm;
 
@@ -260,16 +261,16 @@ public class RealmController(
         // }
         // else
         // {
-            var total = await query.CountAsync();
-            Response.Headers["X-Total"] = total.ToString();
+        var total = await query.CountAsync();
+        Response.Headers["X-Total"] = total.ToString();
 
-            var members = await query
-                .OrderBy(m => m.CreatedAt)
-                .Skip(offset)
-                .Take(take)
-                .ToListAsync();
+        var members = await query
+            .OrderBy(m => m.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
 
-            return Ok(await rs.LoadMemberAccounts(members));
+        return Ok(await rs.LoadMemberAccounts(members));
         // }
     }
 
@@ -374,6 +375,7 @@ public class RealmController(
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
             realm.Picture = CloudFileReferenceObject.FromProtoValue(pictureResult);
         }
+
         if (request.BackgroundId is not null)
         {
             var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
@@ -670,6 +672,8 @@ public class RealmController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var transaction = await db.Database.BeginTransactionAsync();
+
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
             .FirstOrDefaultAsync();
@@ -678,8 +682,37 @@ public class RealmController(
         if (!await rs.IsMemberWithRole(realm.Id, Guid.Parse(currentUser.Id), RealmMemberRole.Owner))
             return StatusCode(403, "Only the owner can delete this realm.");
 
-        db.Realms.Remove(realm);
-        await db.SaveChangesAsync();
+        try
+        {
+            var chats = await db.ChatRooms
+                .Where(c => c.RealmId == realm.Id)
+                .Select(c => c.Id)
+                .ToListAsync();
+            
+            db.Realms.Remove(realm);
+            await db.SaveChangesAsync();
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+            await db.RealmMembers
+                .Where(m => m.RealmId == realm.Id)
+                .ExecuteUpdateAsync(m => m.SetProperty(m => m.DeletedAt, now));
+            await db.ChatRooms
+                .Where(c => c.RealmId == realm.Id)
+                .ExecuteUpdateAsync(c => c.SetProperty(c => c.DeletedAt, now));
+            await db.ChatMessages
+                .Where(m => chats.Contains(m.ChatRoomId))
+                .ExecuteUpdateAsync(m => m.SetProperty(m => m.DeletedAt, now));
+            await db.ChatMembers
+                .Where(m => chats.Contains(m.ChatRoomId))
+                .ExecuteUpdateAsync(m => m.SetProperty(m => m.DeletedAt, now));
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
 
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
