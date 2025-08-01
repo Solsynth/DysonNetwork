@@ -319,6 +319,7 @@ public partial class ChatService(
     public async Task<Dictionary<Guid, int>> CountUnreadMessageForUser(Guid userId)
     {
         var members = await db.ChatMembers
+            .Where(m => m.LeaveAt == null && m.JoinedAt != null)
             .Where(m => m.AccountId == userId)
             .Select(m => new { m.ChatRoomId, m.LastReadAt })
             .ToListAsync();
@@ -338,6 +339,7 @@ public partial class ChatService(
     public async Task<Dictionary<Guid, Message?>> ListLastMessageForUser(Guid userId)
     {
         var userRooms = await db.ChatMembers
+            .Where(m => m.LeaveAt == null && m.JoinedAt != null)
             .Where(m => m.AccountId == userId)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
