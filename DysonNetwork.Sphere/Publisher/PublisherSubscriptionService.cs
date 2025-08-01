@@ -51,6 +51,11 @@ public class PublisherSubscriptionService(
     /// <returns>The number of subscribers notified</returns>
     public async Task<int> NotifySubscriberPost(Post.Post post)
     {
+        if (post.RepliedPostId is not null)
+            return 0;
+        if (post.Visibility != PostVisibility.Public)
+            return 0;
+
         var subscribers = await db.PublisherSubscriptions
             .Where(p => p.PublisherId == post.PublisherId &&
                         p.Status == PublisherSubscriptionStatus.Active)
