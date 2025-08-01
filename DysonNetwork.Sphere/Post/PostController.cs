@@ -26,7 +26,8 @@ public class PostController(
     public async Task<ActionResult<List<Post>>> ListPosts(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery(Name = "pub")] string? pubName = null
+        [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "type")] int? type = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -47,6 +48,8 @@ public class PostController(
         var query = db.Posts.AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.Publisher.Id == publisher.Id);
+        if (type != null)
+            query = query.Where(p => p.Type == (PostType)type);
         query = query
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true);
 
