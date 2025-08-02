@@ -165,10 +165,10 @@ public class PostController(
         var query = db.PostReactions
             .Where(e => e.PostId == id);
         if (symbol is not null) query = query.Where(e => e.Symbol == symbol);
-        
+
         var totalCount = await query.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
-        
+
         var reactions = await query
             .OrderBy(r => r.Symbol)
             .ThenByDescending(r => r.CreatedAt)
@@ -281,7 +281,8 @@ public class PostController(
     [RequiredPermission("global", "posts.create")]
     public async Task<ActionResult<Post>> CreatePost(
         [FromBody] PostRequest request,
-        [FromHeader(Name = "X-Pub")] string? publisherName
+        [FromQuery(Name = "pub")] [FromHeader(Name = "X-Pub")]
+        string? publisherName
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
@@ -433,7 +434,11 @@ public class PostController(
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<ActionResult<Post>> UpdatePost(Guid id, [FromBody] PostRequest request)
+    public async Task<ActionResult<Post>> UpdatePost(
+        Guid id,
+        [FromBody] PostRequest request,
+        [FromQuery(Name = "pub")] string? pubName
+    )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
@@ -451,6 +456,16 @@ public class PostController(
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
+
+        if (pubName is not null)
+        {
+            var publisher = await pub.GetPublisherByName(pubName);
+            if (publisher is null) return NotFound();
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+                return StatusCode(403, "You need at least be an editor to transfer this post to this publisher.");
+            post.PublisherId = publisher.Id;
+            post.Publisher = publisher;
+        }
 
         if (request.Title is not null) post.Title = request.Title;
         if (request.Description is not null) post.Description = request.Description;
