@@ -20,6 +20,28 @@ public class Poll : ModelBase
     public Publisher.Publisher Publisher { get; set; } = null!;
 }
 
+public class PollWithUserAnswer : Poll
+{
+    public PollAnswer? UserAnswer { get; set; }
+
+    public static PollWithUserAnswer FromPoll(Poll poll, PollAnswer? userAnswer = null)
+    {
+        return new PollWithUserAnswer
+        {
+            Id = poll.Id,
+            Title = poll.Title,
+            Description = poll.Description,
+            EndedAt = poll.EndedAt,
+            PublisherId = poll.PublisherId,
+            Publisher = poll.Publisher,
+            Questions = poll.Questions,
+            CreatedAt = poll.CreatedAt,
+            UpdatedAt = poll.UpdatedAt,
+            UserAnswer = userAnswer
+        };
+    }
+}
+
 public enum PollQuestionType
 {
     SingleChoice,

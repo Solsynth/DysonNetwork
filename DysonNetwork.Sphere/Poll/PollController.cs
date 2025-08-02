@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,63 @@ namespace DysonNetwork.Sphere.Poll;
 [Route("/api/polls")]
 public class PollController(AppDatabase db, PollService polls, PublisherService pub) : ControllerBase
 {
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<PollWithUserAnswer>> GetPoll(Guid id)
+    {
+        var poll = await db.Polls
+            .Include(p => p.Questions)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (poll is null) return NotFound("Poll not found");
+        var pollWithAnswer = PollWithUserAnswer.FromPoll(poll);
+
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Ok(pollWithAnswer);
+        
+        var accountId = Guid.Parse(currentUser.Id);
+        var answer = await polls.GetPollAnswer(id, accountId);
+        if (answer is not null)
+            pollWithAnswer.UserAnswer = answer;
+
+        return Ok(pollWithAnswer);
+    }
+
+    public class PollAnswerRequest
+    {
+        public required Dictionary<string, JsonElement> Answer { get; set; }
+    }
+    
+    [HttpPost("{id:guid}/answer")]
+    [Authorize]
+    public async Task<ActionResult<PollAnswer>> AnswerPoll(Guid id, [FromBody] PollAnswerRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        try
+        {
+            return await polls.AnswerPoll(id, accountId, request.Answer);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpDelete("{id:guid}/answer")]
+    [Authorize]
+    public async Task<IActionResult> DeletePollAnswer(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        try
+        {
+            await polls.UnAnswerPoll(id, accountId);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<List<Poll>>> ListPolls(
@@ -88,45 +146,45 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         // Start a transaction
         await using var transaction = await db.Database.BeginTransactionAsync();
-        
+
         try
         {
             var poll = await db.Polls
                 .Include(p => p.Questions)
                 .FirstOrDefaultAsync(p => p.Id == id);
-                
+
             if (poll == null) return NotFound("Poll not found");
-            
+
             // Check if user is an editor of the publisher that owns the poll
             if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to update this poll.");
-            
+
             // Update properties if they are provided in the request
             if (request.Title != null) poll.Title = request.Title;
             if (request.Description != null) poll.Description = request.Description;
             if (request.EndedAt.HasValue) poll.EndedAt = request.EndedAt;
-            
+
             // Update questions if provided
             if (request.Questions != null)
             {
                 // Remove existing questions
                 db.PollQuestions.RemoveRange(poll.Questions);
-                
+
                 // Add new questions
                 poll.Questions = request.Questions;
             }
 
             polls.ValidatePoll(poll);
-            
+
             poll.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
             await db.SaveChangesAsync();
-            
+
             // Commit the transaction if all operations succeed
             await transaction.CommitAsync();
-            
+
             return Ok(poll);
         }
         catch (Exception ex)
@@ -142,42 +200,42 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         // Start a transaction
         await using var transaction = await db.Database.BeginTransactionAsync();
-        
+
         try
         {
             var poll = await db.Polls
                 .Include(p => p.Questions)
                 .FirstOrDefaultAsync(p => p.Id == id);
-                
+
             if (poll == null) return NotFound("Poll not found");
-            
+
             // Check if user is an editor of the publisher that owns the poll
             if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to delete this poll.");
-            
+
             // Delete all answers for this poll
             var answers = await db.PollAnswers
                 .Where(a => a.PollId == id)
                 .ToListAsync();
-            
+
             if (answers.Count != 0)
                 db.PollAnswers.RemoveRange(answers);
-            
+
             // Delete all questions for this poll
             if (poll.Questions.Count != 0)
                 db.PollQuestions.RemoveRange(poll.Questions);
-            
+
             // Finally, delete the poll itself
             db.Polls.Remove(poll);
-            
+
             await db.SaveChangesAsync();
-            
+
             // Commit the transaction if all operations succeed
             await transaction.CommitAsync();
-            
+
             return NoContent();
         }
         catch (Exception ex)
