@@ -1,6 +1,6 @@
 <template>
-  <div class="container mx-auto">
-    <div class="flex items-center gap-6 mb-8">
+  <div class="container mx-auto px-8">
+    <div class="flex items-center gap-6 mb-8 mt-4">
       <n-avatar round :size="100" :alt="userStore.user.name" :src="userPicture">
         <n-icon size="48" v-if="!userPicture">
           <person-round />
@@ -14,23 +14,12 @@
       </div>
     </div>
 
-    <div class="mb-8">
-      <div class="flex justify-between mb-2">
-        <n-text>Level {{ userStore.user.profile.level }}</n-text>
-        <n-text>{{ userStore.user.profile.experience }} XP</n-text>
-      </div>
-      <n-progress
-        type="line"
-        :percentage="userStore.user.profile.leveling_progress"
-        :height="8"
-        status="success"
-        :show-indicator="false"
-      />
-    </div>
-
-    <div v-if="userStore.user.profile.bio" class="mt-8">
-      <n-h3>About</n-h3>
-      <n-p>{{ userStore.user.profile.bio }}</n-p>
+    <div class="mt-8">
+      <n-h3>Update Profile</n-h3>
+      <n-alert type="info" title="Under Construction">
+        Update profile directly on the Solar Network ID site is not available, yet. You can still do
+        it inside the Solian app or web app.
+      </n-alert>
     </div>
 
     <div class="mt-8">
@@ -47,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { NAvatar, NText, NProgress, NH3, NP, NButton, NIcon } from 'naive-ui'
+import { NAvatar, NText, NAlert, NH3, NButton, NIcon } from 'naive-ui'
 import { PersonRound, LaunchOutlined } from '@vicons/material'
 import { useUserStore } from '@/stores/user'
 import { computed } from 'vue'
