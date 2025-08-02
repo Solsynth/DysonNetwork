@@ -35,6 +35,7 @@ public class Publisher : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<Post.Post> Posts { get; set; } = new List<Post.Post>();
+    [JsonIgnore] public ICollection<Poll.Poll> Polls { get; set; } = new List<Poll.Poll>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
     [JsonIgnore] public ICollection<PublisherMember> Members { get; set; } = new List<PublisherMember>();
     [JsonIgnore] public ICollection<PublisherFeature> Features { get; set; } = new List<PublisherFeature>();

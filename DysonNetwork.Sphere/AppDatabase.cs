@@ -41,6 +41,10 @@ public class AppDatabase(
     public DbSet<PostTag> PostTags { get; set; }
     public DbSet<PostCategory> PostCategories { get; set; }
     public DbSet<PostCollection> PostCollections { get; set; }
+    
+    public DbSet<Poll.Poll> Polls { get; set; }
+    public DbSet<Poll.PollQuestion> PollQuestions { get; set; }
+    public DbSet<Poll.PollAnswer> PollAnswers { get; set; }
 
     public DbSet<Realm.Realm> Realms { get; set; }
     public DbSet<RealmMember> RealmMembers { get; set; }

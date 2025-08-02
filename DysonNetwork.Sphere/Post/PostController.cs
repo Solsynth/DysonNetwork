@@ -282,7 +282,7 @@ public class PostController(
     public async Task<ActionResult<Post>> CreatePost(
         [FromBody] PostRequest request,
         [FromQuery(Name = "pub")] [FromHeader(Name = "X-Pub")]
-        string? publisherName
+        string? pubName
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
@@ -293,7 +293,7 @@ public class PostController(
         var accountId = Guid.Parse(currentUser.Id);
 
         Publisher.Publisher? publisher;
-        if (publisherName is null)
+        if (pubName is null)
         {
             // Use the first personal publisher
             publisher = await db.Publishers.FirstOrDefaultAsync(e =>
@@ -301,13 +301,9 @@ public class PostController(
         }
         else
         {
-            publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == publisherName);
+            publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null) return BadRequest("Publisher was not found.");
-            var member =
-                await db.PublisherMembers.FirstOrDefaultAsync(e =>
-                    e.AccountId == accountId && e.PublisherId == publisher.Id);
-            if (member is null) return StatusCode(403, "You even wasn't a member of the publisher you specified.");
-            if (member.Role < PublisherMemberRole.Editor)
+            if(!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
         }
 
