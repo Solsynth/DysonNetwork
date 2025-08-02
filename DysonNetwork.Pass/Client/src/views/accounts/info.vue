@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto p-8">
+  <div class="container mx-auto">
     <div class="flex items-center gap-6 mb-8">
       <n-avatar round :size="100" :alt="userStore.user.name" :src="userPicture">
         <n-icon size="48" v-if="!userPicture">

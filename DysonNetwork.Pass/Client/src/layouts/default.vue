@@ -15,7 +15,7 @@
         </n-dropdown>
       </div>
     </n-layout-header>
-    <n-layout-content embedded content-style="padding: 24px;">
+    <n-layout-content embedded>
       <router-view />
     </n-layout-content>
   </n-layout>

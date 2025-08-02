@@ -7,40 +7,60 @@ const router = createRouter({
     {
       path: '/',
       name: 'index',
-      component: () => import('../views/index.vue')
+      component: () => import('../views/index.vue'),
     },
     {
       path: '/captcha',
       name: 'captcha',
-      component: () => import('../views/captcha.vue')
+      component: () => import('../views/captcha.vue'),
     },
     {
       path: '/spells/:word',
       name: 'spells',
-      component: () => import('../views/spells.vue')
+      component: () => import('../views/spells.vue'),
     },
     {
       path: '/login',
       name: 'login',
-      component: () => import('../views/login.vue')
+      component: () => import('../views/login.vue'),
     },
     {
       path: '/create-account',
       name: 'create-account',
-      component: () => import('../views/create-account.vue')
+      component: () => import('../views/create-account.vue'),
+    },
+    {
+      path: '/accounts/:name',
+      alias: ['/@:name'],
+      name: 'accountProfilePage',
+      component: () => import('../views/pfp/index.vue'),
     },
     {
       path: '/accounts/me',
-      name: 'me',
-      component: () => import('../views/accounts/me.vue'),
-      meta: { requiresAuth: true }
+      name: 'dashboard',
+      meta: { requiresAuth: true },
+      component: () => import('../layouts/dashboard.vue'),
+      children: [
+        {
+          path: '',
+          name: 'dashboardCurrent',
+          component: () => import('../views/accounts/info.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'security',
+          name: 'dashboardSecurity',
+          component: () => import('../views/accounts/security.vue'),
+          meta: { requiresAuth: true },
+        },
+      ],
     },
     {
       path: '/:notFound(.*)',
       name: 'errorNotFound',
       component: () => import('../views/not-found.vue'),
     },
-  ]
+  ],
 })
 
 router.beforeEach(async (to, from, next) => {
