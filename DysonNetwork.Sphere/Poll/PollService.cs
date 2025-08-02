@@ -35,7 +35,7 @@ public class PollService(AppDatabase db, ICacheService cache)
 
     public async Task<PollAnswer?> GetPollAnswer(Guid pollId, Guid accountId)
     {
-        var cacheKey = $"poll:answer:{pollId}:{accountId}";
+        var cacheKey = $"{PollAnswerCachePrefix}{pollId}:{accountId}";
         var cachedAnswer = await cache.GetAsync<PollAnswer?>(cacheKey);
         if (cachedAnswer is not null)
             return cachedAnswer;
@@ -123,9 +123,12 @@ public class PollService(AppDatabase db, ICacheService cache)
         await db.PollAnswers.AddAsync(answerRecord);
         await db.SaveChangesAsync();
 
-        // Invalidate the cache for this poll answer
-        var cacheKey = $"poll:answer:{pollId}:{accountId}";
-        await cache.SetAsync(cacheKey, answerRecord, TimeSpan.FromMinutes(30));
+        // Update cache for this poll answer and invalidate stats cache
+        var answerCacheKey = $"poll:answer:{pollId}:{accountId}";
+        await cache.SetAsync(answerCacheKey, answerRecord, TimeSpan.FromMinutes(30));
+        
+        // Invalidate all stats cache for this poll since answers have changed
+        await cache.RemoveGroupAsync(PollCacheGroupPrefix + pollId);
 
         return answerRecord;
     }
@@ -137,11 +140,144 @@ public class PollService(AppDatabase db, ICacheService cache)
             .Where(e => e.PollId == pollId && e.AccountId == accountId)
             .ExecuteUpdateAsync(s => s.SetProperty(e => e.DeletedAt, now)) > 0;
 
-        if (result)
+        if (!result) return result;
+        
+        // Remove the cached answer if it exists
+        var answerCacheKey = $"poll:answer:{pollId}:{accountId}";
+        await cache.RemoveAsync(answerCacheKey);
+        
+        // Invalidate all stats cache for this poll since answers have changed
+        await cache.RemoveGroupAsync(PollCacheGroupPrefix + pollId);
+
+        return result;
+    }
+    
+    private const string PollStatsCachePrefix = "poll:stats:";
+    private const string PollCacheGroupPrefix = "poll:";
+
+    // Returns stats for a single question (option id -> count)
+    public async Task<Dictionary<string, int>> GetPollQuestionStats(Guid questionId)
+    {
+        var cacheKey = $"{PollStatsCachePrefix}{questionId}";
+        
+        // Try to get from cache first
+        var (found, cachedStats) = await cache.GetAsyncWithStatus<Dictionary<string, int>>(cacheKey);
+        if (found && cachedStats != null)
         {
-            // Remove the cached answer if it exists
-            var cacheKey = $"poll:answer:{pollId}:{accountId}";
-            await cache.RemoveAsync(cacheKey);
+            return cachedStats;
+        }
+
+        var question = await db.PollQuestions
+            .Where(q => q.Id == questionId)
+            .FirstOrDefaultAsync();
+
+        if (question == null)
+            throw new Exception("Question not found");
+
+        var answers = await db.PollAnswers
+            .Where(a => a.PollId == question.PollId && a.DeletedAt == null)
+            .ToListAsync();
+
+        var stats = new Dictionary<string, int>();
+
+        foreach (var answer in answers)
+        {
+            if (!answer.Answer.TryGetValue(questionId.ToString(), out var value))
+                continue;
+
+            switch (question.Type)
+            {
+                case PollQuestionType.SingleChoice:
+                    if (value.ValueKind == JsonValueKind.String &&
+                        Guid.TryParse(value.GetString(), out var selected))
+                    {
+                        stats.TryGetValue(selected.ToString(), out var count);
+                        stats[selected.ToString()] = count + 1;
+                    }
+
+                    break;
+
+                case PollQuestionType.MultipleChoice:
+                    if (value.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var element in value.EnumerateArray())
+                        {
+                            if (element.ValueKind != JsonValueKind.String ||
+                                !Guid.TryParse(element.GetString(), out var opt)) continue;
+                            stats.TryGetValue(opt.ToString(), out var count);
+                            stats[opt.ToString()] = count + 1;
+                        }
+                    }
+
+                    break;
+
+                case PollQuestionType.YesNo:
+                    var id = value.ValueKind switch
+                    {
+                        JsonValueKind.True => "true",
+                        JsonValueKind.False => "false",
+                        _ => "neither"
+                    };
+
+                    stats.TryGetValue(id, out var ynCount);
+                    stats[id] = ynCount + 1;
+                    break;
+
+                case PollQuestionType.Rating:
+                    double sum = 0;
+                    var countRating = 0;
+
+                    foreach (var rating in answers)
+                    {
+                        if (!rating.Answer.TryGetValue(questionId.ToString(), out var ratingValue))
+                            continue;
+
+                        if (ratingValue.ValueKind == JsonValueKind.Number &&
+                            ratingValue.TryGetDouble(out var ratingNumber))
+                        {
+                            sum += ratingNumber;
+                            countRating++;
+                        }
+                    }
+
+                    if (countRating > 0)
+                    {
+                        var avgRating = sum / countRating;
+                        stats["rating"] = (int)Math.Round(avgRating);
+                    }
+
+                    break;
+
+                case PollQuestionType.FreeText:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        // Cache the result with a 1-hour expiration and add to the poll cache group
+        await cache.SetWithGroupsAsync(
+            cacheKey,
+            stats,
+            new[] { PollCacheGroupPrefix + question.PollId },
+            TimeSpan.FromHours(1));
+
+        return stats;
+    }
+
+    // Returns stats for all questions in a poll (question id -> (option id -> count))
+    public async Task<Dictionary<Guid, Dictionary<string, int>>> GetPollStats(Guid pollId)
+    {
+        var questions = await db.PollQuestions
+            .Where(q => q.PollId == pollId)
+            .ToListAsync();
+
+        var result = new Dictionary<Guid, Dictionary<string, int>>();
+
+        foreach (var question in questions)
+        {
+            var stats = await GetPollQuestionStats(question.Id);
+            result[question.Id] = stats;
         }
 
         return result;

@@ -20,13 +20,14 @@ public class Poll : ModelBase
     public Publisher.Publisher Publisher { get; set; } = null!;
 }
 
-public class PollWithUserAnswer : Poll
+public class PollWithAnswer : Poll
 {
     public PollAnswer? UserAnswer { get; set; }
+    public Dictionary<Guid, Dictionary<string, int>> Stats { get; set; } = new(); // question id -> (option id -> count)
 
-    public static PollWithUserAnswer FromPoll(Poll poll, PollAnswer? userAnswer = null)
+    public static PollWithAnswer FromPoll(Poll poll, PollAnswer? userAnswer = null)
     {
-        return new PollWithUserAnswer
+        return new PollWithAnswer
         {
             Id = poll.Id,
             Title = poll.Title,

@@ -13,13 +13,13 @@ namespace DysonNetwork.Sphere.Poll;
 public class PollController(AppDatabase db, PollService polls, PublisherService pub) : ControllerBase
 {
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<PollWithUserAnswer>> GetPoll(Guid id)
+    public async Task<ActionResult<PollWithAnswer>> GetPoll(Guid id)
     {
         var poll = await db.Polls
             .Include(p => p.Questions)
             .FirstOrDefaultAsync(p => p.Id == id);
         if (poll is null) return NotFound("Poll not found");
-        var pollWithAnswer = PollWithUserAnswer.FromPoll(poll);
+        var pollWithAnswer = PollWithAnswer.FromPoll(poll);
 
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Ok(pollWithAnswer);
         
@@ -27,6 +27,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         var answer = await polls.GetPollAnswer(id, accountId);
         if (answer is not null)
             pollWithAnswer.UserAnswer = answer;
+        pollWithAnswer.Stats = await polls.GetPollStats(id);
 
         return Ok(pollWithAnswer);
     }
