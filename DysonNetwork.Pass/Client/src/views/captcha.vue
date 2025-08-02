@@ -46,8 +46,8 @@ import CaptchaWidget from '@/components/CaptchaWidget.vue';
 const route = useRoute();
 
 // Get provider and API key from app data
-const provider = ref((window as any).__APP_DATA__?.Provider || '');
-const apiKey = ref((window as any).__APP_DATA__?.ApiKey || '');
+const provider = ref(window.DyPrefetch?.provider || '');
+const apiKey = ref(window.DyPrefetch?.api_key || '');
 
 const onCaptchaVerified = (token: string) => {
   if (window.parent !== window) {

@@ -175,11 +175,9 @@ const notFound = ref<boolean>(false)
 const user = ref<any>(null)
 
 async function fetchUser() {
-  // @ts-ignore
-  if (window.__APP_DATA__?.Account != null) {
+  if (window.DyPrefetch?.Account != null) {
     console.log('[Fetch] Use the pre-rendered account data.')
-    // @ts-ignore
-    user.value = window.__APP_DATA__['Account']
+    user.value = window.DyPrefetch.Account
     return
   }
 

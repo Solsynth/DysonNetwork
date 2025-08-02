@@ -116,8 +116,8 @@ const rules: FormRules = {
 }
 
 // Get captcha provider and API key from global data
-const captchaProvider = ref((window as any).__APP_DATA__?.Provider || '')
-const captchaApiKey = ref((window as any).__APP_DATA__?.ApiKey || '')
+const captchaProvider = ref(window.DyPrefetch?.provider || '')
+const captchaApiKey = ref(window.DyPrefetch?.api_key || '')
 
 const onCaptchaVerified = (token: string) => {
   formModel.captchaToken = token

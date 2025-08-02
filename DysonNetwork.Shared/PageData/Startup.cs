@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
+using OpenGraphNet;
 
 namespace DysonNetwork.Shared.PageData;
 
@@ -24,6 +27,13 @@ public static class PageStartup
     /// <returns></returns>
     public static WebApplication MapPages(this WebApplication app, string defaultFile)
     {
+        var jsonOpts = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNameCaseInsensitive = true,
+        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+        
 #pragma warning disable ASP0016
         app.MapFallback(async context =>
         {
@@ -33,7 +43,7 @@ public static class PageStartup
                 await context.Response.WriteAsync("Not found");
                 return;
             }
-            
+
             var html = await File.ReadAllTextAsync(defaultFile);
 
             using var scope = app.Services.CreateScope();
@@ -50,8 +60,15 @@ public static class PageStartup
             foreach (var (key, value) in result)
                 appData[key] = value;
 
-            var json = JsonSerializer.Serialize(appData);
-            html = html.Replace("<app-data />", $"<script>window.__APP_DATA__ = {json};</script>");
+            OpenGraph? og = null;
+            if (appData.TryGetValue("OpenGraph", out var openGraph) && openGraph is OpenGraph gog)
+                og = gog;
+
+            var json = JsonSerializer.Serialize(appData, jsonOpts);
+            html = html.Replace("<app-data />", $"<script>window.DyPrefetch = {json};</script>");
+            
+            if (og is not null)
+                html = html.Replace("<og-data />", og.ToString());
 
             context.Response.ContentType = "text/html";
             await context.Response.WriteAsync(html);
