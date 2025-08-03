@@ -6,6 +6,7 @@ using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.PageData;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,5 +51,13 @@ using (var scope = app.Services.CreateScope())
 app.ConfigureAppMiddleware(builder.Configuration);
 
 app.MapGatewayProxy();
+
+app.UseDefaultFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "dist"))
+});
+    
+app.MapPages(Path.Combine(app.Environment.WebRootPath, "dist", "index.html"));
 
 app.Run();

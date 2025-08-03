@@ -71,7 +71,6 @@
 
     <ItemGroup>
         <Folder Include="Discovery\"/>
-        <Folder Include="wwwroot\" />
     </ItemGroup>
 
     <ItemGroup>
