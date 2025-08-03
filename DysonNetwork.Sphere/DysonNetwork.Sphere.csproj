@@ -154,7 +154,9 @@
     </ItemGroup>
     
     <ItemGroup>
-        <Content Remove="..\DysonNetwork.Pass\Client" />
+        <None Remove="..\DysonNetwork.Pass\Client\**" />
+        <Content Remove="..\DysonNetwork.Pass\Client\**" />
+        <Compile Remove="..\DysonNetwork.Pass\Client\**" />
     </ItemGroup>
 
     <ItemGroup>
