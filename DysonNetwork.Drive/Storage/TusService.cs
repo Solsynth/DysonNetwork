@@ -228,13 +228,33 @@ public abstract class TusService
                         );
                         rejected = true;
                     }
-                    else if (!policy.AcceptTypes.Contains(contentType))
+                    else
                     {
-                        eventContext.FailRequest(
-                            HttpStatusCode.Forbidden,
-                            $"Content type {contentType} is not allowed by the pool's policy"
-                        );
-                        rejected = true;
+                        var foundMatch = false;
+                        foreach (var acceptType in policy.AcceptTypes)
+                        {
+                            if (acceptType.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var type = acceptType[..^2];
+                                if (!contentType.StartsWith($"{type}/", StringComparison.OrdinalIgnoreCase)) continue;
+                                foundMatch = true;
+                                break;
+                            }
+                            else if (acceptType.Equals(contentType, StringComparison.OrdinalIgnoreCase))
+                            {
+                                foundMatch = true;
+                                break;
+                            }
+                        }
+
+                        if (!foundMatch)
+                        {
+                            eventContext.FailRequest(
+                                HttpStatusCode.Forbidden,
+                                $"Content type {contentType} is not allowed by the pool's policy"
+                            );
+                            rejected = true;
+                        }
                     }
                 }
 
