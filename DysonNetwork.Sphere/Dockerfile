@@ -59,9 +59,7 @@ FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 # Ensure the target directory for localized resources exists
 RUN mkdir -p /app/publish/zh-Hans
-RUN dotnet publish "DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/publish \
-    -p:TypeScriptCompileBlocked=true \
-    -p:UseRazorBuildServer=false
+RUN dotnet publish "DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Final stage: Runtime
 FROM base AS final
