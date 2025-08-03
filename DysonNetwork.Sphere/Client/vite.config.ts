@@ -19,6 +19,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/tus': {
+        target: 'http://localhost:5090',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:5071',
         changeOrigin: true,

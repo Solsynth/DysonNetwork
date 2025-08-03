@@ -4,6 +4,8 @@
       <img src="/image-broken.jpg" class="w-32 h-32 rounded-md" />
     </template>
   </n-image>
+  <audio v-else-if="itemType == 'audio'" :src="remoteSource" controls />
+  <video v-else-if="itemType == 'video'" :src="remoteSource" controls />
 </template>
 
 <script lang="ts" setup>
