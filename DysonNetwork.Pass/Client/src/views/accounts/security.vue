@@ -57,7 +57,7 @@ const connectionsAddable = computed(() =>
 )
 
 function connectionAdd(provider: string) {
-  window.open(`/api/auth/login/${provider}`, '_blank')
+  window.open(`/api/auth/login/${provider}`,"","width=400,height=600");
 }
 
 async function fetchConnections() {
