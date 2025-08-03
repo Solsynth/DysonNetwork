@@ -152,6 +152,10 @@
         <_ContentIncludedByDefault Remove="Pages\Emails\PasswordResetEmail.razor" />
         <_ContentIncludedByDefault Remove="Pages\Emails\VerificationEmail.razor" />
     </ItemGroup>
+    
+    <ItemGroup>
+        <Content Remove="..\DysonNetwork.Pass\Client" />
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj"/>
