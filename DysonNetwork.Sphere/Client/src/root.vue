@@ -15,6 +15,8 @@ import { usePreferredDark } from '@vueuse/core'
 import { useUserStore } from './stores/user'
 import { onMounted } from 'vue'
 import { useServicesStore } from './stores/services'
+import { MilkdownProvider } from '@milkdown/vue'
+import { usePubStore } from './stores/pub'
 
 const themeOverrides = {
   common: {
@@ -30,26 +32,30 @@ const isDark = usePreferredDark()
 
 const userStore = useUserStore()
 const servicesStore = useServicesStore()
+const pubStore = usePubStore()
 
 onMounted(() => {
   userStore.initialize()
 
   userStore.fetchUser()
   servicesStore.fetchServices()
+  pubStore.fetchPublishers()
 })
 </script>
 
 <template>
-  <n-config-provider :theme-overrides="themeOverrides" :theme="isDark ? darkTheme : lightTheme">
-    <n-global-style />
-    <n-loading-bar-provider>
-      <n-dialog-provider>
-        <n-message-provider placement="bottom">
-          <layout-default>
-            <router-view />
-          </layout-default>
-        </n-message-provider>
-      </n-dialog-provider>
-    </n-loading-bar-provider>
-  </n-config-provider>
+  <milkdown-provider>
+    <n-config-provider :theme-overrides="themeOverrides" :theme="isDark ? darkTheme : lightTheme">
+      <n-global-style />
+      <n-loading-bar-provider>
+        <n-dialog-provider>
+          <n-message-provider placement="bottom">
+            <layout-default>
+              <router-view />
+            </layout-default>
+          </n-message-provider>
+        </n-dialog-provider>
+      </n-loading-bar-provider>
+    </n-config-provider>
+  </milkdown-provider>
 </template>

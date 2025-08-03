@@ -9,7 +9,7 @@
         </n-infinite-scroll>
       </n-gi>
       <n-gi span="2" class="max-lg:order-first">
-        <n-card class="w-full mt-4" title="About">
+        <n-card class="w-full mt-4" title="About" v-if="!userStore.user">
           <p>Welcome to the <b>Solar Network</b></p>
           <p>The open social network. Friendly to everyone.</p>
 
@@ -22,16 +22,27 @@
             </span>
           </p>
         </n-card>
+        <n-card class="mt-4 w-full">
+          <post-editor @posted="refreshActivities" />
+        </n-card>
+        <n-alert closable class="mt-4" w-full type="info" title="Looking for Solian?">
+          The flutter based web app Solian has been moved to
+          <n-a href="https://web.solian.app" target="_blank">web.solian.app</n-a>
+          <n-hr />
+          网页版 Solian 已经被移动到
+          <n-a href="https://web.solian.app" target="_blank">web.solian.app</n-a>
+        </n-alert>
       </n-gi>
     </n-grid>
   </div>
 </template>
 
 <script setup lang="ts">
-import { NCard, NInfiniteScroll, NGrid, NGi } from 'naive-ui'
+import { NCard, NInfiniteScroll, NGrid, NGi, NAlert, NA, NHr } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 
+import PostEditor from '@/components/PostEditor.vue'
 import PostItem from '@/components/PostItem.vue'
 
 const userStore = useUserStore()
@@ -54,6 +65,7 @@ const activitesLast = computed(
 )
 
 async function fetchActivites() {
+  if (loading.value) return
   loading.value = true
   const resp = await fetch(
     activitesLast.value == null
@@ -64,4 +76,9 @@ async function fetchActivites() {
   loading.value = false
 }
 onMounted(() => fetchActivites())
+
+async function refreshActivities() {
+  activites.value = []
+  fetchActivites()
+}
 </script>

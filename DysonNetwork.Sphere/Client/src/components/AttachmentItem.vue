@@ -14,5 +14,5 @@ const props = defineProps<{ item: any }>()
 
 const itemType = computed(() => props.item.mime_type.split('/')[0] ?? 'unknown')
 
-const remoteSource = computed(() => `/cgi/drive/files/${props.item.id}`)
+const remoteSource = computed(() => `/cgi/drive/files/${props.item.id}?original=true`)
 </script>
