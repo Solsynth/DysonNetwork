@@ -4,7 +4,11 @@
       <n-gi span="3">
         <n-infinite-scroll style="height: calc(100vh - 57px)" :distance="10" @load="fetchActivites">
           <div v-for="activity in activites" :key="activity.id" class="mt-4">
-            <post-item v-if="activity.type == 'posts.new'" :item="activity.data" />
+            <post-item
+              v-if="activity.type.startsWith('posts')"
+              :item="activity.data"
+              @click="router.push('/posts/' + activity.id)"
+            />
           </div>
         </n-infinite-scroll>
       </n-gi>
@@ -40,10 +44,13 @@
 <script setup lang="ts">
 import { NCard, NInfiniteScroll, NGrid, NGi, NAlert, NA, NHr } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 import PostEditor from '@/components/PostEditor.vue'
 import PostItem from '@/components/PostItem.vue'
+
+const router = useRouter()
 
 const userStore = useUserStore()
 

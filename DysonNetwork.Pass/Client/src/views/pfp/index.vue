@@ -183,7 +183,7 @@ async function fetchUser() {
 
   console.log('[Fetch] Using the API to load user data.')
   try {
-    const resp = await fetch(`/api/accounts/${route.params.name}`)
+    const resp = await fetch(`/api/accounts/${route.params.slug}`)
     user.value = await resp.json()
   } catch (err) {
     console.error(err)

@@ -43,13 +43,11 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
-        var subs = await db.WalletSubscriptions
+        var subscription = await db.WalletSubscriptions
             .Where(s => s.AccountId == currentUser.Id && s.IsActive)
             .Where(s => EF.Functions.ILike(s.Identifier, prefix + "%"))
             .OrderByDescending(s => s.BegunAt)
-            .ToListAsync();
-        if (subs.Count == 0) return NotFound();
-        var subscription = subs.FirstOrDefault(s => s.IsAvailable);
+            .FirstOrDefaultAsync();
         if (subscription is null) return NotFound();
 
         return Ok(subscription);

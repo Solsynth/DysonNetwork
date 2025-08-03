@@ -400,9 +400,9 @@ public class SubscriptionService(
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
 
-        // Cache the result if found (with 30 minutes expiry)
+        // Cache the result if found (with 5 minutes expiry)
         if (subscription != null)
-            await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(30));
+            await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(5));
 
         return subscription;
     }

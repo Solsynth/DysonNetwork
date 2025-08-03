@@ -10,6 +10,11 @@ const router = createRouter({
       name: 'index',
       component: () => import('../views/index.vue'),
     },
+    {
+      path: '/posts/:slug',
+      name: 'postDetail',
+      component: () => import('../views/posts.vue'),
+    },
   ],
 })
 
