@@ -1,7 +1,9 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
+using DysonNetwork.Sphere.PageData;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,6 +34,8 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
+
+builder.Services.AddTransient<IPageDataProvider, PostPageData>();
 
 var app = builder.Build();
 
