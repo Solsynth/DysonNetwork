@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@layer theme, base, components, utilities;
+
+@layer base {
+  body {
+    font-family: 'Nunito Variable', sans-serif;
+  }
+}

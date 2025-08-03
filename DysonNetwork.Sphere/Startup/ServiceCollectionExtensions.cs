@@ -52,13 +52,15 @@ public static class ServiceCollectionExtensions
         {
             options.DataAnnotationLocalizerProvider = (type, factory) =>
                 factory.Create(typeof(SharedResource));
+        }).ConfigureApplicationPartManager(opts =>
+        {
+            var mockingPart = opts.ApplicationParts.FirstOrDefault(a => a.Name == "DysonNetwork.Pass");
+            if (mockingPart != null)
+                opts.ApplicationParts.Remove(mockingPart);
         });
         services.AddRazorPages();
-        
-        services.AddGrpc(options =>
-        {
-            options.EnableDetailedErrors = true;
-        });
+
+        services.AddGrpc(options => { options.EnableDetailedErrors = true; });
 
         services.Configure<RequestLocalizationOptions>(options =>
         {

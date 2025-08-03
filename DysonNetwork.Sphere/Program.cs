@@ -45,4 +45,6 @@ using (var scope = app.Services.CreateScope())
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
 
+app.MapGatewayProxy();
+
 app.Run();
