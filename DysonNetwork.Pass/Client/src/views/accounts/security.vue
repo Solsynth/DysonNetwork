@@ -49,7 +49,7 @@
 import { NCard, NList, NListItem, NThing, NAlert } from 'naive-ui'
 import { computed, onMounted, ref } from 'vue'
 
-const connectionsProviders = ['apple', 'google', 'microsoft', 'discord']
+const connectionsProviders = ['apple', 'google', 'microsoft', 'discord', 'github', 'afdian']
 const connections = ref<any[]>([])
 
 const connectionsAddable = computed(() =>

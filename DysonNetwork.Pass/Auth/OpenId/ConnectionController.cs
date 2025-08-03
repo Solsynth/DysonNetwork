@@ -126,43 +126,6 @@ public class ConnectionController(
         public string? ReturnUrl { get; set; }
     }
 
-    /// <summary>
-    /// Initiates manual connection to an OAuth provider for the current user
-    /// </summary>
-    [HttpPost("connect")]
-    public async Task<ActionResult<object>> InitiateConnection([FromBody] ConnectProviderRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
-            return Unauthorized();
-
-        var oidcService = GetOidcService(request.Provider);
-        if (oidcService == null)
-            return BadRequest($"Provider '{request.Provider}' is not supported");
-
-        var existingConnection = await db.AccountConnections
-            .AnyAsync(c => c.AccountId == currentUser.Id && c.Provider == oidcService.ProviderName);
-
-        if (existingConnection)
-            return BadRequest($"You already have a {request.Provider} connection");
-
-        var state = Guid.NewGuid().ToString("N");
-        var nonce = Guid.NewGuid().ToString("N");
-        var stateValue = $"{currentUser.Id}|{request.Provider}|{nonce}";
-        var finalReturnUrl = !string.IsNullOrEmpty(request.ReturnUrl) ? request.ReturnUrl : "/settings/connections";
-
-        // Store state and return URL in cache
-        await cache.SetAsync($"{StateCachePrefix}{state}", stateValue, StateExpiration);
-        await cache.SetAsync($"{ReturnUrlCachePrefix}{state}", finalReturnUrl, StateExpiration);
-
-        var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
-
-        return Ok(new
-        {
-            authUrl,
-            message = $"Redirect to this URL to connect your {request.Provider} account"
-        });
-    }
-
     [AllowAnonymous]
     [Route("/auth/callback/{provider}")]
     [HttpGet, HttpPost]
@@ -194,7 +157,7 @@ public class ConnectionController(
         await cache.RemoveAsync(stateKey);
 
         // Handle the flow based on state type
-        if (oidcState.FlowType == OidcFlowType.Connect && oidcState.AccountId.HasValue)
+        if (oidcState is { FlowType: OidcFlowType.Connect, AccountId: not null })
         {
             // Connection flow
             if (oidcState.DeviceId != null)
@@ -212,11 +175,10 @@ public class ConnectionController(
             }
 
             // Store return URL if provided
-            if (!string.IsNullOrEmpty(oidcState.ReturnUrl) && oidcState.ReturnUrl != "/")
-            {
-                var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
-                await cache.SetAsync(returnUrlKey, oidcState.ReturnUrl, StateExpiration);
-            }
+            if (string.IsNullOrEmpty(oidcState.ReturnUrl) || oidcState.ReturnUrl == "/")
+                return await HandleLoginOrRegistration(provider, oidcService, callbackData);
+            var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
+            await cache.SetAsync(returnUrlKey, oidcState.ReturnUrl, StateExpiration);
 
             return await HandleLoginOrRegistration(provider, oidcService, callbackData);
         }
