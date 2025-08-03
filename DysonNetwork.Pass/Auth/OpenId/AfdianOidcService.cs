@@ -40,7 +40,7 @@ public class AfdianOidcService(
         return Task.FromResult(new OidcDiscoveryDocument
         {
             AuthorizationEndpoint = "https://afdian.com/oauth2/authorize",
-            TokenEndpoint = "https://afdian.com/oauth2/access_token",
+            TokenEndpoint = "https://afdian.com/api/oauth2/access_token",
             UserinfoEndpoint = null,
             JwksUri = null
         })!;
@@ -61,7 +61,7 @@ public class AfdianOidcService(
             });
 
             var client = HttpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/oauth2/access_token");
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/oauth2/access_token");
             request.Content = content;
             
             var response = await client.SendAsync(request);
