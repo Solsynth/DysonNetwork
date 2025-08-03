@@ -7,7 +7,7 @@
     :custom-request="customRequest"
     v-model:file-list="fileList"
   >
-    <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-2">
       <pub-select v-model:value="publisher" />
       <n-input
         type="textarea"
@@ -16,7 +16,7 @@
         @keydown.meta.enter.exact="submit"
         @keydown.ctrl.enter.exact="submit"
       />
-      <n-upload-file-list />
+      <n-upload-file-list v-if="fileList" />
       <div class="flex justify-between">
         <div class="flex gap-2">
           <n-upload-trigger #="{ handleClick }" abstract>

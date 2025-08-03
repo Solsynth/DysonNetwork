@@ -57,22 +57,21 @@ onMounted(() => fetchVersion())
 const loading = ref(false)
 
 const activites = ref<any[]>([])
-const activitesLast = computed(
-  () =>
-    activites.value.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )[0],
-)
+const activitesLast = computed(() => activites.value[Math.max(activites.value.length - 1, 0)])
+const activitesHasMore = ref(true)
 
 async function fetchActivites() {
   if (loading.value) return
+  if (!activitesHasMore.value) return
   loading.value = true
   const resp = await fetch(
     activitesLast.value == null
       ? '/api/activities'
       : `/api/activities?cursor=${new Date(activitesLast.value.created_at).toISOString()}`,
   )
-  activites.value.push(...(await resp.json()))
+  const data = await resp.json()
+  activites.value = [...activites.value, ...data]
+  activitesHasMore.value = data[0]?.type != 'empty'
   loading.value = false
 }
 onMounted(() => fetchActivites())
