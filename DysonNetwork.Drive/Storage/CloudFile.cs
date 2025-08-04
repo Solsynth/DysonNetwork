@@ -102,6 +102,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
             FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta),
             // Convert user metadata
             UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta),
+            SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks)
         };
 
         return proto;
