@@ -1,6 +1,6 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
-using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -138,6 +138,53 @@ public class FileController(
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound();
 
+        return file;
+    }
+
+    [Authorize]
+    [HttpPatch("{id}/name")]
+    public async Task<ActionResult<CloudFile>> UpdateFileName(string id, [FromBody] string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
+        if (file is null) return NotFound();
+        file.Name = name;
+        await db.SaveChangesAsync();
+        await fs._PurgeCacheAsync(file.Id);
+        return file;
+    }
+
+    public class MarkFileRequest
+    {
+        public List<ContentSensitiveMark>? SensitiveMarks { get; set; }
+    }
+
+    [Authorize]
+    [HttpPut("{id}/marks")]
+    public async Task<ActionResult<CloudFile>> MarkFile(string id, [FromBody] MarkFileRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
+        if (file is null) return NotFound();
+        file.SensitiveMarks = request.SensitiveMarks;
+        await db.SaveChangesAsync();
+        await fs._PurgeCacheAsync(file.Id);
+        return file;
+    }
+
+    [Authorize]
+    [HttpPut("{id}/meta")]
+    public async Task<ActionResult<CloudFile>> UpdateFileMeta(string id, [FromBody] Dictionary<string, object?> meta)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
+        if (file is null) return NotFound();
+        file.UserMeta = meta;
+        await db.SaveChangesAsync();
+        await fs._PurgeCacheAsync(file.Id);
         return file;
     }
 
