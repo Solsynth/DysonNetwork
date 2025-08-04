@@ -112,7 +112,10 @@
                 </n-text>
                 <n-text>Stellar Program Member</n-text>
               </div>
-              <n-icon :size="48" :color="perkSubscriptionNames[user.perk_subscription.identifier].color">
+              <n-icon
+                :size="48"
+                :color="perkSubscriptionNames[user.perk_subscription.identifier].color"
+              >
                 <star-round />
               </n-icon>
             </div>
@@ -183,7 +186,7 @@ async function fetchUser() {
 
   console.log('[Fetch] Using the API to load user data.')
   try {
-    const resp = await fetch(`/api/accounts/${route.params.slug}`)
+    const resp = await fetch(`/api/accounts/${route.params.name}`)
     user.value = await resp.json()
   } catch (err) {
     console.error(err)
