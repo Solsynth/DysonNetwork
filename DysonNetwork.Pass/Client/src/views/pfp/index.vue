@@ -180,7 +180,7 @@ const user = ref<any>(null)
 async function fetchUser() {
   if (window.DyPrefetch?.Account != null) {
     console.log('[Fetch] Use the pre-rendered account data.')
-    user.value = window.DyPrefetch.Account
+    user.value = window.DyPrefetch.account
     return
   }
 

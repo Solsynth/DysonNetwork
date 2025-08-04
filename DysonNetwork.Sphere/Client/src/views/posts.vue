@@ -63,7 +63,7 @@ const notFound = ref(false)
 async function fetchPost() {
   if (window.DyPrefetch?.Post != null) {
     console.log('[Fetch] Use the pre-rendered post data.')
-    post.value = window.DyPrefetch.Post
+    post.value = window.DyPrefetch.post
     return
   }
 
