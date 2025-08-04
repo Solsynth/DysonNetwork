@@ -24,7 +24,7 @@ message CloudFile {
   bytes file_meta = 3;
   // User-defined metadata
   bytes user_meta = 4;
-  bytes sensitive_marks = 12;
+  optional bytes sensitive_marks = 12;
 
   // MIME type of the file
   string mime_type = 5;
