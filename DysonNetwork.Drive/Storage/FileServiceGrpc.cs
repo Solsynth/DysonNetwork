@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;

@@ -31,6 +31,7 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
     public string Name { get; set; } = string.Empty;
     public Dictionary<string, object?> FileMeta { get; set; } = null!;
     public Dictionary<string, object?> UserMeta { get; set; } = null!;
+    public List<ContentSensitiveMark>? SensitiveMarks { get; set; }
     public string? MimeType { get; set; }
     public string? Hash { get; set; }
     public long Size { get; set; }
@@ -44,6 +45,7 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
             Name = proto.Name,
             FileMeta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(proto.FileMeta) ?? [],
             UserMeta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(proto.UserMeta) ?? [],
+            SensitiveMarks = GrpcTypeHelper.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks) ?? [],
             MimeType = proto.MimeType,
             Hash = proto.Hash,
             Size = proto.Size,
@@ -73,6 +75,8 @@ public class CloudFileReferenceObject : ModelBase, ICloudFile
 
         // Convert user metadata
         proto.UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta);
+        
+        proto.SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks);
 
         return proto;
     }

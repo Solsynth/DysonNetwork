@@ -12,6 +12,7 @@ using NetVips;
 using NodaTime;
 using tusdotnet.Stores;
 using System.Linq.Expressions;
+using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace DysonNetwork.Drive.Storage;
