@@ -341,7 +341,7 @@ public class PostController(
             post.ForwardedPostId = forwardedPost.Id;
         }
 
-        if (request.PollId is not null)
+        if (request.PollId.HasValue)
         {
             try
             {
@@ -493,7 +493,7 @@ public class PostController(
         if (request.Type is not null) post.Type = request.Type.Value;
         if (request.Meta is not null) post.Meta = request.Meta;
 
-        if (request.PollId is not null)
+        if (request.PollId.HasValue)
         {
             try
             {

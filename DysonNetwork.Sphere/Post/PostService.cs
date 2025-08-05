@@ -661,24 +661,20 @@ public partial class PostService(
                 g => g.Count()
             );
     }
-    
+
     private async Task LoadPollEmbed(Post post, Account? currentUser)
     {
-        if (!post.Meta!.TryGetValue("embeds", out var existingEmbeds) ||
-            existingEmbeds is not List<EmbeddableBase>)
-        {
-            post.Meta["embeds"] = new List<Dictionary<string, object>>();
+        if (!post.Meta!.TryGetValue("embeds", out var value))
             return;
-        }
 
-        var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
-        
+        var embeds = (List<Dictionary<string, object>>)value;
+
         // Find the index of the poll embed first
-        var pollIndex = embeds.FindIndex(e => 
+        var pollIndex = embeds.FindIndex(e =>
             e.ContainsKey("type") && (string)e["type"] == "poll");
 
         if (pollIndex < 0) return;
-        
+
         var pollEmbed = embeds[pollIndex];
         try
         {
@@ -698,7 +694,7 @@ public partial class PostService(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Failed to load poll embed for post {PostId}", post.Id);
+            logger.LogError(ex, "Failed to load poll embed for post {PostId}", post.Id);
         }
     }
 
@@ -713,11 +709,10 @@ public partial class PostService(
         posts = await LoadPublishers(posts);
         posts = await LoadInteractive(posts, currentUser);
 
-        var postsWithEmbed = posts
-            .Where(e => e.Meta is not null && e.Meta.ContainsKey("embeds"))
-            .ToList();
-            
-        foreach (var post in postsWithEmbed)
+        foreach (
+            var post in posts
+                .Where(e => e.Meta is not null && e.Meta.ContainsKey("embeds"))
+        )
             await LoadPollEmbed(post, currentUser);
 
         if (truncate)
