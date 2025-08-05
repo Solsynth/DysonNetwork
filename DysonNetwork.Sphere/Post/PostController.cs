@@ -3,7 +3,9 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.WebReader;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +20,8 @@ public class PostController(
     PostService ps,
     PublisherService pub,
     AccountService.AccountServiceClient accounts,
-    ActionLogService.ActionLogServiceClient als
+    ActionLogService.ActionLogServiceClient als,
+    PollService polls
 )
     : ControllerBase
 {
@@ -275,6 +278,8 @@ public class PostController(
         public Instant? PublishedAt { get; set; }
         public Guid? RepliedPostId { get; set; }
         public Guid? ForwardedPostId { get; set; }
+
+        public Guid? PollId { get; set; }
     }
 
     [HttpPost]
@@ -334,6 +339,25 @@ public class PostController(
             if (forwardedPost is null) return BadRequest("Forwarded post was not found.");
             post.ForwardedPost = forwardedPost;
             post.ForwardedPostId = forwardedPost.Id;
+        }
+
+        if (request.PollId is not null)
+        {
+            try
+            {
+                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                post.Meta ??= new Dictionary<string, object>();
+                if (!post.Meta.TryGetValue("embeds", out var existingEmbeds) ||
+                    existingEmbeds is not List<EmbeddableBase>)
+                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                embeds.Add(pollEmbed.ToDictionary());
+                post.Meta["embeds"] = embeds;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         try
@@ -468,6 +492,27 @@ public class PostController(
         if (request.Visibility is not null) post.Visibility = request.Visibility.Value;
         if (request.Type is not null) post.Type = request.Type.Value;
         if (request.Meta is not null) post.Meta = request.Meta;
+
+        if (request.PollId is not null)
+        {
+            try
+            {
+                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                post.Meta ??= new Dictionary<string, object>();
+                if (!post.Meta.TryGetValue("embeds", out var existingEmbeds) ||
+                    existingEmbeds is not List<EmbeddableBase>)
+                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                // Remove all old poll embeds
+                embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+                embeds.Add(pollEmbed.ToDictionary());
+                post.Meta["embeds"] = embeds;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
         try
         {

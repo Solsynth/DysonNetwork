@@ -20,29 +20,6 @@ public class Poll : ModelBase
     public Publisher.Publisher Publisher { get; set; } = null!;
 }
 
-public class PollWithAnswer : Poll
-{
-    public PollAnswer? UserAnswer { get; set; }
-    public Dictionary<Guid, Dictionary<string, int>> Stats { get; set; } = new(); // question id -> (option id -> count)
-
-    public static PollWithAnswer FromPoll(Poll poll, PollAnswer? userAnswer = null)
-    {
-        return new PollWithAnswer
-        {
-            Id = poll.Id,
-            Title = poll.Title,
-            Description = poll.Description,
-            EndedAt = poll.EndedAt,
-            PublisherId = poll.PublisherId,
-            Publisher = poll.Publisher,
-            Questions = poll.Questions,
-            CreatedAt = poll.CreatedAt,
-            UpdatedAt = poll.UpdatedAt,
-            UserAnswer = userAnswer
-        };
-    }
-}
-
 public enum PollQuestionType
 {
     SingleChoice,

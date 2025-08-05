@@ -31,6 +31,28 @@ public class PollService(AppDatabase db, ICacheService cache)
         }
     }
 
+    private const string PollCachePrefix = "poll:";
+
+    public async Task<Poll?> GetPoll(Guid id)
+    {
+        var cacheKey = $"{PollCachePrefix}{id}";
+        var cachedPoll = await cache.GetAsync<Poll?>(cacheKey);
+        if (cachedPoll is not null)
+            return cachedPoll;
+
+        var poll = await db.Polls
+            .Where(e => e.Id == id)
+            .Include(e => e.Questions)
+            .FirstOrDefaultAsync();
+
+        if (poll is not null)
+        {
+            await cache.SetAsync(cacheKey, poll, TimeSpan.FromMinutes(30));
+        }
+
+        return poll;
+    }
+
     private const string PollAnswerCachePrefix = "poll:answer:";
 
     public async Task<PollAnswer?> GetPollAnswer(Guid pollId, Guid accountId)
@@ -44,10 +66,8 @@ public class PollService(AppDatabase db, ICacheService cache)
             .Where(e => e.PollId == pollId && e.AccountId == accountId)
             .FirstOrDefaultAsync();
 
-        if (answer is not null)
-        {
-            await cache.SetAsync(cacheKey, answer, TimeSpan.FromMinutes(30));
-        }
+        // Set the answer even it is null, which stands for unanswered
+        await cache.SetAsync(cacheKey, answer, TimeSpan.FromMinutes(30));
 
         return answer;
     }
@@ -126,7 +146,7 @@ public class PollService(AppDatabase db, ICacheService cache)
         // Update cache for this poll answer and invalidate stats cache
         var answerCacheKey = $"poll:answer:{pollId}:{accountId}";
         await cache.SetAsync(answerCacheKey, answerRecord, TimeSpan.FromMinutes(30));
-        
+
         // Invalidate all stats cache for this poll since answers have changed
         await cache.RemoveGroupAsync(PollCacheGroupPrefix + pollId);
 
@@ -141,17 +161,17 @@ public class PollService(AppDatabase db, ICacheService cache)
             .ExecuteUpdateAsync(s => s.SetProperty(e => e.DeletedAt, now)) > 0;
 
         if (!result) return result;
-        
+
         // Remove the cached answer if it exists
         var answerCacheKey = $"poll:answer:{pollId}:{accountId}";
         await cache.RemoveAsync(answerCacheKey);
-        
+
         // Invalidate all stats cache for this poll since answers have changed
         await cache.RemoveGroupAsync(PollCacheGroupPrefix + pollId);
 
         return result;
     }
-    
+
     private const string PollStatsCachePrefix = "poll:stats:";
     private const string PollCacheGroupPrefix = "poll:";
 
@@ -159,7 +179,7 @@ public class PollService(AppDatabase db, ICacheService cache)
     public async Task<Dictionary<string, int>> GetPollQuestionStats(Guid questionId)
     {
         var cacheKey = $"{PollStatsCachePrefix}{questionId}";
-        
+
         // Try to get from cache first
         var (found, cachedStats) = await cache.GetAsyncWithStatus<Dictionary<string, int>>(cacheKey);
         if (found && cachedStats != null)
@@ -281,5 +301,28 @@ public class PollService(AppDatabase db, ICacheService cache)
         }
 
         return result;
+    }
+
+    public async Task<PollEmbed> MakePollEmbed(Guid pollId)
+    {
+        // Do not read the cache here
+        var poll = await db.Polls
+            .Where(e => e.Id == pollId)
+            .FirstOrDefaultAsync();
+        if (poll is null)
+            throw new Exception("Poll not found");
+        return new PollEmbed { Id = poll.Id };
+    }
+
+    public async Task<PollEmbed> LoadPollEmbed(Guid pollId, Guid? accountId)
+    {
+        var poll = await GetPoll(pollId);
+        if (poll is null)
+            throw new Exception("Poll not found");
+        var pollWithStats = PollWithStats.FromPoll(poll);
+        pollWithStats.Stats = await GetPollStats(poll.Id);
+        if (accountId is not null)
+            pollWithStats.UserAnswer = await GetPollAnswer(poll.Id, accountId.Value);
+        return new PollEmbed { Id = poll.Id, Poll = pollWithStats };
     }
 }

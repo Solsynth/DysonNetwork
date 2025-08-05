@@ -1,10 +1,12 @@
 using System.Text.RegularExpressions;
+using AngleSharp.Common;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Localization;
+using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -21,6 +23,7 @@ public partial class PostService(
     ILogger<PostService> logger,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
+    PollService polls,
     WebReaderService reader
 )
 {
@@ -306,10 +309,11 @@ public partial class PostService(
         var embeds = (List<Dictionary<string, object>>)item.Meta["embeds"];
 
         // Process up to 3 links to avoid excessive processing
+        const int maxLinks = 3;
         var processedLinks = 0;
         foreach (Match match in matches)
         {
-            if (processedLinks >= 3)
+            if (processedLinks >= maxLinks)
                 break;
 
             var url = match.Value;
@@ -520,7 +524,8 @@ public partial class PostService(
             );
     }
 
-    public async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds, Guid accountId)
+    public async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds,
+        Guid accountId)
     {
         var reactions = await db.Set<PostReaction>()
             .Where(r => postIds.Contains(r.PostId) && r.AccountId == accountId)
@@ -630,12 +635,12 @@ public partial class PostService(
             post.ReactionsMade = reactionMadeMap.TryGetValue(post.Id, out var made)
                 ? made
                 : [];
-            
+
             // Set reply count
             post.RepliesCount = repliesCountMap.TryGetValue(post.Id, out var repliesCount)
                 ? repliesCount
                 : 0;
-            
+
             // Track view for each post in the list
             if (currentUser != null)
                 await IncreaseViewCount(post.Id, currentUser.Id);
@@ -656,6 +661,46 @@ public partial class PostService(
                 g => g.Count()
             );
     }
+    
+    private async Task LoadPollEmbed(Post post, Account? currentUser)
+    {
+        if (!post.Meta!.TryGetValue("embeds", out var existingEmbeds) ||
+            existingEmbeds is not List<EmbeddableBase>)
+        {
+            post.Meta["embeds"] = new List<Dictionary<string, object>>();
+            return;
+        }
+
+        var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+        
+        // Find the index of the poll embed first
+        var pollIndex = embeds.FindIndex(e => 
+            e.ContainsKey("type") && (string)e["type"] == "poll");
+
+        if (pollIndex < 0) return;
+        
+        var pollEmbed = embeds[pollIndex];
+        try
+        {
+            var pollId = pollEmbed["Id"] switch
+            {
+                Guid g => g,
+                string s when !string.IsNullOrEmpty(s) => Guid.Parse(s),
+                _ => default(Guid?)
+            };
+
+            if (pollId.HasValue)
+            {
+                var currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : (Guid?)null;
+                var updatedPoll = await polls.LoadPollEmbed(pollId.Value, currentUserId);
+                embeds[pollIndex] = updatedPoll.ToDictionary();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to load poll embed for post {PostId}", post.Id);
+        }
+    }
 
     public async Task<List<Post>> LoadPostInfo(
         List<Post> posts,
@@ -667,6 +712,13 @@ public partial class PostService(
 
         posts = await LoadPublishers(posts);
         posts = await LoadInteractive(posts, currentUser);
+
+        var postsWithEmbed = posts
+            .Where(e => e.Meta is not null && e.Meta.ContainsKey("embeds"))
+            .ToList();
+            
+        foreach (var post in postsWithEmbed)
+            await LoadPollEmbed(post, currentUser);
 
         if (truncate)
             posts = TruncatePostContent(posts);
