@@ -566,7 +566,7 @@ public class PublisherController(
             .ToListAsync();
         members = await ps.LoadMemberAccounts(members);
 
-        return Ok(members.Select(m => m.Account is not null).ToList());
+        return Ok(members.Where(m => m.Account is not null).ToList());
     }
 
     [HttpGet("{name}/members/me")]

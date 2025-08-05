@@ -271,7 +271,7 @@ public class RealmController(
             .ToListAsync();
         members = await rs.LoadMemberAccounts(members);
 
-        return Ok(members.Select(m => m.Account is not null).ToList());
+        return Ok(members.Where(m => m.Account is not null).ToList());
         // }
     }
 
