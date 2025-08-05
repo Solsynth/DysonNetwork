@@ -43,12 +43,13 @@ public class PollService(AppDatabase db, ICacheService cache)
         var poll = await db.Polls
             .Where(e => e.Id == id)
             .Include(e => e.Questions)
+            .AsNoTracking()
             .FirstOrDefaultAsync();
 
-        if (poll is not null)
-        {
-            await cache.SetAsync(cacheKey, poll, TimeSpan.FromMinutes(30));
-        }
+        if (poll is null) return null;
+        
+        poll.Publisher = null;
+        await cache.SetAsync(cacheKey, poll, TimeSpan.FromMinutes(30));
 
         return poll;
     }

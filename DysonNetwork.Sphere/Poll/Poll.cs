@@ -17,7 +17,7 @@ public class Poll : ModelBase
     public Instant? EndedAt { get; set; }
     
     public Guid PublisherId { get; set; }
-    public Publisher.Publisher Publisher { get; set; } = null!;
+    [JsonIgnore] public Publisher.Publisher? Publisher { get; set; }
 }
 
 public enum PollQuestionType
