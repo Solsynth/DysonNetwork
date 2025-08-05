@@ -94,6 +94,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         var polls = await query
             .Skip(offset)
             .Take(take)
+            .Include(p => p.Questions)
             .ToListAsync();
         return Ok(polls);
     }
