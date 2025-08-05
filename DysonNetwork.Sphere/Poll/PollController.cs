@@ -175,9 +175,6 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        // Start a transaction
-        await using var transaction = await db.Database.BeginTransactionAsync();
-
         try
         {
             var poll = await db.Polls
@@ -206,16 +203,13 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
 
             polls.ValidatePoll(poll);
 
+            db.Update(poll);
             await db.SaveChangesAsync();
-
-            // Commit the transaction if all operations succeed
-            await transaction.CommitAsync();
 
             return Ok(poll);
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             return BadRequest(ex.Message);
         }
     }
