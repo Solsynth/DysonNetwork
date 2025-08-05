@@ -195,10 +195,12 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             // Update questions if provided
             if (request.Questions != null)
             {
+                var newQuestions = request.Questions.Select(q => q.ToQuestion()).ToList();
+                db.AttachRange(newQuestions);
                 // Remove existing questions
                 poll.Questions.Clear();
                 // Add new questions
-                poll.Questions.AddRange(request.Questions.Select(q => q.ToQuestion()));
+                poll.Questions.AddRange(newQuestions);
             }
 
             polls.ValidatePoll(poll);
