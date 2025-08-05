@@ -31,26 +31,12 @@ public class PollService(AppDatabase db, ICacheService cache)
         }
     }
 
-    private const string PollCachePrefix = "poll:";
-
     public async Task<Poll?> GetPoll(Guid id)
     {
-        var cacheKey = $"{PollCachePrefix}{id}";
-        var cachedPoll = await cache.GetAsync<Poll?>(cacheKey);
-        if (cachedPoll is not null)
-            return cachedPoll;
-
         var poll = await db.Polls
             .Where(e => e.Id == id)
             .Include(e => e.Questions)
-            .AsNoTracking()
             .FirstOrDefaultAsync();
-
-        if (poll is null) return null;
-        
-        poll.Publisher = null;
-        await cache.SetAsync(cacheKey, poll, TimeSpan.FromMinutes(30));
-
         return poll;
     }
 
