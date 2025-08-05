@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Publisher;
@@ -22,7 +23,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         var pollWithAnswer = PollWithAnswer.FromPoll(poll);
 
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Ok(pollWithAnswer);
-        
+
         var accountId = Guid.Parse(currentUser.Id);
         var answer = await polls.GetPollAnswer(id, accountId);
         if (answer is not null)
@@ -36,7 +37,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
     {
         public required Dictionary<string, JsonElement> Answer { get; set; }
     }
-    
+
     [HttpPost("{id:guid}/answer")]
     [Authorize]
     public async Task<ActionResult<PollAnswer>> AnswerPoll(Guid id, [FromBody] PollAnswerRequest request)
@@ -52,7 +53,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             return BadRequest(ex.Message);
         }
     }
-    
+
     [HttpDelete("{id:guid}/answer")]
     [Authorize]
     public async Task<IActionResult> DeletePollAnswer(Guid id)
@@ -102,12 +103,37 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         public string? Title { get; set; }
         public string? Description { get; set; }
         public Instant? EndedAt { get; set; }
-        public List<PollQuestion>? Questions { get; set; }
+        public List<PollRequestQuestion>? Questions { get; set; }
+    }
+
+    public class PollRequestQuestion
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        public PollQuestionType Type { get; set; }
+        public List<PollOption>? Options { get; set; }
+
+        [MaxLength(1024)] public string Title { get; set; } = null!;
+        [MaxLength(4096)] public string? Description { get; set; }
+        public int Order { get; set; } = 0;
+        public bool IsRequired { get; set; }
+
+        public PollQuestion ToQuestion() => new()
+        {
+            Id = Id,
+            Type = Type,
+            Options = Options,
+            Title = Title,
+            Description = Description,
+            Order = Order,
+            IsRequired = IsRequired
+        };
     }
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Poll>> CreatePoll([FromBody] PollRequest request, [FromQuery(Name = "pub")] string pubName)
+    public async Task<ActionResult<Poll>> CreatePoll([FromBody] PollRequest request,
+        [FromQuery(Name = "pub")] string pubName)
     {
         if (request.Questions is null) return BadRequest("Questions are required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -124,7 +150,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             Description = request.Description,
             EndedAt = request.EndedAt,
             PublisherId = publisher.Id,
-            Questions = request.Questions
+            Questions = request.Questions.Select(q => q.ToQuestion()).ToList()
         };
 
         try
@@ -173,9 +199,8 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             {
                 // Remove existing questions
                 db.PollQuestions.RemoveRange(poll.Questions);
-
                 // Add new questions
-                poll.Questions = request.Questions;
+                poll.Questions = request.Questions.Select(q => q.ToQuestion()).ToList();
             }
 
             polls.ValidatePoll(poll);
