@@ -199,14 +199,13 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             if (request.Questions != null)
             {
                 // Remove existing questions
-                db.PollQuestions.RemoveRange(poll.Questions);
+                poll.Questions.Clear();
                 // Add new questions
-                poll.Questions = request.Questions.Select(q => q.ToQuestion()).ToList();
+                poll.Questions.AddRange(request.Questions.Select(q => q.ToQuestion()));
             }
 
             polls.ValidatePoll(poll);
 
-            poll.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
             await db.SaveChangesAsync();
 
             // Commit the transaction if all operations succeed
