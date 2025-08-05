@@ -281,8 +281,7 @@ public class PostController(
     [RequiredPermission("global", "posts.create")]
     public async Task<ActionResult<Post>> CreatePost(
         [FromBody] PostRequest request,
-        [FromQuery(Name = "pub")] [FromHeader(Name = "X-Pub")]
-        string? pubName
+        [FromQuery(Name = "pub")] string? pubName
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
@@ -303,7 +302,7 @@ public class PostController(
         {
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null) return BadRequest("Publisher was not found.");
-            if(!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
         }
 

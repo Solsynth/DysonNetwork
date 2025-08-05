@@ -107,7 +107,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Poll>> CreatePoll([FromBody] PollRequest request, [FromQuery] string pubName)
+    public async Task<ActionResult<Poll>> CreatePoll([FromBody] PollRequest request, [FromQuery(Name = "pub")] string pubName)
     {
         if (request.Questions is null) return BadRequest("Questions are required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
