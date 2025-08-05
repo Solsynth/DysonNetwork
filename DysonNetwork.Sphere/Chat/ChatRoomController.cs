@@ -521,8 +521,9 @@ public class ChatRoomController(
             .Skip(skip)
             .Take(take)
             .ToListAsync();
+        members = await crs.LoadMemberAccounts(members);
 
-        return Ok(await crs.LoadMemberAccounts(members));
+        return Ok(members.Where(m => m.Account is not null).ToList());
         // }
     }
 
