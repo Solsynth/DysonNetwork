@@ -52,24 +52,24 @@ public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
             .CountAsync();
     }
 
-    public async Task<List<AbuseReport>> GetReports(int skip = 0, int take = 20, bool includeResolved = false)
+    public async Task<List<AbuseReport>> GetReports(int offset = 0, int take = 20, bool includeResolved = false)
     {
         return await db.AbuseReports
             .Where(r => includeResolved || r.ResolvedAt == null)
             .OrderByDescending(r => r.CreatedAt)
-            .Skip(skip)
+            .Skip(offset)
             .Take(take)
             .Include(r => r.Account)
             .ToListAsync();
     }
 
-    public async Task<List<AbuseReport>> GetUserReports(Guid accountId, int skip = 0, int take = 20, bool includeResolved = false)
+    public async Task<List<AbuseReport>> GetUserReports(Guid accountId, int offset = 0, int take = 20, bool includeResolved = false)
     {
         return await db.AbuseReports
             .Where(r => r.AccountId == accountId)
             .Where(r => includeResolved || r.ResolvedAt == null)
             .OrderByDescending(r => r.CreatedAt)
-            .Skip(skip)
+            .Skip(offset)
             .Take(take)
             .ToListAsync();
     }

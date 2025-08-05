@@ -463,7 +463,7 @@ public class ChatRoomController(
     [HttpGet("{roomId:guid}/members")]
     public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId,
         [FromQuery] int take = 20,
-        [FromQuery] int skip = 0,
+        [FromQuery] int offset = 0,
         [FromQuery] bool withStatus = false,
         [FromQuery] string? status = null
     )
@@ -518,7 +518,7 @@ public class ChatRoomController(
 
         var members = await query
             .OrderBy(m => m.JoinedAt)
-            .Skip(skip)
+            .Skip(offset)
             .Take(take)
             .ToListAsync();
         members = await crs.LoadMemberAccounts(members);
