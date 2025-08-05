@@ -94,8 +94,6 @@ public class PollService(AppDatabase db, ICacheService cache)
                 case PollQuestionType.YesNo when answer[questionId].ValueKind != JsonValueKind.True &&
                                                  answer[questionId].ValueKind != JsonValueKind.False:
                     throw new Exception($"Answer for question {question.Title} expected to be a boolean");
-                default:
-                    throw new ArgumentOutOfRangeException($"Question type is not supported: {question.Type} {answer[questionId].ValueKind}");
             }
         }
     }
