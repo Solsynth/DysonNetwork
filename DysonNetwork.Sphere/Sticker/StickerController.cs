@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Publisher;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,6 +59,25 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             .ToListAsync();
 
         Response.Headers["X-Total"] = totalCount.ToString();
+        return Ok(packs);
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<ActionResult<List<StickerPackOwnership>>> ListStickerPacksOwned()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var ownershipsId = await db.StickerPackOwnerships
+          .Where(p => p.AccountId == accountId)
+          .Select(p => p.PackId)
+          .ToListAsync();
+        var packs = await db.StickerPacks
+          .Where(p => ownershipsId.Contains(p.Id))
+          .Include(p => p.Stickers)
+          .ToListAsync();
+
         return Ok(packs);
     }
 
@@ -317,5 +337,47 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
 
         sticker = await st.CreateStickerAsync(sticker);
         return Ok(sticker);
+    }
+
+    [HttpPost("{packId:guid}/own")]
+    [Authorize]
+    public async Task<ActionResult<StickerPackOwnership>> AcquireStickerPack([FromRoute] Guid packId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var pack = await db.StickerPacks
+          .Where(p => p.Id == packId)
+          .FirstOrDefaultAsync();
+        if (pack is null) return NotFound();
+
+        var ownership = new StickerPackOwnership
+        {
+            PackId = packId,
+            AccountId = Guid.Parse(currentUser.Id)
+        };
+        db.StickerPackOwnerships.Add(ownership);
+        await db.SaveChangesAsync();
+
+        return Ok(ownership);
+    }
+
+    [HttpDelete("{packId:guid}/own")]
+    [Authorize]
+    public async Task<IActionResult> ReleaseStickerPack([FromRoute] Guid packId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var ownership = await db.StickerPackOwnerships
+          .Where(p => p.PackId == packId && p.AccountId == accountId)
+          .FirstOrDefaultAsync();
+        if (ownership is null) return NotFound();
+
+        db.Remove(ownership);
+        await db.SaveChangesAsync();
+
+        return NoContent();
     }
 }

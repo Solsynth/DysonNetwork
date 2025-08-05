@@ -59,6 +59,7 @@ public class AppDatabase(
 
     public DbSet<Sticker.Sticker> Stickers { get; set; }
     public DbSet<StickerPack> StickerPacks { get; set; }
+    public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; }
 
     public DbSet<CustomApp> CustomApps { get; set; }
     public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
