@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AngleSharp.Common;
 using DysonNetwork.Shared;
@@ -667,8 +668,14 @@ public partial class PostService(
         if (!post.Meta!.TryGetValue("embeds", out var value))
             return;
 
-        var embeds = (List<Dictionary<string, object>>)value;
-
+        var embeds = value switch
+        {
+            JsonElement e => e.Deserialize<List<Dictionary<string, object>>>(),
+            _ => null
+        };
+        if (embeds is null)
+            return;
+        
         // Find the index of the poll embed first
         var pollIndex = embeds.FindIndex(e =>
             e.ContainsKey("type") && (string)e["type"] == "poll");
