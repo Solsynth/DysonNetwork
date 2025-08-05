@@ -51,7 +51,10 @@ public class PollService(AppDatabase db, ICacheService cache)
 
         var answer = await db.PollAnswers
             .Where(e => e.PollId == pollId && e.AccountId == accountId)
+            .AsNoTracking()
             .FirstOrDefaultAsync();
+        if (answer is not null)
+            answer.Poll = null;
 
         // Set the answer even it is null, which stands for unanswered
         await cache.SetAsync(cacheKey, answer, TimeSpan.FromMinutes(30));
