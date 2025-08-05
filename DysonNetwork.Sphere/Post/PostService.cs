@@ -678,7 +678,8 @@ public partial class PostService(
 
         // Find the index of the poll embed first
         var pollIndex = embeds.FindIndex(e =>
-            e.ContainsKey("Type") && ((JsonElement)e["Type"]).ToString() == "poll");
+            e.ContainsKey("Type") && ((JsonElement)e["Type"]).ToString() == "poll"
+        );
 
         if (pollIndex < 0) return;
 
@@ -687,9 +688,10 @@ public partial class PostService(
         {
             var pollId = Guid.Parse(((JsonElement)pollEmbed["Id"]).ToString());
 
-            var currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : (Guid?)null;
+            Guid? currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
             var updatedPoll = await polls.LoadPollEmbed(pollId, currentUserId);
             embeds[pollIndex] = updatedPoll.ToDictionary();
+            post.Meta["embeds"] = embeds;
         }
         catch (Exception ex)
         {
