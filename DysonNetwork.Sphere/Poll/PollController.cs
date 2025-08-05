@@ -175,6 +175,9 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
+        // Start a transaction
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
         try
         {
             var poll = await db.Polls
@@ -192,26 +195,38 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             if (request.Description != null) poll.Description = request.Description;
             if (request.EndedAt.HasValue) poll.EndedAt = request.EndedAt;
 
+            db.Update(poll);
+            await db.SaveChangesAsync();
+
             // Update questions if provided
             if (request.Questions != null)
             {
-                var newQuestions = request.Questions.Select(q => q.ToQuestion()).ToList();
-                db.AttachRange(newQuestions);
-                // Remove existing questions
-                poll.Questions.Clear();
-                // Add new questions
-                poll.Questions.AddRange(newQuestions);
+                await db.PollQuestions
+                  .Where(p => p.PollId == poll.Id)
+                  .ExecuteDeleteAsync();
+                var newQuestions = request.Questions
+                  .Select(q => q.ToQuestion())
+                  .Select(q =>
+                  {
+                      q.PollId = poll.Id;
+                      return q;
+                  })
+                  .ToList();
+                db.PollQuestions.AddRange(newQuestions);
+                await db.SaveChangesAsync();
+                poll.Questions = newQuestions;
             }
 
             polls.ValidatePoll(poll);
 
-            db.Update(poll);
-            await db.SaveChangesAsync();
+            // Commit the transaction if all operations succeed
+            await transaction.CommitAsync();
 
             return Ok(poll);
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             return BadRequest(ex.Message);
         }
     }
