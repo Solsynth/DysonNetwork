@@ -675,29 +675,21 @@ public partial class PostService(
         };
         if (embeds is null)
             return;
-        
+
         // Find the index of the poll embed first
         var pollIndex = embeds.FindIndex(e =>
-            e.ContainsKey("Type") && (string)e["Type"] == "poll");
+            e.ContainsKey("Type") && ((JsonElement)e["Type"]).ToString() == "poll");
 
         if (pollIndex < 0) return;
 
         var pollEmbed = embeds[pollIndex];
         try
         {
-            var pollId = pollEmbed["Id"] switch
-            {
-                Guid g => g,
-                string s when !string.IsNullOrEmpty(s) => Guid.Parse(s),
-                _ => default(Guid?)
-            };
+            var pollId = Guid.Parse(((JsonElement)pollEmbed["Id"]).ToString());
 
-            if (pollId.HasValue)
-            {
-                var currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : (Guid?)null;
-                var updatedPoll = await polls.LoadPollEmbed(pollId.Value, currentUserId);
-                embeds[pollIndex] = updatedPoll.ToDictionary();
-            }
+            var currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : (Guid?)null;
+            var updatedPoll = await polls.LoadPollEmbed(pollId, currentUserId);
+            embeds[pollIndex] = updatedPoll.ToDictionary();
         }
         catch (Exception ex)
         {
