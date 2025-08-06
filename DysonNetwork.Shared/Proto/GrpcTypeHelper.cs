@@ -14,6 +14,13 @@ namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
+    public static readonly JsonSerializerOptions? SerializerOptionsWithIgnore = new JsonSerializerOptions()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        PropertyNameCaseInsensitive = true,
+    }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+    
     public static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,

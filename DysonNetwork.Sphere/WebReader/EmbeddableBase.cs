@@ -31,7 +31,13 @@ public abstract class EmbeddableBase
 
     public static Dictionary<string, object> ToDictionary(dynamic input)
     {
-        var jsonRaw = JsonSerializer.Serialize(input, GrpcTypeHelper.SerializerOptions);
-        return JsonSerializer.Deserialize<Dictionary<string, object>>(jsonRaw, GrpcTypeHelper.SerializerOptions);
+        var jsonRaw = JsonSerializer.Serialize(
+            input,
+            GrpcTypeHelper.SerializerOptionsWithIgnore
+        );
+        return JsonSerializer.Deserialize<Dictionary<string, object>>(
+            jsonRaw,
+            GrpcTypeHelper.SerializerOptionsWithIgnore
+        );
     }
 }
