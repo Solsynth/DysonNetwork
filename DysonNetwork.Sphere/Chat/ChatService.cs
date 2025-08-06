@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat.Realtime;
+using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -131,7 +132,7 @@ public partial class ChatService(
 
                 // Preview the link
                 var linkEmbed = await webReader.GetLinkPreviewAsync(url);
-                embeds.Add(linkEmbed.ToDictionary());
+                embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
                 processedLinks++;
             }
             catch

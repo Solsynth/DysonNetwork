@@ -351,7 +351,7 @@ public class PostController(
                     existingEmbeds is not List<EmbeddableBase>)
                     post.Meta["embeds"] = new List<Dictionary<string, object>>();
                 var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
-                embeds.Add(pollEmbed.ToDictionary());
+                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
                 post.Meta["embeds"] = embeds;
             }
             catch (Exception ex)
@@ -505,7 +505,7 @@ public class PostController(
                 var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
                 // Remove all old poll embeds
                 embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
-                embeds.Add(pollEmbed.ToDictionary());
+                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
                 post.Meta["embeds"] = embeds;
             }
             catch (Exception ex)

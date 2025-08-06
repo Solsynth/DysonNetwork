@@ -68,10 +68,8 @@ public partial class PostService(
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
                 : post.Content;
         var title = post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
-        if (content is null)
-            content = localizer["PostOnlyMedia"];
-        if (title is null)
-            title = localizer["PostOnlyMedia"];
+        content ??= localizer["PostOnlyMedia"];
+        title ??= localizer["PostOnlyMedia"];
         return (title, content);
     }
 
@@ -329,7 +327,7 @@ public partial class PostService(
 
                 // Preview the link
                 var linkEmbed = await reader.GetLinkPreviewAsync(url);
-                embeds.Add(linkEmbed.ToDictionary());
+                embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
                 processedLinks++;
             }
             catch
@@ -694,7 +692,7 @@ public partial class PostService(
 
             Guid? currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
             var updatedPoll = await polls.LoadPollEmbed(pollId, currentUserId);
-            embeds[pollIndex] = updatedPoll.ToDictionary();
+            embeds[pollIndex] = EmbeddableBase.ToDictionary(updatedPoll);
             post.Meta["embeds"] = embeds;
         }
         catch (Exception ex)
