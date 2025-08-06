@@ -70,13 +70,13 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         var accountId = Guid.Parse(currentUser.Id);
 
         var ownershipsId = await db.StickerPackOwnerships
-          .Where(p => p.AccountId == accountId)
-          .Select(p => p.PackId)
-          .ToListAsync();
+            .Where(p => p.AccountId == accountId)
+            .Select(p => p.PackId)
+            .ToListAsync();
         var packs = await db.StickerPacks
-          .Where(p => ownershipsId.Contains(p.Id))
-          .Include(p => p.Stickers)
-          .ToListAsync();
+            .Where(p => ownershipsId.Contains(p.Id))
+            .Include(p => p.Stickers)
+            .ToListAsync();
 
         return Ok(packs);
     }
@@ -339,6 +339,21 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         return Ok(sticker);
     }
 
+    [HttpGet("{packId:guid}/own")]
+    [Authorize]
+    public async Task<ActionResult<StickerPackOwnership>> GetStickerPackOwnership(Guid packId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var ownership = await db.StickerPackOwnerships
+            .Where(p => p.PackId == packId && p.AccountId == accountId)
+            .FirstOrDefaultAsync();
+        if (ownership is null) return NotFound();
+        return Ok(ownership);
+    }
+
     [HttpPost("{packId:guid}/own")]
     [Authorize]
     public async Task<ActionResult<StickerPackOwnership>> AcquireStickerPack([FromRoute] Guid packId)
@@ -347,9 +362,14 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             return Unauthorized();
 
         var pack = await db.StickerPacks
-          .Where(p => p.Id == packId)
-          .FirstOrDefaultAsync();
+            .Where(p => p.Id == packId)
+            .FirstOrDefaultAsync();
         if (pack is null) return NotFound();
+
+        var existingOwnership = await db.StickerPackOwnerships
+            .Where(p => p.PackId == packId && p.AccountId == Guid.Parse(currentUser.Id))
+            .FirstOrDefaultAsync();
+        if (existingOwnership is not null) return Ok(existingOwnership);
 
         var ownership = new StickerPackOwnership
         {
@@ -371,8 +391,8 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         var accountId = Guid.Parse(currentUser.Id);
 
         var ownership = await db.StickerPackOwnerships
-          .Where(p => p.PackId == packId && p.AccountId == accountId)
-          .FirstOrDefaultAsync();
+            .Where(p => p.PackId == packId && p.AccountId == accountId)
+            .FirstOrDefaultAsync();
         if (ownership is null) return NotFound();
 
         db.Remove(ownership);
