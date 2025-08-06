@@ -663,7 +663,7 @@ public partial class PostService(
             );
     }
 
-    private async Task LoadPollEmbed(Post post, Account? currentUser)
+    private async Task LoadPostEmbed(Post post, Account? currentUser)
     {
         if (!post.Meta!.TryGetValue("embeds", out var value))
             return;
@@ -681,7 +681,11 @@ public partial class PostService(
             e.ContainsKey("Type") && ((JsonElement)e["Type"]).ToString() == "poll"
         );
 
-        if (pollIndex < 0) return;
+        if (pollIndex < 0)
+        {
+            post.Meta["embeds"] = embeds;
+            return;
+        }
 
         var pollEmbed = embeds[pollIndex];
         try
@@ -714,7 +718,7 @@ public partial class PostService(
             var post in posts
                 .Where(e => e.Meta is not null && e.Meta.ContainsKey("embeds"))
         )
-            await LoadPollEmbed(post, currentUser);
+            await LoadPostEmbed(post, currentUser);
 
         if (truncate)
             posts = TruncatePostContent(posts);
