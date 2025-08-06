@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Sphere.WebReader;
 
@@ -29,16 +31,7 @@ public abstract class EmbeddableBase
 
     public Dictionary<string, object> ToDictionary()
     {
-        var dict = new Dictionary<string, object>();
-        foreach (var prop in GetType().GetProperties())
-        {
-            if (prop.GetCustomAttribute<JsonIgnoreAttribute>() is not null)
-                continue;
-            var value = prop.GetValue(this);
-            if (value is null) continue;
-            dict[prop.Name] = value;
-        }
-
-        return dict;
+        var jsonRaw = JsonSerializer.Serialize(this, GrpcTypeHelper.SerializerOptions);
+        return JsonSerializer.Deserialize<Dictionary<string, object>>(jsonRaw, GrpcTypeHelper.SerializerOptions) ?? [];
     }
 }

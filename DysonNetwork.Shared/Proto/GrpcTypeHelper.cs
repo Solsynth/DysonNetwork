@@ -14,7 +14,7 @@ namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    private static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
+    public static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
