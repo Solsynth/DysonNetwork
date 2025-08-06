@@ -14,7 +14,8 @@ public class AccountEventService(
     Wallet.PaymentService payment,
     ICacheService cache,
     IStringLocalizer<Localization.AccountEventResource> localizer,
-    PusherService.PusherServiceClient pusher
+    PusherService.PusherServiceClient pusher,
+    SubscriptionService subscriptions
 )
 {
     private static readonly Random Random = new();
@@ -172,6 +173,9 @@ public class AccountEventService(
 
     public async Task<bool> CheckInDailyDoAskCaptcha(Account user)
     {
+        var perkSubscription = await subscriptions.GetPerkSubscriptionAsync(user.Id);
+        if (perkSubscription is not null) return false;
+
         var cacheKey = $"{CaptchaCacheKey}{user.Id}";
         var needsCaptcha = await cache.GetAsync<bool?>(cacheKey);
         if (needsCaptcha is not null)
