@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+
 namespace DysonNetwork.Sphere.Discovery;
 
 public class DiscoveryService(AppDatabase appDatabase)
@@ -16,10 +17,10 @@ public class DiscoveryService(AppDatabase appDatabase)
             .Where(r => r.IsCommunity);
 
         if (!string.IsNullOrEmpty(query))
-        {
-            realmsQuery = realmsQuery.Where(r => r.Name.Contains(query) || r.Description.Contains(query));
-        }
-
+            realmsQuery = realmsQuery.Where(r =>
+                EF.Functions.ILike(r.Name, $"%{query}%") ||
+                EF.Functions.ILike(r.Description, $"%{query}%")
+            );
         if (tags is { Count: > 0 })
             realmsQuery = realmsQuery.Where(r => r.RealmTags.Any(rt => tags.Contains(rt.Tag.Name)));
         if (randomizer)
