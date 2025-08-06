@@ -71,9 +71,43 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
         }
     }
 
+    [HttpGet("{id:guid}/feedback")]
+    public async Task<ActionResult<List<PollAnswer>>> GetPollFeedback(
+        Guid id,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var poll = await db.Polls
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (poll is null) return NotFound("Poll not found");
+
+        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Viewer))
+            return StatusCode(403, "You need to be a viewer to view this poll's feedback.");
+
+        var answerQuery = db.PollAnswers
+            .Where(a => a.PollId == id)
+            .AsQueryable();
+        
+        var total = await answerQuery.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+        
+        var answers = await answerQuery
+            .OrderByDescending(a => a.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(answers);
+    }
+
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<List<Poll>>> ListPolls(
+        [FromQuery(Name = "pub")] string? pubName,
         [FromQuery] bool active = false,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
@@ -81,7 +115,17 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
-        var publishers = (await pub.GetUserPublishers(accountId)).Select(p => p.Id).ToList();
+
+        List<Guid> publishers;
+        if (pubName is null) publishers = (await pub.GetUserPublishers(accountId)).Select(p => p.Id).ToList();
+        else
+        {
+            publishers = await db.PublisherMembers
+                .Include(p => p.Publisher)
+                .Where(p => p.Publisher.Name == pubName && p.AccountId == accountId)
+                .Select(p => p.PublisherId)
+                .ToListAsync();
+        }
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var query = db.Polls
@@ -202,16 +246,16 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             if (request.Questions != null)
             {
                 await db.PollQuestions
-                  .Where(p => p.PollId == poll.Id)
-                  .ExecuteDeleteAsync();
+                    .Where(p => p.PollId == poll.Id)
+                    .ExecuteDeleteAsync();
                 var newQuestions = request.Questions
-                  .Select(q => q.ToQuestion())
-                  .Select(q =>
-                  {
-                      q.PollId = poll.Id;
-                      return q;
-                  })
-                  .ToList();
+                    .Select(q => q.ToQuestion())
+                    .Select(q =>
+                    {
+                        q.PollId = poll.Id;
+                        return q;
+                    })
+                    .ToList();
                 db.PollQuestions.AddRange(newQuestions);
                 await db.SaveChangesAsync();
                 poll.Questions = newQuestions;
