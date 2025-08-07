@@ -39,6 +39,16 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
 
         if (!ws.TryAdd(connectionKey, webSocket, cts))
         {
+            await webSocket.SendAsync(
+                new ArraySegment<byte>(new WebSocketPacket
+                {
+                    Type = "error.dupe",
+                    ErrorMessage = "Too many connections from the same device and account."
+                }.ToBytes()),
+                WebSocketMessageType.Close,
+                true,
+                CancellationToken.None
+            );
             await webSocket.CloseAsync(
                 WebSocketCloseStatus.PolicyViolation,
                 "Too many connections from the same device and account.",
