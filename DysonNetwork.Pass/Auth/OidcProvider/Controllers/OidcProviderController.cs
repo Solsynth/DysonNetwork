@@ -67,7 +67,7 @@ public class OidcProviderController(
                     // Find the session and related data
                     var session = await oidcService.FindSessionByIdAsync(sessionId);
                     var now = SystemClock.Instance.GetCurrentInstant();
-                    if (session?.App is null || session.ExpiredAt < now)
+                    if (session?.AppId is null || session.ExpiredAt < now)
                     {
                         return BadRequest(new ErrorResponse
                         {
@@ -77,7 +77,7 @@ public class OidcProviderController(
                     }
 
                     // Get the client
-                    var client = session.App;
+                    var client = await oidcService.FindClientByIdAsync(session.AppId.Value);
                     if (client == null)
                     {
                         return BadRequest(new ErrorResponse

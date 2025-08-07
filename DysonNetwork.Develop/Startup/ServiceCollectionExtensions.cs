@@ -5,6 +5,7 @@ using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Shared.Cache;
+using StackExchange.Redis;
 
 namespace DysonNetwork.Develop.Startup;
 
@@ -17,6 +18,11 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<AppDatabase>();
         services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var connection = configuration.GetConnectionString("FastRetrieve")!;
+            return ConnectionMultiplexer.Connect(connection);
+        });
         services.AddSingleton<ICacheService, CacheServiceRedis>();
 
         services.AddHttpClient();

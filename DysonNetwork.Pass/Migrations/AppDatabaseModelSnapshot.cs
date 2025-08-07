@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Developer;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -647,6 +646,56 @@ namespace DysonNetwork.Pass.Migrations
                     b.ToTable("magic_spells", (string)null);
                 });
 
+            modelBuilder.Entity("DysonNetwork.Pass.Account.Punishment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<List<string>>("BlockedPermissions")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("blocked_permissions");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Instant?>("ExpiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expired_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_punishments");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_punishments_account_id");
+
+                    b.ToTable("punishments", (string)null);
+                });
+
             modelBuilder.Entity("DysonNetwork.Pass.Account.Relationship", b =>
                 {
                     b.Property<Guid>("AccountId")
@@ -884,130 +933,10 @@ namespace DysonNetwork.Pass.Migrations
                     b.HasIndex("AccountId")
                         .HasDatabaseName("ix_auth_sessions_account_id");
 
-                    b.HasIndex("AppId")
-                        .HasDatabaseName("ix_auth_sessions_app_id");
-
                     b.HasIndex("ChallengeId")
                         .HasDatabaseName("ix_auth_sessions_challenge_id");
 
                     b.ToTable("auth_sessions", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Pass.Developer.CustomApp", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<CloudFileReferenceObject>("Background")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("background");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<CustomAppLinks>("Links")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("links");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("name");
-
-                    b.Property<CustomAppOauthConfig>("OauthConfig")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("oauth_config");
-
-                    b.Property<CloudFileReferenceObject>("Picture")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("picture");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("slug");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<VerificationMark>("Verification")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("verification");
-
-                    b.HasKey("Id")
-                        .HasName("pk_custom_apps");
-
-                    b.ToTable("custom_apps", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Pass.Developer.CustomAppSecret", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AppId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("app_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<bool>("IsOidc")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_oidc");
-
-                    b.Property<string>("Secret")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("secret");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_custom_app_secrets");
-
-                    b.HasIndex("AppId")
-                        .HasDatabaseName("ix_custom_app_secrets_app_id");
-
-                    b.ToTable("custom_app_secrets", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Pass.Permission.PermissionGroup", b =>
@@ -1595,6 +1524,18 @@ namespace DysonNetwork.Pass.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Pass.Account.Punishment", b =>
+                {
+                    b.HasOne("DysonNetwork.Pass.Account.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_punishments_accounts_account_id");
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("DysonNetwork.Pass.Account.Relationship", b =>
                 {
                     b.HasOne("DysonNetwork.Pass.Account.Account", "Account")
@@ -1649,11 +1590,6 @@ namespace DysonNetwork.Pass.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_auth_sessions_accounts_account_id");
 
-                    b.HasOne("DysonNetwork.Pass.Developer.CustomApp", "App")
-                        .WithMany()
-                        .HasForeignKey("AppId")
-                        .HasConstraintName("fk_auth_sessions_custom_apps_app_id");
-
                     b.HasOne("DysonNetwork.Pass.Auth.AuthChallenge", "Challenge")
                         .WithMany()
                         .HasForeignKey("ChallengeId")
@@ -1663,21 +1599,7 @@ namespace DysonNetwork.Pass.Migrations
 
                     b.Navigation("Account");
 
-                    b.Navigation("App");
-
                     b.Navigation("Challenge");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Pass.Developer.CustomAppSecret", b =>
-                {
-                    b.HasOne("DysonNetwork.Pass.Developer.CustomApp", "App")
-                        .WithMany("Secrets")
-                        .HasForeignKey("AppId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_custom_app_secrets_custom_apps_app_id");
-
-                    b.Navigation("App");
                 });
 
             modelBuilder.Entity("DysonNetwork.Pass.Permission.PermissionGroupMember", b =>
@@ -1799,11 +1721,6 @@ namespace DysonNetwork.Pass.Migrations
                         .IsRequired();
 
                     b.Navigation("Sessions");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Pass.Developer.CustomApp", b =>
-                {
-                    b.Navigation("Secrets");
                 });
 
             modelBuilder.Entity("DysonNetwork.Pass.Permission.PermissionGroup", b =>

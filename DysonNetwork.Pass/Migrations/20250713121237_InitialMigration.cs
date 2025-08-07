@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Developer;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -53,8 +52,6 @@ namespace DysonNetwork.Pass.Migrations
                     picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
                     background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
                     verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
-                    oauth_config = table.Column<CustomAppOauthConfig>(type: "jsonb", nullable: true),
-                    links = table.Column<CustomAppLinks>(type: "jsonb", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)

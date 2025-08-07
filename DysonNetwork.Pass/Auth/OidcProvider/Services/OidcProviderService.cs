@@ -5,8 +5,8 @@ using System.Text;
 using DysonNetwork.Pass.Auth.OidcProvider.Models;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Responses;
-using DysonNetwork.Pass.Developer;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -17,6 +17,7 @@ namespace DysonNetwork.Pass.Auth.OidcProvider.Services;
 public class OidcProviderService(
     AppDatabase db,
     AuthService auth,
+    CustomAppService.CustomAppServiceClient customApps,
     ICacheService cache,
     IOptions<OidcProviderOptions> options,
     ILogger<OidcProviderService> logger
@@ -26,16 +27,8 @@ public class OidcProviderService(
 
     public async Task<CustomApp?> FindClientByIdAsync(Guid clientId)
     {
-        return await db.CustomApps
-            .Include(c => c.Secrets)
-            .FirstOrDefaultAsync(c => c.Id == clientId);
-    }
-
-    public async Task<CustomApp?> FindClientByAppIdAsync(Guid appId)
-    {
-        return await db.CustomApps
-            .Include(c => c.Secrets)
-            .FirstOrDefaultAsync(c => c.Id == appId);
+        var resp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Id = clientId.ToString() });
+        return resp.App ?? null;
     }
 
     public async Task<AuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId)
@@ -54,15 +47,13 @@ public class OidcProviderService(
 
     public async Task<bool> ValidateClientCredentialsAsync(Guid clientId, string clientSecret)
     {
-        var client = await FindClientByIdAsync(clientId);
-        if (client == null) return false;
-
-        var clock = SystemClock.Instance;
-        var secret = client.Secrets
-            .Where(s => s.IsOidc && (s.ExpiredAt == null || s.ExpiredAt > clock.GetCurrentInstant()))
-            .FirstOrDefault(s => s.Secret == clientSecret); // In production, use proper hashing
-
-        return secret != null;
+        var resp = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        {
+            AppId = clientId.ToString(),
+            Secret = clientSecret,
+            IsOidc = true
+        });
+        return resp.Valid;
     }
 
     public async Task<TokenResponse> GenerateTokenResponseAsync(
@@ -90,7 +81,7 @@ public class OidcProviderService(
             var account = await db.Accounts.Where(a => a.Id == authCode.AccountId).FirstOrDefaultAsync();
             if (account is null) throw new InvalidOperationException("Account was not found");
 
-            session = await auth.CreateSessionForOidcAsync(account, now, client.Id);
+            session = await auth.CreateSessionForOidcAsync(account, now, clientId);
             scopes = authCode.Scopes;
         }
         else if (sessionId.HasValue)
@@ -143,11 +134,11 @@ public class OidcProviderService(
                 new Claim(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(),
                     ClaimValueTypes.Integer64),
-                new Claim("client_id", client.Id.ToString())
+                new Claim("client_id", client.Id)
             ]),
             Expires = expiresAt.ToDateTimeUtc(),
             Issuer = _options.IssuerUri,
-            Audience = client.Id.ToString()
+            Audience = client.Id
         };
 
         // Try to use RSA signing if keys are available, fall back to HMAC
@@ -205,7 +196,6 @@ public class OidcProviderService(
         return await db.AuthSessions
             .Include(s => s.Account)
             .Include(s => s.Challenge)
-            .Include(s => s.App)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
     }
 

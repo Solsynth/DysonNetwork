@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "file.proto";
+
+message CustomAppOauthConfig {
+  string client_uri = 1;
+  repeated string redirect_uris = 2;
+  repeated string post_logout_redirect_uris = 3;
+  repeated string allowed_scopes = 4;
+  repeated string allowed_grant_types = 5;
+  bool require_pkce = 6;
+  bool allow_offline_access = 7;
+}
+
+enum CustomAppStatus {
+  CUSTOM_APP_STATUS_UNSPECIFIED = 0;
+  DEVELOPING = 1;
+  STAGING = 2;
+  PRODUCTION = 3;
+  SUSPENDED = 4;
+}
+
+ message CustomApp {
+  string id = 1;
+  string slug = 2;
+  string name = 3;
+  string description = 4;
+  CustomAppStatus status = 5;
+
+  // jsonb columns represented as bytes
+  bytes picture = 6;
+  bytes background = 7;
+  bytes verification = 8;
+  bytes links = 9;
+  CustomAppOauthConfig oauth_config = 13;
+
+  string developer_id = 10;
+
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+ }
+
+message CustomAppSecret {
+  string id = 1;
+  string secret = 2;
+  string description = 3;
+  google.protobuf.Timestamp expired_at = 4;
+  bool is_oidc = 5;
+
+  string app_id = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message GetCustomAppRequest {
+  oneof Query {
+    string id = 1;
+    string slug = 2;
+  }
+}
+
+message GetCustomAppResponse {
+  CustomApp app = 1;
+}
+
+message CheckCustomAppSecretRequest {
+  oneof SecretIdentifier {
+    string secret_id = 1;
+    string app_id = 2;
+  }
+  string secret = 3;
+  optional bool is_oidc = 4;
+}
+
+message CheckCustomAppSecretResponse {
+  bool valid = 1;
+}
+
+service CustomAppService {
+  rpc GetCustomApp(GetCustomAppRequest) returns (GetCustomAppResponse);
+  rpc CheckCustomAppSecret(CheckCustomAppSecretRequest) returns (CheckCustomAppSecretResponse);
+}

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -16,13 +17,6 @@ namespace DysonNetwork.Sphere;
 public interface IIdentifiedResource
 {
     public string ResourceIdentifier { get; }
-}
-
-public abstract class ModelBase
-{
-    public Instant CreatedAt { get; set; }
-    public Instant UpdatedAt { get; set; }
-    public Instant? DeletedAt { get; set; }
 }
 
 public class AppDatabase(
@@ -47,8 +41,6 @@ public class AppDatabase(
 
     public DbSet<Realm.Realm> Realms { get; set; }
     public DbSet<RealmMember> RealmMembers { get; set; }
-    public DbSet<Tag> Tags { get; set; }
-    public DbSet<RealmTag> RealmTags { get; set; }
 
     public DbSet<ChatRoom> ChatRooms { get; set; }
     public DbSet<ChatMember> ChatMembers { get; set; }
@@ -128,19 +120,6 @@ public class AppDatabase(
             .HasOne(pm => pm.Realm)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<RealmTag>()
-            .HasKey(rt => new { rt.RealmId, rt.TagId });
-        modelBuilder.Entity<RealmTag>()
-            .HasOne(rt => rt.Realm)
-            .WithMany(r => r.RealmTags)
-            .HasForeignKey(rt => rt.RealmId)
-            .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<RealmTag>()
-            .HasOne(rt => rt.Tag)
-            .WithMany(t => t.RealmTags)
-            .HasForeignKey(rt => rt.TagId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<ChatMember>()

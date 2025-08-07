@@ -36,7 +36,7 @@ public class ActivityService(
 
         if (cursor == null && (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2))
         {
-            var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
+            var realms = await ds.GetPublicRealmsAsync(null, 5, 0, true);
             if (realms.Count > 0)
             {
                 activities.Add(new DiscoveryActivity(
@@ -142,7 +142,7 @@ public class ActivityService(
         {
             if (cursor == null && (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2))
             {
-                var realms = await ds.GetPublicRealmsAsync(null, null, 5, 0, true);
+                var realms = await ds.GetPublicRealmsAsync(null, 5, 0, true);
                 if (realms.Count > 0)
                 {
                     activities.Add(new DiscoveryActivity(

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 
 namespace DysonNetwork.Sphere.WebReader;
 

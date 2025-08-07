@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Chat.Realtime;
 using NodaTime;
 

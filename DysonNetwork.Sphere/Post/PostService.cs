@@ -688,7 +688,7 @@ public partial class PostService(
         var pollEmbed = embeds[pollIndex];
         try
         {
-            var pollId = Guid.Parse(((JsonElement)pollEmbed["Id"]).ToString());
+            var pollId = Guid.Parse(((JsonElement)pollEmbed["id"]).ToString());
 
             Guid? currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
             var updatedPoll = await polls.LoadPollEmbed(pollId, currentUserId);

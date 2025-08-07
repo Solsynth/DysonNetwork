@@ -1,5 +1,6 @@
 using DysonNetwork.Develop.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 
 namespace DysonNetwork.Develop;
 
@@ -29,5 +30,19 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+    }
+}
+
+public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
+{
+    public AppDatabase CreateDbContext(string[] args)
+    {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json")
+            .Build();
+
+        var optionsBuilder = new DbContextOptionsBuilder<AppDatabase>();
+        return new AppDatabase(optionsBuilder.Options, configuration);
     }
 }

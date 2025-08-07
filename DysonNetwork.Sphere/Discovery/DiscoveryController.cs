@@ -9,11 +9,10 @@ public class DiscoveryController(DiscoveryService discoveryService) : Controller
     [HttpGet("realms")]
     public Task<List<Realm.Realm>> GetPublicRealms(
         [FromQuery] string? query,
-        [FromQuery] List<string>? tags,
         [FromQuery] int take = 10,
         [FromQuery] int offset = 0
     )
     {
-        return discoveryService.GetPublicRealmsAsync(query, tags, take, offset);
+        return discoveryService.GetPublicRealmsAsync(query, take, offset);
     }
 }

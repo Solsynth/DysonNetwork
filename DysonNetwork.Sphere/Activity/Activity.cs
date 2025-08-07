@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Shared.Data;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Activity;

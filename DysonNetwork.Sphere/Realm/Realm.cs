@@ -30,7 +30,6 @@ public class Realm : ModelBase, IIdentifiedResource
 
     [JsonIgnore] public ICollection<RealmMember> Members { get; set; } = new List<RealmMember>();
     [JsonIgnore] public ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
-    [JsonIgnore] public ICollection<RealmTag> RealmTags { get; set; } = new List<RealmTag>();
 
     public Guid AccountId { get; set; }
 

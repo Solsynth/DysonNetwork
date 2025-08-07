@@ -1,4 +1,5 @@
 using System.Net;
+using DysonNetwork.Develop.Identity;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
@@ -24,6 +25,8 @@ public static class ApplicationConfiguration
         app.UseMiddleware<PermissionMiddleware>();
 
         app.MapControllers();
+        
+        app.MapGrpcService<CustomAppServiceGrpc>();
 
         return app;
     }

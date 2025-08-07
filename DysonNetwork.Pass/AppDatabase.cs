@@ -2,7 +2,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Developer;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
@@ -45,9 +44,8 @@ public class AppDatabase(
     public DbSet<Transaction> PaymentTransactions { get; set; }
     public DbSet<Subscription> WalletSubscriptions { get; set; }
     public DbSet<Coupon> WalletCoupons { get; set; }
-    
-    public DbSet<CustomApp> CustomApps { get; set; }
-    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
+ 
+    public DbSet<Punishment> Punishments { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

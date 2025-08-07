@@ -111,4 +111,23 @@ public static class ServiceInjectionHelper
         
         return services;
     }
-}
+
+    public static IServiceCollection AddDevelopService(this IServiceCollection services)
+    {
+        services.AddSingleton<CustomAppService.CustomAppServiceClient>(sp =>
+        {
+            var etcdClient = sp.GetRequiredService<IEtcdClient>();
+            var config = sp.GetRequiredService<IConfiguration>();
+            var clientCertPath = config["Service:ClientCert"]!;
+            var clientKeyPath = config["Service:ClientKey"]!;
+            var clientCertPassword = config["Service:CertPassword"];
+
+            return GrpcClientHelper
+                .CreateCustomAppServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .GetAwaiter()
+                .GetResult();
+        });
+        
+        return services;
+    }
+ }

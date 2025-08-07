@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Developer;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
@@ -1047,19 +1046,11 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
 
-                    b.Property<CustomAppLinks>("Links")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("links");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
-
-                    b.Property<CustomAppOauthConfig>("OauthConfig")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("oauth_config");
 
                     b.Property<CloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")

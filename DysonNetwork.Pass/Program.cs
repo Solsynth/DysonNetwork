@@ -22,6 +22,7 @@ builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
 builder.Services.AddPusherService();
 builder.Services.AddDriveService();
+builder.Services.AddDevelopService();
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();

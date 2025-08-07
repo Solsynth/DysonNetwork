@@ -4,8 +4,8 @@ namespace DysonNetwork.Sphere.Discovery;
 
 public class DiscoveryService(AppDatabase appDatabase)
 {
-    public Task<List<Realm.Realm>> GetPublicRealmsAsync(string? query,
-        List<string>? tags,
+    public Task<List<Realm.Realm>> GetPublicRealmsAsync(
+        string? query,
         int take = 10,
         int offset = 0,
         bool randomizer = false
@@ -21,8 +21,6 @@ public class DiscoveryService(AppDatabase appDatabase)
                 EF.Functions.ILike(r.Name, $"%{query}%") ||
                 EF.Functions.ILike(r.Description, $"%{query}%")
             );
-        if (tags is { Count: > 0 })
-            realmsQuery = realmsQuery.Where(r => r.RealmTags.Any(rt => tags.Contains(rt.Tag.Name)));
         if (randomizer)
             realmsQuery = realmsQuery.OrderBy(r => EF.Functions.Random());
         else

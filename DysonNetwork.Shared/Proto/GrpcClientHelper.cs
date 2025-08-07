@@ -135,4 +135,16 @@ public static class GrpcClientHelper
         return new PublisherService.PublisherServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
+
+    public static async Task<CustomAppService.CustomAppServiceClient> CreateCustomAppServiceClient(
+        IEtcdClient etcdClient,
+        string clientCertPath,
+        string clientKeyPath,
+        string? clientCertPassword = null
+    )
+    {
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Develop");
+        return new CustomAppService.CustomAppServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
+            clientCertPassword));
+    }
  }
