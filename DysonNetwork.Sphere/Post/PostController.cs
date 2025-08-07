@@ -4,7 +4,6 @@ using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Poll;
-using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +25,16 @@ public class PostController(
 )
     : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult<List<Post>>> ListFeaturedPosts()
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account;
+        
+        var posts = await ps.ListFeaturedPostsAsync(currentUser);
+        return Ok(posts);
+    }
+    
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts(
         [FromQuery] int offset = 0,

@@ -730,6 +730,57 @@ public partial class PostService(
         var posts = await LoadPostInfo([post], currentUser, truncate);
         return posts.First();
     }
+
+    private const string FeaturedPostCacheKey = "posts:featured";
+
+    public async Task<List<Post>> ListFeaturedPostsAsync(Account? currentUser = null)
+    {
+        // Check cache first for featured post IDs
+        var featuredIds = await cache.GetAsync<List<Guid>>(FeaturedPostCacheKey);
+
+        if (featuredIds is null)
+        {
+            var today = SystemClock.Instance.GetCurrentInstant();
+            var todayStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+            var todayEnd = today.InUtc().Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+
+            var reactSocialPoints = await db.PostReactions
+                .Include(e => e.Post)
+                .Where(e => e.Post.Visibility == PostVisibility.Public)
+                .Where(e => e.CreatedAt >= todayStart && e.CreatedAt < todayEnd)
+                .GroupBy(e => e.PostId)
+                .Select(e => new
+                {
+                    PostId = e.Key,
+                    Count = e.Sum(r => r.Attitude == PostReactionAttitude.Positive ? 1 : -1)
+                })
+                .OrderByDescending(e => e.Count)
+                .Take(3)
+                .ToDictionaryAsync(e => e.PostId, e => e.Count);
+
+            var featuredPostsId = reactSocialPoints.Select(e => e.Key).ToList();
+
+            await cache.SetAsync(FeaturedPostCacheKey, featuredPostsId, TimeSpan.FromMinutes(5));
+        }
+
+        if (featuredIds is null)
+        {
+            logger.LogWarning("Failed to load featured post IDs from cache and the database is empty...");
+            return [];
+        }
+
+        var posts = await db.Posts
+            .Where(e => featuredIds.Contains(e.Id))
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.Categories)
+            .Include(e => e.Publisher)
+            .Take(featuredIds.Count)
+            .ToListAsync();
+        posts = posts.OrderBy(e => featuredIds.IndexOf(e.Id)).ToList();
+        posts = await LoadPostInfo(posts, currentUser, true);
+
+        return posts;
+    }
 }
 
 public static class PostQueryExtensions
