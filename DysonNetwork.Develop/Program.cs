@@ -15,6 +15,7 @@ builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth();
 builder.Services.AddPublisherService();
+builder.Services.AddAccountService();
 builder.Services.AddDriveService();
 
 var app = builder.Build();
