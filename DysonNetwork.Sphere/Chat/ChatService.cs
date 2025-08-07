@@ -361,6 +361,7 @@ public partial class ChatService(
             .DistinctBy(x => x.Id)
             .ToList();
         messageSenders = await crs.LoadMemberAccounts(messageSenders);
+        messageSenders = messageSenders.Where(x => x.Account is not null).ToList();
 
         foreach (var message in messages)
             message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
