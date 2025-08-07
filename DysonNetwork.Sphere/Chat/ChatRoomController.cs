@@ -428,9 +428,30 @@ public class ChatRoomController(
             ResourceId = chatRoomResourceId
         });
 
-        db.ChatRooms.Remove(chatRoom);
-        await db.SaveChangesAsync();
+        await using var transaction = await db.Database.BeginTransactionAsync();
 
+        try
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            await db.ChatMessages
+                .Where(m => m.ChatRoomId == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(s => s.DeletedAt, now));
+            await db.ChatMembers
+                .Where(m => m.ChatRoomId == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(s => s.DeletedAt, now));
+            await db.SaveChangesAsync();
+            
+            db.ChatRooms.Remove(chatRoom);
+            await db.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+        
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
             Action = "chatrooms.delete",
