@@ -215,7 +215,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         var sticker = await st.LookupStickerByIdentifierAsync(identifier);
 
         if (sticker?.Image is null) return NotFound();
-        return Redirect($"/files/{sticker.Image.Id}");
+        return Redirect($"/cgi/drive/files/{sticker.Image.Id}");
     }
 
     [HttpGet("{packId:guid}/content/{id:guid}")]
