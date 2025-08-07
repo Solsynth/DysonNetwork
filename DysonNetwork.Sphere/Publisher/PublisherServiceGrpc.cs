@@ -7,18 +7,50 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
     : Shared.Proto.PublisherService.PublisherServiceBase
 {
-    public override async Task<GetPublisherResponse> GetPublisher(GetPublisherRequest request,
-        ServerCallContext context)
+    public override async Task<GetPublisherResponse> GetPublisher(
+        GetPublisherRequest request,
+        ServerCallContext context
+    )
     {
-        var p = await service.GetPublisherByName(request.Name);
-        if (p is null) throw new RpcException(new Status(StatusCode.NotFound, "publisher not found"));
+        Publisher? p = null;
+        switch (request.QueryCase)
+        {
+            case GetPublisherRequest.QueryOneofCase.Id:
+                if (!string.IsNullOrWhiteSpace(request.Id) && Guid.TryParse(request.Id, out var id))
+                    p = await db.Publishers.FirstOrDefaultAsync(x => x.Id == id);
+                break;
+            case GetPublisherRequest.QueryOneofCase.Name:
+                if (!string.IsNullOrWhiteSpace(request.Name))
+                    p = await service.GetPublisherByName(request.Name);
+                break;
+        }
+
+        if (p is null) throw new RpcException(new Status(StatusCode.NotFound, "Publisher not found"));
         return new GetPublisherResponse { Publisher = p.ToProto(db) };
     }
 
-    public override async Task<ListPublishersResponse> ListPublishers(ListPublishersRequest request,
-        ServerCallContext context)
+    public override async Task<ListPublishersResponse> GetPublisherBatch(
+        GetPublisherBatchRequest request,
+        ServerCallContext context
+    )
     {
-        IQueryable<Publisher> query = db.Publishers.AsQueryable();
+        var ids = request.Ids
+            .Where(s => !string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out _))
+            .Select(Guid.Parse)
+            .ToList();
+        if (ids.Count == 0) return new ListPublishersResponse();
+        var list = await db.Publishers.Where(p => ids.Contains(p.Id)).ToListAsync();
+        var resp = new ListPublishersResponse();
+        resp.Publishers.AddRange(list.Select(p => p.ToProto(db)));
+        return resp;
+    }
+
+    public override async Task<ListPublishersResponse> ListPublishers(
+        ListPublishersRequest request,
+        ServerCallContext context
+    )
+    {
+        var query = db.Publishers.AsQueryable();
         if (!string.IsNullOrWhiteSpace(request.AccountId) && Guid.TryParse(request.AccountId, out var aid))
         {
             var ids = await db.PublisherMembers.Where(m => m.AccountId == aid).Select(m => m.PublisherId).ToListAsync();
@@ -26,14 +58,11 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         }
 
         if (!string.IsNullOrWhiteSpace(request.RealmId) && Guid.TryParse(request.RealmId, out var rid))
-        {
             query = query.Where(p => p.RealmId == rid);
-        }
 
-        var list = await query.Take(request.PageSize > 0 ? request.PageSize : 100).ToListAsync();
+        var list = await query.ToListAsync();
         var resp = new ListPublishersResponse();
         resp.Publishers.AddRange(list.Select(p => p.ToProto(db)));
-        resp.TotalSize = list.Count;
         return resp;
     }
 
@@ -64,5 +93,23 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid publisher_id"));
         var enabled = await service.HasFeature(pid, request.Flag);
         return new HasPublisherFeatureResponse { Enabled = enabled };
+    }
+
+    public override async Task<IsPublisherMemberResponse> IsPublisherMember(IsPublisherMemberRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.PublisherId, out var pid))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid publisher_id"));
+        if (!Guid.TryParse(request.AccountId, out var aid))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid account_id"));
+        var requiredRole = request.Role switch
+        {
+            Shared.Proto.PublisherMemberRole.Owner => PublisherMemberRole.Owner,
+            Shared.Proto.PublisherMemberRole.Manager => PublisherMemberRole.Manager,
+            Shared.Proto.PublisherMemberRole.Editor => PublisherMemberRole.Editor,
+            _ => PublisherMemberRole.Viewer
+        };
+        var valid = await service.IsMemberWithRole(pid, aid, requiredRole);
+        return new IsPublisherMemberResponse { Valid = valid };
     }
 }

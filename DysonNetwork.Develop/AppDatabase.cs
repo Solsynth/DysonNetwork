@@ -1,3 +1,4 @@
+using DysonNetwork.Develop.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Develop;
@@ -7,6 +8,11 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
+    public DbSet<Developer> Developers { get; set; }
+    
+    public DbSet<CustomApp> CustomApps { get; set; }
+    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
+    
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

@@ -31,8 +31,8 @@ public class CustomApp : ModelBase, IIdentifiedResource
 
     [JsonIgnore] public ICollection<CustomAppSecret> Secrets { get; set; } = new List<CustomAppSecret>();
 
-    public Guid PublisherId { get; set; }
-    public Publisher.Publisher Developer { get; set; } = null!;
+    public Guid DeveloperId { get; set; }
+    public Developer Developer { get; set; } = null!;
 
     [NotMapped] public string ResourceIdentifier => "custom-app:" + Id;
 }

@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Develop.Identity;
 
@@ -10,7 +11,7 @@ public class CustomAppService(
 )
 {
     public async Task<CustomApp?> CreateAppAsync(
-        Publisher.Publisher pub,
+        Developer pub,
         CustomAppController.CustomAppRequest request
     )
     {
@@ -22,7 +23,7 @@ public class CustomAppService(
             Status = request.Status ?? CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
-            PublisherId = pub.Id
+            DeveloperId = pub.Id
         };
 
         if (request.PictureId is not null)
@@ -73,17 +74,17 @@ public class CustomAppService(
         return app;
     }
 
-    public async Task<CustomApp?> GetAppAsync(Guid id, Guid? publisherId = null)
+    public async Task<CustomApp?> GetAppAsync(Guid id, Guid? developerId = null)
     {
         var query = db.CustomApps.Where(a => a.Id == id).AsQueryable();
-        if (publisherId.HasValue)
-            query = query.Where(a => a.PublisherId == publisherId.Value);
+        if (developerId.HasValue)
+            query = query.Where(a => a.DeveloperId == developerId.Value);
         return await query.FirstOrDefaultAsync();
     }
 
     public async Task<List<CustomApp>> GetAppsByPublisherAsync(Guid publisherId)
     {
-        return await db.CustomApps.Where(a => a.PublisherId == publisherId).ToListAsync();
+        return await db.CustomApps.Where(a => a.DeveloperId == publisherId).ToListAsync();
     }
 
     public async Task<CustomApp?> UpdateAppAsync(CustomApp app, CustomAppController.CustomAppRequest request)

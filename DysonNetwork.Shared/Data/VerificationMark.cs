@@ -14,20 +14,20 @@ public class VerificationMark
     [MaxLength(8192)] public string? Description { get; set; }
     [MaxLength(1024)] public string? VerifiedBy { get; set; }
 
-    public Shared.Proto.VerificationMark ToProtoValue()
+    public Proto.VerificationMark ToProtoValue()
     {
-        var proto = new Shared.Proto.VerificationMark
+        var proto = new Proto.VerificationMark
         {
             Type = Type switch
             {
-                VerificationMarkType.Official => Shared.Proto.VerificationMarkType.Official,
-                VerificationMarkType.Individual => Shared.Proto.VerificationMarkType.Individual,
-                VerificationMarkType.Organization => Shared.Proto.VerificationMarkType.Organization,
-                VerificationMarkType.Government => Shared.Proto.VerificationMarkType.Government,
-                VerificationMarkType.Creator => Shared.Proto.VerificationMarkType.Creator,
-                VerificationMarkType.Developer => Shared.Proto.VerificationMarkType.Developer,
-                VerificationMarkType.Parody => Shared.Proto.VerificationMarkType.Parody,
-                _ => Shared.Proto.VerificationMarkType.Unspecified
+                VerificationMarkType.Official => Proto.VerificationMarkType.Official,
+                VerificationMarkType.Individual => Proto.VerificationMarkType.Individual,
+                VerificationMarkType.Organization => Proto.VerificationMarkType.Organization,
+                VerificationMarkType.Government => Proto.VerificationMarkType.Government,
+                VerificationMarkType.Creator => Proto.VerificationMarkType.Creator,
+                VerificationMarkType.Developer => Proto.VerificationMarkType.Developer,
+                VerificationMarkType.Parody => Proto.VerificationMarkType.Parody,
+                _ => Proto.VerificationMarkType.Unspecified
             },
             Title = Title ?? string.Empty,
             Description = Description ?? string.Empty,

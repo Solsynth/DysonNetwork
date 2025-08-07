@@ -3,6 +3,7 @@ using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
+using DysonNetwork.Develop.Identity;
 using DysonNetwork.Shared.Cache;
 
 namespace DysonNetwork.Develop.Startup;
@@ -40,6 +41,9 @@ public static class ServiceCollectionExtensions
             options.SupportedCultures = supportedCultures;
             options.SupportedUICultures = supportedCultures;
         });
+
+        services.AddScoped<DeveloperService>();
+        services.AddScoped<CustomAppService>();
 
         return services;
     }

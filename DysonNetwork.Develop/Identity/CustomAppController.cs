@@ -7,7 +7,7 @@ namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("/api/developers/{pubName}/apps")]
-public class CustomAppController(CustomAppService customApps, PublisherService ps) : ControllerBase
+public class CustomAppController(CustomAppService customApps, DeveloperService ds) : ControllerBase
 {
     public record CustomAppRequest(
         [MaxLength(1024)] string? Slug,
@@ -23,19 +23,19 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
     [HttpGet]
     public async Task<IActionResult> ListApps([FromRoute] string pubName)
     {
-        var publisher = await ps.GetPublisherByName(pubName);
-        if (publisher is null) return NotFound();
-        var apps = await customApps.GetAppsByPublisherAsync(publisher.Id);
+        var developer = await ds.GetDeveloperByName(pubName);
+        if (developer is null) return NotFound();
+        var apps = await customApps.GetAppsByPublisherAsync(developer.Id);
         return Ok(apps);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetApp([FromRoute] string pubName, Guid id)
     {
-        var publisher = await ps.GetPublisherByName(pubName);
-        if (publisher is null) return NotFound();
+        var developer = await ds.GetDeveloperByName(pubName);
+        if (developer is null) return NotFound();
 
-        var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
+        var app = await customApps.GetAppAsync(id, developerId: developer.Id);
         if (app == null)
             return NotFound();
 
@@ -51,17 +51,15 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Slug))
             return BadRequest("Name and slug are required");
 
-        var publisher = await ps.GetPublisherByName(pubName);
-        if (publisher is null) return NotFound();
+        var developer = await ds.GetDeveloperByName(pubName);
+        if (developer is null) return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
-            return StatusCode(403, "You must be an editor of the publisher to create a custom app");
-        if (!await ps.HasFeature(publisher.Id, PublisherFeatureFlag.Develop))
-            return StatusCode(403, "Publisher must be a developer to create a custom app");
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the developer to create a custom app");
 
         try
         {
-            var app = await customApps.CreateAppAsync(publisher, request);
+            var app = await customApps.CreateAppAsync(developer, request);
             return Ok(app);
         }
         catch (InvalidOperationException ex)
@@ -80,13 +78,13 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         
-        var publisher = await ps.GetPublisherByName(pubName);
-        if (publisher is null) return NotFound();
+        var developer = await ds.GetDeveloperByName(pubName);
+        if (developer is null) return NotFound();
         
-        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
-            return StatusCode(403, "You must be an editor of the publisher to update a custom app");
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the developer to update a custom app");
 
-        var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
+        var app = await customApps.GetAppAsync(id, developerId: developer.Id);
         if (app == null)
             return NotFound();
 
@@ -110,13 +108,13 @@ public class CustomAppController(CustomAppService customApps, PublisherService p
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         
-        var publisher = await ps.GetPublisherByName(pubName);
-        if (publisher is null) return NotFound();
+        var developer = await ds.GetDeveloperByName(pubName);
+        if (developer is null) return NotFound();
         
-        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
-            return StatusCode(403, "You must be an editor of the publisher to delete a custom app");
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the developer to delete a custom app");
 
-        var app = await customApps.GetAppAsync(id, publisherId: publisher.Id);
+        var app = await customApps.GetAppAsync(id, developerId: developer.Id);
         if (app == null)
             return NotFound();
 

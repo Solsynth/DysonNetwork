@@ -1,0 +1,49 @@
+using DysonNetwork.Shared.Proto;
+using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+
+namespace DysonNetwork.Develop.Identity;
+
+public class DeveloperService(AppDatabase db, PublisherService.PublisherServiceClient ps)
+{
+    public async Task<Developer> LoadDeveloperPublisher(Developer developer)
+    {
+        var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Id = developer.PublisherId.ToString() });
+        developer.Publisher = PublisherInfo.FromProto(pubResponse.Publisher);
+        return developer;
+    }
+    
+    public async Task<Developer?> GetDeveloperByName(string name)
+    {
+        try
+        {
+            var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Name = name });
+            var pubId = Guid.Parse(pubResponse.Publisher.Id);
+            
+            var developer = await db.Developers.FirstOrDefaultAsync(d => d.Id == pubId);
+            return developer;
+        }
+        catch (RpcException)
+        {
+            return null;
+        }
+    }
+    
+    public async Task<bool> IsMemberWithRole(Guid pubId, Guid accountId, PublisherMemberRole role)
+    {
+        try
+        {
+            var permResponse = await ps.IsPublisherMemberAsync(new IsPublisherMemberRequest
+            {
+                PublisherId = pubId.ToString(),
+                AccountId = accountId.ToString(),
+                Role = role
+            });
+            return permResponse.Valid;
+        }
+        catch (RpcException)
+        {
+            return false;
+        }
+    }
+}

@@ -20,7 +20,7 @@ public enum PublisherType
 [Index(nameof(Name), IsUnique = true)]
 public class Publisher : ModelBase, IIdentifiedResource
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     public PublisherType Type { get; set; }
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
@@ -57,8 +57,8 @@ public class Publisher : ModelBase, IIdentifiedResource
         {
             Id = Id.ToString(),
             Type = Type == PublisherType.Individual
-                ? Shared.Proto.PublisherType.Individual
-                : Shared.Proto.PublisherType.Organizational,
+                ? Shared.Proto.PublisherType.PubIndividual
+                : Shared.Proto.PublisherType.PubOrganizational,
             Name = Name,
             Nick = Nick,
             Bio = Bio,
