@@ -25,7 +25,7 @@ public class PostController(
 )
     : ControllerBase
 {
-    [HttpGet]
+    [HttpGet("featured")]
     public async Task<ActionResult<List<Post>>> ListFeaturedPosts()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
