@@ -676,7 +676,7 @@ public partial class PostService(
 
         // Find the index of the poll embed first
         var pollIndex = embeds.FindIndex(e =>
-            e.ContainsKey("Type") && ((JsonElement)e["Type"]).ToString() == "poll"
+            e.ContainsKey("type") && ((JsonElement)e["type"]).ToString() == "poll"
         );
 
         if (pollIndex < 0)
