@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -301,13 +302,13 @@ public class PostController(
         {
             // Use the first personal publisher
             publisher = await db.Publishers.FirstOrDefaultAsync(e =>
-                e.AccountId == accountId && e.Type == PublisherType.Individual);
+                e.AccountId == accountId && e.Type == Publisher.PublisherType.Individual);
         }
         else
         {
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null) return BadRequest("Publisher was not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
         }
 
@@ -473,14 +474,14 @@ public class PostController(
         if (post is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (pubName is not null)
         {
             var publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null) return NotFound();
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to transfer this post to this publisher.");
             post.PublisherId = publisher.Id;
             post.Publisher = publisher;
@@ -552,7 +553,8 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, Guid.Parse(currentUser.Id),
+                Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to delete the publisher's post.");
 
         await ps.DeletePostAsync(post);

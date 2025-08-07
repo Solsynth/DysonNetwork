@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Developer;
+namespace DysonNetwork.Develop.Identity;
 
 public enum CustomAppStatus
 {

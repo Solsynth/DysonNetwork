@@ -11,7 +11,7 @@ namespace DysonNetwork.Sphere.PageData;
 public class PostPageData(
     AppDatabase db,
     AccountService.AccountServiceClient accounts,
-    PublisherService pub,
+    Publisher.PublisherService pub,
     PostService ps,
     IConfiguration configuration
 )

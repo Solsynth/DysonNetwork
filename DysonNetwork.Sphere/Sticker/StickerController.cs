@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +15,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
     private async Task<IActionResult> _CheckStickerPackPermissions(
         Guid packId,
         Account currentUser,
-        PublisherMemberRole requiredRole
+        Publisher.PublisherMemberRole requiredRole
     )
     {
         var pack = await db.StickerPacks
@@ -149,7 +148,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < PublisherMemberRole.Editor)
+        if (member.Role < Publisher.PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be at least an editor to update sticker packs");
 
         if (request.Name is not null)
@@ -181,7 +180,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < PublisherMemberRole.Editor)
+        if (member.Role < Publisher.PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be an editor to delete sticker packs");
 
         await st.DeleteStickerPackAsync(pack);
@@ -242,7 +241,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
+        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -278,7 +277,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
+        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -309,7 +308,7 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         if (request.ImageId is null)
             return BadRequest("Image is required.");
 
-        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
+        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 

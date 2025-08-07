@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -397,19 +396,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
 
-                    b.Property<CustomAppLinks>("Links")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("links");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
-
-                    b.Property<CustomAppOauthConfig>("OauthConfig")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("oauth_config");
 
                     b.Property<CloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")

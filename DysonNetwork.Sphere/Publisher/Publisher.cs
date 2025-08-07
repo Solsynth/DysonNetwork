@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using VerificationMark = DysonNetwork.Shared.Data.VerificationMark;
 using Account = DysonNetwork.Pass.Account.Account;
 
@@ -49,6 +50,49 @@ public class Publisher : ModelBase, IIdentifiedResource
     [NotMapped] public Account? Account { get; set; }
 
     public string ResourceIdentifier => $"publisher:{Id}";
+
+    public Shared.Proto.Publisher ToProto(AppDatabase db)
+    {
+        var p = new Shared.Proto.Publisher()
+        {
+            Id = Id.ToString(),
+            Type = Type == PublisherType.Individual
+                ? Shared.Proto.PublisherType.Individual
+                : Shared.Proto.PublisherType.Organizational,
+            Name = Name,
+            Nick = Nick,
+            Bio = Bio,
+            AccountId = AccountId?.ToString() ?? string.Empty,
+            RealmId = RealmId?.ToString() ?? string.Empty,
+            CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+        };
+        if (Picture is not null)
+        {
+            p.Picture = new Shared.Proto.CloudFile
+            {
+                Id = Picture.Id,
+                Name = Picture.Name,
+                MimeType = Picture.MimeType,
+                Hash = Picture.Hash,
+                Size = Picture.Size,
+            };
+        }
+
+        if (Background is not null)
+        {
+            p.Background = new Shared.Proto.CloudFile
+            {
+                Id = Background.Id,
+                Name = Background.Name,
+                MimeType = Background.MimeType,
+                Hash = Background.Hash,
+                Size = Background.Size,
+            };
+        }
+
+        return p;
+    }
 }
 
 public enum PublisherMemberRole
@@ -68,6 +112,25 @@ public class PublisherMember : ModelBase
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
+    
+    
+    public Shared.Proto.PublisherMember ToProto()
+    {
+        return new Shared.Proto.PublisherMember()
+        {
+            PublisherId = PublisherId.ToString(),
+            AccountId = AccountId.ToString(),
+            Role = Role switch
+            {
+                PublisherMemberRole.Owner => Shared.Proto.PublisherMemberRole.Owner,
+                PublisherMemberRole.Manager => Shared.Proto.PublisherMemberRole.Manager,
+                PublisherMemberRole.Editor => Shared.Proto.PublisherMemberRole.Editor,
+                PublisherMemberRole.Viewer => Shared.Proto.PublisherMemberRole.Viewer,
+                _ => throw new ArgumentOutOfRangeException(nameof(Role), Role, null)
+            },
+            JoinedAt = JoinedAt?.ToTimestamp()
+        };
+    }
 }
 
 public enum PublisherSubscriptionStatus

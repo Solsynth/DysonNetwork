@@ -1,11 +1,9 @@
 using System.Net;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Sphere.Connection;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
 
-namespace DysonNetwork.Sphere.Startup;
+namespace DysonNetwork.Develop.Startup;
 
 public static class ApplicationConfiguration
 {
@@ -21,16 +19,11 @@ public static class ApplicationConfiguration
 
         ConfigureForwardedHeaders(app, configuration);
 
-        app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<PermissionMiddleware>();
 
         app.MapControllers();
-
-        // Map gRPC services
-        app.MapGrpcService<WebSocketHandlerGrpc>();
-        app.MapGrpcService<PublisherServiceGrpc>();
 
         return app;
     }

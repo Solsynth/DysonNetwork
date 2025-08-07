@@ -17,7 +17,6 @@ using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Sphere.WebReader;
-using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Translation;
@@ -169,7 +168,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebReaderService>();
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
-        services.AddScoped<CustomAppService>();
         services.AddScoped<PollService>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();

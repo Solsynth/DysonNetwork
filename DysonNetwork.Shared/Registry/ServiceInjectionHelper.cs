@@ -92,4 +92,23 @@ public static class ServiceInjectionHelper
         
         return services;
     }
+    
+    public static IServiceCollection AddPublisherService(this IServiceCollection services)
+    {
+        services.AddSingleton<PublisherService.PublisherServiceClient>(sp =>
+        {
+            var etcdClient = sp.GetRequiredService<IEtcdClient>();
+            var config = sp.GetRequiredService<IConfiguration>();
+            var clientCertPath = config["Service:ClientCert"]!;
+            var clientKeyPath = config["Service:ClientKey"]!;
+            var clientCertPassword = config["Service:CertPassword"];
+
+            return GrpcClientHelper
+                .CreatePublisherServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .GetAwaiter()
+                .GetResult();
+        });
+        
+        return services;
+    }
 }

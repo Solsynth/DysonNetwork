@@ -11,7 +11,7 @@ namespace DysonNetwork.Sphere.Poll;
 
 [ApiController]
 [Route("/api/polls")]
-public class PollController(AppDatabase db, PollService polls, PublisherService pub) : ControllerBase
+public class PollController(AppDatabase db, PollService polls, Publisher.PublisherService pub) : ControllerBase
 {
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PollWithStats>> GetPoll(Guid id)
@@ -85,7 +85,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             .FirstOrDefaultAsync(p => p.Id == id);
         if (poll is null) return NotFound("Poll not found");
 
-        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Viewer))
+        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Publisher.PublisherMemberRole.Viewer))
             return StatusCode(403, "You need to be a viewer to view this poll's feedback.");
 
         var answerQuery = db.PollAnswers
@@ -186,7 +186,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
 
         var publisher = await pub.GetPublisherByName(pubName);
         if (publisher is null) return BadRequest("Publisher was not found.");
-        if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to create polls as this publisher.");
 
         var poll = new Poll
@@ -231,7 +231,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to update this poll.");
 
             // Update properties if they are provided in the request
@@ -294,7 +294,7 @@ public class PollController(AppDatabase db, PollService polls, PublisherService 
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to delete this poll.");
 
             // Delete all answers for this poll

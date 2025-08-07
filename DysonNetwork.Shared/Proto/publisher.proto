@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "file.proto";
+
+enum PublisherType {
+  PUBLISHER_TYPE_UNSPECIFIED = 0;
+  INDIVIDUAL = 1;
+  ORGANIZATIONAL = 2;
+}
+
+enum PublisherMemberRole {
+  PUBLISHER_MEMBER_ROLE_UNSPECIFIED = 0;
+  OWNER = 100;
+  MANAGER = 75;
+  EDITOR = 50;
+  VIEWER = 25;
+}
+
+message PublisherFeature {
+  string id = 1;
+  string flag = 2;
+  google.protobuf.Timestamp expired_at = 3;
+  string publisher_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message PublisherMember {
+  string publisher_id = 1;
+  string account_id = 2;
+  PublisherMemberRole role = 3;
+  google.protobuf.Timestamp joined_at = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message Publisher {
+  string id = 1;
+  PublisherType type = 2;
+  string name = 3;
+  string nick = 4;
+  google.protobuf.StringValue bio = 5;
+  CloudFile picture = 8;
+  CloudFile background = 9;
+  optional bytes verification_mark = 10;
+  string account_id = 11;
+  string realm_id = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message GetPublisherRequest {
+  string name = 1;
+}
+
+message GetPublisherResponse {
+  Publisher publisher = 1;
+}
+
+message ListPublishersRequest {
+  string account_id = 1; // filter by owner/member account
+  string realm_id = 2;   // filter by realm
+  int32 page_size = 3;
+  string page_token = 4;
+  string order_by = 5;
+}
+
+message ListPublishersResponse {
+  repeated Publisher publishers = 1;
+  string next_page_token = 2;
+  int32 total_size = 3;
+}
+
+message ListPublisherMembersRequest {
+  string publisher_id = 1;
+}
+
+message ListPublisherMembersResponse {
+  repeated PublisherMember members = 1;
+}
+
+message SetPublisherFeatureFlagRequest {
+  string publisher_id = 1;
+  string flag = 2;
+}
+
+message HasPublisherFeatureRequest {
+  string publisher_id = 1;
+  string flag = 2;
+}
+
+message HasPublisherFeatureResponse {
+  bool enabled = 1;
+}
+
+service PublisherService {
+  rpc GetPublisher(GetPublisherRequest) returns (GetPublisherResponse);
+  rpc ListPublishers(ListPublishersRequest) returns (ListPublishersResponse);
+  rpc ListPublisherMembers(ListPublisherMembersRequest) returns (ListPublisherMembersResponse);
+  rpc SetPublisherFeatureFlag(SetPublisherFeatureFlagRequest) returns (google.protobuf.StringValue); // returns optional message
+  rpc HasPublisherFeature(HasPublisherFeatureRequest) returns (HasPublisherFeatureResponse);
+}

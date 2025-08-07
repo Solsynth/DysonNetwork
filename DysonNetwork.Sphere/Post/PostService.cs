@@ -161,7 +161,7 @@ public partial class PostService(
             {
                 var sender = post.Publisher;
                 using var scope = factory.CreateScope();
-                var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
+                var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
                 var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
                 var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
@@ -455,7 +455,7 @@ public partial class PostService(
             _ = Task.Run(async () =>
             {
                 using var scope = factory.CreateScope();
-                var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
+                var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
                 var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
                 var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try

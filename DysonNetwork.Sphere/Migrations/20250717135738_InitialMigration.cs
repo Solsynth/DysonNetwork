@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
@@ -248,8 +247,6 @@ namespace DysonNetwork.Sphere.Migrations
                     picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
                     background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
                     verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
-                    oauth_config = table.Column<CustomAppOauthConfig>(type: "jsonb", nullable: true),
-                    links = table.Column<CustomAppLinks>(type: "jsonb", nullable: true),
                     publisher_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),

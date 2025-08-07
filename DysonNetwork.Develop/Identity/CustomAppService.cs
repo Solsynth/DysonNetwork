@@ -1,8 +1,7 @@
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
-using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.Developer;
+namespace DysonNetwork.Develop.Identity;
 
 public class CustomAppService(
     AppDatabase db,

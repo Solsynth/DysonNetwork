@@ -1,18 +1,16 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Developer;
+namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("/api/developers")]
 public class DeveloperController(
     AppDatabase db,
-    PublisherService ps,
+    PublisherService.PublisherServiceClient ps,
     ActionLogService.ActionLogServiceClient als
 )
     : ControllerBase

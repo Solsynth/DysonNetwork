@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.WebReader;
 [Authorize]
 [ApiController]
 [Route("/api/publishers/{pubName}/feeds")]
-public class WebFeedController(WebFeedService webFeed, PublisherService ps) : ControllerBase
+public class WebFeedController(WebFeedService webFeed, Publisher.PublisherService ps) : ControllerBase
 {
     public record WebFeedRequest(
         [MaxLength(8192)] string? Url,
@@ -53,7 +53,7 @@ public class WebFeedController(WebFeedService webFeed, PublisherService ps) : Co
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to create a web feed");
 
         var feed = await webFeed.CreateWebFeedAsync(publisher, request);
@@ -70,7 +70,7 @@ public class WebFeedController(WebFeedService webFeed, PublisherService ps) : Co
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to update a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -91,7 +91,7 @@ public class WebFeedController(WebFeedService webFeed, PublisherService ps) : Co
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to delete a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -114,7 +114,7 @@ public class WebFeedController(WebFeedService webFeed, PublisherService ps) : Co
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to scrape a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);

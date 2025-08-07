@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Developer;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Realm;
@@ -61,9 +60,6 @@ public class AppDatabase(
     public DbSet<StickerPack> StickerPacks { get; set; }
     public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; }
 
-    public DbSet<CustomApp> CustomApps { get; set; }
-    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
-
     public DbSet<WebReader.WebArticle> WebArticles { get; set; }
     public DbSet<WebReader.WebFeed> WebFeeds { get; set; }
 
@@ -102,16 +98,6 @@ public class AppDatabase(
             .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
             .HasIndex(p => p.SearchVector)
             .HasMethod("GIN");
-
-        modelBuilder.Entity<CustomAppSecret>()
-            .HasIndex(s => s.Secret)
-            .IsUnique();
-            
-        modelBuilder.Entity<CustomApp>()
-            .HasMany(c => c.Secrets)
-            .WithOne(s => s.App)
-            .HasForeignKey(s => s.AppId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Post.Post>()
             .HasOne(p => p.RepliedPost)
