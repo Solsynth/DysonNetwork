@@ -22,7 +22,7 @@ public class DeveloperController(
     {
         var developer = await ds.GetDeveloperByName(name);
         if (developer is null) return NotFound();
-        return Ok(developer);
+        return Ok(await ds.LoadDeveloperPublisher(developer));
     }
 
     [HttpGet("{name}/stats")]
@@ -63,7 +63,7 @@ public class DeveloperController(
         
         var developers = await developerQuery.ToListAsync();
 
-        return Ok(developers);
+        return Ok(await ds.LoadDeveloperPublisher(developers));
     }
 
     [HttpPost("{name}/enroll")]
@@ -118,7 +118,7 @@ public class DeveloperController(
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
         });
 
-        return Ok(developer);
+        return Ok(await ds.LoadDeveloperPublisher(developer));
     }
 
     public class DeveloperStats
