@@ -39,7 +39,7 @@ public class PermissionService(
         var (hit, cachedValue) = await cache.GetAsyncWithStatus<T>(cacheKey);
         if (hit)
             return cachedValue;
-
+        
         var now = SystemClock.Instance.GetCurrentInstant();
         var groupsKey = _GetGroupsCacheKey(actor);
 

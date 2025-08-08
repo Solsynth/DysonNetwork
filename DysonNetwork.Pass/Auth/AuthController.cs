@@ -36,14 +36,20 @@ public class AuthController(
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
 
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var punishment = await db.Punishments
+            .Where(e => e.AccountId == account.Id)
+            .Where(e => e.Type == PunishmentType.BlockLogin || e.Type == PunishmentType.DisableAccount)
+            .Where(e => e.ExpiredAt == null || now < e.ExpiredAt)
+            .FirstOrDefaultAsync();
+        if (punishment is not null) return StatusCode(423, punishment);
+
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
 
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-
         // Trying to pick up challenges from the same IP address and user agent
         var existingChallenge = await db.AuthChallenges
-            .Where(e => e.Account == account)
+            .Where(e => e.AccountId == account.Id)
             .Where(e => e.IpAddress == ipAddress)
             .Where(e => e.UserAgent == userAgent)
             .Where(e => e.StepRemain > 0)

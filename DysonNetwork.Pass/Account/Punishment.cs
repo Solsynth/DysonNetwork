@@ -7,6 +7,7 @@ namespace DysonNetwork.Pass.Account;
 
 public enum PunishmentType
 {
+    // TODO: impl the permission modification
     PermissionModification,
     BlockLogin,
     DisableAccount
