@@ -25,6 +25,7 @@ public class AccountController(
         var account = await db.Accounts
             .Include(e => e.Badges)
             .Include(e => e.Profile)
+            .Include(e => e.Contacts.Where(c => c.IsPublic))
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
         if (account is null) return new NotFoundResult();

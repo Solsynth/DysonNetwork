@@ -557,6 +557,14 @@ public class AccountService(
             throw;
         }
     }
+    
+    public async Task<AccountContact> SetContactMethodPublic(Account account, AccountContact contact, bool isPublic)
+    {
+        contact.IsPublic = isPublic;
+        db.AccountContacts.Update(contact);
+        await db.SaveChangesAsync();
+        return contact;
+    }
 
     public async Task DeleteContactMethod(Account account, AccountContact contact)
     {

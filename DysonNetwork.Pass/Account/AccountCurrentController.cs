@@ -653,6 +653,50 @@ public class AccountCurrentController(
             return BadRequest(ex.Message);
         }
     }
+    
+    [HttpPost("contacts/{id:guid}/public")]
+    [Authorize]
+    public async Task<ActionResult<AccountContact>> SetPublicContact(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var contact = await db.AccountContacts
+            .Where(c => c.AccountId == currentUser.Id && c.Id == id)
+            .FirstOrDefaultAsync();
+        if (contact is null) return NotFound();
+
+        try
+        {
+            contact = await accounts.SetContactMethodPublic(currentUser, contact, true);
+            return Ok(contact);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpDelete("contacts/{id:guid}/public")]
+    [Authorize]
+    public async Task<ActionResult<AccountContact>> UnsetPublicContact(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var contact = await db.AccountContacts
+            .Where(c => c.AccountId == currentUser.Id && c.Id == id)
+            .FirstOrDefaultAsync();
+        if (contact is null) return NotFound();
+
+        try
+        {
+            contact = await accounts.SetContactMethodPublic(currentUser, contact, false);
+            return Ok(contact);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 
     [HttpDelete("contacts/{id:guid}")]
     [Authorize]

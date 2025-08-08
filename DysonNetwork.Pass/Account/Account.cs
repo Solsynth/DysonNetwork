@@ -214,6 +214,7 @@ public class AccountContact : ModelBase
     public AccountContactType Type { get; set; }
     public Instant? VerifiedAt { get; set; }
     public bool IsPrimary { get; set; } = false;
+    public bool IsPublic { get; set; } = false;
     [MaxLength(1024)] public string Content { get; set; } = string.Empty;
 
     public Guid AccountId { get; set; }
