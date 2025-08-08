@@ -27,6 +27,7 @@ public class BillingConfig
 
 public class PolicyConfig
 {
+    public bool EnableFastUpload { get; set; } = false;
     public bool EnableRecycle { get; set; } = false;
     public bool PublicIndexable { get; set; } = false;
     public bool PublicUsable { get; set; } = false;
@@ -47,6 +48,7 @@ public class FilePool : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public RemoteStorageConfig StorageConfig { get; set; } = new();
     [Column(TypeName = "jsonb")] public BillingConfig BillingConfig { get; set; } = new();
     [Column(TypeName = "jsonb")] public PolicyConfig PolicyConfig { get; set; } = new();
+    public bool IsHidden { get; set; } = false;
     
     public Guid? AccountId { get; set; }
 

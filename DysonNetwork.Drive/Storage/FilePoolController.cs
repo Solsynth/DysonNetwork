@@ -18,6 +18,7 @@ public class FilePoolController(AppDatabase db, FileService fs) : ControllerBase
         var accountId = Guid.Parse(currentUser.Id);
         var pools = await db.Pools
             .Where(p => p.PolicyConfig.PublicUsable || p.AccountId == accountId)
+            .Where(p => !p.IsHidden || p.AccountId == accountId)
             .ToListAsync();
         pools = pools.Select(p =>
         {
