@@ -258,4 +258,62 @@ public class FileController(
         var count = await fs.DeleteAllRecycledFilesAsync();
         return Ok(new { Count = count });
     }
+
+    public class CreateFastFileRequest
+    {
+        public string Name { get; set; } = null!;
+        public long Size { get; set; }
+        public string Hash { get; set; } = null!;
+        public string? MimeType { get; set; }
+        public string? Description { get; set; }
+        public Dictionary<string, object?>? UserMeta { get; set; }
+        public Dictionary<string, object?>? FileMeta { get; set; }
+        public List<ContentSensitiveMark>? SensitiveMarks { get; set; }
+        public Guid PoolId { get; set; }
+    }
+
+    [Authorize]
+    [HttpPost("fast")]
+    [RequiredPermission("global", "files.create")]
+    public async Task<ActionResult<CloudFile>> CreateFastFile([FromBody] CreateFastFileRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var pool = await db.Pools.FirstOrDefaultAsync(p => p.Id == request.PoolId);
+        if (pool is null) return BadRequest();
+        if (!currentUser.IsSuperuser && pool.AccountId != accountId)
+            return StatusCode(403, "You don't have permission to create files in this pool.");
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            var file = new CloudFile
+            {
+                Name = request.Name,
+                Size = request.Size,
+                Hash = request.Hash,
+                MimeType = request.MimeType,
+                Description = request.Description,
+                AccountId = accountId,
+                UserMeta = request.UserMeta,
+                FileMeta = request.FileMeta,
+                SensitiveMarks = request.SensitiveMarks,
+                PoolId = request.PoolId
+            };
+            db.Files.Add(file);
+            await db.SaveChangesAsync();
+            await fs._PurgeCacheAsync(file.Id);
+            await transaction.CommitAsync();
+
+            file.FastUploadLink = await fs.CreateFastUploadLinkAsync(file);
+
+            return file;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
 }

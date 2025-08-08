@@ -821,6 +821,27 @@ public class FileService(
         await db.SaveChangesAsync();
         return count;
     }
+
+    public async Task<string> CreateFastUploadLinkAsync(CloudFile file)
+    {
+        if (file.PoolId is null) throw new InvalidOperationException("Pool ID is null");
+
+        var dest = await GetRemoteStorageConfig(file.PoolId.Value);
+        if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
+        var client = CreateMinioClient(dest);
+        if (client is null)
+            throw new InvalidOperationException(
+                $"Failed to configure client for remote destination '{file.PoolId}'"
+            );
+
+        var url = await client.PresignedPutObjectAsync(
+            new PresignedPutObjectArgs()
+                .WithBucket(dest.Bucket)
+                .WithObject(file.Id)
+                .WithExpiry(60 * 60 * 24)
+        );
+        return url;
+    }
 }
 
 /// <summary>
