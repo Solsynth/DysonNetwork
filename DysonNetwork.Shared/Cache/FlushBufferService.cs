@@ -18,11 +18,9 @@ public class FlushBufferService(ILogger<FlushBufferService> logger)
         var type = typeof(T);
         lock (_lockObject)
         {
-            if (!_buffers.TryGetValue(type, out var buffer))
-            {
-                buffer = new ConcurrentQueue<T>();
-                _buffers[type] = buffer;
-            }
+            if (_buffers.TryGetValue(type, out var buffer)) return (ConcurrentQueue<T>)buffer;
+            buffer = new ConcurrentQueue<T>();
+            _buffers[type] = buffer;
             return (ConcurrentQueue<T>)buffer;
         }
     }

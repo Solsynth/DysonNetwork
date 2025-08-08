@@ -53,7 +53,7 @@ public class LastActiveFlushHandler(IServiceProvider srp, ILogger<LastActiveFlus
     }
 }
 
-public class LastActiveFlushJob(FlushBufferService fbs, ActionLogFlushHandler hdl, ILogger<LastActiveFlushJob> logger) : IJob
+public class LastActiveFlushJob(FlushBufferService fbs, LastActiveFlushHandler hdl, ILogger<LastActiveFlushJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
