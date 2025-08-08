@@ -1,116 +1,186 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <root>
-    <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-        <xsd:element name="root" msdata:IsDataSet="true">
-
-        </xsd:element>
-    </xsd:schema>
-    <resheader name="resmimetype">
-        <value>text/microsoft-resx</value>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true"></xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+      <value>text/microsoft-resx</value>
     </resheader>
     <resheader name="version">
-        <value>1.3</value>
+      <value>1.3</value>
     </resheader>
     <resheader name="reader">
-        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
-            PublicKeyToken=b77a5c561934e089
-        </value>
+      <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
     <resheader name="writer">
-        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral,
-            PublicKeyToken=b77a5c561934e089
-        </value>
-    </resheader>
-    <data name="FortuneTipPositiveTitle_1" xml:space="preserve">
-    <value>Gacha</value>
-  </data>
-    <data name="FortuneTipPositiveContent_1" xml:space="preserve">
-    <value>Golden every pull</value>
-  </data>
-    <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
-    <value>Gacha</value>
-  </data>
-    <data name="FortuneTipNegativeContent_1" xml:space="preserve">
-    <value>Won't pull the card you like</value>
-  </data>
+      <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="FortuneTipPositiveTitle_1" xml:space="preserve">
+        <value>Gacha</value>
+      </data>
+      <data name="FortuneTipPositiveContent_1" xml:space="preserve">
+        <value>Comes at your first roll</value>
+    </data>
     <data name="FortuneTipPositiveTitle_2" xml:space="preserve">
-    <value>Gaming</value>
-  </data>
-    <data name="FortuneTipPositiveContent_2" xml:space="preserve">
-    <value>Rank up like a hot knife through butter</value>
-  </data>
-    <data name="FortuneTipNegativeTitle_2" xml:space="preserve">
-    <value>Gaming</value>
-  </data>
-    <data name="FortuneTipNegativeContent_2" xml:space="preserve">
-    <value>Dropping ranks like a landslide</value>
-  </data>
+        <value>Gaming</value>
+      </data>
+      <data name="FortuneTipPositiveContent_2" xml:space="preserve">
+        <value>Ranking up as god</value>
+    </data>
     <data name="FortuneTipPositiveTitle_3" xml:space="preserve">
-    <value>Lottery</value>
-  </data>
-    <data name="FortuneTipPositiveContent_3" xml:space="preserve">
-    <value>Blessed with luck</value>
-  </data>
-    <data name="FortuneTipNegativeTitle_3" xml:space="preserve">
-    <value>Lottery</value>
-  </data>
-    <data name="FortuneTipNegativeContent_3" xml:space="preserve">
-    <value>Ten pulls, all silence</value>
-  </data>
+        <value>Lottery</value>
+      </data>
+      <data name="FortuneTipPositiveContent_3" xml:space="preserve">
+        <value>Never miss the first</value>
+    </data>
     <data name="FortuneTipPositiveTitle_4" xml:space="preserve">
-    <value>Speech</value>
-  </data>
-    <data name="FortuneTipPositiveContent_4" xml:space="preserve">
-    <value>Words flow like gems</value>
-  </data>
-    <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
-    <value>Speech</value>
-  </data>
-    <data name="FortuneTipNegativeContent_4" xml:space="preserve">
-        <value>Be careful what you're saying</value>
+        <value>Speech</value>
+      </data>
+      <data name="FortuneTipPositiveContent_4" xml:space="preserve">
+        <value>Flowness at precision</value>
     </data>
     <data name="FortuneTipPositiveTitle_5" xml:space="preserve">
-    <value>Drawing</value>
-  </data>
-    <data name="FortuneTipPositiveContent_5" xml:space="preserve">
-    <value>Inspiration gushes like a spring</value>
-  </data>
-    <data name="FortuneTipNegativeTitle_5" xml:space="preserve">
-    <value>Drawing</value>
-  </data>
-    <data name="FortuneTipNegativeContent_5" xml:space="preserve">
-    <value>Every stroke weighs a thousand pounds</value>
-  </data>
+        <value>Drawing</value>
+      </data>
+      <data name="FortuneTipPositiveContent_5" xml:space="preserve">
+        <value>Expectation is envisioned</value>
+    </data>
     <data name="FortuneTipPositiveTitle_6" xml:space="preserve">
-    <value>Coding</value>
-  </data>
-    <data name="FortuneTipPositiveContent_6" xml:space="preserve">
-    <value>0 error(s), 0 warning(s)</value>
-  </data>
-    <data name="FortuneTipNegativeTitle_6" xml:space="preserve">
-    <value>Coding</value>
-  </data>
-    <data name="FortuneTipNegativeContent_6" xml:space="preserve">
-    <value>114 error(s), 514 warning(s)</value>
-  </data>
+        <value>Coding</value>
+      </data>
+      <data name="FortuneTipPositiveContent_6" xml:space="preserve">
+        <value>0 error(s), 0 warning(s)</value>
+    </data>
     <data name="FortuneTipPositiveTitle_7" xml:space="preserve">
-    <value>Shopping</value>
+        <value>Shopping</value>
+      </data>
+      <data name="FortuneTipPositiveContent_7" xml:space="preserve">
+        <value>No taxes and extra fees</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_8" xml:space="preserve">
+        <value>Studying</value>
+      </data>
+      <data name="FortuneTipPositiveContent_8" xml:space="preserve">
+        <value>Efficiency X</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_9" xml:space="preserve">
+        <value>Music composing</value>
+      </data>
+      <data name="FortuneTipPositiveContent_9" xml:space="preserve">
+        <value>No need to re-listen</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_10" xml:space="preserve">
+        <value>Imaging</value>
+      </data>
+      <data name="FortuneTipPositiveContent_10" xml:space="preserve">
+        <value>Perfect every shot</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_11" xml:space="preserve">
+        <value>PCB welding</value>
+      </data>
+      <data name="FortuneTipPositiveContent_11" xml:space="preserve">
+        <value>Solders, fluxes, GO!</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_12" xml:space="preserve">
+        <value>After Effects</value>
+      </data>
+      <data name="FortuneTipPositiveContent_12" xml:space="preserve">
+        <value>@ 60 fps</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_13" xml:space="preserve">
+        <value>Drone shot</value>
+      </data>
+      <data name="FortuneTipPositiveContent_13" xml:space="preserve">
+        <value>Ready to Go</value>
+    </data>
+    <data name="FortuneTipPositiveTitle_14" xml:space="preserve">
+        <value>Color grading</value>
+      </data>
+      <data name="FortuneTipPositiveContent_14" xml:space="preserve">
+        <value>In this format, at this color</value>
   </data>
-    <data name="FortuneTipPositiveContent_7" xml:space="preserve">
-    <value>Exchange rate at its lowest</value>
-  </data>
+  <data name="FortuneTipNegativeTitle_1" xml:space="preserve">
+        <value>Gacha</value>
+      </data>
+      <data name="FortuneTipNegativeContent_1" xml:space="preserve">
+        <value>Won't get at 80, but 200</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_2" xml:space="preserve">
+        <value>Gaming</value>
+      </data>
+      <data name="FortuneTipNegativeContent_2" xml:space="preserve">
+        <value>Ground's the Limit</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_3" xml:space="preserve">
+        <value>Lottery</value>
+      </data>
+      <data name="FortuneTipNegativeContent_3" xml:space="preserve">
+        <value>Zero in multiple ten</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_4" xml:space="preserve">
+        <value>Speech</value>
+      </data>
+      <data name="FortuneTipNegativeContent_4" xml:space="preserve">
+        <value>Be careful what you say</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_5" xml:space="preserve">
+        <value>Drawing</value>
+      </data>
+      <data name="FortuneTipNegativeContent_5" xml:space="preserve">
+        <value>Your pen is sticky</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_6" xml:space="preserve">
+        <value>Coding</value>
+      </data>
+      <data name="FortuneTipNegativeContent_6" xml:space="preserve">
+        <value>114 error(s), 514 warning(s)</value>
+    </data>
     <data name="FortuneTipNegativeTitle_7" xml:space="preserve">
-    <value>Unboxing</value>
-  </data>
-    <data name="FortuneTipNegativeContent_7" xml:space="preserve">
-    <value>225% tariff</value>
-  </data>
-  <data name="FortuneTipNegativeTitle_1 " xml:space="preserve">
-    <value>Gacha</value>
-  </data>
-  <data name="FortuneTipPositiveContent_14" xml:space="preserve">
-    <value />
+        <value>Shopping</value>
+      </data>
+      <data name="FortuneTipNegativeContent_7" xml:space="preserve">
+        <value>245% tariff</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_8" xml:space="preserve">
+        <value>Studying</value>
+      </data>
+      <data name="FortuneTipNegativeContent_8" xml:space="preserve">
+        <value>Studying Fatigue III</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_9" xml:space="preserve">
+        <value>Music composing</value>
+      </data>
+      <data name="FortuneTipNegativeContent_9" xml:space="preserve">
+        <value>FL Studio is not responding</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_10" xml:space="preserve">
+        <value>Imaging</value>
+      </data>
+      <data name="FortuneTipNegativeContent_10" xml:space="preserve">
+        <value>Card cannot be accessed</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_11" xml:space="preserve">
+        <value>PCB welding</value>
+      </data>
+      <data name="FortuneTipNegativeContent_11" xml:space="preserve">
+        <value>Hand welding</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_12" xml:space="preserve">
+        <value>After Effects</value>
+      </data>
+      <data name="FortuneTipNegativeContent_12" xml:space="preserve">
+        <value>After Crashes</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_13" xml:space="preserve">
+        <value>Drone shot</value>
+      </data>
+      <data name="FortuneTipNegativeContent_13" xml:space="preserve">
+        <value>Unknown error. Contact DJI support. Auto Landing in 16s</value>
+    </data>
+    <data name="FortuneTipNegativeTitle_14" xml:space="preserve">
+        <value>Color grading</value>
+      </data>
+      <data name="FortuneTipNegativeContent_14" xml:space="preserve">
+        <value>yummy screen meow</value>
   </data>
 </root>
