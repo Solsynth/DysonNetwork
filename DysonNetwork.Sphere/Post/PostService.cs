@@ -741,13 +741,13 @@ public partial class PostService(
         if (featuredIds is null)
         {
             var today = SystemClock.Instance.GetCurrentInstant();
-            var todayStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-            var todayEnd = today.InUtc().Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-
+            var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant().Minus(Duration.FromDays(7));
+            var periodEnd = today.InUtc().Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+            
             var reactSocialPoints = await db.PostReactions
                 .Include(e => e.Post)
                 .Where(e => e.Post.Visibility == PostVisibility.Public)
-                .Where(e => e.CreatedAt >= todayStart && e.CreatedAt < todayEnd)
+                .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .GroupBy(e => e.PostId)
                 .Select(e => new
                 {
