@@ -34,6 +34,13 @@
               :is-date-disabled="disablePreviousDate"
             />
           </div>
+          <div
+            v-if="currentFilePool?.policy_config?.enable_fast_upload || route.query.pool"
+            class="flex items-center gap-2"
+          >
+            <p class="pl-1 mb-0.5">Fast Upload</p>
+            <n-switch v-model:value="fastUpload" />
+          </div>
         </div>
       </n-card>
     </n-collapse-transition>
@@ -78,12 +85,14 @@ import {
   NDatePicker,
   NAlert,
   NCard,
+  NSwitch,
   type UploadCustomRequestOptions,
   type UploadSettledFileInfo,
   type UploadFileInfo,
   useMessage,
 } from 'naive-ui'
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { CloudUploadRound } from '@vicons/material'
 import type { SnFilePool } from '@/types/pool'
 
@@ -96,21 +105,26 @@ const props = defineProps<{
   bundleId?: string
 }>()
 
+const route = useRoute()
+
 const filePass = ref<string>('')
 const fileExpire = ref<number | null>(null)
+const fastUpload = ref<boolean>(false)
+
+const effectiveFilePool = computed(() => (route.query.pool as string) || props.filePool)
 
 const currentFilePool = computed(() => {
-  if (!props.filePool) return null
-  return props.pools?.find((pool) => pool.id === props.filePool) ?? null
+  if (!effectiveFilePool.value) return null
+  return props.pools?.find((pool) => pool.id === effectiveFilePool.value) ?? null
 })
 const showRecycleHint = computed(() => {
-  if (!props.filePool) return true
+  if (!effectiveFilePool.value) return true
   return currentFilePool.value?.policy_config?.enable_recycle || false
 })
 
 const messageDisplay = useMessage()
 
-function customRequest({
+async function customRequest({
   file,
   headers,
   withCredentials,
@@ -118,12 +132,68 @@ function customRequest({
   onError,
   onProgress,
 }: UploadCustomRequestOptions) {
+  if (fastUpload.value) {
+    const hash = await crypto.subtle.digest('SHA-256', await file.file!.arrayBuffer())
+    const hashString = Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    const resp = await fetch('/api/files/fast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: file.name,
+        size: file.file?.size,
+        hash: hashString,
+        mime_type: file.file?.type,
+        pool_id: effectiveFilePool.value,
+      }),
+    })
+
+    if (!resp.ok) {
+      messageDisplay.error(`Failed to get presigned URL: ${await resp.text()}`)
+      onError()
+      return
+    }
+
+    const respData = await resp.json()
+    const url = respData.fast_upload_link
+
+    try {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', url, true)
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress({ percent: (event.loaded / event.total) * 100 })
+        }
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onFinish()
+        } else {
+          messageDisplay.error(`Upload failed: ${xhr.responseText}`)
+          onError()
+        }
+      }
+      xhr.onerror = () => {
+        messageDisplay.error('Upload failed due to a network error.')
+        onError()
+      }
+      xhr.send(file.file)
+    } catch (e) {
+      console.error(e)
+      messageDisplay.error(`Upload failed: ${e}`)
+      onError()
+    }
+    return
+  }
+
   const requestHeaders: Record<string, string> = {}
-  if (props.filePool) requestHeaders['X-FilePool'] = props.filePool
+  if (effectiveFilePool.value) requestHeaders['X-FilePool'] = effectiveFilePool.value
   if (filePass.value) requestHeaders['X-FilePass'] = filePass.value
   if (fileExpire.value) requestHeaders['X-FileExpire'] = fileExpire.value.toString()
   if (props.bundleId) requestHeaders['X-FileBundle'] = props.bundleId
-  const upload = new tus.Upload(file.file, {
+  const upload = new tus.Upload(file.file as any, {
     endpoint: '/api/tus',
     retryDelays: [0, 3000, 5000, 10000, 20000],
     removeFingerprintOnSuccess: false,

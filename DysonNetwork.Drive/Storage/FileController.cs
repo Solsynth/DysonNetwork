@@ -360,7 +360,7 @@ public class FileController(
 
             return file;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;
