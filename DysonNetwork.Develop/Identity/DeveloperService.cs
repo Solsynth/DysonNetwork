@@ -37,7 +37,7 @@ public class DeveloperService(AppDatabase db, PublisherService.PublisherServiceC
             var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Name = name });
             var pubId = Guid.Parse(pubResponse.Publisher.Id);
 
-            var developer = await db.Developers.FirstOrDefaultAsync(d => d.Id == pubId);
+            var developer = await db.Developers.FirstOrDefaultAsync(d => d.PublisherId == pubId);
             return developer;
         }
         catch (RpcException ex)
