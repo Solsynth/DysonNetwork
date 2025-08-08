@@ -40,7 +40,9 @@ public class PostController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
-        [FromQuery(Name = "type")] int? type = null
+        [FromQuery(Name = "type")] int? type = null,
+        [FromQuery(Name = "categories")] List<string>? categories = null,
+        [FromQuery(Name = "tags")] List<string>? tags = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -58,11 +60,18 @@ public class PostController(
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
 
-        var query = db.Posts.AsQueryable();
+        var query = db.Posts
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.Publisher.Id == publisher.Id);
         if (type != null)
             query = query.Where(p => p.Type == (PostType)type);
+        if (categories is { Count: > 0 })
+            query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
+        if (tags is { Count: > 0 })
+            query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         query = query
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true);
 
@@ -71,8 +80,6 @@ public class PostController(
         var posts = await query
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
-            .Include(e => e.Categories)
-            .Include(e => e.Tags)
             .Where(e => e.RepliedPostId == null)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
