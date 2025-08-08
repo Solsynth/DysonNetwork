@@ -1,3 +1,4 @@
+using DysonNetwork.Drive.Billing;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
@@ -13,6 +14,7 @@ namespace DysonNetwork.Drive.Storage;
 public class FileController(
     AppDatabase db,
     FileService fs,
+    QuotaService qs,
     IConfiguration configuration,
     IWebHostEnvironment env
 ) : ControllerBase
@@ -284,6 +286,54 @@ public class FileController(
         if (pool is null) return BadRequest();
         if (!currentUser.IsSuperuser && pool.AccountId != accountId)
             return StatusCode(403, "You don't have permission to create files in this pool.");
+        
+        if (!pool.PolicyConfig.EnableFastUpload)
+            return StatusCode(
+                403,
+                "This pool does not allow fast upload"
+            );
+        
+        if (pool.PolicyConfig.RequirePrivilege > 0)
+        {
+            if (currentUser.PerkSubscription is null)
+            {
+                return StatusCode(
+                    403,
+                    $"You need to have join the Stellar Program to use this pool"
+                );
+            }
+
+            var privilege =
+                PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier);
+            if (privilege < pool.PolicyConfig.RequirePrivilege)
+            {
+                return StatusCode(
+                    403,
+                    $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use this pool, you are tier {privilege}"
+                );
+            }
+        }
+        
+        if (request.Size > pool.PolicyConfig.MaxFileSize)
+        {
+            return StatusCode(
+                403,
+                $"File size {request.Size} is larger than the pool's maximum file size {pool.PolicyConfig.MaxFileSize}"
+            );
+        }
+        
+        var (ok, billableUnit, quota) = await qs.IsFileAcceptable(
+            accountId,
+            pool.BillingConfig.CostMultiplier ?? 1.0,
+            request.Size
+        );
+        if (!ok)
+        {
+            return StatusCode(
+                403,
+                $"File size {billableUnit} is larger than the user's quota {quota}"
+            );
+        }
 
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
