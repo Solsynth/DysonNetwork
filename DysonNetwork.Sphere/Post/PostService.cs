@@ -758,15 +758,9 @@ public partial class PostService(
                 .Take(3)
                 .ToDictionaryAsync(e => e.PostId, e => e.Count);
 
-            var featuredPostsId = reactSocialPoints.Select(e => e.Key).ToList();
+            featuredIds = reactSocialPoints.Select(e => e.Key).ToList();
 
-            await cache.SetAsync(FeaturedPostCacheKey, featuredPostsId, TimeSpan.FromMinutes(5));
-        }
-
-        if (featuredIds is null)
-        {
-            logger.LogWarning("Failed to load featured post IDs from cache and the database is empty...");
-            return [];
+            await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromMinutes(5));
         }
 
         var posts = await db.Posts
