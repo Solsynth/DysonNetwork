@@ -125,6 +125,7 @@ public class AccountProfile : ModelBase, IIdentifiedResource
     [MaxLength(1024)] public string? Pronouns { get; set; }
     [MaxLength(1024)] public string? TimeZone { get; set; }
     [MaxLength(1024)] public string? Location { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, string>? Links { get; set; }
     public Instant? Birthday { get; set; }
     public Instant? LastSeenAt { get; set; }
 

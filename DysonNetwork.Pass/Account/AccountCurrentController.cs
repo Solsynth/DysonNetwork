@@ -77,6 +77,7 @@ public class AccountCurrentController(
         [MaxLength(1024)] public string? Location { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
         public Instant? Birthday { get; set; }
+        public Dictionary<string, string>? Links { get; set; }
 
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -102,6 +103,7 @@ public class AccountCurrentController(
         if (request.Birthday is not null) profile.Birthday = request.Birthday;
         if (request.Location is not null) profile.Location = request.Location;
         if (request.TimeZone is not null) profile.TimeZone = request.TimeZone;
+        if (request.Links is not null) profile.Links = request.Links;
 
         if (request.PictureId is not null)
         {
