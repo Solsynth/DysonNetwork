@@ -125,7 +125,7 @@ public class AccountProfile : ModelBase, IIdentifiedResource
     [MaxLength(1024)] public string? Pronouns { get; set; }
     [MaxLength(1024)] public string? TimeZone { get; set; }
     [MaxLength(1024)] public string? Location { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, string>? Links { get; set; }
+    [Column(TypeName = "jsonb")] public List<ProfileLink>? Links { get; set; }
     public Instant? Birthday { get; set; }
     public Instant? LastSeenAt { get; set; }
 
@@ -206,6 +206,12 @@ public class AccountProfile : ModelBase, IIdentifiedResource
     }
 
     public string ResourceIdentifier => $"account:profile:{Id}";
+}
+
+public class ProfileLink
+{
+    public string Name { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 }
 
 public class AccountContact : ModelBase

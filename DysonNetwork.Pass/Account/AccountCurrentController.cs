@@ -77,7 +77,7 @@ public class AccountCurrentController(
         [MaxLength(1024)] public string? Location { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
         public Instant? Birthday { get; set; }
-        public Dictionary<string, string>? Links { get; set; }
+        public List<ProfileLink>? Links { get; set; }
 
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
