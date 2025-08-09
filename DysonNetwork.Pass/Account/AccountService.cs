@@ -88,6 +88,12 @@ public class AccountService(
         if (dupeNameCount > 0)
             throw new InvalidOperationException("Account name has already been taken.");
 
+        var dupeEmailCount = await db.AccountContacts
+            .Where(c => c.Content == email && c.Type == AccountContactType.Email
+            ).CountAsync();
+        if (dupeEmailCount > 0)
+            throw new InvalidOperationException("Account email has already been used.");
+
         var account = new Account
         {
             Name = name,
@@ -135,7 +141,7 @@ public class AccountService(
         await db.SaveChangesAsync();
 
         if (isActivated) return account;
-        
+
         var spell = await spells.CreateMagicSpell(
             account,
             MagicSpellType.AccountActivation,
@@ -504,6 +510,12 @@ public class AccountService(
 
     public async Task<AccountContact> CreateContactMethod(Account account, AccountContactType type, string content)
     {
+        var isExists = await db.AccountContacts
+            .Where(x => x.AccountId == account.Id && x.Type == type && x.Content == content)
+            .AnyAsync();
+        if (isExists)
+            throw new InvalidOperationException("Contact method already exists.");
+        
         var contact = new AccountContact
         {
             Type = type,
@@ -557,7 +569,7 @@ public class AccountService(
             throw;
         }
     }
-    
+
     public async Task<AccountContact> SetContactMethodPublic(Account account, AccountContact contact, bool isPublic)
     {
         contact.IsPublic = isPublic;
