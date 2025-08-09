@@ -67,9 +67,16 @@ public class FileController(
 
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
-        if (thumbnail && file.HasThumbnail)
-            fileName += ".thumbnail";
-        else if (!original && file.HasCompression)
+        switch (thumbnail)
+        {
+            case true when file.HasThumbnail:
+                fileName += ".thumbnail";
+                break;
+            case true when !file.HasThumbnail:
+                return NotFound();
+        }
+        
+        if (!original && file.HasCompression)
             fileName += ".compressed";
 
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
