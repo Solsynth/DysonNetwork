@@ -402,8 +402,7 @@ public class SubscriptionService(
         if (subscription is { IsAvailable: false }) subscription = null;
 
         // Cache the result if found (with 5 minutes expiry)
-        if (subscription != null)
-            await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(5));
+        await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(5));
 
         return subscription;
     }
@@ -434,9 +433,8 @@ public class SubscriptionService(
             .FirstOrDefaultAsync();
         if (subscription is { IsAvailable: false }) subscription = null;
 
-        // Cache the result if found (with 30 minutes expiry)
-        if (subscription != null)
-            await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(30));
+        // Cache the result if found (with 5 minutes expiry)
+        await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(5));
 
         return subscription;
     }
