@@ -431,6 +431,7 @@ public class SubscriptionService(
             .Where(s => s.EndedAt == null || s.EndedAt > now)
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
+        if (subscription is { IsAvailable: false }) subscription = null;
 
         // Cache the result if found (with 30 minutes expiry)
         if (subscription != null)
