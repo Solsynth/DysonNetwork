@@ -10,7 +10,8 @@ public enum PunishmentType
     // TODO: impl the permission modification
     PermissionModification,
     BlockLogin,
-    DisableAccount
+    DisableAccount,
+    Strike
 }
 
 public class Punishment : ModelBase
