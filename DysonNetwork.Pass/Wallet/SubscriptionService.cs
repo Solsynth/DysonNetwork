@@ -424,8 +424,11 @@ public class SubscriptionService(
         }
 
         // If not in cache, get from database
+        var now = SystemClock.Instance.GetCurrentInstant();
         var subscription = await db.WalletSubscriptions
             .Where(s => s.AccountId == accountId && PerkIdentifiers.Contains(s.Identifier))
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.EndedAt == null || s.EndedAt > now)
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
 
