@@ -6,13 +6,13 @@
         <n-spin />
       </div>
     </div>
-    <div v-else-if="provider === 'recaptcha'">
+    <div v-else-if="provider === 'hcaptcha'">
       <hcaptcha v-if="!!apiKey" :sitekey="apiKey" @verify="(tk: string) => handleSuccess(tk)" />
       <div v-else class="mx-auto">
         <n-spin />
       </div>
     </div>
-    <div v-else-if="provider === 'hcaptcha'" class="h-captcha" :data-sitekey="apiKey"></div>
+    <div v-else-if="provider === 'recaptcha'" class="h-captcha" :data-sitekey="apiKey"></div>
     <div v-else class="flex flex-col items-center justify-center gap-1">
       <n-icon size="32">
         <error-outline-round />
