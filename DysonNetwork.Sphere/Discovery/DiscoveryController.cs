@@ -13,6 +13,6 @@ public class DiscoveryController(DiscoveryService discoveryService) : Controller
         [FromQuery] int offset = 0
     )
     {
-        return discoveryService.GetPublicRealmsAsync(query, take, offset);
+        return discoveryService.GetCommunityRealmAsync(query, take, offset);
     }
 }
