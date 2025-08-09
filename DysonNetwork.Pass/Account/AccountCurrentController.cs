@@ -220,7 +220,7 @@ public class AccountCurrentController(
         return await events.CreateStatus(currentUser, status);
     }
 
-    [HttpDelete("me/statuses")]
+    [HttpDelete("statuses")]
     public async Task<ActionResult> DeleteStatus()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
