@@ -9,7 +9,8 @@ namespace DysonNetwork.Pass.Wallet;
 
 [ApiController]
 [Route("/api/subscriptions")]
-public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db) : ControllerBase
+public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db)
+    : ControllerBase
 {
     [HttpGet]
     [Authorize]
@@ -48,7 +49,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
             .Where(s => EF.Functions.ILike(s.Identifier, prefix + "%"))
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
-        if (subscription is null) return NotFound();
+        if (subscription is null || !subscription.IsAvailable) return NotFound();
 
         return Ok(subscription);
     }

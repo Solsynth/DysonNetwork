@@ -399,6 +399,7 @@ public class SubscriptionService(
             .Where(s => s.AccountId == accountId && identifiers.Contains(s.Identifier))
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
+        if (subscription is { IsAvailable: false }) subscription = null;
 
         // Cache the result if found (with 5 minutes expiry)
         if (subscription != null)
