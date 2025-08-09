@@ -459,10 +459,15 @@ public class SubscriptionService(
         if (missingAccountIds.Count <= 0) return result;
 
         // If not in cache, get from database
+        var now = SystemClock.Instance.GetCurrentInstant();
         var subscriptions = await db.WalletSubscriptions
             .Where(s => missingAccountIds.Contains(s.AccountId))
             .Where(s => PerkIdentifiers.Contains(s.Identifier))
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.EndedAt == null || s.EndedAt > now)
+            .OrderByDescending(s => s.BegunAt)
             .ToListAsync();
+        subscriptions = subscriptions.Where(s => s.IsAvailable).ToList();
 
         // Group the subscriptions by account id
         foreach (var subscription in subscriptions)
