@@ -99,7 +99,10 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
 
     [HttpPost]
     [RequiredPermission("global", "stickers.packs.create")]
-    public async Task<ActionResult<StickerPack>> CreateStickerPack([FromBody] StickerPackRequest request)
+    public async Task<ActionResult<StickerPack>> CreateStickerPack(
+        [FromBody] StickerPackRequest request,
+        [FromQuery(Name = "pub")] string publisherName
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -107,10 +110,6 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             return BadRequest("Name is required");
         if (string.IsNullOrEmpty(request.Prefix))
             return BadRequest("Prefix is required");
-
-        var publisherName = Request.Headers["X-Pub"].ToString();
-        if (string.IsNullOrEmpty(publisherName))
-            return BadRequest("Publisher name is required in X-Pub header");
 
         var accountId = Guid.Parse(currentUser.Id);
         var publisher =
