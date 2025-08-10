@@ -102,7 +102,9 @@ public class FileService(
     private const string TempFilePrefix = "dyn-cloudfile";
 
     private static readonly string[] AnimatedImageTypes =
-        ["image/gif", "image/apng", "image/webp", "image/avif"];
+        ["image/gif", "image/apng", "image/avif"];
+    private static readonly string[] AnimatedImageExtensions =
+        [".gif", ".apng", ".avif"];
 
     public async Task<CloudFile> ProcessNewFileAsync(
         Account account,
@@ -317,11 +319,13 @@ public class FileService(
         try
         {
             logger.LogInformation("Processing file {FileId} in background...", fileId);
+            
+            var fileExtension = Path.GetExtension(originalFilePath);
 
             if (!pool.PolicyConfig.NoOptimization)
                 switch (contentType.Split('/')[0])
                 {
-                    case "image" when !AnimatedImageTypes.Contains(contentType):
+                    case "image" when !AnimatedImageTypes.Contains(contentType) && !AnimatedImageExtensions.Contains(fileExtension):
                         newMimeType = "image/webp";
                         using (var vipsImage = Image.NewFromFile(originalFilePath))
                         {
