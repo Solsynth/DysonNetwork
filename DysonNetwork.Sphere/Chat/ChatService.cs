@@ -290,6 +290,9 @@ public partial class ChatService(
         request.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
         await scopedNty.PushWebSocketPacketToUsersAsync(request);
 
+        accountsToNotify = accountsToNotify
+            .Where(a => a.Id != sender.AccountId.ToString()).ToList();
+
         logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
         // Only send notifications if there are accounts to notify
         var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
