@@ -260,18 +260,20 @@ public partial class ChatService(
                 break;
         }
 
+        var now = SystemClock.Instance.GetCurrentInstant();
+        
         List<Account> accountsToNotify = [];
-        foreach (var member in members)
+        foreach (
+            var member in members
+                .Where(member => member.Notify != ChatMemberNotify.None)
+        )
         {
-            if (member.AccountId == sender.AccountId) continue;
-            if (member.Notify == ChatMemberNotify.None) continue;
             // if (scopedWs.IsUserSubscribedToChatRoom(member.AccountId, room.Id.ToString())) continue;
             if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.AccountId))
             {
-                var now = SystemClock.Instance.GetCurrentInstant();
                 if (member.BreakUntil is not null && member.BreakUntil > now) continue;
+                if (member.Notify == ChatMemberNotify.Mentions) continue;
             }
-            else if (member.Notify == ChatMemberNotify.Mentions) continue;
 
             if (member.Account is not null)
                 accountsToNotify.Add(member.Account.ToProtoValue());
