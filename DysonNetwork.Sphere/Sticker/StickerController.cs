@@ -245,7 +245,6 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             return permissionCheck;
 
         var sticker = await db.Stickers
-            .Include(s => s.Image)
             .Include(s => s.Pack)
             .ThenInclude(p => p.Publisher)
             .FirstOrDefaultAsync(e => e.Id == id && e.Pack.Id == packId);
