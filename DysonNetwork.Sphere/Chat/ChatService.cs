@@ -261,7 +261,7 @@ public partial class ChatService(
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        
+
         List<Account> accountsToNotify = [];
         foreach (
             var member in members
@@ -381,8 +381,23 @@ public partial class ChatService(
         messageSenders = await crs.LoadMemberAccounts(messageSenders);
         messageSenders = messageSenders.Where(x => x.Account is not null).ToList();
 
+        // Get keys of messages to remove (where sender is not found)
+        var messagesToRemove = messages
+            .Where(m => messageSenders.All(s => s.Id != m.Value.SenderId))
+            .Select(m => m.Key)
+            .ToList();
+
+        // Remove messages with no sender
+        foreach (var key in messagesToRemove)
+        {
+            messages.Remove(key);
+        }
+
+        // Update remaining messages with their senders
         foreach (var message in messages)
+        {
             message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
+        }
 
         return messages;
     }
