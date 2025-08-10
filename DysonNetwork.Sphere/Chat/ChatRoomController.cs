@@ -440,7 +440,7 @@ public class ChatRoomController(
                 .Where(m => m.ChatRoomId == id)
                 .ExecuteUpdateAsync(s => s.SetProperty(s => s.DeletedAt, now));
             await db.SaveChangesAsync();
-            
+
             db.ChatRooms.Remove(chatRoom);
             await db.SaveChangesAsync();
 
@@ -451,7 +451,7 @@ public class ChatRoomController(
             await transaction.RollbackAsync();
             throw;
         }
-        
+
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
             Action = "chatrooms.delete",
@@ -664,7 +664,7 @@ public class ChatRoomController(
 
         foreach (var member in members.Where(member => member.ChatRoom.Type == ChatRoomType.DirectMessage))
             member.ChatRoom.Members = directMembers[member.ChatRoom.Id];
-        
+
         return Ok(await crs.LoadMemberAccounts(members));
     }
 
@@ -846,38 +846,36 @@ public class ChatRoomController(
         {
             if (!await crs.IsMemberWithRole(chatRoom.Id, Guid.Parse(currentUser.Id), ChatMemberRole.Moderator))
                 return StatusCode(403, "You need at least be a moderator to remove members.");
-
-            // Find the target member
-            var member = await db.ChatMembers
-                .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
-                .FirstOrDefaultAsync();
-            if (member is null) return NotFound();
-
-            // Check if the current user has sufficient permissions
-            if (!await crs.IsMemberWithRole(chatRoom.Id, memberId, member.Role))
-                return StatusCode(403, "You cannot remove members with equal or higher roles.");
-
-            member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
-            await db.SaveChangesAsync();
-            _ = crs.PurgeRoomMembersCache(roomId);
-
-            _ = als.CreateActionLogAsync(new CreateActionLogRequest
-            {
-                Action = "chatrooms.kick",
-                Meta =
-                {
-                    { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
-                    { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-            });
-
-            return NoContent();
         }
 
-        return BadRequest();
+        // Find the target member
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
+            .FirstOrDefaultAsync();
+        if (member is null) return NotFound();
+
+        // Check if the current user has sufficient permissions
+        if (!await crs.IsMemberWithRole(chatRoom.Id, memberId, member.Role))
+            return StatusCode(403, "You cannot remove members with equal or higher roles.");
+
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        _ = crs.PurgeRoomMembersCache(roomId);
+
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "chatrooms.kick",
+            Meta =
+            {
+                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        return NoContent();
     }
 
 
