@@ -239,13 +239,26 @@ public partial class ChatService(
         {
             Topic = "messages.new",
             Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
-            Body = !string.IsNullOrEmpty(message.Content)
-                ? message.Content[..Math.Min(message.Content.Length, 100)]
-                : "<no content>",
             Meta = GrpcTypeHelper.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
         };
+        if (message.DeletedAt is not null)
+            notification.Body = "Deleted a message";
+        switch (message.Type)
+        {
+            case "call.ended":
+                notification.Body = "Call ended";
+                break;
+            case "call.start":
+                notification.Body = "Call begun";
+                break;
+            default:
+                notification.Body = !string.IsNullOrEmpty(message.Content)
+                    ? message.Content[..Math.Min(message.Content.Length, 100)]
+                    : $"<{message.Attachments.Count} attachments>";
+                break;
+        }
 
         List<Account> accountsToNotify = [];
         foreach (var member in members)
