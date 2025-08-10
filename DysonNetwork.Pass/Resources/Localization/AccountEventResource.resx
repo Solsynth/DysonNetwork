@@ -175,7 +175,7 @@
         <value>Drone shot</value>
       </data>
       <data name="FortuneTipNegativeContent_13" xml:space="preserve">
-        <value>Unknown error. Contact DJI support. Auto Landing in 16s</value>
+        <value>Low battery level, Auto Landing in 16s</value>
     </data>
     <data name="FortuneTipNegativeTitle_14" xml:space="preserve">
         <value>Color grading</value>
