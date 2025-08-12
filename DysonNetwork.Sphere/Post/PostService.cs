@@ -740,14 +740,16 @@ public partial class PostService(
 
         if (featuredIds is null)
         {
+            // The previous day highest rated posts
             var today = SystemClock.Instance.GetCurrentInstant();
-            var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant().Minus(Duration.FromDays(7));
-            var periodEnd = today.InUtc().Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-            
+            var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant().Minus(Duration.FromDays(1));
+            var periodEnd = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+
             var reactSocialPoints = await db.PostReactions
                 .Include(e => e.Post)
                 .Where(e => e.Post.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
+                .Where(e => e.Post.CreatedAt >= periodStart && e.Post.CreatedAt < periodEnd)
                 .GroupBy(e => e.PostId)
                 .Select(e => new
                 {
@@ -755,12 +757,12 @@ public partial class PostService(
                     Count = e.Sum(r => r.Attitude == PostReactionAttitude.Positive ? 1 : -1)
                 })
                 .OrderByDescending(e => e.Count)
-                .Take(3)
+                .Take(5)
                 .ToDictionaryAsync(e => e.PostId, e => e.Count);
 
             featuredIds = reactSocialPoints.Select(e => e.Key).ToList();
 
-            await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromMinutes(5));
+            await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromHours(24));
         }
 
         var posts = await db.Posts
