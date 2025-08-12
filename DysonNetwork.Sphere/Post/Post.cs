@@ -114,6 +114,16 @@ public class PostCollection : ModelBase
     public ICollection<Post> Posts { get; set; } = new List<Post>();
 }
 
+public class PostFeaturedRecord : ModelBase
+{
+    public Guid Id { get; set; }
+
+    public Guid PostId { get; set; }
+    public Post Post { get; set; } = null!;
+    public Instant? FeaturedAt { get; set; }
+    public int SocialCredits { get; set; }
+}
+
 public enum PostReactionAttitude
 {
     Positive,
