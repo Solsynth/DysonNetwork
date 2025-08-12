@@ -21,7 +21,7 @@ you must open-source it under the same license.
 While we don’t support self-hosting, we encourage developers to build applications on this foundation.
 
 Check out the OpenAPI Documentation at `/swagger` path on any instance.
-Or visit our official instance: [Solar Network](https://nt.solian.app/swagger).
+Or visit our official instance: [Solar Network](https://solian.app/swagger).
 
 ## License
 
