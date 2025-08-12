@@ -57,6 +57,7 @@ public class AuthController(
             .FirstOrDefaultAsync();
         if (existingChallenge is not null) return existingChallenge;
 
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId);
         var challenge = new AuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
@@ -67,7 +68,7 @@ public class AuthController(
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Location = geo.GetPointFromIp(ipAddress),
-            DeviceId = request.DeviceId,
+            DeviceId = device.Id,
             AccountId = account.Id
         }.Normalize();
 

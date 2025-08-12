@@ -217,6 +217,7 @@ public abstract class OidcService(
 
         // Create a challenge that's already completed
         var now = SystemClock.Instance.GetCurrentInstant();
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, deviceId);
         var challenge = new AuthChallenge
         {
             ExpiredAt = now.Plus(Duration.FromHours(1)),
@@ -226,7 +227,7 @@ public abstract class OidcService(
             Audiences = [ProviderName],
             Scopes = ["*"],
             AccountId = account.Id,
-            DeviceId = deviceId,
+            DeviceId = device.Id,
             IpAddress = request.Connection.RemoteIpAddress?.ToString() ?? null,
             UserAgent = request.Request.Headers.UserAgent,
         };

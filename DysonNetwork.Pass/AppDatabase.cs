@@ -37,6 +37,7 @@ public class AppDatabase(
 
     public DbSet<AuthSession> AuthSessions { get; set; }
     public DbSet<AuthChallenge> AuthChallenges { get; set; }
+    public DbSet<AuthDevice> AuthDevices { get; set; }
     
     public DbSet<Wallet.Wallet> Wallets { get; set; }
     public DbSet<WalletPocket> WalletPockets { get; set; }

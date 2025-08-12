@@ -455,27 +455,11 @@ public class AccountCurrentController(
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
-        // Group sessions by the related DeviceId, then create an AuthorizedDevice for each group.
-        var deviceGroups = await db.AuthSessions
-            .Where(s => s.Account.Id == currentUser.Id)
-            .Include(s => s.Challenge)
-            .GroupBy(s => s.Challenge.DeviceId!)
-            .Select(g => new AuthorizedDevice
-            {
-                DeviceId = g.Key!,
-                UserAgent = g.First(x => x.Challenge.UserAgent != null).Challenge.UserAgent!,
-                Platform = g.First().Challenge.Platform!,
-                Label = g.Where(x => !string.IsNullOrWhiteSpace(x.Label)).Select(x => x.Label).FirstOrDefault(),
-                Sessions = g
-                    .OrderByDescending(x => x.LastGrantedAt)
-                    .ToList()
-            })
+        var devices = await db.AuthDevices
+            .Where(device => device.AccountId == currentUser.Id)
             .ToListAsync();
-        deviceGroups = deviceGroups
-            .OrderByDescending(s => s.Sessions.First().LastGrantedAt)
-            .ToList();
 
-        return Ok(deviceGroups);
+        return Ok(devices);
     }
 
     [HttpGet("sessions")]

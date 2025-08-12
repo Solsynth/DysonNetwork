@@ -67,12 +67,13 @@ public class AuthChallenge : ModelBase
     [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = new();
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
-    [MaxLength(256)] public string? DeviceId { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
     public Point? Location { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
+    public Guid DeviceId { get; set; }
+    public AuthDevice Device { get; set; } = null!;
 
     public AuthChallenge Normalize()
     {
@@ -94,7 +95,7 @@ public class AuthChallenge : ModelBase
         Scopes = { Scopes },
         IpAddress = IpAddress,
         UserAgent = UserAgent,
-        DeviceId = DeviceId,
+        DeviceId = DeviceId.ToString(),
         Nonce = Nonce,
         AccountId = AccountId.ToString()
     };

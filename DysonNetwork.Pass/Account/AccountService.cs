@@ -456,6 +456,11 @@ public class AccountService(
         );
     }
 
+    public async Task<bool> IsDeviceActive(Guid id)
+    {
+        return await db.AuthChallenges.AnyAsync(d => d.DeviceId == id);
+    }
+
     public async Task<AuthSession> UpdateSessionLabel(Account account, Guid sessionId, string label)
     {
         var session = await db.AuthSessions
@@ -483,6 +488,7 @@ public class AccountService(
     {
         var session = await db.AuthSessions
             .Include(s => s.Challenge)
+            .ThenInclude(s => s.Device)
             .Where(s => s.Id == sessionId && s.AccountId == account.Id)
             .FirstOrDefaultAsync();
         if (session is null) throw new InvalidOperationException("Session was not found.");
@@ -492,11 +498,10 @@ public class AccountService(
             .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
             .ToListAsync();
 
-        if (session.Challenge.DeviceId is not null)
+        if (!await IsDeviceActive(session.Challenge.DeviceId))
             await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
-            {
-                DeviceId = session.Challenge.DeviceId
-            });
+                { DeviceId = session.Challenge.Device.DeviceId }
+            );
 
         // The current session should be included in the sessions' list
         await db.AuthSessions

@@ -100,6 +100,21 @@ public class AuthService(
 
         return session;
     }
+    
+    public async Task<AuthDevice> GetOrCreateDeviceAsync(Guid accountId, string deviceId)
+    {
+        var device = await db.AuthDevices.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+        if (device is not null) return device;
+        device = new AuthDevice
+        {
+            DeviceId = deviceId,
+            AccountId = accountId
+        };
+        db.AuthDevices.Add(device);
+        await db.SaveChangesAsync();
+
+        return device;
+    }
 
     public async Task<bool> ValidateCaptcha(string token)
     {
