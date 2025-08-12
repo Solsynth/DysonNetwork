@@ -91,10 +91,10 @@ public class PollController(AppDatabase db, PollService polls, Publisher.Publish
         var answerQuery = db.PollAnswers
             .Where(a => a.PollId == id)
             .AsQueryable();
-        
+
         var total = await answerQuery.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
-        
+
         var answers = await answerQuery
             .OrderByDescending(a => a.CreatedAt)
             .Skip(offset)
