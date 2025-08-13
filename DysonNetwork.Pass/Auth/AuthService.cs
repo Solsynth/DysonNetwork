@@ -100,17 +100,17 @@ public class AuthService(
 
         return session;
     }
-    
-    public async Task<AuthDevice> GetOrCreateDeviceAsync(Guid accountId, string deviceId)
+
+    public async Task<AuthClient> GetOrCreateDeviceAsync(Guid accountId, string deviceId)
     {
-        var device = await db.AuthDevices.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
         if (device is not null) return device;
-        device = new AuthDevice
+        device = new AuthClient
         {
             DeviceId = deviceId,
             AccountId = accountId
         };
-        db.AuthDevices.Add(device);
+        db.AuthClients.Add(device);
         await db.SaveChangesAsync();
 
         return device;
@@ -203,43 +203,43 @@ public class AuthService(
         // Check if the session is already in sudo mode (cached)
         var sudoModeKey = $"accounts:{session.Id}:sudo";
         var (found, _) = await cache.GetAsyncWithStatus<bool>(sudoModeKey);
-        
+
         if (found)
         {
             // Session is already in sudo mode
             return true;
         }
-        
+
         // Check if the user has a pin code
         var hasPinCode = await db.AccountAuthFactors
             .Where(f => f.AccountId == session.AccountId)
             .Where(f => f.EnabledAt != null)
             .Where(f => f.Type == AccountAuthFactorType.PinCode)
             .AnyAsync();
-            
+
         if (!hasPinCode)
         {
             // User doesn't have a pin code, no validation needed
             return true;
         }
-        
+
         // If pin code is not provided, we can't validate
         if (string.IsNullOrEmpty(pinCode))
         {
             return false;
         }
-        
+
         try
         {
             // Validate the pin code
             var isValid = await ValidatePinCode(session.AccountId, pinCode);
-            
+
             if (isValid)
             {
                 // Set session in sudo mode for 5 minutes
                 await cache.SetAsync(sudoModeKey, true, TimeSpan.FromMinutes(5));
             }
-            
+
             return isValid;
         }
         catch (InvalidOperationException)

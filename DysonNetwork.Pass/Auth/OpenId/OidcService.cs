@@ -227,7 +227,7 @@ public abstract class OidcService(
             Audiences = [ProviderName],
             Scopes = ["*"],
             AccountId = account.Id,
-            DeviceId = device.Id,
+            ClientId = device.Id,
             IpAddress = request.Connection.RemoteIpAddress?.ToString() ?? null,
             UserAgent = request.Request.Headers.UserAgent,
         };

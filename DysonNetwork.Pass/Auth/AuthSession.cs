@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using Point = NetTopologySuite.Geometries.Point;
@@ -68,12 +69,13 @@ public class AuthChallenge : ModelBase
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
+    [MaxLength(1024)] public string? DeviceId { get; set; } = string.Empty;
     public Point? Location { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
-    public Guid DeviceId { get; set; }
-    public AuthDevice Device { get; set; } = null!;
+    public Guid? ClientId { get; set; }
+    public AuthClient? Client { get; set; } = null!;
 
     public AuthChallenge Normalize()
     {
@@ -95,8 +97,20 @@ public class AuthChallenge : ModelBase
         Scopes = { Scopes },
         IpAddress = IpAddress,
         UserAgent = UserAgent,
-        DeviceId = DeviceId.ToString(),
+        DeviceId = Client.DeviceId.ToString(),
         Nonce = Nonce,
         AccountId = AccountId.ToString()
     };
+}
+
+[Index(nameof(DeviceId), IsUnique = true)]
+public class AuthClient : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(1024)] public string DeviceName { get; set; } = string.Empty;
+    [MaxLength(1024)] public string? DeviceLabel { get; set; }
+    [MaxLength(1024)] public string DeviceId { get; set; } = string.Empty;
+
+    public Guid AccountId { get; set; }
+    [JsonIgnore] public Account.Account Account { get; set; } = null!;
 }

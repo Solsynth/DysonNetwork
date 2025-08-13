@@ -68,7 +68,7 @@ public class AuthController(
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Location = geo.GetPointFromIp(ipAddress),
-            DeviceId = device.Id,
+            ClientId = device.Id,
             AccountId = account.Id
         }.Normalize();
 

@@ -37,15 +37,15 @@ public class AppDatabase(
 
     public DbSet<AuthSession> AuthSessions { get; set; }
     public DbSet<AuthChallenge> AuthChallenges { get; set; }
-    public DbSet<AuthDevice> AuthDevices { get; set; }
-    
+    public DbSet<AuthClient> AuthClients { get; set; }
+
     public DbSet<Wallet.Wallet> Wallets { get; set; }
     public DbSet<WalletPocket> WalletPockets { get; set; }
     public DbSet<Order> PaymentOrders { get; set; }
     public DbSet<Transaction> PaymentTransactions { get; set; }
     public DbSet<Subscription> WalletSubscriptions { get; set; }
     public DbSet<Coupon> WalletCoupons { get; set; }
- 
+
     public DbSet<Punishment> Punishments { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -89,7 +89,7 @@ public class AppDatabase(
             }
         });
 
-        optionsBuilder.UseSeeding((context, _) => {});
+        optionsBuilder.UseSeeding((context, _) => { });
 
         base.OnConfiguring(optionsBuilder);
     }
