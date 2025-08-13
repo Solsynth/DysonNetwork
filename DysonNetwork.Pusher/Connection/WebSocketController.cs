@@ -45,7 +45,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
                     Type = "error.dupe",
                     ErrorMessage = "Too many connections from the same device and account."
                 }.ToBytes()),
-                WebSocketMessageType.Close,
+                WebSocketMessageType.Binary,
                 true,
                 CancellationToken.None
             );
