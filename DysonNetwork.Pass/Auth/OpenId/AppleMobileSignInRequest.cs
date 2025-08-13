@@ -14,6 +14,7 @@ public class AppleMobileConnectRequest
 
 public class AppleMobileSignInRequest : AppleMobileConnectRequest
 {
-    [Required]
+    [Required] [MaxLength(512)]
     public required string DeviceId { get; set; }
+    [MaxLength(1024)] public string? DeviceName { get; set; }
 }

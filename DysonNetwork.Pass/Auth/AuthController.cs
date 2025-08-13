@@ -26,6 +26,7 @@ public class AuthController(
         [Required] public ClientPlatform Platform { get; set; }
         [Required] [MaxLength(256)] public string Account { get; set; } = null!;
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [MaxLength(1024)] public string? DeviceName { get; set; }
         public List<string> Audiences { get; set; } = new();
         public List<string> Scopes { get; set; } = new();
     }
@@ -57,7 +58,7 @@ public class AuthController(
             .FirstOrDefaultAsync();
         if (existingChallenge is not null) return existingChallenge;
 
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.Platform);
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
         var challenge = new AuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),

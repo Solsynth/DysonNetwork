@@ -191,7 +191,8 @@ public abstract class OidcService(
         OidcUserInfo userInfo,
         Account.Account account,
         HttpContext request,
-        string deviceId
+        string deviceId,
+        string? deviceName = null
     )
     {
         // Create or update the account connection
@@ -217,7 +218,7 @@ public abstract class OidcService(
 
         // Create a challenge that's already completed
         var now = SystemClock.Instance.GetCurrentInstant();
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, deviceId);
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, deviceId, deviceName, ClientPlatform.Ios);
         var challenge = new AuthChallenge
         {
             ExpiredAt = now.Plus(Duration.FromHours(1)),

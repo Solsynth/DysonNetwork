@@ -105,6 +105,7 @@ public class AuthService(
     public async Task<AuthClient> GetOrCreateDeviceAsync(
         Guid accountId,
         string deviceId,
+        string? deviceName = null,
         ClientPlatform platform = ClientPlatform.Unidentified
     )
     {
@@ -116,6 +117,7 @@ public class AuthService(
             DeviceId = deviceId,
             AccountId = accountId
         };
+        if (deviceName is not null) device.DeviceName = deviceName;
         db.AuthClients.Add(device);
         await db.SaveChangesAsync();
 

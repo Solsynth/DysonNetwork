@@ -96,7 +96,8 @@ public class OidcController(
                 userInfo,
                 account,
                 HttpContext,
-                request.DeviceId
+                request.DeviceId,
+                request.DeviceName
             );
 
             return Ok(challenge);
