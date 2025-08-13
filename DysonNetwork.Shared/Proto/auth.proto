@@ -30,7 +30,6 @@ message AuthChallenge {
   int32 step_remain = 3;
   int32 step_total = 4;
   int32 failed_attempts = 5;
-  ChallengePlatform platform = 6;
   ChallengeType type = 7;
   repeated string blacklist_factors = 8;
   repeated string audiences = 9;

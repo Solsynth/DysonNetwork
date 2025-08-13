@@ -223,7 +223,6 @@ public abstract class OidcService(
             ExpiredAt = now.Plus(Duration.FromHours(1)),
             StepTotal = await auth.DetectChallengeRisk(request.Request, account),
             Type = ChallengeType.Oidc,
-            Platform = ChallengePlatform.Unidentified,
             Audiences = [ProviderName],
             Scopes = ["*"],
             AccountId = account.Id,

@@ -30,6 +30,7 @@ public class AuthServiceGrpc(
         session = await db.AuthSessions
             .AsNoTracking()
             .Include(e => e.Challenge)
+            .ThenInclude(e => e.Client)
             .Include(e => e.Account)
             .ThenInclude(e => e.Profile)
             .FirstOrDefaultAsync(s => s.Id == sessionId);

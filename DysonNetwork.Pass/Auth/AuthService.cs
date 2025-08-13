@@ -73,7 +73,8 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<AuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time, Guid? customAppId = null)
+    public async Task<AuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time,
+        Guid? customAppId = null)
     {
         var challenge = new AuthChallenge
         {
@@ -101,12 +102,17 @@ public class AuthService(
         return session;
     }
 
-    public async Task<AuthClient> GetOrCreateDeviceAsync(Guid accountId, string deviceId)
+    public async Task<AuthClient> GetOrCreateDeviceAsync(
+        Guid accountId,
+        string deviceId,
+        ClientPlatform platform = ClientPlatform.Unidentified
+    )
     {
         var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
         if (device is not null) return device;
         device = new AuthClient
         {
+            Platform = platform,
             DeviceId = deviceId,
             AccountId = accountId
         };

@@ -75,6 +75,7 @@ public class DysonTokenAuthHandler(
                 session = await database.AuthSessions
                     .Where(e => e.Id == sessionId)
                     .Include(e => e.Challenge)
+                    .ThenInclude(e => e.Client)
                     .Include(e => e.Account)
                     .ThenInclude(e => e.Profile)
                     .FirstOrDefaultAsync();

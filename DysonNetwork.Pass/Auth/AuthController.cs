@@ -23,7 +23,7 @@ public class AuthController(
     
     public class ChallengeRequest
     {
-        [Required] public ChallengePlatform Platform { get; set; }
+        [Required] public ClientPlatform Platform { get; set; }
         [Required] [MaxLength(256)] public string Account { get; set; } = null!;
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         public List<string> Audiences { get; set; } = new();
@@ -57,12 +57,11 @@ public class AuthController(
             .FirstOrDefaultAsync();
         if (existingChallenge is not null) return existingChallenge;
 
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId);
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.Platform);
         var challenge = new AuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
             StepTotal = await auth.DetectChallengeRisk(Request, account),
-            Platform = request.Platform,
             Audiences = request.Audiences,
             Scopes = request.Scopes,
             IpAddress = ipAddress,

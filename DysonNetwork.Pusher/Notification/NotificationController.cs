@@ -81,7 +81,7 @@ public class NotificationController(
 
         var result =
             await nty.SubscribeDevice(
-                currentSession.Challenge.DeviceId!,
+                currentSession.Challenge.DeviceId,
                 request.DeviceToken,
                 request.Provider,
                 currentUser

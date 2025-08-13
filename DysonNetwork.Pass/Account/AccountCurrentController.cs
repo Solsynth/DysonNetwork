@@ -439,7 +439,7 @@ public class AccountCurrentController(
 
     [HttpGet("devices")]
     [Authorize]
-    public async Task<ActionResult<List<AuthClient>>> GetDevices()
+    public async Task<ActionResult<List<AuthClientWithChallenge>>> GetDevices()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
             HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
@@ -450,7 +450,18 @@ public class AccountCurrentController(
             .Where(device => device.AccountId == currentUser.Id)
             .ToListAsync();
 
-        return Ok(devices);
+        var challengeDevices = devices.Select(AuthClientWithChallenge.FromClient).ToList();
+        var deviceIds = challengeDevices.Select(x => x.Id).ToList();
+
+        var authChallenges = await db.AuthChallenges
+            .Where(c => c.ClientId != null && deviceIds.Contains(c.ClientId.Value))
+            .GroupBy(c => c.ClientId)
+            .ToDictionaryAsync(c => c.Key!.Value, c => c.ToList());
+        foreach (var challengeDevice in challengeDevices)
+            if (authChallenges.TryGetValue(challengeDevice.Id, out var challenge))
+                challengeDevice.Challenges = challenge;
+
+        return Ok(challengeDevices);
     }
 
     [HttpGet("sessions")]
