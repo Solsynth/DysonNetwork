@@ -1,6 +1,7 @@
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
 using EFCore.BulkExtensions;
+using NodaTime;
 using Quartz;
 
 namespace DysonNetwork.Pass.Handlers;
@@ -11,8 +12,13 @@ public class ActionLogFlushHandler(IServiceProvider serviceProvider) : IFlushHan
     {
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-
-        await db.BulkInsertAsync(items, config => config.ConflictOption = ConflictOption.Ignore);
+        
+        await db.BulkInsertAsync(items.Select(x =>
+        {
+            x.CreatedAt = SystemClock.Instance.GetCurrentInstant();
+            x.UpdatedAt = x.CreatedAt;
+            return x;
+        }), config => config.ConflictOption = ConflictOption.Ignore);
     }
 }
 

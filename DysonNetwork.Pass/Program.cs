@@ -1,4 +1,5 @@
 using DysonNetwork.Pass;
+using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Pages.Data;
 using DysonNetwork.Pass.Startup;
 using DysonNetwork.Shared.Http;
@@ -44,6 +45,13 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
+
+    _ = Task.Run(async () =>
+    {
+        var migrationScope = app.Services.CreateScope();
+        var migrationAuthService = migrationScope.ServiceProvider.GetRequiredService<AuthService>();
+        await migrationAuthService.MigrateDeviceIdToClient();
+    });
 }
 
 // Configure application middleware pipeline

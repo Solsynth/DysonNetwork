@@ -12,7 +12,8 @@ public class AuthService(
     IConfiguration config,
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<AuthService> logger
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
@@ -298,6 +299,49 @@ public class AuthService(
         catch
         {
             return false;
+        }
+    }
+
+    public async Task MigrateDeviceIdToClient()
+    {
+        logger.LogInformation("Migrating device IDs to clients...");
+        
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var challenges = await db.AuthChallenges
+                .Where(c => c.DeviceId != null && c.ClientId == null)
+                .ToListAsync();
+            var clients = challenges.GroupBy(c => c.DeviceId)
+                .Select(c => new AuthClient
+                {
+                    DeviceId = c.Key!,
+                    AccountId = c.First().AccountId,
+                    DeviceName = c.First().UserAgent ?? string.Empty,
+                    Platform = ClientPlatform.Unidentified
+                })
+                .ToList();
+            await db.AuthClients.AddRangeAsync(clients);
+            await db.SaveChangesAsync();
+
+            var clientsMap = clients.ToDictionary(c => c.DeviceId, c => c.Id);
+            foreach (var challenge in challenges.Where(challenge => challenge.ClientId == null && challenge.DeviceId != null))
+            {
+                if (clientsMap.TryGetValue(challenge.DeviceId!, out var clientId))
+                    challenge.ClientId = clientId;
+                db.AuthChallenges.Update(challenge);
+            }
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            logger.LogInformation("Migrated {Count} device IDs to clients", challenges.Count);
+        }
+        catch
+        {
+            logger.LogError("Failed to migrate device IDs to clients");
+            await transaction.RollbackAsync();
+            throw;
         }
     }
 
