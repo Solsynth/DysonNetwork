@@ -156,8 +156,8 @@ public class PushService
         // Pushing the notification
         var subscribers = await _db.PushSubscriptions
             .Where(s => s.AccountId == notification.AccountId)
+            .AsNoTracking()
             .ToListAsync();
-
         await _PushNotification(notification, subscribers);
     }
 
@@ -208,6 +208,7 @@ public class PushService
 
         var subscribers = await _db.PushSubscriptions
             .Where(s => accounts.Contains(s.AccountId))
+            .AsNoTracking()
             .ToListAsync();
         await _PushNotification(notification, subscribers);
     }
@@ -245,7 +246,7 @@ public class PushService
                             notification.Content ?? string.Empty).Trim();
                     }
 
-                    await _fcm.SendAsync(new Dictionary<string, object>
+                    var fcmResult = await _fcm.SendAsync(new Dictionary<string, object>
                     {
                         ["message"] = new Dictionary<string, object>
                         {
@@ -263,6 +264,9 @@ public class PushService
                             }
                         }
                     });
+
+                    if (fcmResult.Error != null)
+                        throw new Exception($"Notification pushed failed ({fcmResult.StatusCode}) {fcmResult.Error}");
                     break;
 
                 case PushProvider.Apple:
@@ -290,13 +294,16 @@ public class PushService
                         ["meta"] = notification.Meta
                     };
 
-                    await _apns.SendAsync(
+                    var apnResult = await _apns.SendAsync(
                         payload,
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
                         apnsPriority: notification.Priority,
                         apnPushType: ApnPushType.Alert
                     );
+                    if (apnResult.Error != null)
+                        throw new Exception($"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}");
+
                     break;
 
                 default:
