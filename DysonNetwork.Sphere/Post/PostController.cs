@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,8 @@ public class PostController(
     PublisherService pub,
     AccountService.AccountServiceClient accounts,
     ActionLogService.ActionLogServiceClient als,
-    PollService polls
+    PollService polls,
+    RealmService rs
 )
     : ControllerBase
 {
@@ -322,6 +324,7 @@ public class PostController(
         public Instant? PublishedAt { get; set; }
         public Guid? RepliedPostId { get; set; }
         public Guid? ForwardedPostId { get; set; }
+        public Guid? RealmId { get; set; }
 
         public Guid? PollId { get; set; }
     }
@@ -383,6 +386,15 @@ public class PostController(
             if (forwardedPost is null) return BadRequest("Forwarded post was not found.");
             post.ForwardedPost = forwardedPost;
             post.ForwardedPostId = forwardedPost.Id;
+        }
+
+        if (request.RealmId is not null)
+        {
+            var realm = await db.Realms.FindAsync(request.RealmId.Value);
+            if (realm is null) return BadRequest("Realm was not found.");
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
+                return StatusCode(403, "You are not a member of this realm.");
+            post.RealmId = realm.Id;
         }
 
         if (request.PollId.HasValue)
@@ -537,6 +549,8 @@ public class PostController(
         if (request.Type is not null) post.Type = request.Type.Value;
         if (request.Meta is not null) post.Meta = request.Meta;
 
+        // All the fields are updated when the request contains the specific fields
+        // But the Poll can be null, so it will be updated whatever it included in requests or not
         if (request.PollId.HasValue)
         {
             try
@@ -556,6 +570,30 @@ public class PostController(
             {
                 return BadRequest(ex.Message);
             }
+        }
+        else
+        {
+            post.Meta ??= new Dictionary<string, object>();
+            if (!post.Meta.TryGetValue("embeds", out var existingEmbeds) ||
+                existingEmbeds is not List<EmbeddableBase>)
+                post.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+            // Remove all old poll embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+        }
+
+        // The realm is the same as well as the poll
+        if (request.RealmId is not null)
+        {
+            var realm = await db.Realms.FindAsync(request.RealmId.Value);
+            if (realm is null) return BadRequest("Realm was not found.");
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
+                return StatusCode(403, "You are not a member of this realm.");
+            post.RealmId = realm.Id;
+        }
+        else
+        {
+            post.RealmId = null;
         }
 
         try

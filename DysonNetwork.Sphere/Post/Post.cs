@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Activity;
 using NodaTime;
 using NpgsqlTypes;
@@ -53,6 +52,9 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Post? RepliedPost { get; set; }
     public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
+
+    public Guid? RealmId { get; set; }
+    public Realm.Realm? Realm { get; set; }
 
     [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
 
