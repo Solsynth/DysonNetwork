@@ -509,6 +509,23 @@ public class AccountCurrentController(
         }
     }
 
+    [HttpDelete("devices/{deviceId}")]
+    [Authorize]
+    public async Task<ActionResult<AuthSession>> DeleteDevice(string deviceId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.DeleteDevice(currentUser, deviceId);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpDelete("sessions/current")]
     [Authorize]
     public async Task<ActionResult<AuthSession>> DeleteCurrentSession()
