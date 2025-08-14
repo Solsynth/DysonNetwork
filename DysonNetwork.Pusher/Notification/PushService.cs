@@ -152,7 +152,7 @@ public class PushService
             notification.Id,
             notification.Meta
         );
-        
+
         _ws.SendPacketToAccount(notification.AccountId.ToString(), new Connection.WebSocketPacket
         {
             Type = "notifications.new",
@@ -183,8 +183,8 @@ public class PushService
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         await _db.Notifications
-          .Where(n => n.AccountId == accountId)
-          .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
+            .Where(n => n.AccountId == accountId)
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
     public async Task SendNotificationBatch(Notification notification, List<Guid> accounts, bool save = false)
@@ -211,7 +211,7 @@ public class PushService
             notification.Id,
             notification.Meta
         );
-        
+
         foreach (var account in accounts)
         {
             notification.AccountId = account;
@@ -259,7 +259,8 @@ public class PushService
                     {
                         body = string.Join("\n",
                             notification.Subtitle ?? string.Empty,
-                            notification.Content ?? string.Empty).Trim();
+                            notification.Content ?? string.Empty
+                        ).Trim();
                     }
 
                     var fcmResult = await _fcm.SendAsync(new Dictionary<string, object>
@@ -272,12 +273,12 @@ public class PushService
                                 ["title"] = notification.Title ?? string.Empty,
                                 ["body"] = body
                             },
-                            ["data"] = new Dictionary<string, object>
-                            {
-                                ["id"] = notification.Id,
-                                ["topic"] = notification.Topic,
-                                ["meta"] = notification.Meta
-                            }
+                            // ["data"] = new Dictionary<string, object>
+                            // {
+                            //     ["Id"] = notification.Id,
+                            //     ["Topic"] = notification.Topic,
+                            //     ["Meta"] = notification.Meta
+                            // }
                         }
                     });
 
