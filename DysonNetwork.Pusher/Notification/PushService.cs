@@ -111,7 +111,7 @@ public class PushService
         return subscription;
     }
 
-    public async Task SendNotification(Account account,
+    public void SendNotification(Account account,
         string topic,
         string? title = null,
         string? subtitle = null,
@@ -152,6 +152,12 @@ public class PushService
             notification.Id,
             notification.Meta
         );
+        
+        _ws.SendPacketToAccount(notification.AccountId.ToString(), new Connection.WebSocketPacket
+        {
+            Type = "notifications.new",
+            Data = notification
+        });
 
         // Pushing the notification
         var subscribers = await _db.PushSubscriptions
@@ -205,6 +211,16 @@ public class PushService
             notification.Id,
             notification.Meta
         );
+        
+        foreach (var account in accounts)
+        {
+            notification.AccountId = account;
+            _ws.SendPacketToAccount(account.ToString(), new Connection.WebSocketPacket
+            {
+                Type = "notifications.new",
+                Data = notification
+            });
+        }
 
         var subscribers = await _db.PushSubscriptions
             .Where(s => accounts.Contains(s.AccountId))
