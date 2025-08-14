@@ -191,7 +191,7 @@ public class PushService
             }).ToList();
             await _db.BulkInsertAsync(notifications);
         }
-        
+
         _logger.LogInformation(
             "Delivering notification in batch: {NotificationTopic} #{NotificationId} with meta {NotificationMeta}",
             notification.Topic,
@@ -304,6 +304,6 @@ public class PushService
         }
 
         _logger.LogInformation(
-            $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId}");
+            $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}");
     }
 }
