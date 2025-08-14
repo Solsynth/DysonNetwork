@@ -94,9 +94,9 @@ public class PostController(
                 query = query.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(queryTerm)));
             else
                 query = query.Where(p =>
-                    (p.Title != null && EF.Functions.ILike(p.Title, $"%{query}%")) ||
-                    (p.Description != null && EF.Functions.ILike(p.Description, $"%{query}%")) ||
-                    (p.Content != null && EF.Functions.ILike(p.Content, $"%{query}%"))
+                    (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%")) ||
+                    (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%")) ||
+                    (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
                 );
         }
 
