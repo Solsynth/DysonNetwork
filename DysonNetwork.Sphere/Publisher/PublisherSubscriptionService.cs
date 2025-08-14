@@ -78,30 +78,25 @@ public class PublisherSubscriptionService(
         queryRequest.Id.AddRange(subscribers.DistinctBy(s => s.AccountId).Select(m => m.AccountId.ToString()));
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
-        var notification = new PushNotification
-        {
-            Topic = "posts.new",
-            Title = localizer["PostSubscriptionTitle", post.Publisher.Name, title],
-            Body = message,
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
-            IsSavable = true,
-            ActionUri = $"/posts/{post.Id}"
-        };
-
         // Notify each subscriber
         var notifiedCount = 0;
-        foreach (var target in queryResponse.Accounts)
+        foreach (var target in queryResponse.Accounts.GroupBy(x => x.Language))
         {
             try
             {
-                CultureService.SetCultureInfo(target);
-                await pusher.SendPushNotificationToUserAsync(
-                    new SendPushNotificationToUserRequest
-                    {
-                        UserId = target.Id,
-                        Notification = notification
-                    }
-                );
+                CultureService.SetCultureInfo(target.Key);
+                var notification = new PushNotification
+                {
+                    Topic = "posts.new",
+                    Title = localizer["PostSubscriptionTitle", post.Publisher.Name, title],
+                    Body = message,
+                    Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
+                    IsSavable = true,
+                    ActionUri = $"/posts/{post.Id}"
+                };
+                var request = new SendPushNotificationToUsersRequest { Notification = notification };
+                request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
+                await pusher.SendPushNotificationToUsersAsync(request);
                 notifiedCount++;
             }
             catch (Exception)
