@@ -5,7 +5,7 @@ using Quartz;
 
 namespace DysonNetwork.Pusher.Notification;
 
-public class NotificationFlushHandler(AppDatabase db, Logger<NotificationFlushHandler> logger) : IFlushHandler<Notification>
+public class NotificationFlushHandler(AppDatabase db) : IFlushHandler<Notification>
 {
     public async Task FlushAsync(IReadOnlyList<Notification> items)
     {
@@ -15,7 +15,6 @@ public class NotificationFlushHandler(AppDatabase db, Logger<NotificationFlushHa
             x.UpdatedAt = x.CreatedAt;
             return x;
         }), config => config.ConflictOption = ConflictOption.Ignore);
-        logger.LogInformation("Stored {Count} notifications", items.Count);
     }
 }
 
