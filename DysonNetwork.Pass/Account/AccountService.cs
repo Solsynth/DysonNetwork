@@ -516,6 +516,9 @@ public class AccountService(
             new UnsubscribePushNotificationsRequest() { DeviceId = device.DeviceId }
         );
 
+        db.AuthClients.Remove(device);
+        await db.SaveChangesAsync();
+
         var sessions = await db.AuthSessions
             .Include(s => s.Challenge)
             .Where(s => s.Challenge.ClientId == device.Id)
