@@ -42,6 +42,7 @@ public class PostController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "realm")] string? realmName = null,
         [FromQuery(Name = "type")] int? type = null,
         [FromQuery(Name = "categories")] List<string>? categories = null,
         [FromQuery(Name = "tags")] List<string>? tags = null,
@@ -66,13 +67,16 @@ public class PostController(
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+        var realm = realmName == null ? null : await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmName);
 
         var query = db.Posts
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .AsQueryable();
         if (publisher != null)
-            query = query.Where(p => p.Publisher.Id == publisher.Id);
+            query = query.Where(p => p.PublisherId == publisher.Id);
+        if (realm != null)
+            query = query.Where(p => p.RealmId == realm.Id);
         if (type != null)
             query = query.Where(p => p.Type == (PostType)type);
         if (categories is { Count: > 0 })
