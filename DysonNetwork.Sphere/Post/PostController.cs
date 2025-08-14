@@ -30,11 +30,11 @@ public class PostController(
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
-        
+
         var posts = await ps.ListFeaturedPostsAsync(currentUser);
         return Ok(posts);
     }
-    
+
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts(
         [FromQuery] int offset = 0,
@@ -42,7 +42,10 @@ public class PostController(
         [FromQuery(Name = "pub")] string? pubName = null,
         [FromQuery(Name = "type")] int? type = null,
         [FromQuery(Name = "categories")] List<string>? categories = null,
-        [FromQuery(Name = "tags")] List<string>? tags = null
+        [FromQuery(Name = "tags")] List<string>? tags = null,
+        [FromQuery(Name = "query")] string? queryTerm = null,
+        [FromQuery(Name = "vector")] bool queryVector = false,
+        [FromQuery(Name = "replies")] bool includeReplies = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -52,7 +55,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -72,6 +75,21 @@ public class PostController(
             query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
         if (tags is { Count: > 0 })
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
+        if (!includeReplies)
+            query = query.Where(e => e.RepliedPostId == null);
+
+        if (!string.IsNullOrWhiteSpace(queryTerm))
+        {
+            if (queryVector)
+                query = query.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(queryTerm)));
+            else
+                query = query.Where(p =>
+                    (p.Title != null && EF.Functions.ILike(p.Title, $"%{query}%")) ||
+                    (p.Description != null && EF.Functions.ILike(p.Description, $"%{query}%")) ||
+                    (p.Content != null && EF.Functions.ILike(p.Content, $"%{query}%"))
+                );
+        }
+
         query = query
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true);
 
@@ -80,7 +98,6 @@ public class PostController(
         var posts = await query
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
-            .Where(e => e.RepliedPostId == null)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -101,7 +118,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -124,6 +141,7 @@ public class PostController(
     }
 
     [HttpGet("search")]
+    [Obsolete("Use the new ListPost API")]
     public async Task<ActionResult<List<Post>>> SearchPosts(
         [FromQuery] string query,
         [FromQuery] int offset = 0,
@@ -140,7 +158,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -207,7 +225,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -243,7 +261,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -418,7 +436,7 @@ public class PostController(
 
         var friendsResponse =
             await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id.ToString() });
+            { AccountId = currentUser.Id.ToString() });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
