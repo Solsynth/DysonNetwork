@@ -24,7 +24,6 @@ builder.Services.AddAppFlushHandlers();
 
 // Add business services
 builder.Services.AddAppBusinessServices();
-builder.Services.AddPushServices(builder.Configuration);
 
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();

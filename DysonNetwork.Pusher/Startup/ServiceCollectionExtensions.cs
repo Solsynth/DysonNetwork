@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
             options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
-        
+
         // Register gRPC reflection for service discovery
         services.AddGrpc();
 
@@ -127,6 +127,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
+        services.AddScoped<NotificationFlushHandler>();
 
         return services;
     }
@@ -138,14 +139,5 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PushService>();
 
         return services;
-    }
-    
-    public static void AddPushServices(this IServiceCollection services, IConfiguration configuration)
-    {
-        services.Configure<ApnSettings>(configuration.GetSection("PushNotify:Apple"));
-        services.AddHttpClient<ApnSender>();
-
-        services.Configure<FirebaseSettings>(configuration.GetSection("PushNotify:Firebase"));
-        services.AddHttpClient<FirebaseSettings>();
     }
 }

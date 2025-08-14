@@ -1,6 +1,7 @@
 using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Pusher.Connection;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Pusher.Notification;
 public class PushService
 {
     private readonly AppDatabase _db;
+    private readonly FlushBufferService _fbs;
     private readonly WebSocketService _ws;
     private readonly ILogger<PushService> _logger;
     private readonly FirebaseSender? _fcm;
@@ -20,6 +22,7 @@ public class PushService
     public PushService(
         IConfiguration config,
         AppDatabase db,
+        FlushBufferService fbs,
         WebSocketService ws,
         IHttpClientFactory httpFactory,
         ILogger<PushService> logger
@@ -50,6 +53,7 @@ public class PushService
         }
 
         _db = db;
+        _fbs = fbs;
         _ws = ws;
         _logger = logger;
     }
@@ -112,11 +116,12 @@ public class PushService
         string? title = null,
         string? subtitle = null,
         string? content = null,
-        Dictionary<string, object?> meta = null,
+        Dictionary<string, object?>? meta = null,
         string? actionUri = null,
         bool isSilent = false,
         bool save = true)
     {
+        meta ??= [];
         if (title is null && subtitle is null && content is null)
             throw new ArgumentException("Unable to send notification that completely empty.");
 
@@ -134,10 +139,7 @@ public class PushService
         };
 
         if (save)
-        {
-            _db.Add(notification);
-            await _db.SaveChangesAsync();
-        }
+            _fbs.Enqueue(notification);
 
         if (!isSilent) _ = DeliveryNotification(notification);
     }
@@ -174,8 +176,7 @@ public class PushService
     public async Task SendNotificationBatch(Notification notification, List<Guid> accounts, bool save = false)
     {
         if (save)
-        {
-            var notifications = accounts.Select(x =>
+            accounts.ForEach(x =>
             {
                 var newNotification = new Notification
                 {
@@ -187,10 +188,8 @@ public class PushService
                     Priority = notification.Priority,
                     AccountId = x
                 };
-                return newNotification;
-            }).ToList();
-            await _db.BulkInsertAsync(notifications);
-        }
+                _fbs.Enqueue(newNotification);
+            });
 
         _logger.LogInformation(
             "Delivering notification in batch: {NotificationTopic} #{NotificationId} with meta {NotificationMeta}",
