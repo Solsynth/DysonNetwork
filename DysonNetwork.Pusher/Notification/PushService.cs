@@ -173,6 +173,14 @@ public class PushService
             );
     }
 
+    public async Task MarkAllNotificationsViewed(Guid accountId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await _db.Notifications
+          .Where(n => n.AccountId == accountId)
+          .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
+    }
+
     public async Task SendNotificationBatch(Notification notification, List<Guid> accounts, bool save = false)
     {
         if (save)
