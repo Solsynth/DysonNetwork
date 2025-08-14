@@ -45,7 +45,8 @@ public class PostController(
         [FromQuery(Name = "tags")] List<string>? tags = null,
         [FromQuery(Name = "query")] string? queryTerm = null,
         [FromQuery(Name = "vector")] bool queryVector = false,
-        [FromQuery(Name = "replies")] bool includeReplies = false
+        [FromQuery(Name = "replies")] bool includeReplies = false,
+        [FromQuery(Name = "media")] bool onlyMedia = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -77,6 +78,8 @@ public class PostController(
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (!includeReplies)
             query = query.Where(e => e.RepliedPostId == null);
+        if (onlyMedia)
+            query = query.Where(e => e.Attachments.Count > 0);
 
         if (!string.IsNullOrWhiteSpace(queryTerm))
         {
