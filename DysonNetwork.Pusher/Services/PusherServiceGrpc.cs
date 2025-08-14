@@ -85,7 +85,7 @@ public class PusherServiceGrpc(
         ServerCallContext context)
     {
         var account = await accountsHelper.GetAccount(Guid.Parse(request.UserId));
-        await pushService.SendNotification(
+        pushService.SendNotification(
             account,
             request.Notification.Topic,
             request.Notification.Title,
