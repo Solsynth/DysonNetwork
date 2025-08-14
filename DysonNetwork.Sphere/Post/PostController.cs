@@ -46,7 +46,8 @@ public class PostController(
         [FromQuery(Name = "query")] string? queryTerm = null,
         [FromQuery(Name = "vector")] bool queryVector = false,
         [FromQuery(Name = "replies")] bool includeReplies = false,
-        [FromQuery(Name = "media")] bool onlyMedia = false
+        [FromQuery(Name = "media")] bool onlyMedia = false,
+        [FromQuery(Name = "shuffle")] bool shuffle = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -98,10 +99,15 @@ public class PostController(
 
         var totalCount = await query
             .CountAsync();
+
+        if (shuffle)
+            query = query.OrderBy(e => EF.Functions.Random());
+        else
+            query = query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
+
         var posts = await query
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
-            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
