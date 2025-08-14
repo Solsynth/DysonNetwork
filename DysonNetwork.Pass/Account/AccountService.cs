@@ -464,7 +464,9 @@ public class AccountService(
 
     public async Task<AuthClient> UpdateDeviceName(Account account, string deviceId, string label)
     {
-        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == account.Id);
+        var device = await db.AuthClients.FirstOrDefaultAsync(
+            c => c.DeviceId == deviceId && c.AccountId == account.Id
+        );
         if (device is null) throw new InvalidOperationException("Device was not found.");
 
         device.DeviceLabel = label;
@@ -508,7 +510,9 @@ public class AccountService(
 
     public async Task DeleteDevice(Account account, string deviceId)
     {
-        var device = await db.AuthClients.FirstOrDefaultAsync(c => c.DeviceId == deviceId && c.AccountId == account.Id);
+        var device = await db.AuthClients.FirstOrDefaultAsync(
+            c => c.DeviceId == deviceId && c.AccountId == account.Id
+        );
         if (device is null)
             throw new InvalidOperationException("Device not found.");
 
