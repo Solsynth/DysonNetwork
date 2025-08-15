@@ -20,12 +20,12 @@ public class AuthController(
 ) : ControllerBase
 {
     private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
-    
+
     public class ChallengeRequest
     {
         [Required] public ClientPlatform Platform { get; set; }
-        [Required] [MaxLength(256)] public string Account { get; set; } = null!;
-        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [Required][MaxLength(256)] public string Account { get; set; } = null!;
+        [Required][MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
         public List<string> Audiences { get; set; } = new();
         public List<string> Scopes { get; set; } = new();
@@ -47,6 +47,8 @@ public class AuthController(
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+
+        request.DeviceName ??= userAgent;
 
         // Trying to pick up challenges from the same IP address and user agent
         var existingChallenge = await db.AuthChallenges
