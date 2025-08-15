@@ -970,7 +970,7 @@ public class ChatRoomController(
             ? localizer["ChatInviteDirectBody", sender.Nick]
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
-        CultureService.SetCultureInfo(member.Account.Language);
+        CultureService.SetCultureInfo(member.Account!.Language);
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {

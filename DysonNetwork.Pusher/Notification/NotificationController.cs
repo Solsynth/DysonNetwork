@@ -127,7 +127,7 @@ public class NotificationController(
         [Required][MaxLength(1024)] public string Title { get; set; } = null!;
         [MaxLength(2048)] public string? Subtitle { get; set; }
         [Required][MaxLength(4096)] public string Content { get; set; } = null!;
-        public Dictionary<string, object>? Meta { get; set; }
+        public Dictionary<string, object?>? Meta { get; set; }
         public int Priority { get; set; } = 10;
     }
 
@@ -153,7 +153,7 @@ public class NotificationController(
                 Title = request.Title,
                 Subtitle = request.Subtitle,
                 Content = request.Content,
-                Meta = request.Meta,
+                Meta = request.Meta ?? [],
             },
             request.AccountId,
             save

@@ -24,37 +24,37 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Publisher.Publisher> Publishers { get; set; }
-    public DbSet<PublisherMember> PublisherMembers { get; set; }
-    public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; }
-    public DbSet<PublisherFeature> PublisherFeatures { get; set; }
+    public DbSet<Publisher.Publisher> Publishers { get; set; } = null!;
+    public DbSet<PublisherMember> PublisherMembers { get; set; } = null!;
+    public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; } = null!;
+    public DbSet<PublisherFeature> PublisherFeatures { get; set; } = null!;
 
-    public DbSet<Post.Post> Posts { get; set; }
-    public DbSet<PostReaction> PostReactions { get; set; }
-    public DbSet<PostTag> PostTags { get; set; }
-    public DbSet<PostCategory> PostCategories { get; set; }
-    public DbSet<PostCollection> PostCollections { get; set; }
-    public DbSet<PostFeaturedRecord> PostFeaturedRecords { get; set; }
+    public DbSet<Post.Post> Posts { get; set; } = null!;
+    public DbSet<PostReaction> PostReactions { get; set; } = null!;
+    public DbSet<PostTag> PostTags { get; set; } = null!;
+    public DbSet<PostCategory> PostCategories { get; set; } = null!;
+    public DbSet<PostCollection> PostCollections { get; set; } = null!;
+    public DbSet<PostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
 
-    public DbSet<Poll.Poll> Polls { get; set; }
-    public DbSet<Poll.PollQuestion> PollQuestions { get; set; }
-    public DbSet<Poll.PollAnswer> PollAnswers { get; set; }
+    public DbSet<Poll.Poll> Polls { get; set; } = null!;
+    public DbSet<Poll.PollQuestion> PollQuestions { get; set; } = null!;
+    public DbSet<Poll.PollAnswer> PollAnswers { get; set; } = null!;
 
-    public DbSet<Realm.Realm> Realms { get; set; }
-    public DbSet<RealmMember> RealmMembers { get; set; }
+    public DbSet<Realm.Realm> Realms { get; set; } = null!;
+    public DbSet<RealmMember> RealmMembers { get; set; } = null!;
 
-    public DbSet<ChatRoom> ChatRooms { get; set; }
-    public DbSet<ChatMember> ChatMembers { get; set; }
-    public DbSet<Message> ChatMessages { get; set; }
-    public DbSet<RealtimeCall> ChatRealtimeCall { get; set; }
-    public DbSet<MessageReaction> ChatReactions { get; set; }
+    public DbSet<ChatRoom> ChatRooms { get; set; } = null!;
+    public DbSet<ChatMember> ChatMembers { get; set; } = null!;
+    public DbSet<Message> ChatMessages { get; set; } = null!;
+    public DbSet<RealtimeCall> ChatRealtimeCall { get; set; } = null!;
+    public DbSet<MessageReaction> ChatReactions { get; set; } = null!;
 
-    public DbSet<Sticker.Sticker> Stickers { get; set; }
-    public DbSet<StickerPack> StickerPacks { get; set; }
-    public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; }
+    public DbSet<Sticker.Sticker> Stickers { get; set; } = null!;
+    public DbSet<StickerPack> StickerPacks { get; set; } = null!;
+    public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; } = null!;
 
-    public DbSet<WebReader.WebArticle> WebArticles { get; set; }
-    public DbSet<WebReader.WebFeed> WebFeeds { get; set; }
+    public DbSet<WebReader.WebArticle> WebArticles { get; set; } = null!;
+    public DbSet<WebReader.WebFeed> WebFeeds { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

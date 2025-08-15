@@ -8,9 +8,6 @@ using Google.Protobuf.WellKnownTypes;
 using NodaTime.Serialization.Protobuf;
 using NodaTime;
 
-using DysonNetwork.Shared.Proto;
-using Google.Protobuf.WellKnownTypes;
-using NodaTime.Serialization.Protobuf;
 using VerificationMark = DysonNetwork.Shared.Data.VerificationMark;
 
 namespace DysonNetwork.Develop.Identity;
@@ -134,8 +131,8 @@ public class CustomAppSecret : ModelBase
 
     public Guid AppId { get; set; }
     public CustomApp App { get; set; } = null!;
-    
-    
+
+
     public static CustomAppSecret FromProtoValue(DysonNetwork.Shared.Proto.CustomAppSecret p)
     {
         return new CustomAppSecret

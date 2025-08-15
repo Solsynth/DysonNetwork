@@ -383,7 +383,7 @@ public partial class ChatService(
 
         // Get keys of messages to remove (where sender is not found)
         var messagesToRemove = messages
-            .Where(m => messageSenders.All(s => s.Id != m.Value.SenderId))
+            .Where(m => messageSenders.All(s => s.Id != m.Value!.SenderId))
             .Select(m => m.Key)
             .ToList();
 

@@ -25,7 +25,7 @@ public class ChatRoom : ModelBase, IIdentifiedResource
     // Outdated fields, for backward compability
     [MaxLength(32)] public string? PictureId { get; set; }
     [MaxLength(32)] public string? BackgroundId { get; set; }
-    
+
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
@@ -84,7 +84,7 @@ public class ChatMember : ModelBase
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;
-    
+
     /// <summary>
     /// The break time is the user doesn't receive any message from this member for a while.
     /// Expect mentioned him or her.
@@ -115,7 +115,7 @@ public class ChatMemberTransmissionObject : ModelBase
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
     public bool IsBot { get; set; } = false;
-    
+
     public Instant? BreakUntil { get; set; }
     public Instant? TimeoutUntil { get; set; }
     public ChatTimeoutCause? TimeoutCause { get; set; }
@@ -127,7 +127,7 @@ public class ChatMemberTransmissionObject : ModelBase
             Id = member.Id,
             ChatRoomId = member.ChatRoomId,
             AccountId = member.AccountId,
-            Account = member.Account,
+            Account = member.Account!,
             Nick = member.Nick,
             Role = member.Role,
             Notify = member.Notify,
