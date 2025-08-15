@@ -3,7 +3,6 @@ using CorePush.Firebase;
 using DysonNetwork.Pusher.Connection;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -111,7 +110,7 @@ public class PushService
         return subscription;
     }
 
-    public void SendNotification(Account account,
+    public async Task SendNotification(Account account,
         string topic,
         string? title = null,
         string? subtitle = null,
@@ -141,7 +140,7 @@ public class PushService
         if (save)
             _fbs.Enqueue(notification);
 
-        if (!isSilent) _ = DeliveryNotification(notification);
+        if (!isSilent) await DeliveryNotification(notification);
     }
 
     private async Task DeliveryNotification(Notification notification)
