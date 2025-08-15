@@ -101,7 +101,6 @@ public class AuthChallenge : ModelBase
     };
 }
 
-[Index(nameof(DeviceId), IsUnique = true)]
 public class AuthClient : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -117,7 +116,7 @@ public class AuthClient : ModelBase
 public class AuthClientWithChallenge : AuthClient
 {
     public List<AuthChallenge> Challenges { get; set; } = [];
-    
+
     public static AuthClientWithChallenge FromClient(AuthClient client)
     {
         return new AuthClientWithChallenge

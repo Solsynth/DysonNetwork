@@ -124,6 +124,37 @@ public class PostController(
         return Ok(posts);
     }
 
+    [HttpGet("{publisherName}/{slug}")]
+    public async Task<ActionResult<Post>> GetPost(string publisherName, string slug)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+            { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var post = await db.Posts
+            .Include(e => e.Publisher)
+            .Where(e => e.Slug == slug && e.Publisher.Name == publisherName)
+            .Include(e => e.Tags)
+            .Include(e => e.Categories)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+        post = await ps.LoadPostInfo(post, currentUser);
+
+        // Track view - use the account ID as viewer ID if user is logged in
+        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
+
+        return Ok(post);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<Post>> GetPost(Guid id)
     {
@@ -318,6 +349,7 @@ public class PostController(
     {
         [MaxLength(1024)] public string? Title { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
+        [MaxLength(1024)] public string? Slug { get; set; }
         public string? Content { get; set; }
         public PostVisibility? Visibility { get; set; } = PostVisibility.Public;
         public PostType? Type { get; set; }
@@ -368,6 +400,7 @@ public class PostController(
         {
             Title = request.Title,
             Description = request.Description,
+            Slug = request.Slug,
             Content = request.Content,
             Visibility = request.Visibility ?? PostVisibility.Public,
             PublishedAt = request.PublishedAt,
@@ -548,6 +581,7 @@ public class PostController(
 
         if (request.Title is not null) post.Title = request.Title;
         if (request.Description is not null) post.Description = request.Description;
+        if (request.Slug is not null) post.Slug = request.Slug;
         if (request.Content is not null) post.Content = request.Content;
         if (request.Visibility is not null) post.Visibility = request.Visibility.Value;
         if (request.Type is not null) post.Type = request.Type.Value;

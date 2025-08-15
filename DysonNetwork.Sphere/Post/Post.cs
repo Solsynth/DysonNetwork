@@ -28,7 +28,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Guid Id { get; set; }
     [MaxLength(1024)] public string? Title { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
-    [MaxLength(128)] public string? Language { get; set; }
+    [MaxLength(1024)] public string? Slug { get; set; }
     public Instant? EditedAt { get; set; }
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
