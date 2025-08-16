@@ -9,6 +9,7 @@ using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -19,9 +20,11 @@ using NpgsqlTypes;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250814183405_AddRealmPost")]
+    partial class AddRealmPost
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -558,6 +561,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("forwarded_post_id");
 
+                    b.Property<string>("Language")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("language");
+
                     b.Property<Dictionary<string, object>>("Meta")
                         .HasColumnType("jsonb")
                         .HasColumnName("meta");
@@ -589,11 +597,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<List<ContentSensitiveMark>>("SensitiveMarks")
                         .HasColumnType("jsonb")
                         .HasColumnName("sensitive_marks");
-
-                    b.Property<string>("Slug")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("slug");
 
                     b.Property<string>("Title")
                         .HasMaxLength(1024)

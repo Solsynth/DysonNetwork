@@ -164,7 +164,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required] [MaxLength(1024)] public string? Name { get; set; }
+        [Required][MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -576,7 +576,7 @@ public class ChatRoomController(
             Status = -100
         });
 
-        if (relationship != null && relationship.Relationship.Status == -100)
+        if (relationship?.Relationship != null && relationship.Relationship.Status == -100)
             return StatusCode(403, "You cannot invite a user that blocked you.");
 
         var chatRoom = await db.ChatRooms
@@ -970,7 +970,7 @@ public class ChatRoomController(
             ? localizer["ChatInviteDirectBody", sender.Nick]
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
-        CultureService.SetCultureInfo(member.Account.Language);
+        CultureService.SetCultureInfo(member.Account!.Language);
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {

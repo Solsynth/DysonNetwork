@@ -45,7 +45,7 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
 
     /// The object name which stored remotely,
     /// multiple cloud file may have same storage id to indicate they are the same file
-    /// 
+    ///
     /// If the storage id was null and the uploaded at is not null, means it is an embedding file,
     /// The embedding file means the file is store on another site,
     /// or it is a webpage (based on mimetype)
@@ -72,8 +72,8 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
             DeletedAt = DeletedAt,
             Id = Id,
             Name = Name,
-            FileMeta = FileMeta,
-            UserMeta = UserMeta,
+            FileMeta = FileMeta ?? [],
+            UserMeta = UserMeta ?? [],
             SensitiveMarks = SensitiveMarks,
             MimeType = MimeType,
             Hash = Hash,

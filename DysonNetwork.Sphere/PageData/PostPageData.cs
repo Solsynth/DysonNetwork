@@ -2,7 +2,6 @@ using System.Net;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using OpenGraphNet;
 
@@ -39,7 +38,7 @@ public class PostPageData(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 

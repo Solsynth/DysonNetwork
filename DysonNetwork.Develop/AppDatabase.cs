@@ -9,11 +9,11 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Developer> Developers { get; set; }
-    
-    public DbSet<CustomApp> CustomApps { get; set; }
-    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; }
-    
+    public DbSet<Developer> Developers { get; set; } = null!;
+
+    public DbSet<CustomApp> CustomApps { get; set; } = null!;
+    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; } = null!;
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

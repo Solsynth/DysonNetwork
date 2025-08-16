@@ -16,7 +16,7 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<Notification.Notification> Notifications { get; set; } = null!;
-    public DbSet<PushSubscription> PushSubscriptions { get; set; }
+    public DbSet<PushSubscription> PushSubscriptions { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

@@ -464,7 +464,9 @@ public class AccountService(
 
     public async Task<AuthClient> UpdateDeviceName(Account account, string deviceId, string label)
     {
-        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == account.Id);
+        var device = await db.AuthClients.FirstOrDefaultAsync(
+            c => c.DeviceId == deviceId && c.AccountId == account.Id
+        );
         if (device is null) throw new InvalidOperationException("Device was not found.");
 
         device.DeviceLabel = label;
@@ -492,7 +494,7 @@ public class AccountService(
         {
             if (!await IsDeviceActive(session.Challenge.ClientId.Value))
                 await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
-                    { DeviceId = session.Challenge.Client!.DeviceId }
+                { DeviceId = session.Challenge.Client!.DeviceId }
                 );
         }
 
@@ -500,6 +502,36 @@ public class AccountService(
         await db.AuthSessions
             .Include(s => s.Challenge)
             .Where(s => s.Challenge.DeviceId == session.Challenge.DeviceId)
+            .ExecuteDeleteAsync();
+
+        foreach (var item in sessions)
+            await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
+    }
+
+    public async Task DeleteDevice(Account account, string deviceId)
+    {
+        var device = await db.AuthClients.FirstOrDefaultAsync(
+            c => c.DeviceId == deviceId && c.AccountId == account.Id
+        );
+        if (device is null)
+            throw new InvalidOperationException("Device not found.");
+
+        await pusher.UnsubscribePushNotificationsAsync(
+            new UnsubscribePushNotificationsRequest() { DeviceId = device.DeviceId }
+        );
+
+        db.AuthClients.Remove(device);
+        await db.SaveChangesAsync();
+
+        var sessions = await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.Challenge.ClientId == device.Id)
+            .ToListAsync();
+
+        // The current session should be included in the sessions' list
+        await db.AuthSessions
+            .Include(s => s.Challenge)
+            .Where(s => s.Challenge.DeviceId == device.DeviceId)
             .ExecuteDeleteAsync();
 
         foreach (var item in sessions)

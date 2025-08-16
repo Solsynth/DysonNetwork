@@ -509,6 +509,23 @@ public class AccountCurrentController(
         }
     }
 
+    [HttpDelete("devices/{deviceId}")]
+    [Authorize]
+    public async Task<ActionResult<AuthSession>> DeleteDevice(string deviceId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.DeleteDevice(currentUser, deviceId);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpDelete("sessions/current")]
     [Authorize]
     public async Task<ActionResult<AuthSession>> DeleteCurrentSession()
@@ -527,14 +544,15 @@ public class AccountCurrentController(
         }
     }
 
-    [HttpPatch("devices/{id}/label")]
-    public async Task<ActionResult<AuthSession>> UpdateDeviceLabel(string id, [FromBody] string label)
+    [HttpPatch("devices/{deviceId}/label")]
+    [Authorize]
+    public async Task<ActionResult<AuthSession>> UpdateDeviceLabel(string deviceId, [FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            await accounts.UpdateDeviceName(currentUser, id, label);
+            await accounts.UpdateDeviceName(currentUser, deviceId, label);
             return NoContent();
         }
         catch (Exception ex)
@@ -544,6 +562,7 @@ public class AccountCurrentController(
     }
 
     [HttpPatch("devices/current/label")]
+    [Authorize]
     public async Task<ActionResult<AuthSession>> UpdateCurrentDeviceLabel([FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||

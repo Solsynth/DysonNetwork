@@ -157,14 +157,14 @@ public class DysonTokenAuthHandler(
             {
                 // Handle JWT tokens (3 parts)
                 case 3:
-                {
-                    var (isValid, jwtResult) = oidc.ValidateToken(token);
-                    if (!isValid) return false;
-                    var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
-                    if (jti is null) return false;
+                    {
+                        var (isValid, jwtResult) = oidc.ValidateToken(token);
+                        if (!isValid) return false;
+                        var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+                        if (jti is null) return false;
 
-                    return Guid.TryParse(jti, out sessionId);
-                }
+                        return Guid.TryParse(jti, out sessionId);
+                    }
                 // Handle compact tokens (2 parts)
                 case 2:
                     // Original compact token validation logic
@@ -190,8 +190,6 @@ public class DysonTokenAuthHandler(
                     {
                         return false;
                     }
-
-                    break;
                 default:
                     return false;
             }

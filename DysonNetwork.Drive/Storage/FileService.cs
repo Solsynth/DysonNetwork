@@ -20,7 +20,6 @@ namespace DysonNetwork.Drive.Storage;
 public class FileService(
     AppDatabase db,
     IConfiguration configuration,
-    TusDiskStore store,
     ILogger<FileService> logger,
     IServiceScopeFactory scopeFactory,
     ICacheService cache
@@ -268,14 +267,26 @@ public class FileService(
                         // Add detailed stream information
                         ["video_streams"] = mediaInfo.VideoStreams.Select(s => new
                         {
-                            s.AvgFrameRate, s.BitRate, s.CodecName, s.Duration, s.Height, s.Width, s.Language,
-                            s.PixelFormat, s.Rotation
+                            s.AvgFrameRate,
+                            s.BitRate,
+                            s.CodecName,
+                            s.Duration,
+                            s.Height,
+                            s.Width,
+                            s.Language,
+                            s.PixelFormat,
+                            s.Rotation
                         }).Where(s => double.IsNormal(s.AvgFrameRate)).ToList(),
                         ["audio_streams"] = mediaInfo.AudioStreams.Select(s => new
-                            {
-                                s.BitRate, s.Channels, s.ChannelLayout, s.CodecName, s.Duration, s.Language,
-                                s.SampleRateHz
-                            })
+                        {
+                            s.BitRate,
+                            s.Channels,
+                            s.ChannelLayout,
+                            s.CodecName,
+                            s.Duration,
+                            s.Language,
+                            s.SampleRateHz
+                        })
                             .ToList(),
                     };
                     if (mediaInfo.PrimaryVideoStream is not null)
@@ -319,7 +330,7 @@ public class FileService(
         try
         {
             logger.LogInformation("Processing file {FileId} in background...", fileId);
-            
+
             var fileExtension = Path.GetExtension(originalFilePath);
 
             if (!pool.PolicyConfig.NoOptimization)
