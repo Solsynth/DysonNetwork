@@ -19,7 +19,7 @@ public class OidcProviderController(
     AppDatabase db,
     OidcProviderService oidcService,
     IConfiguration configuration,
-    IOptions<OidcProviderOptions> options,
+    IOptions<OidcProviderOptions> options
 )
     : ControllerBase
 {
