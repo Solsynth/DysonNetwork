@@ -182,5 +182,17 @@
       </data>
       <data name="FortuneTipNegativeContent_14" xml:space="preserve">
         <value>yummy screen meow</value>
+       </data>
+  <data name="FortuneTipNegativeTitle_15" xml:space="preserve">
+    <value>Washing film</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipPositiveContent_15" xml:space="preserve">
+    <value>0 waterlogging</value>
+    <comment/>
+  </data>
+  <data name="FortuneTipNegativeContent_15" xml:space="preserve">
+    <value>“？Why is there still something in the box！“</value>
+    <comment/>
   </data>
 </root>
