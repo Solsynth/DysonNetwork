@@ -254,13 +254,35 @@ public partial class ChatService(
                 notification.Body = "Call begun";
                 break;
             default:
+                var attachmentWord = message.Attachments.Count == 1 ? "attachment" : "attachments";
                 notification.Body = !string.IsNullOrEmpty(message.Content)
                     ? message.Content[..Math.Min(message.Content.Length, 100)]
-                    : $"<{message.Attachments.Count} attachments>";
+                    : $"<{message.Attachments.Count} {attachmentWord}>";
+                break;
+        }
+
+        switch (type)
+        {
+            case WebSocketPacketType.MessageUpdate:
+                notification.Body += " (edited)";
+                break;
+            case WebSocketPacketType.MessageDelete:
+                notification.Body = "Deleted a message";
                 break;
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
+
+        var request = new PushWebSocketPacketToUsersRequest
+        {
+            Packet = new WebSocketPacket
+            {
+                Type = type,
+                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
+            },
+        };
+        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null).Select(a => a!.Id.ToString()));
+        await scopedNty.PushWebSocketPacketToUsersAsync(request);
 
         List<Account> accountsToNotify = [];
         foreach (
@@ -278,17 +300,6 @@ public partial class ChatService(
             if (member.Account is not null)
                 accountsToNotify.Add(member.Account.ToProtoValue());
         }
-
-        var request = new PushWebSocketPacketToUsersRequest
-        {
-            Packet = new WebSocketPacket
-            {
-                Type = type,
-                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
-            },
-        };
-        request.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
-        await scopedNty.PushWebSocketPacketToUsersAsync(request);
 
         accountsToNotify = accountsToNotify
             .Where(a => a.Id != sender.AccountId.ToString()).ToList();
@@ -383,21 +394,17 @@ public partial class ChatService(
 
         // Get keys of messages to remove (where sender is not found)
         var messagesToRemove = messages
-            .Where(m => messageSenders.All(s => s.Id != m.Value.SenderId))
+            .Where(m => messageSenders.All(s => s.Id != m.Value!.SenderId))
             .Select(m => m.Key)
             .ToList();
 
         // Remove messages with no sender
         foreach (var key in messagesToRemove)
-        {
             messages.Remove(key);
-        }
 
         // Update remaining messages with their senders
         foreach (var message in messages)
-        {
             message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
-        }
 
         return messages;
     }

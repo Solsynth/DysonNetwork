@@ -18,35 +18,35 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<PermissionNode> PermissionNodes { get; set; }
-    public DbSet<PermissionGroup> PermissionGroups { get; set; }
-    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; }
+    public DbSet<PermissionNode> PermissionNodes { get; set; } = null!;
+    public DbSet<PermissionGroup> PermissionGroups { get; set; } = null!;
+    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
 
-    public DbSet<MagicSpell> MagicSpells { get; set; }
-    public DbSet<Account.Account> Accounts { get; set; }
-    public DbSet<AccountConnection> AccountConnections { get; set; }
-    public DbSet<AccountProfile> AccountProfiles { get; set; }
-    public DbSet<AccountContact> AccountContacts { get; set; }
-    public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; }
-    public DbSet<Relationship> AccountRelationships { get; set; }
-    public DbSet<Status> AccountStatuses { get; set; }
-    public DbSet<CheckInResult> AccountCheckInResults { get; set; }
-    public DbSet<AccountBadge> Badges { get; set; }
-    public DbSet<ActionLog> ActionLogs { get; set; }
-    public DbSet<AbuseReport> AbuseReports { get; set; }
+    public DbSet<MagicSpell> MagicSpells { get; set; } = null!;
+    public DbSet<Account.Account> Accounts { get; set; } = null!;
+    public DbSet<AccountConnection> AccountConnections { get; set; } = null!;
+    public DbSet<AccountProfile> AccountProfiles { get; set; } = null!;
+    public DbSet<AccountContact> AccountContacts { get; set; } = null!;
+    public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; } = null!;
+    public DbSet<Relationship> AccountRelationships { get; set; } = null!;
+    public DbSet<Status> AccountStatuses { get; set; } = null!;
+    public DbSet<CheckInResult> AccountCheckInResults { get; set; } = null!;
+    public DbSet<AccountBadge> Badges { get; set; } = null!;
+    public DbSet<ActionLog> ActionLogs { get; set; } = null!;
+    public DbSet<AbuseReport> AbuseReports { get; set; } = null!;
 
-    public DbSet<AuthSession> AuthSessions { get; set; }
-    public DbSet<AuthChallenge> AuthChallenges { get; set; }
-    public DbSet<AuthDevice> AuthDevices { get; set; }
-    
-    public DbSet<Wallet.Wallet> Wallets { get; set; }
-    public DbSet<WalletPocket> WalletPockets { get; set; }
-    public DbSet<Order> PaymentOrders { get; set; }
-    public DbSet<Transaction> PaymentTransactions { get; set; }
-    public DbSet<Subscription> WalletSubscriptions { get; set; }
-    public DbSet<Coupon> WalletCoupons { get; set; }
- 
-    public DbSet<Punishment> Punishments { get; set; }
+    public DbSet<AuthSession> AuthSessions { get; set; } = null!;
+    public DbSet<AuthChallenge> AuthChallenges { get; set; } = null!;
+    public DbSet<AuthClient> AuthClients { get; set; } = null!;
+
+    public DbSet<Wallet.Wallet> Wallets { get; set; } = null!;
+    public DbSet<WalletPocket> WalletPockets { get; set; } = null!;
+    public DbSet<Order> PaymentOrders { get; set; } = null!;
+    public DbSet<Transaction> PaymentTransactions { get; set; } = null!;
+    public DbSet<Subscription> WalletSubscriptions { get; set; } = null!;
+    public DbSet<Coupon> WalletCoupons { get; set; } = null!;
+
+    public DbSet<Punishment> Punishments { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -89,7 +89,7 @@ public class AppDatabase(
             }
         });
 
-        optionsBuilder.UseSeeding((context, _) => {});
+        optionsBuilder.UseSeeding((context, _) => { });
 
         base.OnConfiguring(optionsBuilder);
     }

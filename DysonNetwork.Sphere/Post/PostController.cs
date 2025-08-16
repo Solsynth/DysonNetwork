@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,8 @@ public class PostController(
     PublisherService pub,
     AccountService.AccountServiceClient accounts,
     ActionLogService.ActionLogServiceClient als,
-    PollService polls
+    PollService polls,
+    RealmService rs
 )
     : ControllerBase
 {
@@ -30,19 +32,25 @@ public class PostController(
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
-        
+
         var posts = await ps.ListFeaturedPostsAsync(currentUser);
         return Ok(posts);
     }
-    
+
     [HttpGet]
     public async Task<ActionResult<List<Post>>> ListPosts(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "realm")] string? realmName = null,
         [FromQuery(Name = "type")] int? type = null,
         [FromQuery(Name = "categories")] List<string>? categories = null,
-        [FromQuery(Name = "tags")] List<string>? tags = null
+        [FromQuery(Name = "tags")] List<string>? tags = null,
+        [FromQuery(Name = "query")] string? queryTerm = null,
+        [FromQuery(Name = "vector")] bool queryVector = false,
+        [FromQuery(Name = "replies")] bool includeReplies = false,
+        [FromQuery(Name = "media")] bool onlyMedia = false,
+        [FromQuery(Name = "shuffle")] bool shuffle = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -52,36 +60,60 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+        var realm = realmName == null ? null : await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmName);
 
         var query = db.Posts
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .AsQueryable();
         if (publisher != null)
-            query = query.Where(p => p.Publisher.Id == publisher.Id);
+            query = query.Where(p => p.PublisherId == publisher.Id);
+        if (realm != null)
+            query = query.Where(p => p.RealmId == realm.Id);
         if (type != null)
             query = query.Where(p => p.Type == (PostType)type);
         if (categories is { Count: > 0 })
             query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
         if (tags is { Count: > 0 })
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
+        if (!includeReplies)
+            query = query.Where(e => e.RepliedPostId == null);
+        if (onlyMedia)
+            query = query.Where(e => e.Attachments.Count > 0);
+
+        if (!string.IsNullOrWhiteSpace(queryTerm))
+        {
+            if (queryVector)
+                query = query.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(queryTerm)));
+            else
+                query = query.Where(p =>
+                    (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%")) ||
+                    (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%")) ||
+                    (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
+                );
+        }
+
         query = query
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true);
 
         var totalCount = await query
             .CountAsync();
+
+        if (shuffle)
+            query = query.OrderBy(e => EF.Functions.Random());
+        else
+            query = query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
+
         var posts = await query
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
-            .Where(e => e.RepliedPostId == null)
-            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -90,6 +122,40 @@ public class PostController(
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return Ok(posts);
+    }
+
+    [HttpGet("{publisherName}/{slug}")]
+    public async Task<ActionResult<Post>> GetPost(string publisherName, string slug)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+            { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var post = await db.Posts
+            .Include(e => e.Publisher)
+            .Where(e => e.Slug == slug && e.Publisher.Name == publisherName)
+            .Include(e => e.Realm)
+            .Include(e => e.Tags)
+            .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+        post = await ps.LoadPostInfo(post, currentUser);
+
+        // Track view - use the account ID as viewer ID if user is logged in
+        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
+
+        return Ok(post);
     }
 
     [HttpGet("{id:guid}")]
@@ -101,7 +167,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -110,8 +176,11 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
+            .Include(e => e.Realm)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
@@ -124,6 +193,7 @@ public class PostController(
     }
 
     [HttpGet("search")]
+    [Obsolete("Use the new ListPost API")]
     public async Task<ActionResult<List<Post>>> SearchPosts(
         [FromQuery] string query,
         [FromQuery] int offset = 0,
@@ -140,7 +210,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -152,9 +222,10 @@ public class PostController(
         if (useVector)
             queryable = queryable.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(query)));
         else
-            queryable = queryable.Where(p => EF.Functions.ILike(p.Title, $"%{query}%") ||
-                                             EF.Functions.ILike(p.Description, $"%{query}%") ||
-                                             EF.Functions.ILike(p.Content, $"%{query}%")
+            queryable = queryable.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{query}%")) ||
+                (p.Description != null && EF.Functions.ILike(p.Description, $"%{query}%")) ||
+                (p.Content != null && EF.Functions.ILike(p.Content, $"%{query}%"))
             );
 
         var totalCount = await queryable.CountAsync();
@@ -207,7 +278,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -243,7 +314,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -285,6 +356,7 @@ public class PostController(
     {
         [MaxLength(1024)] public string? Title { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
+        [MaxLength(1024)] public string? Slug { get; set; }
         public string? Content { get; set; }
         public PostVisibility? Visibility { get; set; } = PostVisibility.Public;
         public PostType? Type { get; set; }
@@ -295,6 +367,7 @@ public class PostController(
         public Instant? PublishedAt { get; set; }
         public Guid? RepliedPostId { get; set; }
         public Guid? ForwardedPostId { get; set; }
+        public Guid? RealmId { get; set; }
 
         public Guid? PollId { get; set; }
     }
@@ -334,6 +407,7 @@ public class PostController(
         {
             Title = request.Title,
             Description = request.Description,
+            Slug = request.Slug,
             Content = request.Content,
             Visibility = request.Visibility ?? PostVisibility.Public,
             PublishedAt = request.PublishedAt,
@@ -356,6 +430,15 @@ public class PostController(
             if (forwardedPost is null) return BadRequest("Forwarded post was not found.");
             post.ForwardedPost = forwardedPost;
             post.ForwardedPostId = forwardedPost.Id;
+        }
+
+        if (request.RealmId is not null)
+        {
+            var realm = await db.Realms.FindAsync(request.RealmId.Value);
+            if (realm is null) return BadRequest("Realm was not found.");
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
+                return StatusCode(403, "You are not a member of this realm.");
+            post.RealmId = realm.Id;
         }
 
         if (request.PollId.HasValue)
@@ -418,7 +501,7 @@ public class PostController(
 
         var friendsResponse =
             await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id.ToString() });
+            { AccountId = currentUser.Id.ToString() });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
@@ -505,11 +588,14 @@ public class PostController(
 
         if (request.Title is not null) post.Title = request.Title;
         if (request.Description is not null) post.Description = request.Description;
+        if (request.Slug is not null) post.Slug = request.Slug;
         if (request.Content is not null) post.Content = request.Content;
         if (request.Visibility is not null) post.Visibility = request.Visibility.Value;
         if (request.Type is not null) post.Type = request.Type.Value;
         if (request.Meta is not null) post.Meta = request.Meta;
 
+        // All the fields are updated when the request contains the specific fields
+        // But the Poll can be null, so it will be updated whatever it included in requests or not
         if (request.PollId.HasValue)
         {
             try
@@ -529,6 +615,30 @@ public class PostController(
             {
                 return BadRequest(ex.Message);
             }
+        }
+        else
+        {
+            post.Meta ??= new Dictionary<string, object>();
+            if (!post.Meta.TryGetValue("embeds", out var existingEmbeds) ||
+                existingEmbeds is not List<EmbeddableBase>)
+                post.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+            // Remove all old poll embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+        }
+
+        // The realm is the same as well as the poll
+        if (request.RealmId is not null)
+        {
+            var realm = await db.Realms.FindAsync(request.RealmId.Value);
+            if (realm is null) return BadRequest("Realm was not found.");
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
+                return StatusCode(403, "You are not a member of this realm.");
+            post.RealmId = realm.Id;
+        }
+        else
+        {
+            post.RealmId = null;
         }
 
         try

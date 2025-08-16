@@ -7,7 +7,6 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace DysonNetwork.Pusher.Connection;
 
 [ApiController]
-[Route("/ws")]
 public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> logger) : ControllerBase
 {
     [Route("/ws")]
@@ -45,7 +44,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
                     Type = "error.dupe",
                     ErrorMessage = "Too many connections from the same device and account."
                 }.ToBytes()),
-                WebSocketMessageType.Close,
+                WebSocketMessageType.Binary,
                 true,
                 CancellationToken.None
             );
@@ -57,7 +56,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
             return;
         }
 
-        logger.LogInformation(
+        logger.LogDebug(
             $"Connection established with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}");
 
         try
@@ -66,12 +65,12 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"WebSocket Error: {ex.Message}");
+            logger.LogError(ex, "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly");
         }
         finally
         {
             ws.Disconnect(connectionKey);
-            logger.LogInformation(
+            logger.LogDebug(
                 $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}"
             );
         }

@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Activity;
 using NodaTime;
 using NpgsqlTypes;
@@ -29,7 +28,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Guid Id { get; set; }
     [MaxLength(1024)] public string? Title { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
-    [MaxLength(128)] public string? Language { get; set; }
+    [MaxLength(1024)] public string? Slug { get; set; }
     public Instant? EditedAt { get; set; }
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
@@ -53,6 +52,9 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Post? RepliedPost { get; set; }
     public Guid? ForwardedPostId { get; set; }
     public Post? ForwardedPost { get; set; }
+
+    public Guid? RealmId { get; set; }
+    public Realm.Realm? Realm { get; set; }
 
     [Column(TypeName = "jsonb")] public List<CloudFileReferenceObject> Attachments { get; set; } = [];
 

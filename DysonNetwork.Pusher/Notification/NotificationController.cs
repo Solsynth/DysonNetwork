@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using AccountService = DysonNetwork.Shared.Proto.AccountService;
 
 namespace DysonNetwork.Pusher.Notification;
 
@@ -13,8 +12,8 @@ namespace DysonNetwork.Pusher.Notification;
 [Route("/api/notifications")]
 public class NotificationController(
     AppDatabase db,
-    PushService nty,
-    AccountService.AccountServiceClient accounts) : ControllerBase
+    PushService nty
+) : ControllerBase
 {
     [HttpGet("count")]
     [Authorize]
@@ -59,6 +58,18 @@ public class NotificationController(
         return Ok(notifications);
     }
 
+    [HttpPost("all/read")]
+    [Authorize]
+    public async Task<ActionResult> MarkAllNotificationsViewed()
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        await nty.MarkAllNotificationsViewed(accountId);
+        return Ok();
+    }
+
     public class PushNotificationSubscribeRequest
     {
         [MaxLength(4096)] public string DeviceToken { get; set; } = null!;
@@ -81,7 +92,7 @@ public class NotificationController(
 
         var result =
             await nty.SubscribeDevice(
-                currentSession.Challenge.DeviceId!,
+                currentSession.Challenge.DeviceId,
                 request.DeviceToken,
                 request.Provider,
                 currentUser
@@ -112,11 +123,11 @@ public class NotificationController(
 
     public class NotificationRequest
     {
-        [Required] [MaxLength(1024)] public string Topic { get; set; } = null!;
-        [Required] [MaxLength(1024)] public string Title { get; set; } = null!;
+        [Required][MaxLength(1024)] public string Topic { get; set; } = null!;
+        [Required][MaxLength(1024)] public string Title { get; set; } = null!;
         [MaxLength(2048)] public string? Subtitle { get; set; }
-        [Required] [MaxLength(4096)] public string Content { get; set; } = null!;
-        public Dictionary<string, object>? Meta { get; set; }
+        [Required][MaxLength(4096)] public string Content { get; set; } = null!;
+        public Dictionary<string, object?>? Meta { get; set; }
         public int Priority { get; set; } = 10;
     }
 
@@ -142,7 +153,7 @@ public class NotificationController(
                 Title = request.Title,
                 Subtitle = request.Subtitle,
                 Content = request.Content,
-                Meta = request.Meta,
+                Meta = request.Meta ?? [],
             },
             request.AccountId,
             save

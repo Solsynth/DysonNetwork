@@ -20,18 +20,19 @@ public class AuthController(
 ) : ControllerBase
 {
     private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
-    
+
     public class ChallengeRequest
     {
-        [Required] public ChallengePlatform Platform { get; set; }
-        [Required] [MaxLength(256)] public string Account { get; set; } = null!;
-        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [Required] public ClientPlatform Platform { get; set; }
+        [Required][MaxLength(256)] public string Account { get; set; } = null!;
+        [Required][MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [MaxLength(1024)] public string? DeviceName { get; set; }
         public List<string> Audiences { get; set; } = new();
         public List<string> Scopes { get; set; } = new();
     }
 
     [HttpPost("challenge")]
-    public async Task<ActionResult<AuthChallenge>> StartChallenge([FromBody] ChallengeRequest request)
+    public async Task<ActionResult<AuthChallenge>> CreateChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
@@ -47,6 +48,10 @@ public class AuthController(
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
 
+        request.DeviceName ??= userAgent;
+
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
+
         // Trying to pick up challenges from the same IP address and user agent
         var existingChallenge = await db.AuthChallenges
             .Where(e => e.AccountId == account.Id)
@@ -54,21 +59,25 @@ public class AuthController(
             .Where(e => e.UserAgent == userAgent)
             .Where(e => e.StepRemain > 0)
             .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
+            .Where(e => e.Type == ChallengeType.Login)
+            .Where(e => e.ClientId == device.Id)
             .FirstOrDefaultAsync();
-        if (existingChallenge is not null) return existingChallenge;
+        if (existingChallenge is not null)
+        {
+            var existingSession = await db.AuthSessions.Where(e => e.ChallengeId == existingChallenge.Id).FirstOrDefaultAsync();
+            if (existingSession is null) return existingChallenge;
+        }
 
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId);
         var challenge = new AuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
             StepTotal = await auth.DetectChallengeRisk(Request, account),
-            Platform = request.Platform,
             Audiences = request.Audiences,
             Scopes = request.Scopes,
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Location = geo.GetPointFromIp(ipAddress),
-            DeviceId = device.Id,
+            ClientId = device.Id,
             AccountId = account.Id
         }.Normalize();
 

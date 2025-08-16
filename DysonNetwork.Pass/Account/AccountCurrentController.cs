@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
@@ -9,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using AuthService = DysonNetwork.Pass.Auth.AuthService;
 using AuthSession = DysonNetwork.Pass.Auth.AuthSession;
-using ChallengePlatform = DysonNetwork.Pass.Auth.ChallengePlatform;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -437,29 +437,31 @@ public class AccountCurrentController(
         }
     }
 
-    public class AuthorizedDevice
-    {
-        public string? Label { get; set; }
-        public string UserAgent { get; set; } = null!;
-        public string DeviceId { get; set; } = null!;
-        public ChallengePlatform Platform { get; set; }
-        public List<AuthSession> Sessions { get; set; } = [];
-    }
-
     [HttpGet("devices")]
     [Authorize]
-    public async Task<ActionResult<List<AuthorizedDevice>>> GetDevices()
+    public async Task<ActionResult<List<AuthClientWithChallenge>>> GetDevices()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
             HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
-        var devices = await db.AuthDevices
+        var devices = await db.AuthClients
             .Where(device => device.AccountId == currentUser.Id)
             .ToListAsync();
 
-        return Ok(devices);
+        var challengeDevices = devices.Select(AuthClientWithChallenge.FromClient).ToList();
+        var deviceIds = challengeDevices.Select(x => x.Id).ToList();
+
+        var authChallenges = await db.AuthChallenges
+            .Where(c => c.ClientId != null && deviceIds.Contains(c.ClientId.Value))
+            .GroupBy(c => c.ClientId)
+            .ToDictionaryAsync(c => c.Key!.Value, c => c.ToList());
+        foreach (var challengeDevice in challengeDevices)
+            if (authChallenges.TryGetValue(challengeDevice.Id, out var challenge))
+                challengeDevice.Challenges = challenge;
+
+        return Ok(challengeDevices);
     }
 
     [HttpGet("sessions")]
@@ -507,6 +509,23 @@ public class AccountCurrentController(
         }
     }
 
+    [HttpDelete("devices/{deviceId}")]
+    [Authorize]
+    public async Task<ActionResult<AuthSession>> DeleteDevice(string deviceId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        try
+        {
+            await accounts.DeleteDevice(currentUser, deviceId);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpDelete("sessions/current")]
     [Authorize]
     public async Task<ActionResult<AuthSession>> DeleteCurrentSession()
@@ -525,14 +544,15 @@ public class AccountCurrentController(
         }
     }
 
-    [HttpPatch("sessions/{id:guid}/label")]
-    public async Task<ActionResult<AuthSession>> UpdateSessionLabel(Guid id, [FromBody] string label)
+    [HttpPatch("devices/{deviceId}/label")]
+    [Authorize]
+    public async Task<ActionResult<AuthSession>> UpdateDeviceLabel(string deviceId, [FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            await accounts.UpdateSessionLabel(currentUser, id, label);
+            await accounts.UpdateDeviceName(currentUser, deviceId, label);
             return NoContent();
         }
         catch (Exception ex)
@@ -541,15 +561,19 @@ public class AccountCurrentController(
         }
     }
 
-    [HttpPatch("sessions/current/label")]
-    public async Task<ActionResult<AuthSession>> UpdateCurrentSessionLabel([FromBody] string label)
+    [HttpPatch("devices/current/label")]
+    [Authorize]
+    public async Task<ActionResult<AuthSession>> UpdateCurrentDeviceLabel([FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
             HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
+        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.Challenge.ClientId);
+        if (device is null) return NotFound();
+
         try
         {
-            await accounts.UpdateSessionLabel(currentUser, currentSession.Id, label);
+            await accounts.UpdateDeviceName(currentUser, device.DeviceId, label);
             return NoContent();
         }
         catch (Exception ex)
@@ -637,7 +661,7 @@ public class AccountCurrentController(
             return BadRequest(ex.Message);
         }
     }
-    
+
     [HttpPost("contacts/{id:guid}/public")]
     [Authorize]
     public async Task<ActionResult<AccountContact>> SetPublicContact(Guid id)
@@ -659,7 +683,7 @@ public class AccountCurrentController(
             return BadRequest(ex.Message);
         }
     }
-    
+
     [HttpDelete("contacts/{id:guid}/public")]
     [Authorize]
     public async Task<ActionResult<AccountContact>> UnsetPublicContact(Guid id)

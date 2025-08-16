@@ -12,7 +12,8 @@ public class AuthService(
     IConfiguration config,
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<AuthService> logger
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
@@ -73,7 +74,8 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<AuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time, Guid? customAppId = null)
+    public async Task<AuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time,
+        Guid? customAppId = null)
     {
         var challenge = new AuthChallenge
         {
@@ -100,17 +102,24 @@ public class AuthService(
 
         return session;
     }
-    
-    public async Task<AuthDevice> GetOrCreateDeviceAsync(Guid accountId, string deviceId)
+
+    public async Task<AuthClient> GetOrCreateDeviceAsync(
+        Guid accountId,
+        string deviceId,
+        string? deviceName = null,
+        ClientPlatform platform = ClientPlatform.Unidentified
+    )
     {
-        var device = await db.AuthDevices.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
         if (device is not null) return device;
-        device = new AuthDevice
+        device = new AuthClient
         {
+            Platform = platform,
             DeviceId = deviceId,
             AccountId = accountId
         };
-        db.AuthDevices.Add(device);
+        if (deviceName is not null) device.DeviceName = deviceName;
+        db.AuthClients.Add(device);
         await db.SaveChangesAsync();
 
         return device;
@@ -203,43 +212,43 @@ public class AuthService(
         // Check if the session is already in sudo mode (cached)
         var sudoModeKey = $"accounts:{session.Id}:sudo";
         var (found, _) = await cache.GetAsyncWithStatus<bool>(sudoModeKey);
-        
+
         if (found)
         {
             // Session is already in sudo mode
             return true;
         }
-        
+
         // Check if the user has a pin code
         var hasPinCode = await db.AccountAuthFactors
             .Where(f => f.AccountId == session.AccountId)
             .Where(f => f.EnabledAt != null)
             .Where(f => f.Type == AccountAuthFactorType.PinCode)
             .AnyAsync();
-            
+
         if (!hasPinCode)
         {
             // User doesn't have a pin code, no validation needed
             return true;
         }
-        
+
         // If pin code is not provided, we can't validate
         if (string.IsNullOrEmpty(pinCode))
         {
             return false;
         }
-        
+
         try
         {
             // Validate the pin code
             var isValid = await ValidatePinCode(session.AccountId, pinCode);
-            
+
             if (isValid)
             {
                 // Set session in sudo mode for 5 minutes
                 await cache.SetAsync(sudoModeKey, true, TimeSpan.FromMinutes(5));
             }
-            
+
             return isValid;
         }
         catch (InvalidOperationException)
@@ -290,6 +299,49 @@ public class AuthService(
         catch
         {
             return false;
+        }
+    }
+
+    public async Task MigrateDeviceIdToClient()
+    {
+        logger.LogInformation("Migrating device IDs to clients...");
+        
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var challenges = await db.AuthChallenges
+                .Where(c => c.DeviceId != null && c.ClientId == null)
+                .ToListAsync();
+            var clients = challenges.GroupBy(c => c.DeviceId)
+                .Select(c => new AuthClient
+                {
+                    DeviceId = c.Key!,
+                    AccountId = c.First().AccountId,
+                    DeviceName = c.First().UserAgent ?? string.Empty,
+                    Platform = ClientPlatform.Unidentified
+                })
+                .ToList();
+            await db.AuthClients.AddRangeAsync(clients);
+            await db.SaveChangesAsync();
+
+            var clientsMap = clients.ToDictionary(c => c.DeviceId, c => c.Id);
+            foreach (var challenge in challenges.Where(challenge => challenge.ClientId == null && challenge.DeviceId != null))
+            {
+                if (clientsMap.TryGetValue(challenge.DeviceId!, out var clientId))
+                    challenge.ClientId = clientId;
+                db.AuthChallenges.Update(challenge);
+            }
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            logger.LogInformation("Migrated {Count} device IDs to clients", challenges.Count);
+        }
+        catch
+        {
+            logger.LogError("Failed to migrate device IDs to clients");
+            await transaction.RollbackAsync();
+            throw;
         }
     }
 

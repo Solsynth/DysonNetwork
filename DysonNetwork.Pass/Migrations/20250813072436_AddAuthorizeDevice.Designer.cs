@@ -8,6 +8,7 @@ using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -18,9 +19,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Pass.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20250813072436_AddAuthorizeDevice")]
+    partial class AddAuthorizeDevice
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -856,6 +859,10 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("nonce");
 
+                    b.Property<int>("Platform")
+                        .HasColumnType("integer")
+                        .HasColumnName("platform");
+
                     b.Property<List<string>>("Scopes")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -930,10 +937,6 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("device_name");
 
-                    b.Property<int>("Platform")
-                        .HasColumnType("integer")
-                        .HasColumnName("platform");
-
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -943,6 +946,10 @@ namespace DysonNetwork.Pass.Migrations
 
                     b.HasIndex("AccountId")
                         .HasDatabaseName("ix_auth_clients_account_id");
+
+                    b.HasIndex("DeviceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_auth_clients_device_id");
 
                     b.ToTable("auth_clients", (string)null);
                 });

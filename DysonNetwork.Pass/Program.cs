@@ -1,4 +1,5 @@
 using DysonNetwork.Pass;
+using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Pages.Data;
 using DysonNetwork.Pass.Startup;
 using DysonNetwork.Shared.Http;
