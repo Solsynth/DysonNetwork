@@ -7,7 +7,6 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace DysonNetwork.Pusher.Connection;
 
 [ApiController]
-[Route("/ws")]
 public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> logger) : ControllerBase
 {
     [Route("/ws")]
