@@ -216,6 +216,7 @@ public class ActivityService(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.Realm)
+            .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
             .AsQueryable();
