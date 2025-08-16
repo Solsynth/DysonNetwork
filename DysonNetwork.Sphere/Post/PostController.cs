@@ -144,6 +144,8 @@ public class PostController(
             .Where(e => e.Slug == slug && e.Publisher.Name == publisherName)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
@@ -175,6 +177,8 @@ public class PostController(
             .Include(e => e.Publisher)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
