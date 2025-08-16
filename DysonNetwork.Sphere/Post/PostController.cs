@@ -142,6 +142,7 @@ public class PostController(
         var post = await db.Posts
             .Include(e => e.Publisher)
             .Where(e => e.Slug == slug && e.Publisher.Name == publisherName)
+            .Include(e => e.Realm)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
@@ -175,6 +176,7 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
+            .Include(e => e.Realm)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
