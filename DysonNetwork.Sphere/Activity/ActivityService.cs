@@ -2,7 +2,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -85,6 +84,7 @@ public class ActivityService(
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Include(e => e.Realm)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
