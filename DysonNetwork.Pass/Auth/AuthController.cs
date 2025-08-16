@@ -32,7 +32,7 @@ public class AuthController(
     }
 
     [HttpPost("challenge")]
-    public async Task<ActionResult<AuthChallenge>> StartChallenge([FromBody] ChallengeRequest request)
+    public async Task<ActionResult<AuthChallenge>> CreateChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
@@ -50,6 +50,8 @@ public class AuthController(
 
         request.DeviceName ??= userAgent;
 
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
+
         // Trying to pick up challenges from the same IP address and user agent
         var existingChallenge = await db.AuthChallenges
             .Where(e => e.AccountId == account.Id)
@@ -57,10 +59,15 @@ public class AuthController(
             .Where(e => e.UserAgent == userAgent)
             .Where(e => e.StepRemain > 0)
             .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
+            .Where(e => e.Type == ChallengeType.Login)
+            .Where(e => e.ClientId == device.Id)
             .FirstOrDefaultAsync();
-        if (existingChallenge is not null) return existingChallenge;
+        if (existingChallenge is not null)
+        {
+            var existingSession = await db.AuthSessions.Where(e => e.ChallengeId == existingChallenge.Id).FirstOrDefaultAsync();
+            if (existingSession is null) return existingChallenge;
+        }
 
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
         var challenge = new AuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
