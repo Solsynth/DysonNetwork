@@ -210,14 +210,13 @@ public class ActivityService(
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
 
         // Build the query based on the filter
-        var userPublishersId = userPublishers.Select(e => e.Id).ToList();
         var postsQuery = db.Posts
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Include(e => e.Realm)
             .Where(p => cursor == null || p.PublishedAt < cursor)
-            .Where(p => p.RepliedPost == null || userPublishersId.Contains(p.RepliedPost.PublisherId))
             .OrderByDescending(p => p.PublishedAt)
             .AsQueryable();
 
