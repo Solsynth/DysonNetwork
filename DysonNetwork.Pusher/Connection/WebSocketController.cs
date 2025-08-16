@@ -65,8 +65,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         }
         catch (Exception ex)
         {
-            if (ex is not WebSocketException)
-                logger.LogError(ex, "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly");
+            logger.LogError(ex, "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly");
         }
         finally
         {
