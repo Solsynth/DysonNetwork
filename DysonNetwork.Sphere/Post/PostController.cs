@@ -114,6 +114,7 @@ public class PostController(
         var posts = await query
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
+            .Include(e => e.Realm)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
