@@ -487,8 +487,7 @@ public class ChatRoomController(
     public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId,
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
-        [FromQuery] bool withStatus = false,
-        [FromQuery] string? status = null
+        [FromQuery] bool withStatus = false
     )
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
@@ -519,18 +518,12 @@ public class ChatRoomController(
                 members.Select(m => m.AccountId).ToList()
             );
 
-            if (!string.IsNullOrEmpty(status))
-            {
-                members = members
-                    .Select(m =>
-                    {
-                        m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
-                        return m;
-                    })
-                    .ToList();
-            }
-
             members = members
+                .Select(m =>
+                {
+                    m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
+                    return m;
+                })
                 .OrderByDescending(m => m.Status?.IsOnline ?? false)
                 .ToList();
 

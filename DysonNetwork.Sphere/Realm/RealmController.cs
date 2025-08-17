@@ -216,8 +216,7 @@ public class RealmController(
         string slug,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] bool withStatus = false,
-        [FromQuery] string? status = null
+        [FromQuery] bool withStatus = false
     )
     {
         var realm = await db.Realms
@@ -246,20 +245,14 @@ public class RealmController(
                 members.Select(m => m.AccountId).ToList()
             );
 
-            if (!string.IsNullOrEmpty(status))
-            {
                 members = members
                     .Select(m =>
                     {
                         m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
                         return m;
                     })
+                    .OrderByDescending(m => m.Status?.IsOnline ?? false)
                     .ToList();
-            }
-
-            members = members
-                .OrderByDescending(m => m.Status?.IsOnline ?? false)
-                .ToList();
 
             var total = members.Count;
             Response.Headers.Append("X-Total", total.ToString());
