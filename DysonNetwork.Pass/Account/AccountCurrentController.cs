@@ -3,6 +3,7 @@ using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Error;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -92,7 +93,14 @@ public class AccountCurrentController(
         var profile = await db.AccountProfiles
             .Where(p => p.Account.Id == userId)
             .FirstOrDefaultAsync();
-        if (profile is null) return BadRequest("Unable to get your account.");
+        if (profile is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Unable to get your account.",
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
 
         if (request.FirstName is not null) profile.FirstName = request.FirstName;
         if (request.MiddleName is not null) profile.MiddleName = request.MiddleName;
@@ -160,7 +168,13 @@ public class AccountCurrentController(
         }
         catch (InvalidOperationException)
         {
-            return BadRequest("You already requested account deletion within 24 hours.");
+            return BadRequest(new ApiError
+            {
+                Code = "TOO_MANY_REQUESTS",
+                Message = "You already requested account deletion within 24 hours.",
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
         }
 
         return Ok();
@@ -186,7 +200,7 @@ public class AccountCurrentController(
             .Where(e => e.ClearedAt == null || e.ClearedAt > now)
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
-        if (status is null) return NotFound();
+        if (status is null) return NotFound(ApiError.NotFound("status", traceId: HttpContext.TraceIdentifier));
 
         status.Attitude = request.Attitude;
         status.IsInvisible = request.IsInvisible;
@@ -254,7 +268,7 @@ public class AccountCurrentController(
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
 
-        return result is null ? NotFound() : Ok(result);
+        return result is null ? NotFound(ApiError.NotFound("check-in", traceId: HttpContext.TraceIdentifier)) : Ok(result);
     }
 
     [HttpPost("check-in")]
@@ -269,15 +283,30 @@ public class AccountCurrentController(
         {
             var isAvailable = await events.CheckInDailyIsAvailable(currentUser);
             if (!isAvailable)
-                return BadRequest("Check-in is not available for today.");
+                return BadRequest(new ApiError
+                {
+                    Code = "BAD_REQUEST",
+                    Message = "Check-in is not available for today.",
+                    Status = 400,
+                    TraceId = HttpContext.TraceIdentifier
+                });
         }
         else
         {
             if (currentUser.PerkSubscription is null)
-                return StatusCode(403, "You need to have a subscription to check-in backdated.");
+                return StatusCode(403, ApiError.Unauthorized(
+                    message: "You need to have a subscription to check-in backdated.",
+                    forbidden: true,
+                    traceId: HttpContext.TraceIdentifier));
             var isAvailable = await events.CheckInBackdatedIsAvailable(currentUser, backdated.Value);
             if (!isAvailable)
-                return BadRequest("Check-in is not available for this date.");
+                return BadRequest(new ApiError
+                {
+                    Code = "BAD_REQUEST",
+                    Message = "Check-in is not available for this date.",
+                    Status = 400,
+                    TraceId = HttpContext.TraceIdentifier
+                });
         }
 
         try
@@ -286,15 +315,31 @@ public class AccountCurrentController(
             return needsCaptcha switch
             {
                 true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,
-                    "Captcha is required for this check-in."
+                    new ApiError
+                    {
+                        Code = "CAPTCHA_REQUIRED",
+                        Message = "Captcha is required for this check-in.",
+                        Status = 423,
+                        TraceId = HttpContext.TraceIdentifier
+                    }
                 ),
-                true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest("Invalid captcha token."),
+                true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    ["captchaToken"] = new[] { "Invalid captcha token." }
+                }, traceId: HttpContext.TraceIdentifier)),
                 _ => await events.CheckInDaily(currentUser, backdated)
             };
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError
+            {
+                Code = "BAD_REQUEST",
+                Message = "Check-in failed.",
+                Detail = ex.Message,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
         }
     }
 
@@ -308,8 +353,16 @@ public class AccountCurrentController(
         month ??= currentDate.Month;
         year ??= currentDate.Year;
 
-        if (month is < 1 or > 12) return BadRequest("Invalid month.");
-        if (year < 1) return BadRequest("Invalid year.");
+        if (month is < 1 or > 12)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(month)] = new[] { "Month must be between 1 and 12." }
+            }, traceId: HttpContext.TraceIdentifier));
+        if (year < 1)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(year)] = new[] { "Year must be a positive integer." }
+            }, traceId: HttpContext.TraceIdentifier));
 
         var calendar = await events.GetEventCalendar(currentUser, month.Value, year.Value);
         return Ok(calendar);
@@ -365,7 +418,13 @@ public class AccountCurrentController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         if (await accounts.CheckAuthFactorExists(currentUser, request.Type))
-            return BadRequest($"Auth factor with type {request.Type} is already exists.");
+            return BadRequest(new ApiError
+            {
+                Code = "ALREADY_EXISTS",
+                Message = $"Auth factor with type {request.Type} already exists.",
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
 
         var factor = await accounts.CreateAuthFactor(currentUser, request.Type, request.Secret);
         return Ok(factor);
@@ -380,7 +439,7 @@ public class AccountCurrentController(
         var factor = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id && f.Id == id)
             .FirstOrDefaultAsync();
-        if (factor is null) return NotFound();
+        if (factor is null) return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
 
         try
         {
@@ -389,7 +448,14 @@ public class AccountCurrentController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError
+            {
+                Code = "BAD_REQUEST",
+                Message = "Failed to enable auth factor.",
+                Detail = ex.Message,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
         }
     }
 

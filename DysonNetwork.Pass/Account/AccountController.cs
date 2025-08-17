@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Error;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -28,7 +29,7 @@ public class AccountController(
             .Include(e => e.Contacts.Where(c => c.IsPublic))
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
-        if (account is null) return new NotFoundResult();
+        if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
         
         var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
         account.PerkSubscription = perk?.ToReference();
@@ -45,7 +46,7 @@ public class AccountController(
             .Include(e => e.Badges)
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
-        return account is null ? NotFound() : account.Badges.ToList();
+        return account is null ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier)) : account.Badges.ToList();
     }
 
     public class AccountCreateRequest
@@ -81,7 +82,11 @@ public class AccountController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<Account>> CreateAccount([FromBody] AccountCreateRequest request)
     {
-        if (!await auth.ValidateCaptcha(request.CaptchaToken)) return BadRequest("Invalid captcha token.");
+        if (!await auth.ValidateCaptcha(request.CaptchaToken))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
+            }, traceId: HttpContext.TraceIdentifier));
 
         try
         {
@@ -96,7 +101,14 @@ public class AccountController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError
+            {
+                Code = "BAD_REQUEST",
+                Message = "Failed to create account.",
+                Detail = ex.Message,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
         }
     }
 
@@ -109,10 +121,22 @@ public class AccountController(
     [HttpPost("recovery/password")]
     public async Task<ActionResult> RequestResetPassword([FromBody] RecoveryPasswordRequest request)
     {
-        if (!await auth.ValidateCaptcha(request.CaptchaToken)) return BadRequest("Invalid captcha token.");
+        if (!await auth.ValidateCaptcha(request.CaptchaToken))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(request.CaptchaToken)] = new[] { "Invalid captcha token." }
+            }, traceId: HttpContext.TraceIdentifier));
 
         var account = await accounts.LookupAccount(request.Account);
-        if (account is null) return BadRequest("Unable to find the account.");
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Unable to find the account.",
+                Detail = request.Account,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
 
         try
         {
@@ -120,7 +144,13 @@ public class AccountController(
         }
         catch (InvalidOperationException)
         {
-            return BadRequest("You already requested password reset within 24 hours.");
+            return BadRequest(new ApiError
+            {
+                Code = "TOO_MANY_REQUESTS",
+                Message = "You already requested password reset within 24 hours.",
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
         }
 
         return Ok();
@@ -139,7 +169,15 @@ public class AccountController(
     public async Task<ActionResult<Status>> GetOtherStatus(string name)
     {
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
-        if (account is null) return BadRequest();
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
         var status = await events.GetStatus(account.Id);
         status.IsInvisible = false; // Keep the invisible field not available for other users
         return Ok(status);
@@ -156,11 +194,27 @@ public class AccountController(
         month ??= currentDate.Month;
         year ??= currentDate.Year;
 
-        if (month is < 1 or > 12) return BadRequest("Invalid month.");
-        if (year < 1) return BadRequest("Invalid year.");
+        if (month is < 1 or > 12)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(month)] = new[] { "Month must be between 1 and 12." }
+            }, traceId: HttpContext.TraceIdentifier));
+        if (year < 1)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(year)] = new[] { "Year must be a positive integer." }
+            }, traceId: HttpContext.TraceIdentifier));
 
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
-        if (account is null) return BadRequest();
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "not_found",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
 
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);

@@ -36,4 +36,8 @@
         <Protobuf Include="Proto\*.proto" ProtoRoot="Proto" GrpcServices="Both" AdditionalFileExtensions="Proto\" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Error\" />
+    </ItemGroup>
+
 </Project>
