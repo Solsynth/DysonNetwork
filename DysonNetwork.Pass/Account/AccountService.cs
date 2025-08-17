@@ -335,12 +335,10 @@ public class AccountService(
 
     /// <summary>
     /// Send the auth factor verification code to users, for factors like in-app code and email.
-    /// Sometimes it requires a hint, like a part of the user's email address to ensure the user is who own the account.
     /// </summary>
     /// <param name="account">The owner of the auth factor</param>
     /// <param name="factor">The auth factor needed to send code</param>
-    /// <param name="hint">The part of the contact method for verification</param>
-    public async Task SendFactorCode(Account account, AccountAuthFactor factor, string? hint = null)
+    public async Task SendFactorCode(Account account, AccountAuthFactor factor)
     {
         var code = new Random().Next(100000, 999999).ToString("000000");
 
@@ -369,30 +367,16 @@ public class AccountService(
                 if (await _GetFactorCode(factor) is not null)
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
 
-                ArgumentNullException.ThrowIfNull(hint);
-                hint = hint.Replace("@", "").Replace(".", "").Replace("+", "").Replace("%", "");
-                if (string.IsNullOrWhiteSpace(hint))
-                {
-                    logger.LogWarning(
-                        "Unable to send factor code to #{FactorId} with hint {Hint}, due to invalid hint...",
-                        factor.Id,
-                        hint
-                    );
-                    return;
-                }
-
                 var contact = await db.AccountContacts
                     .Where(c => c.Type == AccountContactType.Email)
                     .Where(c => c.VerifiedAt != null)
-                    .Where(c => EF.Functions.ILike(c.Content, $"%{hint}%"))
+                    .Where(c => c.IsPrimary)
                     .Include(c => c.Account)
                     .FirstOrDefaultAsync();
                 if (contact is null)
                 {
                     logger.LogWarning(
-                        "Unable to send factor code to #{FactorId} with hint {Hint}, due to no contact method found according to hint...",
-                        factor.Id,
-                        hint
+                        "Unable to send factor code to #{FactorId} with, due to no contact method was found..."
                     );
                     return;
                 }

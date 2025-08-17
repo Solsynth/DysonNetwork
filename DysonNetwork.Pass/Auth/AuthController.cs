@@ -120,8 +120,7 @@ public class AuthController(
     [HttpPost("challenge/{id:guid}/factors/{factorId:guid}")]
     public async Task<ActionResult> RequestFactorCode(
         [FromRoute] Guid id,
-        [FromRoute] Guid factorId,
-        [FromBody] string? hint
+        [FromRoute] Guid factorId
     )
     {
         var challenge = await db.AuthChallenges
@@ -135,7 +134,7 @@ public class AuthController(
 
         try
         {
-            await accounts.SendFactorCode(challenge.Account, factor, hint);
+            await accounts.SendFactorCode(challenge.Account, factor);
         }
         catch (Exception ex)
         {
