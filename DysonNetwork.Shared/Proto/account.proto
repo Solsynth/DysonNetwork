@@ -29,9 +29,29 @@ message Account {
   repeated AccountConnection connections = 11;
   repeated Relationship outgoing_relationships = 12;
   repeated Relationship incoming_relationships = 13;
-  
+
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+}
+
+// Enum for status attitude
+enum StatusAttitude {
+  STATUS_ATTITUDE_UNSPECIFIED = 0;
+  POSITIVE = 1;
+  NEGATIVE = 2;
+  NEUTRAL = 3;
+}
+
+// AccountStatus represents the status of an account
+message AccountStatus {
+  string id = 1;
+  StatusAttitude attitude = 2;
+  bool is_online = 3;
+  bool is_customized = 4;
+  bool is_invisible = 5;
+  bool is_not_disturb = 6;
+  google.protobuf.StringValue label = 7;
+  google.protobuf.Timestamp cleared_at = 8;
 }
 
 // Profile contains detailed information about a user
@@ -59,7 +79,7 @@ message AccountProfile {
   CloudFile background = 20;
 
   string account_id = 21;
-  
+
   google.protobuf.Timestamp created_at = 22;
   google.protobuf.Timestamp updated_at = 23;
 }
@@ -72,7 +92,7 @@ message AccountContact {
   bool is_primary = 4;
   string content = 5;
   string account_id = 6;
-  
+
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
 }
@@ -96,7 +116,7 @@ message AccountAuthFactor {
   google.protobuf.Timestamp expired_at = 7;
   string account_id = 8;
   map<string, google.protobuf.Value> created_response = 9;  // For initial setup
-  
+
   google.protobuf.Timestamp created_at = 10;
   google.protobuf.Timestamp updated_at = 11;
 }
@@ -121,7 +141,7 @@ message AccountBadge {
   google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
   google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
   string account_id = 8;  // ID of the account this badge belongs to
-  
+
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
 }
@@ -136,7 +156,7 @@ message AccountConnection {
   google.protobuf.StringValue refresh_token = 6;  // Omitted from JSON serialization
   google.protobuf.Timestamp last_used_at = 7;
   string account_id = 8;
-  
+
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
 }
@@ -147,7 +167,7 @@ message VerificationMark {
   string title = 2;
   string description = 3;
   string verified_by = 4;
-  
+
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
 }
@@ -182,7 +202,7 @@ message Relationship {
   optional Account account = 3;
   optional Account related = 4;
   int32 status = 5;
-  
+
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
 }
@@ -207,8 +227,12 @@ message ActionLog {
   google.protobuf.StringValue location = 6; // Geographic location of the client, derived from IP
   string account_id = 7; // The account that performed the action
   google.protobuf.StringValue session_id = 8; // The session in which the action was performed
-  
+
   google.protobuf.Timestamp created_at = 9; // When the action log was created
+}
+
+message GetAccountStatusBatchResponse {
+  repeated AccountStatus statuses = 1;
 }
 
 // ====================================
@@ -222,6 +246,9 @@ service AccountService {
   rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
   rpc LookupAccountBatch(LookupAccountBatchRequest) returns (GetAccountBatchResponse) {}
   rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
+
+  rpc GetAccountStatus(GetAccountRequest) returns (AccountStatus) {}
+  rpc GetAccountStatusBatch(GetAccountBatchRequest) returns (GetAccountStatusBatchResponse) {}
 
   // Profile Operations
   rpc GetProfile(GetProfileRequest) returns (AccountProfile) {}

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Data;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -22,9 +23,55 @@ public class Status : ModelBase
     public bool IsNotDisturb { get; set; }
     [MaxLength(1024)] public string? Label { get; set; }
     public Instant? ClearedAt { get; set; }
-    
+
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
+    
+    public Shared.Proto.AccountStatus ToProtoValue()
+    {
+        var proto = new Shared.Proto.AccountStatus
+        {
+            Id = Id.ToString(),
+            Attitude = Attitude switch
+            {
+                StatusAttitude.Positive => Shared.Proto.StatusAttitude.Positive,
+                StatusAttitude.Negative => Shared.Proto.StatusAttitude.Negative,
+                StatusAttitude.Neutral => Shared.Proto.StatusAttitude.Neutral,
+                _ => Shared.Proto.StatusAttitude.Unspecified
+            },
+            IsOnline = IsOnline,
+            IsCustomized = IsCustomized,
+            IsInvisible = IsInvisible,
+            IsNotDisturb = IsNotDisturb,
+            Label = Label ?? string.Empty,
+            ClearedAt = ClearedAt?.ToTimestamp(),
+        };
+
+        return proto;
+    }
+
+    public static Status FromProtoValue(Shared.Proto.AccountStatus proto)
+    {
+        var status = new Status
+        {
+            Id = Guid.Parse(proto.Id),
+            Attitude = proto.Attitude switch
+            {
+                Shared.Proto.StatusAttitude.Positive => StatusAttitude.Positive,
+                Shared.Proto.StatusAttitude.Negative => StatusAttitude.Negative,
+                Shared.Proto.StatusAttitude.Neutral => StatusAttitude.Neutral,
+                _ => StatusAttitude.Neutral
+            },
+            IsOnline = proto.IsOnline,
+            IsCustomized = proto.IsCustomized,
+            IsInvisible = proto.IsInvisible,
+            IsNotDisturb = proto.IsNotDisturb,
+            Label = proto.Label,
+            ClearedAt = proto.ClearedAt?.ToInstant(),
+        };
+
+        return status;
+    }
 }
 
 public enum CheckInResultLevel
@@ -43,10 +90,10 @@ public class CheckInResult : ModelBase
     public decimal? RewardPoints { get; set; }
     public int? RewardExperience { get; set; }
     [Column(TypeName = "jsonb")] public ICollection<FortuneTip> Tips { get; set; } = new List<FortuneTip>();
-    
+
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
-    
+
     public Instant? BackdatedFrom { get; set; }
 }
 

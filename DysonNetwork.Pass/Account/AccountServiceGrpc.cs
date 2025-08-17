@@ -9,6 +9,7 @@ namespace DysonNetwork.Pass.Account;
 
 public class AccountServiceGrpc(
     AppDatabase db,
+    AccountEventService accountEvents,
     RelationshipService relationships,
     SubscriptionService subscriptions,
     IClock clock,
@@ -65,6 +66,26 @@ public class AccountServiceGrpc(
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<AccountStatus> GetAccountStatus(GetAccountRequest request, ServerCallContext context)
+    {
+        var accountId = Guid.Parse(request.Id);
+        var status = await accountEvents.GetStatus(accountId);
+        return status.ToProtoValue();
+    }
+
+    public override async Task<GetAccountStatusBatchResponse> GetAccountStatusBatch(GetAccountBatchRequest request, ServerCallContext context)
+    {
+        var accountIds = request.Id
+            .Select(id => Guid.TryParse(id, out var accountId) ? accountId : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+        var statuses = await accountEvents.GetStatuses(accountIds);
+        var response = new GetAccountStatusBatchResponse();
+        response.Statuses.AddRange(statuses.Select(s => s.Value.ToProtoValue()));
         return response;
     }
 
