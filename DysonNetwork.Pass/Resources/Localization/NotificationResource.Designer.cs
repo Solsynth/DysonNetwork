@@ -28,7 +28,7 @@ namespace DysonNetwork.Sphere.Resources.Localization {
         internal static System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.Equals(null, resourceMan)) {
-                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Sphere.Resources.Localization.NotificationResource", typeof(NotificationResource).Assembly);
+                    System.Resources.ResourceManager temp = new System.Resources.ResourceManager("DysonNetwork.Pass.Resources.Localization.NotificationResource", typeof(NotificationResource).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -156,6 +156,18 @@ namespace DysonNetwork.Sphere.Resources.Localization {
         internal static string OrderPaidBody {
             get {
                 return ResourceManager.GetString("OrderPaidBody", resourceCulture);
+            }
+        }
+        
+        internal static string NewLoginTitle {
+            get {
+                return ResourceManager.GetString("NewLoginTitle", resourceCulture);
+            }
+        }
+        
+        internal static string NewLoginBody {
+            get {
+                return ResourceManager.GetString("NewLoginBody", resourceCulture);
             }
         }
     }

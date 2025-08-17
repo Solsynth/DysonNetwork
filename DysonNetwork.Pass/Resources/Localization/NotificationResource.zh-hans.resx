@@ -72,4 +72,10 @@
     <data name="OrderPaidBody" xml:space="preserve">
         <value>{0} {1} 已从你的帐户中扣除来支付 {2}</value>
     </data>
+    <data name="NewLoginTitle" xml:space="preserve">
+        <value>检测到新登陆</value>
+    </data>
+    <data name="NewLoginBody" xml:space="preserve">
+        <value>您的帐号在位于 {1} 的设备 {0} 上刚刚登陆了</value>
+    </data>
 </root>

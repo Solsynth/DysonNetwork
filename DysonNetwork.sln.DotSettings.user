@@ -148,6 +148,7 @@
   &lt;Assembly Path="/opt/homebrew/Cellar/dotnet/9.0.6/libexec/packs/Microsoft.AspNetCore.App.Ref/9.0.6/ref/net9.0/Microsoft.AspNetCore.RateLimiting.dll" /&gt;
 &lt;/AssemblyExplorer&gt;</s:String>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FAccountEventResource/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FNotificationResource/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FLocalization_002FResources_002FAccountEventResource/@EntryIndexedValue">False</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FLocalization_002FResources_002FAccountEventResource/@EntryIndexRemoved">True</s:Boolean>
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002ESphere_002FLocalization_002FResources_002FSharedResource/@EntryIndexedValue">False</s:Boolean>

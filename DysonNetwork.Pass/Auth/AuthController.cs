@@ -3,8 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Pass.Account;
+using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Proto;
+using Microsoft.Extensions.Localization;
+using AccountAuthFactor = DysonNetwork.Pass.Account.AccountAuthFactor;
+using AccountService = DysonNetwork.Pass.Account.AccountService;
+using ActionLogService = DysonNetwork.Pass.Account.ActionLogService;
 
 namespace DysonNetwork.Pass.Auth;
 
@@ -16,7 +22,9 @@ public class AuthController(
     AuthService auth,
     GeoIpService geo,
     ActionLogService als,
-    IConfiguration configuration
+    PusherService.PusherServiceClient pusher,
+    IConfiguration configuration,
+    IStringLocalizer<NotificationResource> localizer
 ) : ControllerBase
 {
     private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
@@ -24,8 +32,8 @@ public class AuthController(
     public class ChallengeRequest
     {
         [Required] public ClientPlatform Platform { get; set; }
-        [Required][MaxLength(256)] public string Account { get; set; } = null!;
-        [Required][MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [Required] [MaxLength(256)] public string Account { get; set; } = null!;
+        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
         public List<string> Audiences { get; set; } = new();
         public List<string> Scopes { get; set; } = new();
@@ -50,7 +58,8 @@ public class AuthController(
 
         request.DeviceName ??= userAgent;
 
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
+        var device =
+            await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
 
         // Trying to pick up challenges from the same IP address and user agent
         var existingChallenge = await db.AuthChallenges
@@ -64,7 +73,8 @@ public class AuthController(
             .FirstOrDefaultAsync();
         if (existingChallenge is not null)
         {
-            var existingSession = await db.AuthSessions.Where(e => e.ChallengeId == existingChallenge.Id).FirstOrDefaultAsync();
+            var existingSession = await db.AuthSessions.Where(e => e.ChallengeId == existingChallenge.Id)
+                .FirstOrDefaultAsync();
             if (existingSession is null) return existingChallenge;
         }
 
@@ -156,7 +166,10 @@ public class AuthController(
         [FromBody] PerformChallengeRequest request
     )
     {
-        var challenge = await db.AuthChallenges.Include(e => e.Account).FirstOrDefaultAsync(e => e.Id == id);
+        var challenge = await db.AuthChallenges
+            .Include(e => e.Account)
+            .Include(authChallenge => authChallenge.Client)
+            .FirstOrDefaultAsync(e => e.Id == id);
         if (challenge is null) return NotFound("Auth challenge was not found.");
 
         var factor = await db.AccountAuthFactors.FindAsync(request.FactorId);
@@ -206,6 +219,19 @@ public class AuthController(
 
         if (challenge.StepRemain == 0)
         {
+            AccountService.SetCultureInfo(challenge.Account);
+            await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+            {
+                Notification = new PushNotification()
+                {
+                    Topic = "auth.login",
+                    Title = localizer["NewLoginTitle"],
+                    Body = localizer["NewLoginBody", challenge.Client?.DeviceName ?? "unknown",
+                        challenge.IpAddress ?? "unknown"],
+                    IsSavable = true
+                },
+                UserId = challenge.AccountId.ToString()
+            });
             als.CreateActionLogFromRequest(ActionLogType.NewLogin,
                 new Dictionary<string, object>
                 {

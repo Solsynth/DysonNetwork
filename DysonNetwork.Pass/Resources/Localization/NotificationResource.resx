@@ -80,4 +80,10 @@
     <data name="OrderPaidBody" xml:space="preserve">
        <value>{0} {1} was removed from your wallet to pay {2}</value>
     </data>
+    <data name="NewLoginTitle" xml:space="preserve">
+        <value>New login detected</value>
+    </data>
+    <data name="NewLoginBody" xml:space="preserve">
+        <value>Your account logged on to a device named {0} at {1}</value>
+    </data>
 </root>
