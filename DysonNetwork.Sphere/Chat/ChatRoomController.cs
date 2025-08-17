@@ -5,6 +5,7 @@ using DysonNetwork.Shared;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Realm;
 using Grpc.Core;
@@ -25,7 +26,8 @@ public class ChatRoomController(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
-    PusherService.PusherServiceClient pusher
+    PusherService.PusherServiceClient pusher,
+    AccountClientHelper accountsHelper
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -164,7 +166,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required][MaxLength(1024)] public string? Name { get; set; }
+        [Required] [MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -507,45 +509,52 @@ public class ChatRoomController(
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.LeaveAt == null);
 
-        // if (withStatus)
-        // {
-        //     var members = await query
-        //         .OrderBy(m => m.JoinedAt)
-        //         .ToListAsync();
-        //
-        //     var memberStatuses = await aes.GetStatuses(members.Select(m => m.AccountId).ToList());
-        //
-        //     if (!string.IsNullOrEmpty(status))
-        //     {
-        //         members = members.Where(m =>
-        //             memberStatuses.TryGetValue(m.AccountId, out var s) && s.Label != null &&
-        //             s.Label.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
-        //     }
-        //
-        //     members = members.OrderByDescending(m => memberStatuses.TryGetValue(m.AccountId, out var s) && s.IsOnline)
-        //         .ToList();
-        //
-        //     var total = members.Count;
-        //     Response.Headers.Append("X-Total", total.ToString());
-        //
-        //     var result = members.Skip(skip).Take(take).ToList();
-        //
-        //     return Ok(await crs.LoadMemberAccounts(result));
-        // }
-        // else
-        // {
-        var total = await query.CountAsync();
-        Response.Headers.Append("X-Total", total.ToString());
+        if (withStatus)
+        {
+            var members = await query
+                .OrderBy(m => m.JoinedAt)
+                .ToListAsync();
 
-        var members = await query
-            .OrderBy(m => m.JoinedAt)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
-        members = await crs.LoadMemberAccounts(members);
+            var memberStatuses = await accountsHelper.GetAccountStatusBatch(
+                members.Select(m => m.AccountId).ToList()
+            );
 
-        return Ok(members.Where(m => m.Account is not null).ToList());
-        // }
+            if (!string.IsNullOrEmpty(status))
+            {
+                members = members
+                    .Select(m =>
+                    {
+                        m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
+                        return m;
+                    })
+                    .ToList();
+            }
+
+            members = members
+                .OrderByDescending(m => m.Status?.IsOnline ?? false)
+                .ToList();
+
+            var total = members.Count;
+            Response.Headers.Append("X-Total", total.ToString());
+
+            var result = members.Skip(offset).Take(take).ToList();
+
+            return Ok(await crs.LoadMemberAccounts(result));
+        }
+        else
+        {
+            var total = await query.CountAsync();
+            Response.Headers.Append("X-Total", total.ToString());
+
+            var members = await query
+                .OrderBy(m => m.JoinedAt)
+                .Skip(offset)
+                .Take(take)
+                .ToListAsync();
+            members = await crs.LoadMemberAccounts(members);
+
+            return Ok(members.Where(m => m.Account is not null).ToList());
+        }
     }
 
 

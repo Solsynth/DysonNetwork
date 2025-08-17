@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 using Account = DysonNetwork.Pass.Account.Account;
 
@@ -75,6 +76,7 @@ public class ChatMember : ModelBase
     public ChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
     [NotMapped] public Account? Account { get; set; }
+    [NotMapped] public AccountStatusReference? Status { get; set; }
 
     [MaxLength(1024)] public string? Nick { get; set; }
 

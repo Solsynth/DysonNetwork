@@ -52,6 +52,7 @@ message AccountStatus {
   bool is_not_disturb = 6;
   google.protobuf.StringValue label = 7;
   google.protobuf.Timestamp cleared_at = 8;
+  string account_id = 9;
 }
 
 // Profile contains detailed information about a user

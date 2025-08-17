@@ -45,6 +45,7 @@ public class Status : ModelBase
             IsNotDisturb = IsNotDisturb,
             Label = Label ?? string.Empty,
             ClearedAt = ClearedAt?.ToTimestamp(),
+            AccountId = AccountId.ToString()
         };
 
         return proto;
@@ -68,6 +69,7 @@ public class Status : ModelBase
             IsNotDisturb = proto.IsNotDisturb,
             Label = proto.Label,
             ClearedAt = proto.ClearedAt?.ToInstant(),
+            AccountId = Guid.Parse(proto.AccountId)
         };
 
         return status;

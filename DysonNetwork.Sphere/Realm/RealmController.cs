@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,8 @@ public class RealmController(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
-    AccountService.AccountServiceClient accounts
+    AccountService.AccountServiceClient accounts,
+    AccountClientHelper accountsHelper
 ) : Controller
 {
     [HttpGet("{slug}")]
@@ -234,45 +236,52 @@ public class RealmController(
             .Where(m => m.RealmId == realm.Id)
             .Where(m => m.LeaveAt == null);
 
-        // if (withStatus)
-        // {
-        //     var members = await query
-        //         .OrderBy(m => m.CreatedAt)
-        //         .ToListAsync();
-        //
-        //     var memberStatuses = await aes.GetStatuses(members.Select(m => m.AccountId).ToList());
-        //
-        //     if (!string.IsNullOrEmpty(status))
-        //     {
-        //         members = members.Where(m =>
-        //             memberStatuses.TryGetValue(m.AccountId, out var s) && s.Label != null &&
-        //             s.Label.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
-        //     }
-        //
-        //     members = members.OrderByDescending(m => memberStatuses.TryGetValue(m.AccountId, out var s) && s.IsOnline)
-        //         .ToList();
-        //
-        //     var total = members.Count;
-        //     Response.Headers["X-Total"] = total.ToString();
-        //
-        //     var result = members.Skip(offset).Take(take).ToList();
-        //
-        //     return Ok(await rs.LoadMemberAccounts(result));
-        // }
-        // else
-        // {
-        var total = await query.CountAsync();
-        Response.Headers["X-Total"] = total.ToString();
+        if (withStatus)
+        {
+            var members = await query
+                .OrderBy(m => m.JoinedAt)
+                .ToListAsync();
 
-        var members = await query
-            .OrderBy(m => m.CreatedAt)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
-        members = await rs.LoadMemberAccounts(members);
+            var memberStatuses = await accountsHelper.GetAccountStatusBatch(
+                members.Select(m => m.AccountId).ToList()
+            );
 
-        return Ok(members.Where(m => m.Account is not null).ToList());
-        // }
+            if (!string.IsNullOrEmpty(status))
+            {
+                members = members
+                    .Select(m =>
+                    {
+                        m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
+                        return m;
+                    })
+                    .ToList();
+            }
+
+            members = members
+                .OrderByDescending(m => m.Status?.IsOnline ?? false)
+                .ToList();
+
+            var total = members.Count;
+            Response.Headers.Append("X-Total", total.ToString());
+
+            var result = members.Skip(offset).Take(take).ToList();
+
+            return Ok(await rs.LoadMemberAccounts(result));
+        }
+        else
+        {
+            var total = await query.CountAsync();
+            Response.Headers["X-Total"] = total.ToString();
+
+            var members = await query
+                .OrderBy(m => m.CreatedAt)
+                .Skip(offset)
+                .Take(take)
+                .ToListAsync();
+            members = await rs.LoadMemberAccounts(members);
+
+            return Ok(members.Where(m => m.Account is not null).ToList());
+        }
     }
 
 
@@ -689,7 +698,7 @@ public class RealmController(
                 .Where(c => c.RealmId == realm.Id)
                 .Select(c => c.Id)
                 .ToListAsync();
-            
+
             db.Realms.Remove(realm);
             await db.SaveChangesAsync();
 

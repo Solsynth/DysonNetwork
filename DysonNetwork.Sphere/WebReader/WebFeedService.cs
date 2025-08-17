@@ -23,7 +23,7 @@ public class WebFeedService(
             PublisherId = publisher.Id,
         };
 
-        database.Set<WebFeed>().Add(feed);
+        database.WebFeeds.Add(feed);
         await database.SaveChangesAsync();
 
         return feed;

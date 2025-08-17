@@ -49,6 +49,7 @@ public class RealmMember : ModelBase
     public Realm Realm { get; set; } = null!;
     public Guid AccountId { get; set; }
     [NotMapped] public Account? Account { get; set; }
+    [NotMapped] public AccountStatusReference? Status { get; set; }
 
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }
