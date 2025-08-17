@@ -172,14 +172,22 @@ public class AuthController(
             .FirstOrDefaultAsync(e => e.Id == id);
         if (challenge is null) return NotFound("Auth challenge was not found.");
 
-        var factor = await db.AccountAuthFactors.FindAsync(request.FactorId);
+        var factor = await db.AccountAuthFactors
+            .Where(f => f.Id == request.FactorId)
+            .Where(f => f.AccountId == challenge.AccountId)
+            .FirstOrDefaultAsync();
         if (factor is null) return NotFound("Auth factor was not found.");
         if (factor.EnabledAt is null) return BadRequest("Auth factor is not enabled.");
         if (factor.Trustworthy <= 0) return BadRequest("Auth factor is not trustworthy.");
 
         if (challenge.StepRemain == 0) return challenge;
-        if (challenge.ExpiredAt.HasValue && challenge.ExpiredAt.Value < Instant.FromDateTimeUtc(DateTime.UtcNow))
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
             return BadRequest();
+
+        // prevent reusing the same factor in one challenge
+        if (challenge.BlacklistFactors.Contains(factor.Id))
+            return BadRequest("Auth factor already used.");
 
         try
         {
@@ -272,37 +280,15 @@ public class AuthController(
                     .FirstOrDefaultAsync();
                 if (challenge is null)
                     return BadRequest("Authorization code not found or expired.");
-                if (challenge.StepRemain != 0)
-                    return BadRequest("Challenge not yet completed.");
-
-                var session = await db.AuthSessions
-                    .Where(e => e.Challenge == challenge)
-                    .FirstOrDefaultAsync();
-                if (session is not null)
-                    return BadRequest("Session already exists for this challenge.");
-
-                session = new AuthSession
+                try
                 {
-                    LastGrantedAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
-                    ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(30)),
-                    Account = challenge.Account,
-                    Challenge = challenge,
-                };
-
-                db.AuthSessions.Add(session);
-                await db.SaveChangesAsync();
-
-                var tk = auth.CreateToken(session);
-                Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+                    var tk = await auth.CreateSessionAndIssueToken(challenge);
+                    return Ok(new TokenExchangeResponse { Token = tk });
+                }
+                catch (ArgumentException ex)
                 {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Lax,
-                    Domain = _cookieDomain,
-                    Expires = DateTime.UtcNow.AddDays(30)
-                });
-
-                return Ok(new TokenExchangeResponse { Token = tk });
+                    return BadRequest(ex.Message);
+                }
             default:
                 // Since we no longer need the refresh token
                 // This case is blank for now, thinking to mock it if the OIDC standard requires it

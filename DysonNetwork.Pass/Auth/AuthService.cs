@@ -189,6 +189,53 @@ public class AuthService(
         return CreateCompactToken(session.Id, rsa);
     }
 
+    /// <summary>
+    /// Create a session for a completed challenge, persist it, issue a token, and set the auth cookie.
+    /// Keeps behavior identical to previous controller implementation.
+    /// </summary>
+    /// <param name="challenge">Completed challenge</param>
+    /// <returns>Signed compact token</returns>
+    /// <exception cref="ArgumentException">If challenge not completed or session already exists</exception>
+    public async Task<string> CreateSessionAndIssueToken(AuthChallenge challenge)
+    {
+        if (challenge.StepRemain != 0)
+            throw new ArgumentException("Challenge not yet completed.");
+
+        var hasSession = await db.AuthSessions
+            .AnyAsync(e => e.ChallengeId == challenge.Id);
+        if (hasSession)
+            throw new ArgumentException("Session already exists for this challenge.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var session = new AuthSession
+        {
+            LastGrantedAt = now,
+            // Never expire server-side
+            ExpiredAt = null,
+            AccountId = challenge.AccountId,
+            ChallengeId = challenge.Id
+        };
+
+        db.AuthSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        var tk = CreateToken(session);
+
+        // Set cookie using HttpContext
+        var cookieDomain = config["AuthToken:CookieDomain"]!;
+        HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Domain = cookieDomain,
+            // Effectively never expire client-side (20 years)
+            Expires = DateTime.UtcNow.AddYears(20)
+        });
+
+        return tk;
+    }
+
     private string CreateCompactToken(Guid sessionId, RSA rsa)
     {
         // Create the payload: just the session ID
