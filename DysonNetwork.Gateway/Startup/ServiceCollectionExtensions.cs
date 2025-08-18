@@ -2,6 +2,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using DysonNetwork.Shared.Registry;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Transforms;
 
 namespace DysonNetwork.Gateway.Startup;
 
@@ -15,11 +16,15 @@ public static class ServiceCollectionExtensions
             .AddReverseProxy()
             .ConfigureHttpClient((context, handler) =>
             {
-                var caCert = X509CertificateLoader.LoadCertificateFromFile(configuration["CaCert"]!);
+                // var caCert = X509CertificateLoader.LoadCertificateFromFile(configuration["CaCert"]!);
                 handler.SslOptions = new SslClientAuthenticationOptions
                 {
                     RemoteCertificateValidationCallback = (sender, cert, chain, errors) => true
                 };
+            })
+            .AddTransforms(context =>
+            {
+                context.AddForwarded();
             });
 
         services.AddRegistryService(configuration, addForwarder: false);
