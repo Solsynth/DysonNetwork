@@ -478,10 +478,11 @@ public class AccountService(
         }
 
         // The current session should be included in the sessions' list
+        var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Include(s => s.Challenge)
             .Where(s => s.Challenge.DeviceId == session.Challenge.DeviceId)
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now));
 
         await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{session.Id}");
     }
@@ -494,22 +495,23 @@ public class AccountService(
             throw new InvalidOperationException("Device not found.");
 
         await pusher.UnsubscribePushNotificationsAsync(
-            new UnsubscribePushNotificationsRequest() { DeviceId = device.DeviceId }
+            new UnsubscribePushNotificationsRequest { DeviceId = device.DeviceId }
         );
-
-        db.AuthClients.Remove(device);
-        await db.SaveChangesAsync();
 
         var sessions = await db.AuthSessions
             .Include(s => s.Challenge)
-            .Where(s => s.Challenge.ClientId == device.Id)
+            .Where(s => s.Challenge.ClientId == device.Id && s.AccountId == account.Id)
             .ToListAsync();
 
         // The current session should be included in the sessions' list
+        var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Include(s => s.Challenge)
             .Where(s => s.Challenge.DeviceId == device.DeviceId)
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now));
+        
+        db.AuthClients.Remove(device);
+        await db.SaveChangesAsync();
 
         foreach (var item in sessions)
             await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{item.Id}");
