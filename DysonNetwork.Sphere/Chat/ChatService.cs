@@ -20,7 +20,7 @@ public partial class ChatService(
 {
     private const string ChatFileUsageIdentifier = "chat";
 
-    [GeneratedRegex(@"https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]*[-A-Za-z0-9+&@#/%=~_|]")]
+    [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
     /// <summary>
