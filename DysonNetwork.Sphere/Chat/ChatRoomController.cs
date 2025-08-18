@@ -532,7 +532,9 @@ public class ChatRoomController(
 
             var result = members.Skip(offset).Take(take).ToList();
 
-            return Ok(await crs.LoadMemberAccounts(result));
+            members = await crs.LoadMemberAccounts(result);
+
+            return Ok(members.Where(m => m.Account is not null).ToList());
         }
         else
         {

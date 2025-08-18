@@ -259,7 +259,9 @@ public class RealmController(
 
             var result = members.Skip(offset).Take(take).ToList();
 
-            return Ok(await rs.LoadMemberAccounts(result));
+            members = await rs.LoadMemberAccounts(result);
+            
+            return Ok(members.Where(m => m.Account is not null).ToList());
         }
         else
         {
