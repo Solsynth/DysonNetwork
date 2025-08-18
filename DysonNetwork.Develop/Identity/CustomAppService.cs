@@ -1,3 +1,4 @@
+using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,17 @@ public class CustomAppService(
 )
 {
     public async Task<CustomApp?> CreateAppAsync(
-        Developer pub,
+        Guid projectId,
         CustomAppController.CustomAppRequest request
     )
     {
+        var project = await db.DevProjects
+            .Include(p => p.Developer)
+            .FirstOrDefaultAsync(p => p.Id == projectId);
+            
+        if (project == null)
+            return null;
+            
         var app = new CustomApp
         {
             Slug = request.Slug!,
@@ -23,7 +31,7 @@ public class CustomAppService(
             Status = request.Status ?? CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
-            DeveloperId = pub.Id
+            ProjectId = projectId
         };
 
         if (request.PictureId is not null)
@@ -74,17 +82,23 @@ public class CustomAppService(
         return app;
     }
 
-    public async Task<CustomApp?> GetAppAsync(Guid id, Guid? developerId = null)
+    public async Task<CustomApp?> GetAppAsync(Guid id, Guid? projectId = null)
     {
-        var query = db.CustomApps.Where(a => a.Id == id).AsQueryable();
-        if (developerId.HasValue)
-            query = query.Where(a => a.DeveloperId == developerId.Value);
-        return await query.FirstOrDefaultAsync();
+        var query = db.CustomApps.AsQueryable();
+        
+        if (projectId.HasValue)
+        {
+            query = query.Where(a => a.ProjectId == projectId.Value);
+        }
+
+        return await query.FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<List<CustomApp>> GetAppsByPublisherAsync(Guid publisherId)
+    public async Task<List<CustomApp>> GetAppsByProjectAsync(Guid projectId)
     {
-        return await db.CustomApps.Where(a => a.DeveloperId == publisherId).ToListAsync();
+        return await db.CustomApps
+            .Where(a => a.ProjectId == projectId)
+            .ToListAsync();
     }
 
     public async Task<CustomApp?> UpdateAppAsync(CustomApp app, CustomAppController.CustomAppRequest request)

@@ -4,6 +4,7 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using DysonNetwork.Develop.Identity;
+using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Cache;
 using StackExchange.Redis;
 
@@ -50,6 +51,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<DeveloperService>();
         services.AddScoped<CustomAppService>();
+        services.AddScoped<DevProjectService>();
 
         return services;
     }

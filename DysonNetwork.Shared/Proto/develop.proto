@@ -39,7 +39,7 @@ enum CustomAppStatus {
   bytes links = 9;
   CustomAppOauthConfig oauth_config = 13;
 
-  string developer_id = 10;
+  string project_id = 10;
 
   google.protobuf.Timestamp created_at = 11;
   google.protobuf.Timestamp updated_at = 12;

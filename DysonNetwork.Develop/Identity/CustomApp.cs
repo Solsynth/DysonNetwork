@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
@@ -37,8 +38,11 @@ public class CustomApp : ModelBase, IIdentifiedResource
 
     [JsonIgnore] public ICollection<CustomAppSecret> Secrets { get; set; } = new List<CustomAppSecret>();
 
-    public Guid DeveloperId { get; set; }
-    public Developer Developer { get; set; } = null!;
+    public Guid ProjectId { get; set; }
+    public DevProject Project { get; set; } = null!;
+    
+    [NotMapped]
+    public Developer Developer => Project.Developer;
 
     [NotMapped] public string ResourceIdentifier => "custom-app:" + Id;
 
@@ -72,7 +76,7 @@ public class CustomApp : ModelBase, IIdentifiedResource
                 RequirePkce = OauthConfig.RequirePkce,
                 AllowOfflineAccess = OauthConfig.AllowOfflineAccess
             },
-            DeveloperId = DeveloperId.ToString(),
+            ProjectId = ProjectId.ToString(),
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp()
         };
@@ -92,7 +96,7 @@ public class CustomApp : ModelBase, IIdentifiedResource
             Shared.Proto.CustomAppStatus.Suspended => CustomAppStatus.Suspended,
             _ => CustomAppStatus.Developing
         };
-        DeveloperId = string.IsNullOrEmpty(p.DeveloperId) ? Guid.Empty : Guid.Parse(p.DeveloperId);
+        ProjectId = string.IsNullOrEmpty(p.ProjectId) ? Guid.Empty : Guid.Parse(p.ProjectId);
         CreatedAt = p.CreatedAt.ToInstant();
         UpdatedAt = p.UpdatedAt.ToInstant();
         if (p.Picture.Length > 0) Picture = System.Text.Json.JsonSerializer.Deserialize<CloudFileReferenceObject>(p.Picture.ToStringUtf8());

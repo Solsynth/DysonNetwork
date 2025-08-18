@@ -33,7 +33,8 @@ public class DeveloperController(
 
         // Get custom apps count
         var customAppsCount = await db.CustomApps
-            .Where(a => a.DeveloperId == developer.Id)
+            .Include(a => a.Project)
+            .Where(a => a.Project.DeveloperId == developer.Id)
             .CountAsync();
 
         var stats = new DeveloperStats
