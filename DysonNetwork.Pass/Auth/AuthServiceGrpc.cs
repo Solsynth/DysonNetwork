@@ -20,35 +20,9 @@ public class AuthServiceGrpc(
         ServerCallContext context
     )
     {
-        if (!authService.ValidateToken(request.Token, out var sessionId))
-            return new AuthenticateResponse { Valid = false, Message = "Invalid token." };
-
-        var session = await cache.GetAsync<AuthSession>($"{DysonTokenAuthHandler.AuthCachePrefix}{sessionId}");
-        if (session is not null)
-            return new AuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
-
-        session = await db.AuthSessions
-            .AsNoTracking()
-            .Include(e => e.Challenge)
-            .ThenInclude(e => e.Client)
-            .Include(e => e.Account)
-            .ThenInclude(e => e.Profile)
-            .FirstOrDefaultAsync(s => s.Id == sessionId);
-        if (session == null)
-            return new AuthenticateResponse { Valid = false, Message = "Session was not found." };
-        var now = SystemClock.Instance.GetCurrentInstant();
-        if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
-            return new AuthenticateResponse { Valid = false, Message = "Session has been expired." };
-        
-        var perk = await subscriptions.GetPerkSubscriptionAsync(session.AccountId);
-        session.Account.PerkSubscription = perk?.ToReference();
-
-        await cache.SetWithGroupsAsync(
-            $"auth:{sessionId}",
-            session,
-            [$"{Account.AccountService.AccountCachePrefix}{session.Account.Id}"],
-            TimeSpan.FromHours(1)
-        );
+        var (valid, session, message) = await authService.AuthenticateTokenAsync(request.Token);
+        if (!valid || session is null)
+            return new AuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
 
         return new AuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
     }

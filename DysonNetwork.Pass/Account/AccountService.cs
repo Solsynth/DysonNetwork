@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
 using OtpNet;
+using AuthService = DysonNetwork.Pass.Auth.AuthService;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -489,7 +490,7 @@ public class AccountService(
             .ExecuteDeleteAsync();
 
         foreach (var item in sessions)
-            await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
+            await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{item.Id}");
     }
 
     public async Task DeleteDevice(Account account, string deviceId)
@@ -519,7 +520,7 @@ public class AccountService(
             .ExecuteDeleteAsync();
 
         foreach (var item in sessions)
-            await cache.RemoveAsync($"{DysonTokenAuthHandler.AuthCachePrefix}{item.Id}");
+            await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{item.Id}");
     }
 
     public async Task<AccountContact> CreateContactMethod(Account account, AccountContactType type, string content)
