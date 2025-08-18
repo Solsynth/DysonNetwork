@@ -68,7 +68,6 @@ public class AuthChallenge : ModelBase
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
-    [MaxLength(1024)] public string? DeviceId { get; set; } = string.Empty;
     public Point? Location { get; set; }
 
     public Guid AccountId { get; set; }

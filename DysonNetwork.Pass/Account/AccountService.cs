@@ -440,7 +440,7 @@ public class AccountService(
         );
     }
 
-    public async Task<bool> IsDeviceActive(Guid id)
+    private async Task<bool> IsDeviceActive(Guid id)
     {
         return await db.AuthSessions
             .Include(s => s.Challenge)
@@ -468,7 +468,11 @@ public class AccountService(
             .Where(s => s.Id == sessionId && s.AccountId == account.Id)
             .FirstOrDefaultAsync();
         if (session is null) throw new InvalidOperationException("Session was not found.");
-
+        
+        // The current session should be included in the sessions' list
+        db.AuthSessions.Remove(session);
+        await db.SaveChangesAsync();
+        
         if (session.Challenge.ClientId.HasValue)
         {
             if (!await IsDeviceActive(session.Challenge.ClientId.Value))
@@ -476,13 +480,8 @@ public class AccountService(
                     { DeviceId = session.Challenge.Client!.DeviceId }
                 );
         }
-
-        // The current session should be included in the sessions' list
-        var now = SystemClock.Instance.GetCurrentInstant();
-        await db.AuthSessions
-            .Include(s => s.Challenge)
-            .Where(s => s.Challenge.DeviceId == session.Challenge.DeviceId)
-            .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now));
+        
+        logger.LogInformation("Deleted session #{SessionId}", session.Id);
 
         await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{session.Id}");
     }
@@ -507,7 +506,7 @@ public class AccountService(
         var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Include(s => s.Challenge)
-            .Where(s => s.Challenge.DeviceId == device.DeviceId)
+            .Where(s => s.Challenge.ClientId == device.Id)
             .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now));
         
         db.AuthClients.Remove(device);
