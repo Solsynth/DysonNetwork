@@ -449,8 +449,7 @@ public class AccountService(
 
     public async Task<AuthClient> UpdateDeviceName(Account account, string deviceId, string label)
     {
-        var device = await db.AuthClients.FirstOrDefaultAsync(
-            c => c.DeviceId == deviceId && c.AccountId == account.Id
+        var device = await db.AuthClients.FirstOrDefaultAsync(c => c.DeviceId == deviceId && c.AccountId == account.Id
         );
         if (device is null) throw new InvalidOperationException("Device was not found.");
 
@@ -470,16 +469,11 @@ public class AccountService(
             .FirstOrDefaultAsync();
         if (session is null) throw new InvalidOperationException("Session was not found.");
 
-        var sessions = await db.AuthSessions
-            .Include(s => s.Challenge)
-            .Where(s => s.AccountId == session.Id && s.Challenge.DeviceId == session.Challenge.DeviceId)
-            .ToListAsync();
-
         if (session.Challenge.ClientId.HasValue)
         {
             if (!await IsDeviceActive(session.Challenge.ClientId.Value))
                 await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
-                { DeviceId = session.Challenge.Client!.DeviceId }
+                    { DeviceId = session.Challenge.Client!.DeviceId }
                 );
         }
 
@@ -489,14 +483,12 @@ public class AccountService(
             .Where(s => s.Challenge.DeviceId == session.Challenge.DeviceId)
             .ExecuteDeleteAsync();
 
-        foreach (var item in sessions)
-            await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{item.Id}");
+        await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{session.Id}");
     }
 
     public async Task DeleteDevice(Account account, string deviceId)
     {
-        var device = await db.AuthClients.FirstOrDefaultAsync(
-            c => c.DeviceId == deviceId && c.AccountId == account.Id
+        var device = await db.AuthClients.FirstOrDefaultAsync(c => c.DeviceId == deviceId && c.AccountId == account.Id
         );
         if (device is null)
             throw new InvalidOperationException("Device not found.");
