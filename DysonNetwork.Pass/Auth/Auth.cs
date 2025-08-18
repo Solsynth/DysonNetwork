@@ -35,7 +35,7 @@ public class DysonTokenAuthHandler(
     IOptionsMonitor<DysonTokenAuthOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    AuthService authService,
+    TokenAuthService token,
     FlushBufferService fbs
 )
     : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
@@ -49,7 +49,7 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            var (valid, session, message) = await authService.AuthenticateTokenAsync(tokenInfo.Token);
+            var (valid, session, message) = await token.AuthenticateTokenAsync(tokenInfo.Token);
             if (!valid || session is null)
                 return AuthenticateResult.Fail(message ?? "Authentication failed.");
 

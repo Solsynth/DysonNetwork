@@ -196,6 +196,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<TokenAuthService>();
         services.AddScoped<AccountUsernameService>();
         services.AddScoped<WalletService>();
         services.AddScoped<SubscriptionService>();

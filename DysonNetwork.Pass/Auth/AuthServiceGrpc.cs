@@ -8,10 +8,8 @@ using NodaTime;
 namespace DysonNetwork.Pass.Auth;
 
 public class AuthServiceGrpc(
-    AuthService authService,
-    SubscriptionService subscriptions,
-    ICacheService cache,
-    AppDatabase db
+    TokenAuthService token,
+    AuthService auth
 )
     : Shared.Proto.AuthService.AuthServiceBase
 {
@@ -20,7 +18,7 @@ public class AuthServiceGrpc(
         ServerCallContext context
     )
     {
-        var (valid, session, message) = await authService.AuthenticateTokenAsync(request.Token);
+        var (valid, session, message) = await token.AuthenticateTokenAsync(request.Token);
         if (!valid || session is null)
             return new AuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
 
@@ -30,13 +28,13 @@ public class AuthServiceGrpc(
     public override async Task<ValidateResponse> ValidatePin(ValidatePinRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
-        var valid = await authService.ValidatePinCode(accountId, request.Pin);
+        var valid = await auth.ValidatePinCode(accountId, request.Pin);
         return new ValidateResponse { Valid = valid };
     }
     
     public override async Task<ValidateResponse> ValidateCaptcha(ValidateCaptchaRequest request, ServerCallContext context)
     {
-        var valid = await authService.ValidateCaptcha(request.Token);
+        var valid = await auth.ValidateCaptcha(request.Token);
         return new ValidateResponse { Valid = valid };
     }
 }
