@@ -5,6 +5,7 @@ package proto;
 option csharp_namespace = "DysonNetwork.Shared.Proto";
 
 import "google/protobuf/timestamp.proto";
+import "account.proto";
 import "file.proto";
 
 message CustomAppOauthConfig {
@@ -25,7 +26,7 @@ enum CustomAppStatus {
   SUSPENDED = 4;
 }
 
- message CustomApp {
+message CustomApp {
   string id = 1;
   string slug = 2;
   string name = 3;
@@ -43,7 +44,7 @@ enum CustomAppStatus {
 
   google.protobuf.Timestamp created_at = 11;
   google.protobuf.Timestamp updated_at = 12;
- }
+}
 
 message CustomAppSecret {
   string id = 1;
@@ -86,3 +87,60 @@ service CustomAppService {
   rpc GetCustomApp(GetCustomAppRequest) returns (GetCustomAppResponse);
   rpc CheckCustomAppSecret(CheckCustomAppSecretRequest) returns (CheckCustomAppSecretResponse);
 }
+
+// BotAccount represents a bot account in the system
+// It extends the base Account with bot-specific fields
+message BotAccount {
+  // Base account information
+  Account account = 1;
+
+  // Bot-specific information
+  string slug = 2;         // Unique identifier for the bot
+  bool is_active = 3;     // Whether the bot is currently active
+  string automated_id = 5; // The bot ID
+
+  // Timestamps
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// Request/Response messages for BotAccount operations
+message CreateBotAccountRequest {
+  Account account = 1;
+  string automated_id = 2;
+}
+
+message CreateBotAccountResponse {
+  BotAccount bot = 1;    // The created bot account
+}
+
+message UpdateBotAccountRequest {
+  string automated_id = 1;       // ID of the bot account to update
+  Account account = 2;           // Updated account information
+}
+
+message UpdateBotAccountResponse {
+  BotAccount bot = 1;    // The updated bot account
+}
+
+message DeleteBotAccountRequest {
+  string automated_id = 1;       // ID of the bot account to delete
+  bool force = 2;                // Whether to force delete (bypass soft delete)
+}
+
+message DeleteBotAccountResponse {
+  bool success = 1;              // Whether the deletion was successful
+}
+
+// This service should be implemented by the Pass service to handle the creation, update, and deletion of bot accounts
+service BotAccountReceiverService {
+  // Create a new bot account
+  rpc CreateBotAccount(CreateBotAccountRequest) returns (CreateBotAccountResponse);
+  
+  // Update an existing bot account
+  rpc UpdateBotAccount(UpdateBotAccountRequest) returns (UpdateBotAccountResponse);
+  
+  // Delete a bot account
+  rpc DeleteBotAccount(DeleteBotAccountRequest) returns (DeleteBotAccountResponse);
+}
+  

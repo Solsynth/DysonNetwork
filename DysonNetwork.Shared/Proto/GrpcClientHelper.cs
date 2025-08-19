@@ -32,12 +32,9 @@ public static class GrpcClientHelper
     private static async Task<string> GetServiceUrlFromEtcd(IEtcdClient etcdClient, string serviceName)
     {
         var response = await etcdClient.GetAsync($"/services/{serviceName}");
-        if (response.Kvs.Count == 0)
-        {
-            throw new InvalidOperationException($"Service '{serviceName}' not found in Etcd.");
-        }
-
-        return response.Kvs[0].Value.ToStringUtf8();
+        return response.Kvs.Count == 0
+            ? throw new InvalidOperationException($"Service '{serviceName}' not found in Etcd.")
+            : response.Kvs[0].Value.ToStringUtf8();
     }
 
     public static async Task<AccountService.AccountServiceClient> CreateAccountServiceClient(
@@ -51,7 +48,21 @@ public static class GrpcClientHelper
         return new AccountService.AccountServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
-    
+
+    public static async Task<BotAccountReceiverService.BotAccountReceiverServiceClient>
+        CreateBotAccountReceiverServiceClient(
+            IEtcdClient etcdClient,
+            string clientCertPath,
+            string clientKeyPath,
+            string? clientCertPassword = null
+        )
+    {
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pass");
+        return new BotAccountReceiverService.BotAccountReceiverServiceClient(CreateCallInvoker(url, clientCertPath,
+            clientKeyPath,
+            clientCertPassword));
+    }
+
     public static async Task<ActionLogService.ActionLogServiceClient> CreateActionLogServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
@@ -75,7 +86,7 @@ public static class GrpcClientHelper
         return new AuthService.AuthServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
-    
+
     public static async Task<PermissionService.PermissionServiceClient> CreatePermissionServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
@@ -99,7 +110,7 @@ public static class GrpcClientHelper
         return new PusherService.PusherServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
-    
+
     public static async Task<FileService.FileServiceClient> CreateFileServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
@@ -111,7 +122,7 @@ public static class GrpcClientHelper
         return new FileService.FileServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
-    
+
     public static async Task<FileReferenceService.FileReferenceServiceClient> CreateFileReferenceServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
@@ -123,7 +134,7 @@ public static class GrpcClientHelper
         return new FileReferenceService.FileReferenceServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
-    
+
     public static async Task<PublisherService.PublisherServiceClient> CreatePublisherServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
@@ -147,4 +158,4 @@ public static class GrpcClientHelper
         return new CustomAppService.CustomAppServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
- }
+}

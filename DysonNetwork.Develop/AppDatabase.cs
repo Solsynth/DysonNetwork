@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Develop.Project;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ public class AppDatabase(
     
     public DbSet<CustomApp> CustomApps { get; set; } = null!;
     public DbSet<CustomAppSecret> CustomAppSecrets { get; set; } = null!;
+    public DbSet<BotAccount> BotAccounts { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

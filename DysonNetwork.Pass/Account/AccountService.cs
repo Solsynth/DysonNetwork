@@ -178,6 +178,29 @@ public class AccountService(
         );
     }
 
+    public async Task<Account> CreateBotAccount(Account account, Guid automatedId)
+    {
+        var dupeAutomateCount = await db.Accounts.Where(a => a.AutomatedId == automatedId).CountAsync();
+        if (dupeAutomateCount > 0)
+            throw new InvalidOperationException("Automated ID has already been used.");
+        
+        var dupeNameCount = await db.Accounts.Where(a => a.Name == account.Name).CountAsync();
+        if (dupeNameCount > 0)
+            throw new InvalidOperationException("Account name has already been taken.");
+        
+        account.AutomatedId = automatedId;
+        account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
+        account.IsSuperuser = false;
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+        return account;
+    }
+    
+    public async Task<Account?> GetBotAccount(Guid automatedId)
+    {
+        return await db.Accounts.FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
+    }
+
     public async Task RequestAccountDeletion(Account account)
     {
         var spell = await spells.CreateMagicSpell(
@@ -665,21 +688,13 @@ public class AccountService(
         }
     }
 
-    /// <summary>
-    /// The maintenance method for server administrator.
-    /// To check every user has an account profile and to create them if it isn't having one.
-    /// </summary>
-    public async Task EnsureAccountProfileCreated()
+    public async Task DeleteAccount(Account account)
     {
-        var accountsId = await db.Accounts.Select(a => a.Id).ToListAsync();
-        var existingId = await db.AccountProfiles.Select(p => p.AccountId).ToListAsync();
-        var missingId = accountsId.Except(existingId).ToList();
-
-        if (missingId.Count != 0)
-        {
-            var newProfiles = missingId.Select(id => new AccountProfile { Id = Guid.NewGuid(), AccountId = id })
-                .ToList();
-            await db.BulkInsertAsync(newProfiles);
-        }
+        await db.AuthSessions
+            .Where(s => s.AccountId == account.Id)
+            .ExecuteDeleteAsync();
+        
+        db.Accounts.Remove(account);
+        await db.SaveChangesAsync();
     }
 }

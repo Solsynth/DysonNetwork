@@ -20,6 +20,9 @@ public class Account : ModelBase
     [MaxLength(32)] public string Language { get; set; } = string.Empty;
     public Instant? ActivatedAt { get; set; }
     public bool IsSuperuser { get; set; } = false;
+    
+    // The ID is the BotAccount ID in the DysonNetwork.Develop
+    public Guid? AutomatedId { get; set; }
 
     public AccountProfile Profile { get; set; } = null!;
     public ICollection<AccountContact> Contacts { get; set; } = new List<AccountContact>();

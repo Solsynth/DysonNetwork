@@ -43,6 +43,20 @@ public static class ServiceInjectionHelper
         });
         services.AddSingleton<AccountClientHelper>();
         
+        services.AddSingleton<BotAccountReceiverService.BotAccountReceiverServiceClient>(sp =>
+        {
+            var etcdClient = sp.GetRequiredService<IEtcdClient>();
+            var config = sp.GetRequiredService<IConfiguration>();
+            var clientCertPath = config["Service:ClientCert"]!;
+            var clientKeyPath = config["Service:ClientKey"]!;
+            var clientCertPassword = config["Service:CertPassword"];
+
+            return GrpcClientHelper
+                .CreateBotAccountReceiverServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .GetAwaiter()
+                .GetResult();
+        });
+        
         services.AddSingleton<ActionLogService.ActionLogServiceClient>(sp =>
         {
             var etcdClient = sp.GetRequiredService<IEtcdClient>();

@@ -52,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DeveloperService>();
         services.AddScoped<CustomAppService>();
         services.AddScoped<DevProjectService>();
+        services.AddScoped<BotAccountService>();
 
         return services;
     }
