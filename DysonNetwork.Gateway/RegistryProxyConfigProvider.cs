@@ -76,6 +76,26 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
 
         var gatewayServiceName = _configuration["Service:Name"];
 
+        // Add direct route for /cgi to Gateway
+        var gatewayCluster = new ClusterConfig
+        {
+            ClusterId = "gateway-self",
+            Destinations = new Dictionary<string, DestinationConfig>
+            {
+                { "self", new DestinationConfig { Address = _configuration["Kestrel:Endpoints:Http:Url"] ?? "http://localhost:5000" } }
+            }
+        };
+        clusters.Add(gatewayCluster);
+
+        var cgiRoute = new RouteConfig
+        {
+            RouteId = "gateway-cgi-route",
+            ClusterId = "gateway-self",
+            Match = new RouteMatch { Path = "/cgi/{**catch-all}" }
+        };
+        routes.Add(cgiRoute);
+        _logger.LogInformation("    Added CGI Route: /cgi/** -> Gateway");
+
         // Add direct routes
         foreach (var directRoute in directRoutes)
         {
