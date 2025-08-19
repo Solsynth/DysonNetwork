@@ -392,8 +392,30 @@ public partial class PostService(
             new DeleteResourceReferencesRequest { ResourceId = post.ResourceIdentifier }
         );
 
-        db.Posts.Remove(post);
-        await db.SaveChangesAsync();
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            await db.PostReactions
+                .Where(r => r.PostId == post.Id)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.DeletedAt, now));
+            await db.Posts
+                .Where(p => p.RepliedPostId == post.Id)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.RepliedGone, true));
+            await db.Posts
+                .Where(p => p.ForwardedPostId == post.Id)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.ForwardedGone, true));
+
+            db.Posts.Remove(post);
+            await db.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     /// <summary>

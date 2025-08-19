@@ -48,6 +48,9 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     [NotMapped] public int RepliesCount { get; set; }
     [NotMapped] public Dictionary<string, bool>? ReactionsMade { get; set; }
 
+    public bool RepliedGone { get; set; }
+    public bool ForwardedGone { get; set; }
+
     public Guid? RepliedPostId { get; set; }
     public Post? RepliedPost { get; set; }
     public Guid? ForwardedPostId { get; set; }
