@@ -136,19 +136,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor"/>
-        <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor"/>
-        <AdditionalFiles Include="Pages\Emails\EmailLayout.razor"/>
-        <AdditionalFiles Include="Pages\Emails\LandingEmail.razor"/>
-        <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor"/>
-        <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor"/>
-        <AdditionalFiles Include="Resources\Localization\AccountEventResource.zh-hans.resx"/>
-        <AdditionalFiles Include="Resources\Localization\EmailResource.resx"/>
-        <AdditionalFiles Include="Resources\Localization\EmailResource.zh-hans.resx"/>
-        <AdditionalFiles Include="Resources\Localization\NotificationResource.resx"/>
-        <AdditionalFiles Include="Resources\Localization\NotificationResource.zh-hans.resx"/>
-        <AdditionalFiles Include="Resources\Localization\SharedResource.resx"/>
-        <AdditionalFiles Include="Resources\Localization\SharedResource.zh-hans.resx"/>
+        <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\EmailLayout.razor" />
+        <AdditionalFiles Include="Pages\Emails\LandingEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor" />
+        <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor" />
     </ItemGroup>
     
 </Project>

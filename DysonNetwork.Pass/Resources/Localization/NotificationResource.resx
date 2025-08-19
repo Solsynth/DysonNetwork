@@ -86,4 +86,10 @@
     <data name="NewLoginBody" xml:space="preserve">
         <value>Your account logged on to a device named {0} at {1}</value>
     </data>
+    <data name="FriendRequestTitle" xml:space="preserve">
+        <value>{0} requested to be your friend</value>
+    </data>
+    <data name="FriendRequestBody" xml:space="preserve">
+        <value>You can go to relationships page and decide accept their request or not.</value>
+    </data>
 </root>

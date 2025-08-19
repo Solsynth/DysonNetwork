@@ -78,4 +78,10 @@
     <data name="NewLoginBody" xml:space="preserve">
         <value>您的帐号在位于 {1} 的设备 {0} 上刚刚登陆了</value>
     </data>
+    <data name="FriendRequestTitle" xml:space="preserve">
+        <value>{0} 请求成为您的好友</value>
+    </data>
+    <data name="FriendRequestBody" xml:space="preserve">
+        <value>您可以前往人际关系页面来决定时候要接受他们的邀请。</value>
+    </data>
 </root>

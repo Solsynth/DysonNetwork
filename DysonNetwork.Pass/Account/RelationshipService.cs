@@ -1,14 +1,22 @@
+using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Pass.Account;
 
-public class RelationshipService(AppDatabase db, ICacheService cache)
+public class RelationshipService(
+    AppDatabase db,
+    ICacheService cache,
+    PusherService.PusherServiceClient pusher,
+    IStringLocalizer<NotificationResource> localizer
+)
 {
     private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
     private const string UserBlockedCacheKeyPrefix = "accounts:blocked:";
-    
+
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
     {
         var count = await db.AccountRelationships
@@ -51,7 +59,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
 
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
-        
+
         await PurgeRelationshipCache(sender.Id, target.Id);
 
         return relationship;
@@ -63,16 +71,16 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
             return await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
         return await CreateRelationship(sender, target, RelationshipStatus.Blocked);
     }
-    
+
     public async Task<Relationship> UnblockAccount(Account sender, Account target)
     {
         var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
         db.Remove(relationship);
         await db.SaveChangesAsync();
-        
+
         await PurgeRelationshipCache(sender.Id, target.Id);
-        
+
         return relationship;
     }
 
@@ -92,21 +100,34 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
 
+        await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+        {
+            UserId = target.Id.ToString(),
+            Notification = new PushNotification
+            {
+                Topic = "relationships.friends.request",
+                Title = localizer["FriendRequestTitle", sender.Nick],
+                Body = localizer["FriendRequestBody"],
+                ActionUri = "/account/relationships",
+                IsSavable = true
+            }
+        });
+
         return relationship;
     }
-    
+
     public async Task DeleteFriendRequest(Guid accountId, Guid relatedId)
     {
         var relationship = await GetRelationship(accountId, relatedId, RelationshipStatus.Pending);
         if (relationship is null) throw new ArgumentException("Friend request was not found.");
-    
+
         await db.AccountRelationships
             .Where(r => r.AccountId == accountId && r.RelatedId == relatedId && r.Status == RelationshipStatus.Pending)
             .ExecuteDeleteAsync();
-        
+
         await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId);
     }
-    
+
     public async Task<Relationship> AcceptFriendRelationship(
         Relationship relationship,
         RelationshipStatus status = RelationshipStatus.Friends
@@ -146,9 +167,9 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
         relationship.Status = status;
         db.Update(relationship);
         await db.SaveChangesAsync();
-        
+
         await PurgeRelationshipCache(accountId, relatedId);
-        
+
         return relationship;
     }
 
@@ -161,7 +182,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
     {
         var cacheKey = $"{UserFriendsCacheKeyPrefix}{accountId}";
         var friends = await cache.GetAsync<List<Guid>>(cacheKey);
-        
+
         if (friends == null)
         {
             friends = await db.AccountRelationships
@@ -169,23 +190,23 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
                 .Where(r => r.Status == RelationshipStatus.Friends)
                 .Select(r => r.AccountId)
                 .ToListAsync();
-                
+
             await cache.SetAsync(cacheKey, friends, TimeSpan.FromHours(1));
         }
 
         return friends ?? [];
     }
-    
+
     public async Task<List<Guid>> ListAccountBlocked(Account account)
     {
         return await ListAccountBlocked(account.Id);
     }
-    
+
     public async Task<List<Guid>> ListAccountBlocked(Guid accountId)
     {
         var cacheKey = $"{UserBlockedCacheKeyPrefix}{accountId}";
         var blocked = await cache.GetAsync<List<Guid>>(cacheKey);
-        
+
         if (blocked == null)
         {
             blocked = await db.AccountRelationships
@@ -193,7 +214,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
                 .Where(r => r.Status == RelationshipStatus.Blocked)
                 .Select(r => r.AccountId)
                 .ToListAsync();
-                
+
             await cache.SetAsync(cacheKey, blocked, TimeSpan.FromHours(1));
         }
 
@@ -206,7 +227,7 @@ public class RelationshipService(AppDatabase db, ICacheService cache)
         var relationship = await GetRelationship(accountId, relatedId, status);
         return relationship is not null;
     }
-    
+
     private async Task PurgeRelationshipCache(Guid accountId, Guid relatedId)
     {
         await cache.RemoveAsync($"{UserFriendsCacheKeyPrefix}{accountId}");
