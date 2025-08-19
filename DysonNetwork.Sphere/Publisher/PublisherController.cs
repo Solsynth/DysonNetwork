@@ -329,6 +329,8 @@ public class PublisherController(
     public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug,
         [FromBody] PublisherRequest request)
     {
+        if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
+            return BadRequest("Name and Nick are required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmSlug);
