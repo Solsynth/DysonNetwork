@@ -73,6 +73,8 @@ public static class ServiceCollectionExtensions
             options.SupportedUICultures = supportedCultures;
         });
 
+        services.AddHostedService<BroadcastEventHandler>();
+
         return services;
     }
 

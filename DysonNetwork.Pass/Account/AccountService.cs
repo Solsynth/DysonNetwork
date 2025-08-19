@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Auth.OpenId;
 using DysonNetwork.Pass.Email;
@@ -6,9 +7,11 @@ using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Stream;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using NATS.Client.Core;
 using NodaTime;
 using OtpNet;
 using AuthService = DysonNetwork.Pass.Auth.AuthService;
@@ -23,7 +26,8 @@ public class AccountService(
     PusherService.PusherServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     ICacheService cache,
-    ILogger<AccountService> logger
+    ILogger<AccountService> logger,
+    INatsConnection nats
 )
 {
     public static void SetCultureInfo(Account account)
@@ -183,11 +187,11 @@ public class AccountService(
         var dupeAutomateCount = await db.Accounts.Where(a => a.AutomatedId == automatedId).CountAsync();
         if (dupeAutomateCount > 0)
             throw new InvalidOperationException("Automated ID has already been used.");
-        
+
         var dupeNameCount = await db.Accounts.Where(a => a.Name == account.Name).CountAsync();
         if (dupeNameCount > 0)
             throw new InvalidOperationException("Account name has already been taken.");
-        
+
         account.AutomatedId = automatedId;
         account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
         account.IsSuperuser = false;
@@ -195,7 +199,7 @@ public class AccountService(
         await db.SaveChangesAsync();
         return account;
     }
-    
+
     public async Task<Account?> GetBotAccount(Guid automatedId)
     {
         return await db.Accounts.FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
@@ -491,11 +495,11 @@ public class AccountService(
             .Where(s => s.Id == sessionId && s.AccountId == account.Id)
             .FirstOrDefaultAsync();
         if (session is null) throw new InvalidOperationException("Session was not found.");
-        
+
         // The current session should be included in the sessions' list
         db.AuthSessions.Remove(session);
         await db.SaveChangesAsync();
-        
+
         if (session.Challenge.ClientId.HasValue)
         {
             if (!await IsDeviceActive(session.Challenge.ClientId.Value))
@@ -503,7 +507,7 @@ public class AccountService(
                     { DeviceId = session.Challenge.Client!.DeviceId }
                 );
         }
-        
+
         logger.LogInformation("Deleted session #{SessionId}", session.Id);
 
         await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{session.Id}");
@@ -531,7 +535,7 @@ public class AccountService(
             .Include(s => s.Challenge)
             .Where(s => s.Challenge.ClientId == device.Id)
             .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now));
-        
+
         db.AuthClients.Remove(device);
         await db.SaveChangesAsync();
 
@@ -693,8 +697,14 @@ public class AccountService(
         await db.AuthSessions
             .Where(s => s.AccountId == account.Id)
             .ExecuteDeleteAsync();
-        
+
         db.Accounts.Remove(account);
         await db.SaveChangesAsync();
+
+        await nats.PublishAsync(AccountDeletedEvent.Type, JsonSerializer.SerializeToUtf8Bytes(new AccountDeletedEvent
+        {
+            AccountId = account.Id,
+            DeletedAt = SystemClock.Instance.GetCurrentInstant()
+        }));
     }
 }
