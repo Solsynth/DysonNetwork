@@ -21,7 +21,6 @@ public static class GrpcClientHelper
                 ? X509Certificate2.CreateFromPemFile(clientCertPath, clientKeyPath)
                 : X509Certificate2.CreateFromEncryptedPemFile(clientCertPath, clientCertPassword, clientKeyPath)
         );
-        // TODO: Verify the ca in the future
         handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
         var httpClient = new HttpClient(handler);
         httpClient.DefaultRequestVersion = HttpVersion.Version20;

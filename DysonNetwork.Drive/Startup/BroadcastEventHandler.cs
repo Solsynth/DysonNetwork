@@ -1,13 +1,15 @@
 using System.Text.Json;
+using DysonNetwork.Drive.Storage;
 using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
 
-namespace DysonNetwork.Sphere.Startup;
+namespace DysonNetwork.Drive.Startup;
 
 public class BroadcastEventHandler(
     INatsConnection nats,
     ILogger<BroadcastEventHandler> logger,
+    FileService fs,
     AppDatabase db
 ) : BackgroundService
 {
@@ -22,30 +24,16 @@ public class BroadcastEventHandler(
 
                 logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
                 
-                // TODO: Add empty realm, chat recycler in the db recycle
-                await db.ChatMembers
-                    .Where(m => m.AccountId == evt.AccountId)
-                    .ExecuteDeleteAsync(cancellationToken: stoppingToken);
-                
-                await db.RealmMembers
-                    .Where(m => m.AccountId == evt.AccountId)
-                    .ExecuteDeleteAsync(cancellationToken: stoppingToken);
-
                 await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken: stoppingToken);
                 try
                 {
-                    var publishers = await db.Publishers
-                        .Where(p => p.Members.All(m => m.AccountId == evt.AccountId))
+                    var files = await db.Files
+                        .Where(p => p.AccountId == evt.AccountId)
                         .ToListAsync(cancellationToken: stoppingToken);
 
-                    foreach (var publisher in publishers)
-                        await db.Posts
-                            .Where(p => p.PublisherId == publisher.Id)
-                            .ExecuteDeleteAsync(cancellationToken: stoppingToken);
-                    
-                    var publisherIds = publishers.Select(p => p.Id).ToList();
-                    await db.Publishers
-                        .Where(p => publisherIds.Contains(p.Id))
+                    await fs.DeleteFileDataBatchAsync(files);
+                    await db.Files
+                        .Where(p => p.AccountId == evt.AccountId)
                         .ExecuteDeleteAsync(cancellationToken: stoppingToken);
 
                     await transaction.CommitAsync(cancellationToken: stoppingToken);

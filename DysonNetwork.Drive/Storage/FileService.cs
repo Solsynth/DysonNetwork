@@ -102,6 +102,7 @@ public class FileService(
 
     private static readonly string[] AnimatedImageTypes =
         ["image/gif", "image/apng", "image/avif"];
+
     private static readonly string[] AnimatedImageExtensions =
         [".gif", ".apng", ".avif"];
 
@@ -278,15 +279,15 @@ public class FileService(
                             s.Rotation
                         }).Where(s => double.IsNormal(s.AvgFrameRate)).ToList(),
                         ["audio_streams"] = mediaInfo.AudioStreams.Select(s => new
-                        {
-                            s.BitRate,
-                            s.Channels,
-                            s.ChannelLayout,
-                            s.CodecName,
-                            s.Duration,
-                            s.Language,
-                            s.SampleRateHz
-                        })
+                            {
+                                s.BitRate,
+                                s.Channels,
+                                s.ChannelLayout,
+                                s.CodecName,
+                                s.Duration,
+                                s.Language,
+                                s.SampleRateHz
+                            })
                             .ToList(),
                     };
                     if (mediaInfo.PrimaryVideoStream is not null)
@@ -336,7 +337,8 @@ public class FileService(
             if (!pool.PolicyConfig.NoOptimization)
                 switch (contentType.Split('/')[0])
                 {
-                    case "image" when !AnimatedImageTypes.Contains(contentType) && !AnimatedImageExtensions.Contains(fileExtension):
+                    case "image" when !AnimatedImageTypes.Contains(contentType) &&
+                                      !AnimatedImageExtensions.Contains(fileExtension):
                         newMimeType = "image/webp";
                         using (var vipsImage = Image.NewFromFile(originalFilePath))
                         {
@@ -643,7 +645,44 @@ public class FileService(
         }
     }
 
-    public async Task<FileBundle?> GetBundleAsync(Guid id, Guid accountId)
+    /// <summary>
+    /// The most efficent way to delete file data (stored files) in batch.
+    /// But this DO NOT check the storage id, so use with caution!
+    /// </summary>
+    /// <param name="files">Files to delete</param>
+    /// <exception cref="InvalidOperationException">Something went wrong</exception>
+    public async Task DeleteFileDataBatchAsync(List<CloudFile> files)
+    {
+        files = files.Where(f => f.PoolId.HasValue).ToList();
+
+        foreach (var fileGroup in files.GroupBy(f => f.PoolId!.Value))
+        {
+            // If any other file with the same storage ID is referenced, don't delete the actual file data
+            var dest = await GetRemoteStorageConfig(fileGroup.Key);
+            if (dest is null)
+                throw new InvalidOperationException($"No remote storage configured for pool {fileGroup.Key}");
+            var client = CreateMinioClient(dest);
+            if (client is null)
+                throw new InvalidOperationException(
+                    $"Failed to configure client for remote destination '{fileGroup.Key}'"
+                );
+
+            List<string> objectsToDelete = [];
+
+            foreach (var file in fileGroup)
+            {
+                objectsToDelete.Add(file.StorageId ?? file.Id);
+                if(file.HasCompression) objectsToDelete.Add(file.StorageId ?? file.Id + ".compressed");
+                if(file.HasThumbnail) objectsToDelete.Add(file.StorageId ?? file.Id + ".thumbnail");
+            }
+
+            await client.RemoveObjectsAsync(
+                new RemoveObjectsArgs().WithBucket(dest.Bucket).WithObjects(objectsToDelete)
+            );
+        }
+    }
+
+    private async Task<FileBundle?> GetBundleAsync(Guid id, Guid accountId)
     {
         var bundle = await db.Bundles
             .Where(e => e.Id == id)

@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 using tusdotnet.Stores;
 
@@ -15,6 +16,7 @@ builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxV
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
+builder.Services.AddStreamConnection(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();

@@ -33,10 +33,6 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [JsonIgnore] public FileBundle? Bundle { get; set; }
     public Guid? BundleId { get; set; }
 
-    [Obsolete("Deprecated, use PoolId instead. For database migration only.")]
-    [MaxLength(128)]
-    public string? UploadedTo { get; set; }
-
     /// <summary>
     /// The field is set to true if the recycling job plans to delete the file.
     /// Due to the unstable of the recycling job, this doesn't really delete the file until a human verifies it.
@@ -60,6 +56,8 @@ public class CloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [NotMapped]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FastUploadLink { get; set; }
+    
+    public ICollection<CloudFileReference> References { get; set; } = new List<CloudFileReference>();
 
     public Guid AccountId { get; set; }
 
