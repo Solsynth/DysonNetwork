@@ -190,10 +190,8 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
             .Where(r => r.ResourceId == resourceId && r.Usage == usage)
             .ToListAsync();
 
-        if (!references.Any())
-        {
+        if (references.Count == 0)
             return 0;
-        }
 
         var fileIds = references.Select(r => r.FileId).Distinct().ToList();
 
@@ -203,6 +201,28 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         // Purge caches
         var tasks = fileIds.Select(fileService._PurgeCacheAsync).ToList();
         tasks.Add(PurgeCacheForResourceAsync(resourceId));
+        await Task.WhenAll(tasks);
+
+        return deletedCount;
+    }
+    
+    public async Task<int> DeleteResourceReferencesBatchAsync(IEnumerable<string> resourceIds, string? usage = null)
+    {
+        var references = await db.FileReferences
+            .Where(r => resourceIds.Contains(r.ResourceId))
+            .If(usage != null, q => q.Where(q => q.Usage == usage))
+            .ToListAsync();
+
+        if (references.Count == 0)
+            return 0;
+
+        var fileIds = references.Select(r => r.FileId).Distinct().ToList();
+
+        db.FileReferences.RemoveRange(references);
+        var deletedCount = await db.SaveChangesAsync();
+
+        // Purge caches
+        var tasks = fileIds.Select(fileService._PurgeCacheAsync).ToList();
         await Task.WhenAll(tasks);
 
         return deletedCount;

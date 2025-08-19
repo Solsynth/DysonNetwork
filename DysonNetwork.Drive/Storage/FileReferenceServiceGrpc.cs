@@ -85,12 +85,24 @@ namespace DysonNetwork.Drive.Storage
         public override async Task<DeleteResourceReferencesResponse> DeleteResourceReferences(
             DeleteResourceReferencesRequest request, ServerCallContext context)
         {
-            var deletedCount = 0;
+            int deletedCount;
             if (request.Usage is null)
                 deletedCount = await fileReferenceService.DeleteResourceReferencesAsync(request.ResourceId);
             else
                 deletedCount =
                     await fileReferenceService.DeleteResourceReferencesAsync(request.ResourceId, request.Usage!);
+            return new DeleteResourceReferencesResponse { DeletedCount = deletedCount };
+        }
+        
+        public override async Task<DeleteResourceReferencesResponse> DeleteResourceReferencesBatch(DeleteResourceReferencesBatchRequest request, ServerCallContext context)
+        {
+            var resourceIds = request.ResourceIds.ToList();
+            int deletedCount;
+            if (request.Usage is null)
+                deletedCount = await fileReferenceService.DeleteResourceReferencesBatchAsync(resourceIds);
+            else
+                deletedCount =
+                    await fileReferenceService.DeleteResourceReferencesBatchAsync(resourceIds, request.Usage!);
             return new DeleteResourceReferencesResponse { DeletedCount = deletedCount };
         }
 

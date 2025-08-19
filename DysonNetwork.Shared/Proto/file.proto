@@ -206,6 +206,11 @@ message DeleteResourceReferencesRequest {
   optional string usage = 2;
 }
 
+message DeleteResourceReferencesBatchRequest {
+  repeated string resource_ids = 1;
+  optional string usage = 2;
+}
+
 message DeleteResourceReferencesResponse {
   int32 deleted_count = 1;
 }
@@ -277,6 +282,9 @@ service FileReferenceService {
 
   // Deletes references for a specific resource and optional usage
   rpc DeleteResourceReferences(DeleteResourceReferencesRequest) returns (DeleteResourceReferencesResponse);
+  
+  // Deletes references for multiple specific resources and optional usage
+  rpc DeleteResourceReferencesBatch(DeleteResourceReferencesBatchRequest) returns (DeleteResourceReferencesResponse);
 
   // Deletes a specific file reference
   rpc DeleteReference(DeleteReferenceRequest) returns (DeleteReferenceResponse);
