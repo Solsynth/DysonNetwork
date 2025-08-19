@@ -1,10 +1,13 @@
 using DysonNetwork.Develop.Project;
+using DysonNetwork.Shared.Proto;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Develop.Identity;
 
-public class BotAccountService(AppDatabase db, ILogger<BotAccountService> logger)
+public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAccountReceiverServiceClient accountReceiver)
 {
     public async Task<BotAccount?> GetBotByIdAsync(Guid id)
     {
@@ -22,35 +25,143 @@ public class BotAccountService(AppDatabase db, ILogger<BotAccountService> logger
 
     public async Task<BotAccount> CreateBotAsync(DevProject project, string slug)
     {
-        var bot = new BotAccount
+        // First, check if a bot with this slug already exists in this project
+        var existingBot = await db.BotAccounts
+            .FirstOrDefaultAsync(b => b.ProjectId == project.Id && b.Slug == slug);
+            
+        if (existingBot != null)
         {
-            Slug = slug,
-            ProjectId = project.Id,
-            Project = project,
-            IsActive = true
-        };
+            throw new InvalidOperationException("A bot with this slug already exists in this project.");
+        }
 
-        db.BotAccounts.Add(bot);
-        await db.SaveChangesAsync();
+        var now = SystemClock.Instance.GetCurrentInstant();
+        
+        try
+        {
+            // First create the bot account in the Pass service
+            var createRequest = new CreateBotAccountRequest
+            {
+                AutomatedId = Guid.NewGuid().ToString(),
+                Account = new Account
+                {
+                    Name = slug,
+                    Nick = $"Bot {slug}",
+                    Language = "en",
+                    Profile = new AccountProfile
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        CreatedAt = now.ToTimestamp(),
+                        UpdatedAt = now.ToTimestamp()
+                    },
+                    CreatedAt = now.ToTimestamp(),
+                    UpdatedAt = now.ToTimestamp()
+                }
+            };
 
-        return bot;
+            var createResponse = await accountReceiver.CreateBotAccountAsync(createRequest);
+            var botAccount = createResponse.Bot;
+
+            // Then create the local bot account
+            var bot = new BotAccount
+            {
+                Id = Guid.Parse(botAccount.AutomatedId),
+                Slug = slug,
+                ProjectId = project.Id,
+                Project = project,
+                IsActive = botAccount.IsActive,
+                CreatedAt = botAccount.CreatedAt.ToInstant(),
+                UpdatedAt = botAccount.UpdatedAt.ToInstant()
+            };
+
+            db.BotAccounts.Add(bot);
+            await db.SaveChangesAsync();
+
+            return bot;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.AlreadyExists)
+        {
+            throw new InvalidOperationException("A bot account with this ID already exists in the authentication service.", ex);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.InvalidArgument)
+        {
+            throw new ArgumentException($"Invalid bot account data: {ex.Status.Detail}", ex);
+        }
+        catch (RpcException ex)
+        {
+            throw new Exception($"Failed to create bot account: {ex.Status.Detail}", ex);
+        }
     }
 
     public async Task<BotAccount> UpdateBotAsync(BotAccount bot, string? slug = null, bool? isActive = null)
     {
-        if (slug != null)
+        var updated = false;
+        if (slug != null && bot.Slug != slug)
+        {
             bot.Slug = slug;
-        if (isActive.HasValue)
+            updated = true;
+        }
+        
+        if (isActive.HasValue && bot.IsActive != isActive.Value)
+        {
             bot.IsActive = isActive.Value;
+            updated = true;
+        }
 
-        bot.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
-        await db.SaveChangesAsync();
+        if (!updated) return bot;
+        
+        try
+        {
+            // Update the bot account in the Pass service
+            var updateRequest = new UpdateBotAccountRequest
+            {
+                AutomatedId = bot.Id.ToString(),
+                Account = new Shared.Proto.Account
+                {
+                    Name = $"bot-{bot.Slug}",
+                    Nick = $"Bot {bot.Slug}",
+                    UpdatedAt = SystemClock.Instance.GetCurrentInstant().ToTimestamp()
+                }
+            };
+
+            var updateResponse = await accountReceiver.UpdateBotAccountAsync(updateRequest);
+            var updatedBot = updateResponse.Bot;
+
+            // Update local bot account
+            bot.UpdatedAt = updatedBot.UpdatedAt.ToInstant();
+            bot.IsActive = updatedBot.IsActive;
+            await db.SaveChangesAsync();
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            throw new Exception("Bot account not found in the authentication service", ex);
+        }
+        catch (RpcException ex)
+        {
+            throw new Exception($"Failed to update bot account: {ex.Status.Detail}", ex);
+        }
 
         return bot;
     }
 
     public async Task DeleteBotAsync(BotAccount bot)
     {
+        try
+        {
+            // Delete the bot account from the Pass service
+            var deleteRequest = new DeleteBotAccountRequest
+            {
+                AutomatedId = bot.Id.ToString(),
+                Force = false
+            };
+
+            await accountReceiver.DeleteBotAccountAsync(deleteRequest);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            // Account not found in Pass service, continue with local deletion
+        }
+        
+        // Delete the local bot account
         db.BotAccounts.Remove(bot);
         await db.SaveChangesAsync();
     }
