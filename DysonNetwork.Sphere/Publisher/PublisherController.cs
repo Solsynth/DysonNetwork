@@ -240,7 +240,14 @@ public class PublisherController(
 
     public class PublisherRequest
     {
-        [MaxLength(256)] public string? Name { get; set; }
+        [RegularExpression(
+            @"^[a-zA-Z0-9](?:[a-zA-Z0-9\-_\.]*[a-zA-Z0-9])?$",
+            ErrorMessage =
+                "Name must be URL-safe (alphanumeric, hyphens, underscores, or periods) and cannot start/end with special characters."
+        )]
+        [MaxLength(256)]
+        public string? Name { get; set; }
+
         [MaxLength(256)] public string? Nick { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
 
@@ -253,6 +260,8 @@ public class PublisherController(
     [RequiredPermission("global", "publishers.create")]
     public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
+        if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
+            return BadRequest("Name and Nick are required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var takenName = request.Name ?? currentUser.Name;
