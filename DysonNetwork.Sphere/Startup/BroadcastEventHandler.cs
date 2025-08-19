@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.Startup;
 public class BroadcastEventHandler(
     INatsConnection nats,
     ILogger<BroadcastEventHandler> logger,
-    AppDatabase db
+    IServiceProvider serviceProvider
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -22,7 +22,9 @@ public class BroadcastEventHandler(
 
                 logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
                 
-                // TODO: Add empty realm, chat recycler in the db recycle
+                using var scope = serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+
                 await db.ChatMembers
                     .Where(m => m.AccountId == evt.AccountId)
                     .ExecuteDeleteAsync(cancellationToken: stoppingToken);

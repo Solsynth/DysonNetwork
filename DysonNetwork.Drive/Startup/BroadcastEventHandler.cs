@@ -9,8 +9,7 @@ namespace DysonNetwork.Drive.Startup;
 public class BroadcastEventHandler(
     INatsConnection nats,
     ILogger<BroadcastEventHandler> logger,
-    FileService fs,
-    AppDatabase db
+    IServiceProvider serviceProvider
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -23,7 +22,11 @@ public class BroadcastEventHandler(
                 if (evt == null) continue;
 
                 logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
-                
+
+                using var scope = serviceProvider.CreateScope();
+                var fs = scope.ServiceProvider.GetRequiredService<FileService>();
+                var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+
                 await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken: stoppingToken);
                 try
                 {

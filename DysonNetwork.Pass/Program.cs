@@ -4,6 +4,7 @@ using DysonNetwork.Pass.Startup;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,7 @@ builder.Services.AddAppMetrics();
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
+builder.Services.AddStreamConnection(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
