@@ -4,6 +4,8 @@ using NodaTime;
 
 namespace DysonNetwork.Pass.Credit;
 
+using Google.Protobuf.WellKnownTypes;
+
 public class SocialCreditRecord : ModelBase
 {
     public Guid Id { get; set; }
@@ -14,4 +16,20 @@ public class SocialCreditRecord : ModelBase
     
     public Guid AccountId { get; set; }
     public Account.Account Account { get; set; } = null!;
+
+    public Shared.Proto.SocialCreditRecord ToProto()
+    {
+        var proto = new Shared.Proto.SocialCreditRecord
+        {
+            Id = Id.ToString(),
+            ReasonType = ReasonType,
+            Reason = Reason,
+            Delta = Delta,
+            AccountId = AccountId.ToString(),
+            CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+        };
+
+        return proto;
+    }
 }

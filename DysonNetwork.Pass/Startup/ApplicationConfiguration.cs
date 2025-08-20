@@ -1,6 +1,8 @@
 using System.Net;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
+using DysonNetwork.Pass.Credit;
+using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
@@ -76,6 +78,8 @@ public static class ApplicationConfiguration
         app.MapGrpcService<AuthServiceGrpc>();
         app.MapGrpcService<ActionLogServiceGrpc>();
         app.MapGrpcService<PermissionServiceGrpc>();
+        app.MapGrpcService<SocialCreditServiceGrpc>();
+        app.MapGrpcService<ExperienceServiceGrpc>();
         app.MapGrpcService<BotAccountReceiverGrpc>();
 
         return app;

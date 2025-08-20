@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
+using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Error;
 using Microsoft.AspNetCore.Mvc;
@@ -15,7 +16,8 @@ public class AccountController(
     AuthService auth,
     AccountService accounts,
     SubscriptionService subscriptions,
-    AccountEventService events
+    AccountEventService events,
+    SocialCreditService socialCreditService
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -47,6 +49,25 @@ public class AccountController(
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
         return account is null ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier)) : account.Badges.ToList();
+    }
+    
+    [HttpGet("{name}/credits")]
+    [ProducesResponseType<double>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<double>> GetSocialCredits(string name)
+    {
+        var account = await db.Accounts
+            .Where(a => a.Name == name)
+            .Select(a => new { a.Id })
+            .FirstOrDefaultAsync();
+            
+        if (account is null)
+        {
+            return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+        }
+        
+        var credits = await socialCreditService.GetSocialCredit(account.Id);
+        return credits;
     }
 
     public class AccountCreateRequest
