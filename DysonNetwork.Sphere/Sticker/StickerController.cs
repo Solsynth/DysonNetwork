@@ -42,7 +42,8 @@ public class StickerController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
-        [FromQuery(Name = "order")] string? order = null
+        [FromQuery(Name = "order")] string? order = null,
+        [FromQuery(Name = "query")] string? query = null
     )
     {
         Publisher.Publisher? publisher = null;
@@ -59,6 +60,14 @@ public class StickerController(
                 "usage" => queryable.OrderByDescending(p => p.Ownerships.Count),
                 _ => queryable.OrderByDescending(p => p.CreatedAt)
             };
+        }
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            queryable = queryable.Where(p =>
+                EF.Functions.ILike(p.Name, $"%{query}%") ||
+                EF.Functions.ILike(p.Description, $"%{query}%")
+            );
         }
 
         var totalCount = await queryable
