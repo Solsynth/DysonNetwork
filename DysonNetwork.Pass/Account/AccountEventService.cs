@@ -15,7 +15,8 @@ public class AccountEventService(
     ICacheService cache,
     IStringLocalizer<Localization.AccountEventResource> localizer,
     PusherService.PusherServiceClient pusher,
-    SubscriptionService subscriptions
+    SubscriptionService subscriptions,
+    Pass.Leveling.ExperienceService experienceService
 )
 {
     private static readonly Random Random = new();
@@ -327,13 +328,15 @@ public class AccountEventService(
             result.RewardPoints = null;
         }
 
-        await db.AccountProfiles
-            .Where(p => p.AccountId == user.Id)
-            .ExecuteUpdateAsync(s =>
-                s.SetProperty(b => b.Experience, b => b.Experience + result.RewardExperience)
-            );
         db.AccountCheckInResults.Add(result);
-        await db.SaveChangesAsync(); // Don't forget to save changes to the database
+        await db.SaveChangesAsync(); // Remember to save changes to the database
+        if (result.RewardExperience is not null)
+            await experienceService.AddRecord(
+                "check-in",
+                $"Check-in reward on {now:yyyy/MM/dd}",
+                result.RewardExperience.Value,
+                user.Id
+            );
 
         // The lock will be automatically released by the await using statement
         return result;
