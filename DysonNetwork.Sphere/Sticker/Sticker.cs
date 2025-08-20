@@ -32,7 +32,8 @@ public class StickerPack : ModelBase
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
     [MaxLength(128)] public string Prefix { get; set; } = null!;
 
-    public List<Sticker> Stickers { get; set; } = new();
+    public List<Sticker> Stickers { get; set; } = [];
+    [JsonIgnore] public List<StickerPackOwnership> Ownerships { get; set; } = [];
 
     public Guid PublisherId { get; set; }
     public Publisher.Publisher Publisher { get; set; } = null!;

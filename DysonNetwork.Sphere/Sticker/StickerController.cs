@@ -10,7 +10,12 @@ namespace DysonNetwork.Sphere.Sticker;
 
 [ApiController]
 [Route("/api/stickers")]
-public class StickerController(AppDatabase db, StickerService st, FileService.FileServiceClient files) : ControllerBase
+public class StickerController(
+    AppDatabase db,
+    StickerService st,
+    Publisher.PublisherService ps,
+    FileService.FileServiceClient files
+) : ControllerBase
 {
     private async Task<IActionResult> _CheckStickerPackPermissions(
         Guid packId,
@@ -26,12 +31,8 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
             return NotFound("Sticker pack not found");
 
         var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.PublisherMembers
-            .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
-        if (member is null)
+        if (!await ps.IsMemberWithRole(accountId, pack.PublisherId, requiredRole))
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < requiredRole)
-            return StatusCode(403, $"You need to be at least a {requiredRole} to perform this action");
 
         return Ok();
     }
@@ -40,19 +41,29 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
     public async Task<ActionResult<List<StickerPack>>> ListStickerPacks(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] string? pubName = null
+        [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "order")] string? order = null
     )
     {
         Publisher.Publisher? publisher = null;
         if (pubName is not null)
             publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
 
-        var totalCount = await db.StickerPacks
-            .If(publisher is not null, q => q.Where(f => f.PublisherId == publisher!.Id))
+        var queryable = db.StickerPacks
+            .If(publisher is not null, q => q.Where(f => f.PublisherId == publisher!.Id));
+
+        if (order is not null)
+        {
+            queryable = order switch
+            {
+                "usage" => queryable.OrderByDescending(p => p.Ownerships.Count),
+                _ => queryable.OrderByDescending(p => p.CreatedAt)
+            };
+        }
+
+        var totalCount = await queryable
             .CountAsync();
-        var packs = await db.StickerPacks
-            .If(publisher is not null, q => q.Where(f => f.PublisherId == publisher!.Id))
-            .OrderByDescending(e => e.CreatedAt)
+        var packs = await queryable
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -240,7 +251,8 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
+        var permissionCheck =
+            await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -275,7 +287,8 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
+        var permissionCheck =
+            await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -305,7 +318,8 @@ public class StickerController(AppDatabase db, StickerService st, FileService.Fi
         if (request.ImageId is null)
             return BadRequest("Image is required.");
 
-        var permissionCheck = await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
+        var permissionCheck =
+            await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
