@@ -8,7 +8,8 @@ namespace DysonNetwork.Sphere.WebReader;
 [ApiController]
 [Route("/api/feeds")]
 public class WebFeedPublicController(
-    AppDatabase db
+    AppDatabase db,
+    WebFeedService webFeed
 ) : ControllerBase
 {
     /// <summary>
@@ -102,9 +103,9 @@ public class WebFeedPublicController(
     /// List all feeds the current user is subscribed to
     /// </summary>
     /// <returns>List of subscribed feeds</returns>
-    [HttpGet("me")]
+    [HttpGet("subscribed")]
     [Authorize]
-    public async Task<IActionResult> GetMySubscriptions(
+    public async Task<ActionResult<WebFeed>> GetSubscribedFeeds(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -128,5 +129,142 @@ public class WebFeedPublicController(
 
         Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(subscriptions);
+    }
+
+    /// <summary>
+    /// Get articles from subscribed feeds
+    /// </summary>
+    [HttpGet]
+    [Authorize]
+    public async Task<ActionResult<WebFeed>> GetWebFeedArticles(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var subscribedFeedIds = await db.WebFeedSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Select(s => s.FeedId)
+            .ToListAsync();
+
+        var query = db.WebFeeds
+            .Where(f => subscribedFeedIds.Contains(f.Id))
+            .Include(f => f.Publisher)
+            .OrderByDescending(f => f.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var feeds = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+        return Ok(feeds);
+    }
+
+    /// <summary>
+    /// Get feed metadata by ID (public endpoint)
+    /// </summary>
+    /// <param name="feedId">The ID of the feed</param>
+    /// <returns>Feed metadata</returns>
+    [AllowAnonymous]
+    [HttpGet("{feedId:guid}")]
+    public async Task<ActionResult<WebFeed>> GetFeedById(Guid feedId)
+    {
+        var feed = await webFeed.GetFeedAsync(feedId);
+        if (feed == null)
+            return NotFound();
+
+        return Ok(feed);
+    }
+
+    /// <summary>
+    /// Get articles from a specific feed (public endpoint)
+    /// </summary>
+    /// <param name="feedId">The ID of the feed</param>
+    /// <param name="offset">Number of articles to skip</param>
+    /// <param name="take">Maximum number of articles to return</param>
+    /// <returns>List of articles from the feed</returns>
+    [AllowAnonymous]
+    [HttpGet("{feedId:guid}/articles")]
+    public async Task<ActionResult<WebArticle>> GetFeedArticles(
+        [FromRoute] Guid feedId,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        // Check if feed exists
+        var feedExists = await db.WebFeeds.AnyAsync(f => f.Id == feedId);
+        if (!feedExists)
+            return NotFound("Feed not found");
+
+        var query = db.WebArticles
+            .Where(a => a.FeedId == feedId)
+            .OrderByDescending(a => a.CreatedAt)
+            .Include(a => a.Feed)
+            .ThenInclude(f => f.Publisher);
+
+        var totalCount = await query.CountAsync();
+        var articles = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+        return Ok(articles);
+    }
+
+    /// <summary>
+    /// Explore available web feeds
+    /// </summary>
+    [HttpGet("explore")]
+    [Authorize]
+    public async Task<ActionResult<WebFeed>> ExploreFeeds(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery] string? query = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        // Get IDs of already subscribed feeds
+        var subscribedFeedIds = await db.WebFeedSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Select(s => s.FeedId)
+            .ToListAsync();
+
+        var feedsQuery = db.WebFeeds
+            .Include(f => f.Publisher)
+            .Where(f => !subscribedFeedIds.Contains(f.Id))
+            .AsQueryable();
+
+        // Apply search filter if query is provided
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var searchTerm = $"%{query}%";
+            feedsQuery = feedsQuery.Where(f =>
+                EF.Functions.ILike(f.Title, searchTerm) ||
+                (f.Description != null && EF.Functions.ILike(f.Description, searchTerm))
+            );
+        }
+
+        // Order by most recently created first
+        feedsQuery = feedsQuery.OrderByDescending(f => f.CreatedAt);
+
+        var totalCount = await feedsQuery.CountAsync();
+        var feeds = await feedsQuery
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+        return Ok(feeds);
     }
 }

@@ -31,7 +31,10 @@ public class WebFeedService(
 
     public async Task<WebFeed?> GetFeedAsync(Guid id, Guid? publisherId = null)
     {
-        var query = database.WebFeeds.Where(a => a.Id == id).AsQueryable();
+        var query = database.WebFeeds
+            .Include(a => a.Publisher)
+            .Where(a => a.Id == id)
+            .AsQueryable();
         if (publisherId.HasValue)
             query = query.Where(a => a.PublisherId == publisherId.Value);
         return await query.FirstOrDefaultAsync();
