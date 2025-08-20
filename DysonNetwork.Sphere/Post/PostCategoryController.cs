@@ -11,15 +11,26 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     public async Task<ActionResult<List<PostCategory>>> ListCategories(
         [FromQuery] string? query = null,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] string? order = null
     )
     {
         var categoriesQuery = db.PostCategories
             .OrderBy(e => e.Name)
             .AsQueryable();
+        
         if (!string.IsNullOrEmpty(query))
             categoriesQuery = categoriesQuery
                 .Where(e => EF.Functions.ILike(e.Slug, $"%{query}%"));
+        if (!string.IsNullOrEmpty(order))
+        {
+            categoriesQuery = order switch
+            {
+                "usage" => categoriesQuery.OrderByDescending(e => e.Posts.Count),
+                _ => categoriesQuery.OrderByDescending(e => e.CreatedAt)
+            };
+        }
+        
         var totalCount = await categoriesQuery.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
         var categories = await categoriesQuery
@@ -33,15 +44,26 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     public async Task<ActionResult<List<PostTag>>> ListTags(
         [FromQuery] string? query = null,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] string? order = null
     )
     {
         var tagsQuery = db.PostTags
             .OrderBy(e => e.Name)
             .AsQueryable();
+        
         if (!string.IsNullOrEmpty(query))
             tagsQuery = tagsQuery
                 .Where(e => EF.Functions.ILike(e.Slug, $"%{query}%"));
+        if (!string.IsNullOrEmpty(order))
+        {
+            tagsQuery = order switch
+            {
+                "usage" => tagsQuery.OrderByDescending(e => e.Posts.Count),
+                _ => tagsQuery.OrderByDescending(e => e.CreatedAt)
+            };
+        }
+        
         var totalCount = await tagsQuery.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
         var tags = await tagsQuery
@@ -51,7 +73,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
         return Ok(tags);
     }
-    
+
     [HttpGet("categories/{slug}")]
     public async Task<ActionResult<PostCategory>> GetCategory(string slug)
     {
@@ -60,7 +82,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
             return NotFound();
         return Ok(category);
     }
-    
+
     [HttpGet("tags/{slug}")]
     public async Task<ActionResult<PostTag>> GetTag(string slug)
     {
