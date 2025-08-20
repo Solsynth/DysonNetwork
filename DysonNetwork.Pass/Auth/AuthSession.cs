@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using Point = NetTopologySuite.Geometries.Point;
@@ -12,26 +11,28 @@ namespace DysonNetwork.Pass.Auth;
 public class AuthSession : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    [MaxLength(1024)] public string? Label { get; set; }
     public Instant? LastGrantedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
-    public Guid ChallengeId { get; set; }
-    public AuthChallenge Challenge { get; set; } = null!;
+    
+    // When the challenge is null, indicates the session is for an API Key
+    public Guid? ChallengeId { get; set; }
+    public AuthChallenge? Challenge { get; set; } = null!;
+    
+    // Indicates the session is for an OIDC connection
     public Guid? AppId { get; set; }
 
     public Shared.Proto.AuthSession ToProtoValue() => new()
     {
         Id = Id.ToString(),
-        Label = Label,
         LastGrantedAt = LastGrantedAt?.ToTimestamp(),
         ExpiredAt = ExpiredAt?.ToTimestamp(),
         AccountId = AccountId.ToString(),
         Account = Account.ToProtoValue(),
         ChallengeId = ChallengeId.ToString(),
-        Challenge = Challenge.ToProtoValue(),
+        Challenge = Challenge?.ToProtoValue(),
         AppId = AppId?.ToString()
     };
 }

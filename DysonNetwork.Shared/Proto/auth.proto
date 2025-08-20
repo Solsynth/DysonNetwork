@@ -13,7 +13,6 @@ import 'account.proto';
 // Represents a user session
 message AuthSession {
   string id = 1;
-  google.protobuf.StringValue label = 2;
   optional google.protobuf.Timestamp last_granted_at = 3;
   optional google.protobuf.Timestamp expired_at = 4;
   string account_id = 5;

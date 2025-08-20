@@ -38,6 +38,7 @@ public class AppDatabase(
     public DbSet<AuthSession> AuthSessions { get; set; } = null!;
     public DbSet<AuthChallenge> AuthChallenges { get; set; } = null!;
     public DbSet<AuthClient> AuthClients { get; set; } = null!;
+    public DbSet<ApiKey> ApiKeys { get; set; } = null!;
 
     public DbSet<Wallet.Wallet> Wallets { get; set; } = null!;
     public DbSet<WalletPocket> WalletPockets { get; set; } = null!;

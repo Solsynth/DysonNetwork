@@ -317,6 +317,65 @@ public class AuthService(
 
         return factor.VerifyPassword(pinCode);
     }
+    
+    public async Task<ApiKey?> GetApiKey(Guid id, Guid? accountId = null)
+    {
+        var key = await db.ApiKeys
+            .Include(e => e.Session)
+            .Where(e => e.Id == id)
+            .If(accountId.HasValue, q => q.Where(e => e.AccountId == accountId!.Value))
+            .FirstOrDefaultAsync();
+        return key;
+    }
+
+    public async Task<ApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null)
+    {
+        var key = new ApiKey
+        {
+            AccountId = accountId,
+            Label = label,
+            Session = new AuthSession
+            {
+                AccountId = accountId,
+                ExpiredAt = expiredAt
+            },
+        };
+        
+        db.ApiKeys.Add(key);
+        await db.SaveChangesAsync();
+        
+        return key;
+    }
+    
+    public async Task<string> IssueApiKeyToken(ApiKey key)
+    {
+        key.Session.LastGrantedAt = SystemClock.Instance.GetCurrentInstant();
+        db.Update(key.Session);
+        await db.SaveChangesAsync();
+        var tk = CreateToken(key.Session);
+        return tk;
+    }
+    
+    public async Task RevokeApiKeyToken(ApiKey key)
+    {
+        db.Remove(key);
+        db.Remove(key.Session);
+        await db.SaveChangesAsync();
+    }
+    
+    public async Task<ApiKey> RotateApiKeyToken(ApiKey key)
+    {
+        var originalSession = key.Session;
+        db.Remove(originalSession);
+        key.Session = new AuthSession
+        {
+            AccountId = key.AccountId,
+            ExpiredAt = originalSession.ExpiredAt
+        };
+        db.Add(key.Session);
+        await db.SaveChangesAsync();
+        return key;
+    }
 
     // Helper methods for Base64Url encoding/decoding
     private static string Base64UrlEncode(byte[] data)
@@ -329,7 +388,7 @@ public class AuthService(
 
     private static byte[] Base64UrlDecode(string base64Url)
     {
-        string padded = base64Url
+        var padded = base64Url
             .Replace('-', '+')
             .Replace('_', '/');
 
