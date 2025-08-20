@@ -2,6 +2,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
+using DysonNetwork.Pass.Credit;
+using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
@@ -48,6 +50,9 @@ public class AppDatabase(
     public DbSet<Coupon> WalletCoupons { get; set; } = null!;
 
     public DbSet<Punishment> Punishments { get; set; } = null!;
+    
+    public DbSet<SocialCreditRecord> SocialCreditRecords { get; set; } = null!;
+    public DbSet<ExperienceRecord> ExperienceRecords { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

@@ -15,7 +15,9 @@ using System.Text.Json;
 using System.Threading.RateLimiting;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
+using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
+using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
@@ -203,6 +205,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentService>();
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<SafetyService>();
+        services.AddScoped<SocialCreditService>();
+        services.AddScoped<ExperienceService>();
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
