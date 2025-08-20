@@ -55,6 +55,7 @@ public class AppDatabase(
 
     public DbSet<WebReader.WebArticle> WebArticles { get; set; } = null!;
     public DbSet<WebReader.WebFeed> WebFeeds { get; set; } = null!;
+    public DbSet<WebReader.WebFeedSubscription> WebFeedSubscriptions { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
