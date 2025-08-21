@@ -18,7 +18,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         var categoriesQuery = db.PostCategories
             .OrderBy(e => e.Name)
             .AsQueryable();
-        
+
         if (!string.IsNullOrEmpty(query))
             categoriesQuery = categoriesQuery
                 .Where(e => EF.Functions.ILike(e.Slug, $"%{query}%"));
@@ -30,13 +30,30 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
                 _ => categoriesQuery.OrderByDescending(e => e.CreatedAt)
             };
         }
-        
+
         var totalCount = await categoriesQuery.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
+        
+        // Get categories with their post counts in a single query
         var categories = await categoriesQuery
             .Skip(offset)
             .Take(take)
+            .Select(c => new 
+            {
+                Category = c,
+                PostCount = c.Posts.Count
+            })
             .ToListAsync();
+
+        // Project results back to the original type and set the Usage property
+        var result = categories.Select(x => 
+        {
+            x.Category.Usage = x.PostCount;
+            return x.Category;
+        }).ToList();
+
+        return Ok(result);
+
         return Ok(categories);
     }
 
@@ -51,7 +68,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         var tagsQuery = db.PostTags
             .OrderBy(e => e.Name)
             .AsQueryable();
-        
+
         if (!string.IsNullOrEmpty(query))
             tagsQuery = tagsQuery
                 .Where(e => EF.Functions.ILike(e.Slug, $"%{query}%"));
@@ -63,15 +80,29 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
                 _ => tagsQuery.OrderByDescending(e => e.CreatedAt)
             };
         }
-        
+
         var totalCount = await tagsQuery.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
+        
+        // Get tags with their post counts in a single query
         var tags = await tagsQuery
             .Skip(offset)
             .Take(take)
+            .Select(t => new 
+            {
+                Tag = t,
+                PostCount = t.Posts.Count
+            })
             .ToListAsync();
 
-        return Ok(tags);
+        // Project results back to the original type and set the Usage property
+        var result = tags.Select(x => 
+        {
+            x.Tag.Usage = x.PostCount;
+            return x.Tag;
+        }).ToList();
+
+        return Ok(result);
     }
 
     [HttpGet("categories/{slug}")]
