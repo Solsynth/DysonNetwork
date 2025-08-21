@@ -3,6 +3,7 @@ using DysonNetwork.Pusher.Email;
 using DysonNetwork.Pusher.Notification;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Google.Protobuf;
 using NATS.Client.Core;
 
 namespace DysonNetwork.Pusher.Services;
@@ -36,14 +37,23 @@ public class QueueBackgroundService(
     {
         logger.LogInformation("Queue consumer started");
 
-        await foreach (var msg in nats.SubscribeAsync<QueueMessage>(
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(
                            QueueName,
                            queueGroup: QueueGroup,
                            cancellationToken: stoppingToken))
         {
             try
             {
-                await ProcessMessageAsync(msg, stoppingToken);
+                var message = GrpcTypeHelper.ConvertByteStringToObject<QueueMessage>(ByteString.CopyFrom(msg.Data));
+                if (message is not null)
+                {
+                    await ProcessMessageAsync(msg, message, stoppingToken);
+                }
+                else
+                {
+                    await msg.ReplyAsync(cancellationToken: stoppingToken);
+                    logger.LogWarning($"Invalid message format for {msg.Subject}");
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -59,10 +69,10 @@ public class QueueBackgroundService(
         }
     }
 
-    private async ValueTask ProcessMessageAsync(NatsMsg<QueueMessage> msg, CancellationToken cancellationToken)
+    private async ValueTask ProcessMessageAsync(NatsMsg<byte[]> rawMsg, QueueMessage message,
+        CancellationToken cancellationToken)
     {
         using var scope = serviceProvider.CreateScope();
-        var message = msg.Data;
 
         logger.LogDebug("Processing message of type {MessageType}", message.Type);
 
@@ -83,7 +93,7 @@ public class QueueBackgroundService(
                     break;
             }
 
-            await msg.ReplyAsync();
+            await rawMsg.ReplyAsync(cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
