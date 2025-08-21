@@ -10,12 +10,12 @@ namespace DysonNetwork.Pass.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
+            migrationBuilder.AddColumn<double>(
                 name: "bonus_multiplier",
                 table: "experience_records",
-                type: "integer",
+                type: "double precision",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: 0.0);
         }
 
         /// <inheritdoc />

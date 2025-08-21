@@ -5,19 +5,21 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using System.Text.Json;
 
 namespace DysonNetwork.Pusher.Services;
 
 public class PusherServiceGrpc(
-    EmailService emailService,
+    QueueService queueService,
     WebSocketService websocket,
     PushService pushService,
-    AccountClientHelper accountsHelper
+    AccountClientHelper accountsHelper,
+    EmailService emailService
 ) : PusherService.PusherServiceBase
 {
     public override async Task<Empty> SendEmail(SendEmailRequest request, ServerCallContext context)
     {
-        await emailService.SendEmailAsync(
+        await queueService.EnqueueEmail(
             request.Email.ToName,
             request.Email.ToAddress,
             request.Email.Subject,
@@ -47,13 +49,16 @@ public class PusherServiceGrpc(
             Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
+        
         foreach (var userId in request.UserIds)
+        {
             websocket.SendPacketToAccount(userId, packet);
-
+        }
+        
         return Task.FromResult(new Empty());
     }
 
-    public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
+public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
         ServerCallContext context)
     {
         var packet = new Connection.WebSocketPacket
@@ -75,29 +80,38 @@ public class PusherServiceGrpc(
             Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
+        
         foreach (var deviceId in request.DeviceIds)
+        {
             websocket.SendPacketToDevice(deviceId, packet);
-
+        }
+        
         return Task.FromResult(new Empty());
     }
 
     public override async Task<Empty> SendPushNotificationToUser(SendPushNotificationToUserRequest request,
         ServerCallContext context)
     {
-        var account = await accountsHelper.GetAccount(Guid.Parse(request.UserId));
-        await pushService.SendNotification(
-            account,
-            request.Notification.Topic,
-            request.Notification.Title,
-            request.Notification.Subtitle,
-            request.Notification.Body,
-            request.Notification.HasMeta
+        var notification = new Notification.Notification
+        {
+            Topic = request.Notification.Topic,
+            Title = request.Notification.Title,
+            Subtitle = request.Notification.Subtitle,
+            Content = request.Notification.Body,
+            Meta = request.Notification.HasMeta
                 ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
-                : [],
-            request.Notification.ActionUri,
-            request.Notification.IsSilent,
+                : []
+        };
+        
+        if (request.Notification.ActionUri is not null)
+            notification.Meta["action_uri"] = request.Notification.ActionUri;
+            
+        await queueService.EnqueuePushNotification(
+            notification,
+            Guid.Parse(request.UserId),
             request.Notification.IsSavable
         );
+        
         return new Empty();
     }
 
@@ -114,10 +128,18 @@ public class PusherServiceGrpc(
                 ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
         };
+        
         if (request.Notification.ActionUri is not null)
             notification.Meta["action_uri"] = request.Notification.ActionUri;
-        var accounts = request.UserIds.Select(Guid.Parse).ToList();
-        await pushService.SendNotificationBatch(notification, accounts, request.Notification.IsSavable);
+            
+        var tasks = request.UserIds
+            .Select(userId => queueService.EnqueuePushNotification(
+                notification,
+                Guid.Parse(userId),
+                request.Notification.IsSavable
+            ));
+            
+        await Task.WhenAll(tasks);
         return new Empty();
     }
 

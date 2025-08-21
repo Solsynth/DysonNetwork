@@ -1105,8 +1105,8 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<int>("BonusMultiplier")
-                        .HasColumnType("integer")
+                    b.Property<double>("BonusMultiplier")
+                        .HasColumnType("double precision")
                         .HasColumnName("bonus_multiplier");
 
                     b.Property<Instant>("CreatedAt")

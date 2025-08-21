@@ -3,6 +3,7 @@ using DysonNetwork.Pusher.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,7 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
+builder.Services.AddStreamConnection(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();

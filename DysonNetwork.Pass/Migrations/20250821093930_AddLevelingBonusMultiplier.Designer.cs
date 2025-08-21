@@ -19,7 +19,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Pass.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20250820170714_AddLevelingBonusMultiplier")]
+    [Migration("20250821093930_AddLevelingBonusMultiplier")]
     partial class AddLevelingBonusMultiplier
     {
         /// <inheritdoc />
@@ -1108,8 +1108,8 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<int>("BonusMultiplier")
-                        .HasColumnType("integer")
+                    b.Property<double>("BonusMultiplier")
+                        .HasColumnType("double precision")
                         .HasColumnName("bonus_multiplier");
 
                     b.Property<Instant>("CreatedAt")

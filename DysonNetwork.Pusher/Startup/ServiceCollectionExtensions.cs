@@ -137,6 +137,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebSocketService>();
         services.AddScoped<EmailService>();
         services.AddScoped<PushService>();
+        
+        // Register QueueService as a singleton since it's thread-safe
+        services.AddSingleton<QueueService>();
+        
+        // Register the background service
+        services.AddHostedService<QueueBackgroundService>();
 
         return services;
     }

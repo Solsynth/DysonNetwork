@@ -1,34 +1,29 @@
 using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Pusher.Connection;
+using DysonNetwork.Pusher.Services;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using System.Threading.Channels;
 
 namespace DysonNetwork.Pusher.Notification;
 
-public class PushService : IDisposable
+public class PushService
 {
     private readonly AppDatabase _db;
-    private readonly FlushBufferService _fbs;
     private readonly WebSocketService _ws;
+    private readonly QueueService _queueService;
     private readonly ILogger<PushService> _logger;
     private readonly FirebaseSender? _fcm;
     private readonly ApnSender? _apns;
     private readonly string? _apnsTopic;
 
-    private readonly Channel<PushWorkItem> _channel;
-    private readonly int _maxConcurrency;
-    private readonly CancellationTokenSource _cts = new();
-    private readonly List<Task> _workers = new();
-
     public PushService(
         IConfiguration config,
         AppDatabase db,
-        FlushBufferService fbs,
         WebSocketService ws,
+        QueueService queueService,
         IHttpClientFactory httpFactory,
         ILogger<PushService> logger
     )
@@ -58,48 +53,11 @@ public class PushService : IDisposable
         }
 
         _db = db;
-        _fbs = fbs;
         _ws = ws;
+        _queueService = queueService;
         _logger = logger;
-
-        // --- Concurrency & channel config ---
-        // Defaults: 8 workers, bounded capacity 2000 items.
-        _maxConcurrency = Math.Max(1, cfgSection.GetValue<int?>("MaxConcurrency") ?? 8);
-        var capacity = Math.Max(1, cfgSection.GetValue<int?>("ChannelCapacity") ?? 2000);
-
-        _channel = Channel.CreateBounded<PushWorkItem>(new BoundedChannelOptions(capacity)
-        {
-            SingleWriter = false,
-            SingleReader = false,
-            FullMode = BoundedChannelFullMode.Wait, // apply backpressure instead of dropping
-            AllowSynchronousContinuations = false
-        });
-
-        // Start background consumers
-        for (int i = 0; i < _maxConcurrency; i++)
-        {
-            _workers.Add(Task.Run(() => WorkerLoop(_cts.Token)));
-        }
-
-        _logger.LogInformation("PushService initialized with {Workers} workers and capacity {Capacity}", _maxConcurrency, capacity);
-    }
-
-    public void Dispose()
-    {
-        try
-        {
-            _channel.Writer.TryComplete();
-            _cts.Cancel();
-        }
-        catch { /* ignore */ }
-
-        try
-        {
-            Task.WhenAll(_workers).Wait(TimeSpan.FromSeconds(5));
-        }
-        catch { /* ignore */ }
-
-        _cts.Dispose();
+        
+        _logger.LogInformation("PushService initialized");
     }
 
     public async Task UnsubscribeDevice(string deviceId)
@@ -165,7 +123,7 @@ public class PushService : IDisposable
     {
         meta ??= [];
         if (title is null && subtitle is null && content is null)
-            throw new ArgumentException("Unable to send notification that completely empty.");
+            throw new ArgumentException("Unable to send notification that is completely empty.");
 
         if (actionUri is not null) meta["action_uri"] = actionUri;
 
@@ -181,35 +139,57 @@ public class PushService : IDisposable
         };
 
         if (save)
-            _fbs.Enqueue(notification);
+        {
+            _db.Notifications.Add(notification);
+            await _db.SaveChangesAsync();
+        }
 
         if (!isSilent)
-            await DeliveryNotification(notification); // returns quickly (does NOT wait for APNS/FCM)
+            _ = _queueService.EnqueuePushNotification(notification, accountId, save);
     }
 
-    private async Task DeliveryNotification(Notification notification)
+    public async Task DeliverPushNotification(Notification notification, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "Delivering notification: {NotificationTopic} #{NotificationId} with meta {NotificationMeta}",
-            notification.Topic,
-            notification.Id,
-            notification.Meta
-        );
-
-        // WS send: still immediate (fire-and-forget from caller perspective)
-        _ws.SendPacketToAccount(notification.AccountId.ToString(), new Connection.WebSocketPacket
+        try
         {
-            Type = "notifications.new",
-            Data = notification
-        });
+            _logger.LogInformation(
+                "Delivering push notification: {NotificationTopic} with meta {NotificationMeta}",
+                notification.Topic,
+                notification.Meta
+            );
 
-        // Query subscribers and enqueue push work (non-blocking to the HTTP request)
-        var subscribers = await _db.PushSubscriptions
-            .Where(s => s.AccountId == notification.AccountId)
-            .AsNoTracking()
-            .ToListAsync();
+            // Get all push subscriptions for the account
+            var subscriptions = await _db.PushSubscriptions
+                .Where(s => s.AccountId == notification.AccountId)
+                .ToListAsync(cancellationToken);
 
-        await EnqueuePushWork(notification, subscribers);
+            if (!subscriptions.Any())
+            {
+                _logger.LogInformation("No push subscriptions found for account {AccountId}", notification.AccountId);
+                return;
+            }
+
+            // Send push notifications
+            var tasks = new List<Task>();
+            foreach (var subscription in subscriptions)
+            {
+                try
+                {
+                    tasks.Add(SendPushNotificationAsync(subscription, notification, cancellationToken));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending push notification to {DeviceId}", subscription.DeviceId);
+                }
+            }
+
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in DeliverPushNotification");
+            throw;
+        }
     }
 
     public async Task MarkNotificationsViewed(ICollection<Notification> notifications)
@@ -235,20 +215,25 @@ public class PushService : IDisposable
     {
         if (save)
         {
-            accounts.ForEach(x =>
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var notifications = accounts.Select(accountId => new Notification
             {
-                var newNotification = new Notification
-                {
-                    Topic = notification.Topic,
-                    Title = notification.Title,
-                    Subtitle = notification.Subtitle,
-                    Content = notification.Content,
-                    Meta = notification.Meta,
-                    Priority = notification.Priority,
-                    AccountId = x
-                };
-                _fbs.Enqueue(newNotification);
-            });
+                Topic = notification.Topic,
+                Title = notification.Title,
+                Subtitle = notification.Subtitle,
+                Content = notification.Content,
+                Meta = notification.Meta,
+                Priority = notification.Priority,
+                AccountId = accountId,
+                CreatedAt = now,
+                UpdatedAt = now
+            }).ToList();
+
+            if (notifications.Count != 0)
+            {
+                await _db.Notifications.AddRangeAsync(notifications);
+                await _db.SaveChangesAsync();
+            }
         }
 
         _logger.LogInformation(
@@ -270,55 +255,15 @@ public class PushService : IDisposable
         }
 
         // Fetch all subscribers once and enqueue to workers
-        var subscribers = await _db.PushSubscriptions
+        var subscriptions = await _db.PushSubscriptions
             .Where(s => accounts.Contains(s.AccountId))
             .AsNoTracking()
             .ToListAsync();
 
-        await EnqueuePushWork(notification, subscribers);
+        await DeliverPushNotification(notification);
     }
 
-    private async Task EnqueuePushWork(Notification notification, IEnumerable<PushSubscription> subscriptions)
-    {
-        foreach (var sub in subscriptions)
-        {
-            // Use the current notification reference (no mutation of content after this point).
-            var item = new PushWorkItem(notification, sub);
-
-            // Respect backpressure if channel is full.
-            await _channel.Writer.WriteAsync(item, _cts.Token);
-        }
-    }
-
-    private async Task WorkerLoop(CancellationToken ct)
-    {
-        try
-        {
-            await foreach (var item in _channel.Reader.ReadAllAsync(ct))
-            {
-                try
-                {
-                    await _PushSingleNotification(item.Notification, item.Subscription);
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Worker handled exception for notification #{Id}", item.Notification.Id);
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // normal shutdown
-        }
-    }
-
-    private readonly record struct PushWorkItem(Notification Notification, PushSubscription Subscription);
-
-    private async Task _PushSingleNotification(Notification notification, PushSubscription subscription)
+    private async Task SendPushNotificationAsync(PushSubscription subscription, Notification notification, CancellationToken cancellationToken)
     {
         try
         {
