@@ -60,6 +60,7 @@
         <PackageReference Include="StackExchange.Redis" Version="2.8.41"/>
         <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="11.0.0"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3"/>
+        <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.3" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3"/>
         <PackageReference Include="System.ServiceModel.Syndication" Version="9.0.7" />
         <PackageReference Include="TencentCloudSDK.Tmt" Version="3.0.1276" />

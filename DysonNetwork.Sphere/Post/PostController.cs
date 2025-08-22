@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Swashbuckle.AspNetCore.Annotations;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Post;
@@ -37,8 +38,39 @@ public class PostController(
         return Ok(posts);
     }
 
+    /// <summary>
+    /// Retrieves a paginated list of posts with optional filtering and sorting.
+    /// </summary>
+    /// <param name="includeReplies">Whether to include reply posts in the results. If false, only root posts are returned.</param>
+    /// <param name="offset">The number of posts to skip for pagination.</param>
+    /// <param name="take">The maximum number of posts to return (default: 20).</param>
+    /// <param name="pubName">Filter posts by publisher name.</param>
+    /// <param name="realmName">Filter posts by realm slug.</param>
+    /// <param name="type">Filter posts by post type (as integer).</param>
+    /// <param name="categories">Filter posts by category slugs.</param>
+    /// <param name="tags">Filter posts by tag slugs.</param>
+    /// <param name="queryTerm">Search term to filter posts by title, description, or content.</param>
+    /// <param name="queryVector">If true, uses vector search with the query term. If false, performs a simple ILIKE search.</param>
+    /// <param name="onlyMedia">If true, only returns posts that have attachments.</param>
+    /// <param name="shuffle">If true, returns posts in random order. If false, orders by published/created date (newest first).</param>
+    /// <returns>
+    /// Returns an ActionResult containing a list of Post objects that match the specified criteria.
+    /// Includes an X-Total header with the total count of matching posts before pagination.
+    /// </returns>
+    /// <response code="200">Returns the list of posts matching the criteria.</response>
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<Post>))]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [SwaggerOperation(
+        Summary = "Retrieves a paginated list of posts",
+        Description = "Gets posts with various filtering and sorting options. Supports pagination and advanced search capabilities.",
+        OperationId = "ListPosts",
+        Tags = ["Posts"]
+    )]
+    [SwaggerResponse(StatusCodes.Status200OK, "Successfully retrieved the list of posts", typeof(List<Post>))]
+    [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request parameters")]
     public async Task<ActionResult<List<Post>>> ListPosts(
+        [FromQuery(Name = "replies")] bool? includeReplies,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
@@ -48,7 +80,6 @@ public class PostController(
         [FromQuery(Name = "tags")] List<string>? tags = null,
         [FromQuery(Name = "query")] string? queryTerm = null,
         [FromQuery(Name = "vector")] bool queryVector = false,
-        [FromQuery(Name = "replies")] bool includeReplies = false,
         [FromQuery(Name = "media")] bool onlyMedia = false,
         [FromQuery(Name = "shuffle")] bool shuffle = false
     )
@@ -83,10 +114,15 @@ public class PostController(
             query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
         if (tags is { Count: > 0 })
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
-        if (!includeReplies)
-            query = query.Where(e => e.RepliedPostId == null);
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
+        
+        query = includeReplies switch
+        {
+            false => query.Where(e => e.RepliedPostId == null),
+            true => query.Where(e => e.RepliedPostId != null),
+            _ => query
+        };
 
         if (!string.IsNullOrWhiteSpace(queryTerm))
         {
@@ -190,59 +226,6 @@ public class PostController(
         await ps.IncreaseViewCount(post.Id, currentUser?.Id);
 
         return Ok(post);
-    }
-
-    [HttpGet("search")]
-    [Obsolete("Use the new ListPost API")]
-    public async Task<ActionResult<List<Post>>> SearchPosts(
-        [FromQuery] string query,
-        [FromQuery] int offset = 0,
-        [FromQuery] int take = 20,
-        [FromQuery] bool useVector = true
-    )
-    {
-        if (string.IsNullOrWhiteSpace(query))
-            return BadRequest("Search query cannot be empty");
-
-        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
-        List<Guid> userFriends = [];
-        if (currentUser != null)
-        {
-            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
-            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
-        }
-
-        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
-
-        var queryable = db.Posts
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
-            .AsQueryable();
-        if (useVector)
-            queryable = queryable.Where(p => p.SearchVector.Matches(EF.Functions.ToTsQuery(query)));
-        else
-            queryable = queryable.Where(p =>
-                (p.Title != null && EF.Functions.ILike(p.Title, $"%{query}%")) ||
-                (p.Description != null && EF.Functions.ILike(p.Description, $"%{query}%")) ||
-                (p.Content != null && EF.Functions.ILike(p.Content, $"%{query}%"))
-            );
-
-        var totalCount = await queryable.CountAsync();
-
-        var posts = await queryable
-            .Include(e => e.RepliedPost)
-            .Include(e => e.ForwardedPost)
-            .Include(e => e.Categories)
-            .Include(e => e.Tags)
-            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
-        posts = await ps.LoadPostInfo(posts, currentUser, true);
-
-        Response.Headers["X-Total"] = totalCount.ToString();
-        return Ok(posts);
     }
 
     [HttpGet("{id:guid}/reactions")]
