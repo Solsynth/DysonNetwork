@@ -208,6 +208,7 @@ public class PushService
         var now = SystemClock.Instance.GetCurrentInstant();
         await _db.Notifications
             .Where(n => n.AccountId == accountId)
+            .Where(n => n.ViewedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
