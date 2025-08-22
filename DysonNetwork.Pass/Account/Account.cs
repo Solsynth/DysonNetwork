@@ -137,8 +137,8 @@ public class AccountProfile : ModelBase, IIdentifiedResource
 
     public int Experience { get; set; }
     [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;
-    
-    public double SocialCredits { get; set; }
+
+    public double SocialCredits { get; set; } = 100;
 
     [NotMapped]
     public int SocialCreditsLevel => SocialCredits switch
