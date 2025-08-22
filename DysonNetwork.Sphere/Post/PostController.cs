@@ -60,7 +60,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -106,10 +106,9 @@ public class PostController(
         var totalCount = await query
             .CountAsync();
 
-        if (shuffle)
-            query = query.OrderBy(e => EF.Functions.Random());
-        else
-            query = query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
+        query = shuffle
+            ? query.OrderBy(e => EF.Functions.Random())
+            : query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
 
         var posts = await query
             .Include(e => e.RepliedPost)
@@ -134,7 +133,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -168,7 +167,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -211,7 +210,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -279,7 +278,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -315,7 +314,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -502,7 +501,7 @@ public class PostController(
 
         var friendsResponse =
             await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id.ToString() });
+                { AccountId = currentUser.Id.ToString() });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
