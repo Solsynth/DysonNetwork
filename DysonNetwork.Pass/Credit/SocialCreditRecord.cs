@@ -1,10 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Data;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Credit;
-
-using Google.Protobuf.WellKnownTypes;
 
 public class SocialCreditRecord : ModelBase
 {
@@ -26,8 +25,8 @@ public class SocialCreditRecord : ModelBase
             Reason = Reason,
             Delta = Delta,
             AccountId = AccountId.ToString(),
-            CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
 
         return proto;

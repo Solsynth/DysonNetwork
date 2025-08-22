@@ -24,7 +24,8 @@ public class AccountCurrentController(
     AccountEventService events,
     AuthService auth,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs
+    FileReferenceService.FileReferenceServiceClient fileRefs,
+    Credit.SocialCreditService creditService
 ) : ControllerBase
 {
     [HttpGet]
@@ -268,7 +269,9 @@ public class AccountCurrentController(
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
 
-        return result is null ? NotFound(ApiError.NotFound("check-in", traceId: HttpContext.TraceIdentifier)) : Ok(result);
+        return result is null
+            ? NotFound(ApiError.NotFound("check-in", traceId: HttpContext.TraceIdentifier))
+            : Ok(result);
     }
 
     [HttpPost("check-in")]
@@ -323,10 +326,11 @@ public class AccountCurrentController(
                         TraceId = HttpContext.TraceIdentifier
                     }
                 ),
-                true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-                {
-                    ["captchaToken"] = new[] { "Invalid captcha token." }
-                }, traceId: HttpContext.TraceIdentifier)),
+                true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest(ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["captchaToken"] = new[] { "Invalid captcha token." }
+                    }, traceId: HttpContext.TraceIdentifier)),
                 _ => await events.CheckInDaily(currentUser, backdated)
             };
         }
@@ -822,5 +826,61 @@ public class AccountCurrentController(
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [HttpGet("leveling")]
+    [Authorize]
+    public async Task<ActionResult<ExperienceRecord>> GetLevelingHistory(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var queryable = db.ExperienceRecords
+            .Where(r => r.AccountId == currentUser.Id)
+            .OrderByDescending(r => r.CreatedAt)
+            .AsQueryable();
+
+        var totalCount = await queryable.CountAsync();
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        var records = await queryable
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+        return Ok(records);
+    }
+
+    [HttpGet("credits")]
+    public async Task<ActionResult<bool>> GetSocialCredit()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var credit = await creditService.GetSocialCredit(currentUser.Id);
+        return Ok(credit);
+    }
+
+    [HttpGet("credits/history")]
+    public async Task<ActionResult<SocialCreditRecord>> GetCreditHistory(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var queryable = db.SocialCreditRecords
+            .Where(r => r.AccountId == currentUser.Id)
+            .OrderByDescending(r => r.CreatedAt)
+            .AsQueryable();
+
+        var totalCount = await queryable.CountAsync();
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        var records = await queryable
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+        return Ok(records);
     }
 }
