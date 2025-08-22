@@ -75,6 +75,8 @@ message AccountProfile {
   int32 experience = 14;
   int32 level = 15;
   double leveling_progress = 16;
+  double social_credits = 17;
+  int32 social_credits_level = 18;
 
   CloudFile picture = 19;
   CloudFile background = 20;

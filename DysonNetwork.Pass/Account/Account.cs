@@ -20,7 +20,7 @@ public class Account : ModelBase
     [MaxLength(32)] public string Language { get; set; } = string.Empty;
     public Instant? ActivatedAt { get; set; }
     public bool IsSuperuser { get; set; } = false;
-    
+
     // The ID is the BotAccount ID in the DysonNetwork.Develop
     public Guid? AutomatedId { get; set; }
 
@@ -135,8 +135,19 @@ public class AccountProfile : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
     [Column(TypeName = "jsonb")] public BadgeReferenceObject? ActiveBadge { get; set; }
 
-    public int Experience { get; set; } = 0;
+    public int Experience { get; set; }
     [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;
+    
+    public double SocialCredits { get; set; }
+
+    [NotMapped]
+    public int SocialCreditsLevel => SocialCredits switch
+    {
+        < 100 => -1,
+        > 100 and < 200 => 0,
+        < 200 => 1,
+        _ => 2
+    };
 
     [NotMapped]
     public double LevelingProgress => Level >= Leveling.ExperiencePerLevel.Count - 1
@@ -168,6 +179,8 @@ public class AccountProfile : ModelBase, IIdentifiedResource
             Experience = Experience,
             Level = Level,
             LevelingProgress = LevelingProgress,
+            SocialCredits = SocialCredits,
+            SocialCreditsLevel = SocialCreditsLevel,
             Picture = Picture?.ToProtoValue(),
             Background = Background?.ToProtoValue(),
             AccountId = AccountId.ToString(),
@@ -198,6 +211,7 @@ public class AccountProfile : ModelBase, IIdentifiedResource
             Verification = proto.Verification is null ? null : VerificationMark.FromProtoValue(proto.Verification),
             ActiveBadge = proto.ActiveBadge is null ? null : BadgeReferenceObject.FromProtoValue(proto.ActiveBadge),
             Experience = proto.Experience,
+            SocialCredits = proto.SocialCredits,
             Picture = proto.Picture is null ? null : CloudFileReferenceObject.FromProtoValue(proto.Picture),
             Background = proto.Background is null ? null : CloudFileReferenceObject.FromProtoValue(proto.Background),
             AccountId = Guid.Parse(proto.AccountId),

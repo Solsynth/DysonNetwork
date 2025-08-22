@@ -18,6 +18,13 @@ public class SocialCreditService(AppDatabase db, ICacheService cache)
         };
         db.SocialCreditRecords.Add(record);
         await db.SaveChangesAsync();
+        
+        await db.AccountProfiles
+            .Where(p => p.AccountId == accountId)
+            .ExecuteUpdateAsync(p => p.SetProperty(v => v.SocialCredits, v => v.SocialCredits + record.Delta));
+        
+        await cache.RemoveAsync($"{CacheKeyPrefix}{accountId}");
+        
         return record;
     }
     
@@ -32,6 +39,7 @@ public class SocialCreditService(AppDatabase db, ICacheService cache)
             .Where(x => x.AccountId == accountId)
             .SumAsync(x => x.Delta);
         records += BaseSocialCredit;
+        
         await cache.SetAsync($"{CacheKeyPrefix}{accountId}", records);
         return records;
     }

@@ -462,6 +462,10 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("pronouns");
 
+                    b.Property<double>("SocialCredits")
+                        .HasColumnType("double precision")
+                        .HasColumnName("social_credits");
+
                     b.Property<string>("TimeZone")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
