@@ -75,6 +75,7 @@ public class StickerController(
         var packs = await queryable
             .Skip(offset)
             .Take(take)
+            .Include(e => e.Stickers.OrderByDescending(s => s.CreatedAt).Take(8))
             .ToListAsync();
 
         Response.Headers["X-Total"] = totalCount.ToString();
