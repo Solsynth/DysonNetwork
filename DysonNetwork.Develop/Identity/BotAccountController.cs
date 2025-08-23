@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -17,7 +19,8 @@ public class BotAccountController(
     DeveloperService developerService,
     DevProjectService projectService,
     ILogger<BotAccountController> logger,
-    AccountClientHelper accounts
+    AccountClientHelper accounts,
+    BotAccountReceiverService.BotAccountReceiverServiceClient accountsReceiver
 )
     : ControllerBase
 {
@@ -85,8 +88,8 @@ public class BotAccountController(
             return NotFound("Developer not found");
 
         if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
-                PublisherMemberRole.Editor))
-            return StatusCode(403, "You must be an editor of the developer to list bots");
+                PublisherMemberRole.Viewer))
+            return StatusCode(403, "You must be an viewer of the developer to list bots");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
@@ -110,8 +113,8 @@ public class BotAccountController(
             return NotFound("Developer not found");
 
         if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
-                PublisherMemberRole.Editor))
-            return StatusCode(403, "You must be an editor of the developer to view bot details");
+                PublisherMemberRole.Viewer))
+            return StatusCode(403, "You must be an viewer of the developer to view bot details");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
@@ -290,5 +293,168 @@ public class BotAccountController(
             logger.LogError(ex, "Error deleting bot {BotId}", botId);
             return StatusCode(500, "An error occurred while deleting the bot account");
         }
+    }
+
+    [HttpGet("{botId:guid}/keys")]
+    public async Task<ActionResult<List<ApiKeyReference>>> ListBotKeys(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) = await ValidateBotAccess(pubName, projectId, botId, currentUser, PublisherMemberRole.Viewer);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        var keys = await accountsReceiver.ListApiKeyAsync(new ListApiKeyRequest
+        {
+            AutomatedId = bot.Id.ToString()
+        });
+        var data = keys.Data.Select(ApiKeyReference.FromProtoValue).ToList();
+
+        return Ok(data);
+    }
+
+    [HttpGet("{botId:guid}/keys/{keyId:guid}")]
+    public async Task<ActionResult<ApiKeyReference>> GetBotKey(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId,
+        [FromRoute] Guid keyId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) = await ValidateBotAccess(pubName, projectId, botId, currentUser, PublisherMemberRole.Viewer);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        try
+        {
+            var key = await accountsReceiver.GetApiKeyAsync(new GetApiKeyRequest { Id = keyId.ToString() });
+            if (key == null) return NotFound("API key not found");
+            return Ok(ApiKeyReference.FromProtoValue(key));
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return NotFound("API key not found");
+        }
+    }
+
+    public class CreateApiKeyRequest
+    {
+        [Required, MaxLength(1024)]
+        public string Label { get; set; } = null!;
+    }
+
+    [HttpPost("{botId:guid}/keys")]
+    public async Task<ActionResult<ApiKeyReference>> CreateBotKey(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId,
+        [FromBody] CreateApiKeyRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) = await ValidateBotAccess(pubName, projectId, botId, currentUser, PublisherMemberRole.Editor);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        try
+        {
+            var newKey = new ApiKey
+            {
+                AccountId = bot.Id.ToString(),
+                Label = request.Label
+            };
+            
+            var createdKey = await accountsReceiver.CreateApiKeyAsync(newKey);
+            return Ok(ApiKeyReference.FromProtoValue(createdKey));
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+        {
+            return BadRequest(ex.Status.Detail);
+        }
+    }
+
+    [HttpPost("{botId:guid}/keys/{keyId:guid}/rotate")]
+    public async Task<ActionResult<ApiKeyReference>> RotateBotKey(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId,
+        [FromRoute] Guid keyId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) = await ValidateBotAccess(pubName, projectId, botId, currentUser, PublisherMemberRole.Editor);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        try
+        {
+            var rotatedKey = await accountsReceiver.RotateApiKeyAsync(new GetApiKeyRequest { Id = keyId.ToString() });
+            return Ok(ApiKeyReference.FromProtoValue(rotatedKey));
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return NotFound("API key not found");
+        }
+    }
+
+    [HttpDelete("{botId:guid}/keys/{keyId:guid}")]
+    public async Task<IActionResult> DeleteBotKey(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId,
+        [FromRoute] Guid keyId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) = await ValidateBotAccess(pubName, projectId, botId, currentUser, PublisherMemberRole.Editor);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        try
+        {
+            await accountsReceiver.DeleteApiKeyAsync(new GetApiKeyRequest { Id = keyId.ToString() });
+            return NoContent();
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return NotFound("API key not found");
+        }
+    }
+
+    private async Task<(Developer?, DevProject?, BotAccount?)> ValidateBotAccess(
+        string pubName,
+        Guid projectId,
+        Guid botId,
+        Account currentUser,
+        PublisherMemberRole requiredRole)
+    {
+        var developer = await developerService.GetDeveloperByName(pubName);
+        if (developer == null) return (null, null, null);
+
+        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), requiredRole))
+            return (null, null, null);
+
+        var project = await projectService.GetProjectAsync(projectId, developer.Id);
+        if (project == null) return (developer, null, null);
+
+        var bot = await botService.GetBotByIdAsync(botId);
+        if (bot == null || bot.ProjectId != projectId) return (developer, project, null);
+
+        return (developer, project, bot);
     }
 }

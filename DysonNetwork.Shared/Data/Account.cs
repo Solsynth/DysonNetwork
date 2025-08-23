@@ -309,3 +309,38 @@ public static class Leveling
         1024000
     ];
 }
+
+public class ApiKeyReference : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Label { get; set; } = null!;
+
+    public Guid AccountId { get; set; }
+    public Guid SessionId { get; set; }
+
+    public string? Key { get; set; }
+
+    public ApiKey ToProtoValue()
+    {
+        return new ApiKey
+        {
+            Id = Id.ToString(),
+            Label = Label,
+            AccountId = AccountId.ToString(),
+            SessionId = SessionId.ToString(),
+            Key = Key
+        };
+    }
+
+    public static ApiKeyReference FromProtoValue(ApiKey proto)
+    {
+        return new ApiKeyReference
+        {
+            Id = Guid.Parse(proto.Id),
+            AccountId = Guid.Parse(proto.AccountId),
+            SessionId = Guid.Parse(proto.SessionId),
+            Label = proto.Label,
+            Key = proto.Key
+        };
+    }
+}
