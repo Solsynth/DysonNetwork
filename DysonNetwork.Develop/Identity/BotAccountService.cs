@@ -28,23 +28,30 @@ public class BotAccountService(
             .ToListAsync();
     }
 
-    public async Task<BotAccount> CreateBotAsync(DevProject project, string slug, Account account)
+    public async Task<BotAccount> CreateBotAsync(
+        DevProject project,
+        string slug,
+        Account account,
+        string? pictureId,
+        string? backgroundId
+    )
     {
         // First, check if a bot with this slug already exists in this project
         var existingBot = await db.BotAccounts
             .FirstOrDefaultAsync(b => b.ProjectId == project.Id && b.Slug == slug);
 
         if (existingBot != null)
-        {
             throw new InvalidOperationException("A bot with this slug already exists in this project.");
-        }
 
         try
         {
+            var automatedId = Guid.NewGuid();
             var createRequest = new CreateBotAccountRequest
             {
-                AutomatedId = Guid.NewGuid().ToString(),
-                Account = account
+                AutomatedId = automatedId.ToString(),
+                Account = account,
+                PictureId = pictureId,
+                BackgroundId = backgroundId
             };
 
             var createResponse = await accountReceiver.CreateBotAccountAsync(createRequest);
@@ -53,7 +60,7 @@ public class BotAccountService(
             // Then create the local bot account
             var bot = new BotAccount
             {
-                Id = Guid.Parse(botAccount.AutomatedId),
+                Id = automatedId,
                 Slug = slug,
                 ProjectId = project.Id,
                 Project = project,
@@ -82,8 +89,13 @@ public class BotAccountService(
         }
     }
 
-    public async Task<BotAccount> UpdateBotAsync(BotAccount bot, Account account, string? slug = null,
-        bool? isActive = null)
+    public async Task<BotAccount> UpdateBotAsync(BotAccount bot,
+        Account account,
+        string? pictureId,
+        string? backgroundId,
+        string? slug = null,
+        bool? isActive = null
+    )
     {
         var updated = false;
         if (slug != null && bot.Slug != slug)
@@ -106,7 +118,9 @@ public class BotAccountService(
             var updateRequest = new UpdateBotAccountRequest
             {
                 AutomatedId = bot.Id.ToString(),
-                Account = account
+                Account = account,
+                PictureId = pictureId,
+                BackgroundId = backgroundId
             };
 
             var updateResponse = await accountReceiver.UpdateBotAccountAsync(updateRequest);
@@ -151,7 +165,7 @@ public class BotAccountService(
         db.BotAccounts.Remove(bot);
         await db.SaveChangesAsync();
     }
-    
+
     public async Task<BotAccount?> LoadBotAccountAsync(BotAccount bot) =>
         (await LoadBotsAccountAsync([bot])).FirstOrDefault();
 

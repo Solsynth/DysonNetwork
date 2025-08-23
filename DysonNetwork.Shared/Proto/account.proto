@@ -33,7 +33,7 @@ message Account {
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
   
-  optional string automated_id = 17;
+  google.protobuf.StringValue automated_id = 17;
 }
 
 // Enum for status attitude

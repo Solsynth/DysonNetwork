@@ -64,7 +64,7 @@ public class BotAccountController(
         public string? Name { get; set; } = string.Empty;
 
         [MaxLength(256)] public string? Nick { get; set; } = string.Empty;
-        
+
         [Required] [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
 
         [MaxLength(128)] public string? Language { get; set; }
@@ -146,13 +146,17 @@ public class BotAccountController(
         if (project is null)
             return NotFound("Project not found or you don't have access");
 
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var accountId = Guid.NewGuid();
         var account = new Account()
         {
+            Id = accountId.ToString(),
             Name = createRequest.Name,
             Nick = createRequest.Nick,
             Language = createRequest.Language,
             Profile = new AccountProfile()
             {
+                Id = Guid.NewGuid().ToString(),
                 Bio = createRequest.Bio,
                 Gender = createRequest.Gender,
                 FirstName = createRequest.FirstName,
@@ -162,14 +166,23 @@ public class BotAccountController(
                 Pronouns = createRequest.Pronouns,
                 Location = createRequest.Location,
                 Birthday = createRequest.Birthday?.ToTimestamp(),
-                Picture = new CloudFile() { Id = createRequest.PictureId },
-                Background = new CloudFile() { Id = createRequest.BackgroundId }
-            }
+                AccountId = accountId.ToString(),
+                CreatedAt = now.ToTimestamp(),
+                UpdatedAt = now.ToTimestamp()
+            },
+            CreatedAt = now.ToTimestamp(),
+            UpdatedAt = now.ToTimestamp()
         };
 
         try
         {
-            var bot = await botService.CreateBotAsync(project, createRequest.Slug, account);
+            var bot = await botService.CreateBotAsync(
+                project,
+                createRequest.Slug,
+                account,
+                createRequest.PictureId,
+                createRequest.BackgroundId
+            );
             return Ok(bot);
         }
         catch (Exception ex)
@@ -220,15 +233,14 @@ public class BotAccountController(
         if (request.Pronouns is not null) botAccount.Profile.Pronouns = request.Pronouns;
         if (request.Location is not null) botAccount.Profile.Location = request.Location;
         if (request.Birthday is not null) botAccount.Profile.Birthday = request.Birthday?.ToTimestamp();
-        if (request.PictureId is not null) botAccount.Profile.Picture = new CloudFile() { Id = request.PictureId };
-        if (request.BackgroundId is not null)
-            botAccount.Profile.Background = new CloudFile() { Id = request.BackgroundId };
-        
+
         try
         {
             var updatedBot = await botService.UpdateBotAsync(
                 bot,
                 botAccount,
+                request.PictureId,
+                request.BackgroundId,
                 request.Slug,
                 request.IsActive
             );

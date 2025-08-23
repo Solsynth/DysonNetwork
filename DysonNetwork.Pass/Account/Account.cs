@@ -82,10 +82,9 @@ public class Account : ModelBase
                 : null,
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant(),
-            AutomatedId = proto.AutomatedId is not null ? Guid.Parse(proto.AutomatedId) : null
+            AutomatedId = proto.AutomatedId is not null ? Guid.Parse(proto.AutomatedId) : null,
+            Profile = AccountProfile.FromProtoValue(proto.Profile)
         };
-
-        account.Profile = AccountProfile.FromProtoValue(proto.Profile);
 
         foreach (var contactProto in proto.Contacts)
             account.Contacts.Add(AccountContact.FromProtoValue(contactProto));
