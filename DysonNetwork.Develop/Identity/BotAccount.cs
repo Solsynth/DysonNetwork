@@ -17,6 +17,12 @@ public class BotAccount : ModelBase
     public DevProject Project { get; set; } = null!;
     
     [NotMapped] public AccountReference? Account { get; set; }
+    
+    /// <summary>
+    /// This developer field is to serve the transparent info for user to know which developer
+    /// published this robot. Not for relationships usage.
+    /// </summary>
+    [NotMapped] public Developer? Developer { get; set; }
 
     public Shared.Proto.BotAccount ToProtoValue()
     {

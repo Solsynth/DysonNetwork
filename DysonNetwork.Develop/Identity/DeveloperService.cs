@@ -4,7 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Develop.Identity;
 
-public class DeveloperService(AppDatabase db, PublisherService.PublisherServiceClient ps, ILogger<DeveloperService> logger)
+public class DeveloperService(
+    AppDatabase db,
+    PublisherService.PublisherServiceClient ps,
+    ILogger<DeveloperService> logger)
 {
     public async Task<Developer> LoadDeveloperPublisher(Developer developer)
     {
@@ -45,6 +48,11 @@ public class DeveloperService(AppDatabase db, PublisherService.PublisherServiceC
             logger.LogError(ex, "Developer {name} not found", name);
             return null;
         }
+    }
+
+    public async Task<Developer?> GetDeveloperById(Guid id)
+    {
+        return await db.Developers.FirstOrDefaultAsync(d => d.Id == id);
     }
 
     public async Task<bool> IsMemberWithRole(Guid pubId, Guid accountId, PublisherMemberRole role)
