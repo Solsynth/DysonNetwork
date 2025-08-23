@@ -89,29 +89,16 @@ public class BotAccountService(
         }
     }
 
-    public async Task<BotAccount> UpdateBotAsync(BotAccount bot,
+    public async Task<BotAccount> UpdateBotAsync(
+        BotAccount bot,
         Account account,
         string? pictureId,
-        string? backgroundId,
-        string? slug = null,
-        bool? isActive = null
+        string? backgroundId
     )
     {
-        var updated = false;
-        if (slug != null && bot.Slug != slug)
-        {
-            bot.Slug = slug;
-            updated = true;
-        }
-
-        if (isActive.HasValue && bot.IsActive != isActive.Value)
-        {
-            bot.IsActive = isActive.Value;
-            updated = true;
-        }
-
-        if (!updated) return bot;
-
+        db.Update(bot);
+        await db.SaveChangesAsync();
+        
         try
         {
             // Update the bot account in the Pass service

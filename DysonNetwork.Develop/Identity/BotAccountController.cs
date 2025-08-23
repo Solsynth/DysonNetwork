@@ -65,7 +65,7 @@ public class BotAccountController(
 
         [MaxLength(256)] public string? Nick { get; set; } = string.Empty;
 
-        [Required] [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
+        [Required] [MaxLength(1024)] public string? Slug { get; set; } = string.Empty;
 
         [MaxLength(128)] public string? Language { get; set; }
 
@@ -192,7 +192,7 @@ public class BotAccountController(
         }
     }
 
-    [HttpPut("{botId:guid}")]
+    [HttpPatch("{botId:guid}")]
     public async Task<IActionResult> UpdateBot(
         [FromRoute] string pubName,
         [FromRoute] Guid projectId,
@@ -234,15 +234,16 @@ public class BotAccountController(
         if (request.Location is not null) botAccount.Profile.Location = request.Location;
         if (request.Birthday is not null) botAccount.Profile.Birthday = request.Birthday?.ToTimestamp();
 
+        if (request.Slug is not null) bot.Slug = request.Slug;
+        if (request.IsActive is not null) bot.IsActive = request.IsActive.Value;
+
         try
         {
             var updatedBot = await botService.UpdateBotAsync(
                 bot,
                 botAccount,
                 request.PictureId,
-                request.BackgroundId,
-                request.Slug,
-                request.IsActive
+                request.BackgroundId
             );
 
             return Ok(updatedBot);
