@@ -4,7 +4,7 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Data;
 
-public class AccountReference
+public class AccountReference : ModelBase
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -17,8 +17,6 @@ public class AccountReference
     public List<AccountContactReference> Contacts { get; set; } = new();
     public List<AccountBadgeReference> Badges { get; set; } = new();
     public SubscriptionReference? PerkSubscription { get; set; }
-    public Instant CreatedAt { get; set; }
-    public Instant UpdatedAt { get; set; }
 
     public Proto.Account ToProtoValue()
     {
@@ -75,7 +73,7 @@ public class AccountReference
     }
 }
 
-public class AccountProfileReference
+public class AccountProfileReference : ModelBase
 {
     public Guid Id { get; set; }
     public string? FirstName { get; set; }
@@ -135,6 +133,8 @@ public class AccountProfileReference
             Background = Background?.ToProtoValue(),
             AccountId = AccountId.ToString(),
             Verification = Verification?.ToProtoValue(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
 
         return proto;
@@ -161,6 +161,8 @@ public class AccountProfileReference
             Background = proto.Background != null ? CloudFileReferenceObject.FromProtoValue(proto.Background) : null,
             AccountId = Guid.Parse(proto.AccountId),
             Verification = proto.Verification != null ? VerificationMark.FromProtoValue(proto.Verification) : null,
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
         };
     }
 }
