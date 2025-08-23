@@ -51,7 +51,8 @@ public class Account : ModelBase
             Profile = Profile.ToProtoValue(),
             PerkSubscription = PerkSubscription?.ToProtoValue(),
             CreatedAt = CreatedAt.ToTimestamp(),
-            UpdatedAt = UpdatedAt.ToTimestamp()
+            UpdatedAt = UpdatedAt.ToTimestamp(),
+            AutomatedId = AutomatedId?.ToString()
         };
 
         // Add contacts
@@ -81,6 +82,7 @@ public class Account : ModelBase
                 : null,
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant(),
+            AutomatedId = proto.AutomatedId is not null ? Guid.Parse(proto.AutomatedId) : null
         };
 
         account.Profile = AccountProfile.FromProtoValue(proto.Profile);
@@ -119,7 +121,7 @@ public abstract class Leveling
 
 public class AccountProfile : ModelBase, IIdentifiedResource
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(256)] public string? FirstName { get; set; }
     [MaxLength(256)] public string? MiddleName { get; set; }
     [MaxLength(256)] public string? LastName { get; set; }

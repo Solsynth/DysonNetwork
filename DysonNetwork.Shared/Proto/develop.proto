@@ -108,6 +108,8 @@ message BotAccount {
 message CreateBotAccountRequest {
   Account account = 1;
   string automated_id = 2;
+  optional string picture_id = 8;
+  optional string background_id = 9;
 }
 
 message CreateBotAccountResponse {
@@ -117,6 +119,8 @@ message CreateBotAccountResponse {
 message UpdateBotAccountRequest {
   string automated_id = 1;       // ID of the bot account to update
   Account account = 2;           // Updated account information
+  optional string picture_id = 8;
+  optional string background_id = 9;
 }
 
 message UpdateBotAccountResponse {

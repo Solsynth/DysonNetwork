@@ -32,6 +32,8 @@ message Account {
 
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
+  
+  optional string automated_id = 17;
 }
 
 // Enum for status attitude
@@ -246,7 +248,9 @@ message GetAccountStatusBatchResponse {
 service AccountService {
   // Account Operations
   rpc GetAccount(GetAccountRequest) returns (Account) {}
+  rpc GetBotAccount(GetBotAccountRequest) returns (Account) {}
   rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
+  rpc GetBotAccountBatch(GetBotAccountBatchRequest) returns (GetAccountBatchResponse) {}
   rpc LookupAccountBatch(LookupAccountBatchRequest) returns (GetAccountBatchResponse) {}
   rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
 
@@ -321,8 +325,16 @@ message GetAccountRequest {
   string id = 1;  // Account ID to retrieve
 }
 
+message GetBotAccountRequest {
+  string automated_id = 1;
+}
+
 message GetAccountBatchRequest {
   repeated string id = 1;  // Account ID to retrieve
+}
+
+message GetBotAccountBatchRequest {
+  repeated string automated_id = 1;
 }
 
 message LookupAccountBatchRequest {

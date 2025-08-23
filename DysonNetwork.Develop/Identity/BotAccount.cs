@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Data;
-using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Develop.Identity;
@@ -15,6 +15,8 @@ public class BotAccount : ModelBase
 
     public Guid ProjectId { get; set; }
     public DevProject Project { get; set; } = null!;
+    
+    [NotMapped] public AccountReference? Account { get; set; }
 
     public Shared.Proto.BotAccount ToProtoValue()
     {

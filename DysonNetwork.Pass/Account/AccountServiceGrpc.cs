@@ -42,6 +42,26 @@ public class AccountServiceGrpc(
         return account.ToProtoValue();
     }
 
+    public override async Task<Shared.Proto.Account> GetBotAccount(GetBotAccountRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AutomatedId, out var automatedId))
+            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid automated ID format"));
+
+        var account = await _db.Accounts
+            .AsNoTracking()
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
+
+        if (account == null)
+            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, $"Account with automated ID {request.AutomatedId} not found"));
+
+        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
+        account.PerkSubscription = perk?.ToReference();
+
+        return account.ToProtoValue();
+    }
+
     public override async Task<GetAccountBatchResponse> GetAccountBatch(GetAccountBatchRequest request,
         ServerCallContext context)
     {
@@ -56,7 +76,35 @@ public class AccountServiceGrpc(
             .Where(a => accountIds.Contains(a.Id))
             .Include(a => a.Profile)
             .ToListAsync();
-        
+
+        var perks = await subscriptions.GetPerkSubscriptionsAsync(
+            accounts.Select(x => x.Id).ToList()
+        );
+        foreach (var account in accounts)
+            if (perks.TryGetValue(account.Id, out var perk))
+                account.PerkSubscription = perk?.ToReference();
+
+        var response = new GetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+    
+    
+    public override async Task<GetAccountBatchResponse> GetBotAccountBatch(GetBotAccountBatchRequest request,
+        ServerCallContext context)
+    {
+        var automatedIds = request.AutomatedId
+            .Select(id => Guid.TryParse(id, out var automatedId) ? automatedId : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => a.AutomatedId != null && automatedIds.Contains(a.AutomatedId.Value))
+            .Include(a => a.Profile)
+            .ToListAsync();
+
         var perks = await subscriptions.GetPerkSubscriptionsAsync(
             accounts.Select(x => x.Id).ToList()
         );
@@ -76,7 +124,8 @@ public class AccountServiceGrpc(
         return status.ToProtoValue();
     }
 
-    public override async Task<GetAccountStatusBatchResponse> GetAccountStatusBatch(GetAccountBatchRequest request, ServerCallContext context)
+    public override async Task<GetAccountStatusBatchResponse> GetAccountStatusBatch(GetAccountBatchRequest request,
+        ServerCallContext context)
     {
         var accountIds = request.Id
             .Select(id => Guid.TryParse(id, out var accountId) ? accountId : (Guid?)null)
@@ -98,14 +147,14 @@ public class AccountServiceGrpc(
             .Where(a => accountNames.Contains(a.Name))
             .Include(a => a.Profile)
             .ToListAsync();
-        
+
         var perks = await subscriptions.GetPerkSubscriptionsAsync(
             accounts.Select(x => x.Id).ToList()
         );
         foreach (var account in accounts)
             if (perks.TryGetValue(account.Id, out var perk))
                 account.PerkSubscription = perk?.ToReference();
-        
+
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;

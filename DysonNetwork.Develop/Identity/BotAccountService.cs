@@ -1,13 +1,18 @@
 using DysonNetwork.Develop.Project;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Develop.Identity;
 
-public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAccountReceiverServiceClient accountReceiver)
+public class BotAccountService(
+    AppDatabase db,
+    BotAccountReceiverService.BotAccountReceiverServiceClient accountReceiver,
+    AccountClientHelper accounts
+)
 {
     public async Task<BotAccount?> GetBotByIdAsync(Guid id)
     {
@@ -23,39 +28,23 @@ public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAcco
             .ToListAsync();
     }
 
-    public async Task<BotAccount> CreateBotAsync(DevProject project, string slug)
+    public async Task<BotAccount> CreateBotAsync(DevProject project, string slug, Account account)
     {
         // First, check if a bot with this slug already exists in this project
         var existingBot = await db.BotAccounts
             .FirstOrDefaultAsync(b => b.ProjectId == project.Id && b.Slug == slug);
-            
+
         if (existingBot != null)
         {
             throw new InvalidOperationException("A bot with this slug already exists in this project.");
         }
 
-        var now = SystemClock.Instance.GetCurrentInstant();
-        
         try
         {
-            // First create the bot account in the Pass service
             var createRequest = new CreateBotAccountRequest
             {
                 AutomatedId = Guid.NewGuid().ToString(),
-                Account = new Account
-                {
-                    Name = slug,
-                    Nick = $"Bot {slug}",
-                    Language = "en",
-                    Profile = new AccountProfile
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        CreatedAt = now.ToTimestamp(),
-                        UpdatedAt = now.ToTimestamp()
-                    },
-                    CreatedAt = now.ToTimestamp(),
-                    UpdatedAt = now.ToTimestamp()
-                }
+                Account = account
             };
 
             var createResponse = await accountReceiver.CreateBotAccountAsync(createRequest);
@@ -80,7 +69,8 @@ public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAcco
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.AlreadyExists)
         {
-            throw new InvalidOperationException("A bot account with this ID already exists in the authentication service.", ex);
+            throw new InvalidOperationException(
+                "A bot account with this ID already exists in the authentication service.", ex);
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.InvalidArgument)
         {
@@ -92,7 +82,8 @@ public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAcco
         }
     }
 
-    public async Task<BotAccount> UpdateBotAsync(BotAccount bot, string? slug = null, bool? isActive = null)
+    public async Task<BotAccount> UpdateBotAsync(BotAccount bot, Account account, string? slug = null,
+        bool? isActive = null)
     {
         var updated = false;
         if (slug != null && bot.Slug != slug)
@@ -100,7 +91,7 @@ public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAcco
             bot.Slug = slug;
             updated = true;
         }
-        
+
         if (isActive.HasValue && bot.IsActive != isActive.Value)
         {
             bot.IsActive = isActive.Value;
@@ -108,19 +99,14 @@ public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAcco
         }
 
         if (!updated) return bot;
-        
+
         try
         {
             // Update the bot account in the Pass service
             var updateRequest = new UpdateBotAccountRequest
             {
                 AutomatedId = bot.Id.ToString(),
-                Account = new Shared.Proto.Account
-                {
-                    Name = $"bot-{bot.Slug}",
-                    Nick = $"Bot {bot.Slug}",
-                    UpdatedAt = SystemClock.Instance.GetCurrentInstant().ToTimestamp()
-                }
+                Account = account
             };
 
             var updateResponse = await accountReceiver.UpdateBotAccountAsync(updateRequest);
@@ -160,9 +146,28 @@ public class BotAccountService(AppDatabase db, BotAccountReceiverService.BotAcco
         {
             // Account not found in Pass service, continue with local deletion
         }
-        
+
         // Delete the local bot account
         db.BotAccounts.Remove(bot);
         await db.SaveChangesAsync();
+    }
+    
+    public async Task<BotAccount?> LoadBotAccountAsync(BotAccount bot) =>
+        (await LoadBotsAccountAsync([bot])).FirstOrDefault();
+
+    public async Task<List<BotAccount>> LoadBotsAccountAsync(IEnumerable<BotAccount> bots)
+    {
+        bots = bots.ToList();
+        var automatedIds = bots.Select(b => b.Id).ToList();
+        var data = await accounts.GetBotAccountBatch(automatedIds);
+
+        foreach (var bot in bots)
+        {
+            bot.Account = data
+                .Select(AccountReference.FromProtoValue)
+                .FirstOrDefault(e => e.AutomatedId == bot.Id);
+        }
+
+        return bots as List<BotAccount> ?? [];
     }
 }

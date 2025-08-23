@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using NodaTime;
@@ -5,7 +6,12 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Pass.Account;
 
-public class BotAccountReceiverGrpc(AppDatabase db, AccountService accounts)
+public class BotAccountReceiverGrpc(
+    AppDatabase db,
+    AccountService accounts,
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs
+)
     : BotAccountReceiverService.BotAccountReceiverServiceBase
 {
     public override async Task<CreateBotAccountResponse> CreateBotAccount(
@@ -14,7 +20,12 @@ public class BotAccountReceiverGrpc(AppDatabase db, AccountService accounts)
     )
     {
         var account = Account.FromProtoValue(request.Account);
-        account = await accounts.CreateBotAccount(account, Guid.Parse(request.AutomatedId));
+        account = await accounts.CreateBotAccount(
+            account,
+            Guid.Parse(request.AutomatedId),
+            request.PictureId,
+            request.BackgroundId
+        );
 
         return new CreateBotAccountResponse
         {
@@ -34,16 +45,44 @@ public class BotAccountReceiverGrpc(AppDatabase db, AccountService accounts)
         ServerCallContext context
     )
     {
-        var automatedId = Guid.Parse(request.AutomatedId);
-        var account = await accounts.GetBotAccount(automatedId);
-        if (account is null)
-            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Account not found"));
+        var account = Account.FromProtoValue(request.Account);
 
-        account.Name = request.Account.Name;
-        account.Nick = request.Account.Nick;
-        account.Profile = AccountProfile.FromProtoValue(request.Account.Profile);
-        account.Language = request.Account.Language;
-        
+        if (request.PictureId is not null)
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+            if (account.Profile.Picture is not null)
+                await fileRefs.DeleteResourceReferencesAsync(
+                    new DeleteResourceReferencesRequest { ResourceId = account.Profile.ResourceIdentifier }
+                );
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    ResourceId = account.Profile.ResourceIdentifier,
+                    FileId = request.PictureId,
+                    Usage = "profile.picture"
+                }
+            );
+            account.Profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
+        }
+
+        if (request.BackgroundId is not null)
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+            if (account.Profile.Background is not null)
+                await fileRefs.DeleteResourceReferencesAsync(
+                    new DeleteResourceReferencesRequest { ResourceId = account.Profile.ResourceIdentifier }
+                );
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    ResourceId = account.Profile.ResourceIdentifier,
+                    FileId = request.BackgroundId,
+                    Usage = "profile.background"
+                }
+            );
+            account.Profile.Background = CloudFileReferenceObject.FromProtoValue(file);
+        }
+
         db.Accounts.Update(account);
         await db.SaveChangesAsync();
 
@@ -56,7 +95,7 @@ public class BotAccountReceiverGrpc(AppDatabase db, AccountService accounts)
                 CreatedAt = account.CreatedAt.ToTimestamp(),
                 UpdatedAt = account.UpdatedAt.ToTimestamp(),
                 IsActive = true
-            } 
+            }
         };
     }
 
@@ -69,9 +108,9 @@ public class BotAccountReceiverGrpc(AppDatabase db, AccountService accounts)
         var account = await accounts.GetBotAccount(automatedId);
         if (account is null)
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Account not found"));
-        
+
         await accounts.DeleteAccount(account);
-        
+
         return new DeleteBotAccountResponse();
     }
 }

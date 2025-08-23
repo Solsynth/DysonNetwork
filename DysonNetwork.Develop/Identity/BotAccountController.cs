@@ -1,8 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Develop.Identity;
 
@@ -13,18 +16,61 @@ public class BotAccountController(
     BotAccountService botService,
     DeveloperService developerService,
     DevProjectService projectService,
-    ILogger<BotAccountController> logger
+    ILogger<BotAccountController> logger,
+    AccountClientHelper accounts
 )
     : ControllerBase
 {
-    public record BotRequest(
-        [Required] [MaxLength(1024)] string? Slug
-    );
+    public class CommonBotRequest
+    {
+        [MaxLength(256)] public string? FirstName { get; set; }
+        [MaxLength(256)] public string? MiddleName { get; set; }
+        [MaxLength(256)] public string? LastName { get; set; }
+        [MaxLength(1024)] public string? Gender { get; set; }
+        [MaxLength(1024)] public string? Pronouns { get; set; }
+        [MaxLength(1024)] public string? TimeZone { get; set; }
+        [MaxLength(1024)] public string? Location { get; set; }
+        [MaxLength(4096)] public string? Bio { get; set; }
+        public Instant? Birthday { get; set; }
 
-    public record UpdateBotRequest(
-       [MaxLength(1024)] string? Slug,
-        bool? IsActive
-    ) : BotRequest(Slug);
+        [MaxLength(32)] public string? PictureId { get; set; }
+        [MaxLength(32)] public string? BackgroundId { get; set; }
+    }
+
+    public class BotCreateRequest : CommonBotRequest
+    {
+        [Required]
+        [MinLength(2)]
+        [MaxLength(256)]
+        [RegularExpression(@"^[A-Za-z0-9_-]+$",
+            ErrorMessage = "Name can only contain letters, numbers, underscores, and hyphens.")
+        ]
+        public string Name { get; set; } = string.Empty;
+
+        [Required] [MaxLength(256)] public string Nick { get; set; } = string.Empty;
+
+        [Required] [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
+
+        [MaxLength(128)] public string Language { get; set; } = "en-us";
+    }
+
+    public class UpdateBotRequest : CommonBotRequest
+    {
+        [MinLength(2)]
+        [MaxLength(256)]
+        [RegularExpression(@"^[A-Za-z0-9_-]+$",
+            ErrorMessage = "Name can only contain letters, numbers, underscores, and hyphens.")
+        ]
+        public string? Name { get; set; } = string.Empty;
+
+        [MaxLength(256)] public string? Nick { get; set; } = string.Empty;
+        
+        [Required] [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
+
+        [MaxLength(128)] public string? Language { get; set; }
+
+        public bool? IsActive { get; set; }
+    }
 
     [HttpGet]
     public async Task<IActionResult> ListBots(
@@ -47,7 +93,7 @@ public class BotAccountController(
             return NotFound("Project not found or you don't have access");
 
         var bots = await botService.GetBotsByProjectAsync(projectId);
-        return Ok(bots);
+        return Ok(await botService.LoadBotsAccountAsync(bots));
     }
 
     [HttpGet("{botId:guid}")]
@@ -75,18 +121,16 @@ public class BotAccountController(
         if (bot is null || bot.ProjectId != projectId)
             return NotFound("Bot not found");
 
-        return Ok(bot);
+        return Ok(await botService.LoadBotAccountAsync(bot));
     }
 
     [HttpPost]
     public async Task<IActionResult> CreateBot(
         [FromRoute] string pubName,
         [FromRoute] Guid projectId,
-        [FromBody] BotRequest request
+        [FromBody] BotCreateRequest createRequest
     )
     {
-        if (string.IsNullOrWhiteSpace(request.Slug))
-            return BadRequest("Name is required");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
@@ -102,9 +146,30 @@ public class BotAccountController(
         if (project is null)
             return NotFound("Project not found or you don't have access");
 
+        var account = new Account()
+        {
+            Name = createRequest.Name,
+            Nick = createRequest.Nick,
+            Language = createRequest.Language,
+            Profile = new AccountProfile()
+            {
+                Bio = createRequest.Bio,
+                Gender = createRequest.Gender,
+                FirstName = createRequest.FirstName,
+                MiddleName = createRequest.MiddleName,
+                LastName = createRequest.LastName,
+                TimeZone = createRequest.TimeZone,
+                Pronouns = createRequest.Pronouns,
+                Location = createRequest.Location,
+                Birthday = createRequest.Birthday?.ToTimestamp(),
+                Picture = new CloudFile() { Id = createRequest.PictureId },
+                Background = new CloudFile() { Id = createRequest.BackgroundId }
+            }
+        };
+
         try
         {
-            var bot = await botService.CreateBotAsync(project, request.Slug);
+            var bot = await botService.CreateBotAsync(project, createRequest.Slug, account);
             return Ok(bot);
         }
         catch (Exception ex)
@@ -141,10 +206,29 @@ public class BotAccountController(
         if (bot is null || bot.ProjectId != projectId)
             return NotFound("Bot not found");
 
+        var botAccount = await accounts.GetBotAccount(bot.Id);
+
+        if (request.Name is not null) botAccount.Name = request.Name;
+        if (request.Nick is not null) botAccount.Nick = request.Nick;
+        if (request.Language is not null) botAccount.Language = request.Language;
+        if (request.Bio is not null) botAccount.Profile.Bio = request.Bio;
+        if (request.Gender is not null) botAccount.Profile.Gender = request.Gender;
+        if (request.FirstName is not null) botAccount.Profile.FirstName = request.FirstName;
+        if (request.MiddleName is not null) botAccount.Profile.MiddleName = request.MiddleName;
+        if (request.LastName is not null) botAccount.Profile.LastName = request.LastName;
+        if (request.TimeZone is not null) botAccount.Profile.TimeZone = request.TimeZone;
+        if (request.Pronouns is not null) botAccount.Profile.Pronouns = request.Pronouns;
+        if (request.Location is not null) botAccount.Profile.Location = request.Location;
+        if (request.Birthday is not null) botAccount.Profile.Birthday = request.Birthday?.ToTimestamp();
+        if (request.PictureId is not null) botAccount.Profile.Picture = new CloudFile() { Id = request.PictureId };
+        if (request.BackgroundId is not null)
+            botAccount.Profile.Background = new CloudFile() { Id = request.BackgroundId };
+        
         try
         {
             var updatedBot = await botService.UpdateBotAsync(
                 bot,
+                botAccount,
                 request.Slug,
                 request.IsActive
             );

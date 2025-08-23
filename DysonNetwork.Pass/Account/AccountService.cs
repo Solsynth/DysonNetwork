@@ -6,6 +6,7 @@ using DysonNetwork.Pass.Email;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using EFCore.BulkExtensions;
@@ -21,6 +22,8 @@ namespace DysonNetwork.Pass.Account;
 public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs,
     AccountUsernameService uname,
     EmailService mailer,
     PusherService.PusherServiceClient pusher,
@@ -182,7 +185,7 @@ public class AccountService(
         );
     }
 
-    public async Task<Account> CreateBotAccount(Account account, Guid automatedId)
+    public async Task<Account> CreateBotAccount(Account account, Guid automatedId, string? pictureId, string? backgroundId)
     {
         var dupeAutomateCount = await db.Accounts.Where(a => a.AutomatedId == automatedId).CountAsync();
         if (dupeAutomateCount > 0)
@@ -195,8 +198,38 @@ public class AccountService(
         account.AutomatedId = automatedId;
         account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
         account.IsSuperuser = false;
+
+        if (!string.IsNullOrEmpty(pictureId))
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = pictureId });
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    ResourceId = account.Profile.ResourceIdentifier,
+                    FileId = pictureId,
+                    Usage = "profile.picture"
+                }
+            );
+            account.Profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
+        }
+
+        if (!string.IsNullOrEmpty(backgroundId))
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = backgroundId });
+            await fileRefs.CreateReferenceAsync(
+                new CreateReferenceRequest
+                {
+                    ResourceId = account.Profile.ResourceIdentifier,
+                    FileId = backgroundId,
+                    Usage = "profile.background"
+                }
+            );
+            account.Profile.Background = CloudFileReferenceObject.FromProtoValue(file);
+        }
+        
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
+
         return account;
     }
 

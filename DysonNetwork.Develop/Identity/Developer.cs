@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Data;
@@ -11,7 +12,7 @@ public class Developer
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid PublisherId { get; set; }
     
-    public List<DevProject> Projects { get; set; } = [];
+    [JsonIgnore] public List<DevProject> Projects { get; set; } = [];
     
     [NotMapped] public PublisherInfo? Publisher { get; set; }
 }

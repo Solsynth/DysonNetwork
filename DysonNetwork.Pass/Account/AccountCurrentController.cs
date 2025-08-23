@@ -30,6 +30,7 @@ public class AccountCurrentController(
 {
     [HttpGet]
     [ProducesResponseType<Account>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<Account>> GetCurrentIdentity()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
