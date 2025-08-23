@@ -317,7 +317,7 @@ public class AuthService(
 
         return factor.VerifyPassword(pinCode);
     }
-    
+
     public async Task<ApiKey?> GetApiKey(Guid id, Guid? accountId = null)
     {
         var key = await db.ApiKeys
@@ -340,13 +340,13 @@ public class AuthService(
                 ExpiredAt = expiredAt
             },
         };
-        
+
         db.ApiKeys.Add(key);
         await db.SaveChangesAsync();
-        
+
         return key;
     }
-    
+
     public async Task<string> IssueApiKeyToken(ApiKey key)
     {
         key.Session.LastGrantedAt = SystemClock.Instance.GetCurrentInstant();
@@ -355,26 +355,48 @@ public class AuthService(
         var tk = CreateToken(key.Session);
         return tk;
     }
-    
+
     public async Task RevokeApiKeyToken(ApiKey key)
     {
         db.Remove(key);
         db.Remove(key.Session);
         await db.SaveChangesAsync();
     }
-    
+
     public async Task<ApiKey> RotateApiKeyToken(ApiKey key)
     {
-        var originalSession = key.Session;
-        db.Remove(originalSession);
-        key.Session = new AuthSession
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        try
         {
-            AccountId = key.AccountId,
-            ExpiredAt = originalSession.ExpiredAt
-        };
-        db.Add(key.Session);
-        await db.SaveChangesAsync();
-        return key;
+            var oldSessionId = key.SessionId;
+
+            // Create new session
+            var newSession = new AuthSession
+            {
+                AccountId = key.AccountId,
+                ExpiredAt = key.Session?.ExpiredAt
+            };
+
+            db.AuthSessions.Add(newSession);
+            await db.SaveChangesAsync();
+
+            // Update ApiKey to point to new session
+            key.SessionId = newSession.Id;
+            key.Session = newSession;
+            db.ApiKeys.Update(key);
+            await db.SaveChangesAsync();
+
+            // Delete old session
+            await db.AuthSessions.Where(s => s.Id == oldSessionId).ExecuteDeleteAsync();
+
+            await transaction.CommitAsync();
+            return key;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     // Helper methods for Base64Url encoding/decoding

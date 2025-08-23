@@ -143,6 +143,8 @@ message ApiKey {
   string account_id = 3;
   string session_id = 4;
   google.protobuf.StringValue key = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
 }
 
 message GetApiKeyRequest {
@@ -166,7 +168,7 @@ service BotAccountReceiverService {
   rpc CreateBotAccount(CreateBotAccountRequest) returns (CreateBotAccountResponse);
   rpc UpdateBotAccount(UpdateBotAccountRequest) returns (UpdateBotAccountResponse);
   rpc DeleteBotAccount(DeleteBotAccountRequest) returns (DeleteBotAccountResponse);
-  
+
   rpc GetApiKey(GetApiKeyRequest) returns (ApiKey);
   rpc ListApiKey(ListApiKeyRequest) returns (GetApiKeyBatchResponse);
   rpc CreateApiKey(ApiKey) returns (ApiKey);

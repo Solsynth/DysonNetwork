@@ -169,7 +169,9 @@ public class BotAccountReceiverGrpc(
         var accountId = Guid.Parse(request.AccountId);
         
         var key = await db.ApiKeys
-            .FirstOrDefaultAsync(k => k.Id == keyId && k.AccountId == accountId);
+            .Include(k => k.Session)
+            .Where(k => k.Id == keyId && k.AccountId == accountId)
+            .FirstOrDefaultAsync();
             
         if (key == null)
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "API key not found"));
@@ -187,7 +189,7 @@ public class BotAccountReceiverGrpc(
     {
         var keyId = Guid.Parse(request.Id);
         var key = await db.ApiKeys
-            .Include(k => k.Account)
+            .Include(k => k.Session)
             .FirstOrDefaultAsync(k => k.Id == keyId);
             
         if (key == null)
@@ -203,7 +205,7 @@ public class BotAccountReceiverGrpc(
     {
         var keyId = Guid.Parse(request.Id);
         var key = await db.ApiKeys
-            .Include(k => k.Account)
+            .Include(k => k.Session)
             .FirstOrDefaultAsync(k => k.Id == keyId);
             
         if (key == null)

@@ -328,7 +328,9 @@ public class ApiKeyReference : ModelBase
             Label = Label,
             AccountId = AccountId.ToString(),
             SessionId = SessionId.ToString(),
-            Key = Key
+            Key = Key,
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
         };
     }
 
@@ -340,7 +342,9 @@ public class ApiKeyReference : ModelBase
             AccountId = Guid.Parse(proto.AccountId),
             SessionId = Guid.Parse(proto.SessionId),
             Label = proto.Label,
-            Key = proto.Key
+            Key = proto.Key,
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
         };
     }
 }
