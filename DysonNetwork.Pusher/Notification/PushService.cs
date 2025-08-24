@@ -373,6 +373,7 @@ public class PushService
         _db.Notifications.AddRange(accounts.Select(a => new Notification
         {
             AccountId = a,
+            Topic = notification.Topic,
             Content = notification.Content,
             Title = notification.Title,
             Subtitle = notification.Subtitle,

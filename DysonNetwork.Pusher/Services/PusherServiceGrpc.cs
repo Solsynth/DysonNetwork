@@ -98,7 +98,8 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
             Content = request.Notification.Body,
             Meta = request.Notification.HasMeta
                 ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
-                : []
+                : [],
+            AccountId = Guid.Parse(request.UserId),
         };
         
         if (request.Notification.ActionUri is not null)
