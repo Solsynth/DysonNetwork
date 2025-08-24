@@ -31,6 +31,12 @@ public class OidcProviderService(
         return resp.App ?? null;
     }
 
+    public async Task<CustomApp?> FindClientBySlugAsync(string slug)
+    {
+        var resp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = slug });
+        return resp.App ?? null;
+    }
+
     public async Task<AuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -40,6 +46,7 @@ public class OidcProviderService(
             .Where(s => s.AccountId == accountId &&
                         s.AppId == clientId &&
                         (s.ExpiredAt == null || s.ExpiredAt > now) &&
+                        s.Challenge != null &&
                         s.Challenge.Type == ChallengeType.OAuth)
             .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
@@ -54,6 +61,76 @@ public class OidcProviderService(
             IsOidc = true
         });
         return resp.Valid;
+    }
+
+    public async Task<bool> ValidateRedirectUriAsync(Guid clientId, string redirectUri)
+    {
+        if (string.IsNullOrEmpty(redirectUri))
+            return false;
+        
+
+        var client = await FindClientByIdAsync(clientId);
+        if (client?.Status != CustomAppStatus.Production)
+            return true;
+            
+        if (client?.OauthConfig?.RedirectUris == null)
+            return false;
+
+        // Check if the redirect URI matches any of the allowed URIs
+        // For exact match
+        if (client.OauthConfig.RedirectUris.Contains(redirectUri))
+            return true;
+
+        // Check for wildcard matches (e.g., https://*.example.com/*)
+        foreach (var allowedUri in client.OauthConfig.RedirectUris)
+        {
+            if (string.IsNullOrEmpty(allowedUri))
+                continue;
+
+            // Handle wildcard in domain
+            if (allowedUri.Contains("*.") && allowedUri.StartsWith("http"))
+            {
+                try
+                {
+                    var allowedUriObj = new Uri(allowedUri);
+                    var redirectUriObj = new Uri(redirectUri);
+
+                    if (allowedUriObj.Scheme != redirectUriObj.Scheme ||
+                        allowedUriObj.Port != redirectUriObj.Port)
+                    {
+                        continue;
+                    }
+
+                    // Check if the domain matches the wildcard pattern
+                    var allowedDomain = allowedUriObj.Host;
+                    var redirectDomain = redirectUriObj.Host;
+
+                    if (allowedDomain.StartsWith("*."))
+                    {
+                        var baseDomain = allowedDomain[2..]; // Remove the "*." prefix
+                        if (redirectDomain == baseDomain || redirectDomain.EndsWith($".{baseDomain}"))
+                        {
+                            // Check path
+                            var allowedPath = allowedUriObj.AbsolutePath.TrimEnd('/');
+                            var redirectPath = redirectUriObj.AbsolutePath.TrimEnd('/');
+
+                            if (string.IsNullOrEmpty(allowedPath) || 
+                                redirectPath.StartsWith(allowedPath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                catch (UriFormatException)
+                {
+                    // Invalid URI format in allowed URIs, skip
+                    continue;
+                }
+            }
+        }
+
+        return false;
     }
 
     public async Task<TokenResponse> GenerateTokenResponseAsync(

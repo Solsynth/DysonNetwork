@@ -61,6 +61,12 @@ const router = createRouter({
       component: () => import('../views/callback.vue'),
     },
     {
+      path: '/auth/authorize',
+      name: 'authAuthorize',
+      component: () => import('../views/authorize.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/:notFound(.*)',
       name: 'errorNotFound',
       component: () => import('../views/not-found.vue'),

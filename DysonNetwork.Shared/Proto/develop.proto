@@ -19,6 +19,12 @@ message CustomAppOauthConfig {
   bool allow_offline_access = 7;
 }
 
+message CustomAppLinks {
+  string home_page = 1;
+  string privacy_policy = 2;
+  string terms_of_service = 3;
+}
+
 enum CustomAppStatus {
   CUSTOM_APP_STATUS_UNSPECIFIED = 0;
   DEVELOPING = 1;
@@ -35,10 +41,10 @@ message CustomApp {
   CustomAppStatus status = 5;
 
   // jsonb columns represented as bytes
-  bytes picture = 6;
-  bytes background = 7;
-  bytes verification = 8;
-  bytes links = 9;
+  CloudFile picture = 6;
+  CloudFile background = 7;
+  VerificationMark verification = 8;
+  CustomAppLinks links = 9;
   CustomAppOauthConfig oauth_config = 13;
 
   string project_id = 10;

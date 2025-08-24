@@ -32,7 +32,7 @@ public class CustomApp : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
 
-    [Column(TypeName = "jsonb")] public DysonNetwork.Shared.Data.VerificationMark? Verification { get; set; }
+    [Column(TypeName = "jsonb")] public VerificationMark? Verification { get; set; }
     [Column(TypeName = "jsonb")] public CustomAppOauthConfig? OauthConfig { get; set; }
     [Column(TypeName = "jsonb")] public CustomAppLinks? Links { get; set; }
 
@@ -62,17 +62,22 @@ public class CustomApp : ModelBase, IIdentifiedResource
                 CustomAppStatus.Suspended => Shared.Proto.CustomAppStatus.Suspended,
                 _ => Shared.Proto.CustomAppStatus.Unspecified
             },
-            Picture = Picture is null ? ByteString.Empty : ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(Picture)),
-            Background = Background is null ? ByteString.Empty : ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(Background)),
-            Verification = Verification is null ? ByteString.Empty : ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(Verification)),
-            Links = Links is null ? ByteString.Empty : ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(Links)),
+            Picture = Picture?.ToProtoValue(),
+            Background = Background?.ToProtoValue(),
+            Verification = Verification?.ToProtoValue(),
+            Links = Links is null ? null : new DysonNetwork.Shared.Proto.CustomAppLinks
+            {
+                HomePage = Links.HomePage ?? string.Empty,
+                PrivacyPolicy = Links.PrivacyPolicy ?? string.Empty,
+                TermsOfService = Links.TermsOfService ?? string.Empty
+            },
             OauthConfig = OauthConfig is null ? null : new DysonNetwork.Shared.Proto.CustomAppOauthConfig
             {
                 ClientUri = OauthConfig.ClientUri ?? string.Empty,
-                RedirectUris = { OauthConfig.RedirectUris ?? Array.Empty<string>() },
-                PostLogoutRedirectUris = { OauthConfig.PostLogoutRedirectUris ?? Array.Empty<string>() },
-                AllowedScopes = { OauthConfig.AllowedScopes ?? Array.Empty<string>() },
-                AllowedGrantTypes = { OauthConfig.AllowedGrantTypes ?? Array.Empty<string>() },
+                RedirectUris = { OauthConfig.RedirectUris ?? [] },
+                PostLogoutRedirectUris = { OauthConfig.PostLogoutRedirectUris ?? [] },
+                AllowedScopes = { OauthConfig.AllowedScopes ?? [] },
+                AllowedGrantTypes = { OauthConfig.AllowedGrantTypes ?? [] },
                 RequirePkce = OauthConfig.RequirePkce,
                 AllowOfflineAccess = OauthConfig.AllowOfflineAccess
             },
@@ -99,10 +104,18 @@ public class CustomApp : ModelBase, IIdentifiedResource
         ProjectId = string.IsNullOrEmpty(p.ProjectId) ? Guid.Empty : Guid.Parse(p.ProjectId);
         CreatedAt = p.CreatedAt.ToInstant();
         UpdatedAt = p.UpdatedAt.ToInstant();
-        if (p.Picture.Length > 0) Picture = System.Text.Json.JsonSerializer.Deserialize<CloudFileReferenceObject>(p.Picture.ToStringUtf8());
-        if (p.Background.Length > 0) Background = System.Text.Json.JsonSerializer.Deserialize<CloudFileReferenceObject>(p.Background.ToStringUtf8());
-        if (p.Verification.Length > 0) Verification = System.Text.Json.JsonSerializer.Deserialize<DysonNetwork.Shared.Data.VerificationMark>(p.Verification.ToStringUtf8());
-        if (p.Links.Length > 0) Links = System.Text.Json.JsonSerializer.Deserialize<CustomAppLinks>(p.Links.ToStringUtf8());
+        if (p.Picture is not null) Picture = CloudFileReferenceObject.FromProtoValue(p.Picture);
+        if (p.Background is not null) Background = CloudFileReferenceObject.FromProtoValue(p.Background);
+        if (p.Verification is not null) Verification = VerificationMark.FromProtoValue(p.Verification);
+        if (p.Links is not null)
+        {
+            Links = new CustomAppLinks
+            {
+                HomePage = string.IsNullOrEmpty(p.Links.HomePage) ? null : p.Links.HomePage,
+                PrivacyPolicy = string.IsNullOrEmpty(p.Links.PrivacyPolicy) ? null : p.Links.PrivacyPolicy,
+                TermsOfService = string.IsNullOrEmpty(p.Links.TermsOfService) ? null : p.Links.TermsOfService
+            };
+        }
         return this;
     }
 }
