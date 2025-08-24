@@ -81,7 +81,7 @@ public class QueueBackgroundService(
             switch (message.Type)
             {
                 case QueueMessageType.Email:
-                    await ProcessEmailMessageAsync(message, scope, cancellationToken);
+                    await ProcessEmailMessageAsync(message, scope);
                     break;
 
                 case QueueMessageType.PushNotification:
@@ -103,8 +103,7 @@ public class QueueBackgroundService(
         }
     }
 
-    private static async Task ProcessEmailMessageAsync(QueueMessage message, IServiceScope scope,
-        CancellationToken cancellationToken)
+    private static async Task ProcessEmailMessageAsync(QueueMessage message, IServiceScope scope)
     {
         var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
         var emailMessage = JsonSerializer.Deserialize<EmailMessage>(message.Data)

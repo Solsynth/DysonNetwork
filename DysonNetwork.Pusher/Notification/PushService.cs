@@ -2,7 +2,6 @@ using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Pusher.Connection;
 using DysonNetwork.Pusher.Services;
-using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -56,7 +55,7 @@ public class PushService
         _ws = ws;
         _queueService = queueService;
         _logger = logger;
-        
+
         _logger.LogInformation("PushService initialized");
     }
 
@@ -264,7 +263,8 @@ public class PushService
         await DeliverPushNotification(notification);
     }
 
-    private async Task SendPushNotificationAsync(PushSubscription subscription, Notification notification, CancellationToken cancellationToken)
+    private async Task SendPushNotificationAsync(PushSubscription subscription, Notification notification,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -360,5 +360,27 @@ public class PushService
 
         _logger.LogInformation(
             $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}");
+    }
+
+    public async Task SaveNotification(Notification notification)
+    {
+        _db.Notifications.Add(notification);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task SaveNotification(Notification notification, List<Guid> accounts)
+    {
+        _db.Notifications.AddRange(accounts.Select(a => new Notification
+        {
+            AccountId = a,
+            Content = notification.Content,
+            Title = notification.Title,
+            Subtitle = notification.Subtitle,
+            Meta = notification.Meta,
+            Priority = notification.Priority,
+            CreatedAt = notification.CreatedAt,
+            UpdatedAt = notification.UpdatedAt,
+        }));
+        await _db.SaveChangesAsync();
     }
 }
