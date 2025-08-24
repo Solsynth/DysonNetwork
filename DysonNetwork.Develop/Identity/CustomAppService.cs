@@ -2,6 +2,8 @@ using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace DysonNetwork.Develop.Identity;
 
@@ -92,6 +94,87 @@ public class CustomAppService(
         }
 
         return await query.FirstOrDefaultAsync(a => a.Id == id);
+    }
+
+    public async Task<List<CustomAppSecret>> GetAppSecretsAsync(Guid appId)
+    {
+        return await db.CustomAppSecrets
+            .Where(s => s.AppId == appId)
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<CustomAppSecret?> GetAppSecretAsync(Guid secretId, Guid appId)
+    {
+        return await db.CustomAppSecrets
+            .FirstOrDefaultAsync(s => s.Id == secretId && s.AppId == appId);
+    }
+
+    public async Task<CustomAppSecret> CreateAppSecretAsync(CustomAppSecret secret)
+    {
+        if (string.IsNullOrWhiteSpace(secret.Secret))
+        {
+            // Generate a new random secret if not provided
+            secret.Secret = GenerateRandomSecret();
+        }
+
+        secret.Id = Guid.NewGuid();
+        secret.CreatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+        secret.UpdatedAt = secret.CreatedAt;
+
+        db.CustomAppSecrets.Add(secret);
+        await db.SaveChangesAsync();
+
+        return secret;
+    }
+
+    public async Task<bool> DeleteAppSecretAsync(Guid secretId, Guid appId)
+    {
+        var secret = await db.CustomAppSecrets
+            .FirstOrDefaultAsync(s => s.Id == secretId && s.AppId == appId);
+
+        if (secret == null)
+            return false;
+
+        db.CustomAppSecrets.Remove(secret);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<CustomAppSecret> RotateAppSecretAsync(CustomAppSecret secretUpdate)
+    {
+        var existingSecret = await db.CustomAppSecrets
+            .FirstOrDefaultAsync(s => s.Id == secretUpdate.Id && s.AppId == secretUpdate.AppId);
+
+        if (existingSecret == null)
+            throw new InvalidOperationException("Secret not found");
+
+        // Update the existing secret with new values
+        existingSecret.Secret = GenerateRandomSecret();
+        existingSecret.Description = secretUpdate.Description ?? existingSecret.Description;
+        existingSecret.ExpiredAt = secretUpdate.ExpiredAt ?? existingSecret.ExpiredAt;
+        existingSecret.IsOidc = secretUpdate.IsOidc;
+        existingSecret.UpdatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+
+        await db.SaveChangesAsync();
+        return existingSecret;
+    }
+
+    private static string GenerateRandomSecret(int length = 64)
+    {
+        const string valid = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-._~+";
+        var res = new StringBuilder();
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            var uintBuffer = new byte[sizeof(uint)];
+            while (length-- > 0)
+            {
+                rng.GetBytes(uintBuffer);
+                var num = BitConverter.ToUInt32(uintBuffer, 0);
+                res.Append(valid[(int)(num % (uint)valid.Length)]);
+            }
+        }
+        return res.ToString();
     }
 
     public async Task<List<CustomApp>> GetAppsByProjectAsync(Guid projectId)
