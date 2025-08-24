@@ -16,8 +16,8 @@ public class QueueBackgroundService(
 )
     : BackgroundService
 {
-    private const string QueueName = "pusher.queue";
-    private const string QueueGroup = "pusher.workers";
+    public const string QueueName = "pusher.queue";
+    public const string QueueGroup = "pusher.workers";
     private readonly int _consumerCount = configuration.GetValue<int?>("ConsumerCount") ?? Environment.ProcessorCount;
     private readonly List<Task> _consumerTasks = [];
 

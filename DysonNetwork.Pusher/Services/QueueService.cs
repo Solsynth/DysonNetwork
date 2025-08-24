@@ -6,8 +6,6 @@ namespace DysonNetwork.Pusher.Services;
 
 public class QueueService(INatsConnection nats)
 {
-    private const string QueueName = "pusher_queue";
-
     public async Task EnqueueEmail(string toName, string toAddress, string subject, string body)
     {
         var message = new QueueMessage
@@ -22,7 +20,7 @@ public class QueueService(INatsConnection nats)
             })
         };
         var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
-        await nats.PublishAsync(QueueName, rawMessage);
+        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 
     public async Task EnqueuePushNotification(Notification.Notification notification, Guid userId, bool isSavable = false)
@@ -37,7 +35,7 @@ public class QueueService(INatsConnection nats)
             Data = JsonSerializer.Serialize(notification)
         };
         var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
-        await nats.PublishAsync(QueueName, rawMessage);
+        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 }
 
