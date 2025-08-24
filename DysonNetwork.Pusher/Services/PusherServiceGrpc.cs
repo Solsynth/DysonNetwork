@@ -12,9 +12,7 @@ namespace DysonNetwork.Pusher.Services;
 public class PusherServiceGrpc(
     QueueService queueService,
     WebSocketService websocket,
-    PushService pushService,
-    AccountClientHelper accountsHelper,
-    EmailService emailService
+    PushService pushService
 ) : PusherService.PusherServiceBase
 {
     public override async Task<Empty> SendEmail(SendEmailRequest request, ServerCallContext context)

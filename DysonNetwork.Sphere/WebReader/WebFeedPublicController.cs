@@ -123,6 +123,7 @@ public class WebFeedPublicController(
 
         var totalCount = await query.CountAsync();
         var subscriptions = await query
+            .Select(q => q.Feed)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
