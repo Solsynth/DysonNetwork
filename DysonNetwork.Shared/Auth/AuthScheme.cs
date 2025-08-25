@@ -58,7 +58,7 @@ public class DysonTokenAuthHandler(
             };
 
             // Add scopes as claims
-            session.Challenge.Scopes.ToList().ForEach(scope => claims.Add(new Claim("scope", scope)));
+            session.Challenge?.Scopes.ToList().ForEach(scope => claims.Add(new Claim("scope", scope)));
 
             // Add superuser claim if applicable
             if (session.Account.IsSuperuser)
