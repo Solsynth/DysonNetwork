@@ -281,7 +281,8 @@ public partial class ChatService(
                 Data = GrpcTypeHelper.ConvertObjectToByteString(message),
             },
         };
-        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null).Select(a => a!.Id.ToString()));
+        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
+            .Select(a => a!.Id.ToString()));
         await scopedNty.PushWebSocketPacketToUsersAsync(request);
 
         List<Account> accountsToNotify = [];
@@ -524,25 +525,51 @@ public partial class ChatService(
             })
             .ToListAsync();
 
-        var changesMembers = changes
+        // Get messages that need member data
+        var messagesNeedingSenders = changes
             .Where(c => c.Message != null)
-            .Select(c => c.Message!.Sender)
+            .Select(c => c.Message!)
+            .ToList();
+
+        // If no messages need senders, return with the latest timestamp from changes
+        if (messagesNeedingSenders.Count <= 0)
+        {
+            var latestTimestamp = changes.Count > 0 
+                ? changes.Max(c => c.Timestamp)
+                : SystemClock.Instance.GetCurrentInstant();
+                
+            return new SyncResponse
+            {
+                Changes = changes,
+                CurrentTimestamp = latestTimestamp
+            };
+        }
+        
+        // Load member accounts for messages that need them
+        var changesMembers = messagesNeedingSenders
+            .Select(m => m.Sender)
             .DistinctBy(x => x.Id)
             .ToList();
+            
         changesMembers = await crs.LoadMemberAccounts(changesMembers);
 
-        foreach (var change in changes)
+        // Update sender information for messages that have it
+        foreach (var message in messagesNeedingSenders)
         {
-            if (change.Message == null) continue;
-            var sender = changesMembers.FirstOrDefault(x => x.Id == change.Message.SenderId);
+            var sender = changesMembers.FirstOrDefault(x => x.Id == message.SenderId);
             if (sender is not null)
-                change.Message.Sender = sender;
+                message.Sender = sender;
         }
 
+        // Use the latest timestamp from changes, or current time if no changes
+        var latestChangeTimestamp = changes.Count > 0 
+            ? changes.Max(c => c.Timestamp)
+            : SystemClock.Instance.GetCurrentInstant();
+            
         return new SyncResponse
         {
             Changes = changes,
-            CurrentTimestamp = SystemClock.Instance.GetCurrentInstant()
+            CurrentTimestamp = latestChangeTimestamp
         };
     }
 
