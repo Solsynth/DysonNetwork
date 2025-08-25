@@ -787,13 +787,24 @@ public partial class PostService(
             await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromHours(24));
 
             // Create featured record
-            var records = reactSocialPoints.Select(e => new PostFeaturedRecord
+            var existingFeaturedPostIds = await db.PostFeaturedRecords
+                .Where(r => featuredIds.Contains(r.PostId))
+                .Select(r => r.PostId)
+                .ToListAsync();
+
+            var records = reactSocialPoints
+                .Where(p => !existingFeaturedPostIds.Contains(p.Key))
+                .Select(e => new PostFeaturedRecord
+                {
+                    PostId = e.Key,
+                    SocialCredits = e.Value
+                }).ToList();
+
+            if (records.Any())
             {
-                PostId = e.Key,
-                SocialCredits = e.Value
-            }).ToList();
-            db.PostFeaturedRecords.AddRange(records);
-            await db.SaveChangesAsync();
+                db.PostFeaturedRecords.AddRange(records);
+                await db.SaveChangesAsync();
+            }
         }
 
         var posts = await db.Posts
