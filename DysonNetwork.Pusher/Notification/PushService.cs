@@ -5,6 +5,7 @@ using DysonNetwork.Pusher.Services;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using WebSocketPacket = DysonNetwork.Pusher.Connection.WebSocketPacket;
 
 namespace DysonNetwork.Pusher.Notification;
 
@@ -149,6 +150,12 @@ public class PushService
 
     public async Task DeliverPushNotification(Notification notification, CancellationToken cancellationToken = default)
     {
+        _ws.SendPacketToAccount(notification.AccountId.ToString(), new WebSocketPacket()
+        {
+            Type = "notifications.new",
+            Data = notification,
+        });
+        
         try
         {
             _logger.LogInformation(
@@ -162,7 +169,7 @@ public class PushService
                 .Where(s => s.AccountId == notification.AccountId)
                 .ToListAsync(cancellationToken);
 
-            if (!subscriptions.Any())
+            if (subscriptions.Count == 0)
             {
                 _logger.LogInformation("No push subscriptions found for account {AccountId}", notification.AccountId);
                 return;
@@ -174,7 +181,7 @@ public class PushService
             {
                 try
                 {
-                    tasks.Add(SendPushNotificationAsync(subscription, notification, cancellationToken));
+                    tasks.Add(SendPushNotificationAsync(subscription, notification));
                 }
                 catch (Exception ex)
                 {
@@ -254,17 +261,10 @@ public class PushService
             });
         }
 
-        // Fetch all subscribers once and enqueue to workers
-        var subscriptions = await _db.PushSubscriptions
-            .Where(s => accounts.Contains(s.AccountId))
-            .AsNoTracking()
-            .ToListAsync();
-
         await DeliverPushNotification(notification);
     }
 
-    private async Task SendPushNotificationAsync(PushSubscription subscription, Notification notification,
-        CancellationToken cancellationToken)
+    private async Task SendPushNotificationAsync(PushSubscription subscription, Notification notification)
     {
         try
         {
