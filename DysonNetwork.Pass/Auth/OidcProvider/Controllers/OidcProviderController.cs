@@ -126,7 +126,6 @@ public class OidcProviderController(
         [FromForm(Name = "redirect_uri")] string? redirectUri = null,
         [FromForm] string? scope = null,
         [FromForm] string? state = null,
-        [FromForm(Name = "response_type")] string? responseType = null,
         [FromForm] string? nonce = null,
         [FromForm(Name = "code_challenge")] string? codeChallenge = null,
         [FromForm(Name = "code_challenge_method")]
@@ -191,7 +190,8 @@ public class OidcProviderController(
                 scope?.Split(' ') ?? [],
                 codeChallenge,
                 codeChallengeMethod,
-                nonce);
+                nonce
+            );
 
             // Build the redirect URI with the authorization code
             var redirectBuilder = new UriBuilder(redirectUri);
@@ -307,7 +307,7 @@ public class OidcProviderController(
             HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
 
         // Get requested scopes from the token
-        var scopes = currentSession.Challenge.Scopes;
+        var scopes = currentSession.Challenge?.Scopes ?? [];
 
         var userInfo = new Dictionary<string, object>
         {

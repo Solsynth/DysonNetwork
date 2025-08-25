@@ -242,8 +242,23 @@ public class OidcProviderService(
                 throw new InvalidOperationException("Invalid authorization code");
 
             // Load the session for the user
-            session = await FindValidSessionAsync(authCode.AccountId, clientId, withAccount: true) ??
-                      throw new InvalidOperationException("No valid session found for user");
+            var existingSession = await FindValidSessionAsync(authCode.AccountId, clientId, withAccount: true);
+
+            if (existingSession is null)
+            {
+                var account = await db.Accounts
+                    .Where(a => a.Id == authCode.AccountId)
+                    .Include(a => a.Profile)
+                    .Include(a => a.Contacts)
+                    .FirstOrDefaultAsync();
+                if (account is null) throw new InvalidOperationException("Account not found");
+                session = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant(), clientId);
+                session.Account = account;
+            }
+            else
+            {
+                session = existingSession;
+            }
 
             scopes = authCode.Scopes;
             nonce = authCode.Nonce;
@@ -369,52 +384,6 @@ public class OidcProviderService(
         return Convert.ToBase64String(session.Id.ToByteArray());
     }
 
-    private static bool VerifyHashedSecret(string secret, string hashedSecret)
-    {
-        // In a real implementation, you'd use a proper password hashing algorithm like PBKDF2, bcrypt, or Argon2
-        // For now, we'll do a simple comparison, but you should replace this with proper hashing
-        return string.Equals(secret, hashedSecret, StringComparison.Ordinal);
-    }
-
-    public async Task<string> GenerateAuthorizationCodeForReuseSessionAsync(
-        AuthSession session,
-        Guid clientId,
-        string redirectUri,
-        IEnumerable<string> scopes,
-        string? codeChallenge = null,
-        string? codeChallengeMethod = null,
-        string? nonce = null)
-    {
-        var clock = SystemClock.Instance;
-        var now = clock.GetCurrentInstant();
-        var code = Guid.NewGuid().ToString("N");
-
-        // Update the session's last activity time
-        await db.AuthSessions.Where(s => s.Id == session.Id)
-            .ExecuteUpdateAsync(s => s.SetProperty(s => s.LastGrantedAt, now));
-
-        // Create the authorization code info
-        var authCodeInfo = new AuthorizationCodeInfo
-        {
-            ClientId = clientId,
-            AccountId = session.AccountId,
-            RedirectUri = redirectUri,
-            Scopes = scopes.ToList(),
-            CodeChallenge = codeChallenge,
-            CodeChallengeMethod = codeChallengeMethod,
-            Nonce = nonce,
-            CreatedAt = now
-        };
-
-        // Store the code with its metadata in the cache
-        var cacheKey = $"auth:code:{code}";
-        await cache.SetAsync(cacheKey, authCodeInfo, _options.AuthorizationCodeLifetime);
-
-        logger.LogInformation("Generated authorization code for client {ClientId} and user {UserId}", clientId,
-            session.AccountId);
-        return code;
-    }
-
     public async Task<string> GenerateAuthorizationCodeAsync(
         Guid clientId,
         Guid userId,
@@ -444,7 +413,7 @@ public class OidcProviderService(
         };
 
         // Store the code with its metadata in the cache
-        var cacheKey = $"auth:code:{code}";
+        var cacheKey = $"auth:oidc-code:{code}";
         await cache.SetAsync(cacheKey, authCodeInfo, _options.AuthorizationCodeLifetime);
 
         logger.LogInformation("Generated authorization code for client {ClientId} and user {UserId}", clientId, userId);
@@ -458,7 +427,7 @@ public class OidcProviderService(
         string? codeVerifier = null
     )
     {
-        var cacheKey = $"auth:code:{code}";
+        var cacheKey = $"auth:oidc-code:{code}";
         var (found, authCode) = await cache.GetAsyncWithStatus<AuthorizationCodeInfo>(cacheKey);
 
         if (!found || authCode == null)
