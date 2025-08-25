@@ -337,8 +337,13 @@ public class FileService(
             if (!pool.PolicyConfig.NoOptimization)
                 switch (contentType.Split('/')[0])
                 {
-                    case "image" when !AnimatedImageTypes.Contains(contentType) &&
-                                      !AnimatedImageExtensions.Contains(fileExtension):
+                    case "image":
+                        if (!AnimatedImageTypes.Contains(contentType) || !AnimatedImageExtensions.Contains(fileExtension))
+                        {
+                            logger.LogInformation("Skip optimize file {FileId} due to it is animated...", fileId);
+                            break;
+                        }
+
                         newMimeType = "image/webp";
                         using (var vipsImage = Image.NewFromFile(originalFilePath))
                         {
@@ -672,8 +677,8 @@ public class FileService(
             foreach (var file in fileGroup)
             {
                 objectsToDelete.Add(file.StorageId ?? file.Id);
-                if(file.HasCompression) objectsToDelete.Add(file.StorageId ?? file.Id + ".compressed");
-                if(file.HasThumbnail) objectsToDelete.Add(file.StorageId ?? file.Id + ".thumbnail");
+                if (file.HasCompression) objectsToDelete.Add(file.StorageId ?? file.Id + ".compressed");
+                if (file.HasThumbnail) objectsToDelete.Add(file.StorageId ?? file.Id + ".thumbnail");
             }
 
             await client.RemoveObjectsAsync(
