@@ -770,7 +770,6 @@ public partial class PostService(
             var reactSocialPoints = await db.PostReactions
                 .Include(e => e.Post)
                 .Where(e => e.Post.Visibility == PostVisibility.Public)
-                .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.Post.CreatedAt >= periodStart && e.Post.CreatedAt < periodEnd)
                 .GroupBy(e => e.PostId)
                 .Select(e => new
@@ -784,7 +783,7 @@ public partial class PostService(
 
             featuredIds = reactSocialPoints.Select(e => e.Key).ToList();
 
-            await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromHours(24));
+            await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromHours(4));
 
             // Create featured record
             var existingFeaturedPostIds = await db.PostFeaturedRecords
