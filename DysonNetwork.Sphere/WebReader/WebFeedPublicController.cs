@@ -235,15 +235,9 @@ public class WebFeedPublicController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        // Get IDs of already subscribed feeds
-        var subscribedFeedIds = await db.WebFeedSubscriptions
-            .Where(s => s.AccountId == accountId)
-            .Select(s => s.FeedId)
-            .ToListAsync();
-
         var feedsQuery = db.WebFeeds
             .Include(f => f.Publisher)
-            .Where(f => !subscribedFeedIds.Contains(f.Id))
+            .OrderByDescending(f => f.CreatedAt)
             .AsQueryable();
 
         // Apply search filter if query is provided
@@ -255,9 +249,6 @@ public class WebFeedPublicController(
                 (f.Description != null && EF.Functions.ILike(f.Description, searchTerm))
             );
         }
-
-        // Order by most recently created first
-        feedsQuery = feedsQuery.OrderByDescending(f => f.CreatedAt);
 
         var totalCount = await feedsQuery.CountAsync();
         var feeds = await feedsQuery

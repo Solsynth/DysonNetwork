@@ -33,12 +33,12 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
         var totalCount = await categoriesQuery.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
-        
+
         // Get categories with their post counts in a single query
         var categories = await categoriesQuery
             .Skip(offset)
             .Take(take)
-            .Select(c => new 
+            .Select(c => new
             {
                 Category = c,
                 PostCount = c.Posts.Count
@@ -46,15 +46,13 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
             .ToListAsync();
 
         // Project results back to the original type and set the Usage property
-        var result = categories.Select(x => 
+        var result = categories.Select(x =>
         {
             x.Category.Usage = x.PostCount;
             return x.Category;
         }).ToList();
 
         return Ok(result);
-
-        return Ok(categories);
     }
 
     [HttpGet("tags")]
@@ -83,12 +81,12 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
         var totalCount = await tagsQuery.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
-        
+
         // Get tags with their post counts in a single query
         var tags = await tagsQuery
             .Skip(offset)
             .Take(take)
-            .Select(t => new 
+            .Select(t => new
             {
                 Tag = t,
                 PostCount = t.Posts.Count
@@ -96,7 +94,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
             .ToListAsync();
 
         // Project results back to the original type and set the Usage property
-        var result = tags.Select(x => 
+        var result = tags.Select(x =>
         {
             x.Tag.Usage = x.PostCount;
             return x.Tag;
