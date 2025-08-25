@@ -23,7 +23,7 @@ public class TokenAuthService(
     /// </summary>
     /// <param name="token">Incoming token string</param>
     /// <returns>(Valid, Session, Message)</returns>
-    public async Task<(bool Valid, AuthSession? Session, string? Message)> AuthenticateTokenAsync(string token)
+    public async Task<(bool Valid, AuthSession? Session, string? Message)> AuthenticateTokenAsync(string token, string? ipAddress = null)
     {
         try
         {
@@ -31,6 +31,11 @@ public class TokenAuthService(
             {
                 logger.LogWarning("AuthenticateTokenAsync: no token provided");
                 return (false, null, "No token provided.");
+            }
+            
+            if (!string.IsNullOrEmpty(ipAddress))
+            {
+                logger.LogDebug("AuthenticateTokenAsync: client IP: {IpAddress}", ipAddress);
             }
 
             // token fingerprint for correlation
@@ -70,7 +75,7 @@ public class TokenAuthService(
                     "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt})",
                     sessionId,
                     session.AccountId,
-                    session.Challenge.Scopes.Count,
+                    session.Challenge?.Scopes.Count,
                     session.ExpiredAt
                 );
                 return (true, session, null);
@@ -103,11 +108,11 @@ public class TokenAuthService(
                 "AuthenticateTokenAsync: DB session loaded (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId}, appId={AppId}, scopes={ScopeCount}, ip={Ip}, uaLen={UaLen})",
                 sessionId,
                 session.AccountId,
-                session.Challenge.ClientId,
+                session.Challenge?.ClientId,
                 session.AppId,
-                session.Challenge.Scopes.Count,
-                session.Challenge.IpAddress,
-                (session.Challenge.UserAgent ?? string.Empty).Length
+                session.Challenge?.Scopes.Count,
+                session.Challenge?.IpAddress,
+                (session.Challenge?.UserAgent ?? string.Empty).Length
             );
 
             logger.LogDebug("AuthenticateTokenAsync: enriching account with subscription (accountId={AccountId})", session.AccountId);
@@ -136,7 +141,7 @@ public class TokenAuthService(
                 "AuthenticateTokenAsync: success via DB (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId})",
                 sessionId,
                 session.AccountId,
-                session.Challenge.ClientId
+                session.Challenge?.ClientId
             );
             return (true, session, null);
         }

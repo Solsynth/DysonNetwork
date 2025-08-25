@@ -49,7 +49,10 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            var (valid, session, message) = await token.AuthenticateTokenAsync(tokenInfo.Token);
+            // Get client IP address
+            var ipAddress = Context.Connection.RemoteIpAddress?.ToString();
+            
+            var (valid, session, message) = await token.AuthenticateTokenAsync(tokenInfo.Token, ipAddress);
             if (!valid || session is null)
                 return AuthenticateResult.Fail(message ?? "Authentication failed.");
 

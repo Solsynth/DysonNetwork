@@ -20,7 +20,6 @@ public class TokenResponse
     [JsonPropertyName("scope")]
     public string? Scope { get; set; }
 
-
     [JsonPropertyName("id_token")]
     public string? IdToken { get; set; }
 }
