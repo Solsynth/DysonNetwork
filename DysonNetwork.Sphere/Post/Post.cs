@@ -119,6 +119,17 @@ public class PostCategory : ModelBase
     [NotMapped] public int? Usage { get; set; }
 }
 
+public class PostCategorySubscription : ModelBase
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+ 
+    public Guid? CategoryId { get; set; }
+    public PostCategory? Category { get; set; }
+    public Guid? TagId { get; set; }
+    public PostTag? Tag { get; set; }
+}
+
 public class PostCollection : ModelBase
 {
     public Guid Id { get; set; }

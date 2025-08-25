@@ -1,3 +1,6 @@
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -119,5 +122,163 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (tag is null)
             return NotFound();
         return Ok(tag);
+    }
+
+    [HttpPost("categories/{slug}/subscribe")]
+    [Authorize]
+    public async Task<ActionResult<PostCategorySubscription>> SubscribeCategory(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
+        if (category == null)
+        {
+            return NotFound("Category not found.");
+        }
+
+        var existingSubscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.CategoryId == category.Id && s.AccountId == accountId);
+
+        if (existingSubscription != null)
+            return Ok(existingSubscription);
+
+        var subscription = new PostCategorySubscription
+        {
+            AccountId = accountId,
+            CategoryId = category.Id
+        };
+
+        db.PostCategorySubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetCategorySubscription), new { slug }, subscription);
+    }
+
+    [HttpPost("categories/{slug}/unsubscribe")]
+    [Authorize]
+    public async Task<IActionResult> UnsubscribeCategory(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
+        if (category == null)
+            return NotFound("Category not found.");
+
+        var subscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.CategoryId == category.Id && s.AccountId == accountId);
+
+        if (subscription == null)
+            return NoContent();
+
+        db.PostCategorySubscriptions.Remove(subscription);
+        await db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpGet("categories/{slug}/subscription")]
+    [Authorize]
+    public async Task<ActionResult<PostCategorySubscription>> GetCategorySubscription(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
+        if (category == null)
+            return NotFound("Category not found.");
+
+        var subscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.CategoryId == category.Id && s.AccountId == accountId);
+
+        if (subscription == null)
+            return NotFound("Subscription not found.");
+
+        return Ok(subscription);
+    }
+
+    [HttpPost("tags/{slug}/subscribe")]
+    [Authorize]
+    public async Task<ActionResult<PostCategorySubscription>> SubscribeTag(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
+        if (tag == null)
+        {
+            return NotFound("Tag not found.");
+        }
+
+        var existingSubscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.TagId == tag.Id && s.AccountId == accountId);
+
+        if (existingSubscription != null)
+        {
+            return Ok(existingSubscription);
+        }
+
+        var subscription = new PostCategorySubscription
+        {
+            AccountId = accountId,
+            TagId = tag.Id
+        };
+
+        db.PostCategorySubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetTagSubscription), new { slug }, subscription);
+    }
+
+    [HttpPost("tags/{slug}/unsubscribe")]
+    [Authorize]
+    public async Task<IActionResult> UnsubscribeTag(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
+        if (tag == null)
+        {
+            return NotFound("Tag not found.");
+        }
+
+        var subscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.TagId == tag.Id && s.AccountId == accountId);
+
+        if (subscription == null)
+        {
+            return NoContent();
+        }
+
+        db.PostCategorySubscriptions.Remove(subscription);
+        await db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpGet("tags/{slug}/subscription")]
+    [Authorize]
+    public async Task<ActionResult<PostCategorySubscription>> GetTagSubscription(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
+        if (tag == null)
+        {
+            return NotFound("Tag not found.");
+        }
+
+        var subscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.TagId == tag.Id && s.AccountId == accountId);
+
+        if (subscription == null)
+        {
+            return NotFound("Subscription not found.");
+        }
+
+        return Ok(subscription);
     }
 }

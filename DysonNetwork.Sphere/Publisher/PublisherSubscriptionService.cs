@@ -55,14 +55,7 @@ public class PublisherSubscriptionService(
             return 0;
         if (post.Visibility != PostVisibility.Public)
             return 0;
-
-        var subscribers = await db.PublisherSubscriptions
-            .Where(p => p.PublisherId == post.PublisherId &&
-                        p.Status == PublisherSubscriptionStatus.Active)
-            .ToListAsync();
-        if (subscribers.Count == 0)
-            return 0;
-
+        
         // Create notification data
         var (title, message) = ps.ChopPostForNotification(post);
 
@@ -73,9 +66,38 @@ public class PublisherSubscriptionService(
             { "publisher_id", post.Publisher.Id.ToString() }
         };
 
+        // Gather subscribers
+        var subscribers = await db.PublisherSubscriptions
+            .Where(p => p.PublisherId == post.PublisherId &&
+                        p.Status == PublisherSubscriptionStatus.Active)
+            .ToListAsync();
+        if (subscribers.Count == 0)
+            return 0;
+
+        List<PostCategorySubscription> categorySubscribers = [];
+        if (post.Categories.Count > 0)
+        {
+            var categoryIds = post.Categories.Select(x => x.Id).ToList();
+            var subs = await db.PostCategorySubscriptions
+                .Where(s => s.CategoryId != null && categoryIds.Contains(s.CategoryId.Value))
+                .ToListAsync();
+            categorySubscribers.AddRange(subs);
+        }
+        if (post.Tags.Count > 0)
+        {
+            var tagIds = post.Tags.Select(x => x.Id).ToList();
+            var subs = await db.PostCategorySubscriptions
+                .Where(s => s.TagId != null && tagIds.Contains(s.TagId.Value))
+                .ToListAsync();
+            categorySubscribers.AddRange(subs);
+        }
+
+        List<string> requestAccountIds = [];
+        requestAccountIds.AddRange(subscribers.Select(x => x.AccountId.ToString()));
+        requestAccountIds.AddRange(categorySubscribers.Select(x => x.AccountId.ToString()));
 
         var queryRequest = new GetAccountBatchRequest();
-        queryRequest.Id.AddRange(subscribers.DistinctBy(s => s.AccountId).Select(m => m.AccountId.ToString()));
+        queryRequest.Id.AddRange(requestAccountIds.Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
         // Notify each subscriber

@@ -35,6 +35,7 @@ public class AppDatabase(
     public DbSet<PostCategory> PostCategories { get; set; } = null!;
     public DbSet<PostCollection> PostCollections { get; set; } = null!;
     public DbSet<PostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
+    public DbSet<PostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
 
     public DbSet<Poll.Poll> Polls { get; set; } = null!;
     public DbSet<Poll.PollQuestion> PollQuestions { get; set; } = null!;
