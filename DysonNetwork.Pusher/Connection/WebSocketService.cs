@@ -49,11 +49,18 @@ public class WebSocketService
     public void Disconnect((string AccountId, string DeviceId) key, string? reason = null)
     {
         if (!ActiveConnections.TryGetValue(key, out var data)) return;
-        data.Socket.CloseAsync(
-            WebSocketCloseStatus.NormalClosure,
-            reason ?? "Server just decided to disconnect.",
-            CancellationToken.None
-        );
+        try
+        {
+            data.Socket.CloseAsync(
+                WebSocketCloseStatus.NormalClosure,
+                reason ?? "Server just decided to disconnect.",
+                CancellationToken.None
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error while closing WebSocket for {AccountId}:{DeviceId}", key.AccountId, key.DeviceId);
+        }
         data.Cts.Cancel();
         ActiveConnections.TryRemove(key, out _);
     }

@@ -32,7 +32,8 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
             return;
         }
 
-        using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
+        var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync(new WebSocketAcceptContext
+            { KeepAliveInterval = TimeSpan.FromSeconds(60) });
         var cts = new CancellationTokenSource();
         var connectionKey = (accountId, deviceId);
 
@@ -65,7 +66,8 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly");
+            logger.LogError(ex,
+                "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly");
         }
         finally
         {
@@ -99,7 +101,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
                     break;
 
                 var packet = WebSocketPacket.FromBytes(buffer[..receiveResult.Count]);
-                _ = ws.HandlePacket(currentUser, connectionKey.DeviceId, packet, webSocket);
+                await ws.HandlePacket(currentUser, connectionKey.DeviceId, packet, webSocket);
             }
         }
         catch (OperationCanceledException)

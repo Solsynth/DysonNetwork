@@ -51,7 +51,6 @@ public class QueueBackgroundService(
                 }
                 else
                 {
-                    await msg.ReplyAsync(cancellationToken: stoppingToken);
                     logger.LogWarning($"Invalid message format for {msg.Subject}");
                 }
             }
@@ -92,8 +91,6 @@ public class QueueBackgroundService(
                     logger.LogWarning("Unknown message type: {MessageType}", message.Type);
                     break;
             }
-
-            await rawMsg.ReplyAsync(cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {

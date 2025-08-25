@@ -56,8 +56,6 @@ public class PushService
         _ws = ws;
         _queueService = queueService;
         _logger = logger;
-
-        _logger.LogInformation("PushService initialized");
     }
 
     public async Task UnsubscribeDevice(string deviceId)

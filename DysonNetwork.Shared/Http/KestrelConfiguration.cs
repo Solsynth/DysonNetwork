@@ -20,9 +20,7 @@ public static class KestrelConfiguration
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.Limits.MaxRequestBodySize = maxRequestBodySize;
-            options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(2);
-            options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(30);
-
+            
             var configuredUrl = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
             if (!string.IsNullOrEmpty(configuredUrl)) return;
 

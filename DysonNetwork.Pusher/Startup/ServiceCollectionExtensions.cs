@@ -134,7 +134,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
     {
-        services.AddScoped<WebSocketService>();
+        services.AddSingleton<WebSocketService>();
         services.AddScoped<EmailService>();
         services.AddScoped<PushService>();
         
