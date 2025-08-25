@@ -169,15 +169,15 @@ function handleDeny() {
     error_description: 'The user denied the authorization request',
     state: state,
   })
-  window.location.href = `${redirectUri}?${params}`
+  window.open(`${redirectUri}?${params}`, "_self")
 }
 
 function openTerms() {
-  window.open(clientInfo.value?.terms_of_service_uri || 'https://example.com/terms', '_blank')
+  window.open(clientInfo.value?.terms_of_service_uri || '#', "_blank")
 }
 
 function openPrivacy() {
-  window.open(clientInfo.value?.privacy_policy_uri || 'https://example.com/privacy', '_blank')
+  window.open(clientInfo.value?.privacy_policy_uri || '#', "_blank")
 }
 
 // Lifecycle

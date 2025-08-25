@@ -156,7 +156,7 @@ public class OidcProviderController(
             if (!string.IsNullOrEmpty(state)) queryParams["state"] = state;
 
             errorUri.Query = queryParams.ToString();
-            return Redirect(errorUri.Uri.ToString());
+            return Ok(new { redirectUri = errorUri.Uri.ToString() });
         }
 
         // Validate redirect_uri if provided
@@ -201,7 +201,7 @@ public class OidcProviderController(
 
             redirectBuilder.Query = queryParams.ToString();
 
-            return Redirect(redirectBuilder.Uri.ToString());
+            return Ok(new { redirectUri = redirectBuilder.Uri.ToString() });
         }
         catch (Exception ex)
         {
