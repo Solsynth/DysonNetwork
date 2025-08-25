@@ -53,6 +53,7 @@ public class PostController(
     /// <param name="queryVector">If true, uses vector search with the query term. If false, performs a simple ILIKE search.</param>
     /// <param name="onlyMedia">If true, only returns posts that have attachments.</param>
     /// <param name="shuffle">If true, returns posts in random order. If false, orders by published/created date (newest first).</param>
+    /// <param name="pinned">If true, returns posts that pinned. If false, returns posts that are not pinned. If null, returns all posts.</param>
     /// <returns>
     /// Returns an ActionResult containing a list of Post objects that match the specified criteria.
     /// Includes an X-Total header with the total count of matching posts before pagination.
@@ -63,14 +64,14 @@ public class PostController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [SwaggerOperation(
         Summary = "Retrieves a paginated list of posts",
-        Description = "Gets posts with various filtering and sorting options. Supports pagination and advanced search capabilities.",
+        Description =
+            "Gets posts with various filtering and sorting options. Supports pagination and advanced search capabilities.",
         OperationId = "ListPosts",
         Tags = ["Posts"]
     )]
     [SwaggerResponse(StatusCodes.Status200OK, "Successfully retrieved the list of posts", typeof(List<Post>))]
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request parameters")]
     public async Task<ActionResult<List<Post>>> ListPosts(
-        [FromQuery(Name = "replies")] bool? includeReplies,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
@@ -82,7 +83,8 @@ public class PostController(
         [FromQuery(Name = "vector")] bool queryVector = false,
         [FromQuery(Name = "media")] bool onlyMedia = false,
         [FromQuery(Name = "shuffle")] bool shuffle = false,
-        [FromQuery(Name = "pinned")] bool pinned = false
+        [FromQuery(Name = "replies")] bool? includeReplies = null,
+        [FromQuery(Name = "pinned")] bool? pinned = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -92,7 +94,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -118,11 +120,20 @@ public class PostController(
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
 
-        if (pinned)
+        switch (pinned)
         {
-            if (realm != null) query = query.Where(p => p.PinMode == PostPinMode.RealmPage);
-            else if (publisher != null) query = query.Where(p => p.PinMode == PostPinMode.PublisherPage);
-            else return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
+            case true when realm != null:
+                query = query.Where(p => p.PinMode == PostPinMode.RealmPage);
+                break;
+            case true when publisher != null:
+                query = query.Where(p => p.PinMode == PostPinMode.PublisherPage);
+                break;
+            case true:
+                return BadRequest(
+                    "You need pass extra realm or publisher params in order to filter with pinned posts.");
+            case false:
+                query = query.Where(p => p.PinMode == null);
+                break;
         }
 
         query = includeReplies switch
@@ -177,7 +188,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -208,7 +219,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -263,7 +274,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -294,7 +305,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -323,7 +334,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -510,7 +521,7 @@ public class PostController(
 
         var friendsResponse =
             await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id.ToString() });
+                { AccountId = currentUser.Id.ToString() });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
