@@ -69,7 +69,8 @@ public partial class ChatService(
                         dbMessage,
                         dbMessage.Sender,
                         dbMessage.ChatRoom,
-                        WebSocketPacketType.MessageUpdate
+                        WebSocketPacketType.MessageUpdate,
+                        notify: false
                     );
                 }
             }
@@ -87,8 +88,7 @@ public partial class ChatService(
     /// <param name="message">The message to process</param>
     /// <param name="webReader">The web reader service</param>
     /// <returns>The message with link previews added to its meta data</returns>
-    public async Task<Message> PreviewMessageLinkAsync(Message message,
-        WebReader.WebReaderService? webReader = null)
+    public async Task<Message> PreviewMessageLinkAsync(Message message, WebReaderService? webReader = null)
     {
         if (string.IsNullOrEmpty(message.Content))
             return message;
@@ -110,8 +110,7 @@ public partial class ChatService(
         }
 
         var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-        webReader ??= scopeFactory.CreateScope().ServiceProvider
-            .GetRequiredService<WebReader.WebReaderService>();
+        webReader ??= scopeFactory.CreateScope().ServiceProvider.GetRequiredService<WebReaderService>();
 
         // Process up to 3 links to avoid excessive processing
         var processedLinks = 0;
@@ -195,7 +194,8 @@ public partial class ChatService(
         Message message,
         ChatMember sender,
         ChatRoom room,
-        string type = WebSocketPacketType.MessageNew
+        string type = WebSocketPacketType.MessageNew,
+        bool notify = true
     )
     {
         message.Sender = sender;
@@ -205,10 +205,28 @@ public partial class ChatService(
         var scopedNty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
+        var members = await scopedCrs.ListRoomMembers(room.Id);
+
+        var request = new PushWebSocketPacketToUsersRequest
+        {
+            Packet = new WebSocketPacket
+            {
+                Type = type,
+                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
+            },
+        };
+        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
+            .Select(a => a!.Id.ToString()));
+        await scopedNty.PushWebSocketPacketToUsersAsync(request);
+
+        if (!notify)
+        {
+            logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
+            return;
+        }
+
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
             room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
-
-        var members = await scopedCrs.ListRoomMembers(room.Id);
 
         if (sender.Account is null)
             sender = await scopedCrs.LoadMemberAccount(sender);
@@ -272,18 +290,6 @@ public partial class ChatService(
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-
-        var request = new PushWebSocketPacketToUsersRequest
-        {
-            Packet = new WebSocketPacket
-            {
-                Type = type,
-                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
-            },
-        };
-        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
-            .Select(a => a!.Id.ToString()));
-        await scopedNty.PushWebSocketPacketToUsersAsync(request);
 
         List<Account> accountsToNotify = [];
         foreach (
@@ -534,23 +540,23 @@ public partial class ChatService(
         // If no messages need senders, return with the latest timestamp from changes
         if (messagesNeedingSenders.Count <= 0)
         {
-            var latestTimestamp = changes.Count > 0 
+            var latestTimestamp = changes.Count > 0
                 ? changes.Max(c => c.Timestamp)
                 : SystemClock.Instance.GetCurrentInstant();
-                
+
             return new SyncResponse
             {
                 Changes = changes,
                 CurrentTimestamp = latestTimestamp
             };
         }
-        
+
         // Load member accounts for messages that need them
         var changesMembers = messagesNeedingSenders
             .Select(m => m.Sender)
             .DistinctBy(x => x.Id)
             .ToList();
-            
+
         changesMembers = await crs.LoadMemberAccounts(changesMembers);
 
         // Update sender information for messages that have it
@@ -562,10 +568,10 @@ public partial class ChatService(
         }
 
         // Use the latest timestamp from changes, or current time if no changes
-        var latestChangeTimestamp = changes.Count > 0 
+        var latestChangeTimestamp = changes.Count > 0
             ? changes.Max(c => c.Timestamp)
             : SystemClock.Instance.GetCurrentInstant();
-            
+
         return new SyncResponse
         {
             Changes = changes,
