@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -11,6 +12,7 @@ public class ActivityService(
     AppDatabase db,
     Publisher.PublisherService pub,
     PostService ps,
+    RealmService rs,
     DiscoveryService ds,
     AccountService.AccountServiceClient accounts
 )
@@ -63,7 +65,7 @@ public class ActivityService(
 
         var posts = await GetAndProcessPosts(postsQuery);
         posts = RankPosts(posts, take);
-        
+
         // Add posts to activities
         activities.AddRange(posts.Select(post => post.ToActivity()));
 
@@ -123,28 +125,30 @@ public class ActivityService(
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
 
+        var userRealms = await rs.GetUserRealms(Guid.Parse(currentUser.Id));
+
         // Build and execute the posts query
-        var postsQuery = BuildPostsQuery(cursor, filteredPublishersId);
-        
+        var postsQuery = BuildPostsQuery(cursor, filteredPublishersId, userRealms);
+
         // Apply visibility filtering and execute
         postsQuery = postsQuery
             .FilterWithVisibility(
-                currentUser, 
-                userFriends, 
-                filter is null ? userPublishers : [], 
+                currentUser,
+                userFriends,
+                filter is null ? userPublishers : [],
                 isListing: true)
             .Take(take * 5);
 
         // Get, process and rank posts
         var posts = await GetAndProcessPosts(
-            postsQuery, 
-            currentUser, 
-            userFriends, 
-            userPublishers, 
+            postsQuery,
+            currentUser,
+            userFriends,
+            userPublishers,
             trackViews: true);
-            
+
         posts = RankPosts(posts, take);
-        
+
         // Add posts to activities
         activities.AddRange(posts.Select(post => post.ToActivity()));
 
@@ -197,7 +201,7 @@ public class ActivityService(
     private async Task<Activity?> GetRealmDiscoveryActivity(int count = 5)
     {
         var realms = await ds.GetCommunityRealmAsync(null, count, 0, true);
-        return realms.Count > 0 
+        return realms.Count > 0
             ? new DiscoveryActivity(realms.Select(x => new DiscoveryItem("realm", x)).ToList()).ToActivity()
             : null;
     }
@@ -206,7 +210,8 @@ public class ActivityService(
     {
         var popularPublishers = await GetPopularPublishers(count);
         return popularPublishers.Count > 0
-            ? new DiscoveryActivity(popularPublishers.Select(x => new DiscoveryItem("publisher", x)).ToList()).ToActivity()
+            ? new DiscoveryActivity(popularPublishers.Select(x => new DiscoveryItem("publisher", x)).ToList())
+                .ToActivity()
             : null;
     }
 
@@ -252,11 +257,11 @@ public class ActivityService(
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
-        
+
         foreach (var post in posts)
         {
             post.ReactionsCount = reactionMaps.GetValueOrDefault(post.Id, new Dictionary<string, int>());
-            
+
             if (trackViews && currentUser != null)
             {
                 await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
@@ -266,7 +271,11 @@ public class ActivityService(
         return posts;
     }
 
-    private IQueryable<Post.Post> BuildPostsQuery(Instant? cursor, List<Guid>? filteredPublishersId = null)
+    private IQueryable<Post.Post> BuildPostsQuery(
+        Instant? cursor,
+        List<Guid>? filteredPublishersId = null,
+        List<Guid>? userRealms = null
+    )
     {
         var query = db.Posts
             .Include(e => e.RepliedPost)
@@ -280,16 +289,19 @@ public class ActivityService(
             .AsQueryable();
 
         if (filteredPublishersId != null && filteredPublishersId.Any())
-        {
             query = query.Where(p => filteredPublishersId.Contains(p.PublisherId));
-        }
+        if (userRealms == null)
+            query = query.Where(p => p.Realm == null || p.Realm.IsPublic);
+        else
+            query = query.Where(p =>
+                p.Realm == null || p.Realm.IsPublic || p.RealmId == null || userRealms.Contains(p.RealmId.Value));
 
         return query;
     }
 
     private async Task<List<Publisher.Publisher>?> GetFilteredPublishers(
-        string? filter, 
-        Account currentUser, 
+        string? filter,
+        Account currentUser,
         List<Guid> userFriends)
     {
         return filter?.ToLower() switch

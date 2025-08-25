@@ -98,7 +98,9 @@ public class PostController(
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
-        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+        var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
+        var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
         var realm = realmName == null ? null : await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmName);
@@ -106,6 +108,9 @@ public class PostController(
         var query = db.Posts
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.Realm)
             .AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.PublisherId == publisher.Id);
@@ -119,6 +124,9 @@ public class PostController(
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
+        
+        if (realm == null)
+            query = query.Where(p => p.RealmId == null || p.Realm == null || userRealms.Contains(p.RealmId.Value) || p.Realm.IsPublic);
 
         switch (pinned)
         {
@@ -166,9 +174,6 @@ public class PostController(
             : query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
 
         var posts = await query
-            .Include(e => e.RepliedPost)
-            .Include(e => e.ForwardedPost)
-            .Include(e => e.Realm)
             .Skip(offset)
             .Take(take)
             .ToListAsync();

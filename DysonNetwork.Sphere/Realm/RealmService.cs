@@ -1,4 +1,5 @@
 using DysonNetwork.Shared;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Localization;
@@ -12,9 +13,31 @@ public class RealmService(
     PusherService.PusherServiceClient pusher,
     AccountService.AccountServiceClient accounts,
     IStringLocalizer<NotificationResource> localizer,
-    AccountClientHelper accountsHelper
+    AccountClientHelper accountsHelper,
+    ICacheService cache
 )
 {
+    private const string CacheKeyPrefix = "account:realms:";
+    
+    public async Task<List<Guid>> GetUserRealms(Guid accountId)
+    {
+        var cacheKey = $"{CacheKeyPrefix}{accountId}";
+        var (found, cachedRealms) = await cache.GetAsyncWithStatus<List<Guid>>(cacheKey);
+        if (found && cachedRealms != null)
+            return cachedRealms;
+
+        var realms = await db.RealmMembers
+            .Include(m => m.Realm)
+            .Where(m => m.AccountId == accountId)
+            .Select(m => m.Realm!.Id)
+            .ToListAsync();
+
+        // Cache the result for 5 minutes
+        await cache.SetAsync(cacheKey, realms, TimeSpan.FromMinutes(5));
+        
+        return realms;
+    }
+    
     public async Task SendInviteNotify(RealmMember member)
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
