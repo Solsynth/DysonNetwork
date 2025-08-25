@@ -51,17 +51,15 @@ public class PostPageData(
             .Include(e => e.Categories)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
+        if (post == null) return new Dictionary<string, object?>();
         post = await ps.LoadPostInfo(post, currentUser);
-
-        // Track view - use the account ID as viewer ID if user is logged in
-        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
 
         var og = OpenGraph.MakeGraph(
             title: post.Title ?? $"Post from {post.Publisher.Name}",
             type: "article",
             image: $"{_siteUrl}/cgi/drive/files/{post.Publisher.Background?.Id}?original=true",
             url: $"{_siteUrl}/@{slug}",
-            description: post.Description ?? post.Content?[..80] ?? "Posted with some media",
+            description: post.Description ?? (post.Content?.Length > 80 ? post.Content?[..80] : post.Content) ?? "Posted with some media",
             siteName: "Solar Network"
         );
 

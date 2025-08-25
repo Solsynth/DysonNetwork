@@ -1,6 +1,6 @@
 <template>
   <div v-if="post" class="container max-w-5xl mx-auto mt-4">
-    <n-grid cols="1 l:5" responsive="screen" :x-gap="16">
+    <n-grid cols="1 l:5" responsive="screen" :x-gap="16" :y-gap="16">
       <n-gi span="3">
         <post-item :item="post" />
       </n-gi>
