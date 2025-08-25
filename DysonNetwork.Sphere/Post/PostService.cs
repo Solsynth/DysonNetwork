@@ -25,6 +25,7 @@ public partial class PostService(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     PollService polls,
+    Publisher.PublisherService ps,
     WebReaderService reader
 )
 {
@@ -416,6 +417,56 @@ public partial class PostService(
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    public async Task<Post> PinPostAsync(Post post, Account currentUser, PostPinMode pinMode)
+    {
+        var accountId = Guid.Parse(currentUser.Id);
+        if (post.RepliedPostId != null)
+        {
+            if (pinMode != PostPinMode.ReplyPage) throw new InvalidOperationException("Replies can only be pinned in the reply page.");
+            if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
+
+            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+                throw new InvalidOperationException("Only editors of original post can pin replies.");
+
+            post.PinMode = pinMode;
+        }
+        else
+        {
+            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+                throw new InvalidOperationException("Only editors can pin replies.");
+
+            post.PinMode = pinMode;
+        }
+
+        db.Update(post);
+        await db.SaveChangesAsync();
+
+        return post;
+    }
+
+    public async Task<Post> UnpinPostAsync(Post post, Account currentUser)
+    {
+        var accountId = Guid.Parse(currentUser.Id);
+        if (post.RepliedPostId != null)
+        {
+            if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
+
+            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+                throw new InvalidOperationException("Only editors of original post can unpin replies.");
+        }
+        else
+        {
+            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+                throw new InvalidOperationException("Only editors can unpin posts.");
+        }
+
+        post.PinMode = null;
+        db.Update(post);
+        await db.SaveChangesAsync();
+
+        return post;
     }
 
     /// <summary>

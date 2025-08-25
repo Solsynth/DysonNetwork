@@ -23,6 +23,13 @@ public enum PostVisibility
     Private
 }
 
+public enum PostPinMode
+{
+    PublisherPage,
+    RealmPage,
+    ReplyPage,
+}
+
 public class Post : ModelBase, IIdentifiedResource, IActivity
 {
     public Guid Id { get; set; }
@@ -37,6 +44,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public string? Content { get; set; }
 
     public PostType Type { get; set; }
+    public PostPinMode? PinMode { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
 
@@ -97,7 +105,7 @@ public class PostTag : ModelBase
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
     [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
-    
+
     [NotMapped] public int? Usage { get; set; }
 }
 
@@ -107,7 +115,7 @@ public class PostCategory : ModelBase
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
     [JsonIgnore] public ICollection<Post> Posts { get; set; } = new List<Post>();
-    
+
     [NotMapped] public int? Usage { get; set; }
 }
 

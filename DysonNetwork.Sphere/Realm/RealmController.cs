@@ -245,14 +245,14 @@ public class RealmController(
                 members.Select(m => m.AccountId).ToList()
             );
 
-                members = members
-                    .Select(m =>
-                    {
-                        m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
-                        return m;
-                    })
-                    .OrderByDescending(m => m.Status?.IsOnline ?? false)
-                    .ToList();
+            members = members
+                .Select(m =>
+                {
+                    m.Status = memberStatuses.TryGetValue(m.AccountId, out var s) ? s : null;
+                    return m;
+                })
+                .OrderByDescending(m => m.Status?.IsOnline ?? false)
+                .ToList();
 
             var total = members.Count;
             Response.Headers.Append("X-Total", total.ToString());
@@ -260,7 +260,7 @@ public class RealmController(
             var result = members.Skip(offset).Take(take).ToList();
 
             members = await rs.LoadMemberAccounts(result);
-            
+
             return Ok(members.Where(m => m.Account is not null).ToList());
         }
         else

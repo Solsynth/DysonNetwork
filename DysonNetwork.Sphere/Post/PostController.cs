@@ -81,7 +81,8 @@ public class PostController(
         [FromQuery(Name = "query")] string? queryTerm = null,
         [FromQuery(Name = "vector")] bool queryVector = false,
         [FromQuery(Name = "media")] bool onlyMedia = false,
-        [FromQuery(Name = "shuffle")] bool shuffle = false
+        [FromQuery(Name = "shuffle")] bool shuffle = false,
+        [FromQuery(Name = "pinned")] bool pinned = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -91,7 +92,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -116,7 +117,14 @@ public class PostController(
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
-        
+
+        if (pinned)
+        {
+            if (realm != null) query = query.Where(p => p.PinMode == PostPinMode.RealmPage);
+            else if (publisher != null) query = query.Where(p => p.PinMode == PostPinMode.PublisherPage);
+            else return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
+        }
+
         query = includeReplies switch
         {
             false => query.Where(e => e.RepliedPostId == null),
@@ -169,7 +177,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -188,9 +196,6 @@ public class PostController(
         if (post is null) return NotFound();
         post = await ps.LoadPostInfo(post, currentUser);
 
-        // Track view - use the account ID as viewer ID if user is logged in
-        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
-
         return Ok(post);
     }
 
@@ -203,7 +208,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -221,9 +226,6 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
         post = await ps.LoadPostInfo(post, currentUser);
-
-        // Track view - use the account ID as viewer ID if user is logged in
-        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
 
         return Ok(post);
     }
@@ -261,7 +263,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -278,12 +280,36 @@ public class PostController(
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
-        post = await ps.LoadPostInfo(post, currentUser);
+        post = await ps.LoadPostInfo(post, currentUser, true);
 
-        // Track view - use the account ID as viewer ID if user is logged in
-        await ps.IncreaseViewCount(post.Id, currentUser?.Id);
+        return Ok(post);
+    }
 
-        return await ps.LoadPostInfo(post);
+    [HttpGet("{id:guid}/replies/pinned")]
+    public async Task<ActionResult<List<Post>>> ListPinnedReplies(Guid id)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as Account;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+            { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var posts = await db.Posts
+            .Where(e => e.RepliedPostId == id && e.PinMode == PostPinMode.ReplyPage)
+            .OrderByDescending(p => p.CreatedAt)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .ToListAsync();
+        if (posts is null) return NotFound();
+        posts = await ps.LoadPostInfo(posts, currentUser);
+
+        return Ok(posts);
     }
 
     [HttpGet("{id:guid}/replies")]
@@ -297,7 +323,7 @@ public class PostController(
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
@@ -484,7 +510,7 @@ public class PostController(
 
         var friendsResponse =
             await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id.ToString() });
+            { AccountId = currentUser.Id.ToString() });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
@@ -533,6 +559,88 @@ public class PostController(
         });
 
         return Ok(reaction);
+    }
+
+    public class PostPinRequest
+    {
+        [Required] public PostPinMode Mode { get; set; }
+    }
+
+    [HttpPost("{id:guid}/pin")]
+    [Authorize]
+    public async Task<ActionResult<Post>> PinPost(Guid id, [FromBody] PostPinRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var post = await db.Posts
+            .Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .Include(e => e.RepliedPost)
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+
+        try
+        {
+            await ps.PinPostAsync(post, currentUser, request.Mode);
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = ActionLogType.PostPin,
+            Meta =
+            {
+                { "post_id", Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString()) },
+                { "mode", Google.Protobuf.WellKnownTypes.Value.ForString(request.Mode.ToString()) }
+            },
+            AccountId = currentUser.Id.ToString(),
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        return Ok(post);
+    }
+
+    [HttpDelete("{id:guid}/pin")]
+    [Authorize]
+    public async Task<ActionResult<Post>> UnpinPost(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var post = await db.Posts
+            .Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .Include(e => e.RepliedPost)
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+
+        try
+        {
+            await ps.UnpinPostAsync(post, currentUser);
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = ActionLogType.PostUnpin,
+            Meta =
+            {
+                { "post_id", Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString()) }
+            },
+            AccountId = currentUser.Id.ToString(),
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        return Ok(post);
     }
 
     [HttpPatch("{id:guid}")]
