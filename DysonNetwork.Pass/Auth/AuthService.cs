@@ -52,7 +52,7 @@ public class AuthService(
             riskScore += 1;
         else
         {
-            if (!string.IsNullOrEmpty(lastActiveInfo?.Challenge.IpAddress) &&
+            if (!string.IsNullOrEmpty(lastActiveInfo?.Challenge?.IpAddress) &&
                 !lastActiveInfo.Challenge.IpAddress.Equals(ipAddress, StringComparison.OrdinalIgnoreCase))
                 riskScore += 1;
         }
