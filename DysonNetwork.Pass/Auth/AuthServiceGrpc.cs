@@ -1,9 +1,5 @@
-using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
-using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
 namespace DysonNetwork.Pass.Auth;
 
@@ -18,7 +14,7 @@ public class AuthServiceGrpc(
         ServerCallContext context
     )
     {
-        var (valid, session, message) = await token.AuthenticateTokenAsync(request.Token);
+        var (valid, session, message) = await token.AuthenticateTokenAsync(request.Token, request.IpAddress);
         if (!valid || session is null)
             return new AuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
 

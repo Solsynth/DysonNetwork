@@ -70,6 +70,7 @@ service AuthService {
 
 message AuthenticateRequest {
   string token = 1;
+  optional google.protobuf.StringValue ip_address = 2;
 }
 
 message AuthenticateResponse {

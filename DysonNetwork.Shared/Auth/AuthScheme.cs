@@ -33,7 +33,10 @@ public class DysonTokenAuthHandler(
             AuthSession session;
             try
             {
-                session = await ValidateToken(tokenInfo.Token);
+                session = await ValidateToken(
+                    tokenInfo.Token,
+                    Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+                );
             }
             catch (InvalidOperationException ex)
             {
@@ -78,12 +81,15 @@ public class DysonTokenAuthHandler(
         }
     }
 
-    private async Task<AuthSession> ValidateToken(string token)
+    private async Task<AuthSession> ValidateToken(string token, string? ipAddress)
     {
-        var resp = await auth.AuthenticateAsync(new AuthenticateRequest { Token = token });
+        var resp = await auth.AuthenticateAsync(new AuthenticateRequest
+        {
+            Token = token,
+            IpAddress = ipAddress
+        });
         if (!resp.Valid) throw new InvalidOperationException(resp.Message);
-        if (resp.Session == null) throw new InvalidOperationException("Session not found.");
-        return resp.Session;
+        return resp.Session ?? throw new InvalidOperationException("Session not found.");
     }
 
     private static byte[] Base64UrlDecode(string base64Url)
