@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
+using PublisherMemberRole = DysonNetwork.Sphere.Publisher.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Post;
@@ -124,9 +125,10 @@ public class PostController(
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
-        
+
         if (realm == null)
-            query = query.Where(p => p.RealmId == null || p.Realm == null || userRealms.Contains(p.RealmId.Value) || p.Realm.IsPublic);
+            query = query.Where(p =>
+                p.RealmId == null || p.Realm == null || userRealms.Contains(p.RealmId.Value) || p.Realm.IsPublic);
 
         switch (pinned)
         {
@@ -595,6 +597,16 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
+            return StatusCode(403, "You are not an editor of this publisher");
+        
+        if (request.Mode == PostPinMode.RealmPage && post.RealmId != null)
+        {
+            if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, RealmMemberRole.Moderator))
+                return StatusCode(403, "You are not a moderator of this realm");
+        }
+
         try
         {
             await ps.PinPostAsync(post, currentUser, request.Mode);
@@ -603,8 +615,6 @@ public class PostController(
         {
             return BadRequest(err.Message);
         }
-
-        var accountId = Guid.Parse(currentUser.Id);
 
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
@@ -634,6 +644,16 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
+        
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
+            return StatusCode(403, "You are not an editor of this publisher");
+        
+        if (post is { PinMode: PostPinMode.RealmPage, RealmId: not null })
+        {
+            if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, RealmMemberRole.Moderator))
+                return StatusCode(403, "You are not a moderator of this realm");
+        }
 
         try
         {
