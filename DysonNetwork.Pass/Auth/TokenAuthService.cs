@@ -22,6 +22,7 @@ public class TokenAuthService(
     /// then cache and return.
     /// </summary>
     /// <param name="token">Incoming token string</param>
+    /// <param name="ipAddress">Client IP address, for logging purposes</param>
     /// <returns>(Valid, Session, Message)</returns>
     public async Task<(bool Valid, AuthSession? Session, string? Message)> AuthenticateTokenAsync(string token, string? ipAddress = null)
     {
