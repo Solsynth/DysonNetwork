@@ -24,7 +24,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         }
 
         var accountId = currentUser.Id!;
-        var deviceId = currentSession.Challenge.DeviceId!;
+        var deviceId = currentSession.Challenge?.DeviceId ?? Guid.NewGuid().ToString();
 
         if (string.IsNullOrEmpty(deviceId))
         {
@@ -67,7 +67,11 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         catch (Exception ex)
         {
             logger.LogError(ex,
-                "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly");
+                "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} unexpectedly",
+                currentUser.Name,
+                currentUser.Id,
+                deviceId
+            );
         }
         finally
         {

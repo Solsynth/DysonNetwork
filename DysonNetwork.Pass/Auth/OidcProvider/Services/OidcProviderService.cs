@@ -156,15 +156,16 @@ public class OidcProviderService(
 
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Iss, _options.IssuerUri),
-            new Claim(JwtRegisteredClaimNames.Sub, session.AccountId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Aud, client.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-            new Claim(JwtRegisteredClaimNames.Exp,
+            new(JwtRegisteredClaimNames.Iss, _options.IssuerUri),
+            new(JwtRegisteredClaimNames.Sub, session.AccountId.ToString()),
+            new(JwtRegisteredClaimNames.Aud, client.Id.ToString()),
+            new(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+            new(JwtRegisteredClaimNames.Exp,
                 now.Plus(Duration.FromSeconds(_options.AccessTokenLifetime.TotalSeconds)).ToUnixTimeSeconds()
                     .ToString(), ClaimValueTypes.Integer64),
-            new Claim(JwtRegisteredClaimNames.AuthTime, session.CreatedAt.ToUnixTimeSeconds().ToString(),
-                ClaimValueTypes.Integer64)
+            new(JwtRegisteredClaimNames.AuthTime, session.CreatedAt.ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64),
+            new(JwtRegisteredClaimNames.Aud, client.Id)
         };
 
         // Add nonce if provided (required for implicit and hybrid flows)
@@ -300,7 +301,7 @@ public class OidcProviderService(
                 new Claim(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(),
                     ClaimValueTypes.Integer64),
-                new Claim("client_id", client.Id)
+                new Claim(JwtRegisteredClaimNames.Aud, client.Id)
             ]),
             Expires = expiresAt.ToDateTimeUtc(),
             Issuer = _options.IssuerUri,
