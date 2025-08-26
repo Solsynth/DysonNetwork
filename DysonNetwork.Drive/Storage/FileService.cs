@@ -338,9 +338,10 @@ public class FileService(
                 switch (contentType.Split('/')[0])
                 {
                     case "image":
-                        if (!AnimatedImageTypes.Contains(contentType) || !AnimatedImageExtensions.Contains(fileExtension))
+                        if (AnimatedImageTypes.Contains(contentType) || AnimatedImageExtensions.Contains(fileExtension))
                         {
                             logger.LogInformation("Skip optimize file {FileId} due to it is animated...", fileId);
+                            uploads.Add((originalFilePath, string.Empty, contentType, false));
                             break;
                         }
 
