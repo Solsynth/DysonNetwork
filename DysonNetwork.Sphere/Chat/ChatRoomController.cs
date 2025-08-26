@@ -150,7 +150,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<ChatRoom>> GetDirectChatRoom(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var room = await db.ChatRooms
@@ -968,23 +968,29 @@ public class ChatRoomController(
 
     private async Task _SendInviteNotify(ChatMember member, Account sender)
     {
+        var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
+        CultureService.SetCultureInfo(account);
+        
         string title = localizer["ChatInviteTitle"];
 
         string body = member.ChatRoom.Type == ChatRoomType.DirectMessage
             ? localizer["ChatInviteDirectBody", sender.Nick]
             : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
-        CultureService.SetCultureInfo(member.Account!.Language);
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {
-                UserId = member.Account.Id.ToString(),
+                UserId = account.Id,
                 Notification = new PushNotification
                 {
                     Topic = "invites.chats",
                     Title = title,
                     Body = body,
-                    IsSavable = true
+                    IsSavable = true,
+                    Meta = GrpcTypeHelper.ConvertObjectToByteString(new
+                    {
+                        room_id = member.ChatRoomId
+                    })
                 }
             }
         );
