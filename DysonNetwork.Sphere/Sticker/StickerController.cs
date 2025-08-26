@@ -31,7 +31,7 @@ public class StickerController(
             return NotFound("Sticker pack not found");
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(accountId, pack.PublisherId, requiredRole))
+        if (!await ps.IsMemberWithRole(pack.PublisherId, accountId, requiredRole))
             return StatusCode(403, "You are not a member of this publisher");
 
         return Ok();
