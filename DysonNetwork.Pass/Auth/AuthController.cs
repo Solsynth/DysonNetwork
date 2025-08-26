@@ -51,7 +51,11 @@ public class AuthController(
             .Where(e => e.Type == PunishmentType.BlockLogin || e.Type == PunishmentType.DisableAccount)
             .Where(e => e.ExpiredAt == null || now < e.ExpiredAt)
             .FirstOrDefaultAsync();
-        if (punishment is not null) return StatusCode(423, punishment);
+        if (punishment is not null)
+            return StatusCode(
+                423,
+                $"Your account has been suspended. Reason: {punishment.Reason}. Expired at: {punishment.ExpiredAt?.ToString() ?? "never"}"
+            );
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
