@@ -340,7 +340,7 @@ public class ConnectionController(
 
         var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
         var loginToken = auth.CreateToken(loginSession);
-        return Redirect($"/auth/token?token={loginToken}");
+        return Redirect($"/auth/callback?token={loginToken}");
     }
 
     private static async Task<OidcCallbackData> ExtractCallbackData(HttpRequest request)
