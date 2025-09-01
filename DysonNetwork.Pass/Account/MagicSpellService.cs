@@ -121,7 +121,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["EmailAccountDeletionTitle"],
+                        localizer["EmailPasswordResetTitle"],
                         new PasswordResetEmailModel
                         {
                             Name = contact.Account.Name,
