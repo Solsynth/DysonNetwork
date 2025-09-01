@@ -3,6 +3,7 @@ using System.Text.Json;
 using DysonNetwork.Pass.Email;
 using DysonNetwork.Pass.Pages.Emails;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Cache;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
@@ -15,7 +16,8 @@ public class MagicSpellService(
     IConfiguration configuration,
     ILogger<MagicSpellService> logger,
     IStringLocalizer<EmailResource> localizer,
-    EmailService email
+    EmailService email,
+    ICacheService cache
 )
 {
     public async Task<MagicSpell> CreateMagicSpell(
@@ -35,11 +37,8 @@ public class MagicSpellService(
                 .Where(s => s.Type == type)
                 .Where(s => s.ExpiresAt == null || s.ExpiresAt > now)
                 .FirstOrDefaultAsync();
-
-            if (existingSpell != null)
-            {
-                throw new InvalidOperationException($"Account already has an active magic spell of type {type}");
-            }
+            if (existingSpell is not null)
+                return existingSpell;
         }
 
         var spellWord = _GenerateRandomString(128);
@@ -59,8 +58,18 @@ public class MagicSpellService(
         return spell;
     }
 
+    private const string SpellNotifyCacheKeyPrefix = "spells:notify:";
+
     public async Task NotifyMagicSpell(MagicSpell spell, bool bypassVerify = false)
     {
+        var cacheKey = SpellNotifyCacheKeyPrefix + spell.Id;
+        var (found, _) = await cache.GetAsyncWithStatus<bool?>(cacheKey);
+        if (found)
+        {
+            logger.LogInformation("Skip sending magic spell {SpellId} due to already sent.", spell.Id);
+            return;
+        }
+
         var contact = await db.AccountContacts
             .Where(c => c.Account.Id == spell.AccountId)
             .Where(c => c.Type == AccountContactType.Email)
@@ -138,6 +147,8 @@ public class MagicSpellService(
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+
+            await cache.SetAsync(cacheKey, true, TimeSpan.FromMinutes(5));
         }
         catch (Exception err)
         {
