@@ -623,7 +623,6 @@ public partial class ChatService(
             message.Attachments = queryResult.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
         }
 
-        message.EditedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(message);
         await db.SaveChangesAsync();
 

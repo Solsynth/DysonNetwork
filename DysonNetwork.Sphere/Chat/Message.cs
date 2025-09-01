@@ -51,14 +51,3 @@ public class MessageReaction : ModelBase
     [MaxLength(256)] public string Symbol { get; set; } = null!;
     public MessageReactionAttitude Attitude { get; set; }
 }
-
-/// <summary>
-/// The data model for updating the last read at field for chat member,
-/// after the refactor of the unread system, this no longer stored in the database.
-/// Not only used for the data transmission object
-/// </summary>
-[NotMapped]
-public class MessageReadReceipt
-{
-    public Guid SenderId { get; set; }
-}
