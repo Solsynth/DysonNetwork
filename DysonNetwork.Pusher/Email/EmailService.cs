@@ -30,6 +30,8 @@ public class EmailService
     public async Task SendEmailAsync(string? recipientName, string recipientEmail, string subject, string htmlBody)
     {
         subject = $"[{_configuration.SubjectPrefix}] {subject}";
+        
+        _logger.LogInformation($"Sending email to {recipientEmail} with subject {subject}");
 
         var emailMessage = new MimeMessage();
         emailMessage.From.Add(new MailboxAddress(_configuration.FromName, _configuration.FromAddress));
@@ -45,6 +47,8 @@ public class EmailService
         await client.AuthenticateAsync(_configuration.Username, _configuration.Password);
         await client.SendAsync(emailMessage);
         await client.DisconnectAsync(true);
+        
+        _logger.LogInformation($"Email {subject} sent for {recipientEmail}");
     }
 
     private static string _ConvertHtmlToPlainText(string html)
