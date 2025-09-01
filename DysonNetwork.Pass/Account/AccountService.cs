@@ -28,6 +28,7 @@ public class AccountService(
     EmailService mailer,
     PusherService.PusherServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
+    IStringLocalizer<EmailResource> emailLocalizer,
     ICacheService cache,
     ILogger<AccountService> logger,
     INatsConnection nats
@@ -432,12 +433,14 @@ public class AccountService(
                     .Where(c => c.Type == AccountContactType.Email)
                     .Where(c => c.VerifiedAt != null)
                     .Where(c => c.IsPrimary)
+                    .Where(c => c.AccountId == account.Id)
                     .Include(c => c.Account)
                     .FirstOrDefaultAsync();
                 if (contact is null)
                 {
                     logger.LogWarning(
-                        "Unable to send factor code to #{FactorId} with, due to no contact method was found..."
+                        "Unable to send factor code to #{FactorId} with, due to no contact method was found...", 
+                        factor.Id
                     );
                     return;
                 }
@@ -446,7 +449,7 @@ public class AccountService(
                     .SendTemplatedEmailAsync<Pages.Emails.VerificationEmail, VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
-                        localizer["VerificationEmail"],
+                        emailLocalizer["VerificationEmail"],
                         new VerificationEmailModel
                         {
                             Name = account.Name,
