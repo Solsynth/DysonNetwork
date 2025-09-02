@@ -34,22 +34,6 @@ public class ActivityService(
         var activities = new List<Activity>();
         debugInclude ??= new HashSet<string>();
 
-        // Add realm discovery if needed
-        if (cursor == null && (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2))
-        {
-            var realmActivity = await GetRealmDiscoveryActivity();
-            if (realmActivity != null)
-                activities.Add(realmActivity);
-        }
-
-        // Add article discovery if needed
-        if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
-        {
-            var articleActivity = await GetArticleDiscoveryActivity();
-            if (articleActivity != null)
-                activities.Add(articleActivity);
-        }
-
         // Get and process posts
         var postsQuery = db.Posts
             .Include(e => e.RepliedPost)
@@ -66,8 +50,20 @@ public class ActivityService(
         var posts = await GetAndProcessPosts(postsQuery);
         posts = RankPosts(posts, take);
 
-        // Add posts to activities
-        activities.AddRange(posts.Select(post => post.ToActivity()));
+        var interleaved = new List<Activity>();
+        var random = new Random();
+        foreach (var post in posts)
+        {
+            // Randomly insert a discovery activity before some posts
+            if (random.NextDouble() < 0.15)
+            {
+                var discovery = await MaybeGetDiscoveryActivity(debugInclude, cursor: cursor);
+                if (discovery != null)
+                    interleaved.Add(discovery);
+            }
+            interleaved.Add(post.ToActivity());
+        }
+        activities.AddRange(interleaved);
 
         if (activities.Count == 0)
             activities.Add(Activity.Empty());
@@ -83,7 +79,7 @@ public class ActivityService(
         HashSet<string>? debugInclude = null)
     {
         var activities = new List<Activity>();
-        debugInclude ??= [];
+        debugInclude ??= new HashSet<string>();
 
         // Get user's friends and publishers
         var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
@@ -92,34 +88,6 @@ public class ActivityService(
         });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
-
-        // Add discovery activities if no specific filter is applied
-        if (string.IsNullOrEmpty(filter))
-        {
-            // Add realm discovery if needed
-            if (cursor == null && (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2))
-            {
-                var realmActivity = await GetRealmDiscoveryActivity();
-                if (realmActivity != null)
-                    activities.Add(realmActivity);
-            }
-
-            // Add publisher discovery if needed
-            if (cursor == null && (debugInclude.Contains("publishers") || Random.Shared.NextDouble() < 0.2))
-            {
-                var publisherActivity = await GetPublisherDiscoveryActivity();
-                if (publisherActivity != null)
-                    activities.Add(publisherActivity);
-            }
-
-            // Add article discovery if needed
-            if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
-            {
-                var articleActivity = await GetArticleDiscoveryActivity();
-                if (articleActivity != null)
-                    activities.Add(articleActivity);
-            }
-        }
 
         // Get publishers based on filter
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
@@ -149,8 +117,19 @@ public class ActivityService(
 
         posts = RankPosts(posts, take);
 
-        // Add posts to activities
-        activities.AddRange(posts.Select(post => post.ToActivity()));
+        var interleaved = new List<Activity>();
+        var random = new Random();
+        foreach (var post in posts)
+        {
+            if (random.NextDouble() < 0.15)
+            {
+                var discovery = await MaybeGetDiscoveryActivity(debugInclude, cursor: cursor);
+                if (discovery != null)
+                    interleaved.Add(discovery);
+            }
+            interleaved.Add(post.ToActivity());
+        }
+        activities.AddRange(interleaved);
 
         if (activities.Count == 0)
             activities.Add(Activity.Empty());
@@ -158,11 +137,26 @@ public class ActivityService(
         return activities;
     }
 
+    private async Task<Activity?> MaybeGetDiscoveryActivity(HashSet<string> debugInclude, Instant? cursor)
+    {
+        if (cursor != null) return null;
+        var options = new List<Func<Task<Activity?>>>();
+        if (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2)
+            options.Add(() => GetRealmDiscoveryActivity());
+        if (debugInclude.Contains("publishers") || Random.Shared.NextDouble() < 0.2)
+            options.Add(() => GetPublisherDiscoveryActivity());
+        if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
+            options.Add(() => GetArticleDiscoveryActivity());
+        if (debugInclude.Contains("shuffledPosts") || Random.Shared.NextDouble() < 0.2)
+            options.Add(() => GetShuffledPostsActivity());
+        if (options.Count == 0) return null;
+        var random = new Random();
+        var pick = options[random.Next(options.Count)];
+        return await pick();
+    }
+
     private static List<Post.Post> RankPosts(List<Post.Post> posts, int take)
     {
-        // TODO: This feature is disabled for now
-        // Uncomment and implement when ready
-        /*
         var now = SystemClock.Instance.GetCurrentInstant();
         return posts
             .Select(p => new { Post = p, Rank = CalculateHotRank(p, now) })
@@ -170,8 +164,7 @@ public class ActivityService(
             .Select(x => x.Post)
             .Take(take)
             .ToList();
-        */
-        return posts.Take(take).ToList();
+        // return posts.Take(take).ToList();
     }
 
     private async Task<List<Publisher.Publisher>> GetPopularPublishers(int take)
@@ -215,9 +208,31 @@ public class ActivityService(
             : null;
     }
 
+    private async Task<Activity?> GetShuffledPostsActivity(int count = 5)
+    {
+        var posts = await db.Posts
+            .Include(p => p.Categories)
+            .Include(p => p.Tags)
+            .Include(p => p.Realm)
+            .Where(p => p.RepliedPostId == null)
+            .OrderBy(_ => EF.Functions.Random())
+            .Take(count)
+            .ToListAsync();
+
+        if (posts.Count == 0)
+            return null;
+
+        return new DiscoveryActivity(posts.Select(x => new DiscoveryItem("post", x)).ToList()).ToActivity();
+    }
+
     private async Task<Activity?> GetArticleDiscoveryActivity(int count = 5, int feedSampleSize = 10)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var today = now.InZone(DateTimeZone.Utc).Date;
+        var todayBegin = today.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var todayEnd = today.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
         var recentFeedIds = await db.WebArticles
+            .Where(a => a.CreatedAt >= todayBegin && a.CreatedAt < todayEnd)
             .GroupBy(a => a.FeedId)
             .OrderByDescending(g => g.Max(a => a.PublishedAt))
             .Take(feedSampleSize)
@@ -288,7 +303,7 @@ public class ActivityService(
             .OrderByDescending(p => p.PublishedAt)
             .AsQueryable();
 
-        if (filteredPublishersId != null && filteredPublishersId.Any())
+        if (filteredPublishersId != null && filteredPublishersId.Count != 0)
             query = query.Where(p => filteredPublishersId.Contains(p.PublisherId));
         if (userRealms == null)
             query = query.Where(p => p.Realm == null || p.Realm.IsPublic);
