@@ -61,8 +61,10 @@ public class ActivityService(
                 if (discovery != null)
                     interleaved.Add(discovery);
             }
+
             interleaved.Add(post.ToActivity());
         }
+
         activities.AddRange(interleaved);
 
         if (activities.Count == 0)
@@ -127,8 +129,10 @@ public class ActivityService(
                 if (discovery != null)
                     interleaved.Add(discovery);
             }
+
             interleaved.Add(post.ToActivity());
         }
+
         activities.AddRange(interleaved);
 
         if (activities.Count == 0)
@@ -210,19 +214,19 @@ public class ActivityService(
 
     private async Task<Activity?> GetShuffledPostsActivity(int count = 5)
     {
-        var posts = await db.Posts
+        var postsQuery = db.Posts
             .Include(p => p.Categories)
             .Include(p => p.Tags)
             .Include(p => p.Realm)
             .Where(p => p.RepliedPostId == null)
             .OrderBy(_ => EF.Functions.Random())
-            .Take(count)
-            .ToListAsync();
+            .Take(count);
 
-        if (posts.Count == 0)
-            return null;
+        var posts = await GetAndProcessPosts(postsQuery, trackViews: false);
 
-        return new DiscoveryActivity(posts.Select(x => new DiscoveryItem("post", x)).ToList()).ToActivity();
+        return posts.Count == 0
+            ? null
+            : new DiscoveryActivity(posts.Select(x => new DiscoveryItem("post", x)).ToList()).ToActivity();
     }
 
     private async Task<Activity?> GetArticleDiscoveryActivity(int count = 5, int feedSampleSize = 10)
