@@ -817,20 +817,41 @@ public partial class PostService(
             var today = SystemClock.Instance.GetCurrentInstant();
             var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant().Minus(Duration.FromDays(1));
             var periodEnd = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+            
+            var postsInPeriod = await db.Posts
+                .Where(e => e.Visibility == PostVisibility.Public)
+                .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
+                .Select(e => e.Id)
+                .ToListAsync();
 
-            var reactSocialPoints = await db.PostReactions
-                .Include(e => e.Post)
-                .Where(e => e.Post.Visibility == PostVisibility.Public)
-                .Where(e => e.Post.CreatedAt >= periodStart && e.Post.CreatedAt < periodEnd)
+            var reactionScores = await db.PostReactions
+                .Where(e => postsInPeriod.Contains(e.PostId))
                 .GroupBy(e => e.PostId)
                 .Select(e => new
                 {
                     PostId = e.Key,
-                    Count = e.Sum(r => r.Attitude == PostReactionAttitude.Positive ? 1 : -1)
+                    Score = e.Sum(r => r.Attitude == PostReactionAttitude.Positive ? 1 : -1)
+                })
+                .ToDictionaryAsync(e => e.PostId, e => e.Score);
+
+            var repliesCounts = await db.Posts
+                .Where(p => p.RepliedPostId != null && postsInPeriod.Contains(p.RepliedPostId.Value))
+                .GroupBy(p => p.RepliedPostId!.Value)
+                .ToDictionaryAsync(
+                    g => g.Key,
+                    g => g.Count()
+                );
+
+            var reactSocialPoints = postsInPeriod
+                .Select(postId => new
+                {
+                    PostId = postId,
+                    Count = (reactionScores.TryGetValue(postId, out var rScore) ? rScore : 0) +
+                            (repliesCounts.TryGetValue(postId, out var repCount) ? repCount : 0)
                 })
                 .OrderByDescending(e => e.Count)
                 .Take(5)
-                .ToDictionaryAsync(e => e.PostId, e => e.Count);
+                .ToDictionary(e => e.PostId, e => e.Count);
 
             featuredIds = reactSocialPoints.Select(e => e.Key).ToList();
 

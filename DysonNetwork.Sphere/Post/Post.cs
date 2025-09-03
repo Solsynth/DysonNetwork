@@ -11,8 +11,7 @@ namespace DysonNetwork.Sphere.Post;
 public enum PostType
 {
     Moment,
-    Article,
-    Video
+    Article
 }
 
 public enum PostVisibility

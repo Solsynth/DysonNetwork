@@ -23,7 +23,7 @@ public class ActivityService(
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var hours = (now - postTime).TotalHours;
         // Add 1 to score to prevent negative results for posts with more downvotes than upvotes
-        return (score + 1) / Math.Pow(hours + 2, 1.8);
+        return (score + 1) / Math.Pow(hours + 1.5, 2.0);
     }
 
     public async Task<List<Activity>> GetActivitiesForAnyone(
