@@ -4,6 +4,7 @@ using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Pass.Wallet;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.FileProviders;
 using Prometheus;
@@ -81,6 +82,8 @@ public static class ApplicationConfiguration
         app.MapGrpcService<SocialCreditServiceGrpc>();
         app.MapGrpcService<ExperienceServiceGrpc>();
         app.MapGrpcService<BotAccountReceiverGrpc>();
+        app.MapGrpcService<WalletServiceGrpc>();
+        app.MapGrpcService<PaymentServiceGrpc>();
 
         return app;
     }

@@ -78,7 +78,7 @@
         <value>Order {0} recipent</value>
     </data>
     <data name="OrderPaidBody" xml:space="preserve">
-       <value>{0} {1} was removed from your wallet to pay {2}</value>
+        <value>Paid order {2} with {0} {1}</value>
     </data>
     <data name="NewLoginTitle" xml:space="preserve">
         <value>New login detected</value>
@@ -91,5 +91,20 @@
     </data>
     <data name="FriendRequestBody" xml:space="preserve">
         <value>You can go to relationships page and decide accept their request or not.</value>
+    </data>
+    <data name="OrderReceivedTitle" xml:space="preserve">
+        <value>Order {0} recipent</value>
+    </data>
+    <data name="OrderReceivedBody" xml:space="preserve">
+        <value>Received {2} payment of {0} {1}</value>
+    </data>
+    <data name="TransactionNewTitle" xml:space="preserve">
+        <value>Transaction {0}</value>
+    </data>
+    <data name="TransactionNewBodyPlus" xml:space="preserve">
+        <value>{0} {1} added to your wallet</value>
+    </data>
+    <data name="TransactionNewBodyMinus" xml:space="preserve">
+        <value>{0} {1} removed from your wallet</value>
     </data>
 </root>

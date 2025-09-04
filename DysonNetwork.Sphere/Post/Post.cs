@@ -51,6 +51,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public int ViewsTotal { get; set; }
     public int Upvotes { get; set; }
     public int Downvotes { get; set; }
+    public decimal AwardedScore { get; set; }
     [NotMapped] public Dictionary<string, int> ReactionsCount { get; set; } = new();
     [NotMapped] public int RepliesCount { get; set; }
     [NotMapped] public Dictionary<string, bool>? ReactionsMade { get; set; }
@@ -73,6 +74,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Guid PublisherId { get; set; }
     public Publisher.Publisher Publisher { get; set; } = null!;
 
+    public ICollection<PostAward> Awards { get; set; } = null!;
     public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
     public ICollection<PostTag> Tags { get; set; } = new List<PostTag>();
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
@@ -164,6 +166,18 @@ public class PostReaction : ModelBase
     [MaxLength(256)] public string Symbol { get; set; } = null!;
     public PostReactionAttitude Attitude { get; set; }
 
+    public Guid PostId { get; set; }
+    [JsonIgnore] public Post Post { get; set; } = null!;
+    public Guid AccountId { get; set; }
+}
+
+public class PostAward : ModelBase
+{
+    public Guid Id { get; set; }
+    public decimal Amount { get; set; }
+    public PostReactionAttitude Attitude { get; set; }
+    [MaxLength(4096)] public string? Message { get; set; }
+    
     public Guid PostId { get; set; }
     [JsonIgnore] public Post Post { get; set; } = null!;
     public Guid AccountId { get; set; }

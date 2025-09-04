@@ -123,6 +123,7 @@ message CreateOrderRequest {
     string amount = 3;
     optional google.protobuf.Duration expiration = 4;
     optional string app_identifier = 5;
+    optional string product_identifier = 8;
     // Using bytes for meta to represent JSON.
     optional bytes meta = 6;
     bool reuseable = 7;
@@ -135,6 +136,7 @@ message Order {
     string amount = 4;
     google.protobuf.Timestamp expired_at = 5;
     optional string app_identifier = 6;
+    optional string product_identifier = 12;
     // Using bytes for meta to represent JSON.
     optional bytes meta = 7;
     OrderStatus status = 8;

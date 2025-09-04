@@ -67,10 +67,10 @@
         <value>感谢你支持 Solar Network 的开发！你的 {0} 天 {1} 订阅刚刚开始，接下来来探索新解锁的新功能吧！</value>
     </data>
     <data name="OrderPaidTitle" xml:space="preserve">
-        <value>订单回执 {0}</value>
+        <value>订单收据 {0}</value>
     </data>
     <data name="OrderPaidBody" xml:space="preserve">
-        <value>{0} {1} 已从你的帐户中扣除来支付 {2}</value>
+        <value>已支付订单 {2} 的 {0} {1}</value>
     </data>
     <data name="NewLoginTitle" xml:space="preserve">
         <value>检测到新登陆</value>
@@ -83,5 +83,20 @@
     </data>
     <data name="FriendRequestBody" xml:space="preserve">
         <value>您可以前往人际关系页面来决定时候要接受他们的邀请。</value>
+    </data>
+    <data name="OrderReceivedTitle" xml:space="preserve">
+        <value>订单收据 {0}</value>
+    </data>
+    <data name="OrderReceivedBody" xml:space="preserve">
+        <value>收到订单 {2} 支付的 {0} {1}</value>
+    </data>
+    <data name="TransactionNewTitle" xml:space="preserve">
+        <value>交易 {0}</value>
+    </data>
+    <data name="TransactionNewBodyPlus" xml:space="preserve">
+        <value>{0} {1} 添加到了您的钱包</value>
+    </data>
+    <data name="TransactionNewBodyMinus" xml:space="preserve">
+        <value>{0} {1} 从您的钱包移除</value>
     </data>
 </root>

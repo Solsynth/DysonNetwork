@@ -170,5 +170,47 @@ namespace DysonNetwork.Sphere.Resources.Localization {
                 return ResourceManager.GetString("NewLoginBody", resourceCulture);
             }
         }
+        
+        internal static string FriendRequestTitle {
+            get {
+                return ResourceManager.GetString("FriendRequestTitle", resourceCulture);
+            }
+        }
+        
+        internal static string FriendRequestBody {
+            get {
+                return ResourceManager.GetString("FriendRequestBody", resourceCulture);
+            }
+        }
+        
+        internal static string OrderReceivedTitle {
+            get {
+                return ResourceManager.GetString("OrderReceivedTitle", resourceCulture);
+            }
+        }
+        
+        internal static string OrderReceivedBody {
+            get {
+                return ResourceManager.GetString("OrderReceivedBody", resourceCulture);
+            }
+        }
+        
+        internal static string TransactionNewTitle {
+            get {
+                return ResourceManager.GetString("TransactionNewTitle", resourceCulture);
+            }
+        }
+        
+        internal static string TransactionNewBodyPlus {
+            get {
+                return ResourceManager.GetString("TransactionNewBodyPlus", resourceCulture);
+            }
+        }
+        
+        internal static string TransactionNewBodyMinus {
+            get {
+                return ResourceManager.GetString("TransactionNewBodyMinus", resourceCulture);
+            }
+        }
     }
 }

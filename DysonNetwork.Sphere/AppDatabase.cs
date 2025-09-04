@@ -31,6 +31,7 @@ public class AppDatabase(
 
     public DbSet<Post.Post> Posts { get; set; } = null!;
     public DbSet<PostReaction> PostReactions { get; set; } = null!;
+    public DbSet<PostAward> PostAwards { get; set; } = null!;
     public DbSet<PostTag> PostTags { get; set; } = null!;
     public DbSet<PostCategory> PostCategories { get; set; } = null!;
     public DbSet<PostCollection> PostCollections { get; set; } = null!;

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Globalization;
 using DysonNetwork.Shared.Data;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -23,11 +24,14 @@ public enum OrderStatus
 
 public class Order : ModelBase
 {
+    public const string InternalAppIdentifier = "internal";
+    
     public Guid Id { get; set; } = Guid.NewGuid();
     public OrderStatus Status { get; set; } = OrderStatus.Unpaid;
     [MaxLength(128)] public string Currency { get; set; } = null!;
     [MaxLength(4096)] public string? Remarks { get; set; }
     [MaxLength(4096)] public string? AppIdentifier { get; set; }
+    [MaxLength(4096)] public string? ProductIdentifier { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     public decimal Amount { get; set; }
     public Instant ExpiredAt { get; set; }
@@ -44,10 +48,11 @@ public class Order : ModelBase
         Currency = Currency,
         Remarks = Remarks,
         AppIdentifier = AppIdentifier,
+        ProductIdentifier = ProductIdentifier,
         Meta = Meta == null
             ? null
             : Google.Protobuf.ByteString.CopyFrom(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(Meta)),
-        Amount = Amount.ToString(),
+        Amount = Amount.ToString(CultureInfo.InvariantCulture),
         ExpiredAt = ExpiredAt.ToTimestamp(),
         PayeeWalletId = PayeeWalletId?.ToString(),
         TransactionId = TransactionId?.ToString(),
@@ -61,6 +66,7 @@ public class Order : ModelBase
         Currency = proto.Currency,
         Remarks = proto.Remarks,
         AppIdentifier = proto.AppIdentifier,
+        ProductIdentifier = proto.ProductIdentifier,
         Meta = proto.HasMeta
             ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(proto.Meta.ToByteArray())
             : null,

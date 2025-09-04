@@ -13,7 +13,7 @@ public class BroadcastEventHandler(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var msg in nats.SubscribeAsync<byte[]>("accounts.deleted", cancellationToken: stoppingToken))
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(AccountDeletedEvent.Type, cancellationToken: stoppingToken))
         {
             try
             {

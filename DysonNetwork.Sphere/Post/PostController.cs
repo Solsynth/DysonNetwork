@@ -579,6 +579,38 @@ public class PostController(
         return Ok(reaction);
     }
 
+    public class PostAwardRequest
+    {
+        public decimal Amount { get; set; }
+        [MaxLength(4096)] public string? Message { get; set; }
+    }
+
+    [HttpPost("{id:guid}/awards")]
+    [Authorize]
+    public async Task<ActionResult<PostAward>> AwardPost(Guid id, [FromBody] PostAwardRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var friendsResponse =
+            await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id.ToString() });
+        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var post = await db.Posts
+            .Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        // TODO Make payment, add record
+
+        return Ok();
+    }
+
     public class PostPinRequest
     {
         [Required] public PostPinMode Mode { get; set; }
@@ -600,7 +632,7 @@ public class PostController(
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
-        
+
         if (request.Mode == PostPinMode.RealmPage && post.RealmId != null)
         {
             if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, RealmMemberRole.Moderator))
@@ -644,11 +676,11 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
-        
+
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
-        
+
         if (post is { PinMode: PostPinMode.RealmPage, RealmId: not null })
         {
             if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, RealmMemberRole.Moderator))
@@ -807,7 +839,7 @@ public class PostController(
         if (post is null) return NotFound();
 
         if (!await pub.IsMemberWithRole(post.Publisher.Id, Guid.Parse(currentUser.Id),
-                Publisher.PublisherMemberRole.Editor))
+                PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to delete the publisher's post.");
 
         await ps.DeletePostAsync(post);

@@ -86,7 +86,7 @@ public class SubscriptionRenewalJob(
                         if (wallet is null) continue;
 
                         // Process automatic payment from wallet
-                        await paymentService.PayOrderAsync(order.Id, wallet.Id);
+                        await paymentService.PayOrderAsync(order.Id, wallet);
 
                         // Update subscription details
                         subscription.BegunAt = subscription.EndedAt!.Value;

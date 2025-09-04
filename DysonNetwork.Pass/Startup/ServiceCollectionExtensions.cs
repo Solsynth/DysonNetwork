@@ -54,10 +54,6 @@ public static class ServiceCollectionExtensions
         
         services.AddPusherService();
         
-        // Register gRPC services
-        services.AddScoped<AccountServiceGrpc>();
-        services.AddScoped<AuthServiceGrpc>();
-
         // Register OIDC services
         services.AddScoped<OidcService, GoogleOidcService>();
         services.AddScoped<OidcService, AppleOidcService>();

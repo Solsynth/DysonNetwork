@@ -8,11 +8,7 @@ public class WalletServiceGrpc(WalletService walletService) : Shared.Proto.Walle
     public override async Task<Shared.Proto.Wallet> GetWallet(GetWalletRequest request, ServerCallContext context)
     {
         var wallet = await walletService.GetWalletAsync(Guid.Parse(request.AccountId));
-        if (wallet == null)
-        {
-            throw new RpcException(new Status(StatusCode.NotFound, "Wallet not found."));
-        }
-        return wallet.ToProtoValue();
+        return wallet == null ? throw new RpcException(new Status(StatusCode.NotFound, "Wallet not found.")) : wallet.ToProtoValue();
     }
 
     public override async Task<Shared.Proto.Wallet> CreateWallet(CreateWalletRequest request, ServerCallContext context)

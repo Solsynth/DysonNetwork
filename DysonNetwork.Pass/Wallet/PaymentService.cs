@@ -1,9 +1,12 @@
 using System.Globalization;
+using System.Text.Json;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
+using NATS.Client.Core;
 using NodaTime;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
 
@@ -13,7 +16,8 @@ public class PaymentService(
     AppDatabase db,
     WalletService wat,
     PusherService.PusherServiceClient pusher,
-    IStringLocalizer<NotificationResource> localizer
+    IStringLocalizer<NotificationResource> localizer,
+    INatsConnection nats
 )
 {
     public async Task<Order> CreateOrderAsync(
@@ -22,6 +26,7 @@ public class PaymentService(
         decimal amount,
         Duration? expiration = null,
         string? appIdentifier = null,
+        string? productIdentifier = null,
         Dictionary<string, object>? meta = null,
         bool reuseable = true
     )
@@ -29,26 +34,25 @@ public class PaymentService(
         // Check if there's an existing unpaid order that can be reused
         if (reuseable && appIdentifier != null)
         {
+            var now = SystemClock.Instance.GetCurrentInstant();
             var existingOrder = await db.PaymentOrders
                 .Where(o => o.Status == OrderStatus.Unpaid &&
                             o.PayeeWalletId == payeeWalletId &&
                             o.Currency == currency &&
                             o.Amount == amount &&
                             o.AppIdentifier == appIdentifier &&
-                            o.ExpiredAt > SystemClock.Instance.GetCurrentInstant())
+                            o.ProductIdentifier == productIdentifier &&
+                            o.ExpiredAt > now)
                 .FirstOrDefaultAsync();
 
             // If an existing order is found, check if meta matches
             if (existingOrder != null && meta != null && existingOrder.Meta != null)
             {
-                // Compare meta dictionaries - if they are equivalent, reuse the order
+                // Compare the meta dictionary - if they are equivalent, reuse the order
                 var metaMatches = existingOrder.Meta.Count == meta.Count &&
                                   !existingOrder.Meta.Except(meta).Any();
-
                 if (metaMatches)
-                {
                     return existingOrder;
-                }
             }
         }
 
@@ -60,6 +64,7 @@ public class PaymentService(
             Amount = amount,
             ExpiredAt = SystemClock.Instance.GetCurrentInstant().Plus(expiration ?? Duration.FromHours(24)),
             AppIdentifier = appIdentifier,
+            ProductIdentifier = productIdentifier,
             Meta = meta
         };
 
@@ -104,7 +109,8 @@ public class PaymentService(
         string currency,
         decimal amount,
         string? remarks = null,
-        TransactionType type = TransactionType.System
+        TransactionType type = TransactionType.System,
+        bool silent = false
     )
     {
         if (payerWalletId == null && payeeWalletId == null)
@@ -121,8 +127,12 @@ public class PaymentService(
             Type = type
         };
 
+        Wallet? payerWallet = null, payeeWallet = null;
+        
         if (payerWalletId.HasValue)
         {
+            payerWallet = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payerWalletId.Value);
+            
             var (payerPocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payerWalletId.Value, currency);
 
@@ -137,6 +147,8 @@ public class PaymentService(
 
         if (payeeWalletId.HasValue)
         {
+            payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payeeWalletId.Value);
+            
             var (payeePocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payeeWalletId.Value, currency, amount);
 
@@ -149,13 +161,85 @@ public class PaymentService(
 
         db.PaymentTransactions.Add(transaction);
         await db.SaveChangesAsync();
+
+        if (!silent)
+            await NotifyNewTransaction(transaction, payerWallet, payeeWallet);
+        
         return transaction;
     }
+    
+    private async Task NotifyNewTransaction(Transaction transaction, Wallet? payerWallet, Wallet? payeeWallet)
+    {
+        if (payerWallet is not null)
+        {
+            var account = await db.Accounts
+                .Where(a => a.Id == payerWallet.AccountId)
+                .FirstOrDefaultAsync();
+            if (account is null) return;
 
-    public async Task<Order> PayOrderAsync(Guid orderId, Guid payerWalletId)
+            AccountService.SetCultureInfo(account);
+
+            // Due to ID is uuid, it longer than 8 words for sure
+            var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
+            var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
+
+            await pusher.SendPushNotificationToUserAsync(
+                new SendPushNotificationToUserRequest
+                {
+                    UserId = account.Id.ToString(),
+                    Notification = new PushNotification
+                    {
+                        Topic = "wallets.transactions",
+                        Title = transaction.Amount > 0
+                            ? localizer["TransactionNewBodyMinus", readableTransactionRemark]
+                            : localizer["TransactionNewBodyPlus", readableTransactionRemark],
+                        Body = localizer["TransactionNewTitle",
+                            transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                            transaction.Currency],
+                        IsSavable = true
+                    }
+                }
+            );
+        }
+        
+        if (payeeWallet is not null)
+        {
+            var account = await db.Accounts
+                .Where(a => a.Id == payeeWallet.AccountId)
+                .FirstOrDefaultAsync();
+            if (account is null) return;
+
+            AccountService.SetCultureInfo(account);
+
+            // Due to ID is uuid, it longer than 8 words for sure
+            var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
+            var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
+
+            await pusher.SendPushNotificationToUserAsync(
+                new SendPushNotificationToUserRequest
+                {
+                    UserId = account.Id.ToString(),
+                    Notification = new PushNotification
+                    {
+                        Topic = "wallets.transactions",
+                        Title = transaction.Amount > 0
+                            ? localizer["TransactionNewBodyPlus", readableTransactionRemark]
+                            : localizer["TransactionNewBodyMinus", readableTransactionRemark],
+                        Body = localizer["TransactionNewTitle",
+                            transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                            transaction.Currency],
+                        IsSavable = true
+                    }
+                }
+            );
+        }
+    }
+
+    public async Task<Order> PayOrderAsync(Guid orderId, Wallet payerWallet)
     {
         var order = await db.PaymentOrders
             .Include(o => o.Transaction)
+            .Include(o => o.PayeeWallet)
             .FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order == null)
@@ -176,7 +260,7 @@ public class PaymentService(
         }
 
         var transaction = await CreateTransactionAsync(
-            payerWalletId,
+            payerWallet.Id,
             order.PayeeWalletId,
             order.Currency,
             order.Amount,
@@ -186,41 +270,87 @@ public class PaymentService(
         order.TransactionId = transaction.Id;
         order.Transaction = transaction;
         order.Status = OrderStatus.Paid;
-        
+
         await db.SaveChangesAsync();
-        
-        await NotifyOrderPaid(order);
-        
+
+        await NotifyOrderPaid(order, payerWallet, order.PayeeWallet);
+
+        await nats.PublishAsync(PaymentOrderEvent.Type, JsonSerializer.SerializeToUtf8Bytes(new PaymentOrderEvent
+        {
+            OrderId = order.Id,
+            WalletId = payerWallet.Id,
+            AccountId = payerWallet.AccountId,
+            AppIdentifier = order.AppIdentifier,
+            ProductIdentifier = order.ProductIdentifier,
+            Meta = order.Meta ?? [],
+            Status = (int)order.Status,
+        }));
+
         return order;
     }
 
-    private async Task NotifyOrderPaid(Order order)
+    private async Task NotifyOrderPaid(Order order, Wallet? payerWallet, Wallet? payeeWallet)
     {
-        if (order.PayeeWallet is null) return;
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == order.PayeeWallet.AccountId);
-        if (account is null) return;
-        
-        AccountService.SetCultureInfo(account);
+        if (payerWallet is not null)
+        {
+            var account = await db.Accounts
+                .Where(a => a.Id == payerWallet.AccountId)
+                .FirstOrDefaultAsync();
+            if (account is null) return;
 
-        // Due to ID is uuid, it longer than 8 words for sure
-        var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
-        var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+            AccountService.SetCultureInfo(account);
 
-        
-        await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
-            {
-                UserId = account.Id.ToString(),
-                Notification = new PushNotification
+            // Due to ID is uuid, it longer than 8 words for sure
+            var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
+            var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+
+
+            await pusher.SendPushNotificationToUserAsync(
+                new SendPushNotificationToUserRequest
                 {
-                    Topic = "wallets.orders.paid",
-                    Title = localizer["OrderPaidTitle", $"#{readableOrderId}"],
-                    Body = localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture), order.Currency,
-                        readableOrderRemark],
-                    IsSavable = true
+                    UserId = account.Id.ToString(),
+                    Notification = new PushNotification
+                    {
+                        Topic = "wallets.orders.paid",
+                        Title = localizer["OrderPaidTitle", $"#{readableOrderId}"],
+                        Body = localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture),
+                            order.Currency,
+                            readableOrderRemark],
+                        IsSavable = true
+                    }
                 }
-            }
-        );
+            );
+        }
+
+        if (payeeWallet is not null)
+        {
+            var account = await db.Accounts
+                .Where(a => a.Id == payeeWallet.AccountId)
+                .FirstOrDefaultAsync();
+            if (account is null) return;
+
+            AccountService.SetCultureInfo(account);
+
+            // Due to ID is uuid, it longer than 8 words for sure
+            var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
+            var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+
+            await pusher.SendPushNotificationToUserAsync(
+                new SendPushNotificationToUserRequest
+                {
+                    UserId = account.Id.ToString(),
+                    Notification = new PushNotification
+                    {
+                        Topic = "wallets.orders.received",
+                        Title = localizer["OrderReceivedTitle", $"#{readableOrderId}"],
+                        Body = localizer["OrderReceivedBody", order.Amount.ToString(CultureInfo.InvariantCulture),
+                            order.Currency,
+                            readableOrderRemark],
+                        IsSavable = true
+                    }
+                }
+            );
+        }
     }
 
     public async Task<Order> CancelOrderAsync(Guid orderId)

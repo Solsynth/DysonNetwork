@@ -13,10 +13,10 @@ public class PaymentServiceGrpc(PaymentService paymentService) : Shared.Proto.Pa
             request.Currency,
             decimal.Parse(request.Amount),
             request.Expiration is not null ? Duration.FromSeconds(request.Expiration.Seconds) : null,
-            request.HasAppIdentifier ? request.AppIdentifier : null,
-            // Assuming meta is a JSON string
+            request.HasAppIdentifier ? request.AppIdentifier : Order.InternalAppIdentifier,
+            request.HasProductIdentifier ? request.ProductIdentifier : null,
             request.HasMeta
-                ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(request.Meta.ToStringUtf8())
+                ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(request.Meta)
                 : null,
             request.Reuseable
         );

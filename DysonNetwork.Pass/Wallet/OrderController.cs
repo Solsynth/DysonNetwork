@@ -15,9 +15,7 @@ public class OrderController(PaymentService payment, AuthService auth, AppDataba
         var order = await db.PaymentOrders.FindAsync(id);
         
         if (order == null)
-        {
             return NotFound();
-        }
         
         return Ok(order);
     }
@@ -41,7 +39,7 @@ public class OrderController(PaymentService payment, AuthService auth, AppDataba
                 return BadRequest("Wallet was not found.");
         
             // Pay the order
-            var paidOrder = await payment.PayOrderAsync(id, wallet.Id);
+            var paidOrder = await payment.PayOrderAsync(id, wallet);
             return Ok(paidOrder);
         }
         catch (InvalidOperationException ex)
