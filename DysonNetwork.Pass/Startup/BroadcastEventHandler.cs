@@ -15,19 +15,40 @@ public class BroadcastEventHandler(
     {
         await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEvent.Type, cancellationToken: stoppingToken))
         {
+            PaymentOrderEvent? evt = null;
             try
             {
-                var evt = JsonSerializer.Deserialize<PaymentOrderEvent>(msg.Data);
+                evt = JsonSerializer.Deserialize<PaymentOrderEvent>(msg.Data);
 
-                if (evt?.ProductIdentifier is null || !evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
+                if (evt?.ProductIdentifier is null ||
+                    !evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
+                {
                     continue;
-                
-                logger.LogInformation("Stellar program order paid: {OrderId}", evt.OrderId);
-                
+                }
+
+                logger.LogInformation("Handling stellar program order: {OrderId}", evt.OrderId);
+
+                await using var scope = serviceProvider.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                var subscriptions = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
+
+                var order = await db.PaymentOrders.FindAsync(
+                    [evt.OrderId],
+                    cancellationToken: stoppingToken
+                );
+                if (order is null)
+                {
+                    logger.LogWarning("Order with ID {OrderId} not found.", evt.OrderId);
+                    continue;
+                }
+
+                await subscriptions.HandleSubscriptionOrder(order);
+
+                logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error processing AccountDeleted");
+                logger.LogError(ex, "Error processing payment order event for order {OrderId}", evt?.OrderId);
             }
         }
     }

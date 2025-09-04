@@ -150,29 +150,6 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
         }
     }
 
-    public class SubscriptionOrderRequest
-    {
-        [Required] public Guid OrderId { get; set; }
-    }
-
-    [HttpPost("order/handle")]
-    [Authorize]
-    public async Task<ActionResult<Subscription>> HandleSubscriptionOrder([FromBody] SubscriptionOrderRequest request)
-    {
-        var order = await db.PaymentOrders.FindAsync(request.OrderId);
-        if (order is null) return NotFound($"Order with ID {request.OrderId} was not found.");
-
-        try
-        {
-            var subscription = await subscriptions.HandleSubscriptionOrder(order);
-            return subscription;
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
     public class RestorePurchaseRequest
     {
         [Required] public string OrderId { get; set; } = null!;
