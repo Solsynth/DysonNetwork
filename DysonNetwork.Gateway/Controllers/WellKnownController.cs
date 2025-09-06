@@ -13,6 +13,35 @@ public class WellKnownController(
     IEtcdClient etcdClient)
     : ControllerBase
 {
+    public class IpCheckResponse
+    {
+        public string? RemoteIp { get; set; }
+        public string? XForwardedFor { get; set; }
+        public string? XForwardedProto { get; set; }
+        public string? XForwardedHost { get; set; }
+        public string? XRealIp { get; set; }
+    }
+    
+    [HttpGet("ip-check")]
+    public ActionResult<IpCheckResponse> GetIpCheck()
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        var xForwardedFor = Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var xForwardedProto = Request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+        var xForwardedHost = Request.Headers["X-Forwarded-Host"].FirstOrDefault();
+        var realIp = Request.Headers["X-Real-IP"].FirstOrDefault();
+
+        return Ok(new IpCheckResponse
+        {
+            RemoteIp = ip,
+            XForwardedFor = xForwardedFor,
+            XForwardedProto = xForwardedProto,
+            XForwardedHost = xForwardedHost,
+            XRealIp = realIp
+        });
+    }
+    
     [HttpGet("domains")]
     public IActionResult GetDomainMappings()
     {
