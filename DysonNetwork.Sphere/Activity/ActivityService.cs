@@ -19,11 +19,13 @@ public class ActivityService(
 {
     private static double CalculateHotRank(Post.Post post, Instant now)
     {
-        var score = post.Upvotes - post.Downvotes + post.RepliesCount;
+        var performanceScore = post.Upvotes - post.Downvotes + post.RepliesCount;
         var postTime = post.PublishedAt ?? post.CreatedAt;
-        var hours = (now - postTime).TotalHours;
+        var timeScore = (now - postTime).TotalMinutes;
         // Add 1 to score to prevent negative results for posts with more downvotes than upvotes
-        return (score + 1) / Math.Pow(hours + 1.5, 2.0);
+        // Time dominates ranking, performance adjusts within similar timeframes.
+        var performanceWeight = Math.Log(performanceScore + 5); // smooth adjustment, median ~4-5
+        return performanceWeight / Math.Pow(timeScore + 1.5, 1.5);
     }
 
     public async Task<List<Activity>> GetActivitiesForAnyone(
