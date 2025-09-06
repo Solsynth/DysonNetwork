@@ -36,4 +36,11 @@ public static class ApplicationConfiguration
 
         return app;
     }
+    
+    public static WebApplication ConfigureGrpcServices(this WebApplication app)
+    {
+        app.MapGrpcService<PusherServiceGrpc>();
+        
+        return app;
+    }
 }
