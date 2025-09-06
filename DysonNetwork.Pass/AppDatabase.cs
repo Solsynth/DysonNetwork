@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
@@ -50,7 +52,7 @@ public class AppDatabase(
     public DbSet<Coupon> WalletCoupons { get; set; } = null!;
 
     public DbSet<Punishment> Punishments { get; set; } = null!;
-    
+
     public DbSet<SocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<ExperienceRecord> ExperienceRecords { get; set; } = null!;
 
@@ -59,7 +61,13 @@ public class AppDatabase(
         optionsBuilder.UseNpgsql(
             configuration.GetConnectionString("App"),
             opt => opt
-                .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
+                .ConfigureDataSource(optSource => optSource
+                    .EnableDynamicJson()
+                    .ConfigureJsonOptions(new JsonSerializerOptions()
+                    {
+                        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+                    })
+                )
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
                 .UseNetTopologySuite()
                 .UseNodaTime()
