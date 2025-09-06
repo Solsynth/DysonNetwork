@@ -25,7 +25,9 @@ public class ActivityService(
         // Add 1 to score to prevent negative results for posts with more downvotes than upvotes
         // Time dominates ranking, performance adjusts within similar timeframes.
         var performanceWeight = Math.Log(performanceScore + 5); // smooth adjustment, median ~4-5
-        return performanceWeight / Math.Pow(timeScore + 1.5, 1.5);
+        // Normalize time influence since average post interval ~60 minutes
+        var normalizedTime = timeScore / 60.0; 
+        return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
 
     public async Task<List<Activity>> GetActivitiesForAnyone(
