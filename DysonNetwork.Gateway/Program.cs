@@ -1,4 +1,5 @@
 using DysonNetwork.Gateway.Startup;
+using DysonNetwork.Shared.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,10 +18,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+app.ConfigureForwardedHeaders(app.Configuration);
 
 app.UseRequestTimeouts();
 app.UseCors(opts =>

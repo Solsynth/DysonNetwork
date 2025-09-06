@@ -1,8 +1,7 @@
-using System.Net;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Http;
 using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Publisher;
-using Microsoft.AspNetCore.HttpOverrides;
 using Prometheus;
 
 namespace DysonNetwork.Sphere.Startup;
@@ -19,7 +18,7 @@ public static class ApplicationConfiguration
         
         app.UseRequestLocalization();
 
-        ConfigureForwardedHeaders(app, configuration);
+        app.ConfigureForwardedHeaders(configuration);
 
         app.UseWebSockets();
         app.UseAuthentication();
@@ -33,27 +32,5 @@ public static class ApplicationConfiguration
         app.MapGrpcService<PublisherServiceGrpc>();
 
         return app;
-    }
-
-    private static void ConfigureForwardedHeaders(WebApplication app, IConfiguration configuration)
-    {
-        var knownProxiesSection = configuration.GetSection("KnownProxies");
-        var forwardedHeadersOptions = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.All };
-
-        if (knownProxiesSection.Exists())
-        {
-            var proxyAddresses = knownProxiesSection.Get<string[]>();
-            if (proxyAddresses != null)
-                foreach (var proxy in proxyAddresses)
-                    if (IPAddress.TryParse(proxy, out var ipAddress))
-                        forwardedHeadersOptions.KnownProxies.Add(ipAddress);
-        }
-        else
-        {
-            forwardedHeadersOptions.KnownProxies.Add(IPAddress.Any);
-            forwardedHeadersOptions.KnownProxies.Add(IPAddress.IPv6Any);
-        }
-
-        app.UseForwardedHeaders(forwardedHeadersOptions);
     }
 }
