@@ -171,7 +171,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
             }
 
             // Host-based routing
-            if (domainMappings.TryGetValue(serviceName, out var domain))
+            if (domainMappings.TryGetValue(serviceName, out var domain) && domain is not null)
             {
                 var hostRoute = new RouteConfig
                 {
@@ -181,7 +181,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                     {
                         Hosts = [domain],
                         Path = "/{**catch-all}"
-                    }
+                    },
                 };
                 routes.Add(hostRoute);
                 _logger.LogInformation("    Added Host-based Route: {Host}", domain);
@@ -196,7 +196,7 @@ public class RegistryProxyConfigProvider : IProxyConfigProvider, IDisposable
                 Transforms = new List<Dictionary<string, string>>
                 {
                     new() { { "PathRemovePrefix", $"/{pathAlias}" } },
-                    new() { { "PathPrefix", "/api" } }
+                    new() { { "PathPrefix", "/api" } },
                 },
                 Timeout = TimeSpan.FromSeconds(5)
             };

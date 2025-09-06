@@ -24,7 +24,10 @@ public static class ServiceCollectionExtensions
             })
             .AddTransforms(context =>
             {
-                context.AddForwarded();
+                context.CopyRequestHeaders = true;
+                context.AddOriginalHost();
+                context.AddForwarded(action: ForwardedTransformActions.Set);
+                context.AddXForwarded(action: ForwardedTransformActions.Set);
             });
 
         services.AddRegistryService(configuration, addForwarder: false);

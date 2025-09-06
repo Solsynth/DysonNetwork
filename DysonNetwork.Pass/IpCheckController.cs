@@ -13,9 +13,10 @@ public class IpCheckController : ControllerBase
         public string? XForwardedProto { get; set; }
         public string? XForwardedHost { get; set; }
         public string? XRealIp { get; set; }
+        public string? Headers { get; set; }
     }
     
-    [HttpGet("ip-check")]
+    [HttpGet]
     public ActionResult<IpCheckResponse> GetIpCheck()
     {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -31,7 +32,8 @@ public class IpCheckController : ControllerBase
             XForwardedFor = xForwardedFor,
             XForwardedProto = xForwardedProto,
             XForwardedHost = xForwardedHost,
-            XRealIp = realIp
+            XRealIp = realIp,
+            Headers = string.Join('\n', Request.Headers.Select(h => $"{h.Key}: {h.Value}")),
         });
     } 
 }

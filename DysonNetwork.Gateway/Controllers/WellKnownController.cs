@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using dotnet_etcd.interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Yarp.ReverseProxy.Configuration;
@@ -15,11 +16,11 @@ public class WellKnownController(
 {
     public class IpCheckResponse
     {
-        public string? RemoteIp { get; set; }
-        public string? XForwardedFor { get; set; }
-        public string? XForwardedProto { get; set; }
-        public string? XForwardedHost { get; set; }
-        public string? XRealIp { get; set; }
+        [JsonPropertyName("remote_ip")] public string? RemoteIp { get; set; }
+        [JsonPropertyName("x_forwarded_for")] public string? XForwardedFor { get; set; }
+        [JsonPropertyName("x_forwarded_proto")] public string? XForwardedProto { get; set; }
+        [JsonPropertyName("x_forwarded_host")] public string? XForwardedHost { get; set; }
+        [JsonPropertyName("x_real_ip")] public string? XRealIp { get; set; }
     }
     
     [HttpGet("ip-check")]
