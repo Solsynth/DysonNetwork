@@ -18,6 +18,7 @@ public class Account : ModelBase
     [MaxLength(256)] public string Name { get; set; } = string.Empty;
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(32)] public string Language { get; set; } = string.Empty;
+    [MaxLength(32)] public string Region { get; set; } = string.Empty;
     public Instant? ActivatedAt { get; set; }
     public bool IsSuperuser { get; set; } = false;
 
@@ -46,6 +47,7 @@ public class Account : ModelBase
             Name = Name,
             Nick = Nick,
             Language = Language,
+            Region = Region,
             ActivatedAt = ActivatedAt?.ToTimestamp(),
             IsSuperuser = IsSuperuser,
             Profile = Profile.ToProtoValue(),
@@ -75,6 +77,7 @@ public class Account : ModelBase
             Name = proto.Name,
             Nick = proto.Nick,
             Language = proto.Language,
+            Region = proto.Region,
             ActivatedAt = proto.ActivatedAt?.ToInstant(),
             IsSuperuser = proto.IsSuperuser,
             PerkSubscription = proto.PerkSubscription is not null

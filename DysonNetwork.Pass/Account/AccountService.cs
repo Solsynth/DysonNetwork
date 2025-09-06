@@ -88,6 +88,7 @@ public class AccountService(
         string email,
         string? password,
         string language = "en-US",
+        string region = "en",
         bool isEmailVerified = false,
         bool isActivated = false
     )
@@ -107,6 +108,7 @@ public class AccountService(
             Name = name,
             Nick = nick,
             Language = language,
+            Region = region,
             Contacts = new List<AccountContact>
             {
                 new()
@@ -181,6 +183,7 @@ public class AccountService(
             userInfo.Email,
             null,
             "en-US",
+            "en",
             userInfo.EmailVerified,
             userInfo.EmailVerified
         );

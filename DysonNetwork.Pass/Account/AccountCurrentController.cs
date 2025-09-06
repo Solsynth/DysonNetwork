@@ -52,6 +52,7 @@ public class AccountCurrentController(
     {
         [MaxLength(256)] public string? Nick { get; set; }
         [MaxLength(32)] public string? Language { get; set; }
+        [MaxLength(32)] public string? Region { get; set; }
     }
 
     [HttpPatch]
@@ -63,6 +64,7 @@ public class AccountCurrentController(
 
         if (request.Nick is not null) account.Nick = request.Nick;
         if (request.Language is not null) account.Language = request.Language;
+        if (request.Region is not null) account.Region = request.Region;
 
         await db.SaveChangesAsync();
         await accounts.PurgeAccountCache(currentUser);

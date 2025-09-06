@@ -3,6 +3,7 @@ using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Error;
+using DysonNetwork.Shared.GeoIp;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -17,7 +18,8 @@ public class AccountController(
     AccountService accounts,
     SubscriptionService subscriptions,
     AccountEventService events,
-    SocialCreditService socialCreditService
+    SocialCreditService socialCreditService,
+    GeoIpService geo
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -32,10 +34,10 @@ public class AccountController(
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
-        
+
         var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
         account.PerkSubscription = perk?.ToReference();
-        
+
         return account;
     }
 
@@ -48,9 +50,11 @@ public class AccountController(
             .Include(e => e.Badges)
             .Where(a => a.Name == name)
             .FirstOrDefaultAsync();
-        return account is null ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier)) : account.Badges.ToList();
+        return account is null
+            ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier))
+            : account.Badges.ToList();
     }
-    
+
     [HttpGet("{name}/credits")]
     [ProducesResponseType<double>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -60,12 +64,12 @@ public class AccountController(
             .Where(a => a.Name == name)
             .Select(a => new { a.Id })
             .FirstOrDefaultAsync();
-            
+
         if (account is null)
         {
             return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
         }
-        
+
         var credits = await socialCreditService.GetSocialCredit(account.Id);
         return credits;
     }
@@ -93,7 +97,7 @@ public class AccountController(
         [MaxLength(128)]
         public string Password { get; set; } = string.Empty;
 
-        [MaxLength(128)] public string Language { get; set; } = "en-us";
+        [MaxLength(32)] public string Language { get; set; } = "en-us";
 
         [Required] public string CaptchaToken { get; set; } = string.Empty;
     }
@@ -109,6 +113,10 @@ public class AccountController(
                 [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
             }, traceId: HttpContext.TraceIdentifier));
 
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (ip is null) return BadRequest(ApiError.NotFound(request.Name, traceId: HttpContext.TraceIdentifier));
+        var region = geo.GetFromIp(ip)?.Country.IsoCode ?? "us";
+
         try
         {
             var account = await accounts.CreateAccount(
@@ -116,7 +124,8 @@ public class AccountController(
                 request.Nick,
                 request.Email,
                 request.Password,
-                request.Language
+                request.Language,
+                region
             );
             return Ok(account);
         }

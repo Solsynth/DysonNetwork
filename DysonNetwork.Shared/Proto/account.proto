@@ -18,6 +18,7 @@ message Account {
   string name = 2;
   string nick = 3;
   string language = 4;
+  string region = 18;
   google.protobuf.Timestamp activated_at = 5;
   bool is_superuser = 6;
 
