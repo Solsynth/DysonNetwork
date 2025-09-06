@@ -47,6 +47,18 @@ public class PublisherController(
         return Ok(stats);
     }
 
+    [HttpGet("of/{accountId:guid}")]
+    public async Task<ActionResult<List<Publisher>>> GetAccountManagedPublishers(Guid accountId)
+    {
+        var members = await db.PublisherMembers
+            .Where(m => m.AccountId == accountId)
+            .Where(m => m.JoinedAt != null)
+            .Include(e => e.Publisher)
+            .ToListAsync();
+
+        return members.Select(m => m.Publisher).ToList();
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()
