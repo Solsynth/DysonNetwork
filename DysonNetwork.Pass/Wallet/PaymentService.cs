@@ -27,6 +27,7 @@ public class PaymentService(
         Duration? expiration = null,
         string? appIdentifier = null,
         string? productIdentifier = null,
+        string? remarks = null,
         Dictionary<string, object>? meta = null,
         bool reuseable = true
     )
@@ -65,6 +66,7 @@ public class PaymentService(
             ExpiredAt = SystemClock.Instance.GetCurrentInstant().Plus(expiration ?? Duration.FromHours(24)),
             AppIdentifier = appIdentifier,
             ProductIdentifier = productIdentifier,
+            Remarks = remarks,
             Meta = meta
         };
 

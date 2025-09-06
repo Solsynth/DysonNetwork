@@ -424,10 +424,12 @@ public partial class PostService(
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
         {
-            if (pinMode != PostPinMode.ReplyPage) throw new InvalidOperationException("Replies can only be pinned in the reply page.");
+            if (pinMode != PostPinMode.ReplyPage)
+                throw new InvalidOperationException("Replies can only be pinned in the reply page.");
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
-            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId,
+                    Publisher.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors of original post can pin replies.");
 
             post.PinMode = pinMode;
@@ -453,7 +455,8 @@ public partial class PostService(
         {
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
-            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId,
+                    Publisher.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors of original post can unpin replies.");
         }
         else
@@ -815,9 +818,10 @@ public partial class PostService(
         {
             // The previous day highest rated posts
             var today = SystemClock.Instance.GetCurrentInstant();
-            var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant().Minus(Duration.FromDays(1));
+            var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant()
+                .Minus(Duration.FromDays(1));
             var periodEnd = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-            
+
             var postsInPeriod = await db.Posts
                 .Where(e => e.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
@@ -889,6 +893,34 @@ public partial class PostService(
         posts = await LoadPostInfo(posts, currentUser, true);
 
         return posts;
+    }
+
+    public async Task<PostAward> AwardPost(
+        Guid postId,
+        Guid accountId,
+        decimal amount,
+        PostReactionAttitude attitude,
+        string? message
+    )
+    {
+        var award = new PostAward
+        {
+            Amount = amount,
+            Attitude = attitude,
+            Message = message,
+            PostId = postId,
+            AccountId = accountId
+        };
+
+        db.PostAwards.Add(award);
+        await db.SaveChangesAsync();
+
+        var delta = award.Attitude == PostReactionAttitude.Positive ? amount : -amount;
+
+        await db.Posts.Where(p => p.Id == postId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.AwardedScore, p => p.AwardedScore + delta));
+
+        return award;
     }
 }
 

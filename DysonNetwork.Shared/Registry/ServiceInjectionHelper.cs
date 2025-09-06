@@ -71,6 +71,20 @@ public static class ServiceInjectionHelper
                 .GetResult();
         }); 
         
+        services.AddSingleton<PaymentService.PaymentServiceClient>(sp =>
+        {
+            var etcdClient = sp.GetRequiredService<IEtcdClient>();
+            var config = sp.GetRequiredService<IConfiguration>();
+            var clientCertPath = config["Service:ClientCert"]!;
+            var clientKeyPath = config["Service:ClientKey"]!;
+            var clientCertPassword = config["Service:CertPassword"];
+
+            return GrpcClientHelper
+                .CreatePaymentServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .GetAwaiter()
+                .GetResult();
+        });
+        
         return services;
     }
     

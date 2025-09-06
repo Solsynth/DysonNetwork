@@ -15,6 +15,7 @@ public class PaymentServiceGrpc(PaymentService paymentService) : Shared.Proto.Pa
             request.Expiration is not null ? Duration.FromSeconds(request.Expiration.Seconds) : null,
             request.HasAppIdentifier ? request.AppIdentifier : Order.InternalAppIdentifier,
             request.HasProductIdentifier ? request.ProductIdentifier : null,
+            request.HasRemarks ? request.Remarks : null,
             request.HasMeta
                 ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(request.Meta)
                 : null,

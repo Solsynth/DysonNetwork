@@ -126,6 +126,7 @@ message CreateOrderRequest {
     optional string product_identifier = 8;
     // Using bytes for meta to represent JSON.
     optional bytes meta = 6;
+    optional string remarks = 9;
     bool reuseable = 7;
 }
 

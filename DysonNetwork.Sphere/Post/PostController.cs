@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
@@ -24,6 +25,7 @@ public class PostController(
     PublisherService pub,
     AccountService.AccountServiceClient accounts,
     ActionLogService.ActionLogServiceClient als,
+    PaymentService.PaymentServiceClient payments,
     PollService polls,
     RealmService rs
 )
@@ -324,7 +326,6 @@ public class PostController(
             .OrderByDescending(p => p.CreatedAt)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .ToListAsync();
-        if (posts is null) return NotFound();
         posts = await ps.LoadPostInfo(posts, currentUser);
 
         return Ok(posts);
@@ -582,14 +583,22 @@ public class PostController(
     public class PostAwardRequest
     {
         public decimal Amount { get; set; }
+        public PostReactionAttitude Attitude { get; set; }
         [MaxLength(4096)] public string? Message { get; set; }
+    }
+
+    public class PostAwardResponse
+    {
+        public Guid OrderId { get; set; }
     }
 
     [HttpPost("{id:guid}/awards")]
     [Authorize]
-    public async Task<ActionResult<PostAward>> AwardPost(Guid id, [FromBody] PostAwardRequest request)
+    public async Task<ActionResult<PostAwardResponse>> AwardPost(Guid id, [FromBody] PostAwardRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (request.Attitude == PostReactionAttitude.Neutral)
+            return BadRequest("You cannot create a neutral post award");
 
         var friendsResponse =
             await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
@@ -605,10 +614,27 @@ public class PostController(
         if (post is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        
-        // TODO Make payment, add record
 
-        return Ok();
+        var orderRemark = string.IsNullOrWhiteSpace(post.Title) ? "from @" + post.Publisher.Name : post.Title;
+        var order = await payments.CreateOrderAsync(new CreateOrderRequest
+        {
+            ProductIdentifier = "posts.award",
+            Currency = "points", // NSP - Source Points
+            Remarks = $"Award post {orderRemark}",
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object?>()
+            {
+                ["account_id"] = accountId,
+                ["post_id"] = post.Id,
+                ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
+                ["message"] = request.Message,
+                ["attitude"] = request.Attitude,
+            })
+        });
+
+        return Ok(new PostAwardResponse()
+        {
+            OrderId = Guid.Parse(order.Id),
+        });
     }
 
     public class PostPinRequest
