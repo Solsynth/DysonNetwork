@@ -25,7 +25,7 @@ public enum OrderStatus
 public class Order : ModelBase
 {
     public const string InternalAppIdentifier = "internal";
-    
+
     public Guid Id { get; set; } = Guid.NewGuid();
     public OrderStatus Status { get; set; } = OrderStatus.Unpaid;
     [MaxLength(128)] public string Currency { get; set; } = null!;
@@ -72,7 +72,7 @@ public class Order : ModelBase
             : null,
         Amount = decimal.Parse(proto.Amount),
         ExpiredAt = proto.ExpiredAt.ToInstant(),
-        PayeeWalletId = proto.HasPayeeWalletId ? Guid.Parse(proto.PayeeWalletId) : null,
+        PayeeWalletId = proto.PayeeWalletId is not null ? Guid.Parse(proto.PayeeWalletId) : null,
         TransactionId = proto.TransactionId is not null ? Guid.Parse(proto.TransactionId) : null,
         Transaction = proto.Transaction is not null ? Transaction.FromProtoValue(proto.Transaction) : null,
     };
@@ -106,7 +106,7 @@ public class Transaction : ModelBase
     {
         Id = Id.ToString(),
         Currency = Currency,
-        Amount = Amount.ToString(),
+        Amount = Amount.ToString(CultureInfo.InvariantCulture),
         Remarks = Remarks,
         Type = (Shared.Proto.TransactionType)Type,
         PayerWalletId = PayerWalletId?.ToString(),
@@ -120,7 +120,7 @@ public class Transaction : ModelBase
         Amount = decimal.Parse(proto.Amount),
         Remarks = proto.Remarks,
         Type = (TransactionType)proto.Type,
-        PayerWalletId = proto.HasPayerWalletId ? Guid.Parse(proto.PayerWalletId) : null,
-        PayeeWalletId = proto.HasPayeeWalletId ? Guid.Parse(proto.PayeeWalletId) : null,
+        PayerWalletId = proto.PayerWalletId is not null ? Guid.Parse(proto.PayerWalletId) : null,
+        PayeeWalletId = proto.PayeeWalletId is not null ? Guid.Parse(proto.PayeeWalletId) : null,
     };
 }
