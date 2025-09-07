@@ -66,7 +66,6 @@ public class AppDatabase(
             opt => opt
                 .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-                .UseNetTopologySuite()
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 

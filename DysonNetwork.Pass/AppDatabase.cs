@@ -69,7 +69,6 @@ public class AppDatabase(
                     })
                 )
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-                .UseNetTopologySuite()
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
