@@ -157,7 +157,7 @@
 	
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FEmailResource/@EntryIndexedValue">False</s:Boolean>
 	
-	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FNotificationResource/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FNotificationResource/@EntryIndexedValue">False</s:Boolean>
 	
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FSharedResource/@EntryIndexedValue">False</s:Boolean>
 	

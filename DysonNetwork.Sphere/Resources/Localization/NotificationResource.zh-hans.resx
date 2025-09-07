@@ -72,4 +72,13 @@
     <data name="OrderPaidBody" xml:space="preserve">
         <value>{0} {1} 已从你的帐户中扣除来支付 {2}</value>
     </data>
+    <data name="PostAwardedTitle" xml:space="preserve">
+        <value>{0} 赞赏了你的帖子</value>
+    </data>
+    <data name="PostAwardedContentBody" xml:space="preserve">
+        <value>{0} 给你的帖子 {2} 添加了 {1} 分</value>
+    </data>
+    <data name="PostAwardedBody" xml:space="preserve">
+        <value>{0} 给你的帖子添加了 {1} 分</value>
+    </data>
 </root>

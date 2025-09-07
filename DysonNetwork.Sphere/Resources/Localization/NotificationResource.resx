@@ -80,4 +80,13 @@
     <data name="OrderPaidBody" xml:space="preserve">
        <value>{0} {1} was removed from your wallet to pay {2}</value>
     </data>
+    <data name="PostAwardedTitle" xml:space="preserve">
+        <value>{0} awarded your post</value>
+    </data>
+    <data name="PostAwardedBody" xml:space="preserve">
+        <value>{0} added {1} points to your post</value>
+    </data>
+    <data name="PostAwardedContentBody" xml:space="preserve">
+        <value>{0} added {1} points to your post {2}</value>
+    </data>
 </root>

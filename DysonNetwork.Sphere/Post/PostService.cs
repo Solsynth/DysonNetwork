@@ -5,6 +5,7 @@ using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Poll;
@@ -24,6 +25,7 @@ public partial class PostService(
     ILogger<PostService> logger,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
+    PusherService.PusherServiceClient pusher,
     PollService polls,
     Publisher.PublisherService ps,
     WebReaderService reader
@@ -903,6 +905,9 @@ public partial class PostService(
         string? message
     )
     {
+        var post = await db.Posts.Where(p => p.Id == postId).FirstOrDefaultAsync();
+        if (post is null) throw new InvalidOperationException("Post not found");
+
         var award = new PostAward
         {
             Amount = amount,
@@ -919,6 +924,51 @@ public partial class PostService(
 
         await db.Posts.Where(p => p.Id == postId)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.AwardedScore, p => p.AwardedScore + delta));
+
+        _ = Task.Run(async () =>
+        {
+            using var scope = factory.CreateScope();
+            var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
+            var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+            var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+            var accountsHelper = scope.ServiceProvider.GetRequiredService<AccountClientHelper>();
+            try
+            {
+                var sender = await accountsHelper.GetAccount(accountId);
+                
+                var members = await pub.GetPublisherMembers(post.PublisherId);
+                var queryRequest = new GetAccountBatchRequest();
+                queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
+                var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+                foreach (var member in queryResponse.Accounts)
+                {
+                    if (member is null) continue;
+                    CultureService.SetCultureInfo(member);
+
+                    await nty.SendPushNotificationToUserAsync(
+                        new SendPushNotificationToUserRequest
+                        {
+                            UserId = member.Id,
+                            Notification = new PushNotification
+                            {
+                                Topic = "posts.awards.new",
+                                Title = localizer["PostAwardedTitle", sender.Nick],
+                                Body = string.IsNullOrWhiteSpace(post.Title)
+                                    ? localizer["PostAwardedBody", sender.Nick, amount]
+                                    : localizer["PostAwardedContentBody", sender.Nick, amount,
+                                        post.Title],
+                                IsSavable = true,
+                                ActionUri = $"/posts/{post.Id}"
+                            }
+                        }
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Error when sending post awarded notification: {ex.Message} {ex.StackTrace}");
+            }
+        });
 
         return award;
     }

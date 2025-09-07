@@ -158,5 +158,23 @@ namespace DysonNetwork.Sphere.Resources.Localization {
                 return ResourceManager.GetString("OrderPaidBody", resourceCulture);
             }
         }
+        
+        internal static string PostAwardedTitle {
+            get {
+                return ResourceManager.GetString("PostAwardedTitle", resourceCulture);
+            }
+        }
+        
+        internal static string PostAwardedBody {
+            get {
+                return ResourceManager.GetString("PostAwardedBody", resourceCulture);
+            }
+        }
+        
+        internal static string PostAwardedContentBody {
+            get {
+                return ResourceManager.GetString("PostAwardedContentBody", resourceCulture);
+            }
+        }
     }
 }
