@@ -73,7 +73,7 @@ public class Order : ModelBase
         Amount = decimal.Parse(proto.Amount),
         ExpiredAt = proto.ExpiredAt.ToInstant(),
         PayeeWalletId = proto.HasPayeeWalletId ? Guid.Parse(proto.PayeeWalletId) : null,
-        TransactionId = proto.HasTransactionId ? Guid.Parse(proto.TransactionId) : null,
+        TransactionId = proto.TransactionId is not null ? Guid.Parse(proto.TransactionId) : null,
         Transaction = proto.Transaction is not null ? Transaction.FromProtoValue(proto.Transaction) : null,
     };
 }
