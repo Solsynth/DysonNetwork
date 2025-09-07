@@ -25,7 +25,7 @@ public class GeoIpService(IOptions<GeoIpOptions> options)
             using var reader = new DatabaseReader(_databasePath);
             var city = reader.City(ipAddress);
             
-            if (city?.Location == null || !city.Location.HasCoordinates)
+            if (city?.Location is not { HasCoordinates: true })
                 return null;
 
             return _geometryFactory.CreatePoint(new Coordinate(

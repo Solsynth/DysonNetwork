@@ -12,6 +12,7 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
@@ -51,9 +52,9 @@ public static class ServiceCollectionExtensions
             options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
-        
+
         services.AddPusherService();
-        
+
         // Register OIDC services
         services.AddScoped<OidcService, GoogleOidcService>();
         services.AddScoped<OidcService, AppleOidcService>();
@@ -70,6 +71,7 @@ public static class ServiceCollectionExtensions
 
         services.AddControllers().AddJsonOptions(options =>
         {
+            options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
@@ -132,7 +134,8 @@ public static class ServiceCollectionExtensions
             {
                 Version = "v1",
                 Title = "Dyson Pass",
-                Description = "The authentication service of the Dyson Network. Mainly handling authentication and authorization.",
+                Description =
+                    "The authentication service of the Dyson Network. Mainly handling authentication and authorization.",
                 TermsOfService = new Uri("https://solsynth.dev/terms"),
                 License = new OpenApiLicense
                 {
@@ -203,7 +206,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SafetyService>();
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
-        
+
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
 
