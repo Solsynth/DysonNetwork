@@ -46,6 +46,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public PostPinMode? PinMode { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
+    [Column(TypeName = "jsonb")] public PostEmbedView? EmbedView { get; set; }
 
     public int ViewsUnique { get; set; }
     public int ViewsTotal { get; set; }
@@ -181,4 +182,21 @@ public class PostAward : ModelBase
     public Guid PostId { get; set; }
     [JsonIgnore] public Post Post { get; set; } = null!;
     public Guid AccountId { get; set; }
+}
+
+/// <summary>
+/// This model is used to tell the client to render a WebView / iframe
+/// Usually external website and web pages
+/// Used as a JSON column
+/// </summary>
+public class PostEmbedView
+{
+    public string Uri { get; set; } = null!;
+    public double? AspectRatio { get; set; }
+    public PostEmbedViewRenderer Renderer { get; set; } = PostEmbedViewRenderer.WebView;
+}
+
+public enum PostEmbedViewRenderer
+{
+    WebView
 }

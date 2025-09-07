@@ -388,6 +388,7 @@ public class PostController(
         public string? Content { get; set; }
         public PostVisibility? Visibility { get; set; } = PostVisibility.Public;
         public PostType? Type { get; set; }
+        public PostEmbedView? EmbedView { get; set; }
         [MaxLength(16)] public List<string>? Tags { get; set; }
         [MaxLength(8)] public List<string>? Categories { get; set; }
         [MaxLength(32)] public List<string>? Attachments { get; set; }
@@ -441,6 +442,7 @@ public class PostController(
             PublishedAt = request.PublishedAt,
             Type = request.Type ?? PostType.Moment,
             Meta = request.Meta,
+            EmbedView = request.EmbedView,
             Publisher = publisher,
         };
 
@@ -779,6 +781,9 @@ public class PostController(
         if (request.Visibility is not null) post.Visibility = request.Visibility.Value;
         if (request.Type is not null) post.Type = request.Type.Value;
         if (request.Meta is not null) post.Meta = request.Meta;
+        
+        // The same, this field can be null, so update it anyway.
+        post.EmbedView = request.EmbedView;
 
         // All the fields are updated when the request contains the specific fields
         // But the Poll can be null, so it will be updated whatever it included in requests or not
