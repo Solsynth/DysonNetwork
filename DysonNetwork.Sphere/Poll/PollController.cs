@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,12 @@ namespace DysonNetwork.Sphere.Poll;
 
 [ApiController]
 [Route("/api/polls")]
-public class PollController(AppDatabase db, PollService polls, Publisher.PublisherService pub) : ControllerBase
+public class PollController(
+    AppDatabase db,
+    PollService polls,
+    Publisher.PublisherService pub,
+    AccountClientHelper accountsHelper
+) : ControllerBase
 {
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PollWithStats>> GetPoll(Guid id)
@@ -101,6 +107,20 @@ public class PollController(AppDatabase db, PollService polls, Publisher.Publish
             .Take(take)
             .ToListAsync();
 
+        if (!poll.IsAnonymous)
+        {
+            var answeredAccountsId = answers.Select(x => x.AccountId).Distinct().ToList();
+            var answeredAccounts = await accountsHelper.GetAccountBatch(answeredAccountsId);
+
+            // Populate Account field for each answer
+            foreach (var answer in answers)
+            {
+                var protoValue = answeredAccounts.FirstOrDefault(a => a.Id == answer.AccountId.ToString());
+                if (protoValue is not null)
+                    answer.Account = Pass.Account.Account.FromProtoValue(protoValue);
+            }
+        }
+
         return Ok(answers);
     }
 
@@ -148,6 +168,7 @@ public class PollController(AppDatabase db, PollService polls, Publisher.Publish
         public string? Title { get; set; }
         public string? Description { get; set; }
         public Instant? EndedAt { get; set; }
+        public bool? IsAnonymous { get; set; }
         public List<PollRequestQuestion>? Questions { get; set; }
     }
 
@@ -194,6 +215,7 @@ public class PollController(AppDatabase db, PollService polls, Publisher.Publish
             Title = request.Title,
             Description = request.Description,
             EndedAt = request.EndedAt,
+            IsAnonymous = request.IsAnonymous ?? false,
             PublisherId = publisher.Id,
             Questions = request.Questions.Select(q => q.ToQuestion()).ToList()
         };
@@ -238,6 +260,7 @@ public class PollController(AppDatabase db, PollService polls, Publisher.Publish
             if (request.Title != null) poll.Title = request.Title;
             if (request.Description != null) poll.Description = request.Description;
             if (request.EndedAt.HasValue) poll.EndedAt = request.EndedAt;
+            if (request.IsAnonymous.HasValue) poll.IsAnonymous = request.IsAnonymous.Value;
 
             db.Update(poll);
             await db.SaveChangesAsync();

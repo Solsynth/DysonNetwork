@@ -75,7 +75,7 @@ public class PollService(AppDatabase db, ICacheService cache)
             var questionId = question.Id.ToString();
             if (question.IsRequired && !answer.ContainsKey(questionId))
                 throw new Exception($"Missing required field: {question.Title}");
-            else if (!answer.ContainsKey(questionId))
+            if (!answer.ContainsKey(questionId))
                 continue;
             switch (question.Type)
             {
@@ -269,7 +269,7 @@ public class PollService(AppDatabase db, ICacheService cache)
         await cache.SetWithGroupsAsync(
             cacheKey,
             stats,
-            new[] { PollCacheGroupPrefix + question.PollId },
+            [PollCacheGroupPrefix + question.PollId],
             TimeSpan.FromHours(1));
 
         return stats;

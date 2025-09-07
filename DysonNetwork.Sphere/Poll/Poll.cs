@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Data;
 using NodaTime;
 
@@ -16,6 +17,7 @@ public class Poll : ModelBase
     [MaxLength(4096)] public string? Description { get; set; }
 
     public Instant? EndedAt { get; set; }
+    public bool IsAnonymous { get; set; }
 
     public Guid PublisherId { get; set; }
     [JsonIgnore] public Publisher.Publisher? Publisher { get; set; }
@@ -62,4 +64,5 @@ public class PollAnswer : ModelBase
     public Guid AccountId { get; set; }
     public Guid PollId { get; set; }
     [JsonIgnore] public Poll? Poll { get; set; }
+    [NotMapped] public Account? Account { get; set; }
 }
