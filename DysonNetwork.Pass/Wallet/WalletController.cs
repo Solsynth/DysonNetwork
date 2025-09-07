@@ -46,11 +46,14 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
+        var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
+        if (accountWallet is null) return NotFound();
+
         var query = db.PaymentTransactions.AsQueryable()
             .Include(t => t.PayeeWallet)
             .Include(t => t.PayerWallet)
-            .Where(t => (t.PayeeWallet != null && t.PayeeWallet.AccountId == currentUser.Id) ||
-                        (t.PayerWallet != null && t.PayerWallet.AccountId == currentUser.Id));
+            .Where(t => (t.PayeeWallet == null || t.PayeeWalletId == accountWallet.Id) ||
+                        (t.PayerWallet == null || t.PayerWalletId == accountWallet.Id));
 
         var transactionCount = await query.CountAsync();
         var transactions = await query
