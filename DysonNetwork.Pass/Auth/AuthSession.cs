@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.GeoIp;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using Point = NetTopologySuite.Geometries.Point;
@@ -16,11 +17,11 @@ public class AuthSession : ModelBase
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;
-    
+
     // When the challenge is null, indicates the session is for an API Key
     public Guid? ChallengeId { get; set; }
     public AuthChallenge? Challenge { get; set; } = null!;
-    
+
     // Indicates the session is for an OIDC connection
     public Guid? AppId { get; set; }
 
@@ -69,7 +70,7 @@ public class AuthChallenge : ModelBase
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
-    [JsonIgnore] public Point? Location { get; set; }
+    [Column(TypeName = "jsonb")] public GeoPoint? Location { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public Account.Account Account { get; set; } = null!;

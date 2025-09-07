@@ -1,7 +1,6 @@
 using MaxMind.GeoIP2;
 using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
-using Point = NetTopologySuite.Geometries.Point;
 
 namespace DysonNetwork.Shared.GeoIp;
 
@@ -15,7 +14,7 @@ public class GeoIpService(IOptions<GeoIpOptions> options)
     private readonly string _databasePath = options.Value.DatabasePath;
     private readonly GeometryFactory _geometryFactory = new(new PrecisionModel(), 4326); // 4326 is the SRID for WGS84
     
-    public Point? GetPointFromIp(string? ipAddress)
+    public GeoPoint? GetPointFromIp(string? ipAddress)
     {
         if (string.IsNullOrEmpty(ipAddress))
             return null;
@@ -28,9 +27,14 @@ public class GeoIpService(IOptions<GeoIpOptions> options)
             if (city?.Location is not { HasCoordinates: true })
                 return null;
 
-            return _geometryFactory.CreatePoint(new Coordinate(
-                city.Location.Longitude ?? 0,
-                city.Location.Latitude ?? 0));
+            return new GeoPoint()
+            {
+                City = city.City.Name,
+                Country = city.Country.Name,
+                CountryCode = city.Country.IsoCode,
+                Longitude = city.Location.Longitude,
+                Latitude = city.Location.Latitude,
+            };
         }
         catch (Exception)
         {
