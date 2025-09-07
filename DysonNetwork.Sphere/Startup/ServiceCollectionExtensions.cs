@@ -13,6 +13,7 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using StackExchange.Redis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
@@ -43,6 +44,7 @@ public static class ServiceCollectionExtensions
 
         services.AddControllers().AddJsonOptions(options =>
         {
+            options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 

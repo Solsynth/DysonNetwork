@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using CorePush.Apple;
 using CorePush.Firebase;
@@ -48,6 +49,7 @@ public static class ServiceCollectionExtensions
         // Register OIDC services
         services.AddControllers().AddJsonOptions(options =>
         {
+            options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 

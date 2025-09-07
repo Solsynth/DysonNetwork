@@ -84,6 +84,7 @@ public class OidcState
     {
         return JsonSerializer.Serialize(this, new JsonSerializerOptions
         {
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });

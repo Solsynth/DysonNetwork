@@ -16,6 +16,7 @@ public abstract class GrpcTypeHelper
 {
     public static readonly JsonSerializerOptions? SerializerOptionsWithIgnore = new JsonSerializerOptions()
     {
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
         PropertyNameCaseInsensitive = true,
@@ -23,6 +24,7 @@ public abstract class GrpcTypeHelper
     
     public static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
     {
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
         PropertyNameCaseInsensitive = true,

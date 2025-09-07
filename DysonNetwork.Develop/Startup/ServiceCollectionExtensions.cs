@@ -3,6 +3,7 @@ using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Cache;
@@ -30,8 +31,10 @@ public static class ServiceCollectionExtensions
 
         services.AddControllers().AddJsonOptions(options =>
         {
+            options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
+            
             options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
         });
 

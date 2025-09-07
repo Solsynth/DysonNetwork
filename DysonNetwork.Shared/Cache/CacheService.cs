@@ -210,6 +210,7 @@ public class CacheServiceRedis : ICacheService
                 Modifiers = { JsonExtensions.UnignoreAllProperties() },
             },
             ReferenceHandler = ReferenceHandler.Preserve,
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
         };
         _jsonOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
         _jsonOptions.PropertyNameCaseInsensitive = true;

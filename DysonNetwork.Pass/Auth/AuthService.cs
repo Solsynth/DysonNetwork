@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
 using Microsoft.EntityFrameworkCore;
@@ -137,6 +138,7 @@ public class AuthService(
 
         var jsonOpts = new JsonSerializerOptions
         {
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower
         };

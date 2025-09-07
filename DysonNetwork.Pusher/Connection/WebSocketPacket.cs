@@ -29,6 +29,7 @@ public class WebSocketPacket
         var json = System.Text.Encoding.UTF8.GetString(bytes);
         var jsonOpts = new JsonSerializerOptions
         {
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
         };
@@ -48,6 +49,7 @@ public class WebSocketPacket
 
         var jsonOpts = new JsonSerializerOptions
         {
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
         };
@@ -65,6 +67,7 @@ public class WebSocketPacket
     {
         var jsonOpts = new JsonSerializerOptions
         {
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
             DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
