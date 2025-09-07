@@ -193,6 +193,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActionLogService>();
         services.AddScoped<AccountService>();
         services.AddScoped<AccountEventService>();
+        services.AddScoped<NotableDaysService>();
         services.AddScoped<ActionLogService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
