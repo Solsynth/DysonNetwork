@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using NodaTime.Serialization.Protobuf;
@@ -14,7 +15,7 @@ public class ActionLog : ModelBase
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
     [MaxLength(512)] public string? UserAgent { get; set; }
     [MaxLength(128)] public string? IpAddress { get; set; }
-    public Point? Location { get; set; }
+    [JsonIgnore] public Point? Location { get; set; }
 
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
