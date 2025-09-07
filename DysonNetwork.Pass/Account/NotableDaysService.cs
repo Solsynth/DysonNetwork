@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Cache;
 using Nager.Holiday;
+using NodaTime;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -30,5 +31,25 @@ public class NotableDaysService(ICacheService cache)
         await cache.SetAsync(cacheKey, days, TimeSpan.FromDays(1));
 
         return days;
+    }
+
+    public async Task<NotableDay?> GetNextHoliday(string regionCode)
+    {
+        var currentDate = SystemClock.Instance.GetCurrentInstant();
+        var currentYear = currentDate.InUtc().Year;
+
+        // Get holidays for current year and next year to cover all possibilities
+        var currentYearHolidays = await GetNotableDays(currentYear, regionCode);
+        var nextYearHolidays = await GetNotableDays(currentYear + 1, regionCode);
+
+        var allHolidays = currentYearHolidays.Concat(nextYearHolidays);
+
+        // Find the first holiday that is today or in the future
+        var nextHoliday = allHolidays
+            .Where(day => day.Date >= currentDate)
+            .OrderBy(day => day.Date)
+            .FirstOrDefault();
+
+        return nextHoliday;
     }
 }

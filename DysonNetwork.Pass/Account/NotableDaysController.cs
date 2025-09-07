@@ -48,4 +48,32 @@ public class NotableDaysController(NotableDaysService days) : ControllerBase
         var result = await days.GetNotableDays(currentYear, region);
         return Ok(result);
     }
+
+    [HttpGet("{regionCode}/next")]
+    public async Task<ActionResult<NotableDay?>> GetNextHoliday(string regionCode)
+    {
+        var result = await days.GetNextHoliday(regionCode);
+        if (result == null)
+        {
+            return NotFound("No upcoming holidays found");
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("me/next")]
+    [Authorize]
+    public async Task<ActionResult<NotableDay?>> GetAccountNextHoliday()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var region = currentUser.Region;
+        if (string.IsNullOrWhiteSpace(region)) region = "us";
+
+        var result = await days.GetNextHoliday(region);
+        if (result == null)
+        {
+            return NotFound("No upcoming holidays found");
+        }
+        return Ok(result);
+    }
 }
