@@ -425,7 +425,7 @@ public class PostController(
         {
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null) return BadRequest("Publisher was not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
         }
 
@@ -621,7 +621,8 @@ public class PostController(
             ProductIdentifier = "posts.award",
             Currency = "points", // NSP - Source Points
             Remarks = $"Award post {orderRemark}",
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object?>()
+            Amount = request.Amount.ToString(CultureInfo.InvariantCulture),
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object?>
             {
                 ["account_id"] = accountId,
                 ["post_id"] = post.Id,
