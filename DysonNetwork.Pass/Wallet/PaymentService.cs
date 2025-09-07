@@ -130,11 +130,11 @@ public class PaymentService(
         };
 
         Wallet? payerWallet = null, payeeWallet = null;
-        
+
         if (payerWalletId.HasValue)
         {
             payerWallet = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payerWalletId.Value);
-            
+
             var (payerPocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payerWalletId.Value, currency);
 
@@ -150,7 +150,7 @@ public class PaymentService(
         if (payeeWalletId.HasValue)
         {
             payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payeeWalletId.Value);
-            
+
             var (payeePocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payeeWalletId.Value, currency, amount);
 
@@ -166,10 +166,10 @@ public class PaymentService(
 
         if (!silent)
             await NotifyNewTransaction(transaction, payerWallet, payeeWallet);
-        
+
         return transaction;
     }
-    
+
     private async Task NotifyNewTransaction(Transaction transaction, Wallet? payerWallet, Wallet? payeeWallet)
     {
         if (payerWallet is not null)
@@ -192,18 +192,20 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = transaction.Amount > 0
-                            ? localizer["TransactionNewBodyMinus", readableTransactionRemark]
-                            : localizer["TransactionNewBodyPlus", readableTransactionRemark],
-                        Body = localizer["TransactionNewTitle",
-                            transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                            transaction.Currency],
+                        Title = localizer["TransactionNewTitle", readableTransactionRemark],
+                        Body = transaction.Amount > 0
+                            ? localizer["TransactionNewBodyMinus",
+                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                transaction.Currency]
+                            : localizer["TransactionNewBodyPlus",
+                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                transaction.Currency],
                         IsSavable = true
                     }
                 }
             );
         }
-        
+
         if (payeeWallet is not null)
         {
             var account = await db.Accounts
@@ -224,12 +226,14 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = transaction.Amount > 0
-                            ? localizer["TransactionNewBodyPlus", readableTransactionRemark]
-                            : localizer["TransactionNewBodyMinus", readableTransactionRemark],
-                        Body = localizer["TransactionNewTitle",
-                            transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                            transaction.Currency],
+                        Title = localizer["TransactionNewTitle", readableTransactionRemark],
+                        Body = transaction.Amount > 0
+                            ? localizer["TransactionNewBodyPlus",
+                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                transaction.Currency]
+                            : localizer["TransactionNewBodyMinus",
+                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                transaction.Currency],
                         IsSavable = true
                     }
                 }
