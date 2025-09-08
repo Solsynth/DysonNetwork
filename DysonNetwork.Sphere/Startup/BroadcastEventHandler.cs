@@ -16,7 +16,7 @@ public class PaymentOrderAwardMeta
 {
     [JsonPropertyName("account_id")] public Guid AccountId { get; set; }
     [JsonPropertyName("post_id")] public Guid PostId { get; set; }
-    [JsonPropertyName("amount")] public decimal Amount { get; set; }
+    [JsonPropertyName("amount")] public string Amount { get; set; }
     [JsonPropertyName("attitude")] public PostReactionAttitude Attitude { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
 }
@@ -55,7 +55,9 @@ public class BroadcastEventHandler(
                         await using var scope = serviceProvider.CreateAsyncScope();
                         var ps = scope.ServiceProvider.GetRequiredService<PostService>();
 
-                        await ps.AwardPost(meta.PostId, meta.AccountId, meta.Amount, meta.Attitude, meta.Message);
+                        var amountNum = decimal.Parse(meta.Amount);
+
+                        await ps.AwardPost(meta.PostId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
 
                         logger.LogInformation("Post award for order {OrderId} handled successfully.", evt.OrderId);
 
