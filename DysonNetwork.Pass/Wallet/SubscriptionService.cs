@@ -259,7 +259,8 @@ public class SubscriptionService(
             null,
             subscriptionInfo.Currency,
             subscription.FinalPrice,
-            appIdentifier: SubscriptionOrderIdentifier,
+            appIdentifier: "internal",
+            productIdentifier: identifier,
             meta: new Dictionary<string, object>()
             {
                 ["subscription_id"] = subscription.Id.ToString(),
@@ -270,8 +271,7 @@ public class SubscriptionService(
 
     public async Task<Subscription> HandleSubscriptionOrder(Order order)
     {
-        if (order.AppIdentifier != SubscriptionOrderIdentifier || order.Status != OrderStatus.Paid ||
-            order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
+        if (order.Status != OrderStatus.Paid || order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
             throw new InvalidOperationException("Invalid order.");
 
         var subscriptionId = Guid.TryParse(subscriptionIdJson.ToString(), out var parsedSubscriptionId)

@@ -13,7 +13,7 @@ public class BroadcastEventHandler(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEvent.Type, cancellationToken: stoppingToken))
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEventBase.Type, cancellationToken: stoppingToken))
         {
             PaymentOrderEvent? evt = null;
             try
