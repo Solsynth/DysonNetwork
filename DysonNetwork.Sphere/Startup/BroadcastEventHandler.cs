@@ -1,10 +1,25 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Stream;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
 
 namespace DysonNetwork.Sphere.Startup;
+
+public class PaymentOrderAwardEvent : PaymentOrderEventBase
+{
+    public PaymentOrderAwardMeta Meta { get; set; } = null!;
+}
+
+public class PaymentOrderAwardMeta
+{
+    [JsonPropertyName("account_id")] public Guid AccountId { get; set; }
+    [JsonPropertyName("post_id")] public Guid PostId { get; set; }
+    [JsonPropertyName("amount")] public decimal Amount { get; set; }
+    [JsonPropertyName("attitude")] public PostReactionAttitude Attitude { get; set; }
+    [JsonPropertyName("message")] public string? Message { get; set; }
+}
 
 public class BroadcastEventHandler(
     INatsConnection nats,
@@ -14,7 +29,7 @@ public class BroadcastEventHandler(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEvent.Type, cancellationToken: stoppingToken))
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEventBase.Type, cancellationToken: stoppingToken))
         {
             PaymentOrderEvent? evt = null;
             try
@@ -30,53 +45,17 @@ public class BroadcastEventHandler(
                 {
                     case "posts.award":
                     {
+                        var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(msg.Data);
+                        if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
+                        
+                        var meta = awardEvt.Meta;
+                        
                         logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
-
-                        if (!evt.Meta.TryGetValue("account_id", out var accountIdObj) ||
-                            accountIdObj is not string accountIdStr ||
-                            !Guid.TryParse(accountIdStr, out var accountId))
-                        {
-                            logger.LogWarning("Post award order {OrderId} missing or invalid account_id", evt.OrderId);
-                            break;
-                        }
-
-                        if (!evt.Meta.TryGetValue("post_id", out var postIdObj) ||
-                            postIdObj is not string postIdStr ||
-                            !Guid.TryParse(postIdStr, out var postId))
-                        {
-                            logger.LogWarning("Post award order {OrderId} missing or invalid post_id", evt.OrderId);
-                            break;
-                        }
-
-                        if (!evt.Meta.TryGetValue("amount", out var amountObj) ||
-                            amountObj is not string amountStr ||
-                            !decimal.TryParse(amountStr, out var amount))
-                        {
-                            logger.LogWarning("Post award order {OrderId} missing or invalid amount", evt.OrderId);
-                            break;
-                        }
-
-                        if (!evt.Meta.TryGetValue("attitude", out var attitudeObj) ||
-                            attitudeObj is not string attitudeStr ||
-                            !int.TryParse(attitudeStr, out var attitudeInt) ||
-                            !Enum.IsDefined(typeof(PostReactionAttitude), attitudeInt))
-                        {
-                            logger.LogWarning("Post award order {OrderId} missing or invalid attitude", evt.OrderId);
-                            break;
-                        }
-                        var attitude = (PostReactionAttitude)attitudeInt;
-
-                        string? message = null;
-                        if (evt.Meta.TryGetValue("message", out var messageObj) &&
-                            messageObj is string messageStr)
-                        {
-                            message = messageStr;
-                        }
 
                         await using var scope = serviceProvider.CreateAsyncScope();
                         var ps = scope.ServiceProvider.GetRequiredService<PostService>();
 
-                        await ps.AwardPost(postId, accountId, amount, attitude, message);
+                        await ps.AwardPost(meta.PostId, meta.AccountId, meta.Amount, meta.Attitude, meta.Message);
 
                         logger.LogInformation("Post award for order {OrderId} handled successfully.", evt.OrderId);
 

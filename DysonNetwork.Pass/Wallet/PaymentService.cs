@@ -271,7 +271,8 @@ public class PaymentService(
             order.Currency,
             order.Amount,
             order.Remarks ?? $"Payment for Order #{order.Id}",
-            type: TransactionType.Order);
+            type: TransactionType.Order,
+            silent: true);
 
         order.TransactionId = transaction.Id;
         order.Transaction = transaction;
