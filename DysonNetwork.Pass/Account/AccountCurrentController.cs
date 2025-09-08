@@ -276,15 +276,21 @@ public class AccountCurrentController(
     }
 
     [HttpDelete("statuses")]
-    public async Task<ActionResult> DeleteStatus()
+    public async Task<ActionResult> DeleteStatus([FromQuery] string? app)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var status = await db.AccountStatuses
+        var queryable = db.AccountStatuses
             .Where(s => s.AccountId == currentUser.Id)
             .Where(s => s.ClearedAt == null || s.ClearedAt > now)
             .OrderByDescending(s => s.CreatedAt)
+            .AsQueryable();
+
+        if (string.IsNullOrWhiteSpace(app))
+            queryable = queryable.Where(s => s.IsAutomated && s.AppIdentifier == app);
+
+        var status = await queryable
             .FirstOrDefaultAsync();
         if (status is null) return NotFound();
 
