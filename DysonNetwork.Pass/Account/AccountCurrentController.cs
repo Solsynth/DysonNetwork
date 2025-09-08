@@ -197,6 +197,8 @@ public class AccountCurrentController(
     public async Task<ActionResult<Status>> UpdateStatus([FromBody] AccountController.StatusRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (request is { IsAutomated: true, AppIdentifier: not null })
+            return BadRequest("Automated status cannot be updated.");
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var status = await db.AccountStatuses
@@ -205,11 +207,15 @@ public class AccountCurrentController(
             .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
         if (status is null) return NotFound(ApiError.NotFound("status", traceId: HttpContext.TraceIdentifier));
+        if (status.IsAutomated && request.AppIdentifier is null)
+            return BadRequest("Automated status cannot be updated.");
 
         status.Attitude = request.Attitude;
         status.IsInvisible = request.IsInvisible;
         status.IsNotDisturb = request.IsNotDisturb;
+        status.IsAutomated = request.IsAutomated;
         status.Label = request.Label;
+        status.AppIdentifier = request.AppIdentifier;
         status.ClearedAt = request.ClearedAt;
 
         db.Update(status);
@@ -225,13 +231,42 @@ public class AccountCurrentController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        if (request is { IsAutomated: true, AppIdentifier: not null })
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var existingStatus = await db.AccountStatuses
+                .Where(s => s.AccountId == currentUser.Id)
+                .Where(s => s.ClearedAt == null || s.ClearedAt > now)
+                .OrderByDescending(s => s.CreatedAt)
+                .FirstOrDefaultAsync();
+            if (existingStatus is not null)
+                if (existingStatus.IsAutomated && request.AppIdentifier == existingStatus.AppIdentifier)
+                {
+                    existingStatus.Attitude = request.Attitude;
+                    existingStatus.IsInvisible = request.IsInvisible;
+                    existingStatus.IsNotDisturb = request.IsNotDisturb;
+                    existingStatus.Label = request.Label;
+                    db.Update(existingStatus);
+                    await db.SaveChangesAsync();
+                    return Ok(existingStatus);
+                }
+                else
+                {
+                    existingStatus.ClearedAt = now;
+                    db.Update(existingStatus);
+                    await db.SaveChangesAsync();
+                }
+        }
+
         var status = new Status
         {
             AccountId = currentUser.Id,
             Attitude = request.Attitude,
             IsInvisible = request.IsInvisible,
             IsNotDisturb = request.IsNotDisturb,
+            IsAutomated = request.IsAutomated,
             Label = request.Label,
+            AppIdentifier = request.AppIdentifier,
             ClearedAt = request.ClearedAt
         };
 

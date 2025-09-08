@@ -23,6 +23,12 @@ public class Status : ModelBase
     public bool IsNotDisturb { get; set; }
     [MaxLength(1024)] public string? Label { get; set; }
     public Instant? ClearedAt { get; set; }
+    [MaxLength(4096)] public string? AppIdentifier { get; set; }
+    
+    /// <summary>
+    /// Indicates this status is created based on running process or rich presence
+    /// </summary>
+    public bool IsAutomated { get; set; }
 
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;

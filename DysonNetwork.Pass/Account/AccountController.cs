@@ -191,7 +191,9 @@ public class AccountController(
         public StatusAttitude Attitude { get; set; }
         public bool IsInvisible { get; set; }
         public bool IsNotDisturb { get; set; }
+        public bool IsAutomated { get; set; } = false;
         [MaxLength(1024)] public string? Label { get; set; }
+        [MaxLength(4096)] public string? AppIdentifier { get; set; }
         public Instant? ClearedAt { get; set; }
     }
 
