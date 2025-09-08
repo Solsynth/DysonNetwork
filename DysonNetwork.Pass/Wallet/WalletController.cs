@@ -50,10 +50,11 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         if (accountWallet is null) return NotFound();
 
         var query = db.PaymentTransactions.AsQueryable()
-            .Include(t => t.PayeeWallet)
-            .Include(t => t.PayerWallet)
-            .Where(t => (t.PayeeWallet == null || t.PayeeWalletId == accountWallet.Id) ||
-                        (t.PayerWallet == null || t.PayerWalletId == accountWallet.Id));
+            .Where(t =>
+                (t.PayeeWalletId == null || t.PayeeWalletId == accountWallet.Id) &&
+                (t.PayerWalletId == null || t.PayerWalletId == accountWallet.Id) &&
+                !(t.PayerWalletId == null && t.PayeeWalletId == null)
+            );
 
         var transactionCount = await query.CountAsync();
         var transactions = await query
