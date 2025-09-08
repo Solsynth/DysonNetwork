@@ -239,7 +239,7 @@ public class AccountCurrentController(
                 .Where(s => s.ClearedAt == null || s.ClearedAt > now)
                 .OrderByDescending(s => s.CreatedAt)
                 .FirstOrDefaultAsync();
-            if (existingStatus is not null)
+            if (existingStatus is not null && existingStatus.IsAutomated)
                 if (existingStatus.IsAutomated && request.AppIdentifier == existingStatus.AppIdentifier)
                 {
                     existingStatus.Attitude = request.Attitude;
@@ -256,6 +256,8 @@ public class AccountCurrentController(
                     db.Update(existingStatus);
                     await db.SaveChangesAsync();
                 }
+            else if (existingStatus is not null)
+                return Ok(existingStatus); // Do not override manually set status with automated ones
         }
 
         var status = new Status
