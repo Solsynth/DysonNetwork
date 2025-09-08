@@ -848,12 +848,19 @@ public partial class PostService(
                     g => g.Count()
                 );
 
+            // Load awardsScores for postsInPeriod
+            var awardsScores = await db.Posts
+                .Where(p => postsInPeriod.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.AwardedScore);
+
             var reactSocialPoints = postsInPeriod
                 .Select(postId => new
                 {
                     PostId = postId,
-                    Count = (reactionScores.TryGetValue(postId, out var rScore) ? rScore : 0) +
-                            (repliesCounts.TryGetValue(postId, out var repCount) ? repCount : 0)
+                    Count =
+                        (reactionScores.TryGetValue(postId, out var rScore) ? rScore : 0)
+                        + (repliesCounts.TryGetValue(postId, out var repCount) ? repCount : 0)
+                        + (awardsScores.TryGetValue(postId, out var awardScore) ? (int)(awardScore / 10) : 0)
                 })
                 .OrderByDescending(e => e.Count)
                 .Take(5)
@@ -877,7 +884,7 @@ public partial class PostService(
                     SocialCredits = e.Value
                 }).ToList();
 
-            if (records.Any())
+            if (records.Count != 0)
             {
                 db.PostFeaturedRecords.AddRange(records);
                 await db.SaveChangesAsync();

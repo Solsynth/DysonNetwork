@@ -19,12 +19,12 @@ public class ActivityService(
 {
     private static double CalculateHotRank(Post.Post post, Instant now)
     {
-        var performanceScore = post.Upvotes - post.Downvotes + post.RepliesCount;
+        var performanceScore = post.Upvotes - post.Downvotes + post.RepliesCount + (int)post.AwardedScore / 10;
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var timeScore = (now - postTime).TotalMinutes;
         // Add 1 to score to prevent negative results for posts with more downvotes than upvotes
         // Time dominates ranking, performance adjusts within similar timeframes.
-        var performanceWeight = Math.Log(performanceScore + 5); // smooth adjustment, median ~4-5
+        var performanceWeight = performanceScore + 5;
         // Normalize time influence since average post interval ~60 minutes
         var normalizedTime = timeScore / 60.0; 
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
