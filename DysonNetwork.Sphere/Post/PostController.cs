@@ -589,6 +589,25 @@ public class PostController(
         [MaxLength(4096)] public string? Message { get; set; }
     }
 
+    [HttpGet("{id:guid}/awards")]
+    public async Task<ActionResult<PostAward>> GetPostAwards(Guid id, [FromQuery] int offset = 0,
+        [FromQuery] int take = 20)
+    {
+        var queryable = db.PostAwards
+            .Where(a => a.PostId == id)
+            .AsQueryable();
+
+        var totalCount = await queryable.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        var awards = await queryable
+            .Take(take)
+            .Skip(offset)
+            .ToListAsync();
+
+        return Ok(awards);
+    }
+
     public class PostAwardResponse
     {
         public Guid OrderId { get; set; }
@@ -781,7 +800,7 @@ public class PostController(
         if (request.Visibility is not null) post.Visibility = request.Visibility.Value;
         if (request.Type is not null) post.Type = request.Type.Value;
         if (request.Meta is not null) post.Meta = request.Meta;
-        
+
         // The same, this field can be null, so update it anyway.
         post.EmbedView = request.EmbedView;
 
