@@ -49,23 +49,48 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
 
-        var query = db.PaymentTransactions.AsQueryable()
-            .Where(t =>
-                (t.PayeeWalletId == null || t.PayeeWalletId == accountWallet.Id) &&
-                (t.PayerWalletId == null || t.PayerWalletId == accountWallet.Id) &&
-                !(t.PayerWalletId == null && t.PayeeWalletId == null)
-            );
+        var query = db.PaymentTransactions
+            .Where(t => t.PayeeWalletId == accountWallet.Id || t.PayerWalletId == accountWallet.Id)
+            .AsQueryable();
 
         var transactionCount = await query.CountAsync();
+        Response.Headers["X-Total"] = transactionCount.ToString();
+        
         var transactions = await query
             .Skip(offset)
             .Take(take)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
-        Response.Headers["X-Total"] = transactionCount.ToString();
-
         return Ok(transactions);
+    }
+
+    [HttpGet("orders")]
+    [Authorize]
+    public async Task<ActionResult<List<Order>>> GetOrders(
+        [FromQuery] int offset = 0, [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        
+        var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
+        if (accountWallet is null) return NotFound();
+        
+        var query = db.PaymentOrders.AsQueryable()
+            .Include(o => o.Transaction)
+            .Where(o => o.Transaction != null && (o.Transaction.PayeeWalletId == accountWallet.Id || o.Transaction.PayerWalletId == accountWallet.Id))
+            .AsQueryable();
+        
+        var orderCount = await query.CountAsync();
+        Response.Headers["X-Total"] = orderCount.ToString();
+        
+        var orders = await query
+            .Skip(offset)
+            .Take(take)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+
+        return Ok(orders);
     }
 
     public class WalletBalanceRequest
