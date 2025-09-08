@@ -63,11 +63,15 @@ public class BroadcastEventHandler(
 
                         break;
                     }
+                    default:
+                        await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
+                        break;
                 }
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing payment order event for order {OrderId}", evt?.OrderId);
+                await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
             }
         }
 

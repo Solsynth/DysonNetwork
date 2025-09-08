@@ -229,8 +229,6 @@ public class SubscriptionService(
         return subscription;
     }
 
-    public const string SubscriptionOrderIdentifier = "solian.subscription.order";
-
     /// <summary>
     /// Creates a subscription order for an unpaid or expired subscription.
     /// If the subscription is active, it will extend its expiration date.

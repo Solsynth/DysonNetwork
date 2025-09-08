@@ -282,7 +282,7 @@ public class PaymentService(
 
         await NotifyOrderPaid(order, payerWallet, order.PayeeWallet);
 
-        await nats.PublishAsync(PaymentOrderEvent.Type, JsonSerializer.SerializeToUtf8Bytes(new PaymentOrderEvent
+        await nats.PublishAsync(PaymentOrderEventBase.Type, JsonSerializer.SerializeToUtf8Bytes(new PaymentOrderEvent
         {
             OrderId = order.Id,
             WalletId = payerWallet.Id,

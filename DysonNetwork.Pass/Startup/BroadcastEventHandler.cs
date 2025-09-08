@@ -39,6 +39,7 @@ public class BroadcastEventHandler(
                 if (order is null)
                 {
                     logger.LogWarning("Order with ID {OrderId} not found.", evt.OrderId);
+                    await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
                     continue;
                 }
 
@@ -49,6 +50,7 @@ public class BroadcastEventHandler(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing payment order event for order {OrderId}", evt?.OrderId);
+                await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
             }
         }
     }

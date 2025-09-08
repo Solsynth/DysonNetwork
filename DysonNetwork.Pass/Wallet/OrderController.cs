@@ -24,8 +24,7 @@ public class OrderController(PaymentService payment, AuthService auth, AppDataba
     [Authorize]
     public async Task<ActionResult<Order>> PayOrder(Guid id, [FromBody] PayOrderRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
     
         // Validate PIN code
         if (!await auth.ValidatePinCode(currentUser.Id, request.PinCode))
