@@ -68,7 +68,8 @@ public class SubscriptionRenewalJob(
                     null,
                     WalletCurrency.GoldenPoint,
                     subscription.FinalPrice,
-                    appIdentifier: SubscriptionService.SubscriptionOrderIdentifier,
+                    appIdentifier: "internal",
+                    productIdentifier: subscription.Identifier,
                     meta: new Dictionary<string, object>()
                     {
                         ["subscription_id"] = subscription.Id.ToString(),
