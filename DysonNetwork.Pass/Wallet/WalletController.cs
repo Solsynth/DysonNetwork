@@ -51,6 +51,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
         var query = db.PaymentTransactions
             .Where(t => t.PayeeWalletId == accountWallet.Id || t.PayerWalletId == accountWallet.Id)
+            .OrderByDescending(t => t.CreatedAt)
             .AsQueryable();
 
         var transactionCount = await query.CountAsync();
@@ -59,7 +60,6 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         var transactions = await query
             .Skip(offset)
             .Take(take)
-            .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         return Ok(transactions);
