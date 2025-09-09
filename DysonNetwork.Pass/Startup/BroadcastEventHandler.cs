@@ -2,6 +2,8 @@ using System.Text.Json;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Stream;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
 
 namespace DysonNetwork.Pass.Startup;
 
@@ -13,7 +15,11 @@ public class BroadcastEventHandler(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEventBase.Type, cancellationToken: stoppingToken))
+        var js = new NatsJSContext(nats);
+        var stream = await js.GetStreamAsync(PaymentOrderEventBase.Type, cancellationToken: stoppingToken);
+        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("DysonNetwork_Pass_Stellar"), cancellationToken: stoppingToken);
+
+        await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {
             PaymentOrderEvent? evt = null;
             try
@@ -23,6 +29,7 @@ public class BroadcastEventHandler(
                 if (evt?.ProductIdentifier is null ||
                     !evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
                 {
+                    await msg.AckAsync(cancellationToken: stoppingToken);
                     continue;
                 }
 
@@ -39,18 +46,19 @@ public class BroadcastEventHandler(
                 if (order is null)
                 {
                     logger.LogWarning("Order with ID {OrderId} not found.", evt.OrderId);
-                    await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
+                    await msg.NakAsync(delay: TimeSpan.FromSeconds(30), cancellationToken: stoppingToken);
                     continue;
                 }
 
                 await subscriptions.HandleSubscriptionOrder(order);
 
                 logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
+                await msg.AckAsync(cancellationToken: stoppingToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing payment order event for order {OrderId}", evt?.OrderId);
-                await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
+                await msg.NakAsync(delay: TimeSpan.FromSeconds(30), cancellationToken: stoppingToken);
             }
         }
     }

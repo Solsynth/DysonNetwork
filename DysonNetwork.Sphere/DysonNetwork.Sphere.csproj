@@ -30,7 +30,8 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="NATS.Client.Core" Version="2.6.6" />
+        <PackageReference Include="NATS.Client.Core" Version="2.6.8" />
+        <PackageReference Include="NATS.Client.JetStream" Version="2.6.8" />
         <PackageReference Include="Nerdbank.GitVersioning" Version="3.7.115">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
