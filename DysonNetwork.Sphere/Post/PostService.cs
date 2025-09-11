@@ -894,6 +894,7 @@ public partial class PostService(
         var posts = await db.Posts
             .Where(e => featuredIds.Contains(e.Id))
             .Include(e => e.ForwardedPost)
+            .Include(e => e.RepliedPost)
             .Include(e => e.Categories)
             .Include(e => e.Publisher)
             .Take(featuredIds.Count)

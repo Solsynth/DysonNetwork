@@ -76,7 +76,7 @@ public class Post : ModelBase, IIdentifiedResource, IActivity
     public Publisher.Publisher Publisher { get; set; } = null!;
 
     public ICollection<PostAward> Awards { get; set; } = null!;
-    public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
+    [JsonIgnore] public ICollection<PostReaction> Reactions { get; set; } = new List<PostReaction>();
     public ICollection<PostTag> Tags { get; set; } = new List<PostTag>();
     public ICollection<PostCategory> Categories { get; set; } = new List<PostCategory>();
     [JsonIgnore] public ICollection<PostCollection> Collections { get; set; } = new List<PostCollection>();
