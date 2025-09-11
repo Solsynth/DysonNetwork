@@ -17,7 +17,7 @@ public class BroadcastEventHandler(
     {
         var js = new NatsJSContext(nats);
         var stream = await js.GetStreamAsync(PaymentOrderEventBase.Type, cancellationToken: stoppingToken);
-        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("DysonNetwork_Pass_Stellar"), cancellationToken: stoppingToken);
+        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("Dy_Pass_Stellar"), cancellationToken: stoppingToken);
 
         await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {

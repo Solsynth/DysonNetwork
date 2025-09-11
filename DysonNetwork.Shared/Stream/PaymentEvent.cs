@@ -7,7 +7,7 @@ public class PaymentOrderEvent : PaymentOrderEventBase
 
 public class PaymentOrderEventBase
 {
-    public static string Type => "payments.orders";
+    public static string Type => "payment_orders";
     
     public Guid OrderId { get; set; }
     public Guid WalletId { get; set; }

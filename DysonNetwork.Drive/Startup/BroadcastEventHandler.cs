@@ -18,7 +18,7 @@ public class BroadcastEventHandler(
     {
         var js = new NatsJSContext(nats);
         var stream = await js.GetStreamAsync(AccountDeletedEvent.Type, cancellationToken: stoppingToken);
-        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("DysonNetwork_Drive_AccountDeleted"), cancellationToken: stoppingToken);
+        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("Dy_Drive_AccountDeleted"), cancellationToken: stoppingToken);
 
         await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {

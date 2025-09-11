@@ -48,7 +48,7 @@ public class BroadcastEventHandler(
     {
         var js = new NatsJSContext(nats);
         var stream = await js.GetStreamAsync(PaymentOrderEventBase.Type, cancellationToken: stoppingToken);
-        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("DysonNetwork_Sphere_PaymentOrder"),
+        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("Dy_Sphere_PaymentOrder"),
             cancellationToken: stoppingToken);
 
         await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
@@ -107,7 +107,7 @@ public class BroadcastEventHandler(
         var js = new NatsJSContext(nats);
         var stream = await js.GetStreamAsync(AccountDeletedEvent.Type, cancellationToken: stoppingToken);
         var consumer =
-            await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("DysonNetwork_Sphere_AccountDeleted"),
+            await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("Dy_Sphere_AccountDeleted"),
                 cancellationToken: stoppingToken);
 
         await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
