@@ -3,8 +3,6 @@ using DysonNetwork.Drive.Storage;
 using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
-using NATS.Client.JetStream;
-using NATS.Client.JetStream.Models;
 
 namespace DysonNetwork.Drive.Startup;
 
@@ -16,23 +14,14 @@ public class BroadcastEventHandler(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var js = new NatsJSContext(nats);
-        var stream = await js.GetStreamAsync(AccountDeletedEvent.Type, cancellationToken: stoppingToken);
-        var consumer = await stream.CreateOrUpdateConsumerAsync(new ConsumerConfig("Dy_Drive_AccountDeleted"), cancellationToken: stoppingToken);
-
-        await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(AccountDeletedEvent.Type, cancellationToken: stoppingToken))
         {
-            AccountDeletedEvent? evt = null;
             try
             {
-                evt = JsonSerializer.Deserialize<AccountDeletedEvent>(msg.Data);
-                if (evt == null)
-                {
-                    await msg.AckAsync(cancellationToken: stoppingToken);
-                    continue;
-                }
+                var evt = JsonSerializer.Deserialize<AccountDeletedEvent>(msg.Data);
+                if (evt == null) continue;
 
-                logger.LogInformation("Processing account deletion for: {AccountId}", evt.AccountId);
+                logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
 
                 using var scope = serviceProvider.CreateScope();
                 var fs = scope.ServiceProvider.GetRequiredService<FileService>();
@@ -45,30 +34,22 @@ public class BroadcastEventHandler(
                         .Where(p => p.AccountId == evt.AccountId)
                         .ToListAsync(cancellationToken: stoppingToken);
 
-                    if (files.Any())
-                    {
-                        await fs.DeleteFileDataBatchAsync(files);
-                        await db.Files
-                            .Where(p => p.AccountId == evt.AccountId)
-                            .ExecuteDeleteAsync(cancellationToken: stoppingToken);
-                    }
+                    await fs.DeleteFileDataBatchAsync(files);
+                    await db.Files
+                        .Where(p => p.AccountId == evt.AccountId)
+                        .ExecuteDeleteAsync(cancellationToken: stoppingToken);
 
                     await transaction.CommitAsync(cancellationToken: stoppingToken);
-
-                    await msg.AckAsync(cancellationToken: stoppingToken);
-                    logger.LogInformation("Account deletion for {AccountId} processed successfully.", evt.AccountId);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    logger.LogError(ex, "Error during transaction for account deletion {AccountId}, rolling back.", evt.AccountId);
-                    await transaction.RollbackAsync(CancellationToken.None);
-                    throw; // Let outer catch handle Nak
+                    await transaction.RollbackAsync(cancellationToken: stoppingToken);
+                    throw;
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to process account deletion for {AccountId}, will retry.", evt?.AccountId);
-                await msg.NakAsync(delay: TimeSpan.FromSeconds(30), cancellationToken: stoppingToken);
+                logger.LogError(ex, "Error processing AccountDeleted");
             }
         }
     }
