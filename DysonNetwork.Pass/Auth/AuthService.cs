@@ -213,8 +213,7 @@ public class AuthService(
         var session = new AuthSession
         {
             LastGrantedAt = now,
-            // Never expire server-side
-            ExpiredAt = null,
+            ExpiredAt = now.Plus(Duration.FromDays(7)),
             AccountId = challenge.AccountId,
             ChallengeId = challenge.Id
         };
