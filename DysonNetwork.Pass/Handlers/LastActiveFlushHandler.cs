@@ -18,7 +18,7 @@ public class LastActiveFlushHandler(IServiceProvider srp, ILogger<LastActiveFlus
     public async Task FlushAsync(IReadOnlyList<LastActiveInfo> items)
     {
         logger.LogInformation("Flushing {Count} LastActiveInfo items...", items.Count);
-        
+
         using var scope = srp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
@@ -38,13 +38,22 @@ public class LastActiveFlushHandler(IServiceProvider srp, ILogger<LastActiveFlus
             .ToDictionary(g => g.Key, g => g.Last().SeenAt);
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        
+
         var updatingSessions = sessionMap.Select(x => x.Key).ToList();
         var sessionUpdates = await db.AuthSessions
             .Where(s => updatingSessions.Contains(s.Id))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastGrantedAt, now));
+            .ExecuteUpdateAsync(s =>
+                s.SetProperty(x => x.LastGrantedAt, now)
+            );
         logger.LogInformation("Updated {Count} auth sessions according to LastActiveInfo", sessionUpdates);
-        
+        var newExpiration = now.Plus(Duration.FromDays(7));
+        var keepAliveSessionUpdates = await db.AuthSessions
+            .Where(s => updatingSessions.Contains(s.Id) && s.ExpiredAt != null)
+            .ExecuteUpdateAsync(s =>
+                s.SetProperty(x => x.ExpiredAt, newExpiration)
+            );
+        logger.LogInformation("Updated {Count} auth sessions' duration according to LastActiveInfo", sessionUpdates);
+
         var updatingAccounts = accountMap.Select(x => x.Key).ToList();
         var profileUpdates = await db.AccountProfiles
             .Where(a => updatingAccounts.Contains(a.AccountId))
@@ -53,7 +62,8 @@ public class LastActiveFlushHandler(IServiceProvider srp, ILogger<LastActiveFlus
     }
 }
 
-public class LastActiveFlushJob(FlushBufferService fbs, LastActiveFlushHandler hdl, ILogger<LastActiveFlushJob> logger) : IJob
+public class LastActiveFlushJob(FlushBufferService fbs, LastActiveFlushHandler hdl, ILogger<LastActiveFlushJob> logger)
+    : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
@@ -62,7 +72,8 @@ public class LastActiveFlushJob(FlushBufferService fbs, LastActiveFlushHandler h
             logger.LogInformation("Running LastActiveInfo flush job...");
             await fbs.FlushAsync(hdl);
             logger.LogInformation("Completed LastActiveInfo flush job...");
-        } catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             logger.LogError(ex, "Error running LastActiveInfo job...");
         }
