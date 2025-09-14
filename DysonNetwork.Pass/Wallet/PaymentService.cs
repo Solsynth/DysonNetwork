@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Net;
 using NodaTime;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
 
@@ -253,6 +255,27 @@ public class PaymentService(
             throw new InvalidOperationException("Order not found");
         }
 
+        var js = nats.CreateJetStreamContext();
+
+        if (order.Status == OrderStatus.Paid)
+        {
+            await js.PublishAsync(
+                PaymentOrderEventBase.Type,
+                GrpcTypeHelper.ConvertObjectToByteString(new PaymentOrderEvent
+                {
+                    OrderId = order.Id,
+                    WalletId = payerWallet.Id,
+                    AccountId = payerWallet.AccountId,
+                    AppIdentifier = order.AppIdentifier,
+                    ProductIdentifier = order.ProductIdentifier,
+                    Meta = order.Meta ?? [],
+                    Status = (int)order.Status,
+                }).ToByteArray()
+            );
+
+            return order;
+        }
+
         if (order.Status != OrderStatus.Unpaid)
         {
             throw new InvalidOperationException($"Order is in invalid status: {order.Status}");
@@ -282,16 +305,19 @@ public class PaymentService(
 
         await NotifyOrderPaid(order, payerWallet, order.PayeeWallet);
 
-        await nats.PublishAsync(PaymentOrderEventBase.Type, JsonSerializer.SerializeToUtf8Bytes(new PaymentOrderEvent
-        {
-            OrderId = order.Id,
-            WalletId = payerWallet.Id,
-            AccountId = payerWallet.AccountId,
-            AppIdentifier = order.AppIdentifier,
-            ProductIdentifier = order.ProductIdentifier,
-            Meta = order.Meta ?? [],
-            Status = (int)order.Status,
-        }));
+        await js.PublishAsync(
+            PaymentOrderEventBase.Type,
+            GrpcTypeHelper.ConvertObjectToByteString(new PaymentOrderEvent
+            {
+                OrderId = order.Id,
+                WalletId = payerWallet.Id,
+                AccountId = payerWallet.AccountId,
+                AppIdentifier = order.AppIdentifier,
+                ProductIdentifier = order.ProductIdentifier,
+                Meta = order.Meta ?? [],
+                Status = (int)order.Status,
+            }).ToByteArray()
+        );
 
         return order;
     }

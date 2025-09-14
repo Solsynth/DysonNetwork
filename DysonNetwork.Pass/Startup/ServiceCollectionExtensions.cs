@@ -207,9 +207,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SafetyService>();
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
-
+        
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
+        
+        services.AddHostedService<BroadcastEventHandler>();
 
         return services;
     }

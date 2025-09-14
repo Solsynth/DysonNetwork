@@ -1,9 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 
 namespace DysonNetwork.Sphere.Startup;
 
@@ -16,7 +19,7 @@ public class PaymentOrderAwardMeta
 {
     [JsonPropertyName("account_id")] public Guid AccountId { get; set; }
     [JsonPropertyName("post_id")] public Guid PostId { get; set; }
-    [JsonPropertyName("amount")] public string Amount { get; set; }
+    [JsonPropertyName("amount")] public string Amount { get; set; } = null!;
     [JsonPropertyName("attitude")] public PostReactionAttitude Attitude { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
 }
@@ -29,14 +32,33 @@ public class BroadcastEventHandler(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var msg in nats.SubscribeAsync<byte[]>(PaymentOrderEventBase.Type, cancellationToken: stoppingToken))
+        var paymentTask = HandlePaymentOrders(stoppingToken);
+        var accountTask = HandleAccountDeletions(stoppingToken);
+
+        await Task.WhenAll(paymentTask, accountTask);
+    }
+
+    private async Task HandlePaymentOrders(CancellationToken stoppingToken)
+    {
+        var js = nats.CreateJetStreamContext();
+
+        await js.EnsureStreamCreated("payment_events", [PaymentOrderEventBase.Type]);
+
+        var consumer = await js.CreateOrUpdateConsumerAsync("payment_events",
+            new ConsumerConfig("sphere_payment_handler"), cancellationToken: stoppingToken);
+
+        await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {
             PaymentOrderEvent? evt = null;
             try
             {
-                evt = JsonSerializer.Deserialize<PaymentOrderEvent>(msg.Data);
-
-                // Every order goes into the MQ is already paid, so we skipped the status validation
+                evt = JsonSerializer.Deserialize<PaymentOrderEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
+                
+                logger.LogInformation(
+                    "Received order event: {ProductIdentifier} {OrderId}",
+                    evt?.ProductIdentifier,
+                    evt?.OrderId
+                );
 
                 if (evt?.ProductIdentifier is null)
                     continue;
@@ -47,9 +69,9 @@ public class BroadcastEventHandler(
                     {
                         var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(msg.Data);
                         if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
-                        
+
                         var meta = awardEvt.Meta;
-                        
+
                         logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
 
                         await using var scope = serviceProvider.CreateAsyncScope();
@@ -60,28 +82,41 @@ public class BroadcastEventHandler(
                         await ps.AwardPost(meta.PostId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
 
                         logger.LogInformation("Post award for order {OrderId} handled successfully.", evt.OrderId);
-
+                        await msg.AckAsync(cancellationToken: stoppingToken);
                         break;
                     }
                     default:
-                        await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
+                        await msg.NakAsync(cancellationToken: stoppingToken);
                         break;
                 }
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing payment order event for order {OrderId}", evt?.OrderId);
-                await nats.PublishAsync(PaymentOrderEventBase.Type, msg.Data, cancellationToken: stoppingToken);
+                await msg.NakAsync(cancellationToken: stoppingToken);
             }
         }
+    }
 
-        await foreach (var msg in nats.SubscribeAsync<byte[]>(AccountDeletedEvent.Type,
-                           cancellationToken: stoppingToken))
+    private async Task HandleAccountDeletions(CancellationToken stoppingToken)
+    {
+        var js = nats.CreateJetStreamContext();
+        
+        await js.EnsureStreamCreated("account_events", [AccountDeletedEvent.Type]);
+        
+        var consumer = await js.CreateOrUpdateConsumerAsync("account_events",
+            new ConsumerConfig("sphere_account_deleted_handler"), cancellationToken: stoppingToken);
+
+        await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {
             try
             {
-                var evt = JsonSerializer.Deserialize<AccountDeletedEvent>(msg.Data);
-                if (evt == null) continue;
+                var evt = JsonSerializer.Deserialize<AccountDeletedEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
+                if (evt == null)
+                {
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    continue;
+                }
 
                 logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
 
@@ -120,10 +155,13 @@ public class BroadcastEventHandler(
                     await transaction.RollbackAsync(cancellationToken: stoppingToken);
                     throw;
                 }
+
+                await msg.AckAsync(cancellationToken: stoppingToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing AccountDeleted");
+                await msg.NakAsync(cancellationToken: stoppingToken);
             }
         }
     }

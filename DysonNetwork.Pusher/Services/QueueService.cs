@@ -1,6 +1,8 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Net;
 
 namespace DysonNetwork.Pusher.Services;
 
@@ -20,7 +22,8 @@ public class QueueService(INatsConnection nats)
             })
         };
         var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
-        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+        var js = nats.CreateJetStreamContext();
+        await js.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 
     public async Task EnqueuePushNotification(Notification.Notification notification, Guid userId, bool isSavable = false)
@@ -35,7 +38,8 @@ public class QueueService(INatsConnection nats)
             Data = JsonSerializer.Serialize(notification)
         };
         var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
-        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+        var js = nats.CreateJetStreamContext();
+        await js.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 }
 

@@ -13,6 +13,8 @@ using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Net;
 using NodaTime;
 using OtpNet;
 using AuthService = DysonNetwork.Pass.Auth.AuthService;
@@ -189,7 +191,8 @@ public class AccountService(
         );
     }
 
-    public async Task<Account> CreateBotAccount(Account account, Guid automatedId, string? pictureId, string? backgroundId)
+    public async Task<Account> CreateBotAccount(Account account, Guid automatedId, string? pictureId,
+        string? backgroundId)
     {
         var dupeAutomateCount = await db.Accounts.Where(a => a.AutomatedId == automatedId).CountAsync();
         if (dupeAutomateCount > 0)
@@ -230,7 +233,7 @@ public class AccountService(
             );
             account.Profile.Background = CloudFileReferenceObject.FromProtoValue(file);
         }
-        
+
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
 
@@ -442,7 +445,7 @@ public class AccountService(
                 if (contact is null)
                 {
                     logger.LogWarning(
-                        "Unable to send factor code to #{FactorId} with, due to no contact method was found...", 
+                        "Unable to send factor code to #{FactorId} with, due to no contact method was found...",
                         factor.Id
                     );
                     return;
@@ -740,10 +743,14 @@ public class AccountService(
         db.Accounts.Remove(account);
         await db.SaveChangesAsync();
 
-        await nats.PublishAsync(AccountDeletedEvent.Type, JsonSerializer.SerializeToUtf8Bytes(new AccountDeletedEvent
-        {
-            AccountId = account.Id,
-            DeletedAt = SystemClock.Instance.GetCurrentInstant()
-        }));
+        var js = nats.CreateJetStreamContext();
+        await js.PublishAsync(
+            AccountDeletedEvent.Type,
+            GrpcTypeHelper.ConvertObjectToByteString(new AccountDeletedEvent
+            {
+                AccountId = account.Id,
+                DeletedAt = SystemClock.Instance.GetCurrentInstant()
+            }).ToByteArray()
+        );
     }
 }
