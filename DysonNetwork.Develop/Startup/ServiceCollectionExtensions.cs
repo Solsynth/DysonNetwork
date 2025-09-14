@@ -20,11 +20,6 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<AppDatabase>();
         services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-        {
-            var connection = configuration.GetConnectionString("FastRetrieve")!;
-            return ConnectionMultiplexer.Connect(connection);
-        });
         services.AddSingleton<ICacheService, CacheServiceRedis>();
 
         services.AddHttpClient();

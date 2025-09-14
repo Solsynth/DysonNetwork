@@ -5,7 +5,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Database was configured separately in each service.
 // var database = builder.AddPostgres("database");
 
-var cache = builder.AddConnectionString("cache");
+var cache = builder.AddRedis("cache");
 var queue = builder.AddNats("queue").WithJetStream();
 
 var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring")
