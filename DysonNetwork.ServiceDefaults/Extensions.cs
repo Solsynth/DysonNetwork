@@ -19,6 +19,9 @@ public static class Extensions
 
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
+        // Allow unencrypted grpc
+        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+        
         builder.ConfigureOpenTelemetry();
 
         builder.AddDefaultHealthChecks();

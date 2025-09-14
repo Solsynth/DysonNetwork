@@ -21,7 +21,6 @@
     <ItemGroup>
       <ProjectReference Include="..\DysonNetwork.Develop\DysonNetwork.Develop.csproj" />
       <ProjectReference Include="..\DysonNetwork.Drive\DysonNetwork.Drive.csproj" />
-      <ProjectReference Include="..\DysonNetwork.Gateway\DysonNetwork.Gateway.csproj" />
       <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj" />
       <ProjectReference Include="..\DysonNetwork.Ring\DysonNetwork.Ring.csproj" />
       <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />

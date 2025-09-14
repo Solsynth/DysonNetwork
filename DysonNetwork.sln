@@ -16,8 +16,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Ring", "DysonN
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Drive", "DysonNetwork.Drive\DysonNetwork.Drive.csproj", "{8DE0B783-8852-494D-B90A-201ABBB71202}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Gateway", "DysonNetwork.Gateway\DysonNetwork.Gateway.csproj", "{19EB0086-4049-4B78-91C4-EAC37130A006}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Develop", "DysonNetwork.Develop\DysonNetwork.Develop.csproj", "{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Control", "DysonNetwork.Control\DysonNetwork.Control.csproj", "{7FFED190-51C7-4302-A8B5-96C839463458}"
@@ -50,10 +48,6 @@ Global
 		{8DE0B783-8852-494D-B90A-201ABBB71202}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8DE0B783-8852-494D-B90A-201ABBB71202}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8DE0B783-8852-494D-B90A-201ABBB71202}.Release|Any CPU.Build.0 = Release|Any CPU
-		{19EB0086-4049-4B78-91C4-EAC37130A006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{19EB0086-4049-4B78-91C4-EAC37130A006}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{19EB0086-4049-4B78-91C4-EAC37130A006}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{19EB0086-4049-4B78-91C4-EAC37130A006}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}.Release|Any CPU.ActiveCfg = Release|Any CPU

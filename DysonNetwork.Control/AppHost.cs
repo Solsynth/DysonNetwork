@@ -2,50 +2,62 @@ using Aspire.Hosting.Yarp.Transforms;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var database = builder.AddPostgres("database");
+// Database was configured separately in each service.
+// var database = builder.AddPostgres("database");
+
 var cache = builder.AddConnectionString("cache");
 var queue = builder.AddNats("queue").WithJetStream();
 
 var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring")
-    .WithReference(database)
     .WithReference(queue);
 var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
-    .WithReference(database)
     .WithReference(cache)
     .WithReference(queue)
     .WithReference(ringService);
 var driveService = builder.AddProject<Projects.DysonNetwork_Drive>("drive")
-    .WithReference(database)
     .WithReference(cache)
     .WithReference(queue)
-    .WithReference(passService);
+    .WithReference(passService)
+    .WithReference(ringService);
 var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
-    .WithReference(database)
     .WithReference(cache)
     .WithReference(queue)
-    .WithReference(passService);
+    .WithReference(passService)
+    .WithReference(ringService);
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")
-    .WithReference(database)
     .WithReference(cache)
-    .WithReference(passService);
+    .WithReference(passService)
+    .WithReference(ringService);
+
+// Extra double-ended references
+ringService.WithReference(passService);
 
 var gateway = builder.AddYarp("gateway")
     .WithHostPort(5000)
     .WithConfiguration(yarp =>
     {
-        yarp.AddRoute("/ring/{**catch-all}", ringService)
+        var ringCluster = yarp.AddCluster(ringService.GetEndpoint("http"));
+        yarp.AddRoute("/ws", ringCluster);
+        yarp.AddRoute("/ring/{**catch-all}", ringCluster)
             .WithTransformPathRemovePrefix("/ring")
             .WithTransformPathPrefix("/api");
-        yarp.AddRoute("/id/{**catch-all}", passService)
+        var passCluster = yarp.AddCluster(passService.GetEndpoint("http"));
+        yarp.AddRoute("/.well-known/openid-configuration", passCluster);
+        yarp.AddRoute("/.well-known/jwks", passCluster);
+        yarp.AddRoute("/id/{**catch-all}", passCluster)
             .WithTransformPathRemovePrefix("/id")
             .WithTransformPathPrefix("/api");
-        yarp.AddRoute("/drive/{**catch-all}", driveService)
+        var driveCluster = yarp.AddCluster(driveService.GetEndpoint("http"));
+        yarp.AddRoute("/api/tus", driveCluster);
+        yarp.AddRoute("/drive/{**catch-all}", driveCluster)
             .WithTransformPathRemovePrefix("/drive")
             .WithTransformPathPrefix("/api");
-        yarp.AddRoute("/sphere/{**catch-all}", sphereService)
+        var sphereCluster = yarp.AddCluster(sphereService.GetEndpoint("http"));
+        yarp.AddRoute("/sphere/{**catch-all}", sphereCluster)
             .WithTransformPathRemovePrefix("/sphere")
             .WithTransformPathPrefix("/api");
-        yarp.AddRoute("/develop/{**catch-all}", developService)
+        var developCluster = yarp.AddCluster(developService.GetEndpoint("http"));
+        yarp.AddRoute("/develop/{**catch-all}", developCluster)
             .WithTransformPathRemovePrefix("/develop")
             .WithTransformPathPrefix("/api");
     });

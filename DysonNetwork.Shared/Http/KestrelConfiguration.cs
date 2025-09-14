@@ -12,7 +12,7 @@ public static class KestrelConfiguration
 {
     public static WebApplicationBuilder ConfigureAppKestrel(
         this WebApplicationBuilder builder,
-        IConfiguration configuration, 
+        IConfiguration configuration,
         long maxRequestBodySize = 50 * 1024 * 1024
     )
     {
