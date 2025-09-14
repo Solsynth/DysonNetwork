@@ -57,15 +57,15 @@ services:
       etcd:
         condition: service_healthy
 
-  pusher:
-    image: xsheep2010/dyson-pusher:latest
+  ring:
+    image: xsheep2010/dyson-ring:latest
     ports:
       - "8003:8080"
     environment:
       - ConnectionStrings__Etcd=http://etcd:2379
       - Etcd__Insecure=true
-      - Service__Name=DysonNetwork.Pusher
-      - Service__Url=http://pusher:8080
+      - Service__Name=DysonNetwork.Ring
+      - Service__Url=http://ring:8080
     depends_on:
       etcd:
         condition: service_healthy

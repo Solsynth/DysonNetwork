@@ -10,7 +10,7 @@ namespace DysonNetwork.Pass.Account;
 public class RelationshipService(
     AppDatabase db,
     ICacheService cache,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer
 )
 {

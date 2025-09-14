@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 namespace DysonNetwork.Pass.Email;
 
 public class EmailService(
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     RazorViewRenderer viewRenderer,
     ILogger<EmailService> logger
 )

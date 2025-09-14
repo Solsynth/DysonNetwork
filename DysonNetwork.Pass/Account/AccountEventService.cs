@@ -14,7 +14,7 @@ public class AccountEventService(
     Wallet.PaymentService payment,
     ICacheService cache,
     IStringLocalizer<Localization.AccountEventResource> localizer,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     SubscriptionService subscriptions,
     Pass.Leveling.ExperienceService experienceService
 )

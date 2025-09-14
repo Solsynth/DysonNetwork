@@ -1,8 +1,7 @@
-using DysonNetwork.Pass;
-using DysonNetwork.Pass.Pages.Data;
-using DysonNetwork.Pass.Startup;
+using DysonNetwork.Ring;
+using DysonNetwork.Ring.Startup;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
-using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
@@ -12,9 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration);
 
-// Add metrics and telemetry
-builder.Services.AddAppMetrics();
-
 // Add application services
 builder.Services.AddRegistryService(builder.Configuration);
 builder.Services.AddStreamConnection(builder.Configuration);
@@ -22,22 +18,17 @@ builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
-builder.Services.AddRingService();
-builder.Services.AddDriveService();
-builder.Services.AddDevelopService();
+builder.Services.AddDysonAuth();
+builder.Services.AddAccountService();
 
 // Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
 
 // Add business services
-builder.Services.AddAppBusinessServices(builder.Configuration);
+builder.Services.AddAppBusinessServices();
 
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
-
-builder.Services.AddTransient<IPageDataProvider, VersionPageData>();
-builder.Services.AddTransient<IPageDataProvider, CaptchaPageData>();
-builder.Services.AddTransient<IPageDataProvider, AccountPageData>();
 
 var app = builder.Build();
 
@@ -49,11 +40,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure application middleware pipeline
-app.ConfigureAppMiddleware(builder.Configuration, builder.Environment.ContentRootPath);
-
-app.MapGatewayProxy();
-
-app.MapPages(Path.Combine(builder.Environment.WebRootPath, "dist", "index.html"));
+app.ConfigureAppMiddleware(builder.Configuration);
 
 // Configure gRPC
 app.ConfigureGrpcServices();

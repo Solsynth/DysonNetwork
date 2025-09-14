@@ -10,8 +10,8 @@ import "google/protobuf/wrappers.proto";
 
 import "account.proto";
 
-// PusherService provides methods to send various types of notifications.
-service PusherService {
+// RingService provides methods to send various types of notifications.
+service RingService {
   // Sends an email.
   rpc SendEmail(SendEmailRequest) returns (google.protobuf.Empty) {}
 
@@ -117,7 +117,7 @@ message GetWebsocketConnectionStatusResponse {
 }
 
 
-service PusherHandlerService {
+service RingHandlerService {
   rpc ReceiveWebSocketPacket(ReceiveWebSocketPacketRequest) returns (google.protobuf.Empty) {}
 }
 

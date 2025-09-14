@@ -6,8 +6,8 @@ using Grpc.Core;
 
 namespace DysonNetwork.Sphere.Connection;
 
-public class WebSocketHandlerGrpc(PusherService.PusherServiceClient pusher, ChatRoomService crs, ChatService cs)
-    : PusherHandlerService.PusherHandlerServiceBase
+public class WebSocketHandlerGrpc(RingService.RingServiceClient pusher, ChatRoomService crs, ChatService cs)
+    : RingHandlerService.RingHandlerServiceBase
 {
     public override async Task<Empty> ReceiveWebSocketPacket(
         ReceiveWebSocketPacketRequest request,

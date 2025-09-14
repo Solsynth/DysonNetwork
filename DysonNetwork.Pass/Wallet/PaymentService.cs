@@ -17,7 +17,7 @@ namespace DysonNetwork.Pass.Wallet;
 public class PaymentService(
     AppDatabase db,
     WalletService wat,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     INatsConnection nats
 )

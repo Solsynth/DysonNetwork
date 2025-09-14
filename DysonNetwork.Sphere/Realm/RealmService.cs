@@ -10,7 +10,7 @@ namespace DysonNetwork.Sphere.Realm;
 
 public class RealmService(
     AppDatabase db,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     AccountService.AccountServiceClient accounts,
     IStringLocalizer<NotificationResource> localizer,
     AccountClientHelper accountsHelper,

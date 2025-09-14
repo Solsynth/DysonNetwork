@@ -13,7 +13,7 @@ public class PublisherSubscriptionService(
     PostService ps,
     IStringLocalizer<NotificationResource> localizer,
     ICacheService cache,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     AccountService.AccountServiceClient accounts
 )
 {

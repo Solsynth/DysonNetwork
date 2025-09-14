@@ -28,7 +28,7 @@ public class AccountService(
     FileReferenceService.FileReferenceServiceClient fileRefs,
     AccountUsernameService uname,
     EmailService mailer,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     IStringLocalizer<EmailResource> emailLocalizer,
     ICacheService cache,

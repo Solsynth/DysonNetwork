@@ -26,7 +26,7 @@ public class ChatRoomController(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     AccountClientHelper accountsHelper
 ) : ControllerBase
 {

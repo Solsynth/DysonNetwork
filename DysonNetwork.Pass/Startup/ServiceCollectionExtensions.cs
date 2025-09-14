@@ -53,7 +53,7 @@ public static class ServiceCollectionExtensions
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
 
-        services.AddPusherService();
+        services.AddRingService();
 
         // Register OIDC services
         services.AddScoped<OidcService, GoogleOidcService>();

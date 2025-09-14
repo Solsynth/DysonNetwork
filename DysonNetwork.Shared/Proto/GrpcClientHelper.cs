@@ -110,15 +110,15 @@ public static class GrpcClientHelper
             clientCertPassword));
     }
     
-    public static async Task<PusherService.PusherServiceClient> CreatePusherServiceClient(
+    public static async Task<RingService.RingServiceClient> CreateRingServiceClient(
         IEtcdClient etcdClient,
         string clientCertPath,
         string clientKeyPath,
         string? clientCertPassword = null
     )
     {
-        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Pusher");
-        return new PusherService.PusherServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
+        var url = await GetServiceUrlFromEtcd(etcdClient, "DysonNetwork.Ring");
+        return new RingService.RingServiceClient(CreateCallInvoker(url, clientCertPath, clientKeyPath,
             clientCertPassword));
     }
 

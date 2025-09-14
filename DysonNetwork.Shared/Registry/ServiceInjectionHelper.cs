@@ -7,9 +7,9 @@ namespace DysonNetwork.Shared.Registry;
 
 public static class ServiceInjectionHelper
 {
-    public static IServiceCollection AddPusherService(this IServiceCollection services)
+    public static IServiceCollection AddRingService(this IServiceCollection services)
     {
-        services.AddSingleton<PusherService.PusherServiceClient>(sp =>
+        services.AddSingleton<RingService.RingServiceClient>(sp =>
         {
             var etcdClient = sp.GetRequiredService<IEtcdClient>();
             var config = sp.GetRequiredService<IConfiguration>();
@@ -18,7 +18,7 @@ public static class ServiceInjectionHelper
             var clientCertPassword = config["Service:CertPassword"];
 
             return GrpcClientHelper
-                .CreatePusherServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
+                .CreateRingServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
                 .GetAwaiter()
                 .GetResult();
         });       

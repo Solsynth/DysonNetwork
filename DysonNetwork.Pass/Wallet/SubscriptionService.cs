@@ -18,7 +18,7 @@ public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
     AccountService accounts,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
     ICacheService cache,

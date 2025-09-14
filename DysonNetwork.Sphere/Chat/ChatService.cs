@@ -202,7 +202,7 @@ public partial class ChatService(
         message.ChatRoom = room;
 
         using var scope = scopeFactory.CreateScope();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
         var members = await scopedCrs.ListRoomMembers(room.Id);

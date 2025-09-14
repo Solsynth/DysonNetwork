@@ -22,7 +22,7 @@ public class AuthController(
     AuthService auth,
     GeoIpService geo,
     ActionLogService als,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     IConfiguration configuration,
     IStringLocalizer<NotificationResource> localizer
 ) : ControllerBase

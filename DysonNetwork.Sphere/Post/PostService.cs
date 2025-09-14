@@ -25,7 +25,7 @@ public partial class PostService(
     ILogger<PostService> logger,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    PusherService.PusherServiceClient pusher,
+    RingService.RingServiceClient pusher,
     PollService polls,
     Publisher.PublisherService ps,
     WebReaderService reader
@@ -165,7 +165,7 @@ public partial class PostService(
                 var sender = post.Publisher;
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+                var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
                 var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
@@ -534,7 +534,7 @@ public partial class PostService(
             {
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+                var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
                 var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
@@ -937,7 +937,7 @@ public partial class PostService(
         {
             using var scope = factory.CreateScope();
             var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-            var nty = scope.ServiceProvider.GetRequiredService<PusherService.PusherServiceClient>();
+            var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
             var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
             var accountsHelper = scope.ServiceProvider.GetRequiredService<AccountClientHelper>();
             try
