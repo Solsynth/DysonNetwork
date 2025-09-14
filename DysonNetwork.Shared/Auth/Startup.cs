@@ -1,4 +1,3 @@
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,32 +10,14 @@ public static class DysonAuthStartup
         this IServiceCollection services
     )
     {
-        services.AddSingleton<AuthService.AuthServiceClient>(sp =>
+        services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://pass");
         });
-        
-        services.AddSingleton<PermissionService.PermissionServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
 
-            return GrpcClientHelper
-                .CreatePermissionServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+        services.AddGrpcClient<PermissionService.PermissionServiceClient>(o =>
+        {
+            o.Address = new Uri("https://pass");
         });
 
         services.AddAuthentication(options =>

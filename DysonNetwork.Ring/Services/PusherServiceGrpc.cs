@@ -2,7 +2,6 @@ using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using System.Text.Json;

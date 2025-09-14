@@ -1,6 +1,4 @@
 using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
-using DysonNetwork.Shared.Registry;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Transforms;
 
@@ -30,7 +28,6 @@ public static class ServiceCollectionExtensions
                 context.AddXForwarded(action: ForwardedTransformActions.Set);
             });
 
-        services.AddRegistryService(configuration, addForwarder: false);
         services.AddSingleton<IProxyConfigProvider, RegistryProxyConfigProvider>();
 
         return services;

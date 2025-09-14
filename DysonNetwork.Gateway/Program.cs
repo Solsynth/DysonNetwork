@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -17,6 +19,8 @@ builder.Services.AddGateway(builder.Configuration);
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 app.ConfigureForwardedHeaders(app.Configuration);
 

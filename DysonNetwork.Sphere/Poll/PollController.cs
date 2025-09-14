@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

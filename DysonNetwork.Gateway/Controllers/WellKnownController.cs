@@ -71,7 +71,7 @@ public class WellKnownController(
         {
             if (!domainMappings.TryGetValue(key, out var domain)) continue;
             if (domain is not null)
-                serviceMap[key] = "https://" + domain;
+                serviceMap[key] = "http://" + domain;
         }
 
         return Ok(serviceMap);

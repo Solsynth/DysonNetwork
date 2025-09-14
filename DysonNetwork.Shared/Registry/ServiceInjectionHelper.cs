@@ -1,4 +1,3 @@
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,80 +8,35 @@ public static class ServiceInjectionHelper
 {
     public static IServiceCollection AddRingService(this IServiceCollection services)
     {
-        services.AddSingleton<RingService.RingServiceClient>(sp =>
+        services.AddGrpcClient<RingService.RingServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateRingServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });       
+            o.Address = new Uri("https://ring");
+        });
         
         return services;
     }
     
     public static IServiceCollection AddAccountService(this IServiceCollection services)
     {
-        services.AddSingleton<AccountService.AccountServiceClient>(sp =>
+        services.AddGrpcClient<AccountService.AccountServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateAccountServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://pass");
         });
         services.AddSingleton<AccountClientHelper>();
         
-        services.AddSingleton<BotAccountReceiverService.BotAccountReceiverServiceClient>(sp =>
+        services.AddGrpcClient<BotAccountReceiverService.BotAccountReceiverServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateBotAccountReceiverServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://pass");
         });
         
-        services.AddSingleton<ActionLogService.ActionLogServiceClient>(sp =>
+        services.AddGrpcClient<ActionLogService.ActionLogServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateActionLogServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://pass");
         }); 
         
-        services.AddSingleton<PaymentService.PaymentServiceClient>(sp =>
+        services.AddGrpcClient<PaymentService.PaymentServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreatePaymentServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://pass");
         });
         
         return services;
@@ -90,32 +44,14 @@ public static class ServiceInjectionHelper
     
     public static IServiceCollection AddDriveService(this IServiceCollection services)
     {
-        services.AddSingleton<FileService.FileServiceClient>(sp =>
+        services.AddGrpcClient<FileService.FileServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateFileServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://drive");
         });       
         
-        services.AddSingleton<FileReferenceService.FileReferenceServiceClient>(sp =>
+        services.AddGrpcClient<FileReferenceService.FileReferenceServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateFileReferenceServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://drive");
         });
         
         return services;
@@ -123,18 +59,9 @@ public static class ServiceInjectionHelper
     
     public static IServiceCollection AddPublisherService(this IServiceCollection services)
     {
-        services.AddSingleton<PublisherService.PublisherServiceClient>(sp =>
+        services.AddGrpcClient<PublisherService.PublisherServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreatePublisherServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://sphere");
         });
         
         return services;
@@ -142,18 +69,9 @@ public static class ServiceInjectionHelper
 
     public static IServiceCollection AddDevelopService(this IServiceCollection services)
     {
-        services.AddSingleton<CustomAppService.CustomAppServiceClient>(sp =>
+        services.AddGrpcClient<CustomAppService.CustomAppServiceClient>(o =>
         {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateCustomAppServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
+            o.Address = new Uri("https://develop");
         });
         
         return services;

@@ -5,18 +5,18 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxValue);
 
 // Add application services
-builder.Services.AddRegistryService(builder.Configuration);
-builder.Services.AddStreamConnection(builder.Configuration);
+
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
@@ -39,6 +39,8 @@ builder.Services.AddTransient<IPageDataProvider, VersionPageData>();
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
+
 // Run database migrations
 using (var scope = app.Services.CreateScope())
 {
@@ -50,8 +52,6 @@ var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(tusDiskStore, builder.Environment.ContentRootPath);
-
-app.MapGatewayProxy();
 
 app.MapPages(Path.Combine(app.Environment.WebRootPath, "dist", "index.html"));
 

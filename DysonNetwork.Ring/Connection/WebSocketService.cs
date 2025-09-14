@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
@@ -11,17 +10,14 @@ public class WebSocketService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<WebSocketService> _logger;
-    private readonly IEtcdClient _etcdClient;
     private readonly IDictionary<string, IWebSocketPacketHandler> _handlerMap;
 
     public WebSocketService(
         IEnumerable<IWebSocketPacketHandler> handlers,
-        IEtcdClient etcdClient,
         ILogger<WebSocketService> logger,
         IConfiguration configuration
     )
     {
-        _etcdClient = etcdClient;
         _logger = logger;
         _configuration = configuration;
         _handlerMap = handlers.ToDictionary(h => h.PacketType);
@@ -59,8 +55,10 @@ public class WebSocketService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error while closing WebSocket for {AccountId}:{DeviceId}", key.AccountId, key.DeviceId);
+            _logger.LogWarning(ex, "Error while closing WebSocket for {AccountId}:{DeviceId}", key.AccountId,
+                key.DeviceId);
         }
+
         data.Cts.Cancel();
         ActiveConnections.TryRemove(key, out _);
     }
@@ -140,45 +138,24 @@ public class WebSocketService
         {
             try
             {
-                // Get the service URL from etcd for the specified endpoint
-                var serviceKey = $"/services/{packet.Endpoint}";
-                var response = await _etcdClient.GetAsync(serviceKey);
+                var serviceUrl = "https://" + packet.Endpoint;
 
-                if (response.Kvs.Count > 0)
+                var callInvoker = GrpcClientHelper.CreateCallInvoker(serviceUrl);
+                var client = new RingHandlerService.RingHandlerServiceClient(callInvoker);
+
+                try
                 {
-                    var serviceUrl = response.Kvs[0].Value.ToStringUtf8();
-
-                    var clientCertPath = _configuration["Service:ClientCert"]!;
-                    var clientKeyPath = _configuration["Service:ClientKey"]!;
-                    var clientCertPassword = _configuration["Service:CertPassword"];
-
-                    var callInvoker =
-                        GrpcClientHelper.CreateCallInvoker(
-                            serviceUrl,
-                            clientCertPath,
-                            clientKeyPath,
-                            clientCertPassword
-                        );
-                    var client = new RingHandlerService.RingHandlerServiceClient(callInvoker);
-
-                    try
+                    await client.ReceiveWebSocketPacketAsync(new ReceiveWebSocketPacketRequest
                     {
-                        await client.ReceiveWebSocketPacketAsync(new ReceiveWebSocketPacketRequest
-                        {
-                            Account = currentUser,
-                            DeviceId = deviceId,
-                            Packet = packet.ToProtoValue()
-                        });
-                    }
-                    catch (RpcException ex)
-                    {
-                        _logger.LogError(ex, $"Error forwarding packet to endpoint: {packet.Endpoint}");
-                    }
-
-                    return;
+                        Account = currentUser,
+                        DeviceId = deviceId,
+                        Packet = packet.ToProtoValue()
+                    });
                 }
-
-                _logger.LogWarning($"No service registered for endpoint: {packet.Endpoint}");
+                catch (RpcException ex)
+                {
+                    _logger.LogError(ex, $"Error forwarding packet to endpoint: {packet.Endpoint}");
+                }
             }
             catch (Exception ex)
             {

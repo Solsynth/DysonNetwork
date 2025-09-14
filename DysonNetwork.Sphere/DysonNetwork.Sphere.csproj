@@ -55,7 +55,6 @@
         <PackageReference Include="Quartz" Version="3.14.0"/>
         <PackageReference Include="Quartz.AspNetCore" Version="3.14.0"/>
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0"/>
-        <PackageReference Include="StackExchange.Redis" Version="2.8.41"/>
         <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="11.0.0"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3"/>
         <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.3" />
@@ -160,6 +159,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\DysonNetwork.ServiceDefaults\DysonNetwork.ServiceDefaults.csproj" />
         <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj"/>
         <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj"/>
     </ItemGroup>
