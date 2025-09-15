@@ -32,7 +32,7 @@ var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop"
 // Extra double-ended references
 ringService.WithReference(passService);
 
-var gateway = builder.AddYarp("gateway")
+builder.AddYarp("gateway")
     .WithHostPort(5000)
     .WithConfiguration(yarp =>
     {
@@ -61,5 +61,7 @@ var gateway = builder.AddYarp("gateway")
             .WithTransformPathRemovePrefix("/develop")
             .WithTransformPathPrefix("/api");
     });
+
+builder.AddDockerComposeEnvironment("docker-compose");
 
 builder.Build().Run();
