@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -116,7 +117,7 @@ public class PollController(
             {
                 var protoValue = answeredAccounts.FirstOrDefault(a => a.Id == answer.AccountId.ToString());
                 if (protoValue is not null)
-                    answer.Account = Pass.Account.Account.FromProtoValue(protoValue);
+                    answer.Account = AccountReference.FromProtoValue(protoValue);
             }
         }
 

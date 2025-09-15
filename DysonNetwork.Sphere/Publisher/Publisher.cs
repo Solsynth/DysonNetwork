@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using VerificationMark = DysonNetwork.Shared.Data.VerificationMark;
-using Account = DysonNetwork.Pass.Account.Account;
+using Account = DysonNetwork.Shared.Data.AccountReference;
 
 namespace DysonNetwork.Sphere.Publisher;
 

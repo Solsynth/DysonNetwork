@@ -161,7 +161,6 @@
     <ItemGroup>
         <ProjectReference Include="..\DysonNetwork.ServiceDefaults\DysonNetwork.ServiceDefaults.csproj" />
         <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj"/>
     </ItemGroup>
 
 </Project>

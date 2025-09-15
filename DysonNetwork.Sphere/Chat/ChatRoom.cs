@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using NodaTime;
-using Account = DysonNetwork.Pass.Account.Account;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -75,7 +73,7 @@ public class ChatMember : ModelBase
     public Guid ChatRoomId { get; set; }
     public ChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public Account? Account { get; set; }
+    [NotMapped] public AccountReference? Account { get; set; }
     [NotMapped] public AccountStatusReference? Status { get; set; }
 
     [MaxLength(1024)] public string? Nick { get; set; }
@@ -108,7 +106,7 @@ public class ChatMemberTransmissionObject : ModelBase
     public Guid Id { get; set; }
     public Guid ChatRoomId { get; set; }
     public Guid AccountId { get; set; }
-    [NotMapped] public Account Account { get; set; } = null!;
+    [NotMapped] public AccountReference Account { get; set; } = null!;
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
