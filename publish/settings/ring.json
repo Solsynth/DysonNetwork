@@ -14,7 +14,7 @@
   "Notifications": {
     "Push": {
       "Production": true,
-      "Google": "/app/keys/Solian.json",
+      "Google": "./Keys/Solian.json",
       "Apple": {
         "PrivateKey": "./Keys/Solian.p8",
         "PrivateKeyId": "4US4KSX4W6",
@@ -34,7 +34,7 @@
     "SubjectPrefix": "Solar Network"
   },
   "GeoIp": {
-    "DatabasePath": "/app/keys/GeoLite2-City.mmdb"
+    "DatabasePath": "./Keys/GeoLite2-City.mmdb"
   },
   "KnownProxies": ["127.0.0.1", "::1"],
   "Service": {

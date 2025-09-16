@@ -13,7 +13,7 @@
     "App": "Host=host.docker.internal;Port=5432;Database=dyson_network;Username=postgres;Password=postgres;Include Error Detail=True;Maximum Pool Size=20;Connection Idle Lifetime=60"
   },
   "GeoIp": {
-    "DatabasePath": "/app/keys/GeoLite2-City.mmdb"
+    "DatabasePath": "./Keys/GeoLite2-City.mmdb"
   },
   "RealtimeChat": {
     "Endpoint": "https://solar-network-im44o8gq.livekit.cloud",

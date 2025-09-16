@@ -21,8 +21,8 @@
     }
   },
   "AuthToken": {
-    "PublicKeyPath": "app/keys/PublicKey.pem",
-    "PrivateKeyPath": "app/keys/PrivateKey.pem"
+    "PublicKeyPath": "Keys/PublicKey.pem",
+    "PrivateKeyPath": "Keys/PrivateKey.pem"
   },
   "OidcProvider": {
     "IssuerUri": "https://nt.solian.app",
