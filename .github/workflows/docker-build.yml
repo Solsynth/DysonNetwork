@@ -39,7 +39,7 @@ jobs:
           IMAGES=( "sphere" "pass" "ring" "drive" "develop" )
 
           for image in "${IMAGES[@]}"; do
-            IMAGE_NAME="ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-$image:latest"
+            IMAGE_NAME="ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-$image:alpha"
             SOURCE_IMAGE_NAME="$image:latest" # Aspire's default local image name
 
             echo "Tagging and pushing $SOURCE_IMAGE_NAME to $IMAGE_NAME..."
