@@ -1,4 +1,4 @@
-name: Build and Push Microservices
+name: Aspire Publish Workflow
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-sphere:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -15,174 +15,46 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Setup NBGV
-        uses: dotnet/nbgv@master
-        id: nbgv
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push DysonNetwork.Sphere Docker image
-        uses: docker/build-push-action@v6
-        with:
-          file: DysonNetwork.Sphere/Dockerfile
-          context: .
-          push: true
-          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-sphere:latest
-          platforms: linux/amd64
 
-  build-pass:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
         with:
-          fetch-depth: 0
-      - name: Setup NBGV
-        uses: dotnet/nbgv@master
-        id: nbgv
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push DysonNetwork.Pass Docker image
-        uses: docker/build-push-action@v6
-        with:
-          file: DysonNetwork.Pass/Dockerfile
-          context: .
-          push: true
-          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-pass:latest
-          platforms: linux/amd64
+          dotnet-version: "9.0.x"
 
-  build-ring:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Setup NBGV
-        uses: dotnet/nbgv@master
-        id: nbgv
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push DysonNetwork.Pusher Docker image
-        uses: docker/build-push-action@v6
-        with:
-          file: DysonNetwork.Ring/Dockerfile
-          context: .
-          push: true
-          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-ring:latest
-          platforms: linux/amd64
 
-  build-drive:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Setup NBGV
-        uses: dotnet/nbgv@master
-        id: nbgv
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push DysonNetwork.Drive Docker image
-        uses: docker/build-push-action@v6
-        with:
-          file: DysonNetwork.Drive/Dockerfile
-          context: .
-          push: true
-          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-drive:latest
-          platforms: linux/amd64
+      - name: Install Aspire CLI
+        run: dotnet tool install -g Aspire.Cli --prerelease
 
-  build-gateway:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Setup NBGV
-        uses: dotnet/nbgv@master
-        id: nbgv
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push DysonNetwork.Gateway Docker image
-        uses: docker/build-push-action@v6
-        with:
-          file: DysonNetwork.Gateway/Dockerfile
-          context: .
-          push: true
-          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-gateway:latest
-          platforms: linux/amd64
+      - name: Build and Publish Aspire Application
+        run: aspire publish --project ./DysonNetwork.Control/DysonNetwork.Control.csproj --output publish
 
-  build-develop:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Tag and Push Images
+        run: |
+          IMAGES=( "sphere" "pass" "ring" "drive" "develop" )
+
+          for image in "${IMAGES[@]}"; do
+            IMAGE_NAME="ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-$image:latest"
+            SOURCE_IMAGE_NAME="$image:latest" # Aspire's default local image name
+
+            echo "Tagging and pushing $SOURCE_IMAGE_NAME to $IMAGE_NAME..."
+            docker tag $SOURCE_IMAGE_NAME $IMAGE_NAME
+            docker push $IMAGE_NAME
+          done
+
+      - name: Upload Aspire Publish Directory
+        uses: actions/upload-artifact@v3
         with:
-          fetch-depth: 0
-      - name: Setup NBGV
-        uses: dotnet/nbgv@master
-        id: nbgv
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+          name: aspire-publish-output
+          path: ./publish/
+
+      - name: Upload Docker Compose file
+        uses: actions/upload-artifact@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push DysonNetwork.Develop Docker image
-        uses: docker/build-push-action@v6
-        with:
-          file: DysonNetwork.Develop/Dockerfile
-          context: .
-          push: true
-          tags: ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-develop:latest
-          platforms: linux/amd64
+          name: docker-compose-output
+          path: ./publish/docker-compose.yml

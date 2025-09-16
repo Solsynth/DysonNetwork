@@ -1,0 +1,26 @@
+{
+  "Debug": true,
+  "BaseUrl": "http://localhost:5071",
+  "SiteUrl": "https://solian.app",
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "App": "Host=localhost;Port=5432;Database=dyson_network_dev;Username=postgres;Password=postgres;Include Error Detail=True;Maximum Pool Size=20;Connection Idle Lifetime=60"
+  },
+  "KnownProxies": [
+    "127.0.0.1",
+    "::1"
+  ],
+  "Etcd": {
+    "Insecure": true
+  },
+  "Service": {
+    "Name": "DysonNetwork.Develop",
+    "Url": "https://localhost:7192"
+  }
+}
