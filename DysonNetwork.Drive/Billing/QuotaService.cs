@@ -30,7 +30,7 @@ public class QuotaService(
         
         var (based, extra) = await GetQuotaVerbose(accountId);
         var quota = based + extra;
-        await cache.SetAsync(cacheKey, quota);
+        await cache.SetAsync(cacheKey, quota, expiry: TimeSpan.FromMinutes(30));
         return quota;
     }
     
