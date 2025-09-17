@@ -9,25 +9,35 @@ var cache = builder.AddRedis("cache");
 var queue = builder.AddNats("queue").WithJetStream();
 
 var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring")
-    .WithReference(queue);
+    .WithReference(queue)
+    .WithHttpHealthCheck()
+    .WithEndpoint(5001, 5001, "https", name: "grpc");
 var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
     .WithReference(cache)
     .WithReference(queue)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithHttpHealthCheck()
+    .WithEndpoint(5001, 5001, "https", name: "grpc");
 var driveService = builder.AddProject<Projects.DysonNetwork_Drive>("drive")
     .WithReference(cache)
     .WithReference(queue)
     .WithReference(passService)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithHttpHealthCheck()
+    .WithEndpoint(5001, 5001, "https", name: "grpc");
 var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
     .WithReference(cache)
     .WithReference(queue)
     .WithReference(passService)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithHttpHealthCheck()
+    .WithEndpoint(5001, 5001, "https", name: "grpc");
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")
     .WithReference(cache)
     .WithReference(passService)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithHttpHealthCheck()
+    .WithEndpoint(5001, 5001, "https", name: "grpc");
 
 // Extra double-ended references
 ringService.WithReference(passService);

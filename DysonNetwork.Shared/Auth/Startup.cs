@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,15 +11,7 @@ public static class DysonAuthStartup
         this IServiceCollection services
     )
     {
-        services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
-        {
-            o.Address = new Uri("https://pass");
-        });
-
-        services.AddGrpcClient<PermissionService.PermissionServiceClient>(o =>
-        {
-            o.Address = new Uri("https://pass");
-        });
+        services.AddAuthService();
 
         services.AddAuthentication(options =>
             {
