@@ -2,7 +2,6 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Stream;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.PageData;
 using DysonNetwork.Sphere.Startup;
@@ -11,15 +10,13 @@ using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration);
 
-// Add metrics and telemetry
-builder.Services.AddAppMetrics();
-
 // Add application services
-builder.Services.AddRegistryService(builder.Configuration);
-builder.Services.AddStreamConnection(builder.Configuration);
+
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
@@ -42,6 +39,8 @@ builder.Services.AddTransient<IPageDataProvider, PostPageData>();
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
+
 // Run database migrations
 using (var scope = app.Services.CreateScope())
 {
@@ -51,8 +50,6 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
-
-app.MapGatewayProxy();
 
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions

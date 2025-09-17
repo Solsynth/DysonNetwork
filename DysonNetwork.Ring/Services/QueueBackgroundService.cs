@@ -2,7 +2,6 @@ using System.Text.Json;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Stream;
 using Google.Protobuf;
 using NATS.Client.Core;

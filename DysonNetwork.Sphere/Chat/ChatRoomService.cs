@@ -2,7 +2,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Account = DysonNetwork.Pass.Account.Account;
+using Account = DysonNetwork.Shared.Data.AccountReference;
 
 namespace DysonNetwork.Sphere.Chat;
 

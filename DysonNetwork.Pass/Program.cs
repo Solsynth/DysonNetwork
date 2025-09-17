@@ -4,20 +4,16 @@ using DysonNetwork.Pass.Startup;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration);
 
-// Add metrics and telemetry
-builder.Services.AddAppMetrics();
-
 // Add application services
-builder.Services.AddRegistryService(builder.Configuration);
-builder.Services.AddStreamConnection(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
@@ -41,6 +37,8 @@ builder.Services.AddTransient<IPageDataProvider, AccountPageData>();
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
+
 // Run database migrations
 using (var scope = app.Services.CreateScope())
 {
@@ -50,8 +48,6 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration, builder.Environment.ContentRootPath);
-
-app.MapGatewayProxy();
 
 app.MapPages(Path.Combine(builder.Environment.WebRootPath, "dist", "index.html"));
 

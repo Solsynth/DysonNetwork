@@ -1,17 +1,16 @@
 using DysonNetwork.Develop;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
-using DysonNetwork.Shared.Registry;
 using DysonNetwork.Develop.Startup;
-using DysonNetwork.Shared.Stream;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 builder.ConfigureAppKestrel(builder.Configuration);
 
-builder.Services.AddRegistryService(builder.Configuration);
-builder.Services.AddStreamConnection(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppSwagger();
@@ -21,6 +20,8 @@ builder.Services.AddAccountService();
 builder.Services.AddDriveService();
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {

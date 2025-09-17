@@ -1,5 +1,3 @@
-using dotnet_etcd;
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Components;
 

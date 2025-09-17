@@ -31,11 +31,6 @@ public static class ServiceCollectionExtensions
         services.AddLocalization(options => options.ResourcesPath = "Resources");
 
         services.AddDbContext<AppDatabase>();
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-        {
-            var connection = configuration.GetConnectionString("FastRetrieve")!;
-            return ConnectionMultiplexer.Connect(connection);
-        });
         services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
         services.AddSingleton<ICacheService, CacheServiceRedis>();

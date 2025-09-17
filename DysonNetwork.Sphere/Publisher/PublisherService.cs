@@ -382,7 +382,7 @@ public class PublisherService(
     public async Task<PublisherMember> LoadMemberAccount(PublisherMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
-        member.Account = Pass.Account.Account.FromProtoValue(account);
+        member.Account = AccountReference.FromProtoValue(account);
         return member;
     }
 
@@ -394,7 +394,7 @@ public class PublisherService(
         return members.Select(m =>
         {
             if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = Pass.Account.Account.FromProtoValue(account);
+                m.Account = AccountReference.FromProtoValue(account);
             return m;
         }).ToList();
     }

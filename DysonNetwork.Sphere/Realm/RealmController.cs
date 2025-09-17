@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Google.Protobuf.WellKnownTypes;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace DysonNetwork.Sphere.Realm;
 

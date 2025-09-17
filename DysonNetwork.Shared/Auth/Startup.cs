@@ -1,5 +1,5 @@
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,33 +11,7 @@ public static class DysonAuthStartup
         this IServiceCollection services
     )
     {
-        services.AddSingleton<AuthService.AuthServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateAuthServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
-        
-        services.AddSingleton<PermissionService.PermissionServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreatePermissionServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
+        services.AddAuthService();
 
         services.AddAuthentication(options =>
             {

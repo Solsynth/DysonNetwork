@@ -1,4 +1,3 @@
-using dotnet_etcd.interfaces;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,153 +8,94 @@ public static class ServiceInjectionHelper
 {
     public static IServiceCollection AddRingService(this IServiceCollection services)
     {
-        services.AddSingleton<RingService.RingServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services
+            .AddGrpcClient<RingService.RingServiceClient>(o => o.Address = new Uri("https://_grpc.ring"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreateRingServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });       
-        
         return services;
     }
-    
+
+    public static IServiceCollection AddAuthService(this IServiceCollection services)
+    {
+        services
+            .AddGrpcClient<AuthService.AuthServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
+
+        services
+            .AddGrpcClient<PermissionService.PermissionServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
+
+        return services;
+    }
+
     public static IServiceCollection AddAccountService(this IServiceCollection services)
     {
-        services.AddSingleton<AccountService.AccountServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
-
-            return GrpcClientHelper
-                .CreateAccountServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
+        services
+            .AddGrpcClient<AccountService.AccountServiceClient>(o => o.Address = new Uri("https://_grpc.pass") )
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
         services.AddSingleton<AccountClientHelper>();
-        
-        services.AddSingleton<BotAccountReceiverService.BotAccountReceiverServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
 
-            return GrpcClientHelper
-                .CreateBotAccountReceiverServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
-        
-        services.AddSingleton<ActionLogService.ActionLogServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services
+            .AddGrpcClient<BotAccountReceiverService.BotAccountReceiverServiceClient>(o =>
+                o.Address = new Uri("https://_grpc.pass")
+            )
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreateActionLogServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        }); 
-        
-        services.AddSingleton<PaymentService.PaymentServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services.AddGrpcClient<ActionLogService.ActionLogServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreatePaymentServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
-        
+        services.AddGrpcClient<PaymentService.PaymentServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
+
         return services;
     }
-    
+
     public static IServiceCollection AddDriveService(this IServiceCollection services)
     {
-        services.AddSingleton<FileService.FileServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services.AddGrpcClient<FileService.FileServiceClient>(o => o.Address = new Uri("https://_grpc.drive"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreateFileServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });       
-        
-        services.AddSingleton<FileReferenceService.FileReferenceServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services.AddGrpcClient<FileReferenceService.FileReferenceServiceClient>(o => o.Address = new Uri("https://_grpc.drive"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreateFileReferenceServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
-        
         return services;
     }
-    
+
     public static IServiceCollection AddPublisherService(this IServiceCollection services)
     {
-        services.AddSingleton<PublisherService.PublisherServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services.AddGrpcClient<PublisherService.PublisherServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreatePublisherServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
-        
         return services;
     }
 
     public static IServiceCollection AddDevelopService(this IServiceCollection services)
     {
-        services.AddSingleton<CustomAppService.CustomAppServiceClient>(sp =>
-        {
-            var etcdClient = sp.GetRequiredService<IEtcdClient>();
-            var config = sp.GetRequiredService<IConfiguration>();
-            var clientCertPath = config["Service:ClientCert"]!;
-            var clientKeyPath = config["Service:ClientKey"]!;
-            var clientCertPassword = config["Service:CertPassword"];
+        services.AddGrpcClient<CustomAppService.CustomAppServiceClient>(o => o.Address = new Uri("https://_grpc.develop"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
-            return GrpcClientHelper
-                .CreateCustomAppServiceClient(etcdClient, clientCertPath, clientKeyPath, clientCertPassword)
-                .GetAwaiter()
-                .GetResult();
-        });
-        
         return services;
     }
- }
+}

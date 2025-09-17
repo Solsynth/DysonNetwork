@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Data;
 
 namespace DysonNetwork.Sphere.WebReader;
@@ -54,5 +53,5 @@ public class WebFeedSubscription : ModelBase
     public Guid FeedId { get; set; }
     public WebFeed Feed { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public Account Account { get; set; } = null!;
+    [NotMapped] public AccountReference Account { get; set; } = null!;
 }

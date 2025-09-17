@@ -1,5 +1,6 @@
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Localization;
@@ -73,7 +74,7 @@ public class RealmService(
     public async Task<RealmMember> LoadMemberAccount(RealmMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
-        member.Account = Pass.Account.Account.FromProtoValue(account);
+        member.Account = AccountReference.FromProtoValue(account);
         return member;
     }
 
@@ -85,7 +86,7 @@ public class RealmService(
         return members.Select(m =>
         {
             if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = Pass.Account.Account.FromProtoValue(account);
+                m.Account = AccountReference.FromProtoValue(account);
             return m;
         }).ToList();
     }

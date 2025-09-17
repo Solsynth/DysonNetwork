@@ -31,6 +31,7 @@
     </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DysonNetwork.ServiceDefaults\DysonNetwork.ServiceDefaults.csproj" />
     <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
   </ItemGroup>
  
