@@ -44,7 +44,7 @@
         "Label": "Minio",
         "Region": "auto",
         "Bucket": "solar-network-development",
-        "Endpoint": "localhost:9000",
+        "Endpoint": "minio.orb.local:9000",
         "SecretId": "littlesheep",
         "SecretKey": "password",
         "EnabledSigned": true,

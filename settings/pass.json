@@ -22,8 +22,8 @@
   },
   "AuthToken": {
     "CookieDomain": "localhost",
-    "PublicKeyPath": "Keys/PublicKey.pem",
-    "PrivateKeyPath": "Keys/PrivateKey.pem"
+    "PublicKeyPath": "/app/keys/PublicKey.pem",
+    "PrivateKeyPath": "/app/keys/PrivateKey.pem"
   },
   "OidcProvider": {
     "IssuerUri": "https://nt.solian.app",
