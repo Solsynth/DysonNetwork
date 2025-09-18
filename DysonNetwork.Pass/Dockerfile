@@ -5,24 +5,7 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-# Stage 2: Build SPA
-FROM node:22-alpine AS spa-builder
-WORKDIR /src
-
-# Copy package files for SPA
-COPY ["DysonNetwork.Pass/Client/package.json", "DysonNetwork.Pass/Client/package-lock.json*", "./Client/"]
-
-# Install SPA dependencies
-WORKDIR /src/Client
-RUN npm install
-
-# Copy SPA source
-COPY ["DysonNetwork.Pass/Client/", "./"]
-
-# Build SPA
-RUN npm run build
-
-# Stage 3: Build .NET application
+# Stage 2: Build .NET application
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
@@ -32,9 +15,6 @@ RUN dotnet restore "DysonNetwork.Pass/DysonNetwork.Pass.csproj"
 
 # Copy everything else and build
 COPY . .
-
-# Copy built SPA to wwwroot
-COPY --from=spa-builder /src/Client/dist /src/DysonNetwork.Pass/wwwroot/dist
 
 # Build the application
 WORKDIR "/src/DysonNetwork.Pass"

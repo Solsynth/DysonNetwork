@@ -3,6 +3,8 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
+# Stage 1: Install runtime dependencies
+
 # Install only necessary dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
   libfontconfig1 \
@@ -17,33 +19,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     
 USER $APP_UID
 
-# Stage 2: Build SPA
-FROM node:22-alpine AS spa-builder
-WORKDIR /src
-
-# Copy package files for SPA
-COPY ["DysonNetwork.Drive/Client/package.json", "DysonNetwork.Drive/Client/package-lock.json*", "./Client/"]
-
-# Install SPA dependencies
-WORKDIR /src/Client
-RUN npm install
-
-# Copy SPA source
-COPY ["DysonNetwork.Drive/Client/", "./"]
-
-# Build SPA
-RUN npm run build
-
-# Stage 3: Build .NET application
+# Stage 2: Build .NET application
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["DysonNetwork.Drive/DysonNetwork.Drive.csproj", "DysonNetwork.Drive/"]
 RUN dotnet restore "DysonNetwork.Drive/DysonNetwork.Drive.csproj"
 COPY . .
-
-# Copy built SPA to wwwroot
-COPY --from=spa-builder /src/Client/dist /src/DysonNetwork.Drive/wwwroot/dist
 
 WORKDIR "/src/DysonNetwork.Drive"
 RUN dotnet build "./DysonNetwork.Drive.csproj" -c $BUILD_CONFIGURATION -o /app/build \

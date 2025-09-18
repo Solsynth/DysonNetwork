@@ -150,6 +150,19 @@
         <_ContentIncludedByDefault Remove="Pages\Emails\LandingEmail.razor" />
         <_ContentIncludedByDefault Remove="Pages\Emails\PasswordResetEmail.razor" />
         <_ContentIncludedByDefault Remove="Pages\Emails\VerificationEmail.razor" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\index-CwhYnE7S.css" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\index-D09kXPgc.js" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-cyrillic-ext-wght-normal-D4X5GqEv.woff2" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-cyrillic-wght-normal-FdJpG9jw.woff2" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-latin-ext-wght-normal-ClTydo4B.woff2" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-latin-wght-normal-DYSs2pW_.woff2" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-vietnamese-wght-normal-U01xdrZh.woff2" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\PostItem-B-fBcnNf.js" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\posts-w-kbiv-Q.js" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\views-Z9SFj0UP.js" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\favicon.png" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\image-broken.jpg" />
+        <_ContentIncludedByDefault Remove="wwwroot\dist\index.html" />
     </ItemGroup>
     
     <ItemGroup>
