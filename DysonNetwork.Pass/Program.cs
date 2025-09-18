@@ -1,8 +1,6 @@
 using DysonNetwork.Pass;
-using DysonNetwork.Pass.Pages.Data;
 using DysonNetwork.Pass.Startup;
 using DysonNetwork.Shared.Http;
-using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,10 +29,6 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
 
-builder.Services.AddTransient<IPageDataProvider, VersionPageData>();
-builder.Services.AddTransient<IPageDataProvider, CaptchaPageData>();
-builder.Services.AddTransient<IPageDataProvider, AccountPageData>();
-
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
@@ -47,9 +41,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure application middleware pipeline
-app.ConfigureAppMiddleware(builder.Configuration, builder.Environment.ContentRootPath);
-
-app.MapPages(Path.Combine(builder.Environment.WebRootPath, "dist", "index.html"));
+app.ConfigureAppMiddleware(builder.Configuration);
 
 // Configure gRPC
 app.ConfigureGrpcServices();

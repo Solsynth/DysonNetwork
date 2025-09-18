@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Components;
 
-namespace DysonNetwork.Pass.Email;
+namespace DysonNetwork.Pass.Mailer;
 
 public class EmailService(
     RingService.RingServiceClient pusher,

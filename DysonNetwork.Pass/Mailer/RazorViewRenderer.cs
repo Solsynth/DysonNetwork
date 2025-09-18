@@ -1,15 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Mvc.Razor;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.Mvc.ViewEngines;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
-using RouteData = Microsoft.AspNetCore.Routing.RouteData;
 
-namespace DysonNetwork.Pass.Email;
+namespace DysonNetwork.Pass.Mailer;
 
 public class RazorViewRenderer(
     IServiceProvider serviceProvider,

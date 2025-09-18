@@ -14,7 +14,7 @@ namespace DysonNetwork.Pass.Startup;
 
 public static class ApplicationConfiguration
 {
-    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration, string contentRoot)
+    public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
     {
         app.MapMetrics();
         app.MapOpenApi();
@@ -40,12 +40,6 @@ public static class ApplicationConfiguration
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<PermissionMiddleware>();
-
-        app.UseDefaultFiles();
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            FileProvider = new PhysicalFileProvider(Path.Combine(contentRoot, "wwwroot", "dist"))
-        });
 
         app.MapControllers().RequireRateLimiting("fixed");
 

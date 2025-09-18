@@ -1,9 +1,7 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
-using DysonNetwork.Shared.PageData;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
-using DysonNetwork.Sphere.PageData;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -35,8 +33,6 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 // Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
 
-builder.Services.AddTransient<IPageDataProvider, PostPageData>();
-
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
@@ -50,13 +46,5 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
-
-app.UseDefaultFiles();
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "dist"))
-});
-    
-app.MapPages(Path.Combine(app.Environment.WebRootPath, "dist", "index.html"));
 
 app.Run();

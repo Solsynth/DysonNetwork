@@ -7,7 +7,7 @@ namespace DysonNetwork.Drive.Startup;
 
 public static class ApplicationBuilderExtensions
 {
-    public static WebApplication ConfigureAppMiddleware(this WebApplication app, ITusStore tusStore, string contentRoot)
+    public static WebApplication ConfigureAppMiddleware(this WebApplication app, ITusStore tusStore)
     {
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
@@ -27,12 +27,6 @@ public static class ApplicationBuilderExtensions
                 .AllowAnyHeader()
                 .AllowAnyMethod()
         );
-        
-        app.UseDefaultFiles();
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            FileProvider = new PhysicalFileProvider(Path.Combine(contentRoot, "wwwroot", "dist"))
-        });
         
         app.MapTus("/api/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusStore, app.Configuration)));
 

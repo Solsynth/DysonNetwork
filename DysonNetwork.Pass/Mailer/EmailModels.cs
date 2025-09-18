@@ -1,4 +1,4 @@
-namespace DysonNetwork.Pass.Email;
+namespace DysonNetwork.Pass.Mailer;
 
 public class LandingEmailModel
 {

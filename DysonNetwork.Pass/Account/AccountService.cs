@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Auth.OpenId;
-using DysonNetwork.Pass.Email;
 using DysonNetwork.Pass.Localization;
+using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
@@ -452,7 +452,7 @@ public class AccountService(
                 }
 
                 await mailer
-                    .SendTemplatedEmailAsync<Pages.Emails.VerificationEmail, VerificationEmailModel>(
+                    .SendTemplatedEmailAsync<Emails.VerificationEmail, VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
                         emailLocalizer["VerificationEmail"],

@@ -135,14 +135,5 @@
             <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
         </EmbeddedResource>
     </ItemGroup>
-
-    <ItemGroup>
-        <AdditionalFiles Include="Pages\Emails\AccountDeletionEmail.razor" />
-        <AdditionalFiles Include="Pages\Emails\ContactVerificationEmail.razor" />
-        <AdditionalFiles Include="Pages\Emails\EmailLayout.razor" />
-        <AdditionalFiles Include="Pages\Emails\LandingEmail.razor" />
-        <AdditionalFiles Include="Pages\Emails\PasswordResetEmail.razor" />
-        <AdditionalFiles Include="Pages\Emails\VerificationEmail.razor" />
-    </ItemGroup>
     
 </Project>

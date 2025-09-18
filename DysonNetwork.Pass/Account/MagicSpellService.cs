@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using DysonNetwork.Pass.Email;
-using DysonNetwork.Pass.Pages.Emails;
+using DysonNetwork.Pass.Emails;
+using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
 using Microsoft.EntityFrameworkCore;
