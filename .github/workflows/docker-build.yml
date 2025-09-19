@@ -1,4 +1,4 @@
-name: Aspire Publish Workflow
+name: Build and Push Microservices
 
 on:
   push:
@@ -7,28 +7,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
+    # Define a matrix to run this job for each microservice
+    strategy:
+      matrix:
+        service: [Sphere, Pass, Ring, Drive, Develop] # Add your service names here
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # Use the latest version
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Required for NBGV
 
       - name: Setup NBGV
         uses: dotnet/nbgv@master
         id: nbgv
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "9.0.x"
-
-      - name: Set up Docker
-        uses: docker/setup-docker-action@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -37,33 +38,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Aspire CLI
-        run: dotnet tool install -g Aspire.Cli --prerelease
-
-      - name: Build and Publish Aspire Application
-        run: aspire publish --project ./DysonNetwork.Control/DysonNetwork.Control.csproj --output publish
-
-      - name: Tag and Push Images
-        run: |
-          IMAGES=( "sphere" "pass" "ring" "drive" "develop" )
-
-          for image in "${IMAGES[@]}"; do
-            IMAGE_NAME="ghcr.io/${{ vars.PACKAGE_OWNER }}/dyson-$image:alpha"
-            SOURCE_IMAGE_NAME="$image:latest" # Aspire's default local image name
-
-            echo "Tagging and pushing $SOURCE_IMAGE_NAME to $IMAGE_NAME..."
-            docker tag $SOURCE_IMAGE_NAME $IMAGE_NAME
-            docker push $IMAGE_NAME
-          done
-
-      - name: Upload Aspire Publish Directory
-        uses: actions/upload-artifact@v4
+      - name: Build and push Docker image for ${{ matrix.service }}
+        uses: docker/build-push-action@v6
         with:
-          name: aspire-publish-output
-          path: ./publish/
-
-      - name: Upload Docker Compose file
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-compose-output
-          path: ./publish/docker-compose.yml
+          context: .
+          # Dynamically set the Dockerfile path based on the matrix service name
+          file: DysonNetwork.${{ matrix.service }}/Dockerfile
+          push: true
+          # Create two tags: one with the version number and one with 'latest'
+          tags: |
+            ghcr.io/${{ github.repository_owner,, }}/dyson-${{ lower(matrix.service) }}:${{ steps.nbgv.outputs.SimpleVersion }}
+            ghcr.io/${{ github.repository_owner,, }}/dyson-${{ lower(matrix.service) }}:latest
+          platforms: linux/amd64
