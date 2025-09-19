@@ -47,6 +47,6 @@ jobs:
           push: true
           # Create two tags: one with the version number and one with 'latest'
           tags: |
-            ghcr.io/${{ github.repository_owner,, }}/dyson-${{ lower(matrix.service) }}:${{ steps.nbgv.outputs.SimpleVersion }}
-            ghcr.io/${{ github.repository_owner,, }}/dyson-${{ lower(matrix.service) }}:latest
+            ghcr.io/${{ lower(github.repository_owner) }}/dyson-${{ lower(matrix.service) }}:${{ steps.nbgv.outputs.SimpleVersion }}
+            ghcr.io/${{ lower(github.repository_owner) }}/dyson-${{ lower(matrix.service) }}:latest
           platforms: linux/amd64
