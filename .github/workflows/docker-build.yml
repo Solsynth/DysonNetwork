@@ -13,16 +13,25 @@ jobs:
       contents: read
       packages: write
 
-    # Define a matrix to run this job for each microservice
     strategy:
       matrix:
-        service: [Sphere, Pass, Ring, Drive, Develop] # Add your service names here
+        include:
+          - service: Sphere
+            image: sphere
+          - service: Pass
+            image: pass
+          - service: Ring
+            image: ring
+          - service: Drive
+            image: drive
+          - service: Develop
+            image: develop
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # Use the latest version
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for NBGV
+          fetch-depth: 0
 
       - name: Setup NBGV
         uses: dotnet/nbgv@master
@@ -42,11 +51,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          # Dynamically set the Dockerfile path based on the matrix service name
           file: DysonNetwork.${{ matrix.service }}/Dockerfile
           push: true
-          # Create two tags: one with the version number and one with 'latest'
           tags: |
-            ghcr.io/${{ lower(github.repository_owner) }}/dyson-${{ lower(matrix.service) }}:${{ steps.nbgv.outputs.SimpleVersion }}
-            ghcr.io/${{ lower(github.repository_owner) }}/dyson-${{ lower(matrix.service) }}:latest
+            ghcr.io/${{ github.repository_owner }}/dyson-${{ matrix.image }}:${{ steps.nbgv.outputs.SimpleVersion }}
+            ghcr.io/${{ github.repository_owner }}/dyson-${{ matrix.image }}:latest
           platforms: linux/amd64
