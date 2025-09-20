@@ -14,6 +14,7 @@ public class SubscriptionReference
     public Instant? EndedAt { get; set; }
     public Instant? RenewalAt { get; set; }
     public SubscriptionReferenceStatus Status { get; set; }
+    public Guid AccountId { get; set; }
 
     public static SubscriptionReference FromProtoValue(Proto.SubscriptionReferenceObject proto)
     {
@@ -27,7 +28,8 @@ public class SubscriptionReference
             BegunAt = proto.BegunAt.ToInstant(),
             EndedAt = proto.EndedAt?.ToInstant(),
             RenewalAt = proto.RenewalAt?.ToInstant(),
-            Status = (SubscriptionReferenceStatus)proto.Status
+            Status = (SubscriptionReferenceStatus)proto.Status,
+            AccountId = Guid.Parse(proto.AccountId),
         };
     }
 
@@ -43,6 +45,7 @@ public class SubscriptionReference
             BegunAt = BegunAt.ToTimestamp(),
             EndedAt = EndedAt?.ToTimestamp(),
             RenewalAt = RenewalAt?.ToTimestamp(),
+            AccountId = AccountId.ToString(),
             Status = Status switch
             {
                 SubscriptionReferenceStatus.Unpaid => Proto.SubscriptionStatus.Unpaid,
