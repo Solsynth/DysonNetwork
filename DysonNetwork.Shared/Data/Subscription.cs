@@ -3,7 +3,7 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Data;
 
-public class SubscriptionReference
+public class SubscriptionReference : ModelBase
 {
     public Guid Id { get; set; }
     public string Identifier { get; set; } = string.Empty;
@@ -30,6 +30,8 @@ public class SubscriptionReference
             RenewalAt = proto.RenewalAt?.ToInstant(),
             Status = (SubscriptionReferenceStatus)proto.Status,
             AccountId = Guid.Parse(proto.AccountId),
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant(),
         };
     }
 
@@ -46,6 +48,8 @@ public class SubscriptionReference
             EndedAt = EndedAt?.ToTimestamp(),
             RenewalAt = RenewalAt?.ToTimestamp(),
             AccountId = AccountId.ToString(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp(),
             Status = Status switch
             {
                 SubscriptionReferenceStatus.Unpaid => Proto.SubscriptionStatus.Unpaid,

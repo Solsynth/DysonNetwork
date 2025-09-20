@@ -50,6 +50,8 @@ message Subscription {
   bool is_available = 15;
   // Using string for decimal to avoid precision loss.
   string final_price = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
 }
 
 message SubscriptionReferenceObject {
@@ -68,6 +70,8 @@ message SubscriptionReferenceObject {
   optional google.protobuf.Timestamp renewal_at = 11;
   string account_id = 12;
   optional string display_name = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
 }
 
 message PaymentDetails {
@@ -85,6 +89,8 @@ message Coupon {
   optional string discount_amount = 6;
   optional google.protobuf.DoubleValue discount_rate = 7;
   optional google.protobuf.Int32Value max_usage = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
 }
 
 service WalletService {
@@ -163,6 +169,8 @@ message Transaction {
   string amount = 5;
   google.protobuf.StringValue remarks = 6;
   TransactionType type = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
 }
 
 enum TransactionType {

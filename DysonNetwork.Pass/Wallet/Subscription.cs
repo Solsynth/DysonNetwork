@@ -213,13 +213,15 @@ public class Subscription : ModelBase
         Status = (Shared.Proto.SubscriptionStatus)Status,
         PaymentMethod = PaymentMethod,
         PaymentDetails = PaymentDetails.ToProtoValue(),
-        BasePrice = BasePrice.ToString(),
+        BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
         CouponId = CouponId?.ToString(),
         Coupon = Coupon?.ToProtoValue(),
         RenewalAt = RenewalAt?.ToTimestamp(),
         AccountId = AccountId.ToString(),
         IsAvailable = IsAvailable,
-        FinalPrice = FinalPrice.ToString(),
+        FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
+        CreatedAt = CreatedAt.ToTimestamp(),
+        UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
     public static Subscription FromProtoValue(Shared.Proto.Subscription proto) => new()
@@ -238,6 +240,8 @@ public class Subscription : ModelBase
         Coupon = proto.Coupon is not null ? Coupon.FromProtoValue(proto.Coupon) : null,
         RenewalAt = proto.RenewalAt?.ToInstant(),
         AccountId = Guid.Parse(proto.AccountId),
+        CreatedAt = proto.CreatedAt.ToInstant(),
+        UpdatedAt = proto.UpdatedAt.ToInstant()
     };
 }
 
@@ -264,8 +268,8 @@ public class SubscriptionReferenceObject : ModelBase
     /// Gets the human-readable name of the subscription type if available.
     /// </summary>
     [NotMapped]
-    public string? DisplayName => SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(Identifier, out var name) 
-        ? name 
+    public string? DisplayName => SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(Identifier, out var name)
+        ? name
         : null;
 
     public Shared.Proto.SubscriptionReferenceObject ToProtoValue() => new()
@@ -283,6 +287,8 @@ public class SubscriptionReferenceObject : ModelBase
         RenewalAt = RenewalAt?.ToTimestamp(),
         AccountId = AccountId.ToString(),
         DisplayName = DisplayName,
+        CreatedAt = CreatedAt.ToTimestamp(),
+        UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
     public static SubscriptionReferenceObject FromProtoValue(Shared.Proto.SubscriptionReferenceObject proto) => new()
@@ -299,6 +305,8 @@ public class SubscriptionReferenceObject : ModelBase
         FinalPrice = decimal.Parse(proto.FinalPrice),
         RenewalAt = proto.RenewalAt?.ToInstant(),
         AccountId = Guid.Parse(proto.AccountId),
+        CreatedAt = proto.CreatedAt.ToInstant(),
+        UpdatedAt = proto.UpdatedAt.ToInstant()
     };
 }
 
@@ -377,6 +385,8 @@ public class Coupon : ModelBase
         DiscountAmount = DiscountAmount?.ToString(),
         DiscountRate = DiscountRate,
         MaxUsage = MaxUsage,
+        CreatedAt = CreatedAt.ToTimestamp(),
+        UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
     public static Coupon FromProtoValue(Shared.Proto.Coupon proto) => new()
@@ -389,5 +399,7 @@ public class Coupon : ModelBase
         DiscountAmount = proto.HasDiscountAmount ? decimal.Parse(proto.DiscountAmount) : null,
         DiscountRate = proto.DiscountRate,
         MaxUsage = proto.MaxUsage,
+        CreatedAt = proto.CreatedAt.ToInstant(),
+        UpdatedAt = proto.UpdatedAt.ToInstant()
     };
 }
