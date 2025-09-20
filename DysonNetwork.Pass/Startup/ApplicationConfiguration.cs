@@ -1,4 +1,3 @@
-using System.Net;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
@@ -6,8 +5,6 @@ using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Http;
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.Extensions.FileProviders;
 using Prometheus;
 
 namespace DysonNetwork.Pass.Startup;
@@ -25,15 +22,6 @@ public static class ApplicationConfiguration
         app.UseRequestLocalization();
 
         app.ConfigureForwardedHeaders(configuration);
-
-        app.UseCors(opts =>
-            opts.SetIsOriginAllowed(_ => true)
-                .WithExposedHeaders("*")
-                .WithHeaders("*")
-                .AllowCredentials()
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-        );
 
         app.UseWebSockets();
         app.UseRateLimiter();
