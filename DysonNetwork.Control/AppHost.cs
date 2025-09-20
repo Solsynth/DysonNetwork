@@ -30,6 +30,7 @@ var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
     .WithReference(queue)
     .WithReference(passService)
     .WithReference(ringService)
+    .WithReference(driveService)
     .WithHttpHealthCheck()
     .WithEndpoint(5001, 5001, "https", name: "grpc");
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")

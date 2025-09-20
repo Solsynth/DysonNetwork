@@ -34,7 +34,7 @@
     "RequireHttpsMetadata": true
   },
   "Tus": {
-    "StorePath": "Uploads"
+    "StorePath": "/app/uploads"
   },
   "Storage": {
     "PreferredRemote": "2adceae3-981a-4564-9b8d-5d71a211c873",

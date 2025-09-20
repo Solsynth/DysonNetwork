@@ -25,7 +25,6 @@ public partial class PostService(
     ILogger<PostService> logger,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    RingService.RingServiceClient pusher,
     PollService polls,
     Publisher.PublisherService ps,
     WebReaderService reader
@@ -943,7 +942,7 @@ public partial class PostService(
             try
             {
                 var sender = await accountsHelper.GetAccount(accountId);
-                
+
                 var members = await pub.GetPublisherMembers(post.PublisherId);
                 var queryRequest = new GetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));

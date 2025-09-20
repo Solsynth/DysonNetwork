@@ -1,5 +1,4 @@
 using DysonNetwork.Drive.Storage;
-using Microsoft.Extensions.FileProviders;
 using tusdotnet;
 using tusdotnet.Interfaces;
 
@@ -18,7 +17,7 @@ public static class ApplicationBuilderExtensions
 
         app.UseAuthorization();
         app.MapControllers();
-        
+
         app.UseCors(opts =>
             opts.SetIsOriginAllowed(_ => true)
                 .WithExposedHeaders("*")
@@ -27,7 +26,7 @@ public static class ApplicationBuilderExtensions
                 .AllowAnyHeader()
                 .AllowAnyMethod()
         );
-        
+
         app.MapTus("/api/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusStore, app.Configuration)));
 
         return app;

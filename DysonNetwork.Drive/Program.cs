@@ -44,6 +44,9 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
+app.ConfigureAppMiddleware(tusDiskStore);
+
 // Configure gRPC
 app.ConfigureGrpcServices();
 

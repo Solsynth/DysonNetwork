@@ -39,8 +39,7 @@ public class FileController(
         }
 
         var file = await fs.GetFileAsync(id);
-        if (file is null) return NotFound();
-        if (file.IsMarkedRecycle) return StatusCode(StatusCodes.Status410Gone, "The file has been recycled.");
+        if (file is null) return NotFound("File not found.");
 
         if (file.Bundle is not null && !file.Bundle.VerifyPasscode(passcode))
             return StatusCode(StatusCodes.Status403Forbidden, "The passcode is incorrect.");
@@ -75,7 +74,7 @@ public class FileController(
             case true when !file.HasThumbnail:
                 return NotFound();
         }
-        
+
         if (!original && file.HasCompression)
             fileName += ".compressed";
 
@@ -145,7 +144,7 @@ public class FileController(
     public async Task<ActionResult<CloudFile>> GetFileInfo(string id)
     {
         var file = await fs.GetFileAsync(id);
-        if (file is null) return NotFound();
+        if (file is null) return NotFound("File not found.");
 
         return file;
     }
@@ -293,13 +292,13 @@ public class FileController(
         if (pool is null) return BadRequest();
         if (!currentUser.IsSuperuser && pool.AccountId != accountId)
             return StatusCode(403, "You don't have permission to create files in this pool.");
-        
+
         if (!pool.PolicyConfig.EnableFastUpload)
             return StatusCode(
                 403,
                 "This pool does not allow fast upload"
             );
-        
+
         if (pool.PolicyConfig.RequirePrivilege > 0)
         {
             if (currentUser.PerkSubscription is null)
@@ -320,7 +319,7 @@ public class FileController(
                 );
             }
         }
-        
+
         if (request.Size > pool.PolicyConfig.MaxFileSize)
         {
             return StatusCode(
@@ -328,7 +327,7 @@ public class FileController(
                 $"File size {request.Size} is larger than the pool's maximum file size {pool.PolicyConfig.MaxFileSize}"
             );
         }
-        
+
         var (ok, billableUnit, quota) = await qs.IsFileAcceptable(
             accountId,
             pool.BillingConfig.CostMultiplier ?? 1.0,

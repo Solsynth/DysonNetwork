@@ -122,56 +122,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <_ContentIncludedByDefault Remove="app\publish\appsettings.json"/>
-        <_ContentIncludedByDefault Remove="app\publish\DysonNetwork.Sphere.deps.json"/>
-        <_ContentIncludedByDefault Remove="app\publish\DysonNetwork.Sphere.runtimeconfig.json"/>
-        <_ContentIncludedByDefault Remove="app\publish\DysonNetwork.Sphere.staticwebassets.endpoints.json"/>
-        <_ContentIncludedByDefault Remove="app\publish\Keys\Solian.json"/>
-        <_ContentIncludedByDefault Remove="app\publish\package-lock.json"/>
-        <_ContentIncludedByDefault Remove="app\publish\package.json"/>
-        <_ContentIncludedByDefault Remove="Pages\Account\Profile.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Auth\Authorize.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Auth\Callback.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Auth\Challenge.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Auth\Login.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Auth\SelectFactor.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Auth\VerifyFactor.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Checkpoint\CheckpointPage.cshtml"/>
-        <_ContentIncludedByDefault Remove="Pages\Spell\MagicSpellPage.cshtml"/>
-        <_ContentIncludedByDefault Remove="Keys\Solian.json"/>
-        <_ContentIncludedByDefault Remove="Pages\Index.cshtml" />
-        <_ContentIncludedByDefault Remove="Pages\Posts\PostDetail.cshtml" />
-        <_ContentIncludedByDefault Remove="Pages\Shared\_Layout.cshtml" />
-        <_ContentIncludedByDefault Remove="Pages\_ViewImports.cshtml" />
-        <_ContentIncludedByDefault Remove="Pages\_ViewStart.cshtml" />
-        <_ContentIncludedByDefault Remove="Pages\Emails\AccountDeletionEmail.razor" />
-        <_ContentIncludedByDefault Remove="Pages\Emails\ContactVerificationEmail.razor" />
-        <_ContentIncludedByDefault Remove="Pages\Emails\EmailLayout.razor" />
-        <_ContentIncludedByDefault Remove="Pages\Emails\LandingEmail.razor" />
-        <_ContentIncludedByDefault Remove="Pages\Emails\PasswordResetEmail.razor" />
-        <_ContentIncludedByDefault Remove="Pages\Emails\VerificationEmail.razor" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\index-CwhYnE7S.css" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\index-D09kXPgc.js" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-cyrillic-ext-wght-normal-D4X5GqEv.woff2" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-cyrillic-wght-normal-FdJpG9jw.woff2" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-latin-ext-wght-normal-ClTydo4B.woff2" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-latin-wght-normal-DYSs2pW_.woff2" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\nunito-vietnamese-wght-normal-U01xdrZh.woff2" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\PostItem-B-fBcnNf.js" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\posts-w-kbiv-Q.js" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\assets\views-Z9SFj0UP.js" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\favicon.png" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\image-broken.jpg" />
-        <_ContentIncludedByDefault Remove="wwwroot\dist\index.html" />
-    </ItemGroup>
-    
-    <ItemGroup>
-        <None Remove="..\DysonNetwork.Pass\Client\**" />
-        <Content Remove="..\DysonNetwork.Pass\Client\**" />
-        <Compile Remove="..\DysonNetwork.Pass\Client\**" />
-    </ItemGroup>
-
-    <ItemGroup>
         <ProjectReference Include="..\DysonNetwork.ServiceDefaults\DysonNetwork.ServiceDefaults.csproj" />
         <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj"/>
     </ItemGroup>

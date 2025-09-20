@@ -105,6 +105,7 @@ services:
       ConnectionStrings__queue: "nats://nats:${QUEUE_PASSWORD}@queue:4222"
       services__pass__http__0: "http://pass:${PASS_PORT}"
       services__ring__http__0: "http://ring:${RING_PORT}"
+      services__drive__http__0: "http://drive:${DRIVE_PORT}"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://docker-compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "sphere"

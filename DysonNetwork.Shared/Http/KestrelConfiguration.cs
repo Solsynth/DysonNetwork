@@ -22,10 +22,11 @@ public static class KestrelConfiguration
             options.Limits.MaxRequestBodySize = maxRequestBodySize;
 
             // gRPC
-            options.ListenAnyIP(5001, listenOptions =>
+            var grpcPort = int.Parse(configuration.GetValue<string>("GRPC_PORT", "5001"));
+            options.ListenAnyIP(grpcPort, listenOptions =>
             {
                 listenOptions.Protocols = HttpProtocols.Http2;
-                
+
                 var selfSignedCert = _CreateSelfSignedCertificate();
                 listenOptions.UseHttps(selfSignedCert);
             });
@@ -43,7 +44,7 @@ public static class KestrelConfiguration
 
         return builder;
     }
-    
+
     static X509Certificate2 _CreateSelfSignedCertificate()
     {
         using var rsa = RSA.Create(2048);
@@ -64,7 +65,7 @@ public static class KestrelConfiguration
         var notAfter = notBefore.AddYears(1);
 
         var certificate = certRequest.CreateSelfSigned(notBefore, notAfter);
-    
+
         // Export to PKCS#12 and load using X509CertificateLoader
         var pfxBytes = certificate.Export(X509ContentType.Pfx);
         return X509CertificateLoader.LoadPkcs12(pfxBytes, password: null);
