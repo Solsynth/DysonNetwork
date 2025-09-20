@@ -13,19 +13,10 @@ public static class ApplicationConfiguration
 
         app.UseSwagger();
         app.UseSwaggerUI();
-        
+
         app.UseRequestLocalization();
 
         app.ConfigureForwardedHeaders(configuration);
-
-        app.UseCors(opts =>
-            opts.SetIsOriginAllowed(_ => true)
-                .WithExposedHeaders("*")
-                .WithHeaders("*")
-                .AllowCredentials()
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-        );
 
         app.UseWebSockets();
         app.UseRateLimiter();
@@ -36,11 +27,11 @@ public static class ApplicationConfiguration
 
         return app;
     }
-    
+
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         app.MapGrpcService<RingServiceGrpc>();
-        
+
         return app;
     }
 }
