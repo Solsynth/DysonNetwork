@@ -138,7 +138,8 @@ public class WebSocketService
         {
             try
             {
-                var serviceUrl = "https://" + packet.Endpoint;
+                var endpoint = packet.Endpoint.Replace("DysonNetwork.", "").ToLower();
+                var serviceUrl = "https://_grpc." + endpoint;
 
                 var callInvoker = GrpcClientHelper.CreateCallInvoker(serviceUrl);
                 var client = new RingHandlerService.RingHandlerServiceClient(callInvoker);
