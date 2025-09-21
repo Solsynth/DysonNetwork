@@ -5,7 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-        <RootNamespace>DysonNetwork.Pusher</RootNamespace>
+        <RootNamespace>DysonNetwork.Ring</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

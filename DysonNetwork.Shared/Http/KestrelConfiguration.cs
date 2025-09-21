@@ -16,7 +16,6 @@ public static class KestrelConfiguration
         long maxRequestBodySize = 50 * 1024 * 1024
     )
     {
-        builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.Limits.MaxRequestBodySize = maxRequestBodySize;
@@ -31,7 +30,7 @@ public static class KestrelConfiguration
                 listenOptions.UseHttps(selfSignedCert);
             });
 
-            var httpPorts = configuration.GetValue<string>("HTTP_PORTS", "5000")
+            var httpPorts = configuration.GetValue<string>("HTTP_PORTS", "6000")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => int.Parse(p.Trim()))
                 .ToArray();
