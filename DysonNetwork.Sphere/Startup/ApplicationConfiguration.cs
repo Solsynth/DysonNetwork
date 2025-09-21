@@ -1,6 +1,5 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
-using DysonNetwork.Sphere.Connection;
 using DysonNetwork.Sphere.Publisher;
 using Prometheus;
 
@@ -28,7 +27,6 @@ public static class ApplicationConfiguration
         app.MapControllers();
 
         // Map gRPC services
-        app.MapGrpcService<WebSocketHandlerGrpc>();
         app.MapGrpcService<PublisherServiceGrpc>();
 
         return app;

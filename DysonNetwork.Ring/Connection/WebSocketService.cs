@@ -2,36 +2,38 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
-using Grpc.Core;
+using DysonNetwork.Shared.Stream;
+using NATS.Client.Core;
+using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Connection;
 
 public class WebSocketService
 {
-    private readonly IConfiguration _configuration;
+    private readonly INatsConnection _nats;
     private readonly ILogger<WebSocketService> _logger;
     private readonly IDictionary<string, IWebSocketPacketHandler> _handlerMap;
 
     public WebSocketService(
         IEnumerable<IWebSocketPacketHandler> handlers,
         ILogger<WebSocketService> logger,
-        IConfiguration configuration
+        INatsConnection nats
     )
     {
         _logger = logger;
-        _configuration = configuration;
         _handlerMap = handlers.ToDictionary(h => h.PacketType);
+        _nats = nats;
     }
 
     private static readonly ConcurrentDictionary<
-        (string AccountId, string DeviceId),
+        (Guid AccountId, string DeviceId),
         (WebSocket Socket, CancellationTokenSource Cts)
     > ActiveConnections = new();
 
     private static readonly ConcurrentDictionary<string, string> ActiveSubscriptions = new(); // deviceId -> chatRoomId
 
     public bool TryAdd(
-        (string AccountId, string DeviceId) key,
+        (Guid AccountId, string DeviceId) key,
         WebSocket socket,
         CancellationTokenSource cts
     )
@@ -42,7 +44,7 @@ public class WebSocketService
         return ActiveConnections.TryAdd(key, (socket, cts));
     }
 
-    public void Disconnect((string AccountId, string DeviceId) key, string? reason = null)
+    public void Disconnect((Guid AccountId, string DeviceId) key, string? reason = null)
     {
         if (!ActiveConnections.TryGetValue(key, out var data)) return;
         try
@@ -63,19 +65,19 @@ public class WebSocketService
         ActiveConnections.TryRemove(key, out _);
     }
 
-    public bool GetDeviceIsConnected(string deviceId)
+    public static bool GetDeviceIsConnected(string deviceId)
     {
         return ActiveConnections.Any(c => c.Key.DeviceId == deviceId);
     }
 
-    public bool GetAccountIsConnected(string accountId)
+    public static bool GetAccountIsConnected(Guid accountId)
     {
         return ActiveConnections.Any(c => c.Key.AccountId == accountId);
     }
 
-    public void SendPacketToAccount(string userId, WebSocketPacket packet)
+    public static void SendPacketToAccount(Guid accountId, WebSocketPacket packet)
     {
-        var connections = ActiveConnections.Where(c => c.Key.AccountId == userId);
+        var connections = ActiveConnections.Where(c => c.Key.AccountId == accountId);
         var packetBytes = packet.ToBytes();
         var segment = new ArraySegment<byte>(packetBytes);
 
@@ -139,28 +141,16 @@ public class WebSocketService
             try
             {
                 var endpoint = packet.Endpoint.Replace("DysonNetwork.", "").ToLower();
-                var serviceUrl = "https://_grpc." + endpoint;
-
-                var callInvoker = GrpcClientHelper.CreateCallInvoker(serviceUrl);
-                var client = new RingHandlerService.RingHandlerServiceClient(callInvoker);
-
-                try
+                await _nats.PublishAsync(WebSocketPacketEvent.SubjectPrefix + endpoint, new WebSocketPacketEvent
                 {
-                    await client.ReceiveWebSocketPacketAsync(new ReceiveWebSocketPacketRequest
-                    {
-                        Account = currentUser,
-                        DeviceId = deviceId,
-                        Packet = packet.ToProtoValue()
-                    });
-                }
-                catch (RpcException ex)
-                {
-                    _logger.LogError(ex, $"Error forwarding packet to endpoint: {packet.Endpoint} (${endpoint})");
-                }
+                    AccountId = Guid.Parse(currentUser.Id),
+                    DeviceId = deviceId,
+                    PacketBytes = packet.ToBytes()
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error forwarding packet to endpoint: {packet.Endpoint}");
+                _logger.LogError(ex, "Error forwarding packet to endpoint: {Endpoint}", packet.Endpoint);
             }
         }
 

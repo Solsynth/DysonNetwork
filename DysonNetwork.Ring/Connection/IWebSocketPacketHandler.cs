@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using DysonNetwork.Shared.Proto;
+using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Connection;
 

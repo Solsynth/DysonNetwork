@@ -5,6 +5,7 @@ using DysonNetwork.Sphere.Chat.Realtime;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using WebSocketPacket = DysonNetwork.Shared.Proto.WebSocketPacket;
 
 namespace DysonNetwork.Sphere.Chat;
 

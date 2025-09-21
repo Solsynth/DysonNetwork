@@ -1,10 +1,8 @@
 using DysonNetwork.Ring.Connection;
-using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
-using System.Text.Json;
 
 namespace DysonNetwork.Ring.Services;
 
@@ -27,30 +25,28 @@ public class RingServiceGrpc(
 
     public override Task<Empty> PushWebSocketPacket(PushWebSocketPacketRequest request, ServerCallContext context)
     {
-        var packet = new Connection.WebSocketPacket
+        var packet = new Shared.Data.WebSocketPacket
         {
             Type = request.Packet.Type,
             Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
-        websocket.SendPacketToAccount(request.UserId, packet);
+        WebSocketService.SendPacketToAccount(Guid.Parse(request.UserId), packet);
         return Task.FromResult(new Empty());
     }
 
     public override Task<Empty> PushWebSocketPacketToUsers(PushWebSocketPacketToUsersRequest request,
         ServerCallContext context)
     {
-        var packet = new Connection.WebSocketPacket
+        var packet = new Shared.Data.WebSocketPacket
         {
             Type = request.Packet.Type,
             Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
             ErrorMessage = request.Packet.ErrorMessage
         };
         
-        foreach (var userId in request.UserIds)
-        {
-            websocket.SendPacketToAccount(userId, packet);
-        }
+        foreach (var accountId in request.UserIds)
+            WebSocketService.SendPacketToAccount(Guid.Parse(accountId), packet);
         
         return Task.FromResult(new Empty());
     }
@@ -58,7 +54,7 @@ public class RingServiceGrpc(
 public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
         ServerCallContext context)
     {
-        var packet = new Connection.WebSocketPacket
+        var packet = new Shared.Data.WebSocketPacket
         {
             Type = request.Packet.Type,
             Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
@@ -71,7 +67,7 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
     public override Task<Empty> PushWebSocketPacketToDevices(PushWebSocketPacketToDevicesRequest request,
         ServerCallContext context)
     {
-        var packet = new Connection.WebSocketPacket
+        var packet = new Shared.Data.WebSocketPacket
         {
             Type = request.Packet.Type,
             Data = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Packet.Data),
@@ -161,8 +157,8 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
         var isConnected = request.IdCase switch
         {
             GetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId =>
-                websocket.GetDeviceIsConnected(request.DeviceId),
-            GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => websocket.GetAccountIsConnected(request.UserId),
+                WebSocketService.GetDeviceIsConnected(request.DeviceId),
+            GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => WebSocketService.GetAccountIsConnected(Guid.Parse(request.UserId)),
             _ => false
         };
 

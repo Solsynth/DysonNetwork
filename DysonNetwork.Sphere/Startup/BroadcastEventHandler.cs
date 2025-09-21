@@ -2,11 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
+using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Realm;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;
 using NATS.Net;
+using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
 
 namespace DysonNetwork.Sphere.Startup;
 
@@ -25,17 +28,19 @@ public class PaymentOrderAwardMeta
 }
 
 public class BroadcastEventHandler(
-    INatsConnection nats,
+    IServiceProvider serviceProvider,
     ILogger<BroadcastEventHandler> logger,
-    IServiceProvider serviceProvider
+    INatsConnection nats,
+    RingService.RingServiceClient pusher
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var paymentTask = HandlePaymentOrders(stoppingToken);
         var accountTask = HandleAccountDeletions(stoppingToken);
+        var websocketTask = HandleWebSocketPackets(stoppingToken);
 
-        await Task.WhenAll(paymentTask, accountTask);
+        await Task.WhenAll(paymentTask, accountTask, websocketTask);
     }
 
     private async Task HandlePaymentOrders(CancellationToken stoppingToken)
@@ -53,7 +58,7 @@ public class BroadcastEventHandler(
             try
             {
                 evt = JsonSerializer.Deserialize<PaymentOrderEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
-                
+
                 logger.LogInformation(
                     "Received order event: {ProductIdentifier} {OrderId}",
                     evt?.ProductIdentifier,
@@ -101,9 +106,9 @@ public class BroadcastEventHandler(
     private async Task HandleAccountDeletions(CancellationToken stoppingToken)
     {
         var js = nats.CreateJetStreamContext();
-        
+
         await js.EnsureStreamCreated("account_events", [AccountDeletedEvent.Type]);
-        
+
         var consumer = await js.CreateOrUpdateConsumerAsync("account_events",
             new ConsumerConfig("sphere_account_deleted_handler"), cancellationToken: stoppingToken);
 
@@ -164,5 +169,121 @@ public class BroadcastEventHandler(
                 await msg.NakAsync(cancellationToken: stoppingToken);
             }
         }
+    }
+
+    private async Task HandleWebSocketPackets(CancellationToken stoppingToken)
+    {
+        await foreach (var msg in nats.SubscribeAsync<WebSocketPacketEvent>(
+                           WebSocketPacketEvent.SubjectPrefix + "sphere", cancellationToken: stoppingToken))
+        {
+            try
+            {
+                var evt = msg.Data;
+                var packet = WebSocketPacket.FromBytes(evt.PacketBytes);
+                switch (packet.Type)
+                {
+                    case "messages.read":
+                        await HandleMessageRead(evt, packet);
+                        break;
+                    case "messages.typing":
+                        await HandleMessageTyping(evt, packet);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing websocket packet");
+            }
+        }
+    }
+
+    private async Task HandleMessageRead(WebSocketPacketEvent evt, WebSocketPacket packet)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var cs = scope.ServiceProvider.GetRequiredService<ChatService>();
+        var crs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+
+        if (packet.Data == null)
+        {
+            await SendErrorResponse(evt, "Mark message as read requires you to provide the ChatRoomId");
+            return;
+        }
+
+        var requestData = packet.GetData<ChatController.MarkMessageReadRequest>();
+        if (requestData == null)
+        {
+            await SendErrorResponse(evt, "Invalid request data");
+            return;
+        }
+
+        var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
+        if (sender == null)
+        {
+            await SendErrorResponse(evt, "User is not a member of the chat room.");
+            return;
+        }
+
+        await cs.ReadChatRoomAsync(requestData.ChatRoomId, evt.AccountId);
+    }
+
+    private async Task HandleMessageTyping(WebSocketPacketEvent evt, WebSocketPacket packet)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var crs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+
+        if (packet.Data == null)
+        {
+            await SendErrorResponse(evt, "messages.typing requires you to provide the ChatRoomId");
+            return;
+        }
+
+        var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
+        if (requestData == null)
+        {
+            await SendErrorResponse(evt, "Invalid request data");
+            return;
+        }
+
+        var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
+        if (sender == null)
+        {
+            await SendErrorResponse(evt, "User is not a member of the chat room.");
+            return;
+        }
+
+        var responsePacket = new WebSocketPacket
+        {
+            Type = "messages.typing",
+            Data = GrpcTypeHelper.ConvertObjectToByteString(new
+            {
+                room_id = sender.ChatRoomId,
+                sender_id = sender.Id,
+                sender = sender
+            })
+        };
+
+        // Broadcast typing indicator to other room members
+        var otherMembers = (await crs.ListRoomMembers(requestData.ChatRoomId))
+            .Where(m => m.AccountId != evt.AccountId)
+            .Select(m => m.AccountId.ToString())
+            .ToList();
+
+        var respRequest = new PushWebSocketPacketToUsersRequest() { Packet = responsePacket.ToProtoValue() };
+        respRequest.UserIds.AddRange(otherMembers);
+
+        await pusher.PushWebSocketPacketToUsersAsync(respRequest);
+    }
+
+    private async Task SendErrorResponse(WebSocketPacketEvent evt, string message)
+    {
+        await pusher.PushWebSocketPacketToDeviceAsync(new PushWebSocketPacketToDeviceRequest
+        {
+            DeviceId = evt.DeviceId,
+            Packet = new WebSocketPacket
+            {
+                Type = "error",
+                ErrorMessage = message
+            }.ToProtoValue()
+        });
     }
 }

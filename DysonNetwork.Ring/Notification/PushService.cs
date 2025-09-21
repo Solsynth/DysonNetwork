@@ -5,14 +5,13 @@ using DysonNetwork.Ring.Services;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using WebSocketPacket = DysonNetwork.Ring.Connection.WebSocketPacket;
+using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Notification;
 
 public class PushService
 {
     private readonly AppDatabase _db;
-    private readonly WebSocketService _ws;
     private readonly QueueService _queueService;
     private readonly ILogger<PushService> _logger;
     private readonly FirebaseSender? _fcm;
@@ -22,7 +21,6 @@ public class PushService
     public PushService(
         IConfiguration config,
         AppDatabase db,
-        WebSocketService ws,
         QueueService queueService,
         IHttpClientFactory httpFactory,
         ILogger<PushService> logger
@@ -53,7 +51,6 @@ public class PushService
         }
 
         _db = db;
-        _ws = ws;
         _queueService = queueService;
         _logger = logger;
     }
@@ -73,9 +70,9 @@ public class PushService
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var accountId = Guid.Parse(account.Id!);
+        var accountId = Guid.Parse(account.Id);
 
-        // Check for existing subscription with same device ID or token
+        // Check for existing subscription with the same device ID or token
         var existingSubscription = await _db.PushSubscriptions
             .Where(s => s.AccountId == accountId)
             .Where(s => s.DeviceId == deviceId || s.DeviceToken == deviceToken)
@@ -125,7 +122,7 @@ public class PushService
 
         if (actionUri is not null) meta["action_uri"] = actionUri;
 
-        var accountId = Guid.Parse(account.Id!);
+        var accountId = account.Id;
         var notification = new Notification
         {
             Topic = topic,
@@ -133,7 +130,7 @@ public class PushService
             Subtitle = subtitle,
             Content = content,
             Meta = meta,
-            AccountId = accountId,
+            AccountId = Guid.Parse(accountId),
         };
 
         if (save)
@@ -143,12 +140,12 @@ public class PushService
         }
 
         if (!isSilent)
-            _ = _queueService.EnqueuePushNotification(notification, accountId, save);
+            _ = _queueService.EnqueuePushNotification(notification, Guid.Parse(accountId), save);
     }
 
     public async Task DeliverPushNotification(Notification notification, CancellationToken cancellationToken = default)
     {
-        _ws.SendPacketToAccount(notification.AccountId.ToString(), new WebSocketPacket()
+        WebSocketService.SendPacketToAccount(notification.AccountId, new WebSocketPacket()
         {
             Type = "notifications.new",
             Data = notification,
@@ -251,8 +248,8 @@ public class PushService
         // WS first
         foreach (var account in accounts)
         {
-            notification.AccountId = account; // keep original behavior
-            _ws.SendPacketToAccount(account.ToString(), new Connection.WebSocketPacket
+            notification.AccountId = account;
+            WebSocketService.SendPacketToAccount(account, new WebSocketPacket
             {
                 Type = "notifications.new",
                 Data = notification

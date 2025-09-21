@@ -4,7 +4,7 @@ using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
-namespace DysonNetwork.Ring.Connection;
+namespace DysonNetwork.Shared.Data;
 
 public class WebSocketPacket
 {
@@ -27,13 +27,7 @@ public class WebSocketPacket
     public static WebSocketPacket FromBytes(byte[] bytes)
     {
         var json = System.Text.Encoding.UTF8.GetString(bytes);
-        var jsonOpts = new JsonSerializerOptions
-        {
-            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-        };
-        return JsonSerializer.Deserialize<WebSocketPacket>(json, jsonOpts) ??
+        return JsonSerializer.Deserialize<WebSocketPacket>(json, GrpcTypeHelper.SerializerOptions) ??
                throw new JsonException("Failed to deserialize WebSocketPacket");
     }
 
@@ -47,15 +41,9 @@ public class WebSocketPacket
         if (Data is T typedData)
             return typedData;
 
-        var jsonOpts = new JsonSerializerOptions
-        {
-            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-        };
         return JsonSerializer.Deserialize<T>(
-            JsonSerializer.Serialize(Data, jsonOpts),
-            jsonOpts
+            JsonSerializer.Serialize(Data, GrpcTypeHelper.SerializerOptions),
+            GrpcTypeHelper.SerializerOptions
         );
     }
 
@@ -65,16 +53,10 @@ public class WebSocketPacket
     /// <returns>Byte array representation of the packet</returns>
     public byte[] ToBytes()
     {
-        var jsonOpts = new JsonSerializerOptions
-        {
-            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-        }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-        var json = JsonSerializer.Serialize(this, jsonOpts);
+        var json = JsonSerializer.Serialize(this, GrpcTypeHelper.SerializerOptions);
         return System.Text.Encoding.UTF8.GetBytes(json);
     }
-
+    
     public Shared.Proto.WebSocketPacket ToProtoValue()
     {
         return new Shared.Proto.WebSocketPacket

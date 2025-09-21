@@ -3,11 +3,15 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Connection;
 
 [ApiController]
-public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> logger) : ControllerBase
+public class WebSocketController(
+    WebSocketService ws,
+    ILogger<WebSocketContext> logger
+) : ControllerBase
 {
     [Route("/ws")]
     [Authorize]
@@ -23,7 +27,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
             return;
         }
 
-        var accountId = currentUser.Id!;
+        var accountId = Guid.Parse(currentUser.Id!);
         var deviceId = currentSession.Challenge?.DeviceId ?? Guid.NewGuid().ToString();
 
         if (string.IsNullOrEmpty(deviceId))
@@ -89,7 +93,7 @@ public class WebSocketController(WebSocketService ws, ILogger<WebSocketContext> 
         CancellationToken cancellationToken
     )
     {
-        var connectionKey = (AccountId: currentUser.Id, DeviceId: deviceId);
+        var connectionKey = (AccountId: Guid.Parse(currentUser.Id), DeviceId: deviceId);
 
         var buffer = new byte[1024 * 4];
         try
