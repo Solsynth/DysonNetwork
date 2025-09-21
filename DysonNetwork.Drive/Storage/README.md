@@ -16,7 +16,7 @@ To begin a file upload, you first need to create an upload task. This is done by
   "file_name": "string",
   "file_size": "long (in bytes)",
   "content_type": "string (e.g., 'image/jpeg')",
-  "pool_id": "string (GUID)",
+  "pool_id": "string (GUID, optional)",
   "bundle_id": "string (GUID, optional)",
   "encrypt_password": "string (optional)",
   "expired_at": "string (ISO 8601 format, optional)",
