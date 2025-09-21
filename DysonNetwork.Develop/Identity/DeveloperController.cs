@@ -50,7 +50,6 @@ public class DeveloperController(
     public async Task<ActionResult<List<Developer>>> ListJoinedDevelopers()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
         
         var pubResponse = await ps.ListPublishersAsync(new ListPublishersRequest { AccountId = currentUser.Id });
         var pubIds = pubResponse.Publishers.Select(p => p.Id).Select(Guid.Parse).ToList();
