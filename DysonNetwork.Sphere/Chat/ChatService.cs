@@ -65,7 +65,19 @@ public partial class ChatService(
 
                     logger.LogDebug($"Updated message {message.Id} with {embedsList.Count} link previews");
 
-                    // Notify clients of the updated message
+                    // Create sync message for link preview update
+                    var syncMessage = dbMessage.Clone();
+                    syncMessage.Type = "messages.update.links";
+                    syncMessage.UpdatedAt = dbMessage.UpdatedAt;
+
+                    // Send sync message to clients
+                    using var syncScope = scopeFactory.CreateScope();
+                    var syncCrs = syncScope.ServiceProvider.GetRequiredService<ChatRoomService>();
+                    var syncMembers = await syncCrs.ListRoomMembers(dbMessage.ChatRoomId);
+
+                    await SendWebSocketPacketToRoomMembersAsync(syncMessage, "messages.update.links", syncMembers, syncScope);
+
+                    // Also notify clients of the updated message via regular WebSocket
                     await newChat.DeliverMessageAsync(
                         dbMessage,
                         dbMessage.Sender,
@@ -146,6 +158,26 @@ public partial class ChatService(
         return message;
     }
 
+    private async Task SendWebSocketPacketToRoomMembersAsync(Message message, string type, List<ChatMember> members,
+        IServiceScope scope)
+    {
+        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+
+        var request = new PushWebSocketPacketToUsersRequest
+        {
+            Packet = new WebSocketPacket
+            {
+                Type = type,
+                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
+            },
+        };
+        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
+            .Select(a => a!.Id.ToString()));
+        await scopedNty.PushWebSocketPacketToUsersAsync(request);
+
+        logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
+    }
+
     public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
     {
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
@@ -156,17 +188,8 @@ public partial class ChatService(
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
 
-        var files = message.Attachments.Distinct().ToList();
-        if (files.Count != 0)
-        {
-            var request = new CreateReferenceBatchRequest
-            {
-                Usage = ChatFileUsageIdentifier,
-                ResourceId = message.ResourceIdentifier,
-            };
-            request.FilesId.AddRange(message.Attachments.Select(a => a.Id));
-            await fileRefs.CreateReferenceBatchAsync(request);
-        }
+        // Create file references if message has attachments
+        await CreateFileReferencesForMessageAsync(message);
 
         // Then start the delivery process
         _ = Task.Run(async () =>
@@ -177,8 +200,6 @@ public partial class ChatService(
             }
             catch (Exception ex)
             {
-                // Log the exception properly
-                // Consider using ILogger or your logging framework
                 logger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
             }
         });
@@ -203,31 +224,32 @@ public partial class ChatService(
         message.ChatRoom = room;
 
         using var scope = scopeFactory.CreateScope();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
-        var request = new PushWebSocketPacketToUsersRequest
-        {
-            Packet = new WebSocketPacket
-            {
-                Type = type,
-                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
-            },
-        };
-        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
-            .Select(a => a!.Id.ToString()));
-        await scopedNty.PushWebSocketPacketToUsersAsync(request);
+        await SendWebSocketPacketToRoomMembersAsync(message, type, members, scope);
 
-        if (!notify)
+        if (notify)
         {
-            logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
-            return;
+            await SendPushNotificationsAsync(message, sender, room, type, members, scope);
         }
+    }
+
+    private async Task SendPushNotificationsAsync(
+        Message message,
+        ChatMember sender,
+        ChatRoom room,
+        string type,
+        List<ChatMember> members,
+        IServiceScope scope
+    )
+    {
+        var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
 
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
-            room.Realm is not null ? $"{room.Name}, {room.Realm.Name}" : room.Name;
+            room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
 
         if (sender.Account is null)
             sender = await scopedCrs.LoadMemberAccount(sender);
@@ -237,18 +259,37 @@ public partial class ChatService(
                 sender.Id
             );
 
-        var metaDict =
-            new Dictionary<string, object>
-            {
-                ["sender_name"] = sender.Nick ?? sender.Account!.Nick,
-                ["user_id"] = sender.AccountId,
-                ["sender_id"] = sender.Id,
-                ["message_id"] = message.Id,
-                ["room_id"] = room.Id,
-                ["images"] = message.Attachments
-                    .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
-                    .Select(a => a.Id).ToList(),
-            };
+        var notification = BuildNotification(message, sender, room, roomSubject, type);
+
+        var accountsToNotify = FilterAccountsForNotification(members, message, sender);
+
+        logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
+
+        if (accountsToNotify.Count > 0)
+        {
+            var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
+            ntyRequest.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
+            await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
+        }
+
+        logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
+    }
+
+    private PushNotification BuildNotification(Message message, ChatMember sender, ChatRoom room, string roomSubject,
+        string type)
+    {
+        var metaDict = new Dictionary<string, object>
+        {
+            ["sender_name"] = sender.Nick ?? sender.Account!.Nick,
+            ["user_id"] = sender.AccountId,
+            ["sender_id"] = sender.Id,
+            ["message_id"] = message.Id,
+            ["room_id"] = room.Id,
+            ["images"] = message.Attachments
+                .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
+                .Select(a => a.Id).ToList(),
+        };
+
         if (sender.Account!.Profile is not { Picture: null })
             metaDict["pfp"] = sender.Account!.Profile.Picture.Id;
         if (!string.IsNullOrEmpty(room.Name))
@@ -261,44 +302,51 @@ public partial class ChatService(
             Meta = GrpcTypeHelper.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
+            Body = BuildNotificationBody(message, type)
         };
+
+        return notification;
+    }
+
+    private string BuildNotificationBody(Message message, string type)
+    {
         if (message.DeletedAt is not null)
-            notification.Body = "Deleted a message";
+            return "Deleted a message";
+
         switch (message.Type)
         {
             case "call.ended":
-                notification.Body = "Call ended";
-                break;
+                return "Call ended";
             case "call.start":
-                notification.Body = "Call begun";
-                break;
+                return "Call begun";
             default:
                 var attachmentWord = message.Attachments.Count == 1 ? "attachment" : "attachments";
-                notification.Body = !string.IsNullOrEmpty(message.Content)
+                var body = !string.IsNullOrEmpty(message.Content)
                     ? message.Content[..Math.Min(message.Content.Length, 100)]
                     : $"<{message.Attachments.Count} {attachmentWord}>";
-                break;
-        }
 
-        switch (type)
-        {
-            case WebSocketPacketType.MessageUpdate:
-                notification.Body += " (edited)";
-                break;
-            case WebSocketPacketType.MessageDelete:
-                notification.Body = "Deleted a message";
-                break;
-        }
+                switch (type)
+                {
+                    case WebSocketPacketType.MessageUpdate:
+                        body += " (edited)";
+                        break;
+                    case WebSocketPacketType.MessageDelete:
+                        body = "Deleted a message";
+                        break;
+                }
 
+                return body;
+        }
+    }
+
+    private List<Account> FilterAccountsForNotification(List<ChatMember> members, Message message, ChatMember sender)
+    {
         var now = SystemClock.Instance.GetCurrentInstant();
 
-        List<Account> accountsToNotify = [];
-        foreach (
-            var member in members
-                .Where(member => member.Notify != ChatMemberNotify.None)
-        )
+        var accountsToNotify = new List<Account>();
+        foreach (var member in members.Where(member => member.Notify != ChatMemberNotify.None))
         {
-            // if (scopedWs.IsUserSubscribedToChatRoom(member.AccountId, room.Id.ToString())) continue;
+            // Skip if mentioned but not in mentions-only mode or if break is active
             if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.AccountId))
             {
                 if (member.BreakUntil is not null && member.BreakUntil > now) continue;
@@ -309,17 +357,52 @@ public partial class ChatService(
                 accountsToNotify.Add(member.Account.ToProtoValue());
         }
 
-        accountsToNotify = accountsToNotify
-            .Where(a => a.Id != sender.AccountId.ToString()).ToList();
+        return accountsToNotify.Where(a => a.Id != sender.AccountId.ToString()).ToList();
+    }
 
-        logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
-        // Only send notifications if there are accounts to notify
-        var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
-        ntyRequest.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
-        if (accountsToNotify.Count > 0)
-            await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
+    private async Task CreateFileReferencesForMessageAsync(Message message)
+    {
+        var files = message.Attachments.Distinct().ToList();
+        if (files.Count == 0) return;
 
-        logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
+        var request = new CreateReferenceBatchRequest
+        {
+            Usage = ChatFileUsageIdentifier,
+            ResourceId = message.ResourceIdentifier,
+        };
+        request.FilesId.AddRange(message.Attachments.Select(a => a.Id));
+        await fileRefs.CreateReferenceBatchAsync(request);
+    }
+
+    private async Task UpdateFileReferencesForMessageAsync(Message message, List<string> attachmentsId)
+    {
+        // Delete existing references for this message
+        await fileRefs.DeleteResourceReferencesAsync(
+            new DeleteResourceReferencesRequest { ResourceId = message.ResourceIdentifier }
+        );
+
+        // Create new references for each attachment
+        var createRequest = new CreateReferenceBatchRequest
+        {
+            Usage = ChatFileUsageIdentifier,
+            ResourceId = message.ResourceIdentifier,
+        };
+        createRequest.FilesId.AddRange(attachmentsId);
+        await fileRefs.CreateReferenceBatchAsync(createRequest);
+
+        // Update message attachments by getting files from database
+        var queryRequest = new GetFileBatchRequest();
+        queryRequest.Ids.AddRange(attachmentsId);
+        var queryResult = await filesClient.GetFileBatchAsync(queryRequest);
+        message.Attachments = queryResult.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
+    }
+
+    private async Task DeleteFileReferencesForMessageAsync(Message message)
+    {
+        var messageResourceId = $"message:{message.Id}";
+        await fileRefs.DeleteResourceReferencesAsync(
+            new DeleteResourceReferencesRequest { ResourceId = messageResourceId }
+        );
     }
 
     /// <summary>
@@ -518,66 +601,79 @@ public partial class ChatService(
     public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, long lastSyncTimestamp)
     {
         var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
-        var changes = await db.ChatMessages
+
+        // Get all messages that have been modified since the last sync
+        var modifiedMessages = await db.ChatMessages
             .IgnoreQueryFilters()
-            .Include(e => e.Sender)
+            .Include(m => m.Sender)
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.UpdatedAt > timestamp || m.DeletedAt > timestamp)
-            .Select(m => new MessageChange
-            {
-                MessageId = m.Id,
-                Action = m.DeletedAt != null ? "delete" : (m.UpdatedAt == m.CreatedAt ? "create" : "update"),
-                Message = m.DeletedAt != null ? null : m,
-                Timestamp = m.DeletedAt ?? m.UpdatedAt
-            })
             .ToListAsync();
 
-        // Get messages that need member data
-        var messagesNeedingSenders = changes
-            .Where(c => c.Message != null)
-            .Select(c => c.Message!)
+        var syncMessages = modifiedMessages
+            .Select(message => CreateSyncMessage(message, timestamp))
+            .OfType<Message>()
             .ToList();
-
-        // If no messages need senders, return with the latest timestamp from changes
-        if (messagesNeedingSenders.Count <= 0)
-        {
-            var latestTimestamp = changes.Count > 0
-                ? changes.Max(c => c.Timestamp)
-                : SystemClock.Instance.GetCurrentInstant();
-
-            return new SyncResponse
-            {
-                Changes = changes,
-                CurrentTimestamp = latestTimestamp
-            };
-        }
 
         // Load member accounts for messages that need them
-        var changesMembers = messagesNeedingSenders
-            .Select(m => m.Sender)
-            .DistinctBy(x => x.Id)
-            .ToList();
-
-        changesMembers = await crs.LoadMemberAccounts(changesMembers);
-
-        // Update sender information for messages that have it
-        foreach (var message in messagesNeedingSenders)
+        if (syncMessages.Count > 0)
         {
-            var sender = changesMembers.FirstOrDefault(x => x.Id == message.SenderId);
-            if (sender is not null)
-                message.Sender = sender;
+            var senders = syncMessages
+                .Select(m => m.Sender)
+                .DistinctBy(s => s.Id)
+                .ToList();
+
+            senders = await crs.LoadMemberAccounts(senders);
+
+            // Update sender information
+            foreach (var message in syncMessages)
+            {
+                var sender = senders.FirstOrDefault(s => s.Id == message.SenderId);
+                if (sender != null)
+                {
+                    message.Sender = sender;
+                }
+            }
         }
 
-        // Use the latest timestamp from changes, or current time if no changes
-        var latestChangeTimestamp = changes.Count > 0
-            ? changes.Max(c => c.Timestamp)
+        var latestTimestamp = syncMessages.Count > 0
+            ? syncMessages.Max(m => m.UpdatedAt)
             : SystemClock.Instance.GetCurrentInstant();
 
         return new SyncResponse
         {
-            Changes = changes,
-            CurrentTimestamp = latestChangeTimestamp
+            Messages = syncMessages.OrderBy(m => m.UpdatedAt).ToList(),
+            CurrentTimestamp = latestTimestamp
         };
+    }
+
+    private static Message? CreateSyncMessage(Message message, Instant sinceTimestamp)
+    {
+        // Handle deleted messages
+        if (message.DeletedAt.HasValue && message.DeletedAt > sinceTimestamp)
+        {
+            return new Message
+            {
+                Id = message.Id,
+                Type = "messages.delete",
+                SenderId = message.SenderId,
+                Sender = message.Sender,
+                ChatRoomId = message.ChatRoomId,
+                ChatRoom = message.ChatRoom,
+                CreatedAt = message.CreatedAt,
+                UpdatedAt = message.DeletedAt.Value
+            };
+        }
+
+        // Handle updated/edited messages
+        if (message.EditedAt.HasValue)
+        {
+            var syncMessage = message.Clone();
+            syncMessage.Type = "messages.update";
+            return syncMessage;
+        }
+
+        return message;
     }
 
     public async Task<Message> UpdateMessageAsync(
@@ -589,6 +685,15 @@ public partial class ChatService(
         List<string>? attachmentsId = null
     )
     {
+        // Only allow editing regular text messages
+        if (message.Type != "text")
+        {
+            throw new InvalidOperationException("Only regular messages can be edited.");
+        }
+
+        var isContentChanged = content is not null && content != message.Content;
+        var isAttachmentsChanged = attachmentsId is not null;
+
         if (content is not null)
             message.Content = content;
 
@@ -603,32 +708,22 @@ public partial class ChatService(
 
         if (attachmentsId is not null)
         {
-            // Delete existing references for this message
-            await fileRefs.DeleteResourceReferencesAsync(
-                new DeleteResourceReferencesRequest { ResourceId = message.ResourceIdentifier }
-            );
-
-            // Create new references for each attachment
-            var createRequest = new CreateReferenceBatchRequest
-            {
-                Usage = ChatFileUsageIdentifier,
-                ResourceId = message.ResourceIdentifier,
-            };
-            createRequest.FilesId.AddRange(attachmentsId);
-            await fileRefs.CreateReferenceBatchAsync(createRequest);
-
-            // Update message attachments by getting files from da
-            var queryRequest = new GetFileBatchRequest();
-            queryRequest.Ids.AddRange(attachmentsId);
-            var queryResult = await filesClient.GetFileBatchAsync(queryRequest);
-            message.Attachments = queryResult.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
+            await UpdateFileReferencesForMessageAsync(message, attachmentsId);
         }
+
+        // Mark as edited if content or attachments changed
+        if (isContentChanged || isAttachmentsChanged)
+        {
+            message.EditedAt = SystemClock.Instance.GetCurrentInstant();
+        }
+
+        message.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
 
         db.Update(message);
         await db.SaveChangesAsync();
 
         // Process link preview in the background if content was updated
-        if (content is not null)
+        if (isContentChanged)
             _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(message));
 
         if (message.Sender.Account is null)
@@ -645,18 +740,25 @@ public partial class ChatService(
     }
 
     /// <summary>
-    /// Deletes a message and notifies other chat members
+    /// Soft deletes a message and notifies other chat members
     /// </summary>
     /// <param name="message">The message to delete</param>
     public async Task DeleteMessageAsync(Message message)
     {
-        // Remove all file references for this message
-        var messageResourceId = $"message:{message.Id}";
-        await fileRefs.DeleteResourceReferencesAsync(
-            new DeleteResourceReferencesRequest { ResourceId = messageResourceId }
-        );
+        // Only allow deleting regular text messages
+        if (message.Type != "text")
+        {
+            throw new InvalidOperationException("Only regular messages can be deleted.");
+        }
 
-        db.ChatMessages.Remove(message);
+        // Remove all file references for this message
+        await DeleteFileReferencesForMessageAsync(message);
+
+        // Soft delete by setting DeletedAt timestamp
+        message.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        message.UpdatedAt = message.DeletedAt.Value;
+
+        db.Update(message);
         await db.SaveChangesAsync();
 
         _ = DeliverMessageAsync(
@@ -668,23 +770,8 @@ public partial class ChatService(
     }
 }
 
-public class MessageChangeAction
-{
-    public const string Create = "create";
-    public const string Update = "update";
-    public const string Delete = "delete";
-}
-
-public class MessageChange
-{
-    public Guid MessageId { get; set; }
-    public string Action { get; set; } = null!;
-    public Message? Message { get; set; }
-    public Instant Timestamp { get; set; }
-}
-
 public class SyncResponse
 {
-    public List<MessageChange> Changes { get; set; } = [];
+    public List<Message> Messages { get; set; } = [];
     public Instant CurrentTimestamp { get; set; }
 }

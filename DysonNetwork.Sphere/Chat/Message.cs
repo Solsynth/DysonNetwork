@@ -31,6 +31,33 @@ public class Message : ModelBase, IIdentifiedResource
     [JsonIgnore] public ChatRoom ChatRoom { get; set; } = null!;
 
     public string ResourceIdentifier => $"message:{Id}";
+
+    /// <summary>
+    /// Creates a shallow clone of this message for sync operations
+    /// </summary>
+    /// <returns>A new Message instance with copied properties</returns>
+    public Message Clone()
+    {
+        return new Message
+        {
+            Id = Id,
+            Type = Type,
+            Content = Content,
+            Meta = Meta,
+            MembersMentioned = MembersMentioned,
+            Nonce = Nonce,
+            EditedAt = EditedAt,
+            Attachments = Attachments,
+            RepliedMessageId = RepliedMessageId,
+            ForwardedMessageId = ForwardedMessageId,
+            SenderId = SenderId,
+            Sender = Sender,
+            ChatRoomId = ChatRoomId,
+            ChatRoom = ChatRoom,
+            CreatedAt = CreatedAt,
+            UpdatedAt = UpdatedAt
+        };
+    }
 }
 
 public enum MessageReactionAttitude
