@@ -141,12 +141,17 @@ public class WebSocketService
             try
             {
                 var endpoint = packet.Endpoint.Replace("DysonNetwork.", "").ToLower();
-                await _nats.PublishAsync(WebSocketPacketEvent.SubjectPrefix + endpoint, new WebSocketPacketEvent
-                {
-                    AccountId = Guid.Parse(currentUser.Id),
-                    DeviceId = deviceId,
-                    PacketBytes = packet.ToBytes()
-                });
+                await _nats.PublishAsync(
+                    WebSocketPacketEvent.SubjectPrefix + endpoint,
+                    GrpcTypeHelper
+                        .ConvertObjectToByteString(new WebSocketPacketEvent
+                        {
+                            AccountId = Guid.Parse(currentUser.Id),
+                            DeviceId = deviceId,
+                            PacketBytes = packet.ToBytes()
+                        }).ToBase64()
+                );
+                return;
             }
             catch (Exception ex)
             {

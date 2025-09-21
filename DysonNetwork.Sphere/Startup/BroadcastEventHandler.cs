@@ -173,12 +173,13 @@ public class BroadcastEventHandler(
 
     private async Task HandleWebSocketPackets(CancellationToken stoppingToken)
     {
-        await foreach (var msg in nats.SubscribeAsync<WebSocketPacketEvent>(
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(
                            WebSocketPacketEvent.SubjectPrefix + "sphere", cancellationToken: stoppingToken))
         {
             try
             {
-                var evt = msg.Data;
+                var evt = JsonSerializer.Deserialize<WebSocketPacketEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
+                if (evt == null) throw new ArgumentNullException(nameof(evt));
                 var packet = WebSocketPacket.FromBytes(evt.PacketBytes);
                 switch (packet.Type)
                 {
