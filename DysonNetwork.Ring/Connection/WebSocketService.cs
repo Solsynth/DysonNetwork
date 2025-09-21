@@ -155,7 +155,7 @@ public class WebSocketService
                 }
                 catch (RpcException ex)
                 {
-                    _logger.LogError(ex, $"Error forwarding packet to endpoint: {packet.Endpoint}");
+                    _logger.LogError(ex, $"Error forwarding packet to endpoint: {packet.Endpoint} (${endpoint})");
                 }
             }
             catch (Exception ex)
