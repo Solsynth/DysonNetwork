@@ -19,7 +19,6 @@ namespace DysonNetwork.Drive.Storage;
 
 public class FileService(
     AppDatabase db,
-    IConfiguration configuration,
     ILogger<FileService> logger,
     IServiceScopeFactory scopeFactory,
     ICacheService cache
@@ -28,14 +27,6 @@ public class FileService(
     private const string CacheKeyPrefix = "file:";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
-    /// <summary>
-    /// The api for getting file meta with cache,
-    /// the best use case is for accessing the file data.
-    ///
-    /// <b>This function won't load uploader's information, only keep minimal file meta</b>
-    /// </summary>
-    /// <param name="fileId">The id of the cloud file requested</param>
-    /// <returns>The minimal file meta</returns>
     public async Task<CloudFile?> GetFileAsync(string fileId)
     {
         var cacheKey = $"{CacheKeyPrefix}{fileId}";
@@ -61,7 +52,6 @@ public class FileService(
         var cachedFiles = new Dictionary<string, CloudFile>();
         var uncachedIds = new List<string>();
 
-        // Check cache first
         foreach (var fileId in fileIds)
         {
             var cacheKey = $"{CacheKeyPrefix}{fileId}";
@@ -73,7 +63,6 @@ public class FileService(
                 uncachedIds.Add(fileId);
         }
 
-        // Load uncached files from database
         if (uncachedIds.Count > 0)
         {
             var dbFiles = await db.Files
@@ -81,7 +70,6 @@ public class FileService(
                 .Include(f => f.Pool)
                 .ToListAsync();
 
-            // Add to cache
             foreach (var file in dbFiles)
             {
                 var cacheKey = $"{CacheKeyPrefix}{file.Id}";
@@ -90,7 +78,6 @@ public class FileService(
             }
         }
 
-        // Preserve original order
         return fileIds
             .Select(f => cachedFiles.GetValueOrDefault(f))
             .Where(f => f != null)
@@ -111,7 +98,7 @@ public class FileService(
         string fileId,
         string filePool,
         string? fileBundleId,
-        Stream stream,
+        string filePath,
         string fileName,
         string? contentType,
         string? encryptPassword,
@@ -142,58 +129,64 @@ public class FileService(
 
         if (bundle?.ExpiredAt != null)
             expiredAt = bundle.ExpiredAt.Value;
+        
+        var managedTempPath = Path.Combine(Path.GetTempPath(), fileId);
+        File.Copy(filePath, managedTempPath, true);
 
-        var ogFilePath = Path.GetFullPath(Path.Join(configuration.GetValue<string>("Tus:StorePath"), fileId));
-        var fileSize = stream.Length;
-        contentType ??= !fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName);
-
-        if (!string.IsNullOrWhiteSpace(encryptPassword))
-        {
-            if (!pool.PolicyConfig.AllowEncryption)
-                throw new InvalidOperationException("Encryption is not allowed in this pool");
-            var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
-            FileEncryptor.EncryptFile(ogFilePath, encryptedPath, encryptPassword);
-            File.Delete(ogFilePath); // Delete original unencrypted
-            File.Move(encryptedPath, ogFilePath); // Replace the original one with encrypted
-            contentType = "application/octet-stream";
-        }
-
-        var hash = await HashFileAsync(ogFilePath);
+        var fileInfo = new FileInfo(managedTempPath);
+        var fileSize = fileInfo.Length;
+        var finalContentType = contentType ?? (!fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName));
 
         var file = new CloudFile
         {
             Id = fileId,
             Name = fileName,
-            MimeType = contentType,
+            MimeType = finalContentType,
             Size = fileSize,
-            Hash = hash,
             ExpiredAt = expiredAt,
             BundleId = bundle?.Id,
             AccountId = Guid.Parse(account.Id),
-            IsEncrypted = !string.IsNullOrWhiteSpace(encryptPassword) && pool.PolicyConfig.AllowEncryption
         };
 
-        // Extract metadata on the current thread for a faster initial response
         if (!pool.PolicyConfig.NoMetadata)
-            await ExtractMetadataAsync(file, ogFilePath, stream);
+        {
+            await ExtractMetadataAsync(file, managedTempPath);
+        }
+
+        string processingPath = managedTempPath;
+        bool isTempFile = true; 
+
+        if (!string.IsNullOrWhiteSpace(encryptPassword))
+        {
+            if (!pool.PolicyConfig.AllowEncryption)
+                throw new InvalidOperationException("Encryption is not allowed in this pool");
+            
+            var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
+            FileEncryptor.EncryptFile(managedTempPath, encryptedPath, encryptPassword);
+            
+            File.Delete(managedTempPath);
+            
+            processingPath = encryptedPath;
+            
+            file.IsEncrypted = true;
+            file.MimeType = "application/octet-stream";
+            file.Size = new FileInfo(processingPath).Length;
+        }
+
+        file.Hash = await HashFileAsync(processingPath);
 
         db.Files.Add(file);
         await db.SaveChangesAsync();
 
         file.StorageId ??= file.Id;
 
-        // Offload optimization (image conversion, thumbnailing) and uploading to a background task
         _ = Task.Run(() =>
-            ProcessAndUploadInBackgroundAsync(file.Id, filePool, file.StorageId, contentType, ogFilePath, stream));
+            ProcessAndUploadInBackgroundAsync(file.Id, filePool, file.StorageId, file.MimeType, processingPath, isTempFile));
 
         return file;
     }
 
-    /// <summary>
-    /// Extracts metadata from the file based on its content type.
-    /// This runs synchronously to ensure the initial database record has basic metadata.
-    /// </summary>
-    private async Task ExtractMetadataAsync(CloudFile file, string filePath, Stream stream)
+    private async Task ExtractMetadataAsync(CloudFile file, string filePath)
     {
         switch (file.MimeType?.Split('/')[0])
         {
@@ -201,6 +194,7 @@ public class FileService(
                 try
                 {
                     var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(3, 3, filePath);
+                    await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     stream.Position = 0;
 
                     using var vipsImage = Image.NewFromStream(stream);
@@ -265,7 +259,6 @@ public class FileService(
                         ["bit_rate"] = mediaInfo.Format.BitRate.ToString(CultureInfo.InvariantCulture),
                         ["tags"] = mediaInfo.Format.Tags ?? new Dictionary<string, string>(),
                         ["chapters"] = mediaInfo.Chapters,
-                        // Add detailed stream information
                         ["video_streams"] = mediaInfo.VideoStreams.Select(s => new
                         {
                             s.AvgFrameRate,
@@ -303,22 +296,18 @@ public class FileService(
         }
     }
 
-    /// <summary>
-    /// Handles file optimization (image compression, video thumbnail) and uploads to remote storage in the background.
-    /// </summary>
     private async Task ProcessAndUploadInBackgroundAsync(
         string fileId,
         string remoteId,
         string storageId,
         string contentType,
-        string originalFilePath,
-        Stream stream
+        string processingFilePath,
+        bool isTempFile
     )
     {
         var pool = await GetPoolAsync(Guid.Parse(remoteId));
         if (pool is null) return;
 
-        await using var bgStream = stream; // Ensure stream is disposed at the end of this task
         using var scope = scopeFactory.CreateScope();
         var nfs = scope.ServiceProvider.GetRequiredService<FileService>();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
@@ -332,21 +321,27 @@ public class FileService(
         {
             logger.LogInformation("Processing file {FileId} in background...", fileId);
 
-            var fileExtension = Path.GetExtension(originalFilePath);
+            var fileToUpdate = await scopedDb.Files.AsNoTracking().FirstAsync(f => f.Id == fileId);
 
-            if (!pool.PolicyConfig.NoOptimization)
+            if (fileToUpdate.IsEncrypted)
+            {
+                uploads.Add((processingFilePath, string.Empty, contentType, false));
+            }
+            else if (!pool.PolicyConfig.NoOptimization)
+            {
+                var fileExtension = Path.GetExtension(processingFilePath);
                 switch (contentType.Split('/')[0])
                 {
                     case "image":
                         if (AnimatedImageTypes.Contains(contentType) || AnimatedImageExtensions.Contains(fileExtension))
                         {
                             logger.LogInformation("Skip optimize file {FileId} due to it is animated...", fileId);
-                            uploads.Add((originalFilePath, string.Empty, contentType, false));
+                            uploads.Add((processingFilePath, string.Empty, contentType, false));
                             break;
                         }
 
                         newMimeType = "image/webp";
-                        using (var vipsImage = Image.NewFromFile(originalFilePath))
+                        using (var vipsImage = Image.NewFromFile(processingFilePath))
                         {
                             var imageToWrite = vipsImage;
 
@@ -374,20 +369,20 @@ public class FileService(
 
                             if (!ReferenceEquals(imageToWrite, vipsImage))
                             {
-                                imageToWrite.Dispose(); // Clean up manually created colourspace-converted image
+                                imageToWrite.Dispose();
                             }
                         }
 
                         break;
 
                     case "video":
-                        uploads.Add((originalFilePath, string.Empty, contentType, false));
+                        uploads.Add((processingFilePath, string.Empty, contentType, false));
 
                         var thumbnailPath = Path.Join(Path.GetTempPath(), $"{TempFilePrefix}#{fileId}.thumbnail.jpg");
                         try
                         {
                             await FFMpegArguments
-                                .FromFileInput(originalFilePath, verifyExists: true)
+                                .FromFileInput(processingFilePath, verifyExists: true)
                                 .OutputToFile(thumbnailPath, overwrite: true, options => options
                                     .Seek(TimeSpan.FromSeconds(0))
                                     .WithFrameOutputCount(1)
@@ -415,10 +410,11 @@ public class FileService(
                         break;
 
                     default:
-                        uploads.Add((originalFilePath, string.Empty, contentType, false));
+                        uploads.Add((processingFilePath, string.Empty, contentType, false));
                         break;
                 }
-            else uploads.Add((originalFilePath, string.Empty, contentType, false));
+            }
+            else uploads.Add((processingFilePath, string.Empty, contentType, false));
 
             logger.LogInformation("Optimized file {FileId}, now uploading...", fileId);
 
@@ -440,9 +436,6 @@ public class FileService(
 
                 logger.LogInformation("Uploaded file {FileId} done!", fileId);
 
-                var fileToUpdate = await scopedDb.Files.FirstAsync(f => f.Id == fileId);
-                if (hasThumbnail) fileToUpdate.HasThumbnail = true;
-
                 var now = SystemClock.Instance.GetCurrentInstant();
                 await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
                     .SetProperty(f => f.UploadedAt, now)
@@ -459,6 +452,10 @@ public class FileService(
         }
         finally
         {
+            if (isTempFile)
+            {
+                File.Delete(processingFilePath);
+            }
             await nfs._PurgeCacheAsync(fileId);
         }
     }
@@ -491,7 +488,7 @@ public class FileService(
         }
 
         var hash = MD5.HashData(buffer.AsSpan(0, bytesRead));
-        stream.Position = 0; // Reset stream position
+        stream.Position = 0;
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
@@ -574,7 +571,6 @@ public class FileService(
         await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(updatable.ToSetPropertyCalls());
 
         await _PurgeCacheAsync(file.Id);
-        // Re-fetch the file to return the updated state
         return await db.Files.AsNoTracking().FirstAsync(f => f.Id == file.Id);
     }
 
@@ -593,18 +589,15 @@ public class FileService(
 
         if (!force)
         {
-            // Check if any other file with the same storage ID is referenced
             var sameOriginFiles = await db.Files
                 .Where(f => f.StorageId == file.StorageId && f.Id != file.Id)
                 .Select(f => f.Id)
                 .ToListAsync();
 
-            // Check if any of these files are referenced
             if (sameOriginFiles.Count != 0)
                 return;
         }
 
-        // If any other file with the same storage ID is referenced, don't delete the actual file data
         var dest = await GetRemoteStorageConfig(file.PoolId.Value);
         if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
         var client = CreateMinioClient(dest);
@@ -614,7 +607,7 @@ public class FileService(
             );
 
         var bucket = dest.Bucket;
-        var objectId = file.StorageId ?? file.Id; // Use StorageId if available, otherwise fall back to Id
+        var objectId = file.StorageId ?? file.Id;
 
         await client.RemoveObjectAsync(
             new RemoveObjectArgs().WithBucket(bucket).WithObject(objectId)
@@ -630,7 +623,6 @@ public class FileService(
             }
             catch
             {
-                // Ignore errors when deleting compressed version
                 logger.LogWarning("Failed to delete compressed version of file {fileId}", file.Id);
             }
         }
@@ -645,25 +637,17 @@ public class FileService(
             }
             catch
             {
-                // Ignore errors when deleting thumbnail
                 logger.LogWarning("Failed to delete thumbnail of file {fileId}", file.Id);
             }
         }
     }
 
-    /// <summary>
-    /// The most efficent way to delete file data (stored files) in batch.
-    /// But this DO NOT check the storage id, so use with caution!
-    /// </summary>
-    /// <param name="files">Files to delete</param>
-    /// <exception cref="InvalidOperationException">Something went wrong</exception>
     public async Task DeleteFileDataBatchAsync(List<CloudFile> files)
     {
         files = files.Where(f => f.PoolId.HasValue).ToList();
 
         foreach (var fileGroup in files.GroupBy(f => f.PoolId!.Value))
         {
-            // If any other file with the same storage ID is referenced, don't delete the actual file data
             var dest = await GetRemoteStorageConfig(fileGroup.Key);
             if (dest is null)
                 throw new InvalidOperationException($"No remote storage configured for pool {fileGroup.Key}");
@@ -733,15 +717,12 @@ public class FileService(
         return client.Build();
     }
 
-    // Helper method to purge the cache for a specific file
-    // Made internal to allow FileReferenceService to use it
     internal async Task _PurgeCacheAsync(string fileId)
     {
         var cacheKey = $"{CacheKeyPrefix}{fileId}";
         await cache.RemoveAsync(cacheKey);
     }
 
-    // Helper method to purge cache for multiple files
     internal async Task _PurgeCacheRangeAsync(IEnumerable<string> fileIds)
     {
         var tasks = fileIds.Select(_PurgeCacheAsync);
@@ -753,7 +734,6 @@ public class FileService(
         var cachedFiles = new Dictionary<string, CloudFile>();
         var uncachedIds = new List<string>();
 
-        // Check cache first
         foreach (var reference in references)
         {
             var cacheKey = $"{CacheKeyPrefix}{reference.Id}";
@@ -769,14 +749,12 @@ public class FileService(
             }
         }
 
-        // Load uncached files from database
         if (uncachedIds.Count > 0)
         {
             var dbFiles = await db.Files
                 .Where(f => uncachedIds.Contains(f.Id))
                 .ToListAsync();
 
-            // Add to cache
             foreach (var file in dbFiles)
             {
                 var cacheKey = $"{CacheKeyPrefix}{file.Id}";
@@ -785,18 +763,12 @@ public class FileService(
             }
         }
 
-        // Preserve original order
         return references
             .Select(r => cachedFiles.GetValueOrDefault(r.Id))
             .Where(f => f != null)
             .ToList();
     }
 
-    /// <summary>
-    /// Gets the number of references to a file based on CloudFileReference records
-    /// </summary>
-    /// <param name="fileId">The ID of the file</param>
-    /// <returns>The number of references to the file</returns>
     public async Task<int> GetReferenceCountAsync(string fileId)
     {
         return await db.FileReferences
@@ -804,11 +776,6 @@ public class FileService(
             .CountAsync();
     }
 
-    /// <summary>
-    /// Checks if a file is referenced by any resource
-    /// </summary>
-    /// <param name="fileId">The ID of the file to check</param>
-    /// <returns>True if the file is referenced, false otherwise</returns>
     public async Task<bool> IsReferencedAsync(string fileId)
     {
         return await db.FileReferences
@@ -816,12 +783,8 @@ public class FileService(
             .AnyAsync();
     }
 
-    /// <summary>
-    /// Checks if an EXIF field should be ignored (e.g., GPS data).
-    /// </summary>
     private static bool IsIgnoredField(string fieldName)
     {
-        // Common GPS EXIF field names
         var gpsFields = new[]
         {
             "gps-latitude", "gps-longitude", "gps-altitude", "gps-latitude-ref", "gps-longitude-ref",
@@ -904,9 +867,6 @@ public class FileService(
     }
 }
 
-/// <summary>
-/// A helper class to build an ExecuteUpdateAsync call for CloudFile.
-/// </summary>
 file class UpdatableCloudFile(CloudFile file)
 {
     public string Name { get; set; } = file.Name;

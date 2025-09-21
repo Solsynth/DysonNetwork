@@ -113,7 +113,7 @@ public abstract class TusService
                     : "uploaded_file";
                 var contentType = metadata.TryGetValue("content-type", out var ct) ? ct.GetString(Encoding.UTF8) : null;
 
-                var fileStream = await file.GetContentAsync(eventContext.CancellationToken);
+                var filePath = Path.Combine(configuration.GetValue<string>("Tus:StorePath")!, file.Id);
 
                 var filePool = httpContext.Request.Headers["X-FilePool"].FirstOrDefault();
                 var bundleId = eventContext.HttpContext.Request.Headers["X-FileBundle"].FirstOrDefault();
@@ -135,7 +135,7 @@ public abstract class TusService
                         file.Id,
                         filePool!,
                         bundleId,
-                        fileStream,
+                        filePath,
                         fileName,
                         contentType,
                         encryptPassword,
@@ -154,11 +154,6 @@ public abstract class TusService
                     eventContext.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
                     await eventContext.HttpContext.Response.WriteAsync(ex.Message);
                     logger.LogError(ex, "Error handling file upload...");
-                }
-                finally
-                {
-                    // Dispose the stream after all processing is complete
-                    await fileStream.DisposeAsync();
                 }
             },
             OnBeforeCreateAsync = async eventContext =>

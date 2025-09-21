@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Sockets;
 using Aspire.Hosting.Yarp.Transforms;
 using Microsoft.Extensions.Hosting;
 
@@ -62,7 +60,7 @@ for (var idx = 0; idx < services.Count; idx++)
 // Extra double-ended references
 ringService.WithReference(passService);
 
-builder.AddYarp("gateway")
+var gateway = builder.AddYarp("gateway")
     .WithConfiguration(yarp =>
     {
         var ringCluster = yarp.AddCluster(ringService.GetEndpoint("http"));
@@ -90,6 +88,8 @@ builder.AddYarp("gateway")
             .WithTransformPathRemovePrefix("/develop")
             .WithTransformPathPrefix("/api");
     });
+
+if (isDev) gateway.WithHostPort(5001);
 
 builder.AddDockerComposeEnvironment("docker-compose");
 

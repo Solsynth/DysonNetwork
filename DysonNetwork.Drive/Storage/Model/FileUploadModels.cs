@@ -9,8 +9,8 @@ namespace DysonNetwork.Drive.Storage.Model
         public string FileName { get; set; } = null!;
         public long FileSize { get; set; }
         public string ContentType { get; set; } = null!;
-        public string PoolId { get; set; } = null!;
-        public string? BundleId { get; set; }
+        public Guid? PoolId { get; set; } = null!;
+        public Guid? BundleId { get; set; }
         public string? EncryptPassword { get; set; }
         public Instant? ExpiredAt { get; set; }
         public long? ChunkSize { get; set; }
@@ -33,8 +33,8 @@ namespace DysonNetwork.Drive.Storage.Model
         public string ContentType { get; set; } = null!;
         public long ChunkSize { get; set; }
         public int ChunksCount { get; set; }
-        public string PoolId { get; set; } = null!;
-        public string? BundleId { get; set; }
+        public Guid PoolId { get; set; }
+        public Guid? BundleId { get; set; }
         public string? EncryptPassword { get; set; }
         public Instant? ExpiredAt { get; set; }
         public string Hash { get; set; } = null!;

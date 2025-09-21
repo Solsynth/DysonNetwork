@@ -46,12 +46,36 @@ public class FileController(
 
         if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
 
+        if (file.UploadedAt is null)
+        {
+            // File is not yet uploaded to remote storage. Try to serve from local temp storage.
+            var tempFilePath = Path.Combine(Path.GetTempPath(), file.Id);
+            if (System.IO.File.Exists(tempFilePath))
+            {
+                if (file.IsEncrypted)
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, "Encrypted files cannot be accessed before they are processed and stored.");
+                }
+                return PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
+            }
+        
+            // Fallback for tus uploads that are not processed yet.
+            var tusStorePath = configuration.GetValue<string>("Tus:StorePath");
+            if (!string.IsNullOrEmpty(tusStorePath))
+            {
+                var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
+                if (System.IO.File.Exists(tusFilePath))
+                {
+                    return PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
+                }
+            }
+
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, "File is being processed. Please try again later.");
+        }
+
         if (!file.PoolId.HasValue)
         {
-            var tusStorePath = configuration.GetValue<string>("Tus:StorePath")!;
-            var filePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
-            if (!System.IO.File.Exists(filePath)) return new NotFoundResult();
-            return PhysicalFile(filePath, file.MimeType ?? "application/octet-stream", file.Name);
+            return StatusCode(StatusCodes.Status500InternalServerError, "File is in an inconsistent state: uploaded but no pool ID.");
         }
 
         var pool = await fs.GetPoolAsync(file.PoolId.Value);

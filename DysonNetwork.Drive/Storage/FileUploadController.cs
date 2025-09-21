@@ -23,7 +23,7 @@ public class FileUploadController(
     : ControllerBase
 {
     private readonly string _tempPath =
-        Path.Combine(configuration.GetValue<string>("Storage:Uploads") ?? Path.GetTempPath(), "multipart-uploads");
+        configuration.GetValue<string>("Storage:Uploads") ?? Path.Combine(Path.GetTempPath(), "multipart-uploads");
 
     private const long DefaultChunkSize = 1024 * 1024 * 5; // 5MB
 
@@ -42,12 +42,9 @@ public class FileUploadController(
             }
         }
 
-        if (!Guid.TryParse(request.PoolId, out var poolGuid))
-        {
-            return BadRequest("Invalid file pool id");
-        }
+        request.PoolId ??= Guid.Parse(configuration["Storage:PreferredRemote"]!);
 
-        var pool = await fileService.GetPoolAsync(poolGuid);
+        var pool = await fileService.GetPoolAsync(request.PoolId.Value);
         if (pool is null)
         {
             return BadRequest("Pool not found");
@@ -71,11 +68,6 @@ public class FileUploadController(
                     StatusCode = 403
                 };
             }
-        }
-
-        if (!string.IsNullOrEmpty(request.BundleId) && !Guid.TryParse(request.BundleId, out _))
-        {
-            return BadRequest("Invalid file bundle id");
         }
 
         var policy = pool.PolicyConfig;
@@ -160,7 +152,7 @@ public class FileUploadController(
             ContentType = request.ContentType,
             ChunkSize = chunkSize,
             ChunksCount = chunksCount,
-            PoolId = request.PoolId,
+            PoolId = request.PoolId.Value,
             BundleId = request.BundleId,
             EncryptPassword = request.EncryptPassword,
             ExpiredAt = request.ExpiredAt,
@@ -241,26 +233,22 @@ public class FileUploadController(
 
         var fileId = await Nanoid.GenerateAsync();
 
-        await using (var fileStream =
-                     new FileStream(mergedFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-        {
-            var cloudFile = await fileService.ProcessNewFileAsync(
+        var cloudFile = await fileService.ProcessNewFileAsync(
                 currentUser,
                 fileId,
-                task.PoolId,
-                task.BundleId,
-                fileStream,
+                task.PoolId.ToString(),
+                task.BundleId?.ToString(),
+                mergedFilePath,
                 task.FileName,
                 task.ContentType,
                 task.EncryptPassword,
                 task.ExpiredAt
             );
 
-            // Clean up
-            Directory.Delete(taskPath, true);
-            System.IO.File.Delete(mergedFilePath);
+        // Clean up
+        Directory.Delete(taskPath, true);
+        System.IO.File.Delete(mergedFilePath);
 
-            return Ok(cloudFile);
-        }
+        return Ok(cloudFile);
     }
 }
