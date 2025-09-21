@@ -176,11 +176,14 @@ public class BroadcastEventHandler(
         await foreach (var msg in nats.SubscribeAsync<byte[]>(
                            WebSocketPacketEvent.SubjectPrefix + "sphere", cancellationToken: stoppingToken))
         {
+            logger.LogDebug("Handling websocket packet...");
+            
             try
             {
                 var evt = JsonSerializer.Deserialize<WebSocketPacketEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
                 if (evt == null) throw new ArgumentNullException(nameof(evt));
                 var packet = WebSocketPacket.FromBytes(evt.PacketBytes);
+                logger.LogInformation("Handling websocket packet... {Type}", packet.Type);
                 switch (packet.Type)
                 {
                     case "messages.read":
@@ -255,12 +258,12 @@ public class BroadcastEventHandler(
         var responsePacket = new WebSocketPacket
         {
             Type = "messages.typing",
-            Data = GrpcTypeHelper.ConvertObjectToByteString(new
+            Data = new
             {
                 room_id = sender.ChatRoomId,
                 sender_id = sender.Id,
                 sender = sender
-            })
+            }
         };
 
         // Broadcast typing indicator to other room members

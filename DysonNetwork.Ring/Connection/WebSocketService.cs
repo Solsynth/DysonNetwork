@@ -149,7 +149,7 @@ public class WebSocketService
                             AccountId = Guid.Parse(currentUser.Id),
                             DeviceId = deviceId,
                             PacketBytes = packet.ToBytes()
-                        }).ToBase64()
+                        }).ToByteArray()
                 );
                 return;
             }
