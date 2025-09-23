@@ -74,7 +74,7 @@ public partial class ChatService(
                         Nonce = Guid.NewGuid().ToString(),
                         Meta = new Dictionary<string, object>
                         {
-                            ["original_message_id"] = dbMessage.Id,
+                            ["message_id"] = dbMessage.Id,
                             ["embeds"] = embedsList
                         },
                         CreatedAt = dbMessage.UpdatedAt,
