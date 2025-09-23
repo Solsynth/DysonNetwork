@@ -71,25 +71,25 @@ public class BroadcastEventHandler(
                 switch (evt.ProductIdentifier)
                 {
                     case "posts.award":
-                    {
-                        var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(msg.Data);
-                        if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
+                        {
+                            var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
+                            if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
 
-                        var meta = awardEvt.Meta;
+                            var meta = awardEvt.Meta;
 
-                        logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
+                            logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
 
-                        await using var scope = serviceProvider.CreateAsyncScope();
-                        var ps = scope.ServiceProvider.GetRequiredService<PostService>();
+                            await using var scope = serviceProvider.CreateAsyncScope();
+                            var ps = scope.ServiceProvider.GetRequiredService<PostService>();
 
-                        var amountNum = decimal.Parse(meta.Amount);
+                            var amountNum = decimal.Parse(meta.Amount);
 
-                        await ps.AwardPost(meta.PostId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
+                            await ps.AwardPost(meta.PostId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
 
-                        logger.LogInformation("Post award for order {OrderId} handled successfully.", evt.OrderId);
-                        await msg.AckAsync(cancellationToken: stoppingToken);
-                        break;
-                    }
+                            logger.LogInformation("Post award for order {OrderId} handled successfully.", evt.OrderId);
+                            await msg.AckAsync(cancellationToken: stoppingToken);
+                            break;
+                        }
                     default:
                         await msg.NakAsync(cancellationToken: stoppingToken);
                         break;
@@ -177,7 +177,7 @@ public class BroadcastEventHandler(
                            WebSocketPacketEvent.SubjectPrefix + "sphere", cancellationToken: stoppingToken))
         {
             logger.LogDebug("Handling websocket packet...");
-            
+
             try
             {
                 var evt = JsonSerializer.Deserialize<WebSocketPacketEvent>(msg.Data, GrpcTypeHelper.SerializerOptions);
