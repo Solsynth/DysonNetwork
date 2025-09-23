@@ -1,4 +1,3 @@
-using Aspire.Hosting.Yarp.Transforms;
 using Microsoft.Extensions.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -60,36 +59,14 @@ for (var idx = 0; idx < services.Count; idx++)
 // Extra double-ended references
 ringService.WithReference(passService);
 
-var gateway = builder.AddYarp("gateway")
-    .WithConfiguration(yarp =>
-    {
-        var ringCluster = yarp.AddCluster(ringService.GetEndpoint("http"));
-        yarp.AddRoute("/ws", ringCluster);
-        yarp.AddRoute("/ring/{**catch-all}", ringCluster)
-            .WithTransformPathRemovePrefix("/ring")
-            .WithTransformPathPrefix("/api");
-        var passCluster = yarp.AddCluster(passService.GetEndpoint("http"));
-        yarp.AddRoute("/.well-known/openid-configuration", passCluster);
-        yarp.AddRoute("/.well-known/jwks", passCluster);
-        yarp.AddRoute("/id/{**catch-all}", passCluster)
-            .WithTransformPathRemovePrefix("/id")
-            .WithTransformPathPrefix("/api");
-        var driveCluster = yarp.AddCluster(driveService.GetEndpoint("http"));
-        yarp.AddRoute("/api/tus", driveCluster);
-        yarp.AddRoute("/drive/{**catch-all}", driveCluster)
-            .WithTransformPathRemovePrefix("/drive")
-            .WithTransformPathPrefix("/api");
-        var sphereCluster = yarp.AddCluster(sphereService.GetEndpoint("http"));
-        yarp.AddRoute("/sphere/{**catch-all}", sphereCluster)
-            .WithTransformPathRemovePrefix("/sphere")
-            .WithTransformPathPrefix("/api");
-        var developCluster = yarp.AddCluster(developService.GetEndpoint("http"));
-        yarp.AddRoute("/develop/{**catch-all}", developCluster)
-            .WithTransformPathRemovePrefix("/develop")
-            .WithTransformPathPrefix("/api");
-    });
-
-if (isDev) gateway.WithHostPort(5001);
+var gateway = builder.AddProject<Projects.DysonNetwork_Gateway>("gateway")
+    .WithReference(ringService)
+    .WithReference(passService)
+    .WithReference(driveService)
+    .WithReference(sphereService)
+    .WithReference(developService)
+    .WithEnvironment("HTTP_PORTS", "5001")
+    .WithHttpEndpoint(port: 5001, targetPort: null, isProxied: false, name: "http");
 
 builder.AddDockerComposeEnvironment("docker-compose");
 

@@ -4,7 +4,6 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 

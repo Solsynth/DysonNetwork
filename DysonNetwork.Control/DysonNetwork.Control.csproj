@@ -16,7 +16,6 @@
         <PackageReference Include="Aspire.Hosting.Docker" Version="9.4.2-preview.1.25428.12" />
         <PackageReference Include="Aspire.Hosting.Nats" Version="9.4.2" />
         <PackageReference Include="Aspire.Hosting.Redis" Version="9.4.2" />
-        <PackageReference Include="Aspire.Hosting.Yarp" Version="9.4.2-preview.1.25428.12" />
     </ItemGroup>
 
     <ItemGroup>
@@ -25,6 +24,7 @@
       <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj" />
       <ProjectReference Include="..\DysonNetwork.Ring\DysonNetwork.Ring.csproj" />
       <ProjectReference Include="..\DysonNetwork.Sphere\DysonNetwork.Sphere.csproj" />
+      <ProjectReference Include="..\DysonNetwork.Gateway\DysonNetwork.Gateway.csproj" />
     </ItemGroup>
 
 </Project>

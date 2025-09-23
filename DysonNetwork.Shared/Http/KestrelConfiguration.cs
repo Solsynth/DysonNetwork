@@ -12,22 +12,27 @@ public static class KestrelConfiguration
     public static WebApplicationBuilder ConfigureAppKestrel(
         this WebApplicationBuilder builder,
         IConfiguration configuration,
-        long maxRequestBodySize = 50 * 1024 * 1024
+        long maxRequestBodySize = 50 * 1024 * 1024,
+        bool enableGrpc = true
     )
     {
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.Limits.MaxRequestBodySize = maxRequestBodySize;
 
-            // gRPC
-            var grpcPort = int.Parse(configuration.GetValue<string>("GRPC_PORT", "5001"));
-            options.ListenAnyIP(grpcPort, listenOptions =>
+            if (enableGrpc)
             {
-                listenOptions.Protocols = HttpProtocols.Http2;
+                // gRPC
+                var grpcPort = int.Parse(configuration.GetValue<string>("GRPC_PORT", "5001"));
+                options.ListenAnyIP(grpcPort, listenOptions =>
+                {
+                    listenOptions.Protocols = HttpProtocols.Http2;
 
-                var selfSignedCert = _CreateSelfSignedCertificate();
-                listenOptions.UseHttps(selfSignedCert);
-            });
+                    var selfSignedCert = _CreateSelfSignedCertificate();
+                    listenOptions.UseHttps(selfSignedCert);
+                });
+            }
+
 
             var httpPorts = configuration.GetValue<string>("HTTP_PORTS", "6000")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)

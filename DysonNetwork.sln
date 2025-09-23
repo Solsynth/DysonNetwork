@@ -22,6 +22,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Control", "Dys
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.ServiceDefaults", "DysonNetwork.ServiceDefaults\DysonNetwork.ServiceDefaults.csproj", "{877AAD96-C257-4305-9F1C-C9D9C9BEE615}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Gateway", "DysonNetwork.Gateway\DysonNetwork.Gateway.csproj", "{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,5 +62,9 @@ Global
 		{877AAD96-C257-4305-9F1C-C9D9C9BEE615}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{877AAD96-C257-4305-9F1C-C9D9C9BEE615}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{877AAD96-C257-4305-9F1C-C9D9C9BEE615}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
