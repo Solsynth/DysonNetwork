@@ -678,6 +678,10 @@ public partial class ChatService(
         var isContentChanged = content is not null && content != message.Content;
         var isAttachmentsChanged = attachmentsId is not null;
 
+        string? prevContent = null;
+        if (isContentChanged)
+            prevContent = message.Content;
+
         if (content is not null)
             message.Content = content;
 
@@ -691,9 +695,7 @@ public partial class ChatService(
             message.ForwardedMessageId = forwardedMessageId;
 
         if (attachmentsId is not null)
-        {
             await UpdateFileReferencesForMessageAsync(message, attachmentsId);
-        }
 
         // Mark as edited if content or attachments changed
         if (isContentChanged || isAttachmentsChanged)
@@ -717,6 +719,9 @@ public partial class ChatService(
             CreatedAt = message.UpdatedAt,
             UpdatedAt = message.UpdatedAt
         };
+
+        if (isContentChanged && prevContent is not null)
+            syncMessage.Meta["previous_content"] = prevContent;
 
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
