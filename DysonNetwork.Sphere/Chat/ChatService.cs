@@ -65,24 +65,37 @@ public partial class ChatService(
 
                     logger.LogDebug($"Updated message {message.Id} with {embedsList.Count} link previews");
 
-                    // Create sync message for link preview update
-                    var syncMessage = dbMessage.Clone();
-                    syncMessage.Type = "messages.update.links";
-                    syncMessage.UpdatedAt = dbMessage.UpdatedAt;
+                    // Create and store sync message for link preview update
+                    var syncMessage = new Message
+                    {
+                        Type = "messages.update.links",
+                        ChatRoomId = dbMessage.ChatRoomId,
+                        SenderId = dbMessage.SenderId,
+                        Nonce = Guid.NewGuid().ToString(),
+                        Meta = new Dictionary<string, object>
+                        {
+                            ["original_message_id"] = dbMessage.Id,
+                            ["embeds"] = embedsList
+                        },
+                        CreatedAt = dbMessage.UpdatedAt,
+                        UpdatedAt = dbMessage.UpdatedAt
+                    };
+
+                    dbContext.ChatMessages.Add(syncMessage);
+                    await dbContext.SaveChangesAsync();
 
                     // Send sync message to clients
+                    syncMessage.Sender = dbMessage.Sender;
+                    syncMessage.ChatRoom = dbMessage.ChatRoom;
+
                     using var syncScope = scopeFactory.CreateScope();
                     var syncCrs = syncScope.ServiceProvider.GetRequiredService<ChatRoomService>();
                     var syncMembers = await syncCrs.ListRoomMembers(dbMessage.ChatRoomId);
 
-                    await SendWebSocketPacketToRoomMembersAsync(syncMessage, "messages.update.links", syncMembers, syncScope);
-
-                    // Also notify clients of the updated message via regular WebSocket
-                    await newChat.DeliverMessageAsync(
-                        dbMessage,
-                        dbMessage.Sender,
-                        dbMessage.ChatRoom,
-                        WebSocketPacketType.MessageUpdate,
+                    await DeliverMessageAsync(
+                        syncMessage,
+                        syncMessage.Sender,
+                        syncMessage.ChatRoom,
                         notify: false
                     );
                 }
@@ -158,8 +171,12 @@ public partial class ChatService(
         return message;
     }
 
-    private async Task SendWebSocketPacketToRoomMembersAsync(Message message, string type, List<ChatMember> members,
-        IServiceScope scope)
+    private async Task DeliverWebSocketMessage(
+        Message message,
+        string type,
+        List<ChatMember> members,
+        IServiceScope scope
+    )
     {
         var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
 
@@ -228,7 +245,7 @@ public partial class ChatService(
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
-        await SendWebSocketPacketToRoomMembersAsync(message, type, members, scope);
+        await DeliverWebSocketMessage(message, type, members, scope);
 
         if (notify)
         {
@@ -603,17 +620,12 @@ public partial class ChatService(
         var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
 
         // Get all messages that have been modified since the last sync
-        var modifiedMessages = await db.ChatMessages
+        var syncMessages = await db.ChatMessages
             .IgnoreQueryFilters()
             .Include(m => m.Sender)
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.UpdatedAt > timestamp || m.DeletedAt > timestamp)
             .ToListAsync();
-
-        var syncMessages = modifiedMessages
-            .Select(message => CreateSyncMessage(message, timestamp))
-            .OfType<Message>()
-            .ToList();
 
         // Load member accounts for messages that need them
         if (syncMessages.Count > 0)
@@ -647,34 +659,6 @@ public partial class ChatService(
         };
     }
 
-    private static Message? CreateSyncMessage(Message message, Instant sinceTimestamp)
-    {
-        // Handle deleted messages
-        if (message.DeletedAt.HasValue && message.DeletedAt > sinceTimestamp)
-        {
-            return new Message
-            {
-                Id = message.Id,
-                Type = "messages.delete",
-                SenderId = message.SenderId,
-                Sender = message.Sender,
-                ChatRoomId = message.ChatRoomId,
-                ChatRoom = message.ChatRoom,
-                CreatedAt = message.CreatedAt,
-                UpdatedAt = message.DeletedAt.Value
-            };
-        }
-
-        // Handle updated/edited messages
-        if (message.EditedAt.HasValue)
-        {
-            var syncMessage = message.Clone();
-            syncMessage.Type = "messages.update";
-            return syncMessage;
-        }
-
-        return message;
-    }
 
     public async Task<Message> UpdateMessageAsync(
         Message message,
@@ -713,13 +697,28 @@ public partial class ChatService(
 
         // Mark as edited if content or attachments changed
         if (isContentChanged || isAttachmentsChanged)
-        {
             message.EditedAt = SystemClock.Instance.GetCurrentInstant();
-        }
-
-        message.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
 
         db.Update(message);
+        await db.SaveChangesAsync();
+
+        // Create and store sync message for the update
+        var syncMessage = new Message
+        {
+            Type = "messages.update",
+            ChatRoomId = message.ChatRoomId,
+            SenderId = message.SenderId,
+            Content = message.Content,
+            Attachments = message.Attachments,
+            Nonce = Guid.NewGuid().ToString(),
+            Meta = message.Meta != null
+                ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
+                : new Dictionary<string, object> { ["message_id"] = message.Id },
+            CreatedAt = message.UpdatedAt,
+            UpdatedAt = message.UpdatedAt
+        };
+
+        db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
 
         // Process link preview in the background if content was updated
@@ -729,11 +728,15 @@ public partial class ChatService(
         if (message.Sender.Account is null)
             message.Sender = await crs.LoadMemberAccount(message.Sender);
 
+        // Send sync message to clients
+        syncMessage.Sender = message.Sender;
+        syncMessage.ChatRoom = message.ChatRoom;
+
         _ = DeliverMessageAsync(
-            message,
-            message.Sender,
-            message.ChatRoom,
-            WebSocketPacketType.MessageUpdate
+            syncMessage,
+            syncMessage.Sender,
+            syncMessage.ChatRoom,
+            notify: false
         );
 
         return message;
@@ -761,11 +764,36 @@ public partial class ChatService(
         db.Update(message);
         await db.SaveChangesAsync();
 
-        _ = DeliverMessageAsync(
-            message,
-            message.Sender,
-            message.ChatRoom,
-            WebSocketPacketType.MessageDelete
+        // Create and store sync message for the deletion
+        var syncMessage = new Message
+        {
+            Type = "messages.delete",
+            ChatRoomId = message.ChatRoomId,
+            SenderId = message.SenderId,
+            Nonce = Guid.NewGuid().ToString(),
+            Meta = new Dictionary<string, object>
+            {
+                ["message_id"] = message.Id
+            },
+            CreatedAt = message.DeletedAt.Value,
+            UpdatedAt = message.DeletedAt.Value
+        };
+
+        db.ChatMessages.Add(syncMessage);
+        await db.SaveChangesAsync();
+
+        // Send sync message to clients
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
+
+        syncMessage.Sender = message.Sender;
+        syncMessage.ChatRoom = message.ChatRoom;
+
+        await DeliverMessageAsync(
+            syncMessage,
+            syncMessage.Sender,
+            syncMessage.ChatRoom,
+            notify: false
         );
     }
 }
