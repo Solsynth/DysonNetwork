@@ -1,0 +1,2237 @@
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+dbug: Aspire.Cli.NuGet.NuGetPackageCache[0]
+      Getting integrations from NuGet
+dbug: Aspire.Cli.NuGet.NuGetPackageCache[0]
+      Getting integrations from NuGet
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Running dotnet with args: package search Aspire.Cli --take 1000 --skip 0 --format json --prerelease
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Running dotnet with args: package search Aspire.ProjectTemplates --take 1000 --skip 0 --format json --prerelease
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /Users/littlesheep/.dotnet/tools/.store/aspire.cli/9.4.2/aspire.cli/9.4.2/tools/net8.0/any/
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Started dotnet with PID: 30272
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Waiting for dotnet process to exit with PID: 30272
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Started dotnet with PID: 30273
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Waiting for dotnet process to exit with PID: 30273
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stderr' on process '30272' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stdout' on process '30272' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stdout' on process '30273' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stderr' on process '30273' to logger
+dbug: Aspire.Cli.Projects.ProjectLocator[0]
+      Finding project file in /Users/littlesheep/Documents/Projects/DysonNetwork
+[?25ldbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Running dotnet with args: msbuild -getProperty:IsAspireHost,AspireHostingSDKVersion -getItem:PackageReference,AspireProjectOrPackageReference /Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/DysonNetwork.Control.csproj
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Started dotnet with PID: 30276
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Waiting for dotnet process to exit with PID: 30276
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stderr' on process '30276' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stdout' on process '30276' to logger
+                             
+[38;5;11m⠋[0m 🔬 Checking project type...
+                             [2A                             
+[38;5;11m⠙[0m 🔬 Checking project type...
+                             dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout: {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:   "Properties": {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:     "IsAspireHost": "true",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:     "AspireHostingSDKVersion": "9.4.2"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:   },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:   "Items": {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:     "PackageReference": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Identity": "Aspire.Hosting.AppHost",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Version": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "FullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/Aspire.Hosting.AppHost",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RootDir": "/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Filename": "Aspire.Hosting",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Extension": ".AppHost",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RelativeDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Directory": "Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RecursiveDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "ModifiedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "CreatedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "AccessedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectFullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/DysonNetwork.Control.csproj",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectDirectory": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectName": "DysonNetwork.Control",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectExtension": ".csproj"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Identity": "Aspire.Hosting.Docker",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Version": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "FullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/Aspire.Hosting.Docker",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RootDir": "/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Filename": "Aspire.Hosting",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Extension": ".Docker",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RelativeDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Directory": "Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RecursiveDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "ModifiedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "CreatedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "AccessedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectFullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/DysonNetwork.Control.csproj",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectDirectory": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectName": "DysonNetwork.Control",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectExtension": ".csproj"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Identity": "Aspire.Hosting.Nats",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Version": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "FullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/Aspire.Hosting.Nats",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RootDir": "/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Filename": "Aspire.Hosting",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Extension": ".Nats",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RelativeDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Directory": "Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RecursiveDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "ModifiedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "CreatedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "AccessedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectFullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/DysonNetwork.Control.csproj",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectDirectory": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectName": "DysonNetwork.Control",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectExtension": ".csproj"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Identity": "Aspire.Hosting.Redis",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Version": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "FullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/Aspire.Hosting.Redis",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RootDir": "/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Filename": "Aspire.Hosting",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Extension": ".Redis",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RelativeDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "Directory": "Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "RecursiveDir": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "ModifiedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "CreatedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "AccessedTime": "",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectFullPath": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/DysonNetwork.Control.csproj",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectDirectory": "/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectName": "DysonNetwork.Control",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:         "DefiningProjectExtension": ".csproj"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:       }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:     ],
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:     "AspireProjectOrPackageReference": []
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout:   }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30276) stdout: }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet process with PID: 30276 has exited with code: 0
+[2A                             
+[38;5;11m⠙[0m 🔬 Checking project type...
+                             [2K[1A[2K[1A[2K[?25h[?25ldbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Running dotnet with args: build /Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Control/DysonNetwork.Control.csproj
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Started dotnet with PID: 30278
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Waiting for dotnet process to exit with PID: 30278
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stdout' on process '30278' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stderr' on process '30278' to logger
+                          
+[38;5;11m⠋[0m 🛠  Building app host...
+                          [2A                          
+[38;5;11m⠙[0m 🛠  Building app host...
+                          [2A                          
+[38;5;11m⠚[0m 🛠  Building app host...
+                          dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30278) stdout:   Determining projects to restore...
+[2A                          
+[38;5;11m⠞[0m 🛠  Building app host...
+                          [2A                          
+[38;5;11m⠖[0m 🛠  Building app host...
+                          [2A                          
+[38;5;11m⠦[0m 🛠  Building app host...
+                          [2A                          
+[38;5;11m⠴[0m 🛠  Building app host...
+                          [2A                          
+[38;5;11m⠲[0m 🛠  Building app host...
+                          info: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+[2K[1A[2K[1A[2K[?25h❌  [1;38;5;9mThe operation was canceled.[0m
+dbug: Aspire.Cli.NuGet.NuGetPackageCache[0]
+      Getting integrations from NuGet
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Running dotnet with args: package search Aspire.Cli --take 1000 --skip 0 --format json --prerelease
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout: {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:   "version": 2,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:   "problems": [],
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:   "searchResult": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:     {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:       "sourceName": "nuget.org",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:       "problems": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:           "text": "A task was canceled.",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:           "problemType": "Error"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:         }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:       ],
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:       "packages": []
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:     }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout:   ]
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30273) stdout: }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stdout' on process '30293' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Started dotnet with PID: 30293
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Waiting for dotnet process to exit with PID: 30293
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      Starting to forward stream with identifier 'stderr' on process '30293' to logger
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet process with PID: 30273 has exited with code: 0
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout: {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:   "version": 2,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:   "problems": [],
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:   "searchResult": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:     {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:       "sourceName": "nuget.org",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:       "packages": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Cli",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 44846,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.StackExchange.Redis",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1701981,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Storage.Blobs",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1006959,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Microsoft.EntityFrameworkCore.SqlServer",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1484339,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Npgsql.EntityFrameworkCore.PostgreSQL",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1506746,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.StackExchange.Redis.DistributedCaching",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 817809,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Npgsql",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 537636,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.RabbitMQ.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 388691,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Data.Tables",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 421250,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Messaging.ServiceBus",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 384863,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Security.KeyVault",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 368098,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Microsoft.Azure.Cosmos",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 310771,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Confluent.Kafka",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 267521,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "InfinityFlow.Aspire.Temporal",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.7.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 254413,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "InfinityFlow"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.AI.OpenAI",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 288323,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Microsoft.Data.SqlClient",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 274596,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Seq",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 187014,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Storage.Queues",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 235558,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.OpenAI",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 191351,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.StackExchange.Redis.OutputCaching",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 335950,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.MongoDB.Driver",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 139083,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Search.Documents",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 105783,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Messaging.EventHubs",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 127601,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.OllamaSharp",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 117269,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Keycloak.Authentication",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 96656,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.RabbitMQ.Client.v7",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 107914,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Pomelo.EntityFrameworkCore.MySql",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 127904,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.Meilisearch",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 39892,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Microsoft.EntityFrameworkCore.Cosmos",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 69522,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.MySqlConnector",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 41461,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Qdrant.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 32625,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Oracle.EntityFrameworkCore",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 50293,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Elastic.Clients.Elasticsearch",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 24852,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, elasticsearch"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.NATS.Net",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 29628,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.EventStore",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 29658,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.MongoDB.Driver.v3",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 38212,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.MassTransit.RabbitMQ",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 34345,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.RavenDB.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 28899,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.Microsoft.Data.Sqlite",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 26878,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.GoFeatureFlag",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 24048,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Npgsql",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 15146,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.Microsoft.EntityFrameworkCore.Sqlite",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 31681,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Messaging.WebPubSub",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 18674,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Elastic.Clients.Elasticsearch.Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.3.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 9431,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "elasticsearch"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.Npgsql.EntityFrameworkCore.PostgreSQL",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 31188,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Microsoft.Extensions.Configuration.AzureAppConfiguration",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 12578,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.Minio.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 7372,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.SurrealDb",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 5350,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "CommunityToolkit.Aspire.Hosting.PowerShell",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 7979,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Milvus.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 2744,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Marqdouj.Aspire.MailKit.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "8.1.6",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1678,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "djmarquardt"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire.Azure.AI.Inference",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1571,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Atc.Aspire.Azure.Kusto",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.7.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1472,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "atc-net"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Berrevoets.Aspire.Client.Mail",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 646,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "BerrevoetsSystems"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.Maui",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240202180633",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1741,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "AspireExtensions.Minio.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 367,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "nenoNaninu"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Oragon.RabbitMQ.AspireClient",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.5.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 2836,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "luizcarlosfaria"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Raygun4Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "2.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 986,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "mindscapehq"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "sains1.Aspire.Temporal.Server",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.2.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 310,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "sains1"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.Tools.Clients.Maui.Aspire.Integration",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240202130217",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1384,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "NorthernNerds.Aspire.Neo4j",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "2.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1174,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "northern-nerds"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "FoundationDB.Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "7.3.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 556,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "krzysfr, SnowBank"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "WeChooz.Aspire.MailKit",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 405,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "WeChooz"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "AzureKeyVaultEmulator.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "2.6.3",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 19327,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "james-gould"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.DotNetNew.Templates.Project.Architecture.AspireWithClientsMaui",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240207114335",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1930,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.DotNetNew.Templates.Project.Architecture.AspireWithClientsMaui.Bret",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240207114340",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 1920,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.Python",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240309152347",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 524,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.Julia",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240309181808",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 386,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.R",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240309180541",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 388,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Nivot.Aspire.Hosting.PowerShell",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 168,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "oisin"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "ClickHouse.Hosting",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.1.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 2701,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "cristipufu"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire4Wasm.AppHost",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "6.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 581,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "BenjaminCharlton"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire4Wasm.WebAssembly",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "6.0.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 558,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "BenjaminCharlton"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.MatlabOctave",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "0.0.1-alpha-20240309181607",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 382,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "Aspire4Wasm.WebApi",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "6.0.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 550,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "BenjaminCharlton"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "AgileConfig.Client.Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 139,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "kklldog"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "AspireMassTransit.RabbitMQ.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.2.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 852,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "MichielTest"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "FSharp.CommunityToolkit.Aspire.Hosting.Azure.StaticWebApps",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "9.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 132,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "Tarmil"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "id": "AJP.Aspire.QueryableTraceCollector.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "totalDownloads": 235,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:           "owners": "andrewpoole"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:         }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:       ]
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:     }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout:   ]
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30272) stdout: }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet process with PID: 30272 has exited with code: 0
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout: {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:   "version": 2,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:   "problems": [],
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:   "searchResult": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:     {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:       "sourceName": "nuget.org",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:       "packages": [
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Cli",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 44846,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.StackExchange.Redis",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1701981,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Storage.Blobs",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1006959,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Microsoft.EntityFrameworkCore.SqlServer",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1484339,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Npgsql.EntityFrameworkCore.PostgreSQL",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1506746,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.StackExchange.Redis.DistributedCaching",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 817809,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Npgsql",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 537636,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.RabbitMQ.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 388691,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Data.Tables",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 421250,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Messaging.ServiceBus",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 384863,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Security.KeyVault",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 368098,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Microsoft.Azure.Cosmos",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 310771,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Confluent.Kafka",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 267521,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "InfinityFlow.Aspire.Temporal",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.7.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 254413,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "InfinityFlow"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.AI.OpenAI",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 288323,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Microsoft.Data.SqlClient",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 274596,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Seq",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 187014,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Storage.Queues",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 235558,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.OpenAI",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 191351,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.StackExchange.Redis.OutputCaching",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 335950,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.MongoDB.Driver",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 139083,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Search.Documents",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 105783,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Messaging.EventHubs",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 127601,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.OllamaSharp",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 117269,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Keycloak.Authentication",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 96656,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.RabbitMQ.Client.v7",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 107914,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Pomelo.EntityFrameworkCore.MySql",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 127904,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.Meilisearch",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 39892,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Microsoft.EntityFrameworkCore.Cosmos",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 69522,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.MySqlConnector",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 41461,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Qdrant.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 32625,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Oracle.EntityFrameworkCore",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 50293,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Elastic.Clients.Elasticsearch",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 24852,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, elasticsearch"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.NATS.Net",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 29628,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.EventStore",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 29658,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.MongoDB.Driver.v3",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 38212,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.MassTransit.RabbitMQ",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 34345,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.RavenDB.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 28899,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.Microsoft.Data.Sqlite",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 26878,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.GoFeatureFlag",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 24048,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Npgsql",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 15146,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.Microsoft.EntityFrameworkCore.Sqlite",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 31681,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Messaging.WebPubSub",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 18674,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Elastic.Clients.Elasticsearch.Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.3.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 9431,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "elasticsearch"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.Npgsql.EntityFrameworkCore.PostgreSQL",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 31188,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Microsoft.Extensions.Configuration.AzureAppConfiguration",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 12578,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.Minio.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 7372,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.SurrealDb",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 5350,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "CommunityToolkit.Aspire.Hosting.PowerShell",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.8.0-beta.395",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 7979,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, dotnetfoundation, Microsoft.Toolkit"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Milvus.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 2744,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Marqdouj.Aspire.MailKit.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "8.1.6",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1678,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "djmarquardt"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire.Azure.AI.Inference",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.4.2-preview.1.25428.12",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1571,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "aspire, Microsoft"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Atc.Aspire.Azure.Kusto",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.7.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1472,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "atc-net"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Berrevoets.Aspire.Client.Mail",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 646,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "BerrevoetsSystems"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.Maui",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240202180633",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1741,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "AspireExtensions.Minio.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 367,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "nenoNaninu"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Oragon.RabbitMQ.AspireClient",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.5.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 2836,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "luizcarlosfaria"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Raygun4Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "2.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 986,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "mindscapehq"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "sains1.Aspire.Temporal.Server",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.2.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 310,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "sains1"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.Tools.Clients.Maui.Aspire.Integration",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240202130217",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1384,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "NorthernNerds.Aspire.Neo4j",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "2.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1174,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "northern-nerds"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "FoundationDB.Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "7.3.2",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 556,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "krzysfr, SnowBank"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "WeChooz.Aspire.MailKit",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 405,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "WeChooz"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "AzureKeyVaultEmulator.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "2.6.3",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 19327,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "james-gould"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.DotNetNew.Templates.Project.Architecture.AspireWithClientsMaui",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240207114335",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1930,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.DotNetNew.Templates.Project.Architecture.AspireWithClientsMaui.Bret",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240207114340",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 1920,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.Python",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240309152347",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 524,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.Julia",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240309181808",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 386,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.R",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240309180541",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 388,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Nivot.Aspire.Hosting.PowerShell",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 168,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "oisin"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "ClickHouse.Hosting",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.1.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 2701,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "cristipufu"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire4Wasm.AppHost",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "6.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 581,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "BenjaminCharlton"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire4Wasm.WebAssembly",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "6.0.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 558,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "BenjaminCharlton"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "HolisticWare.Tools.Aspire.Hosting.Clients.MatlabOctave",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "0.0.1-alpha-20240309181607",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 382,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "moljac"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "Aspire4Wasm.WebApi",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "6.0.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 550,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "BenjaminCharlton"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "AgileConfig.Client.Aspire",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 139,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "kklldog"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "AspireMassTransit.RabbitMQ.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.2.1",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 852,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "MichielTest"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "FSharp.CommunityToolkit.Aspire.Hosting.Azure.StaticWebApps",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "9.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 132,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "Tarmil"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         },
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         {
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "id": "AJP.Aspire.QueryableTraceCollector.Client",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "latestVersion": "1.0.0",
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "totalDownloads": 235,
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:           "owners": "andrewpoole"
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:         }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:       ]
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:     }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout:   ]
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet(30293) stdout: }
+dbug: Aspire.Cli.DotNet.DotNetCliRunner[0]
+      dotnet process with PID: 30293 has exited with code: 0

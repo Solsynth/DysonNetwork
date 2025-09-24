@@ -1,222 +1,204 @@
 services:
-  aspire-dashboard:
-    image: "mcr.microsoft.com/dotnet/nightly/aspire-dashboard:latest"
+  docker-compose-dashboard:
+    image: mcr.microsoft.com/dotnet/nightly/aspire-dashboard:latest
     expose:
       - "18888"
       - "18889"
     networks:
-      - "aspire"
-    restart: "always"
+      - aspire
+    restart: always
   cache:
-    image: "docker.io/library/redis:7.4"
+    image: docker.io/library/redis:7.4
     command:
-      - "-c"
-      - "redis-server --requirepass $$REDIS_PASSWORD"
+      - -c
+      - redis-server --requirepass $$REDIS_PASSWORD
     entrypoint:
-      - "/bin/sh"
+      - /bin/sh
     environment:
-      REDIS_PASSWORD: "${CACHE_PASSWORD}"
+      REDIS_PASSWORD: ${CACHE_PASSWORD}
     expose:
       - "6379"
     networks:
-      - "aspire"
+      - aspire
   queue:
-    image: "docker.io/library/nats:2.11"
+    image: docker.io/library/nats:2.11
     command:
-      - "--user"
-      - "nats"
-      - "--pass"
-      - "${QUEUE_PASSWORD}"
-      - "-js"
+      - --user
+      - nats
+      - --pass
+      - ${QUEUE_PASSWORD}
+      - -js
     expose:
       - "4222"
     networks:
-      - "aspire"
+      - aspire
   ring:
-    image: "${RING_IMAGE}"
+    image: ${RING_IMAGE}
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "${RING_PORT}"
-      HTTPS_PORTS: "5001"
-      ConnectionStrings__queue: "nats://nats:${QUEUE_PASSWORD}@queue:4222"
-      services__pass__http__0: "http://pass:${PASS_PORT}"
-      services__pass__grpc__0: "https://pass:5001"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "ring"
-    volumes:
-      - "./Keys:/app/keys"
-      - "./settings/ring.json:/app/appsettings.json"
+      HTTP_PORTS: "8080"
+      HTTPS_PORTS: "7001"
+      ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
+      services__pass__http__0: http://pass:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: ring
+      services__pass__grpc__0: https://pass:5001
     expose:
-      - "${RING_PORT}"
-      - "5001"
+      - "8080"
+      - "7001"
     networks:
-      - "aspire"
+      - aspire
   pass:
-    image: "${PASS_IMAGE}"
+    image: ${PASS_IMAGE}
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "${PASS_PORT}"
-      HTTPS_PORTS: "5001"
-      ConnectionStrings__cache: "cache:6379,password=${CACHE_PASSWORD}"
-      ConnectionStrings__queue: "nats://nats:${QUEUE_PASSWORD}@queue:4222"
-      services__ring__http__0: "http://ring:${RING_PORT}"
-      services__ring__grpc__0: "https://ring:5001"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "pass"
-    volumes:
-      - "./Keys:/app/keys"
-      - "./settings/pass.json:/app/appsettings.json"
+      HTTP_PORTS: "8080"
+      HTTPS_PORTS: "7001"
+      ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
+      ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
+      services__ring__http__0: http://ring:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: pass
+      services__ring__grpc__0: https://ring:5001
     expose:
-      - "${PASS_PORT}"
-      - "5001"
+      - "8080"
+      - "7001"
     networks:
-      - "aspire"
+      - aspire
   drive:
-    image: "${DRIVE_IMAGE}"
+    image: ${DRIVE_IMAGE}
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "${DRIVE_PORT}"
-      HTTPS_PORTS: "5001"
-      ConnectionStrings__cache: "cache:6379,password=${CACHE_PASSWORD}"
-      ConnectionStrings__queue: "nats://nats:${QUEUE_PASSWORD}@queue:4222"
-      services__pass__http__0: "http://pass:${PASS_PORT}"
-      services__pass__grpc__0: "https://pass:5001"
-      services__ring__http__0: "http://ring:${RING_PORT}"
-      services__ring__grpc__0: "https://ring:5001"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "drive"
+      HTTP_PORTS: "8080"
+      HTTPS_PORTS: "7001"
+      ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
+      ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
+      services__pass__http__0: http://pass:8080
+      services__ring__http__0: http://ring:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: drive
+      services__pass__grpc__0: https://pass:5001
+      services__ring__grpc__0: https://ring:5001
     expose:
-      - "${DRIVE_PORT}"
-      - "5001"
-    volumes:
-      - "./Uploads:/app/uploads"
-      - "./settings/drive.json:/app/appsettings.json"
+      - "8080"
+      - "7001"
     networks:
-      - "aspire"
+      - aspire
   sphere:
-    image: "${SPHERE_IMAGE}"
+    image: ${SPHERE_IMAGE}
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "${SPHERE_PORT}"
-      HTTPS_PORTS: "5001"
-      ConnectionStrings__cache: "cache:6379,password=${CACHE_PASSWORD}"
-      ConnectionStrings__queue: "nats://nats:${QUEUE_PASSWORD}@queue:4222"
-      services__pass__http__0: "http://pass:${PASS_PORT}"
-      services__pass__grpc__0: "https://pass:5001"
-      services__drive__http__0: "http://drive:${DRIVE_PORT}"
-      services__drive__grpc__0: "https://drive:5001"
-      services__ring__http__0: "http://ring:${RING_PORT}"
-      services__ring__grpc__0: "https://ring:5001"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "sphere"
-    volumes:
-      - "./Keys:/app/keys"
-      - "./settings/sphere.json:/app/appsettings.json"
+      HTTP_PORTS: "8080"
+      HTTPS_PORTS: "7001"
+      ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
+      ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
+      services__pass__http__0: http://pass:8080
+      services__ring__http__0: http://ring:8080
+      services__drive__http__0: http://drive:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: sphere
+      services__pass__grpc__0: https://pass:5001
+      services__drive__grpc__0: https://drive:5001
+      services__ring__grpc__0: https://ring:5001
     expose:
-      - "${SPHERE_PORT}"
-      - "5001"
+      - "8080"
+      - "7001"
     networks:
-      - "aspire"
+      - aspire
   develop:
-    image: "${DEVELOP_IMAGE}"
+    image: ${DEVELOP_IMAGE}
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "${DEVELOP_PORT}"
-      HTTPS_PORTS: "5001"
-      ConnectionStrings__cache: "cache:6379,password=${CACHE_PASSWORD}"
-      services__pass__http__0: "http://pass:${PASS_PORT}"
-      services__pass__grpc__0: "https://pass:5001"
-      services__ring__http__0: "http://ring:${RING_PORT}"
-      services__ring__grpc__0: "https://ring:5001"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "develop"
+      HTTP_PORTS: "8080"
+      HTTPS_PORTS: "7001"
+      ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
+      services__pass__http__0: http://pass:8080
+      services__ring__http__0: http://ring:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: develop
+      services__pass__grpc__0: https://pass:5001
+      services__ring__grpc__0: https://ring:5001
     expose:
-      - "${DEVELOP_PORT}"
-      - "5001"
-    volumes:
-      - "./settings/develop.json:/app/appsettings.json"
+      - "8080"
+      - "7001"
     networks:
-      - "aspire"
+      - aspire
   gateway:
-    image: "mcr.microsoft.com/dotnet/nightly/yarp:2.3.0-preview.4"
-    command:
-      - "/app/yarp.dll"
-    entrypoint:
-      - "dotnet"
+    image: ${GATEWAY_IMAGE}
     environment:
-      ASPNETCORE_ENVIRONMENT: "Production"
-      services__ring__http__0: "http://ring:${RING_PORT}"
-      services__ring__grpc__0: "https://ring:5001"
-      REVERSEPROXY__ROUTES__route0__MATCH__PATH: "/ws"
-      REVERSEPROXY__ROUTES__route0__CLUSTERID: "cluster_ring"
-      REVERSEPROXY__ROUTES__route1__MATCH__PATH: "/ring/{**catch-all}"
-      REVERSEPROXY__ROUTES__route1__CLUSTERID: "cluster_ring"
-      REVERSEPROXY__ROUTES__route1__TRANSFORMS__0__PathRemovePrefix: "/ring"
-      REVERSEPROXY__ROUTES__route1__TRANSFORMS__1__PathPrefix: "/api"
-      REVERSEPROXY__ROUTES__route2__MATCH__PATH: "/.well-known/openid-configuration"
-      REVERSEPROXY__ROUTES__route2__CLUSTERID: "cluster_pass"
-      REVERSEPROXY__ROUTES__route3__MATCH__PATH: "/.well-known/jwks"
-      REVERSEPROXY__ROUTES__route3__CLUSTERID: "cluster_pass"
-      REVERSEPROXY__ROUTES__route4__MATCH__PATH: "/id/{**catch-all}"
-      REVERSEPROXY__ROUTES__route4__CLUSTERID: "cluster_pass"
-      REVERSEPROXY__ROUTES__route4__TRANSFORMS__0__PathRemovePrefix: "/id"
-      REVERSEPROXY__ROUTES__route4__TRANSFORMS__1__PathPrefix: "/api"
-      REVERSEPROXY__ROUTES__route5__MATCH__PATH: "/api/tus"
-      REVERSEPROXY__ROUTES__route5__CLUSTERID: "cluster_drive"
-      REVERSEPROXY__ROUTES__route6__MATCH__PATH: "/drive/{**catch-all}"
-      REVERSEPROXY__ROUTES__route6__CLUSTERID: "cluster_drive"
-      REVERSEPROXY__ROUTES__route6__TRANSFORMS__0__PathRemovePrefix: "/drive"
-      REVERSEPROXY__ROUTES__route6__TRANSFORMS__1__PathPrefix: "/api"
-      REVERSEPROXY__ROUTES__route7__MATCH__PATH: "/sphere/{**catch-all}"
-      REVERSEPROXY__ROUTES__route7__CLUSTERID: "cluster_sphere"
-      REVERSEPROXY__ROUTES__route7__TRANSFORMS__0__PathRemovePrefix: "/sphere"
-      REVERSEPROXY__ROUTES__route7__TRANSFORMS__1__PathPrefix: "/api"
-      REVERSEPROXY__ROUTES__route8__MATCH__PATH: "/develop/{**catch-all}"
-      REVERSEPROXY__ROUTES__route8__CLUSTERID: "cluster_develop"
-      REVERSEPROXY__ROUTES__route8__TRANSFORMS__0__PathRemovePrefix: "/develop"
-      REVERSEPROXY__ROUTES__route8__TRANSFORMS__1__PathPrefix: "/api"
-      REVERSEPROXY__CLUSTERS__cluster_ring__DESTINATIONS__destination1__ADDRESS: "http://_http.ring"
-      REVERSEPROXY__CLUSTERS__cluster_pass__DESTINATIONS__destination1__ADDRESS: "http://_http.pass"
-      REVERSEPROXY__CLUSTERS__cluster_drive__DESTINATIONS__destination1__ADDRESS: "http://_http.drive"
-      REVERSEPROXY__CLUSTERS__cluster_sphere__DESTINATIONS__destination1__ADDRESS: "http://_http.sphere"
-      REVERSEPROXY__CLUSTERS__cluster_develop__DESTINATIONS__destination1__ADDRESS: "http://_http.develop"
-      services__pass__http__0: "http://pass:${PASS_PORT}"
-      services__pass__grpc__0: "https://pass:5001"
-      services__drive__http__0: "http://drive:${DRIVE_PORT}"
-      services__drive__grpc__0: "https://drive:5001"
-      services__sphere__http__0: "http://sphere:${SPHERE_PORT}"
-      services__sphere__grpc__0: "https://sphere:5001"
-      services__develop__http__0: "http://develop:${DEVELOP_PORT}"
-      services__develop__grpc__0: "https://develop:5001"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_SERVICE_NAME: "gateway"
+      ASPNETCORE_ENVIRONMENT: Production
+      services__ring__http__0: http://ring:8080
+      services__ring__grpc__0: https://ring:5001
+      REVERSEPROXY__ROUTES__route0__MATCH__PATH: /ws
+      REVERSEPROXY__ROUTES__route0__CLUSTERID: cluster_ring
+      REVERSEPROXY__ROUTES__route1__MATCH__PATH: /ring/{**catch-all}
+      REVERSEPROXY__ROUTES__route1__CLUSTERID: cluster_ring
+      REVERSEPROXY__ROUTES__route1__TRANSFORMS__0__PathRemovePrefix: /ring
+      REVERSEPROXY__ROUTES__route1__TRANSFORMS__1__PathPrefix: /api
+      REVERSEPROXY__ROUTES__route2__MATCH__PATH: /.well-known/openid-configuration
+      REVERSEPROXY__ROUTES__route2__CLUSTERID: cluster_pass
+      REVERSEPROXY__ROUTES__route3__MATCH__PATH: /.well-known/jwks
+      REVERSEPROXY__ROUTES__route3__CLUSTERID: cluster_pass
+      REVERSEPROXY__ROUTES__route4__MATCH__PATH: /id/{**catch-all}
+      REVERSEPROXY__ROUTES__route4__CLUSTERID: cluster_pass
+      REVERSEPROXY__ROUTES__route4__TRANSFORMS__0__PathRemovePrefix: /id
+      REVERSEPROXY__ROUTES__route4__TRANSFORMS__1__PathPrefix: /api
+      REVERSEPROXY__ROUTES__route5__MATCH__PATH: /api/tus
+      REVERSEPROXY__ROUTES__route5__CLUSTERID: cluster_drive
+      REVERSEPROXY__ROUTES__route6__MATCH__PATH: /drive/{**catch-all}
+      REVERSEPROXY__ROUTES__route6__CLUSTERID: cluster_drive
+      REVERSEPROXY__ROUTES__route6__TRANSFORMS__0__PathRemovePrefix: /drive
+      REVERSEPROXY__ROUTES__route6__TRANSFORMS__1__PathPrefix: /api
+      REVERSEPROXY__ROUTES__route7__MATCH__PATH: /sphere/{**catch-all}
+      REVERSEPROXY__ROUTES__route7__CLUSTERID: cluster_sphere
+      REVERSEPROXY__ROUTES__route7__TRANSFORMS__0__PathRemovePrefix: /sphere
+      REVERSEPROXY__ROUTES__route7__TRANSFORMS__1__PathPrefix: /api
+      REVERSEPROXY__ROUTES__route8__MATCH__PATH: /develop/{**catch-all}
+      REVERSEPROXY__ROUTES__route8__CLUSTERID: cluster_develop
+      REVERSEPROXY__ROUTES__route8__TRANSFORMS__0__PathRemovePrefix: /develop
+      REVERSEPROXY__ROUTES__route8__TRANSFORMS__1__PathPrefix: /api
+      REVERSEPROXY__CLUSTERS__cluster_ring__DESTINATIONS__destination1__ADDRESS: http://_http.ring
+      REVERSEPROXY__CLUSTERS__cluster_pass__DESTINATIONS__destination1__ADDRESS: http://_http.pass
+      REVERSEPROXY__CLUSTERS__cluster_drive__DESTINATIONS__destination1__ADDRESS: http://_http.drive
+      REVERSEPROXY__CLUSTERS__cluster_sphere__DESTINATIONS__destination1__ADDRESS: http://_http.sphere
+      REVERSEPROXY__CLUSTERS__cluster_develop__DESTINATIONS__destination1__ADDRESS: http://_http.develop
+      services__pass__http__0: http://pass:8080
+      services__pass__grpc__0: https://pass:5001
+      services__drive__http__0: http://drive:8080
+      services__drive__grpc__0: https://drive:5001
+      services__sphere__http__0: http://sphere:8080
+      services__sphere__grpc__0: https://sphere:5001
+      services__develop__http__0: http://develop:8080
+      services__develop__grpc__0: https://develop:5001
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: gateway
     expose:
       - "5000"
     ports:
-      - "5001:5000"
+      - 5001:5000
     networks:
-      - "aspire"
+      - aspire
 networks:
   aspire:
-    driver: "bridge"
+    driver: bridge
