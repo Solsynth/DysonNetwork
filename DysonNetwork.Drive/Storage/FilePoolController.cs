@@ -19,6 +19,7 @@ public class FilePoolController(AppDatabase db, FileService fs) : ControllerBase
         var pools = await db.Pools
             .Where(p => p.PolicyConfig.PublicUsable || p.AccountId == accountId)
             .Where(p => !p.IsHidden || p.AccountId == accountId)
+            .OrderBy(p => p.CreatedAt)
             .ToListAsync();
         pools = pools.Select(p =>
         {
@@ -29,14 +30,14 @@ public class FilePoolController(AppDatabase db, FileService fs) : ControllerBase
 
         return Ok(pools);
     }
-    
+
     [Authorize]
     [HttpDelete("{id:guid}/recycle")]
     public async Task<ActionResult> DeleteFilePoolRecycledFiles(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         var pool = await fs.GetPoolAsync(id);
         if (pool is null) return NotFound();
         if (!currentUser.IsSuperuser && pool.AccountId != accountId) return Unauthorized();
