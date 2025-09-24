@@ -21,7 +21,7 @@ public static class Extensions
     {
         // Allow unencrypted grpc
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-        
+
         builder.ConfigureOpenTelemetry();
 
         builder.AddDefaultHealthChecks();

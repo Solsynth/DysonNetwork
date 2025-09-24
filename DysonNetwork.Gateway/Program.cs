@@ -32,132 +32,78 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-var routes = new[]
+var serviceNames = new[] { "ring", "pass", "drive", "sphere", "develop" };
+
+var specialRoutes = new[]
 {
-    new RouteConfig()
+    new RouteConfig
     {
         RouteId = "ring-ws",
         ClusterId = "ring",
         Match = new RouteMatch { Path = "/ws" }
     },
-    new RouteConfig()
-    {
-        RouteId = "ring-api",
-        ClusterId = "ring",
-        Match = new RouteMatch { Path = "/ring/{**catch-all}" },
-        Transforms =
-        [
-            new Dictionary<string, string> { { "PathRemovePrefix", "/ring" } },
-            new Dictionary<string, string> { { "PathPrefix", "/api" } }
-        ]
-    },
-    new RouteConfig()
+    new RouteConfig
     {
         RouteId = "pass-openid",
         ClusterId = "pass",
         Match = new RouteMatch { Path = "/.well-known/openid-configuration" }
     },
-    new RouteConfig()
+    new RouteConfig
     {
         RouteId = "pass-jwks",
         ClusterId = "pass",
         Match = new RouteMatch { Path = "/.well-known/jwks" }
     },
-    new RouteConfig()
-    {
-        RouteId = "pass-api",
-        ClusterId = "pass",
-        Match = new RouteMatch { Path = "/id/{**catch-all}" },
-        Transforms =
-        [
-            new Dictionary<string, string> { { "PathRemovePrefix", "/id" } },
-            new Dictionary<string, string> { { "PathPrefix", "/api" } }
-        ]
-    },
-    new RouteConfig()
+    new RouteConfig
     {
         RouteId = "drive-tus",
         ClusterId = "drive",
         Match = new RouteMatch { Path = "/api/tus" }
-    },
-    new RouteConfig()
-    {
-        RouteId = "drive-api",
-        ClusterId = "drive",
-        Match = new RouteMatch { Path = "/drive/{**catch-all}" },
-        Transforms =
-        [
-            new Dictionary<string, string> { { "PathRemovePrefix", "/drive" } },
-            new Dictionary<string, string> { { "PathPrefix", "/api" } }
-        ]
-    },
-    new RouteConfig()
-    {
-        RouteId = "sphere-api",
-        ClusterId = "sphere",
-        Match = new RouteMatch { Path = "/sphere/{**catch-all}" },
-        Transforms =
-        [
-            new Dictionary<string, string> { { "PathRemovePrefix", "/sphere" } },
-            new Dictionary<string, string> { { "PathPrefix", "/api" } }
-        ]
-    },
-    new RouteConfig()
-    {
-        RouteId = "develop-api",
-        ClusterId = "develop",
-        Match = new RouteMatch { Path = "/develop/{**catch-all}" },
-        Transforms =
-        [
-            new Dictionary<string, string> { { "PathRemovePrefix", "/develop" } },
-            new Dictionary<string, string> { { "PathPrefix", "/api" } }
-        ]
     }
 };
 
-var clusters = new[]
+var apiRoutes = serviceNames.Select(serviceName =>
 {
-    new ClusterConfig()
+    var apiPath = serviceName switch
     {
-        ClusterId = "ring",
-        Destinations = new Dictionary<string, DestinationConfig>
-        {
-            { "destination1", new DestinationConfig() { Address = "http://ring" } }
-        }
-    },
-    new ClusterConfig()
+        "pass" => "/id",
+        _ => $"/{serviceName}"
+    };
+    return new RouteConfig
     {
-        ClusterId = "pass",
-        Destinations = new Dictionary<string, DestinationConfig>
-        {
-            { "destination1", new DestinationConfig() { Address = "http://pass" } }
-        }
-    },
-    new ClusterConfig()
+        RouteId = $"{serviceName}-api",
+        ClusterId = serviceName,
+        Match = new RouteMatch { Path = $"{apiPath}/{{**catch-all}}" },
+        Transforms =
+        [
+            new Dictionary<string, string> { { "PathRemovePrefix", apiPath } },
+            new Dictionary<string, string> { { "PathPrefix", "/api" } }
+        ]
+    };
+});
+
+var swaggerRoutes = serviceNames.Select(serviceName => new RouteConfig
+{
+    RouteId = $"{serviceName}-swagger",
+    ClusterId = serviceName,
+    Match = new RouteMatch { Path = $"/swagger/{serviceName}/{{**catch-all}}" },
+    Transforms = 
+    [
+        new Dictionary<string, string> { { "PathRemovePrefix", $"/swagger/{serviceName}" } },
+        new Dictionary<string, string> { { "PathPrefix", "/swagger" } }
+    ]
+});
+
+var routes = specialRoutes.Concat(apiRoutes).Concat(swaggerRoutes).ToArray();
+
+var clusters = serviceNames.Select(serviceName => new ClusterConfig
+{
+    ClusterId = serviceName,
+    Destinations = new Dictionary<string, DestinationConfig>
     {
-        ClusterId = "drive",
-        Destinations = new Dictionary<string, DestinationConfig>
-        {
-            { "destination1", new DestinationConfig() { Address = "http://drive" } }
-        }
-    },
-    new ClusterConfig()
-    {
-        ClusterId = "sphere",
-        Destinations = new Dictionary<string, DestinationConfig>
-        {
-            { "destination1", new DestinationConfig() { Address = "http://sphere" } }
-        }
-    },
-    new ClusterConfig()
-    {
-        ClusterId = "develop",
-        Destinations = new Dictionary<string, DestinationConfig>
-        {
-            { "destination1", new DestinationConfig() { Address = "http://develop" } }
-        }
+        { "destination1", new DestinationConfig { Address = $"http://{serviceName}" } }
     }
-};
+}).ToArray();
 
 builder.Services
 .AddReverseProxy()
