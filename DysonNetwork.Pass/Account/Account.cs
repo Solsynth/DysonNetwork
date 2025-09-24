@@ -101,24 +101,48 @@ public class Account : ModelBase
 
 public abstract class Leveling
 {
-    public static readonly List<int> ExperiencePerLevel =
-    [
-        0, // Level 0
-        100, // Level 1
-        250, // Level 2
-        500, // Level 3
-        1000, // Level 4
-        2000, // Level 5
-        4000, // Level 6
-        8000, // Level 7
-        16000, // Level 8
-        32000, // Level 9
-        64000, // Level 10
-        128000, // Level 11
-        256000, // Level 12
-        512000, // Level 13
-        1024000 // Level 14
-    ];
+    private const int MaxLevel = 120;
+    private const double BaseExp = 100.0;
+    private const double K = 3.52; // tweak this for balance
+
+    // Single level XP requirement (from L → L+1)
+    public static double ExpForLevel(int level)
+    {
+        if (level < 1) return 0;
+        return BaseExp + K * Math.Pow(level - 1, 2);
+    }
+
+    // Total cumulative XP required to reach level L
+    public static double TotalExpForLevel(int level)
+    {
+        if (level < 1) return 0;
+        return BaseExp * level + K * ((level - 1) * level * (2 * level - 1)) / 6.0;
+    }
+
+    // Get level from experience
+    public static int GetLevelFromExp(int xp)
+    {
+        if (xp < 0) return 0;
+
+        int level = 0;
+        while (level < MaxLevel && TotalExpForLevel(level + 1) <= xp)
+        {
+            level++;
+        }
+        return level;
+    }
+
+    // Progress to next level (0.0 ~ 1.0)
+    public static double GetProgressToNextLevel(int xp)
+    {
+        int currentLevel = GetLevelFromExp(xp);
+        if (currentLevel >= MaxLevel) return 1.0;
+
+        double prevTotal = TotalExpForLevel(currentLevel);
+        double nextTotal = TotalExpForLevel(currentLevel + 1);
+
+        return (xp - prevTotal) / (nextTotal - prevTotal);
+    }
 }
 
 public class AccountProfile : ModelBase, IIdentifiedResource
@@ -140,7 +164,11 @@ public class AccountProfile : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public BadgeReferenceObject? ActiveBadge { get; set; }
 
     public int Experience { get; set; }
-    [NotMapped] public int Level => Leveling.ExperiencePerLevel.Count(xp => Experience >= xp) - 1;
+
+    [NotMapped]
+    public int Level => Leveling.GetLevelFromExp(Experience);
+    [NotMapped]
+    public double LevelingProgress => Leveling.GetProgressToNextLevel(Experience);
 
     public double SocialCredits { get; set; } = 100;
 
@@ -152,12 +180,6 @@ public class AccountProfile : ModelBase, IIdentifiedResource
         < 200 => 1,
         _ => 2
     };
-
-    [NotMapped]
-    public double LevelingProgress => Level >= Leveling.ExperiencePerLevel.Count - 1
-        ? 100
-        : (Experience - Leveling.ExperiencePerLevel[Level]) * 100.0 /
-          (Leveling.ExperiencePerLevel[Level + 1] - Leveling.ExperiencePerLevel[Level]);
 
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public CloudFileReferenceObject? Background { get; set; }
@@ -305,7 +327,7 @@ public class AccountAuthFactor : ModelBase
 {
     public Guid Id { get; set; }
     public AccountAuthFactorType Type { get; set; }
-    [JsonIgnore] [MaxLength(8196)] public string? Secret { get; set; }
+    [JsonIgnore][MaxLength(8196)] public string? Secret { get; set; }
 
     [JsonIgnore]
     [Column(TypeName = "jsonb")]
@@ -374,8 +396,8 @@ public class AccountConnection : ModelBase
     [MaxLength(8192)] public string ProvidedIdentifier { get; set; } = null!;
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; } = new();
 
-    [JsonIgnore] [MaxLength(4096)] public string? AccessToken { get; set; }
-    [JsonIgnore] [MaxLength(4096)] public string? RefreshToken { get; set; }
+    [JsonIgnore][MaxLength(4096)] public string? AccessToken { get; set; }
+    [JsonIgnore][MaxLength(4096)] public string? RefreshToken { get; set; }
     public Instant? LastUsedAt { get; set; }
 
     public Guid AccountId { get; set; }
