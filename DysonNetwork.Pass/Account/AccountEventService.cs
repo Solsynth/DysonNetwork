@@ -300,18 +300,29 @@ public class AccountEventService(
             Content = localizer[$"FortuneTipNegativeContent_{index}"].Value
         }));
 
+        // The 5 is specialized, keep it alone.
+        var checkInLevel = (CheckInResultLevel)Random.Next(Enum.GetValues<CheckInResultLevel>().Length - 1);
+
+        var accountBirthday = await db.AccountProfiles
+            .Where(x => x.AccountId == user.Id)
+            .Select(x => x.Birthday)
+            .FirstOrDefaultAsync();
+
+        var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        if (accountBirthday.HasValue && accountBirthday.Value.InUtc().Date == now)
+            checkInLevel = CheckInResultLevel.Special;
+
         var result = new CheckInResult
         {
             Tips = tips,
-            Level = (CheckInResultLevel)Random.Next(Enum.GetValues<CheckInResultLevel>().Length),
+            Level = checkInLevel,
             AccountId = user.Id,
             RewardExperience = 100,
             RewardPoints = backdated.HasValue ? null : 10,
             BackdatedFrom = backdated.HasValue ? SystemClock.Instance.GetCurrentInstant() : null,
             CreatedAt = backdated ?? SystemClock.Instance.GetCurrentInstant(),
         };
-
-        var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        
         try
         {
             if (result.RewardPoints.HasValue)
