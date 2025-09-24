@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -22,9 +23,10 @@ public class Status : ModelBase
     public bool IsInvisible { get; set; }
     public bool IsNotDisturb { get; set; }
     [MaxLength(1024)] public string? Label { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
     public Instant? ClearedAt { get; set; }
     [MaxLength(4096)] public string? AppIdentifier { get; set; }
-    
+
     /// <summary>
     /// Indicates this status is created based on running process or rich presence
     /// </summary>
@@ -32,7 +34,7 @@ public class Status : ModelBase
 
     public Guid AccountId { get; set; }
     public Account Account { get; set; } = null!;
-    
+
     public Shared.Proto.AccountStatus ToProtoValue()
     {
         var proto = new Shared.Proto.AccountStatus
@@ -50,6 +52,7 @@ public class Status : ModelBase
             IsInvisible = IsInvisible,
             IsNotDisturb = IsNotDisturb,
             Label = Label ?? string.Empty,
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(Meta),
             ClearedAt = ClearedAt?.ToTimestamp(),
             AccountId = AccountId.ToString()
         };
@@ -74,6 +77,7 @@ public class Status : ModelBase
             IsInvisible = proto.IsInvisible,
             IsNotDisturb = proto.IsNotDisturb,
             Label = proto.Label,
+            Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta),
             ClearedAt = proto.ClearedAt?.ToInstant(),
             AccountId = Guid.Parse(proto.AccountId)
         };
@@ -88,7 +92,8 @@ public enum CheckInResultLevel
     Worse,
     Normal,
     Better,
-    Best
+    Best,
+    Special
 }
 
 public class CheckInResult : ModelBase

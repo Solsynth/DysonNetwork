@@ -13,10 +13,11 @@ public class AccountStatusReference : ModelBase
     public bool IsInvisible { get; set; }
     public bool IsNotDisturb { get; set; }
     public string? Label { get; set; }
+    public Dictionary<string, object>? Meta { get; set; }
     public Instant? ClearedAt { get; set; }
 
     public Guid AccountId { get; set; }
-    
+
     public AccountStatus ToProtoValue()
     {
         var proto = new AccountStatus
@@ -28,6 +29,7 @@ public class AccountStatusReference : ModelBase
             IsInvisible = IsInvisible,
             IsNotDisturb = IsNotDisturb,
             Label = Label ?? string.Empty,
+            Meta = GrpcTypeHelper.ConvertObjectToByteString(Meta),
             ClearedAt = ClearedAt?.ToTimestamp(),
             AccountId = AccountId.ToString()
         };
@@ -46,6 +48,7 @@ public class AccountStatusReference : ModelBase
             IsInvisible = proto.IsInvisible,
             IsNotDisturb = proto.IsNotDisturb,
             Label = proto.Label,
+            Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta),
             ClearedAt = proto.ClearedAt?.ToInstant(),
             AccountId = Guid.Parse(proto.AccountId)
         };

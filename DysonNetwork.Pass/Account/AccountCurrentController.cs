@@ -216,6 +216,7 @@ public class AccountCurrentController(
         status.IsAutomated = request.IsAutomated;
         status.Label = request.Label;
         status.AppIdentifier = request.AppIdentifier;
+        status.Meta = request.Meta;
         status.ClearedAt = request.ClearedAt;
 
         db.Update(status);
@@ -245,6 +246,7 @@ public class AccountCurrentController(
                     existingStatus.Attitude = request.Attitude;
                     existingStatus.IsInvisible = request.IsInvisible;
                     existingStatus.IsNotDisturb = request.IsNotDisturb;
+                    existingStatus.Meta = request.Meta;
                     existingStatus.Label = request.Label;
                     db.Update(existingStatus);
                     await db.SaveChangesAsync();
@@ -268,6 +270,7 @@ public class AccountCurrentController(
             IsNotDisturb = request.IsNotDisturb,
             IsAutomated = request.IsAutomated,
             Label = request.Label,
+            Meta = request.Meta,
             AppIdentifier = request.AppIdentifier,
             ClearedAt = request.ClearedAt
         };
@@ -287,7 +290,7 @@ public class AccountCurrentController(
             .OrderByDescending(s => s.CreatedAt)
             .AsQueryable();
 
-        if (string.IsNullOrWhiteSpace(app))
+        if (!string.IsNullOrWhiteSpace(app))
             queryable = queryable.Where(s => s.IsAutomated && s.AppIdentifier == app);
 
         var status = await queryable

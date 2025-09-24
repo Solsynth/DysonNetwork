@@ -194,6 +194,7 @@ public class AccountController(
         public bool IsAutomated { get; set; } = false;
         [MaxLength(1024)] public string? Label { get; set; }
         [MaxLength(4096)] public string? AppIdentifier { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
         public Instant? ClearedAt { get; set; }
     }
 
