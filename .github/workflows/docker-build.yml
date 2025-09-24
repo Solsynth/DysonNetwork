@@ -26,6 +26,8 @@ jobs:
             image: drive
           - service: Develop
             image: develop
+          - service: Gateway
+            image: gateway
 
     steps:
       - name: Checkout repository
