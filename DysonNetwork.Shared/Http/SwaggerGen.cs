@@ -67,13 +67,7 @@ public static class SwaggerGen
             {
                 var publicBasePath = configuration["Swagger:PublicBasePath"]?.TrimEnd('/') ?? "";
 
-                // 1. Adjust servers
-                swaggerDoc.Servers = new List<OpenApiServer>
-                {
-                    new() { Url = publicBasePath }
-                };
-
-                // 2. Rewrite all path keys (remove /api or replace it)
+                // Rewrite all path keys (remove /api or replace it)
                 var newPaths = new OpenApiPaths();
                 foreach (var (path, pathItem) in swaggerDoc.Paths)
                 {
