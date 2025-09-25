@@ -226,74 +226,74 @@ public class OidcProviderController(
             case "authorization_code" when request.Code == null:
                 return BadRequest("Authorization code is required");
             case "authorization_code":
-            {
-                var client = await oidcService.FindClientBySlugAsync(request.ClientId);
-                if (client == null ||
-                    !await oidcService.ValidateClientCredentialsAsync(Guid.Parse(client.Id), request.ClientSecret))
-                    return BadRequest(new ErrorResponse
+                {
+                    var client = await oidcService.FindClientBySlugAsync(request.ClientId);
+                    if (client == null ||
+                        !await oidcService.ValidateClientCredentialsAsync(Guid.Parse(client.Id), request.ClientSecret))
+                        return BadRequest(new ErrorResponse
                         { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
 
-                // Generate tokens
-                var tokenResponse = await oidcService.GenerateTokenResponseAsync(
-                    clientId: Guid.Parse(client.Id),
-                    authorizationCode: request.Code!,
-                    redirectUri: request.RedirectUri,
-                    codeVerifier: request.CodeVerifier
-                );
-
-                return Ok(tokenResponse);
-            }
-            case "refresh_token" when string.IsNullOrEmpty(request.RefreshToken):
-                return BadRequest(new ErrorResponse
-                    { Error = "invalid_request", ErrorDescription = "Refresh token is required" });
-            case "refresh_token":
-            {
-                try
-                {
-                    // Decode the base64 refresh token to get the session ID
-                    var sessionIdBytes = Convert.FromBase64String(request.RefreshToken);
-                    var sessionId = new Guid(sessionIdBytes);
-
-                    // Find the session and related data
-                    var session = await oidcService.FindSessionByIdAsync(sessionId);
-                    var now = SystemClock.Instance.GetCurrentInstant();
-                    if (session?.AppId is null || session.ExpiredAt < now)
-                    {
-                        return BadRequest(new ErrorResponse
-                        {
-                            Error = "invalid_grant",
-                            ErrorDescription = "Invalid or expired refresh token"
-                        });
-                    }
-
-                    // Get the client
-                    var client = await oidcService.FindClientByIdAsync(session.AppId.Value);
-                    if (client == null)
-                    {
-                        return BadRequest(new ErrorResponse
-                        {
-                            Error = "invalid_client",
-                            ErrorDescription = "Client not found"
-                        });
-                    }
-
-                    // Generate new tokens
+                    // Generate tokens
                     var tokenResponse = await oidcService.GenerateTokenResponseAsync(
-                        clientId: session.AppId!.Value,
-                        sessionId: session.Id
+                        clientId: Guid.Parse(client.Id),
+                        authorizationCode: request.Code!,
+                        redirectUri: request.RedirectUri,
+                        codeVerifier: request.CodeVerifier
                     );
 
                     return Ok(tokenResponse);
                 }
-                catch (FormatException)
+            case "refresh_token" when string.IsNullOrEmpty(request.RefreshToken):
+                return BadRequest(new ErrorResponse
+                { Error = "invalid_request", ErrorDescription = "Refresh token is required" });
+            case "refresh_token":
                 {
-                    return BadRequest(new ErrorResponse
+                    try
                     {
-                        Error = "invalid_grant",
-                        ErrorDescription = "Invalid refresh token format"
-                    });
+                        // Decode the base64 refresh token to get the session ID
+                        var sessionIdBytes = Convert.FromBase64String(request.RefreshToken);
+                        var sessionId = new Guid(sessionIdBytes);
+
+                        // Find the session and related data
+                        var session = await oidcService.FindSessionByIdAsync(sessionId);
+                        var now = SystemClock.Instance.GetCurrentInstant();
+                        if (session?.AppId is null || session.ExpiredAt < now)
+                        {
+                            return BadRequest(new ErrorResponse
+                            {
+                                Error = "invalid_grant",
+                                ErrorDescription = "Invalid or expired refresh token"
+                            });
+                        }
+
+                        // Get the client
+                        var client = await oidcService.FindClientByIdAsync(session.AppId.Value);
+                        if (client == null)
+                        {
+                            return BadRequest(new ErrorResponse
+                            {
+                                Error = "invalid_client",
+                                ErrorDescription = "Client not found"
+                            });
+                        }
+
+                        // Generate new tokens
+                        var tokenResponse = await oidcService.GenerateTokenResponseAsync(
+                            clientId: session.AppId!.Value,
+                            sessionId: session.Id
+                        );
+
+                        return Ok(tokenResponse);
+                    }
+                    catch (FormatException)
+                    {
+                        return BadRequest(new ErrorResponse
+                        {
+                            Error = "invalid_grant",
+                            ErrorDescription = "Invalid refresh token format"
+                        });
+                    }
                 }
-            }
             default:
                 return BadRequest(new ErrorResponse { Error = "unsupported_grant_type" });
         }
@@ -337,14 +337,15 @@ public class OidcProviderController(
     public IActionResult GetConfiguration()
     {
         var baseUrl = configuration["BaseUrl"];
+        var siteUrl = configuration["SiteUrl"];
         var issuer = options.Value.IssuerUri.TrimEnd('/');
 
         return Ok(new
         {
             issuer,
-            authorization_endpoint = $"{baseUrl}/auth/authorize",
-            token_endpoint = $"{baseUrl}/api/auth/open/token",
-            userinfo_endpoint = $"{baseUrl}/api/auth/open/userinfo",
+            authorization_endpoint = $"{siteUrl}/auth/authorize",
+            token_endpoint = $"{baseUrl}/id/auth/open/token",
+            userinfo_endpoint = $"{baseUrl}/id/auth/open/userinfo",
             jwks_uri = $"{baseUrl}/.well-known/jwks",
             scopes_supported = new[] { "openid", "profile", "email" },
             response_types_supported = new[]
