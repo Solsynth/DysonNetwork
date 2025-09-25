@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Drive.Billing;
 using DysonNetwork.Drive.Storage.Model;
@@ -169,12 +170,19 @@ public class FileUploadController(
             ChunksCount = chunksCount
         });
     }
+    
+    public class UploadChunkRequest
+    {
+        [Required]
+        public IFormFile Chunk { get; set; } = null!;
+    }
 
     [HttpPost("chunk/{taskId}/{chunkIndex}")]
     [RequestSizeLimit(DefaultChunkSize + 1024 * 1024)] // 6MB to be safe
     [RequestFormLimits(MultipartBodyLengthLimit = DefaultChunkSize + 1024 * 1024)]
-    public async Task<IActionResult> UploadChunk(string taskId, int chunkIndex, [FromForm] IFormFile chunk)
+    public async Task<IActionResult> UploadChunk(string taskId, int chunkIndex, [FromForm] UploadChunkRequest request)
     {
+        var chunk = request.Chunk;
         var taskPath = Path.Combine(_tempPath, taskId);
         if (!Directory.Exists(taskPath))
         {
