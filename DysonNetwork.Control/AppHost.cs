@@ -30,7 +30,8 @@ var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")
     .WithReference(cache)
     .WithReference(passService)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithReference(sphereService);
 
 List<IResourceBuilder<ProjectResource>> services =
     [ringService, passService, driveService, sphereService, developService];
