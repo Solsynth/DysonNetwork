@@ -57,23 +57,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
-        services.AddCors();
         services.AddAuthorization();
-        return services;
-    }
-
-    public static IServiceCollection AddAppSwagger(this IServiceCollection services)
-    {
-        services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen(options =>
-        {
-            options.SwaggerDoc("v1", new OpenApiInfo
-            {
-                Version = "v1",
-                Title = "Develop API",
-            });
-        });
-        services.AddOpenApi();
         return services;
     }
 }

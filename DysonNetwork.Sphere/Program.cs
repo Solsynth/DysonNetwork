@@ -17,20 +17,19 @@ builder.ConfigureAppKestrel(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
-builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 builder.Services.AddRingService();
 builder.Services.AddDriveService();
 
-// Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
-
-// Add business services
 builder.Services.AddAppBusinessServices(builder.Configuration);
-
-// Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
+
+builder.AddSwaggerManifest(
+    "DysonNetwork.Sphere",
+    "The social network service in the Solar Network."
+);
 
 var app = builder.Build();
 
@@ -45,5 +44,7 @@ using (var scope = app.Services.CreateScope())
 
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
+
+app.UseSwaggerManifest();
 
 app.Run();

@@ -108,7 +108,6 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
-        services.AddCors();
         services.AddAuthorization();
         services.AddAuthentication(options =>
             {
@@ -116,53 +115,6 @@ public static class ServiceCollectionExtensions
                 options.DefaultChallengeScheme = AuthConstants.SchemeName;
             })
             .AddScheme<DysonTokenAuthOptions, DysonTokenAuthHandler>(AuthConstants.SchemeName, _ => { });
-
-        return services;
-    }
-
-    public static IServiceCollection AddAppSwagger(this IServiceCollection services)
-    {
-        services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen(options =>
-        {
-            options.SwaggerDoc("v1", new OpenApiInfo
-            {
-                Version = "v1",
-                Title = "Dyson Pass",
-                Description =
-                    "The authentication service of the Dyson Network. Mainly handling authentication and authorization.",
-                TermsOfService = new Uri("https://solsynth.dev/terms"),
-                License = new OpenApiLicense
-                {
-                    Name = "APGLv3",
-                    Url = new Uri("https://www.gnu.org/licenses/agpl-3.0.html")
-                }
-            });
-            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-            {
-                In = ParameterLocation.Header,
-                Description = "Please enter a valid token",
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                BearerFormat = "JWT",
-                Scheme = "Bearer"
-            });
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
-                {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    []
-                }
-            });
-        });
-        services.AddOpenApi();
 
         return services;
     }

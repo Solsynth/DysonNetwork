@@ -61,9 +61,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
-        services.AddCors();
         services.AddAuthorization();
-
         return services;
     }
 
@@ -74,52 +72,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAppSwagger(this IServiceCollection services)
-    {
-        services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen(options =>
-        {
-            options.SwaggerDoc("v1", new OpenApiInfo
-            {
-                Version = "v1",
-                Title = "Dyson Drive",
-                Description =
-                    "The file service of the Dyson Network. Mainly handling file storage and sharing. Also provide image processing and media analysis. Powered the Solar Network Drive as well.",
-                TermsOfService = new Uri("https://solsynth.dev/terms"), // Update with actual terms
-                License = new OpenApiLicense
-                {
-                    Name = "APGLv3", // Update with actual license
-                    Url = new Uri("https://www.gnu.org/licenses/agpl-3.0.html")
-                }
-            });
-            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-            {
-                In = ParameterLocation.Header,
-                Description = "Please enter a valid token",
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                BearerFormat = "JWT",
-                Scheme = "Bearer"
-            });
-            options.AddSecurityRequirement(new OpenApiSecurityRequirement
-            {
-                {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    []
-                }
-            });
-        });
-
-        return services;
-    }
-    
     public static IServiceCollection AddAppFileStorage(this IServiceCollection services, IConfiguration configuration)
     {
         var tusStorePath = configuration.GetSection("Tus").GetValue<string>("StorePath")!;

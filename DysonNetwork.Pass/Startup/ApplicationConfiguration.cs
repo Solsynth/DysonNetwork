@@ -16,9 +16,6 @@ public static class ApplicationConfiguration
         app.MapMetrics();
         app.MapOpenApi();
 
-        app.UseSwagger();
-        app.UseSwaggerUI();
-
         app.UseRequestLocalization();
 
         app.ConfigureForwardedHeaders(configuration);

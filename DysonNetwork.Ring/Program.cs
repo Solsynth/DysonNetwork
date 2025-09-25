@@ -16,18 +16,17 @@ builder.ConfigureAppKestrel(builder.Configuration);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
-builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 
-// Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
-
-// Add business services
 builder.Services.AddAppBusinessServices();
-
-// Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
+
+builder.AddSwaggerManifest(
+    "DysonNetwork.Ring",
+    "The realtime service in the Solar Network."
+);
 
 var app = builder.Build();
 
@@ -45,5 +44,7 @@ app.ConfigureAppMiddleware(builder.Configuration);
 
 // Configure gRPC
 app.ConfigureGrpcServices();
+
+app.UseSwaggerManifest();
 
 app.Run();

@@ -3,6 +3,7 @@ using DysonNetwork.Develop.Identity;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.OpenApi.Models;
 using Prometheus;
 
 namespace DysonNetwork.Develop.Startup;
@@ -14,9 +15,6 @@ public static class ApplicationConfiguration
         app.MapMetrics();
         app.MapOpenApi();
 
-        app.UseSwagger();
-        app.UseSwaggerUI();
-        
         app.UseRequestLocalization();
 
         app.ConfigureForwardedHeaders(configuration);

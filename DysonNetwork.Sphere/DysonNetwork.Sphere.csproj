@@ -56,9 +56,9 @@
         <PackageReference Include="Quartz.AspNetCore" Version="3.14.0"/>
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0"/>
         <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="11.0.0"/>
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3"/>
-        <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.3" />
-        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.3"/>
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />
+        <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.4" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.4" />
         <PackageReference Include="System.ServiceModel.Syndication" Version="9.0.7" />
         <PackageReference Include="TencentCloudSDK.Tmt" Version="3.0.1276" />
     </ItemGroup>

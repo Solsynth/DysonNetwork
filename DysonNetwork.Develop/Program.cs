@@ -13,11 +13,15 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
-builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth();
 builder.Services.AddPublisherService();
 builder.Services.AddAccountService();
 builder.Services.AddDriveService();
+
+builder.AddSwaggerManifest(
+    "DysonNetwork.Develop",
+    "The developer portal in the Solar Network."
+);
 
 var app = builder.Build();
 
@@ -30,5 +34,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.ConfigureAppMiddleware(builder.Configuration);
+
+app.UseSwaggerManifest();
 
 app.Run();

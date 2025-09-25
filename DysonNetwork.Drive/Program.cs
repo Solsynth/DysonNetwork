@@ -18,20 +18,19 @@ builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxV
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
-builder.Services.AddAppSwagger();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 
 builder.Services.AddAppFileStorage(builder.Configuration);
 
-// Add flush handlers and websocket handlers
 builder.Services.AddAppFlushHandlers();
-
-// Add business services
 builder.Services.AddAppBusinessServices();
-
-// Add scheduled jobs
 builder.Services.AddAppScheduledJobs();
+
+builder.AddSwaggerManifest(
+    "DysonNetwork.Drive",
+    "The file upload and storage service in the Solar Network."
+);
 
 var app = builder.Build();
 
@@ -49,5 +48,7 @@ app.ConfigureAppMiddleware(tusDiskStore);
 
 // Configure gRPC
 app.ConfigureGrpcServices();
+
+app.UseSwaggerManifest();
 
 app.Run();
