@@ -142,7 +142,7 @@ public class BroadcastEventHandler(
         using var scope = serviceProvider.CreateScope();
         var fs = scope.ServiceProvider.GetRequiredService<FileService>();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        
+
         var pool = await fs.GetPoolAsync(remoteId);
         if (pool is null) return;
 
@@ -151,146 +151,147 @@ public class BroadcastEventHandler(
         var hasCompression = false;
         var hasThumbnail = false;
 
-        try
+        logger.LogInformation("Processing file {FileId} in background...", fileId);
+
+        var fileToUpdate = await scopedDb.Files.AsNoTracking().FirstAsync(f => f.Id == fileId);
+
+        if (fileToUpdate.IsEncrypted)
         {
-            logger.LogInformation("Processing file {FileId} in background...", fileId);
-
-            var fileToUpdate = await scopedDb.Files.AsNoTracking().FirstAsync(f => f.Id == fileId);
-
-            if (fileToUpdate.IsEncrypted)
+            uploads.Add((processingFilePath, string.Empty, contentType, false));
+        }
+        else if (!pool.PolicyConfig.NoOptimization)
+        {
+            var fileExtension = Path.GetExtension(processingFilePath);
+            switch (contentType.Split('/')[0])
             {
-                uploads.Add((processingFilePath, string.Empty, contentType, false));
-            }
-            else if (!pool.PolicyConfig.NoOptimization)
-            {
-                var fileExtension = Path.GetExtension(processingFilePath);
-                switch (contentType.Split('/')[0])
-                {
-                    case "image":
-                        if (AnimatedImageTypes.Contains(contentType) || AnimatedImageExtensions.Contains(fileExtension))
-                        {
-                            logger.LogInformation("Skip optimize file {FileId} due to it is animated...", fileId);
-                            uploads.Add((processingFilePath, string.Empty, contentType, false));
-                            break;
-                        }
+                case "image":
+                    if (AnimatedImageTypes.Contains(contentType) || AnimatedImageExtensions.Contains(fileExtension))
+                    {
+                        logger.LogInformation("Skip optimize file {FileId} due to it is animated...", fileId);
+                        uploads.Add((processingFilePath, string.Empty, contentType, false));
+                        break;
+                    }
 
+                    try
+                    {
                         newMimeType = "image/webp";
-                        using (var vipsImage = Image.NewFromFile(processingFilePath))
+                        using var vipsImage = Image.NewFromFile(processingFilePath);
+                        var imageToWrite = vipsImage;
+
+                        if (vipsImage.Interpretation is Enums.Interpretation.Scrgb or Enums.Interpretation.Xyz)
                         {
-                            var imageToWrite = vipsImage;
-
-                            if (vipsImage.Interpretation is Enums.Interpretation.Scrgb or Enums.Interpretation.Xyz)
-                            {
-                                imageToWrite = vipsImage.Colourspace(Enums.Interpretation.Srgb);
-                            }
-
-                            var webpPath = Path.Join(Path.GetTempPath(), $"{fileId}.{TempFileSuffix}.webp");
-                            imageToWrite.Autorot().WriteToFile(webpPath,
-                                new VOption { { "lossless", true }, { "strip", true } });
-                            uploads.Add((webpPath, string.Empty, newMimeType, true));
-
-                            if (imageToWrite.Width * imageToWrite.Height >= 1024 * 1024)
-                            {
-                                var scale = 1024.0 / Math.Max(imageToWrite.Width, imageToWrite.Height);
-                                var compressedPath =
-                                    Path.Join(Path.GetTempPath(), $"{fileId}.{TempFileSuffix}.compressed.webp");
-                                using var compressedImage = imageToWrite.Resize(scale);
-                                compressedImage.Autorot().WriteToFile(compressedPath,
-                                    new VOption { { "Q", 80 }, { "strip", true } });
-                                uploads.Add((compressedPath, ".compressed", newMimeType, true));
-                                hasCompression = true;
-                            }
-
-                            if (!ReferenceEquals(imageToWrite, vipsImage))
-                            {
-                                imageToWrite.Dispose();
-                            }
+                            imageToWrite = vipsImage.Colourspace(Enums.Interpretation.Srgb);
                         }
 
-                        break;
+                        var webpPath = Path.Join(Path.GetTempPath(), $"{fileId}.{TempFileSuffix}.webp");
+                        imageToWrite.Autorot().WriteToFile(webpPath,
+                            new VOption { { "lossless", true }, { "strip", true } });
+                        uploads.Add((webpPath, string.Empty, newMimeType, true));
 
-                    case "video":
+                        if (imageToWrite.Width * imageToWrite.Height >= 1024 * 1024)
+                        {
+                            var scale = 1024.0 / Math.Max(imageToWrite.Width, imageToWrite.Height);
+                            var compressedPath =
+                                Path.Join(Path.GetTempPath(), $"{fileId}.{TempFileSuffix}.compressed.webp");
+                            using var compressedImage = imageToWrite.Resize(scale);
+                            compressedImage.Autorot().WriteToFile(compressedPath,
+                                new VOption { { "Q", 80 }, { "strip", true } });
+                            uploads.Add((compressedPath, ".compressed", newMimeType, true));
+                            hasCompression = true;
+                        }
+
+                        if (!ReferenceEquals(imageToWrite, vipsImage))
+                        {
+                            imageToWrite.Dispose();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to optimize image {FileId}, uploading original", fileId);
                         uploads.Add((processingFilePath, string.Empty, contentType, false));
+                        newMimeType = contentType;
+                    }
 
-                        var thumbnailPath = Path.Join(Path.GetTempPath(), $"{fileId}.{TempFileSuffix}.thumbnail.jpg");
-                        try
+                    break;
+
+                case "video":
+                    uploads.Add((processingFilePath, string.Empty, contentType, false));
+
+                    var thumbnailPath = Path.Join(Path.GetTempPath(), $"{fileId}.{TempFileSuffix}.thumbnail.jpg");
+                    try
+                    {
+                        await FFMpegArguments
+                            .FromFileInput(processingFilePath, verifyExists: true)
+                            .OutputToFile(thumbnailPath, overwrite: true, options => options
+                                .Seek(TimeSpan.FromSeconds(0))
+                                .WithFrameOutputCount(1)
+                                .WithCustomArgument("-q:v 2")
+                            )
+                            .NotifyOnOutput(line => logger.LogInformation("[FFmpeg] {Line}", line))
+                            .NotifyOnError(line => logger.LogWarning("[FFmpeg] {Line}", line))
+                            .ProcessAsynchronously();
+
+                        if (File.Exists(thumbnailPath))
                         {
-                            await FFMpegArguments
-                                .FromFileInput(processingFilePath, verifyExists: true)
-                                .OutputToFile(thumbnailPath, overwrite: true, options => options
-                                    .Seek(TimeSpan.FromSeconds(0))
-                                    .WithFrameOutputCount(1)
-                                    .WithCustomArgument("-q:v 2")
-                                )
-                                .NotifyOnOutput(line => logger.LogInformation("[FFmpeg] {Line}", line))
-                                .NotifyOnError(line => logger.LogWarning("[FFmpeg] {Line}", line))
-                                .ProcessAsynchronously();
-
-                            if (File.Exists(thumbnailPath))
-                            {
-                                uploads.Add((thumbnailPath, ".thumbnail", "image/jpeg", true));
-                                hasThumbnail = true;
-                            }
-                            else
-                            {
-                                logger.LogWarning("FFMpeg did not produce thumbnail for video {FileId}", fileId);
-                            }
+                            uploads.Add((thumbnailPath, ".thumbnail", "image/jpeg", true));
+                            hasThumbnail = true;
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
+                            logger.LogWarning("FFMpeg did not produce thumbnail for video {FileId}", fileId);
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to generate thumbnail for video {FileId}", fileId);
+                    }
 
-                        break;
+                    break;
 
-                    default:
-                        uploads.Add((processingFilePath, string.Empty, contentType, false));
-                        break;
-                }
-            }
-            else uploads.Add((processingFilePath, string.Empty, contentType, false));
-
-            logger.LogInformation("Optimized file {FileId}, now uploading...", fileId);
-
-            if (uploads.Count > 0)
-            {
-                var destPool = remoteId;
-                var uploadTasks = uploads.Select(item =>
-                    fs.UploadFileToRemoteAsync(
-                        storageId,
-                        destPool,
-                        item.FilePath,
-                        item.Suffix,
-                        item.ContentType,
-                        item.SelfDestruct
-                    )
-                ).ToList();
-
-                await Task.WhenAll(uploadTasks);
-
-                logger.LogInformation("Uploaded file {FileId} done!", fileId);
-
-                var now = SystemClock.Instance.GetCurrentInstant();
-                await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
-                    .SetProperty(f => f.UploadedAt, now)
-                    .SetProperty(f => f.PoolId, destPool)
-                    .SetProperty(f => f.MimeType, newMimeType)
-                    .SetProperty(f => f.HasCompression, hasCompression)
-                    .SetProperty(f => f.HasThumbnail, hasThumbnail)
-                );
+                default:
+                    uploads.Add((processingFilePath, string.Empty, contentType, false));
+                    break;
             }
         }
-        catch (Exception err)
+        else
         {
-            logger.LogError(err, "Failed to process and upload {FileId}", fileId);
+            uploads.Add((processingFilePath, string.Empty, contentType, false));
         }
-        finally
+
+        logger.LogInformation("Optimized file {FileId}, now uploading...", fileId);
+
+        if (uploads.Count > 0)
         {
+            var destPool = remoteId;
+            var uploadTasks = uploads.Select(item =>
+                fs.UploadFileToRemoteAsync(
+                    storageId,
+                    destPool,
+                    item.FilePath,
+                    item.Suffix,
+                    item.ContentType,
+                    item.SelfDestruct
+                )
+            ).ToList();
+
+            await Task.WhenAll(uploadTasks);
+
+            logger.LogInformation("Uploaded file {FileId} done!", fileId);
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+            await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
+                .SetProperty(f => f.UploadedAt, now)
+                .SetProperty(f => f.PoolId, destPool)
+                .SetProperty(f => f.MimeType, newMimeType)
+                .SetProperty(f => f.HasCompression, hasCompression)
+                .SetProperty(f => f.HasThumbnail, hasThumbnail)
+            );
+
+            // Only delete temp file after successful upload and db update
             if (isTempFile)
-            {
                 File.Delete(processingFilePath);
-            }
-            await fs._PurgeCacheAsync(fileId);
         }
+
+        await fs._PurgeCacheAsync(fileId);
     }
 }
