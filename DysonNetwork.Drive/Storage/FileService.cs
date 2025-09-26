@@ -346,7 +346,7 @@ public class FileService(
         if (selfDestruct) File.Delete(filePath);
     }
 
-    public async Task UploadFileToRemoteAsync(
+    private async Task UploadFileToRemoteAsync(
         string storageId,
         Guid targetRemote,
         Stream stream,

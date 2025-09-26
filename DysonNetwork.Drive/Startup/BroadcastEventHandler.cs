@@ -27,7 +27,9 @@ public class BroadcastEventHandler(
 
     private static readonly string[] AnimatedImageExtensions =
         [".gif", ".apng", ".avif"];
-    
+
+
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var js = nats.CreateJetStreamContext();
