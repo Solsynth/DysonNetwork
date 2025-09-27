@@ -1,16 +1,15 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Error;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using AuthService = DysonNetwork.Pass.Auth.AuthService;
-using AuthSession = DysonNetwork.Pass.Auth.AuthSession;
+using SnAuthSession = DysonNetwork.Shared.Models.SnAuthSession;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -132,7 +131,7 @@ public class AccountCurrentController(
                     Usage = "profile.picture"
                 }
             );
-            profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
+            profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
@@ -150,7 +149,7 @@ public class AccountCurrentController(
                     Usage = "profile.background"
                 }
             );
-            profile.Background = CloudFileReferenceObject.FromProtoValue(file);
+            profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         db.Update(profile);
@@ -558,10 +557,10 @@ public class AccountCurrentController(
 
     [HttpGet("devices")]
     [Authorize]
-    public async Task<ActionResult<List<AuthClientWithChallenge>>> GetDevices()
+    public async Task<ActionResult<List<SnAuthClientWithChallenge>>> GetDevices()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
@@ -569,7 +568,7 @@ public class AccountCurrentController(
             .Where(device => device.AccountId == currentUser.Id)
             .ToListAsync();
 
-        var challengeDevices = devices.Select(AuthClientWithChallenge.FromClient).ToList();
+        var challengeDevices = devices.Select(SnAuthClientWithChallenge.FromClient).ToList();
         var deviceIds = challengeDevices.Select(x => x.Id).ToList();
 
         var authChallenges = await db.AuthChallenges
@@ -585,13 +584,13 @@ public class AccountCurrentController(
 
     [HttpGet("sessions")]
     [Authorize]
-    public async Task<ActionResult<List<AuthSession>>> GetSessions(
+    public async Task<ActionResult<List<SnAuthSession>>> GetSessions(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         var query = db.AuthSessions
             .Include(session => session.Account)
@@ -613,7 +612,7 @@ public class AccountCurrentController(
 
     [HttpDelete("sessions/{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<AuthSession>> DeleteSession(Guid id)
+    public async Task<ActionResult<SnAuthSession>> DeleteSession(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -630,7 +629,7 @@ public class AccountCurrentController(
 
     [HttpDelete("devices/{deviceId}")]
     [Authorize]
-    public async Task<ActionResult<AuthSession>> DeleteDevice(string deviceId)
+    public async Task<ActionResult<SnAuthSession>> DeleteDevice(string deviceId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -647,10 +646,10 @@ public class AccountCurrentController(
 
     [HttpDelete("sessions/current")]
     [Authorize]
-    public async Task<ActionResult<AuthSession>> DeleteCurrentSession()
+    public async Task<ActionResult<SnAuthSession>> DeleteCurrentSession()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         try
         {
@@ -665,7 +664,7 @@ public class AccountCurrentController(
 
     [HttpPatch("devices/{deviceId}/label")]
     [Authorize]
-    public async Task<ActionResult<AuthSession>> UpdateDeviceLabel(string deviceId, [FromBody] string label)
+    public async Task<ActionResult<SnAuthSession>> UpdateDeviceLabel(string deviceId, [FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -682,10 +681,10 @@ public class AccountCurrentController(
 
     [HttpPatch("devices/current/label")]
     [Authorize]
-    public async Task<ActionResult<AuthSession>> UpdateCurrentDeviceLabel([FromBody] string label)
+    public async Task<ActionResult<SnAuthSession>> UpdateCurrentDeviceLabel([FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.Challenge.ClientId);
         if (device is null) return NotFound();

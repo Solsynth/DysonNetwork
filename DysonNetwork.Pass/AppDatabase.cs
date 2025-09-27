@@ -3,12 +3,9 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Credit;
-using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -22,36 +19,36 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<PermissionNode> PermissionNodes { get; set; } = null!;
-    public DbSet<PermissionGroup> PermissionGroups { get; set; } = null!;
-    public DbSet<PermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
+    public DbSet<SnPermissionNode> PermissionNodes { get; set; } = null!;
+    public DbSet<SnPermissionGroup> PermissionGroups { get; set; } = null!;
+    public DbSet<SnPermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
 
-    public DbSet<MagicSpell> MagicSpells { get; set; } = null!;
+    public DbSet<SnMagicSpell> MagicSpells { get; set; } = null!;
     public DbSet<Account.Account> Accounts { get; set; } = null!;
     public DbSet<AccountConnection> AccountConnections { get; set; } = null!;
-    public DbSet<AccountProfile> AccountProfiles { get; set; } = null!;
+    public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
     public DbSet<AccountContact> AccountContacts { get; set; } = null!;
     public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; } = null!;
-    public DbSet<Relationship> AccountRelationships { get; set; } = null!;
-    public DbSet<Status> AccountStatuses { get; set; } = null!;
-    public DbSet<CheckInResult> AccountCheckInResults { get; set; } = null!;
-    public DbSet<AccountBadge> Badges { get; set; } = null!;
+    public DbSet<SnAccountRelationship> AccountRelationships { get; set; } = null!;
+    public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
+    public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
+    public DbSet<SnAccountBadge> Badges { get; set; } = null!;
     public DbSet<ActionLog> ActionLogs { get; set; } = null!;
-    public DbSet<AbuseReport> AbuseReports { get; set; } = null!;
+    public DbSet<SnAbuseReport> AbuseReports { get; set; } = null!;
 
-    public DbSet<AuthSession> AuthSessions { get; set; } = null!;
-    public DbSet<AuthChallenge> AuthChallenges { get; set; } = null!;
-    public DbSet<AuthClient> AuthClients { get; set; } = null!;
-    public DbSet<ApiKey> ApiKeys { get; set; } = null!;
+    public DbSet<SnAuthSession> AuthSessions { get; set; } = null!;
+    public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
+    public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
+    public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
 
-    public DbSet<Wallet.Wallet> Wallets { get; set; } = null!;
-    public DbSet<WalletPocket> WalletPockets { get; set; } = null!;
-    public DbSet<Order> PaymentOrders { get; set; } = null!;
-    public DbSet<Transaction> PaymentTransactions { get; set; } = null!;
-    public DbSet<Subscription> WalletSubscriptions { get; set; } = null!;
+    public DbSet<Shared.Models.SnWallet> Wallets { get; set; } = null!;
+    public DbSet<SnWalletPocket> WalletPockets { get; set; } = null!;
+    public DbSet<SnWalletOrder> PaymentOrders { get; set; } = null!;
+    public DbSet<SnWalletTransaction> PaymentTransactions { get; set; } = null!;
+    public DbSet<SnSubscription> WalletSubscriptions { get; set; } = null!;
     public DbSet<Coupon> WalletCoupons { get; set; } = null!;
 
-    public DbSet<Punishment> Punishments { get; set; } = null!;
+    public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;
 
     public DbSet<SocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<ExperienceRecord> ExperienceRecords { get; set; } = null!;
@@ -74,11 +71,11 @@ public class AppDatabase(
 
         optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
         {
-            var defaultPermissionGroup = await context.Set<PermissionGroup>()
+            var defaultPermissionGroup = await context.Set<SnPermissionGroup>()
                 .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
             if (defaultPermissionGroup is null)
             {
-                context.Set<PermissionGroup>().Add(new PermissionGroup
+                context.Set<SnPermissionGroup>().Add(new SnPermissionGroup
                 {
                     Key = "default",
                     Nodes = new List<string>
@@ -111,21 +108,21 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<PermissionGroupMember>()
+        modelBuilder.Entity<SnPermissionGroupMember>()
             .HasKey(pg => new { pg.GroupId, pg.Actor });
-        modelBuilder.Entity<PermissionGroupMember>()
+        modelBuilder.Entity<SnPermissionGroupMember>()
             .HasOne(pg => pg.Group)
             .WithMany(g => g.Members)
             .HasForeignKey(pg => pg.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Relationship>()
+        modelBuilder.Entity<SnAccountRelationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
-        modelBuilder.Entity<Relationship>()
+        modelBuilder.Entity<SnAccountRelationship>()
             .HasOne(r => r.Account)
             .WithMany(a => a.OutgoingRelationships)
             .HasForeignKey(r => r.AccountId);
-        modelBuilder.Entity<Relationship>()
+        modelBuilder.Entity<SnAccountRelationship>()
             .HasOne(r => r.Related)
             .WithMany(a => a.IncomingRelationships)
             .HasForeignKey(r => r.RelatedId);

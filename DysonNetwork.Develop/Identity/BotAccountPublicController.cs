@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Develop.Identity;
@@ -7,7 +8,7 @@ namespace DysonNetwork.Develop.Identity;
 public class BotAccountPublicController(BotAccountService botService, DeveloperService developerService) : ControllerBase
 {
     [HttpGet("{botId:guid}")]
-    public async Task<ActionResult<BotAccount>> GetBotTransparentInfo([FromRoute] Guid botId)
+    public async Task<ActionResult<SnBotAccount>> GetBotTransparentInfo([FromRoute] Guid botId)
     {
         var bot = await botService.GetBotByIdAsync(botId);
         if (bot is null) return NotFound("Bot not found");
@@ -21,7 +22,7 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
     }
 
     [HttpGet("{botId:guid}/developer")]
-    public async Task<ActionResult<Developer>> GetBotDeveloper([FromRoute] Guid botId)
+    public async Task<ActionResult<SnDeveloper>> GetBotDeveloper([FromRoute] Guid botId)
     {
         var bot = await botService.GetBotByIdAsync(botId);
         if (bot is null) return NotFound("Bot not found");

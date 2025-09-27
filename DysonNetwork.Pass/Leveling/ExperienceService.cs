@@ -1,5 +1,6 @@
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Pass.Leveling;

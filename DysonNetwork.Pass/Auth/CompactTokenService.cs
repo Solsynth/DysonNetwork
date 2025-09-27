@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Auth;
 
@@ -7,7 +8,7 @@ public class CompactTokenService(IConfiguration config)
     private readonly string _privateKeyPath = config["AuthToken:PrivateKeyPath"] 
         ?? throw new InvalidOperationException("AuthToken:PrivateKeyPath configuration is missing");
     
-    public string CreateToken(AuthSession session)
+    public string CreateToken(SnAuthSession session)
     {
         // Load the private key for signing
         var privateKeyPem = File.ReadAllText(_privateKeyPath);

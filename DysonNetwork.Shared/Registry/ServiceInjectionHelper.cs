@@ -1,5 +1,4 @@
 using DysonNetwork.Shared.Proto;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DysonNetwork.Shared.Registry;

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -42,10 +43,10 @@ public class PollService(AppDatabase db, ICacheService cache)
 
     private const string PollAnswerCachePrefix = "poll:answer:";
 
-    public async Task<PollAnswer?> GetPollAnswer(Guid pollId, Guid accountId)
+    public async Task<SnPollAnswer?> GetPollAnswer(Guid pollId, Guid accountId)
     {
         var cacheKey = $"{PollAnswerCachePrefix}{pollId}:{accountId}";
-        var cachedAnswer = await cache.GetAsync<PollAnswer?>(cacheKey);
+        var cachedAnswer = await cache.GetAsync<SnPollAnswer?>(cacheKey);
         if (cachedAnswer is not null)
             return cachedAnswer;
 
@@ -103,7 +104,7 @@ public class PollService(AppDatabase db, ICacheService cache)
         }
     }
 
-    public async Task<PollAnswer> AnswerPoll(Guid pollId, Guid accountId, Dictionary<string, JsonElement> answer)
+    public async Task<SnPollAnswer> AnswerPoll(Guid pollId, Guid accountId, Dictionary<string, JsonElement> answer)
     {
         // Validation
         var poll = await db.Polls
@@ -124,7 +125,7 @@ public class PollService(AppDatabase db, ICacheService cache)
             await UnAnswerPoll(pollId, accountId);
 
         // Save the new answer
-        var answerRecord = new PollAnswer
+        var answerRecord = new SnPollAnswer
         {
             PollId = pollId,
             AccountId = accountId,

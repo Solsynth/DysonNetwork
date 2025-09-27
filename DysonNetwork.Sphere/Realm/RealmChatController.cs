@@ -1,5 +1,5 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Chat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +12,7 @@ public class RealmChatController(AppDatabase db, RealmService rs) : ControllerBa
 {
     [HttpGet("chat")]
     [Authorize]
-    public async Task<ActionResult<List<ChatRoom>>> ListRealmChat(string slug)
+    public async Task<ActionResult<List<SnChatRoom>>> ListRealmChat(string slug)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
         var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);

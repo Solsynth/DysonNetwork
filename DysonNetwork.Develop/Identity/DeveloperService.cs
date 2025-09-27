@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,7 @@ public class DeveloperService(
     PublisherService.PublisherServiceClient ps,
     ILogger<DeveloperService> logger)
 {
-    public async Task<Developer> LoadDeveloperPublisher(Developer developer)
+    public async Task<SnDeveloper> LoadDeveloperPublisher(SnDeveloper developer)
     {
         var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Id = developer.PublisherId.ToString() });
         developer.Publisher = PublisherInfo.FromProto(pubResponse.Publisher);
@@ -17,7 +18,7 @@ public class DeveloperService(
     }
 
 
-    public async Task<IEnumerable<Developer>> LoadDeveloperPublisher(IEnumerable<Developer> developers)
+    public async Task<IEnumerable<SnDeveloper>> LoadDeveloperPublisher(IEnumerable<SnDeveloper> developers)
     {
         var enumerable = developers.ToList();
         var pubIds = enumerable.Select(d => d.PublisherId).ToList();
@@ -33,7 +34,7 @@ public class DeveloperService(
         });
     }
 
-    public async Task<Developer?> GetDeveloperByName(string name)
+    public async Task<SnDeveloper?> GetDeveloperByName(string name)
     {
         try
         {
@@ -50,7 +51,7 @@ public class DeveloperService(
         }
     }
 
-    public async Task<Developer?> GetDeveloperById(Guid id)
+    public async Task<SnDeveloper?> GetDeveloperById(Guid id)
     {
         return await db.Developers.FirstOrDefaultAsync(d => d.Id == id);
     }

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 
@@ -70,16 +70,16 @@ namespace DysonNetwork.Pass.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     slug = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
                     status = table.Column<int>(type: "integer", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
-                    verification = table.Column<VerificationMark>(type: "jsonb", nullable: true)
+                    verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true)
                 },
                 constraints: table =>
                 {

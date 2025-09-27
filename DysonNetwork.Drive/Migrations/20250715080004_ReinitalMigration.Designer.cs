@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using DysonNetwork.Drive;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;

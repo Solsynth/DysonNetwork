@@ -4,7 +4,7 @@ namespace DysonNetwork.Sphere.Discovery;
 
 public class DiscoveryService(AppDatabase appDatabase)
 {
-    public Task<List<Realm.Realm>> GetCommunityRealmAsync(
+    public Task<List<Shared.Models.SnRealm>> GetCommunityRealmAsync(
         string? query,
         int take = 10,
         int offset = 0,

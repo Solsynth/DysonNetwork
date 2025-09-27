@@ -4,6 +4,7 @@ using System.Text.Json;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.EntityFrameworkCore;

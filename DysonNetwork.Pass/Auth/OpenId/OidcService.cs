@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json.Serialization;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NodaTime;
@@ -187,7 +188,7 @@ public abstract class OidcService(
     /// Creates a challenge and session for an authenticated user
     /// Also creates or updates the account connection
     /// </summary>
-    public async Task<AuthChallenge> CreateChallengeForUserAsync(
+    public async Task<SnAuthChallenge> CreateChallengeForUserAsync(
         OidcUserInfo userInfo,
         Account.Account account,
         HttpContext request,
@@ -219,7 +220,7 @@ public abstract class OidcService(
         // Create a challenge that's already completed
         var now = SystemClock.Instance.GetCurrentInstant();
         var device = await auth.GetOrCreateDeviceAsync(account.Id, deviceId, deviceName, ClientPlatform.Ios);
-        var challenge = new AuthChallenge
+        var challenge = new SnAuthChallenge
         {
             ExpiredAt = now.Plus(Duration.FromHours(1)),
             StepTotal = await auth.DetectChallengeRisk(request.Request, account),

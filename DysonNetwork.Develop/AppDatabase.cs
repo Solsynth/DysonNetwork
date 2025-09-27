@@ -1,6 +1,5 @@
 using System.Text.Json;
-using DysonNetwork.Develop.Identity;
-using DysonNetwork.Develop.Project;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -11,13 +10,13 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Developer> Developers { get; set; } = null!;
+    public DbSet<SnDeveloper> Developers { get; set; } = null!;
 
-    public DbSet<DevProject> DevProjects { get; set; } = null!;
+    public DbSet<SnDevProject> DevProjects { get; set; } = null!;
     
-    public DbSet<CustomApp> CustomApps { get; set; } = null!;
-    public DbSet<CustomAppSecret> CustomAppSecrets { get; set; } = null!;
-    public DbSet<BotAccount> BotAccounts { get; set; } = null!;
+    public DbSet<SnCustomApp> CustomApps { get; set; } = null!;
+    public DbSet<SnCustomAppSecret> CustomAppSecrets { get; set; } = null!;
+    public DbSet<SnBotAccount> BotAccounts { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

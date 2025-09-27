@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Wallet;
 
@@ -14,7 +15,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 {
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Subscription>>> ListSubscriptions(
+    public async Task<ActionResult<List<SnSubscription>>> ListSubscriptions(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -40,7 +41,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpGet("fuzzy/{prefix}")]
     [Authorize]
-    public async Task<ActionResult<Subscription>> GetSubscriptionFuzzy(string prefix)
+    public async Task<ActionResult<SnSubscription>> GetSubscriptionFuzzy(string prefix)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -56,7 +57,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpGet("{identifier}")]
     [Authorize]
-    public async Task<ActionResult<Subscription>> GetSubscription(string identifier)
+    public async Task<ActionResult<SnSubscription>> GetSubscription(string identifier)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -79,7 +80,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Subscription>> CreateSubscription(
+    public async Task<ActionResult<SnSubscription>> CreateSubscription(
         [FromBody] CreateSubscriptionRequest request,
         [FromHeader(Name = "X-Noop")] bool noop = false
     )
@@ -118,7 +119,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpPost("{identifier}/cancel")]
     [Authorize]
-    public async Task<ActionResult<Subscription>> CancelSubscription(string identifier)
+    public async Task<ActionResult<SnSubscription>> CancelSubscription(string identifier)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 
@@ -135,7 +136,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpPost("{identifier}/order")]
     [Authorize]
-    public async Task<ActionResult<Order>> CreateSubscriptionOrder(string identifier)
+    public async Task<ActionResult<SnWalletOrder>> CreateSubscriptionOrder(string identifier)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
 

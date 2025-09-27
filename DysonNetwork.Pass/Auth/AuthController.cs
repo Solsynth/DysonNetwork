@@ -11,6 +11,7 @@ using Microsoft.Extensions.Localization;
 using AccountAuthFactor = DysonNetwork.Pass.Account.AccountAuthFactor;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
 using ActionLogService = DysonNetwork.Pass.Account.ActionLogService;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Auth;
 

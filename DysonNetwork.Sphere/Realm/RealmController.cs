@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -7,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Google.Protobuf.WellKnownTypes;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Sphere.Realm;
 
@@ -53,7 +53,7 @@ public class RealmController(
 
     [HttpGet("invites")]
     [Authorize]
-    public async Task<ActionResult<List<RealmMember>>> ListInvites()
+    public async Task<ActionResult<List<SnRealmMember>>> ListInvites()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -75,7 +75,7 @@ public class RealmController(
 
     [HttpPost("invites/{slug}")]
     [Authorize]
-    public async Task<ActionResult<RealmMember>> InviteMember(string slug,
+    public async Task<ActionResult<SnRealmMember>> InviteMember(string slug,
         [FromBody] RealmMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -110,7 +110,7 @@ public class RealmController(
         if (hasExistingMember)
             return BadRequest("This user has been joined the realm or leave cannot be invited again.");
 
-        var member = new RealmMember
+        var member = new SnRealmMember
         {
             AccountId = Guid.Parse(relatedUser.Id),
             RealmId = realm.Id,
@@ -211,7 +211,7 @@ public class RealmController(
 
 
     [HttpGet("{slug}/members")]
-    public async Task<ActionResult<List<RealmMember>>> ListMembers(
+    public async Task<ActionResult<List<SnRealmMember>>> ListMembers(
         string slug,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
@@ -281,7 +281,7 @@ public class RealmController(
 
     [HttpGet("{slug}/members/me")]
     [Authorize]
-    public async Task<ActionResult<RealmMember>> GetCurrentIdentity(string slug)
+    public async Task<ActionResult<SnRealmMember>> GetCurrentIdentity(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -362,7 +362,7 @@ public class RealmController(
             AccountId = Guid.Parse(currentUser.Id),
             IsCommunity = request.IsCommunity ?? false,
             IsPublic = request.IsPublic ?? false,
-            Members = new List<RealmMember>
+            Members = new List<SnRealmMember>
             {
                 new()
                 {
@@ -377,14 +377,14 @@ public class RealmController(
         {
             var pictureResult = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
-            realm.Picture = CloudFileReferenceObject.FromProtoValue(pictureResult);
+            realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
         }
 
         if (request.BackgroundId is not null)
         {
             var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
             if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-            realm.Background = CloudFileReferenceObject.FromProtoValue(backgroundResult);
+            realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
         }
 
         db.Realms.Add(realm);
@@ -479,7 +479,7 @@ public class RealmController(
                 });
             }
 
-            realm.Picture = CloudFileReferenceObject.FromProtoValue(pictureResult);
+            realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
 
             // Create a new reference
             await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
@@ -504,7 +504,7 @@ public class RealmController(
                 });
             }
 
-            realm.Background = CloudFileReferenceObject.FromProtoValue(backgroundResult);
+            realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
 
             // Create a new reference
             await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
@@ -542,7 +542,7 @@ public class RealmController(
 
     [HttpPost("{slug}/members/me")]
     [Authorize]
-    public async Task<ActionResult<RealmMember>> JoinRealm(string slug)
+    public async Task<ActionResult<SnRealmMember>> JoinRealm(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -560,7 +560,7 @@ public class RealmController(
         if (existingMember is not null)
             return BadRequest("You are already a member of this realm.");
 
-        var member = new RealmMember
+        var member = new SnRealmMember
         {
             AccountId = Guid.Parse(currentUser.Id),
             RealmId = realm.Id,
@@ -629,7 +629,7 @@ public class RealmController(
 
     [HttpPatch("{slug}/members/{memberId:guid}/role")]
     [Authorize]
-    public async Task<ActionResult<RealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
+    public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();

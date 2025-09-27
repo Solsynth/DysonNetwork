@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -347,7 +348,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// <param name="resourceId">The ID of the resource</param>
     /// <param name="usage">Optional filter by usage context</param>
     /// <returns>A list of files referenced by the resource</returns>
-    public async Task<List<CloudFile>> GetResourceFilesAsync(string resourceId, string? usage = null)
+    public async Task<List<SnCloudFile>> GetResourceFilesAsync(string resourceId, string? usage = null)
     {
         var query = db.FileReferences.Where(r => r.ResourceId == resourceId);
 

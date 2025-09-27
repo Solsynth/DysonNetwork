@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +20,7 @@ public class StickerController(
     private async Task<IActionResult> _CheckStickerPackPermissions(
         Guid packId,
         Account currentUser,
-        Publisher.PublisherMemberRole requiredRole
+        Shared.Models.PublisherMemberRole requiredRole
     )
     {
         var pack = await db.StickerPacks
@@ -46,7 +46,7 @@ public class StickerController(
         [FromQuery(Name = "query")] string? query = null
     )
     {
-        Publisher.Publisher? publisher = null;
+        Shared.Models.SnPublisher? publisher = null;
         if (pubName is not null)
             publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
 
@@ -168,7 +168,7 @@ public class StickerController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < Publisher.PublisherMemberRole.Editor)
+        if (member.Role < Shared.Models.PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be at least an editor to update sticker packs");
 
         if (request.Name is not null)
@@ -200,7 +200,7 @@ public class StickerController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < Publisher.PublisherMemberRole.Editor)
+        if (member.Role < Shared.Models.PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be an editor to delete sticker packs");
 
         await st.DeleteStickerPackAsync(pack);
@@ -262,7 +262,7 @@ public class StickerController(
             return Unauthorized();
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
+            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -277,14 +277,14 @@ public class StickerController(
         if (request.Slug is not null)
             sticker.Slug = request.Slug;
 
-        CloudFileReferenceObject? image = null;
+        SnCloudFileReferenceObject? image = null;
         if (request.ImageId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.ImageId });
             if (file is null)
                 return BadRequest("Image not found");
             sticker.ImageId = request.ImageId;
-            sticker.Image = CloudFileReferenceObject.FromProtoValue(file);
+            sticker.Image = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         sticker = await st.UpdateStickerAsync(sticker, image);
@@ -298,7 +298,7 @@ public class StickerController(
             return Unauthorized();
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
+            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -329,7 +329,7 @@ public class StickerController(
             return BadRequest("Image is required.");
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Publisher.PublisherMemberRole.Editor);
+            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -351,7 +351,7 @@ public class StickerController(
         {
             Slug = request.Slug,
             ImageId = file.Id,
-            Image = CloudFileReferenceObject.FromProtoValue(file),
+            Image = SnCloudFileReferenceObject.FromProtoValue(file),
             Pack = pack
         };
 

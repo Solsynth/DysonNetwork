@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +23,7 @@ public class BundleController(AppDatabase db) : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<FileBundle>> GetBundle([FromRoute] Guid id, [FromQuery] string? passcode)
+    public async Task<ActionResult<SnFileBundle>> GetBundle([FromRoute] Guid id, [FromQuery] string? passcode)
     {
         var bundle = await db.Bundles
             .Where(e => e.Id == id)
@@ -36,7 +37,7 @@ public class BundleController(AppDatabase db) : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<List<FileBundle>>> ListBundles(
+    public async Task<ActionResult<List<SnFileBundle>>> ListBundles(
         [FromQuery] string? term,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
@@ -65,7 +66,7 @@ public class BundleController(AppDatabase db) : ControllerBase
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<FileBundle>> CreateBundle([FromBody] BundleRequest request)
+    public async Task<ActionResult<SnFileBundle>> CreateBundle([FromBody] BundleRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -77,7 +78,7 @@ public class BundleController(AppDatabase db) : ControllerBase
         if (string.IsNullOrEmpty(request.Name))
             request.Name = "Unnamed Bundle";
 
-        var bundle = new FileBundle
+        var bundle = new SnFileBundle
         {
             Slug = request.Slug,
             Name = request.Name,
@@ -95,7 +96,7 @@ public class BundleController(AppDatabase db) : ControllerBase
 
     [HttpPut("{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<FileBundle>> UpdateBundle([FromRoute] Guid id, [FromBody] BundleRequest request)
+    public async Task<ActionResult<SnFileBundle>> UpdateBundle([FromRoute] Guid id, [FromBody] BundleRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);

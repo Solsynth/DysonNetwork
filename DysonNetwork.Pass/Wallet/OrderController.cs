@@ -1,4 +1,5 @@
 using DysonNetwork.Pass.Auth;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ namespace DysonNetwork.Pass.Wallet;
 public class OrderController(PaymentService payment, AuthService auth, AppDatabase db) : ControllerBase
 {
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Order>> GetOrderById(Guid id)
+    public async Task<ActionResult<SnWalletOrder>> GetOrderById(Guid id)
     {
         var order = await db.PaymentOrders.FindAsync(id);
         
@@ -22,7 +23,7 @@ public class OrderController(PaymentService payment, AuthService auth, AppDataba
     
     [HttpPost("{id:guid}/pay")]
     [Authorize]
-    public async Task<ActionResult<Order>> PayOrder(Guid id, [FromBody] PayOrderRequest request)
+    public async Task<ActionResult<SnWalletOrder>> PayOrder(Guid id, [FromBody] PayOrderRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
     

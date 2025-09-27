@@ -23,7 +23,7 @@ public static class KestrelConfiguration
             if (enableGrpc)
             {
                 // gRPC
-                var grpcPort = int.Parse(configuration.GetValue<string>("GRPC_PORT", "5001"));
+                var grpcPort = int.Parse(configuration.GetValue("GRPC_PORT", "5001"));
                 options.ListenAnyIP(grpcPort, listenOptions =>
                 {
                     listenOptions.Protocols = HttpProtocols.Http2;
@@ -34,7 +34,7 @@ public static class KestrelConfiguration
             }
 
 
-            var httpPorts = configuration.GetValue<string>("HTTP_PORTS", "6000")
+            var httpPorts = configuration.GetValue("HTTP_PORTS", "6000")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(p => int.Parse(p.Trim()))
                 .ToArray();

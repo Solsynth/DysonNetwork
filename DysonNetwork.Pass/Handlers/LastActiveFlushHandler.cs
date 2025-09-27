@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Quartz;
@@ -7,7 +8,7 @@ namespace DysonNetwork.Pass.Handlers;
 
 public class LastActiveInfo
 {
-    public Auth.AuthSession Session { get; set; } = null!;
+    public SnAuthSession Session { get; set; } = null!;
     public Account.Account Account { get; set; } = null!;
     public Instant SeenAt { get; set; }
 }

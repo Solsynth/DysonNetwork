@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using NodaTime;
 
 namespace DysonNetwork.Drive.Storage.Model
@@ -18,7 +19,7 @@ namespace DysonNetwork.Drive.Storage.Model
     public class CreateUploadTaskResponse
     {
         public bool FileExists { get; set; }
-        public CloudFile? File { get; set; }
+        public SnCloudFile? File { get; set; }
         public string? TaskId { get; set; }
         public long? ChunkSize { get; set; }
         public int? ChunksCount { get; set; }

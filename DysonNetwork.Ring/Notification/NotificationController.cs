@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -78,7 +79,7 @@ public class NotificationController(
 
     [HttpPut("subscription")]
     [Authorize]
-    public async Task<ActionResult<PushSubscription>>
+    public async Task<ActionResult<SnNotificationPushSubscription>>
         SubscribeToPushNotification(
             [FromBody] PushNotificationSubscribeRequest request
         )

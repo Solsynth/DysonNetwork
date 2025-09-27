@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -36,7 +37,7 @@ public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
         else
             throw new ArgumentException("No user context was found");
         
-        if (request.HttpContext.Items["CurrentSession"] is Auth.AuthSession currentSession)
+        if (request.HttpContext.Items["CurrentSession"] is SnAuthSession currentSession)
             log.SessionId = currentSession.Id;
 
         fbs.Enqueue(log);

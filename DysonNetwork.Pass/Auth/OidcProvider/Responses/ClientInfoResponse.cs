@@ -1,13 +1,13 @@
 using System.Text.Json.Serialization;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Auth.OidcProvider.Responses;
 
 public class ClientInfoResponse
 {
     public Guid ClientId { get; set; }
-    public CloudFileReferenceObject? Picture { get; set; }
-    public CloudFileReferenceObject? Background { get; set; }
+    public SnCloudFileReferenceObject? Picture { get; set; }
+    public SnCloudFileReferenceObject? Background { get; set; }
     public string? ClientName { get; set; }
     public string? HomeUri { get; set; }
     public string? PolicyUri { get; set; }

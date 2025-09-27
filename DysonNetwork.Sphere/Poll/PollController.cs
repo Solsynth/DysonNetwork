@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -46,7 +47,7 @@ public class PollController(
 
     [HttpPost("{id:guid}/answer")]
     [Authorize]
-    public async Task<ActionResult<PollAnswer>> AnswerPoll(Guid id, [FromBody] PollAnswerRequest request)
+    public async Task<ActionResult<SnPollAnswer>> AnswerPoll(Guid id, [FromBody] PollAnswerRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -78,7 +79,7 @@ public class PollController(
     }
 
     [HttpGet("{id:guid}/feedback")]
-    public async Task<ActionResult<List<PollAnswer>>> GetPollFeedback(
+    public async Task<ActionResult<List<SnPollAnswer>>> GetPollFeedback(
         Guid id,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
@@ -91,7 +92,7 @@ public class PollController(
             .FirstOrDefaultAsync(p => p.Id == id);
         if (poll is null) return NotFound("Poll not found");
 
-        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Publisher.PublisherMemberRole.Viewer))
+        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.Viewer))
             return StatusCode(403, "You need to be a viewer to view this poll's feedback.");
 
         var answerQuery = db.PollAnswers
@@ -117,7 +118,7 @@ public class PollController(
             {
                 var protoValue = answeredAccounts.FirstOrDefault(a => a.Id == answer.AccountId.ToString());
                 if (protoValue is not null)
-                    answer.Account = AccountReference.FromProtoValue(protoValue);
+                    answer.Account = SnAccount.FromProtoValue(protoValue);
             }
         }
 
@@ -177,14 +178,14 @@ public class PollController(
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public PollQuestionType Type { get; set; }
-        public List<PollOption>? Options { get; set; }
+        public List<SnPollOption>? Options { get; set; }
 
         [MaxLength(1024)] public string Title { get; set; } = null!;
         [MaxLength(4096)] public string? Description { get; set; }
         public int Order { get; set; } = 0;
         public bool IsRequired { get; set; }
 
-        public PollQuestion ToQuestion() => new()
+        public SnPollQuestion ToQuestion() => new()
         {
             Id = Id,
             Type = Type,
@@ -207,7 +208,7 @@ public class PollController(
 
         var publisher = await pub.GetPublisherByName(pubName);
         if (publisher is null) return BadRequest("Publisher was not found.");
-        if (!await pub.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to create polls as this publisher.");
 
         var poll = new Poll
@@ -253,7 +254,7 @@ public class PollController(
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to update this poll.");
 
             // Update properties if they are provided in the request
@@ -317,7 +318,7 @@ public class PollController(
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to delete this poll.");
 
             // Delete all answers for this poll

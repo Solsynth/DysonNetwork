@@ -25,7 +25,7 @@ public class RingServiceGrpc(
 
     public override Task<Empty> PushWebSocketPacket(PushWebSocketPacketRequest request, ServerCallContext context)
     {
-        var packet = Shared.Data.WebSocketPacket.FromProtoValue(request.Packet);
+        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
         
         WebSocketService.SendPacketToAccount(Guid.Parse(request.UserId), packet);
         return Task.FromResult(new Empty());
@@ -34,7 +34,7 @@ public class RingServiceGrpc(
     public override Task<Empty> PushWebSocketPacketToUsers(PushWebSocketPacketToUsersRequest request,
         ServerCallContext context)
     {
-        var packet = Shared.Data.WebSocketPacket.FromProtoValue(request.Packet);
+        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
         
         foreach (var accountId in request.UserIds)
             WebSocketService.SendPacketToAccount(Guid.Parse(accountId), packet);
@@ -45,7 +45,7 @@ public class RingServiceGrpc(
 public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
         ServerCallContext context)
     {
-        var packet = Shared.Data.WebSocketPacket.FromProtoValue(request.Packet);
+        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
         
         websocket.SendPacketToDevice(request.DeviceId, packet);
         return Task.FromResult(new Empty());
@@ -54,7 +54,7 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
     public override Task<Empty> PushWebSocketPacketToDevices(PushWebSocketPacketToDevicesRequest request,
         ServerCallContext context)
     {
-        var packet = Shared.Data.WebSocketPacket.FromProtoValue(request.Packet);
+        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
         
         foreach (var deviceId in request.DeviceIds)
             websocket.SendPacketToDevice(deviceId, packet);

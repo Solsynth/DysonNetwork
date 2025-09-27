@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,7 +33,7 @@ public class StickerService(
         return sticker;
     }
 
-    public async Task<Sticker> UpdateStickerAsync(Sticker sticker, CloudFileReferenceObject? newImage)
+    public async Task<Sticker> UpdateStickerAsync(Sticker sticker, SnCloudFileReferenceObject? newImage)
     {
         if (newImage is not null)
         {

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using DysonNetwork.Shared.Data;
-using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
@@ -64,9 +63,9 @@ namespace DysonNetwork.Sphere.Migrations
                     is_public = table.Column<bool>(type: "boolean", nullable: false),
                     picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -104,8 +103,8 @@ namespace DysonNetwork.Sphere.Migrations
                     is_public = table.Column<bool>(type: "boolean", nullable: false),
                     picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     realm_id = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -132,9 +131,9 @@ namespace DysonNetwork.Sphere.Migrations
                     bio = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
                     account_id = table.Column<Guid>(type: "uuid", nullable: true),
                     realm_id = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -244,9 +243,9 @@ namespace DysonNetwork.Sphere.Migrations
                     name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     status = table.Column<int>(type: "integer", nullable: false),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
                     publisher_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -308,7 +307,7 @@ namespace DysonNetwork.Sphere.Migrations
                     downvotes = table.Column<int>(type: "integer", nullable: false),
                     replied_post_id = table.Column<Guid>(type: "uuid", nullable: true),
                     forwarded_post_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    attachments = table.Column<List<CloudFileReferenceObject>>(type: "jsonb", nullable: false),
+                    attachments = table.Column<List<SnCloudFileReferenceObject>>(type: "jsonb", nullable: false),
                     search_vector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: false)
                         .Annotation("Npgsql:TsVectorConfig", "simple")
                         .Annotation("Npgsql:TsVectorProperties", new[] { "title", "description", "content" }),
@@ -471,7 +470,7 @@ namespace DysonNetwork.Sphere.Migrations
                     members_mentioned = table.Column<List<Guid>>(type: "jsonb", nullable: true),
                     nonce = table.Column<string>(type: "character varying(36)", maxLength: 36, nullable: false),
                     edited_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
-                    attachments = table.Column<List<CloudFileReferenceObject>>(type: "jsonb", nullable: false),
+                    attachments = table.Column<List<SnCloudFileReferenceObject>>(type: "jsonb", nullable: false),
                     replied_message_id = table.Column<Guid>(type: "uuid", nullable: true),
                     forwarded_message_id = table.Column<Guid>(type: "uuid", nullable: true),
                     sender_id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -669,7 +668,7 @@ namespace DysonNetwork.Sphere.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     slug = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     image_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    image = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    image = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     pack_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),

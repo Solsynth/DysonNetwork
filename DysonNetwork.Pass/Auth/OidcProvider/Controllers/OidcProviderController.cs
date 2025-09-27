@@ -8,10 +8,10 @@ using System.Text.Json.Serialization;
 using System.Web;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
-using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NodaTime;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Auth.OidcProvider.Controllers;
 
@@ -98,9 +98,9 @@ public class OidcProviderController(
         var clientInfo = new ClientInfoResponse
         {
             ClientId = Guid.Parse(client.Id),
-            Picture = client.Picture is not null ? CloudFileReferenceObject.FromProtoValue(client.Picture) : null,
+            Picture = client.Picture is not null ? SnCloudFileReferenceObject.FromProtoValue(client.Picture) : null,
             Background = client.Background is not null
-                ? CloudFileReferenceObject.FromProtoValue(client.Background)
+                ? SnCloudFileReferenceObject.FromProtoValue(client.Background)
                 : null,
             ClientName = client.Name,
             HomeUri = client.Links.HomePage,
@@ -304,7 +304,7 @@ public class OidcProviderController(
     public async Task<IActionResult> GetUserInfo()
     {
         if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser ||
-            HttpContext.Items["CurrentSession"] is not AuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         // Get requested scopes from the token
         var scopes = currentSession.Challenge?.Scopes ?? [];

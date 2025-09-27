@@ -2,11 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere;
-using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Poll;
-using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -118,7 +115,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<CloudFileReferenceObject>("Background")
+                    b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
@@ -153,7 +150,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
-                    b.Property<CloudFileReferenceObject>("Picture")
+                    b.Property<SnCloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
 
@@ -190,7 +187,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<List<CloudFileReferenceObject>>("Attachments")
+                    b.Property<List<SnCloudFileReferenceObject>>("Attachments")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("attachments");
@@ -489,7 +486,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_required");
 
-                    b.Property<List<PollOption>>("Options")
+                    b.Property<List<SnPollOption>>("Options")
                         .HasColumnType("jsonb")
                         .HasColumnName("options");
 
@@ -531,7 +528,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<List<CloudFileReferenceObject>>("Attachments")
+                    b.Property<List<SnCloudFileReferenceObject>>("Attachments")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("attachments");
@@ -983,7 +980,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<CloudFileReferenceObject>("Background")
+                    b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
@@ -1017,7 +1014,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("nick");
 
-                    b.Property<CloudFileReferenceObject>("Picture")
+                    b.Property<SnCloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
 
@@ -1038,7 +1035,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<VerificationMark>("Verification")
+                    b.Property<SnVerificationMark>("Verification")
                         .HasColumnType("jsonb")
                         .HasColumnName("verification");
 
@@ -1188,7 +1185,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<CloudFileReferenceObject>("Background")
+                    b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
@@ -1225,7 +1222,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
-                    b.Property<CloudFileReferenceObject>("Picture")
+                    b.Property<SnCloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
 
@@ -1244,7 +1241,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<VerificationMark>("Verification")
+                    b.Property<SnVerificationMark>("Verification")
                         .HasColumnType("jsonb")
                         .HasColumnName("verification");
 
@@ -1313,7 +1310,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
-                    b.Property<CloudFileReferenceObject>("Image")
+                    b.Property<SnCloudFileReferenceObject>("Image")
                         .HasColumnType("jsonb")
                         .HasColumnName("image");
 

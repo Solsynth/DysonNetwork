@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -40,7 +41,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
     [HttpGet("transactions")]
     [Authorize]
-    public async Task<ActionResult<List<Transaction>>> GetTransactions(
+    public async Task<ActionResult<List<SnWalletTransaction>>> GetTransactions(
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
@@ -67,7 +68,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
     [HttpGet("orders")]
     [Authorize]
-    public async Task<ActionResult<List<Order>>> GetOrders(
+    public async Task<ActionResult<List<SnWalletOrder>>> GetOrders(
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
@@ -104,7 +105,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
     [HttpPost("balance")]
     [Authorize]
     [RequiredPermission("maintenance", "wallets.balance.modify")]
-    public async Task<ActionResult<Transaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
+    public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
     {
         var wallet = await ws.GetWalletAsync(request.AccountId);
         if (wallet is null) return NotFound("Wallet was not found.");

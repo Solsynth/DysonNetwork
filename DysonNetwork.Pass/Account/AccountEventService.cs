@@ -1,6 +1,7 @@
 using System.Globalization;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;

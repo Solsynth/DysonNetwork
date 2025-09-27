@@ -1,5 +1,6 @@
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -68,7 +69,7 @@ public class OidcController(
     /// Handles Apple authentication directly from mobile apps
     /// </summary>
     [HttpPost("apple/mobile")]
-    public async Task<ActionResult<AuthChallenge>> AppleMobileLogin(
+    public async Task<ActionResult<SnAuthChallenge>> AppleMobileLogin(
         [FromBody] AppleMobileSignInRequest request
     )
     {

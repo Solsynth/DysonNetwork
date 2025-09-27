@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using NATS.Client.Core;

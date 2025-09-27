@@ -1,8 +1,8 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Drive.Billing;
-using DysonNetwork.Drive.Storage;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -17,11 +17,11 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<FilePool> Pools { get; set; } = null!;
-    public DbSet<FileBundle> Bundles { get; set; } = null!;
+    public DbSet<SnFileBundle> Bundles { get; set; } = null!;
     
     public DbSet<QuotaRecord> QuotaRecords { get; set; } = null!;
     
-    public DbSet<CloudFile> Files { get; set; } = null!;
+    public DbSet<SnCloudFile> Files { get; set; } = null!;
     public DbSet<CloudFileReference> FileReferences { get; set; } = null!;
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

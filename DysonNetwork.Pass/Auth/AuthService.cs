@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -76,10 +77,10 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<AuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time,
+    public async Task<SnAuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time,
         Guid? customAppId = null)
     {
-        var challenge = new AuthChallenge
+        var challenge = new SnAuthChallenge
         {
             AccountId = account.Id,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
@@ -89,7 +90,7 @@ public class AuthService(
             Type = customAppId is not null ? ChallengeType.OAuth : ChallengeType.Oidc
         };
 
-        var session = new AuthSession
+        var session = new SnAuthSession
         {
             AccountId = account.Id,
             CreatedAt = time,
@@ -105,7 +106,7 @@ public class AuthService(
         return session;
     }
 
-    public async Task<AuthClient> GetOrCreateDeviceAsync(
+    public async Task<SnAuthClient> GetOrCreateDeviceAsync(
         Guid accountId,
         string deviceId,
         string? deviceName = null,
@@ -114,7 +115,7 @@ public class AuthService(
     {
         var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
         if (device is not null) return device;
-        device = new AuthClient
+        device = new SnAuthClient
         {
             Platform = platform,
             DeviceId = deviceId,
@@ -181,7 +182,7 @@ public class AuthService(
         }
     }
 
-    public string CreateToken(AuthSession session)
+    public string CreateToken(SnAuthSession session)
     {
         // Load the private key for signing
         var privateKeyPem = File.ReadAllText(config["AuthToken:PrivateKeyPath"]!);
@@ -199,7 +200,7 @@ public class AuthService(
     /// <param name="challenge">Completed challenge</param>
     /// <returns>Signed compact token</returns>
     /// <exception cref="ArgumentException">If challenge not completed or session already exists</exception>
-    public async Task<string> CreateSessionAndIssueToken(AuthChallenge challenge)
+    public async Task<string> CreateSessionAndIssueToken(SnAuthChallenge challenge)
     {
         if (challenge.StepRemain != 0)
             throw new ArgumentException("Challenge not yet completed.");
@@ -210,7 +211,7 @@ public class AuthService(
             throw new ArgumentException("Session already exists for this challenge.");
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var session = new AuthSession
+        var session = new SnAuthSession
         {
             LastGrantedAt = now,
             ExpiredAt = now.Plus(Duration.FromDays(7)),
@@ -256,7 +257,7 @@ public class AuthService(
         return $"{payloadBase64}.{signatureBase64}";
     }
 
-    public async Task<bool> ValidateSudoMode(AuthSession session, string? pinCode)
+    public async Task<bool> ValidateSudoMode(SnAuthSession session, string? pinCode)
     {
         // Check if the session is already in sudo mode (cached)
         var sudoModeKey = $"accounts:{session.Id}:sudo";
@@ -319,7 +320,7 @@ public class AuthService(
         return factor.VerifyPassword(pinCode);
     }
 
-    public async Task<ApiKey?> GetApiKey(Guid id, Guid? accountId = null)
+    public async Task<SnApiKey?> GetApiKey(Guid id, Guid? accountId = null)
     {
         var key = await db.ApiKeys
             .Include(e => e.Session)
@@ -329,13 +330,13 @@ public class AuthService(
         return key;
     }
 
-    public async Task<ApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null)
+    public async Task<SnApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null)
     {
-        var key = new ApiKey
+        var key = new SnApiKey
         {
             AccountId = accountId,
             Label = label,
-            Session = new AuthSession
+            Session = new SnAuthSession
             {
                 AccountId = accountId,
                 ExpiredAt = expiredAt
@@ -348,7 +349,7 @@ public class AuthService(
         return key;
     }
 
-    public async Task<string> IssueApiKeyToken(ApiKey key)
+    public async Task<string> IssueApiKeyToken(SnApiKey key)
     {
         key.Session.LastGrantedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(key.Session);
@@ -357,14 +358,14 @@ public class AuthService(
         return tk;
     }
 
-    public async Task RevokeApiKeyToken(ApiKey key)
+    public async Task RevokeApiKeyToken(SnApiKey key)
     {
         db.Remove(key);
         db.Remove(key.Session);
         await db.SaveChangesAsync();
     }
 
-    public async Task<ApiKey> RotateApiKeyToken(ApiKey key)
+    public async Task<SnApiKey> RotateApiKeyToken(SnApiKey key)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
@@ -372,7 +373,7 @@ public class AuthService(
             var oldSessionId = key.SessionId;
 
             // Create new session
-            var newSession = new AuthSession
+            var newSession = new SnAuthSession
             {
                 AccountId = key.AccountId,
                 ExpiredAt = key.Session?.ExpiredAt

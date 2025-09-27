@@ -4,8 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -390,7 +389,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("active_badge");
 
-                    b.Property<CloudFileReferenceObject>("Background")
+                    b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
@@ -444,7 +443,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("middle_name");
 
-                    b.Property<CloudFileReferenceObject>("Picture")
+                    b.Property<SnCloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
 
@@ -462,7 +461,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<VerificationMark>("Verification")
+                    b.Property<SnVerificationMark>("Verification")
                         .HasColumnType("jsonb")
                         .HasColumnName("verification");
 
@@ -1019,7 +1018,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<CloudFileReferenceObject>("Background")
+                    b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
 
@@ -1042,7 +1041,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
-                    b.Property<CloudFileReferenceObject>("Picture")
+                    b.Property<SnCloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
 
@@ -1060,7 +1059,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<VerificationMark>("Verification")
+                    b.Property<SnVerificationMark>("Verification")
                         .HasColumnType("jsonb")
                         .HasColumnName("verification");
 

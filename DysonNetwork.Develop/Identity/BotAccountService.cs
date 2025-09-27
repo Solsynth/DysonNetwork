@@ -1,5 +1,5 @@
-using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
@@ -29,7 +29,7 @@ public class BotAccountService(
     }
 
     public async Task<BotAccount> CreateBotAsync(
-        DevProject project,
+        SnDevProject project,
         string slug,
         Account account,
         string? pictureId,
@@ -165,7 +165,7 @@ public class BotAccountService(
         foreach (var bot in bots)
         {
             bot.Account = data
-                .Select(AccountReference.FromProtoValue)
+                .Select(SnAccount.FromProtoValue)
                 .FirstOrDefault(e => e.AutomatedId == bot.Id);
         }
 

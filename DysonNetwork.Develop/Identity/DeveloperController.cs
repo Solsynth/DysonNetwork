@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -18,7 +19,7 @@ public class DeveloperController(
     : ControllerBase
 {
     [HttpGet("{name}")]
-    public async Task<ActionResult<Developer>> GetDeveloper(string name)
+    public async Task<ActionResult<SnDeveloper>> GetDeveloper(string name)
     {
         var developer = await ds.GetDeveloperByName(name);
         if (developer is null) return NotFound();
@@ -47,7 +48,7 @@ public class DeveloperController(
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Developer>>> ListJoinedDevelopers()
+    public async Task<ActionResult<List<SnDeveloper>>> ListJoinedDevelopers()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         
@@ -69,7 +70,7 @@ public class DeveloperController(
     [HttpPost("{name}/enroll")]
     [Authorize]
     [RequiredPermission("global", "developers.create")]
-    public async Task<ActionResult<Developer>> EnrollDeveloperProgram(string name)
+    public async Task<ActionResult<SnDeveloper>> EnrollDeveloperProgram(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -96,7 +97,7 @@ public class DeveloperController(
         var hasDeveloper = await db.Developers.AnyAsync(d => d.PublisherId == pub.Id);
         if (hasDeveloper) return BadRequest("Publisher is already in the developer program");
         
-        var developer = new Developer
+        var developer = new SnDeveloper
         {
             Id = Guid.NewGuid(),
             PublisherId = pub.Id

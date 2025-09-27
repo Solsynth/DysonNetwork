@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ namespace DysonNetwork.Sphere.Post;
 public class PostCategoryController(AppDatabase db) : ControllerBase
 {
     [HttpGet("categories")]
-    public async Task<ActionResult<List<PostCategory>>> ListCategories(
+    public async Task<ActionResult<List<SnPostCategory>>> ListCategories(
         [FromQuery] string? query = null,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
@@ -59,7 +60,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     }
 
     [HttpGet("tags")]
-    public async Task<ActionResult<List<PostTag>>> ListTags(
+    public async Task<ActionResult<List<SnPostTag>>> ListTags(
         [FromQuery] string? query = null,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
@@ -107,7 +108,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     }
 
     [HttpGet("categories/{slug}")]
-    public async Task<ActionResult<PostCategory>> GetCategory(string slug)
+    public async Task<ActionResult<SnPostCategory>> GetCategory(string slug)
     {
         var category = await db.PostCategories.FirstOrDefaultAsync(e => e.Slug == slug);
         if (category is null)
@@ -116,7 +117,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     }
 
     [HttpGet("tags/{slug}")]
-    public async Task<ActionResult<PostTag>> GetTag(string slug)
+    public async Task<ActionResult<SnPostTag>> GetTag(string slug)
     {
         var tag = await db.PostTags.FirstOrDefaultAsync(e => e.Slug == slug);
         if (tag is null)
@@ -126,7 +127,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpPost("categories/{slug}/subscribe")]
     [Authorize]
-    public async Task<ActionResult<PostCategorySubscription>> SubscribeCategory(string slug)
+    public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCategory(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -143,7 +144,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (existingSubscription != null)
             return Ok(existingSubscription);
 
-        var subscription = new PostCategorySubscription
+        var subscription = new SnPostCategorySubscription
         {
             AccountId = accountId,
             CategoryId = category.Id
@@ -180,7 +181,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpGet("categories/{slug}/subscription")]
     [Authorize]
-    public async Task<ActionResult<PostCategorySubscription>> GetCategorySubscription(string slug)
+    public async Task<ActionResult<SnPostCategorySubscription>> GetCategorySubscription(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -200,7 +201,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpPost("tags/{slug}/subscribe")]
     [Authorize]
-    public async Task<ActionResult<PostCategorySubscription>> SubscribeTag(string slug)
+    public async Task<ActionResult<SnPostCategorySubscription>> SubscribeTag(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -219,7 +220,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
             return Ok(existingSubscription);
         }
 
-        var subscription = new PostCategorySubscription
+        var subscription = new SnPostCategorySubscription
         {
             AccountId = accountId,
             TagId = tag.Id
@@ -260,7 +261,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpGet("tags/{slug}/subscription")]
     [Authorize]
-    public async Task<ActionResult<PostCategorySubscription>> GetTagSubscription(string slug)
+    public async Task<ActionResult<SnPostCategorySubscription>> GetTagSubscription(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);

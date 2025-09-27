@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Registry;
@@ -35,13 +36,13 @@ public class AccountClientHelper(AccountService.AccountServiceClient accounts)
         return response.Accounts.ToList();
     }
 
-    public async Task<Dictionary<Guid, AccountStatusReference>> GetAccountStatusBatch(List<Guid> ids)
+    public async Task<Dictionary<Guid, SnAccountStatus>> GetAccountStatusBatch(List<Guid> ids)
     {
         var request = new GetAccountBatchRequest();
         request.Id.AddRange(ids.Select(id => id.ToString()));
         var response = await accounts.GetAccountStatusBatchAsync(request);
         return response.Statuses
-            .Select(AccountStatusReference.FromProtoValue)
+            .Select(SnAccountStatus.FromProtoValue)
             .ToDictionary(s => s.AccountId, s => s);
     }
 }

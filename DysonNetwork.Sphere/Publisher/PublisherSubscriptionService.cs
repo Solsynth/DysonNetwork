@@ -1,5 +1,6 @@
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Post;
@@ -49,7 +50,7 @@ public class PublisherSubscriptionService(
     /// </summary>
     /// <param name="post">The new post</param>
     /// <returns>The number of subscribers notified</returns>
-    public async Task<int> NotifySubscriberPost(Post.Post post)
+    public async Task<int> NotifySubscriberPost(SnPost post)
     {
         if (post.RepliedPostId is not null)
             return 0;
@@ -74,7 +75,7 @@ public class PublisherSubscriptionService(
         if (subscribers.Count == 0)
             return 0;
 
-        List<PostCategorySubscription> categorySubscribers = [];
+        List<SnPostCategorySubscription> categorySubscribers = [];
         if (post.Categories.Count > 0)
         {
             var categoryIds = post.Categories.Select(x => x.Id).ToList();

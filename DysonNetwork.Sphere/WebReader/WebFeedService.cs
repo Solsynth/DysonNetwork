@@ -11,7 +11,7 @@ public class WebFeedService(
     WebReaderService webReaderService
 )
 {
-    public async Task<WebFeed> CreateWebFeedAsync(Publisher.Publisher publisher,
+    public async Task<WebFeed> CreateWebFeedAsync(Shared.Models.SnPublisher publisher,
         WebFeedController.WebFeedRequest request)
     {
         var feed = new WebFeed

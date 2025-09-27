@@ -3,7 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
-using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
+using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Connection;
 

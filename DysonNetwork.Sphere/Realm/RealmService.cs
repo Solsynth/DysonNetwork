@@ -1,6 +1,7 @@
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Localization;
@@ -39,7 +40,7 @@ public class RealmService(
         return realms;
     }
     
-    public async Task SendInviteNotify(RealmMember member)
+    public async Task SendInviteNotify(SnRealmMember member)
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
         CultureService.SetCultureInfo(account);
@@ -71,14 +72,14 @@ public class RealmService(
         return member?.Role >= maxRequiredRole;
     }
 
-    public async Task<RealmMember> LoadMemberAccount(RealmMember member)
+    public async Task<SnRealmMember> LoadMemberAccount(SnRealmMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
-        member.Account = AccountReference.FromProtoValue(account);
+        member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
 
-    public async Task<List<RealmMember>> LoadMemberAccounts(ICollection<RealmMember> members)
+    public async Task<List<SnRealmMember>> LoadMemberAccounts(ICollection<SnRealmMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
@@ -86,7 +87,7 @@ public class RealmService(
         return members.Select(m =>
         {
             if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = AccountReference.FromProtoValue(account);
+                m.Account = SnAccount.FromProtoValue(account);
             return m;
         }).ToList();
     }

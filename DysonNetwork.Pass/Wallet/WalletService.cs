@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Pass.Wallet;
@@ -27,7 +28,7 @@ public class WalletService(AppDatabase db)
         return wallet;
     }
 
-    public async Task<(WalletPocket wallet, bool isNewlyCreated)> GetOrCreateWalletPocketAsync(
+    public async Task<(SnWalletPocket wallet, bool isNewlyCreated)> GetOrCreateWalletPocketAsync(
         Guid walletId,
         string currency,
         decimal? initialAmount = null
@@ -36,7 +37,7 @@ public class WalletService(AppDatabase db)
         var pocket = await db.WalletPockets.FirstOrDefaultAsync(p => p.Currency == currency && p.WalletId == walletId);
         if (pocket != null) return (pocket, false);
 
-        pocket = new WalletPocket
+        pocket = new SnWalletPocket
         {
             Currency = currency,
             Amount = initialAmount ?? 0,

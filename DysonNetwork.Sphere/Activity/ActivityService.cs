@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
@@ -17,7 +18,7 @@ public class ActivityService(
     AccountService.AccountServiceClient accounts
 )
 {
-    private static double CalculateHotRank(Post.Post post, Instant now)
+    private static double CalculateHotRank(SnPost post, Instant now)
     {
         var performanceScore = post.Upvotes - post.Downvotes + post.RepliesCount + (int)post.AwardedScore / 10;
         var postTime = post.PublishedAt ?? post.CreatedAt;
@@ -163,7 +164,7 @@ public class ActivityService(
         return await pick();
     }
 
-    private static List<Post.Post> RankPosts(List<Post.Post> posts, int take)
+    private static List<SnPost> RankPosts(List<SnPost> posts, int take)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         return posts
@@ -175,7 +176,7 @@ public class ActivityService(
         // return posts.Take(take).ToList();
     }
 
-    private async Task<List<Publisher.Publisher>> GetPopularPublishers(int take)
+    private async Task<List<Shared.Models.SnPublisher>> GetPopularPublishers(int take)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var recent = now.Minus(Duration.FromDays(7));
@@ -268,11 +269,11 @@ public class ActivityService(
             : null;
     }
 
-    private async Task<List<Post.Post>> GetAndProcessPosts(
-        IQueryable<Post.Post> baseQuery,
+    private async Task<List<SnPost>> GetAndProcessPosts(
+        IQueryable<SnPost> baseQuery,
         Account? currentUser = null,
         List<Guid>? userFriends = null,
-        List<Publisher.Publisher>? userPublishers = null,
+        List<Shared.Models.SnPublisher>? userPublishers = null,
         bool trackViews = true)
     {
         var posts = await baseQuery.ToListAsync();
@@ -294,7 +295,7 @@ public class ActivityService(
         return posts;
     }
 
-    private IQueryable<Post.Post> BuildPostsQuery(
+    private IQueryable<SnPost> BuildPostsQuery(
         Instant? cursor,
         List<Guid>? filteredPublishersId = null,
         List<Guid>? userRealms = null
@@ -322,7 +323,7 @@ public class ActivityService(
         return query;
     }
 
-    private async Task<List<Publisher.Publisher>?> GetFilteredPublishers(
+    private async Task<List<Shared.Models.SnPublisher>?> GetFilteredPublishers(
         string? filter,
         Account currentUser,
         List<Guid> userFriends)
@@ -338,7 +339,7 @@ public class ActivityService(
         };
     }
 
-    private static double CalculatePopularity(List<Post.Post> posts)
+    private static double CalculatePopularity(List<SnPost> posts)
     {
         var score = posts.Sum(p => p.Upvotes - p.Downvotes);
         var postCount = posts.Count;

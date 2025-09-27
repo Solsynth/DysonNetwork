@@ -2,10 +2,11 @@ using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Services;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
+using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Notification;
 
@@ -62,7 +63,7 @@ public class PushService
             .ExecuteDeleteAsync();
     }
 
-    public async Task<PushSubscription> SubscribeDevice(
+    public async Task<SnNotificationPushSubscription> SubscribeDevice(
         string deviceId,
         string deviceToken,
         PushProvider provider,
@@ -90,7 +91,7 @@ public class PushService
             return existingSubscription;
         }
 
-        var subscription = new PushSubscription
+        var subscription = new SnNotificationPushSubscription
         {
             DeviceId = deviceId,
             DeviceToken = deviceToken,
@@ -259,7 +260,7 @@ public class PushService
         await DeliverPushNotification(notification);
     }
 
-    private async Task SendPushNotificationAsync(PushSubscription subscription, Notification notification)
+    private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription, Notification notification)
     {
         try
         {

@@ -1,8 +1,9 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Account = DysonNetwork.Shared.Data.AccountReference;
+using Account = DysonNetwork.Shared.Data.SnAccount;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -16,10 +17,10 @@ public class ChatRoomService(
     private const string RoomMembersCacheKeyPrefix = "chatroom:members:";
     private const string ChatMemberCacheKey = "chatroom:{0}:member:{1}";
 
-    public async Task<List<ChatMember>> ListRoomMembers(Guid roomId)
+    public async Task<List<SnChatMember>> ListRoomMembers(Guid roomId)
     {
         var cacheKey = RoomMembersCacheKeyPrefix + roomId;
-        var cachedMembers = await cache.GetAsync<List<ChatMember>>(cacheKey);
+        var cachedMembers = await cache.GetAsync<List<SnChatMember>>(cacheKey);
         if (cachedMembers != null)
             return cachedMembers;
 
@@ -38,10 +39,10 @@ public class ChatRoomService(
         return members;
     }
 
-    public async Task<ChatMember?> GetRoomMember(Guid accountId, Guid chatRoomId)
+    public async Task<SnChatMember?> GetRoomMember(Guid accountId, Guid chatRoomId)
     {
         var cacheKey = string.Format(ChatMemberCacheKey, accountId, chatRoomId);
-        var member = await cache.GetAsync<ChatMember?>(cacheKey);
+        var member = await cache.GetAsync<SnChatMember?>(cacheKey);
         if (member is not null) return member;
 
         member = await db.ChatMembers
@@ -66,7 +67,7 @@ public class ChatRoomService(
         await cache.RemoveGroupAsync(chatRoomGroup);
     }
 
-    public async Task<List<ChatRoom>> SortChatRoomByLastMessage(List<ChatRoom> rooms)
+    public async Task<List<SnChatRoom>> SortChatRoomByLastMessage(List<SnChatRoom> rooms)
     {
         var roomIds = rooms.Select(r => r.Id).ToList();
         var lastMessages = await db.ChatMessages
@@ -83,7 +84,7 @@ public class ChatRoomService(
         return sortedRooms;
     }
 
-    public async Task<List<ChatRoom>> LoadDirectMessageMembers(List<ChatRoom> rooms, Guid userId)
+    public async Task<List<SnChatRoom>> LoadDirectMessageMembers(List<SnChatRoom> rooms, Guid userId)
     {
         var directRoomsId = rooms
             .Where(r => r.Type == ChatRoomType.DirectMessage)
@@ -91,7 +92,7 @@ public class ChatRoomService(
             .ToList();
         if (directRoomsId.Count == 0) return rooms;
 
-        List<ChatMember> members = directRoomsId.Count != 0
+        List<SnChatMember> members = directRoomsId.Count != 0
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
@@ -100,7 +101,7 @@ public class ChatRoomService(
             : [];
         members = await LoadMemberAccounts(members);
 
-        Dictionary<Guid, List<ChatMember>> directMembers = new();
+        Dictionary<Guid, List<SnChatMember>> directMembers = new();
         foreach (var member in members)
         {
             if (!directMembers.ContainsKey(member.ChatRoomId))
@@ -116,7 +117,7 @@ public class ChatRoomService(
         }).ToList();
     }
 
-    public async Task<ChatRoom> LoadDirectMessageMembers(ChatRoom room, Guid userId)
+    public async Task<SnChatRoom> LoadDirectMessageMembers(SnChatRoom room, Guid userId)
     {
         if (room.Type != ChatRoomType.DirectMessage) return room;
         var members = await db.ChatMembers
@@ -143,14 +144,14 @@ public class ChatRoomService(
         return member?.Role >= maxRequiredRole;
     }
 
-    public async Task<ChatMember> LoadMemberAccount(ChatMember member)
+    public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
         member.Account = Account.FromProtoValue(account);
         return member;
     }
 
-    public async Task<List<ChatMember>> LoadMemberAccounts(ICollection<ChatMember> members)
+    public async Task<List<SnChatMember>> LoadMemberAccounts(ICollection<SnChatMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);

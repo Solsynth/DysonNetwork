@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 using AngleSharp.Common;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.WebReader;
@@ -13,6 +12,7 @@ using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -32,7 +32,7 @@ public partial class PostService(
 {
     private const string PostFileUsageIdentifier = "post";
 
-    private static List<Post> TruncatePostContent(List<Post> input)
+    private static List<SnPost> TruncatePostContent(List<SnPost> input)
     {
         const int maxLength = 256;
         const int embedMaxLength = 80;
@@ -62,7 +62,7 @@ public partial class PostService(
         return input;
     }
 
-    public (string title, string content) ChopPostForNotification(Post post)
+    public (string title, string content) ChopPostForNotification(SnPost post)
     {
         var content = !string.IsNullOrEmpty(post.Description)
             ? post.Description?.Length >= 40 ? post.Description[..37] + "..." : post.Description
@@ -75,8 +75,8 @@ public partial class PostService(
         return (title, content);
     }
 
-    public async Task<Post> PostAsync(
-        Post post,
+    public async Task<SnPost> PostAsync(
+        SnPost post,
         List<string>? attachments = null,
         List<string>? tags = null,
         List<string>? categories = null
@@ -101,7 +101,7 @@ public partial class PostService(
             queryRequest.Ids.AddRange(attachments);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
-            post.Attachments = queryResponse.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
+            post.Attachments = queryResponse.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
             // Re-order the list to match the id list places
             post.Attachments = attachments
                 .Select(id => post.Attachments.First(a => a.Id == id))
@@ -116,7 +116,7 @@ public partial class PostService(
             var existingSlugs = existingTags.Select(t => t.Slug).ToHashSet();
             var missingSlugs = tags.Where(slug => !existingSlugs.Contains(slug)).ToList();
 
-            var newTags = missingSlugs.Select(slug => new PostTag { Slug = slug }).ToList();
+            var newTags = missingSlugs.Select(slug => new SnPostTag { Slug = slug }).ToList();
             if (newTags.Count > 0)
             {
                 await db.PostTags.AddRangeAsync(newTags);
@@ -208,8 +208,8 @@ public partial class PostService(
         return post;
     }
 
-    public async Task<Post> UpdatePostAsync(
-        Post post,
+    public async Task<SnPost> UpdatePostAsync(
+        SnPost post,
         List<string>? attachments = null,
         List<string>? tags = null,
         List<string>? categories = null,
@@ -248,7 +248,7 @@ public partial class PostService(
             queryRequest.Ids.AddRange(attachments);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
-            post.Attachments = queryResponse.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
+            post.Attachments = queryResponse.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
         }
 
         if (tags is not null)
@@ -259,7 +259,7 @@ public partial class PostService(
             var existingSlugs = existingTags.Select(t => t.Slug).ToHashSet();
             var missingSlugs = tags.Where(slug => !existingSlugs.Contains(slug)).ToList();
 
-            var newTags = missingSlugs.Select(slug => new PostTag { Slug = slug }).ToList();
+            var newTags = missingSlugs.Select(slug => new SnPostTag { Slug = slug }).ToList();
             if (newTags.Count > 0)
             {
                 await db.PostTags.AddRangeAsync(newTags);
@@ -288,7 +288,7 @@ public partial class PostService(
     [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
-    public async Task<Post> PreviewPostLinkAsync(Post item)
+    public async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
         if (item.Type != PostType.Moment || string.IsNullOrEmpty(item.Content)) return item;
 
@@ -348,7 +348,7 @@ public partial class PostService(
     /// This method is designed to be called from a background task
     /// </summary>
     /// <param name="post">The post to process link previews for</param>
-    private async Task ProcessPostLinkPreviewAsync(Post post)
+    private async Task ProcessPostLinkPreviewAsync(SnPost post)
     {
         try
         {
@@ -387,7 +387,7 @@ public partial class PostService(
         }
     }
 
-    public async Task DeletePostAsync(Post post)
+    public async Task DeletePostAsync(SnPost post)
     {
         // Delete all file references for this post
         await fileRefs.DeleteResourceReferencesAsync(
@@ -420,7 +420,7 @@ public partial class PostService(
         }
     }
 
-    public async Task<Post> PinPostAsync(Post post, Account currentUser, PostPinMode pinMode)
+    public async Task<SnPost> PinPostAsync(SnPost post, Account currentUser, PostPinMode pinMode)
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
@@ -430,14 +430,14 @@ public partial class PostService(
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
             if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId,
-                    Publisher.PublisherMemberRole.Editor))
+                    Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors of original post can pin replies.");
 
             post.PinMode = pinMode;
         }
         else
         {
-            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors can pin replies.");
 
             post.PinMode = pinMode;
@@ -449,7 +449,7 @@ public partial class PostService(
         return post;
     }
 
-    public async Task<Post> UnpinPostAsync(Post post, Account currentUser)
+    public async Task<SnPost> UnpinPostAsync(SnPost post, Account currentUser)
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
@@ -457,12 +457,12 @@ public partial class PostService(
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
             if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId,
-                    Publisher.PublisherMemberRole.Editor))
+                    Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors of original post can unpin replies.");
         }
         else
         {
-            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors can unpin posts.");
         }
 
@@ -484,14 +484,14 @@ public partial class PostService(
     /// <param name="isSelfReact">Indicate this reaction is by the original post himself</param>
     /// <param name="sender">The account that creates this reaction</param>
     public async Task<bool> ModifyPostVotes(
-        Post post,
-        PostReaction reaction,
+        SnPost post,
+        SnPostReaction reaction,
         Account sender,
         bool isRemoving,
         bool isSelfReact
     )
     {
-        var isExistingReaction = await db.Set<PostReaction>()
+        var isExistingReaction = await db.Set<SnPostReaction>()
             .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId);
 
         if (isRemoving)
@@ -576,7 +576,7 @@ public partial class PostService(
 
     public async Task<Dictionary<string, int>> GetPostReactionMap(Guid postId)
     {
-        return await db.Set<PostReaction>()
+        return await db.Set<SnPostReaction>()
             .Where(r => r.PostId == postId)
             .GroupBy(r => r.Symbol)
             .ToDictionaryAsync(
@@ -587,7 +587,7 @@ public partial class PostService(
 
     public async Task<Dictionary<Guid, Dictionary<string, int>>> GetPostReactionMapBatch(List<Guid> postIds)
     {
-        return await db.Set<PostReaction>()
+        return await db.Set<SnPostReaction>()
             .Where(r => postIds.Contains(r.PostId))
             .GroupBy(r => r.PostId)
             .ToDictionaryAsync(
@@ -603,7 +603,7 @@ public partial class PostService(
     public async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds,
         Guid accountId)
     {
-        var reactions = await db.Set<PostReaction>()
+        var reactions = await db.Set<SnPostReaction>()
             .Where(r => postIds.Contains(r.PostId) && r.AccountId == accountId)
             .Select(r => new { r.PostId, r.Symbol })
             .ToListAsync();
@@ -653,10 +653,10 @@ public partial class PostService(
         });
     }
 
-    public async Task<List<Post>> LoadPublishers(List<Post> posts)
+    public async Task<List<SnPost>> LoadPublishers(List<SnPost> posts)
     {
         var publisherIds = posts
-            .SelectMany<Post, Guid?>(e =>
+            .SelectMany<SnPost, Guid?>(e =>
             [
                 e.PublisherId,
                 e.RepliedPost?.PublisherId,
@@ -688,7 +688,7 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<List<Post>> LoadInteractive(List<Post> posts, Account? currentUser = null)
+    public async Task<List<SnPost>> LoadInteractive(List<SnPost> posts, Account? currentUser = null)
     {
         if (posts.Count == 0) return posts;
 
@@ -738,7 +738,7 @@ public partial class PostService(
             );
     }
 
-    private async Task LoadPostEmbed(Post post, Account? currentUser)
+    private async Task LoadPostEmbed(SnPost post, Account? currentUser)
     {
         if (!post.Meta!.TryGetValue("embeds", out var value))
             return;
@@ -778,8 +778,8 @@ public partial class PostService(
         }
     }
 
-    public async Task<List<Post>> LoadPostInfo(
-        List<Post> posts,
+    public async Task<List<SnPost>> LoadPostInfo(
+        List<SnPost> posts,
         Account? currentUser = null,
         bool truncate = false
     )
@@ -801,7 +801,7 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<Post> LoadPostInfo(Post post, Account? currentUser = null, bool truncate = false)
+    public async Task<SnPost> LoadPostInfo(SnPost post, Account? currentUser = null, bool truncate = false)
     {
         // Convert single post to list, process it, then return the single post
         var posts = await LoadPostInfo([post], currentUser, truncate);
@@ -810,7 +810,7 @@ public partial class PostService(
 
     private const string FeaturedPostCacheKey = "posts:featured";
 
-    public async Task<List<Post>> ListFeaturedPostsAsync(Account? currentUser = null)
+    public async Task<List<SnPost>> ListFeaturedPostsAsync(Account? currentUser = null)
     {
         // Check cache first for featured post IDs
         var featuredIds = await cache.GetAsync<List<Guid>>(FeaturedPostCacheKey);
@@ -877,7 +877,7 @@ public partial class PostService(
 
             var records = reactSocialPoints
                 .Where(p => !existingFeaturedPostIds.Contains(p.Key))
-                .Select(e => new PostFeaturedRecord
+                .Select(e => new SnPostFeaturedRecord
                 {
                     PostId = e.Key,
                     SocialCredits = e.Value
@@ -904,7 +904,7 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<PostAward> AwardPost(
+    public async Task<SnPostAward> AwardPost(
         Guid postId,
         Guid accountId,
         decimal amount,
@@ -915,7 +915,7 @@ public partial class PostService(
         var post = await db.Posts.Where(p => p.Id == postId).FirstOrDefaultAsync();
         if (post is null) throw new InvalidOperationException("Post not found");
 
-        var award = new PostAward
+        var award = new SnPostAward
         {
             Amount = amount,
             Attitude = attitude,
@@ -983,11 +983,11 @@ public partial class PostService(
 
 public static class PostQueryExtensions
 {
-    public static IQueryable<Post> FilterWithVisibility(
-        this IQueryable<Post> source,
+    public static IQueryable<SnPost> FilterWithVisibility(
+        this IQueryable<SnPost> source,
         Account? currentUser,
         List<Guid> userFriends,
-        List<Publisher.Publisher> publishers,
+        List<Shared.Models.SnPublisher> publishers,
         bool isListing = false
     )
     {

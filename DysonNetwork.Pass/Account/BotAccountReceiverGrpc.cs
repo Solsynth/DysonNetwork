@@ -1,4 +1,4 @@
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -65,7 +65,7 @@ public class BotAccountReceiverGrpc(
                     Usage = "profile.picture"
                 }
             );
-            account.Profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
+            account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
@@ -83,7 +83,7 @@ public class BotAccountReceiverGrpc(
                     Usage = "profile.background"
                 }
             );
-            account.Profile.Background = CloudFileReferenceObject.FromProtoValue(file);
+            account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         db.Accounts.Update(account);

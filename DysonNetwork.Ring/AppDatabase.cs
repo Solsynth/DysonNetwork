@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -15,8 +15,8 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Notification.Notification> Notifications { get; set; } = null!;
-    public DbSet<PushSubscription> PushSubscriptions { get; set; } = null!;
+    public DbSet<Shared.Models.SnNotification> Notifications { get; set; } = null!;
+    public DbSet<SnNotificationPushSubscription> PushSubscriptions { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

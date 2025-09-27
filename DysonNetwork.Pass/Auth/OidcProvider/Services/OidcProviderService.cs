@@ -6,6 +6,7 @@ using DysonNetwork.Pass.Auth.OidcProvider.Models;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Responses;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;

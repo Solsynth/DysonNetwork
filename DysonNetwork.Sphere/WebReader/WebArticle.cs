@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Sphere.WebReader;
 
@@ -41,7 +42,7 @@ public class WebFeed : ModelBase
     [Column(TypeName = "jsonb")] public WebFeedConfig Config { get; set; } = new();
 
     public Guid PublisherId { get; set; }
-    public Publisher.Publisher Publisher { get; set; } = null!;
+    public Shared.Models.SnPublisher Publisher { get; set; } = null!;
 
     [JsonIgnore] public ICollection<WebArticle> Articles { get; set; } = new List<WebArticle>();
 }
@@ -53,5 +54,5 @@ public class WebFeedSubscription : ModelBase
     public Guid FeedId { get; set; }
     public WebFeed Feed { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public AccountReference Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 }

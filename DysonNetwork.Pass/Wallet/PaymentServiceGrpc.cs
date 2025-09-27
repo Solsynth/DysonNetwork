@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using NodaTime;

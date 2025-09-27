@@ -119,7 +119,7 @@ public class QueueBackgroundService(
         var pushService = scope.ServiceProvider.GetRequiredService<PushService>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<QueueBackgroundService>>();
         
-        var notification = JsonSerializer.Deserialize<Notification.Notification>(message.Data);
+        var notification = JsonSerializer.Deserialize<Shared.Models.SnNotification>(message.Data);
         if (notification == null)
         {
             logger.LogError("Invalid push notification data format");

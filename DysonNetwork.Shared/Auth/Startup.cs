@@ -1,6 +1,4 @@
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DysonNetwork.Shared.Auth;

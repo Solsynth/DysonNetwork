@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat.Realtime;
 using DysonNetwork.Sphere.WebReader;
@@ -29,7 +29,7 @@ public partial class ChatService(
     /// This method is designed to be called from a background task
     /// </summary>
     /// <param name="message">The message to process link previews for</param>
-    private async Task ProcessMessageLinkPreviewAsync(Message message)
+    private async Task ProcessMessageLinkPreviewAsync(SnChatMessage message)
     {
         try
         {
@@ -66,7 +66,7 @@ public partial class ChatService(
                     logger.LogDebug($"Updated message {message.Id} with {embedsList.Count} link previews");
 
                     // Create and store sync message for link preview update
-                    var syncMessage = new Message
+                    var syncMessage = new SnChatMessage
                     {
                         Type = "messages.update.links",
                         ChatRoomId = dbMessage.ChatRoomId,
@@ -114,7 +114,7 @@ public partial class ChatService(
     /// <param name="message">The message to process</param>
     /// <param name="webReader">The web reader service</param>
     /// <returns>The message with link previews added to its meta data</returns>
-    public async Task<Message> PreviewMessageLinkAsync(Message message, WebReaderService? webReader = null)
+    public async Task<SnChatMessage> PreviewMessageLinkAsync(SnChatMessage message, WebReaderService? webReader = null)
     {
         if (string.IsNullOrEmpty(message.Content))
             return message;
@@ -172,9 +172,9 @@ public partial class ChatService(
     }
 
     private async Task DeliverWebSocketMessage(
-        Message message,
+        SnChatMessage message,
         string type,
-        List<ChatMember> members,
+        List<SnChatMember> members,
         IServiceScope scope
     )
     {
@@ -195,7 +195,7 @@ public partial class ChatService(
         logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
     }
 
-    public async Task<Message> SendMessageAsync(Message message, ChatMember sender, ChatRoom room)
+    public async Task<SnChatMessage> SendMessageAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room)
     {
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
         message.CreatedAt = SystemClock.Instance.GetCurrentInstant();
@@ -230,9 +230,9 @@ public partial class ChatService(
     }
 
     private async Task DeliverMessageAsync(
-        Message message,
-        ChatMember sender,
-        ChatRoom room,
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
         string type = WebSocketPacketType.MessageNew,
         bool notify = true
     )
@@ -254,11 +254,11 @@ public partial class ChatService(
     }
 
     private async Task SendPushNotificationsAsync(
-        Message message,
-        ChatMember sender,
-        ChatRoom room,
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
         string type,
-        List<ChatMember> members,
+        List<SnChatMember> members,
         IServiceScope scope
     )
     {
@@ -292,7 +292,7 @@ public partial class ChatService(
         logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
     }
 
-    private PushNotification BuildNotification(Message message, ChatMember sender, ChatRoom room, string roomSubject,
+    private PushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room, string roomSubject,
         string type)
     {
         var metaDict = new Dictionary<string, object>
@@ -325,7 +325,7 @@ public partial class ChatService(
         return notification;
     }
 
-    private string BuildNotificationBody(Message message, string type)
+    private string BuildNotificationBody(SnChatMessage message, string type)
     {
         if (message.DeletedAt is not null)
             return "Deleted a message";
@@ -356,7 +356,7 @@ public partial class ChatService(
         }
     }
 
-    private List<Account> FilterAccountsForNotification(List<ChatMember> members, Message message, ChatMember sender)
+    private List<Account> FilterAccountsForNotification(List<SnChatMember> members, SnChatMessage message, SnChatMember sender)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -377,7 +377,7 @@ public partial class ChatService(
         return accountsToNotify.Where(a => a.Id != sender.AccountId.ToString()).ToList();
     }
 
-    private async Task CreateFileReferencesForMessageAsync(Message message)
+    private async Task CreateFileReferencesForMessageAsync(SnChatMessage message)
     {
         var files = message.Attachments.Distinct().ToList();
         if (files.Count == 0) return;
@@ -391,7 +391,7 @@ public partial class ChatService(
         await fileRefs.CreateReferenceBatchAsync(request);
     }
 
-    private async Task UpdateFileReferencesForMessageAsync(Message message, List<string> attachmentsId)
+    private async Task UpdateFileReferencesForMessageAsync(SnChatMessage message, List<string> attachmentsId)
     {
         // Delete existing references for this message
         await fileRefs.DeleteResourceReferencesAsync(
@@ -411,10 +411,10 @@ public partial class ChatService(
         var queryRequest = new GetFileBatchRequest();
         queryRequest.Ids.AddRange(attachmentsId);
         var queryResult = await filesClient.GetFileBatchAsync(queryRequest);
-        message.Attachments = queryResult.Files.Select(CloudFileReferenceObject.FromProtoValue).ToList();
+        message.Attachments = queryResult.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
     }
 
-    private async Task DeleteFileReferencesForMessageAsync(Message message)
+    private async Task DeleteFileReferencesForMessageAsync(SnChatMessage message)
     {
         var messageResourceId = $"message:{message.Id}";
         await fileRefs.DeleteResourceReferencesAsync(
@@ -474,7 +474,7 @@ public partial class ChatService(
             );
     }
 
-    public async Task<Dictionary<Guid, Message?>> ListLastMessageForUser(Guid userId)
+    public async Task<Dictionary<Guid, SnChatMessage?>> ListLastMessageForUser(Guid userId)
     {
         var userRooms = await db.ChatMembers
             .Where(m => m.LeaveAt == null && m.JoinedAt != null)
@@ -517,9 +517,9 @@ public partial class ChatService(
         return messages;
     }
 
-    public async Task<RealtimeCall> CreateCallAsync(ChatRoom room, ChatMember sender)
+    public async Task<SnRealtimeCall> CreateCallAsync(SnChatRoom room, SnChatMember sender)
     {
-        var call = new RealtimeCall
+        var call = new SnRealtimeCall
         {
             RoomId = room.Id,
             SenderId = sender.Id,
@@ -547,7 +547,7 @@ public partial class ChatService(
         db.ChatRealtimeCall.Add(call);
         await db.SaveChangesAsync();
 
-        await SendMessageAsync(new Message
+        await SendMessageAsync(new SnChatMessage
         {
             Type = "call.start",
             ChatRoomId = room.Id,
@@ -561,7 +561,7 @@ public partial class ChatService(
         return call;
     }
 
-    public async Task EndCallAsync(Guid roomId, ChatMember sender)
+    public async Task EndCallAsync(Guid roomId, SnChatMember sender)
     {
         var call = await GetCallOngoingAsync(roomId);
         if (call is null) throw new InvalidOperationException("No ongoing call was not found.");
@@ -592,7 +592,7 @@ public partial class ChatService(
         db.ChatRealtimeCall.Update(call);
         await db.SaveChangesAsync();
 
-        await SendMessageAsync(new Message
+        await SendMessageAsync(new SnChatMessage
         {
             Type = "call.ended",
             ChatRoomId = call.RoomId,
@@ -605,7 +605,7 @@ public partial class ChatService(
         }, call.Sender, call.Room);
     }
 
-    public async Task<RealtimeCall?> GetCallOngoingAsync(Guid roomId)
+    public async Task<SnRealtimeCall?> GetCallOngoingAsync(Guid roomId)
     {
         return await db.ChatRealtimeCall
             .Where(c => c.RoomId == roomId)
@@ -660,8 +660,8 @@ public partial class ChatService(
     }
 
 
-    public async Task<Message> UpdateMessageAsync(
-        Message message,
+    public async Task<SnChatMessage> UpdateMessageAsync(
+        SnChatMessage message,
         Dictionary<string, object>? meta = null,
         string? content = null,
         Guid? repliedMessageId = null,
@@ -705,7 +705,7 @@ public partial class ChatService(
         await db.SaveChangesAsync();
 
         // Create and store sync message for the update
-        var syncMessage = new Message
+        var syncMessage = new SnChatMessage
         {
             Type = "messages.update",
             ChatRoomId = message.ChatRoomId,
@@ -751,7 +751,7 @@ public partial class ChatService(
     /// Soft deletes a message and notifies other chat members
     /// </summary>
     /// <param name="message">The message to delete</param>
-    public async Task DeleteMessageAsync(Message message)
+    public async Task DeleteMessageAsync(SnChatMessage message)
     {
         // Only allow deleting regular text messages
         if (message.Type != "text")
@@ -770,7 +770,7 @@ public partial class ChatService(
         await db.SaveChangesAsync();
 
         // Create and store sync message for the deletion
-        var syncMessage = new Message
+        var syncMessage = new SnChatMessage
         {
             Type = "messages.delete",
             ChatRoomId = message.ChatRoomId,
@@ -805,6 +805,6 @@ public partial class ChatService(
 
 public class SyncResponse
 {
-    public List<Message> Messages { get; set; } = [];
+    public List<SnChatMessage> Messages { get; set; } = [];
     public Instant CurrentTimestamp { get; set; }
 }

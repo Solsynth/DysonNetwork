@@ -1,12 +1,11 @@
 using System.Globalization;
 using System.Text.Json;
-using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Auth.OpenId;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using EFCore.BulkExtensions;
@@ -141,7 +140,7 @@ public class AccountService(
             var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
             if (defaultGroup is not null)
             {
-                db.PermissionGroupMembers.Add(new PermissionGroupMember
+                db.PermissionGroupMembers.Add(new SnPermissionGroupMember
                 {
                     Actor = $"user:{account.Id}",
                     Group = defaultGroup
@@ -217,7 +216,7 @@ public class AccountService(
                     Usage = "profile.picture"
                 }
             );
-            account.Profile.Picture = CloudFileReferenceObject.FromProtoValue(file);
+            account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (!string.IsNullOrEmpty(backgroundId))
@@ -231,7 +230,7 @@ public class AccountService(
                     Usage = "profile.background"
                 }
             );
-            account.Profile.Background = CloudFileReferenceObject.FromProtoValue(file);
+            account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         db.Accounts.Add(account);
@@ -516,7 +515,7 @@ public class AccountService(
             .AnyAsync(s => s.Challenge.ClientId == id);
     }
 
-    public async Task<AuthClient> UpdateDeviceName(Account account, string deviceId, string label)
+    public async Task<SnAuthClient> UpdateDeviceName(Account account, string deviceId, string label)
     {
         var device = await db.AuthClients.FirstOrDefaultAsync(c => c.DeviceId == deviceId && c.AccountId == account.Id
         );

@@ -3,6 +3,7 @@ using NodaTime;
 using System.Text.Json;
 using DysonNetwork.Pass;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Permission;
 
@@ -75,7 +76,7 @@ public class PermissionService(
         return result;
     }
 
-    public async Task<PermissionNode> AddPermissionNode<T>(
+    public async Task<SnPermissionNode> AddPermissionNode<T>(
         string actor,
         string area,
         string key,
@@ -86,7 +87,7 @@ public class PermissionService(
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
 
-        var node = new PermissionNode
+        var node = new SnPermissionNode
         {
             Actor = actor,
             Key = key,
@@ -105,8 +106,8 @@ public class PermissionService(
         return node;
     }
 
-    public async Task<PermissionNode> AddPermissionNodeToGroup<T>(
-        PermissionGroup group,
+    public async Task<SnPermissionNode> AddPermissionNodeToGroup<T>(
+        SnPermissionGroup group,
         string actor,
         string area,
         string key,
@@ -117,7 +118,7 @@ public class PermissionService(
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
 
-        var node = new PermissionNode
+        var node = new SnPermissionNode
         {
             Actor = actor,
             Key = key,
@@ -152,7 +153,7 @@ public class PermissionService(
         await InvalidatePermissionCacheAsync(actor, area, key);
     }
 
-    public async Task RemovePermissionNodeFromGroup<T>(PermissionGroup group, string actor, string area, string key)
+    public async Task RemovePermissionNodeFromGroup<T>(SnPermissionGroup group, string actor, string area, string key)
     {
         var node = await db.PermissionNodes
             .Where(n => n.GroupId == group.Id)
@@ -185,9 +186,9 @@ public class PermissionService(
         return JsonDocument.Parse(str);
     }
 
-    public static PermissionNode NewPermissionNode<T>(string actor, string area, string key, T value)
+    public static SnPermissionNode NewPermissionNode<T>(string actor, string area, string key, T value)
     {
-        return new PermissionNode
+        return new SnPermissionNode
         {
             Actor = actor,
             Area = area,

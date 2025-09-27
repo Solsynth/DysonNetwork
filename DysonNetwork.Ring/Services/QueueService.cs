@@ -26,7 +26,7 @@ public class QueueService(INatsConnection nats)
         await js.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 
-    public async Task EnqueuePushNotification(Notification.Notification notification, Guid userId, bool isSavable = false)
+    public async Task EnqueuePushNotification(Shared.Models.SnNotification notification, Guid userId, bool isSavable = false)
     {
         // Update the account ID in case it wasn't set
         notification.AccountId = userId;

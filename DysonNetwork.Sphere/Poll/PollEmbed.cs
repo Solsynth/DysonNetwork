@@ -1,13 +1,14 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.WebReader;
 
 namespace DysonNetwork.Sphere.Poll;
 
 public class PollWithStats : Poll
 {
-    public PollAnswer? UserAnswer { get; set; }
+    public SnPollAnswer? UserAnswer { get; set; }
     public Dictionary<Guid, Dictionary<string, int>> Stats { get; set; } = new(); // question id -> (option id -> count)
 
-    public static PollWithStats FromPoll(Poll poll, PollAnswer? userAnswer = null)
+    public static PollWithStats FromPoll(Poll poll, SnPollAnswer? userAnswer = null)
     {
         return new PollWithStats
         {

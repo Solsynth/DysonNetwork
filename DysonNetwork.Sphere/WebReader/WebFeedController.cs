@@ -52,7 +52,7 @@ public class WebFeedController(WebFeedService webFeed, Publisher.PublisherServic
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to create a web feed");
 
         var feed = await webFeed.CreateWebFeedAsync(publisher, request);
@@ -69,7 +69,7 @@ public class WebFeedController(WebFeedService webFeed, Publisher.PublisherServic
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to update a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -90,7 +90,7 @@ public class WebFeedController(WebFeedService webFeed, Publisher.PublisherServic
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to delete a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -113,7 +113,7 @@ public class WebFeedController(WebFeedService webFeed, Publisher.PublisherServic
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to scrape a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);

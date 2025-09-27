@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Localization;
@@ -12,6 +11,7 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -31,7 +31,7 @@ public class ChatRoomController(
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ChatRoom>> GetChatRoom(Guid id)
+    public async Task<ActionResult<SnChatRoom>> GetChatRoom(Guid id)
     {
         var chatRoom = await db.ChatRooms
             .Where(c => c.Id == id)
@@ -48,7 +48,7 @@ public class ChatRoomController(
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<ChatRoom>>> ListJoinedChatRooms()
+    public async Task<ActionResult<List<SnChatRoom>>> ListJoinedChatRooms()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
@@ -74,7 +74,7 @@ public class ChatRoomController(
 
     [HttpPost("direct")]
     [Authorize]
-    public async Task<ActionResult<ChatRoom>> CreateDirectMessage([FromBody] DirectMessageRequest request)
+    public async Task<ActionResult<SnChatRoom>> CreateDirectMessage([FromBody] DirectMessageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
@@ -106,11 +106,11 @@ public class ChatRoomController(
             return BadRequest("You already have a DM with this user.");
 
         // Create new DM chat room
-        var dmRoom = new ChatRoom
+        var dmRoom = new SnChatRoom
         {
             Type = ChatRoomType.DirectMessage,
             IsPublic = false,
-            Members = new List<ChatMember>
+            Members = new List<SnChatMember>
             {
                 new()
                 {
@@ -148,7 +148,7 @@ public class ChatRoomController(
 
     [HttpGet("direct/{accountId:guid}")]
     [Authorize]
-    public async Task<ActionResult<ChatRoom>> GetDirectChatRoom(Guid accountId)
+    public async Task<ActionResult<SnChatRoom>> GetDirectChatRoom(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
@@ -178,19 +178,19 @@ public class ChatRoomController(
     [HttpPost]
     [Authorize]
     [RequiredPermission("global", "chat.create")]
-    public async Task<ActionResult<ChatRoom>> CreateChatRoom(ChatRoomRequest request)
+    public async Task<ActionResult<SnChatRoom>> CreateChatRoom(ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         if (request.Name is null) return BadRequest("You cannot create a chat room without a name.");
 
-        var chatRoom = new ChatRoom
+        var chatRoom = new SnChatRoom
         {
             Name = request.Name,
             Description = request.Description ?? string.Empty,
             IsCommunity = request.IsCommunity ?? false,
             IsPublic = request.IsPublic ?? false,
             Type = ChatRoomType.Group,
-            Members = new List<ChatMember>
+            Members = new List<SnChatMember>
             {
                 new()
                 {
@@ -215,7 +215,7 @@ public class ChatRoomController(
             {
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
                 if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
-                chatRoom.Picture = CloudFileReferenceObject.FromProtoValue(fileResponse);
+                chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
 
                 await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
                 {
@@ -236,7 +236,7 @@ public class ChatRoomController(
             {
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
                 if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-                chatRoom.Background = CloudFileReferenceObject.FromProtoValue(fileResponse);
+                chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
 
                 await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
                 {
@@ -290,7 +290,7 @@ public class ChatRoomController(
 
 
     [HttpPatch("{id:guid}")]
-    public async Task<ActionResult<ChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
+    public async Task<ActionResult<SnChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
 
@@ -341,7 +341,7 @@ public class ChatRoomController(
                     ResourceId = chatRoom.ResourceIdentifier
                 });
 
-                chatRoom.Picture = CloudFileReferenceObject.FromProtoValue(fileResponse);
+                chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -371,7 +371,7 @@ public class ChatRoomController(
                     ResourceId = chatRoom.ResourceIdentifier
                 });
 
-                chatRoom.Background = CloudFileReferenceObject.FromProtoValue(fileResponse);
+                chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -468,7 +468,7 @@ public class ChatRoomController(
 
     [HttpGet("{roomId:guid}/members/me")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> GetRoomIdentity(Guid roomId)
+    public async Task<ActionResult<SnChatMember>> GetRoomIdentity(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
@@ -484,7 +484,7 @@ public class ChatRoomController(
     }
 
     [HttpGet("{roomId:guid}/members")]
-    public async Task<ActionResult<List<ChatMember>>> ListMembers(Guid roomId,
+    public async Task<ActionResult<List<SnChatMember>>> ListMembers(Guid roomId,
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
         [FromQuery] bool withStatus = false
@@ -561,7 +561,7 @@ public class ChatRoomController(
 
     [HttpPost("invites/{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> InviteMember(Guid roomId,
+    public async Task<ActionResult<SnChatMember>> InviteMember(Guid roomId,
         [FromBody] ChatMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -620,7 +620,7 @@ public class ChatRoomController(
         if (hasExistingMember)
             return BadRequest("This user has been joined the chat cannot be invited again.");
 
-        var newMember = new ChatMember
+        var newMember = new SnChatMember
         {
             AccountId = Guid.Parse(relatedUser.Id),
             ChatRoomId = roomId,
@@ -651,7 +651,7 @@ public class ChatRoomController(
 
     [HttpGet("invites")]
     [Authorize]
-    public async Task<ActionResult<List<ChatMember>>> ListChatInvites()
+    public async Task<ActionResult<List<SnChatMember>>> ListChatInvites()
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -674,7 +674,7 @@ public class ChatRoomController(
 
     [HttpPost("invites/{roomId:guid}/accept")]
     [Authorize]
-    public async Task<ActionResult<ChatRoom>> AcceptChatInvite(Guid roomId)
+    public async Task<ActionResult<SnChatRoom>> AcceptChatInvite(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -731,7 +731,7 @@ public class ChatRoomController(
 
     [HttpPatch("{roomId:guid}/members/me/notify")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> UpdateChatMemberNotify(
+    public async Task<ActionResult<SnChatMember>> UpdateChatMemberNotify(
         Guid roomId,
         [FromBody] ChatMemberNotifyRequest request
     )
@@ -763,7 +763,7 @@ public class ChatRoomController(
 
     [HttpPatch("{roomId:guid}/members/{memberId:guid}/role")]
     [Authorize]
-    public async Task<ActionResult<ChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId, [FromBody] int newRole)
+    public async Task<ActionResult<SnChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= ChatMemberRole.Owner) return BadRequest("Unable to set chat member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -885,7 +885,7 @@ public class ChatRoomController(
 
     [HttpPost("{roomId:guid}/members/me")]
     [Authorize]
-    public async Task<ActionResult<ChatRoom>> JoinChatRoom(Guid roomId)
+    public async Task<ActionResult<SnChatRoom>> JoinChatRoom(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -901,7 +901,7 @@ public class ChatRoomController(
         if (existingMember != null)
             return BadRequest("You are already a member of this chat room.");
 
-        var newMember = new ChatMember
+        var newMember = new SnChatMember
         {
             AccountId = Guid.Parse(currentUser.Id),
             ChatRoomId = roomId,
@@ -966,7 +966,7 @@ public class ChatRoomController(
         return NoContent();
     }
 
-    private async Task _SendInviteNotify(ChatMember member, Account sender)
+    private async Task _SendInviteNotify(SnChatMember member, Account sender)
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
         CultureService.SetCultureInfo(account);

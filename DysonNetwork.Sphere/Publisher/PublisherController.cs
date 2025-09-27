@@ -1,8 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Realm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +22,7 @@ public class PublisherController(
     : ControllerBase
 {
     [HttpGet("{name}")]
-    public async Task<ActionResult<Publisher>> GetPublisher(string name)
+    public async Task<ActionResult<SnPublisher>> GetPublisher(string name)
     {
         var publisher = await db.Publishers
             .Where(e => e.Name == name)
@@ -34,7 +33,7 @@ public class PublisherController(
         var account = await accounts.GetAccountAsync(
             new GetAccountRequest { Id = publisher.AccountId.Value.ToString() }
         );
-        publisher.Account = AccountReference.FromProtoValue(account);
+        publisher.Account = SnAccount.FromProtoValue(account);
 
         return Ok(publisher);
     }
@@ -48,7 +47,7 @@ public class PublisherController(
     }
 
     [HttpGet("of/{accountId:guid}")]
-    public async Task<ActionResult<List<Publisher>>> GetAccountManagedPublishers(Guid accountId)
+    public async Task<ActionResult<List<SnPublisher>>> GetAccountManagedPublishers(Guid accountId)
     {
         var members = await db.PublisherMembers
             .Where(m => m.AccountId == accountId)
@@ -61,7 +60,7 @@ public class PublisherController(
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Publisher>>> ListManagedPublishers()
+    public async Task<ActionResult<List<SnPublisher>>> ListManagedPublishers()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -77,7 +76,7 @@ public class PublisherController(
 
     [HttpGet("invites")]
     [Authorize]
-    public async Task<ActionResult<List<PublisherMember>>> ListInvites()
+    public async Task<ActionResult<List<SnPublisherMember>>> ListInvites()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -99,7 +98,7 @@ public class PublisherController(
 
     [HttpPost("invites/{name}")]
     [Authorize]
-    public async Task<ActionResult<PublisherMember>> InviteMember(string name,
+    public async Task<ActionResult<SnPublisherMember>> InviteMember(string name,
         [FromBody] PublisherMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -117,7 +116,7 @@ public class PublisherController(
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
-        var newMember = new PublisherMember
+        var newMember = new SnPublisherMember
         {
             AccountId = Guid.Parse(relatedUser.Id),
             PublisherId = publisher.Id,
@@ -145,7 +144,7 @@ public class PublisherController(
 
     [HttpPost("invites/{name}/accept")]
     [Authorize]
-    public async Task<ActionResult<Publisher>> AcceptMemberInvite(string name)
+    public async Task<ActionResult<SnPublisher>> AcceptMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -270,7 +269,7 @@ public class PublisherController(
     [HttpPost("individual")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Publisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
+    public async Task<ActionResult<SnPublisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
             return BadRequest("Name and Nick are required.");
@@ -288,7 +287,7 @@ public class PublisherController(
                 "your name firstly to get your name back."
             );
 
-        CloudFileReferenceObject? picture = null, background = null;
+        SnCloudFileReferenceObject? picture = null, background = null;
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
@@ -296,7 +295,7 @@ public class PublisherController(
             );
             if (queryResult is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            picture = CloudFileReferenceObject.FromProtoValue(queryResult);
+            picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         if (request.BackgroundId is not null)
@@ -306,7 +305,7 @@ public class PublisherController(
             );
             if (queryResult is null)
                 throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
-            background = CloudFileReferenceObject.FromProtoValue(queryResult);
+            background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         var publisher = await ps.CreateIndividualPublisher(
@@ -338,7 +337,7 @@ public class PublisherController(
     [HttpPost("organization/{realmSlug}")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<Publisher>> CreatePublisherOrganization(string realmSlug,
+    public async Task<ActionResult<SnPublisher>> CreatePublisherOrganization(string realmSlug,
         [FromBody] PublisherRequest request)
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
@@ -362,7 +361,7 @@ public class PublisherController(
         if (duplicateNameCount > 0)
             return BadRequest("The name you requested has already been taken");
 
-        CloudFileReferenceObject? picture = null, background = null;
+        SnCloudFileReferenceObject? picture = null, background = null;
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
@@ -370,7 +369,7 @@ public class PublisherController(
             );
             if (queryResult is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            picture = CloudFileReferenceObject.FromProtoValue(queryResult);
+            picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         if (request.BackgroundId is not null)
@@ -380,7 +379,7 @@ public class PublisherController(
             );
             if (queryResult is null)
                 throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
-            background = CloudFileReferenceObject.FromProtoValue(queryResult);
+            background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
         var publisher = await ps.CreateOrganizationPublisher(
@@ -414,7 +413,7 @@ public class PublisherController(
 
     [HttpPatch("{name}")]
     [Authorize]
-    public async Task<ActionResult<Publisher>> UpdatePublisher(string name, PublisherRequest request)
+    public async Task<ActionResult<SnPublisher>> UpdatePublisher(string name, PublisherRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -442,7 +441,7 @@ public class PublisherController(
             );
             if (queryResult is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            var picture = CloudFileReferenceObject.FromProtoValue(queryResult);
+            var picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             // Remove old references for the publisher picture
             if (publisher.Picture is not null)
@@ -470,7 +469,7 @@ public class PublisherController(
             );
             if (queryResult is null)
                 throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
-            var background = CloudFileReferenceObject.FromProtoValue(queryResult);
+            var background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             // Remove old references for the publisher background
             if (publisher.Background is not null)
@@ -518,7 +517,7 @@ public class PublisherController(
 
     [HttpDelete("{name}")]
     [Authorize]
-    public async Task<ActionResult<Publisher>> DeletePublisher(string name)
+    public async Task<ActionResult<SnPublisher>> DeletePublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -564,7 +563,7 @@ public class PublisherController(
     }
 
     [HttpGet("{name}/members")]
-    public async Task<ActionResult<List<PublisherMember>>> ListMembers(
+    public async Task<ActionResult<List<SnPublisherMember>>> ListMembers(
         string name,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
@@ -594,7 +593,7 @@ public class PublisherController(
 
     [HttpGet("{name}/members/me")]
     [Authorize]
-    public async Task<ActionResult<PublisherMember>> GetCurrentIdentity(string name)
+    public async Task<ActionResult<SnPublisherMember>> GetCurrentIdentity(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);

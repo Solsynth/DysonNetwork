@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
@@ -436,7 +437,7 @@ public class BotAccountController(
         }
     }
 
-    private async Task<(Developer?, DevProject?, BotAccount?)> ValidateBotAccess(
+    private async Task<(SnDeveloper?, SnDevProject?, BotAccount?)> ValidateBotAccess(
         string pubName,
         Guid projectId,
         Guid botId,

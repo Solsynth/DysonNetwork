@@ -1,5 +1,5 @@
 using DysonNetwork.Develop.Project;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -46,7 +46,7 @@ public class CustomAppService(
             );
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            app.Picture = CloudFileReferenceObject.FromProtoValue(picture);
+            app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
 
             // Create a new reference
             await fileRefs.CreateReferenceAsync(
@@ -65,7 +65,7 @@ public class CustomAppService(
             );
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            app.Background = CloudFileReferenceObject.FromProtoValue(background);
+            app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
 
             // Create a new reference
             await fileRefs.CreateReferenceAsync(
@@ -209,7 +209,7 @@ public class CustomAppService(
             );
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            app.Picture = CloudFileReferenceObject.FromProtoValue(picture);
+            app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
 
             // Create a new reference
             await fileRefs.CreateReferenceAsync(
@@ -228,7 +228,7 @@ public class CustomAppService(
             );
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
-            app.Background = CloudFileReferenceObject.FromProtoValue(background);
+            app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
 
             // Create a new reference
             await fileRefs.CreateReferenceAsync(

@@ -1,8 +1,7 @@
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -15,7 +14,7 @@ public class PublisherService(
     AccountClientHelper accountsHelper
 )
 {
-    public async Task<Publisher?> GetPublisherByName(string name)
+    public async Task<SnPublisher?> GetPublisherByName(string name)
     {
         return await db.Publishers
             .Where(e => e.Name == name)
@@ -24,12 +23,12 @@ public class PublisherService(
 
     private const string UserPublishersCacheKey = "accounts:{0}:publishers";
 
-    public async Task<List<Publisher>> GetUserPublishers(Guid userId)
+    public async Task<List<SnPublisher>> GetUserPublishers(Guid userId)
     {
         var cacheKey = string.Format(UserPublishersCacheKey, userId);
 
         // Try to get publishers from the cache first
-        var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
+        var publishers = await cache.GetAsync<List<SnPublisher>>(cacheKey);
         if (publishers is not null)
             return publishers;
 
@@ -48,16 +47,16 @@ public class PublisherService(
         return publishers;
     }
 
-    public async Task<Dictionary<Guid, List<Publisher>>> GetUserPublishersBatch(List<Guid> userIds)
+    public async Task<Dictionary<Guid, List<SnPublisher>>> GetUserPublishersBatch(List<Guid> userIds)
     {
-        var result = new Dictionary<Guid, List<Publisher>>();
+        var result = new Dictionary<Guid, List<SnPublisher>>();
         var missingIds = new List<Guid>();
 
         // Try to get publishers from cache for each user
         foreach (var userId in userIds)
         {
             var cacheKey = string.Format(UserPublishersCacheKey, userId);
-            var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
+            var publishers = await cache.GetAsync<List<SnPublisher>>(cacheKey);
             if (publishers != null)
                 result[userId] = publishers;
             else
@@ -103,12 +102,12 @@ public class PublisherService(
 
     public const string SubscribedPublishersCacheKey = "accounts:{0}:subscribed-publishers";
 
-    public async Task<List<Publisher>> GetSubscribedPublishers(Guid userId)
+    public async Task<List<SnPublisher>> GetSubscribedPublishers(Guid userId)
     {
         var cacheKey = string.Format(SubscribedPublishersCacheKey, userId);
 
         // Try to get publishers from the cache first
-        var publishers = await cache.GetAsync<List<Publisher>>(cacheKey);
+        var publishers = await cache.GetAsync<List<SnPublisher>>(cacheKey);
         if (publishers is not null)
             return publishers;
 
@@ -130,12 +129,12 @@ public class PublisherService(
 
     private const string PublisherMembersCacheKey = "publishers:{0}:members";
 
-    public async Task<List<PublisherMember>> GetPublisherMembers(Guid publisherId)
+    public async Task<List<SnPublisherMember>> GetPublisherMembers(Guid publisherId)
     {
         var cacheKey = string.Format(PublisherMembersCacheKey, publisherId);
 
         // Try to get members from the cache first
-        var members = await cache.GetAsync<List<PublisherMember>>(cacheKey);
+        var members = await cache.GetAsync<List<SnPublisherMember>>(cacheKey);
         if (members is not null)
             return members;
 
@@ -150,16 +149,16 @@ public class PublisherService(
         return members;
     }
 
-    public async Task<Publisher> CreateIndividualPublisher(
+    public async Task<SnPublisher> CreateIndividualPublisher(
         Account account,
         string? name,
         string? nick,
         string? bio,
-        CloudFileReferenceObject? picture,
-        CloudFileReferenceObject? background
+        SnCloudFileReferenceObject? picture,
+        SnCloudFileReferenceObject? background
     )
     {
-        var publisher = new Publisher
+        var publisher = new SnPublisher
         {
             Type = PublisherType.Individual,
             Name = name ?? account.Name,
@@ -167,12 +166,12 @@ public class PublisherService(
             Bio = bio ?? account.Profile.Bio,
             Picture = picture ?? (account.Profile.Picture is null
                 ? null
-                : CloudFileReferenceObject.FromProtoValue(account.Profile.Picture)),
+                : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Picture)),
             Background = background ?? (account.Profile.Background is null
                 ? null
-                : CloudFileReferenceObject.FromProtoValue(account.Profile.Background)),
+                : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Background)),
             AccountId = Guid.Parse(account.Id),
-            Members = new List<PublisherMember>
+            Members = new List<SnPublisherMember>
             {
                 new()
                 {
@@ -213,26 +212,26 @@ public class PublisherService(
         return publisher;
     }
 
-    public async Task<Publisher> CreateOrganizationPublisher(
-        Realm.Realm realm,
+    public async Task<SnPublisher> CreateOrganizationPublisher(
+        Shared.Models.SnRealm realm,
         Account account,
         string? name,
         string? nick,
         string? bio,
-        CloudFileReferenceObject? picture,
-        CloudFileReferenceObject? background
+        SnCloudFileReferenceObject? picture,
+        SnCloudFileReferenceObject? background
     )
     {
-        var publisher = new Publisher
+        var publisher = new SnPublisher
         {
             Type = PublisherType.Organizational,
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
-            Picture = picture ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Picture),
-            Background = background ?? CloudFileReferenceObject.FromProtoValue(account.Profile.Background),
+            Picture = picture ?? SnCloudFileReferenceObject.FromProtoValue(account.Profile.Picture),
+            Background = background ?? SnCloudFileReferenceObject.FromProtoValue(account.Profile.Background),
             RealmId = realm.Id,
-            Members = new List<PublisherMember>
+            Members = new List<SnPublisherMember>
             {
                 new()
                 {
@@ -379,14 +378,14 @@ public class PublisherService(
         return member != null && member.Role >= requiredRole;
     }
     
-    public async Task<PublisherMember> LoadMemberAccount(PublisherMember member)
+    public async Task<SnPublisherMember> LoadMemberAccount(SnPublisherMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
-        member.Account = AccountReference.FromProtoValue(account);
+        member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
 
-    public async Task<List<PublisherMember>> LoadMemberAccounts(ICollection<PublisherMember> members)
+    public async Task<List<SnPublisherMember>> LoadMemberAccounts(ICollection<SnPublisherMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
@@ -394,7 +393,7 @@ public class PublisherService(
         return members.Select(m =>
         {
             if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = AccountReference.FromProtoValue(account);
+                m.Account = SnAccount.FromProtoValue(account);
             return m;
         }).ToList();
     }

@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using System.Text.Json;
 using NodaTime.Serialization.Protobuf;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Permission;
 

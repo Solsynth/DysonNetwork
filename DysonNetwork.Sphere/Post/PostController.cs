@@ -3,6 +3,7 @@ using System.Globalization;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Content;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Realm;
@@ -12,7 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
-using PublisherMemberRole = DysonNetwork.Sphere.Publisher.PublisherMemberRole;
+using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Post;
@@ -32,7 +33,7 @@ public class PostController(
     : ControllerBase
 {
     [HttpGet("featured")]
-    public async Task<ActionResult<List<Post>>> ListFeaturedPosts()
+    public async Task<ActionResult<List<SnPost>>> ListFeaturedPosts()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
@@ -63,7 +64,7 @@ public class PostController(
     /// </returns>
     /// <response code="200">Returns the list of posts matching the criteria.</response>
     [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<Post>))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<SnPost>))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [SwaggerOperation(
         Summary = "Retrieves a paginated list of posts",
@@ -72,9 +73,9 @@ public class PostController(
         OperationId = "ListPosts",
         Tags = ["Posts"]
     )]
-    [SwaggerResponse(StatusCodes.Status200OK, "Successfully retrieved the list of posts", typeof(List<Post>))]
+    [SwaggerResponse(StatusCodes.Status200OK, "Successfully retrieved the list of posts", typeof(List<SnPost>))]
     [SwaggerResponse(StatusCodes.Status400BadRequest, "Invalid request parameters")]
-    public async Task<ActionResult<List<Post>>> ListPosts(
+    public async Task<ActionResult<List<SnPost>>> ListPosts(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery(Name = "pub")] string? pubName = null,
@@ -189,7 +190,7 @@ public class PostController(
     }
 
     [HttpGet("{publisherName}/{slug}")]
-    public async Task<ActionResult<Post>> GetPost(string publisherName, string slug)
+    public async Task<ActionResult<SnPost>> GetPost(string publisherName, string slug)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
@@ -220,7 +221,7 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<Post>> GetPost(Guid id)
+    public async Task<ActionResult<SnPost>> GetPost(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
@@ -251,7 +252,7 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/reactions")]
-    public async Task<ActionResult<List<PostReaction>>> GetReactions(
+    public async Task<ActionResult<List<SnPostReaction>>> GetReactions(
         Guid id,
         [FromQuery] string? symbol = null,
         [FromQuery] int offset = 0,
@@ -275,7 +276,7 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/replies/featured")]
-    public async Task<ActionResult<Post>> GetFeaturedReply(Guid id)
+    public async Task<ActionResult<SnPost>> GetFeaturedReply(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
@@ -306,7 +307,7 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/replies/pinned")]
-    public async Task<ActionResult<List<Post>>> ListPinnedReplies(Guid id)
+    public async Task<ActionResult<List<SnPost>>> ListPinnedReplies(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as Account;
@@ -332,7 +333,7 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/replies")]
-    public async Task<ActionResult<List<Post>>> ListReplies(Guid id, [FromQuery] int offset = 0,
+    public async Task<ActionResult<List<SnPost>>> ListReplies(Guid id, [FromQuery] int offset = 0,
         [FromQuery] int take = 20)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -403,7 +404,7 @@ public class PostController(
 
     [HttpPost]
     [RequiredPermission("global", "posts.create")]
-    public async Task<ActionResult<Post>> CreatePost(
+    public async Task<ActionResult<SnPost>> CreatePost(
         [FromBody] PostRequest request,
         [FromQuery(Name = "pub")] string? pubName
     )
@@ -415,12 +416,12 @@ public class PostController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        Publisher.Publisher? publisher;
+        Shared.Models.SnPublisher? publisher;
         if (pubName is null)
         {
             // Use the first personal publisher
             publisher = await db.Publishers.FirstOrDefaultAsync(e =>
-                e.AccountId == accountId && e.Type == Publisher.PublisherType.Individual);
+                e.AccountId == accountId && e.Type == Shared.Models.PublisherType.Individual);
         }
         else
         {
@@ -432,7 +433,7 @@ public class PostController(
 
         if (publisher is null) return BadRequest("Publisher was not found.");
 
-        var post = new Post
+        var post = new SnPost
         {
             Title = request.Title,
             Description = request.Description,
@@ -525,7 +526,7 @@ public class PostController(
     [HttpPost("{id:guid}/reactions")]
     [Authorize]
     [RequiredPermission("global", "posts.react")]
-    public async Task<ActionResult<PostReaction>> ReactPost(Guid id, [FromBody] PostReactionRequest request)
+    public async Task<ActionResult<SnPostReaction>> ReactPost(Guid id, [FromBody] PostReactionRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -549,7 +550,7 @@ public class PostController(
             .AnyAsync(r => r.PostId == post.Id &&
                            r.Symbol == request.Symbol &&
                            r.AccountId == accountId);
-        var reaction = new PostReaction
+        var reaction = new SnPostReaction
         {
             Symbol = request.Symbol,
             Attitude = request.Attitude,
@@ -590,7 +591,7 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/awards")]
-    public async Task<ActionResult<PostAward>> GetPostAwards(Guid id, [FromQuery] int offset = 0,
+    public async Task<ActionResult<SnPostAward>> GetPostAwards(Guid id, [FromQuery] int offset = 0,
         [FromQuery] int take = 20)
     {
         var queryable = db.PostAwards
@@ -666,7 +667,7 @@ public class PostController(
 
     [HttpPost("{id:guid}/pin")]
     [Authorize]
-    public async Task<ActionResult<Post>> PinPost(Guid id, [FromBody] PostPinRequest request)
+    public async Task<ActionResult<SnPost>> PinPost(Guid id, [FromBody] PostPinRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -714,7 +715,7 @@ public class PostController(
 
     [HttpDelete("{id:guid}/pin")]
     [Authorize]
-    public async Task<ActionResult<Post>> UnpinPost(Guid id)
+    public async Task<ActionResult<SnPost>> UnpinPost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -760,7 +761,7 @@ public class PostController(
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<ActionResult<Post>> UpdatePost(
+    public async Task<ActionResult<SnPost>> UpdatePost(
         Guid id,
         [FromBody] PostRequest request,
         [FromQuery(Name = "pub")] string? pubName
@@ -780,14 +781,14 @@ public class PostController(
         if (post is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (pubName is not null)
         {
             var publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null) return NotFound();
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, Publisher.PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to transfer this post to this publisher.");
             post.PublisherId = publisher.Id;
             post.Publisher = publisher;
@@ -879,7 +880,7 @@ public class PostController(
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult<Post>> DeletePost(Guid id)
+    public async Task<ActionResult<SnPost>> DeletePost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 

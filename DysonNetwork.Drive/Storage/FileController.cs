@@ -1,6 +1,6 @@
 using DysonNetwork.Drive.Billing;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

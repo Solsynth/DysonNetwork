@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;

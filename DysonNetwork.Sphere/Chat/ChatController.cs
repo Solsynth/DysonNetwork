@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Content;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -33,7 +33,7 @@ public partial class ChatController(
     public class ChatSummaryResponse
     {
         public int UnreadCount { get; set; }
-        public Message? LastMessage { get; set; }
+        public SnChatMessage? LastMessage { get; set; }
     }
 
     [HttpGet("summary")]
@@ -71,7 +71,7 @@ public partial class ChatController(
     }
 
     [HttpGet("{roomId:guid}/messages")]
-    public async Task<ActionResult<List<Message>>> ListMessages(Guid roomId, [FromQuery] int offset,
+    public async Task<ActionResult<List<SnChatMessage>>> ListMessages(Guid roomId, [FromQuery] int offset,
         [FromQuery] int take = 20)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
@@ -114,7 +114,7 @@ public partial class ChatController(
     }
 
     [HttpGet("{roomId:guid}/messages/{messageId:guid}")]
-    public async Task<ActionResult<Message>> GetMessage(Guid roomId, Guid messageId)
+    public async Task<ActionResult<SnChatMessage>> GetMessage(Guid roomId, Guid messageId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
 
@@ -165,7 +165,7 @@ public partial class ChatController(
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to send messages here.");
 
-        var message = new Message
+        var message = new SnChatMessage
         {
             Type = "text",
             SenderId = member.Id,
@@ -182,7 +182,7 @@ public partial class ChatController(
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
             message.Attachments = queryResponse.Files
                 .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
-                .Select(CloudFileReferenceObject.FromProtoValue)
+                .Select(SnCloudFileReferenceObject.FromProtoValue)
                 .ToList();
         }
 

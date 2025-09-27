@@ -1,6 +1,6 @@
-using DysonNetwork.Develop.Identity;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Develop.Project;
 
@@ -10,12 +10,12 @@ public class DevProjectService(
     FileService.FileServiceClient files
 )
 {
-    public async Task<DevProject> CreateProjectAsync(
-        Developer developer,
+    public async Task<SnDevProject> CreateProjectAsync(
+        SnDeveloper developer,
         DevProjectController.DevProjectRequest request
     )
     {
-        var project = new DevProject
+        var project = new SnDevProject
         {
             Slug = request.Slug!,
             Name = request.Name!,
@@ -29,7 +29,7 @@ public class DevProjectService(
         return project;
     }
 
-    public async Task<DevProject?> GetProjectAsync(Guid id, Guid? developerId = null)
+    public async Task<SnDevProject?> GetProjectAsync(Guid id, Guid? developerId = null)
     {
         var query = db.DevProjects.AsQueryable();
         
@@ -41,14 +41,14 @@ public class DevProjectService(
         return await query.FirstOrDefaultAsync(p => p.Id == id);
     }
 
-    public async Task<List<DevProject>> GetProjectsByDeveloperAsync(Guid developerId)
+    public async Task<List<SnDevProject>> GetProjectsByDeveloperAsync(Guid developerId)
     {
         return await db.DevProjects
             .Where(p => p.DeveloperId == developerId)
             .ToListAsync();
     }
 
-    public async Task<DevProject?> UpdateProjectAsync(
+    public async Task<SnDevProject?> UpdateProjectAsync(
         Guid id,
         Guid developerId,
         DevProjectController.DevProjectRequest request

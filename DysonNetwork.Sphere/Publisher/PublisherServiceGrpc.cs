@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         ServerCallContext context
     )
     {
-        Publisher? p = null;
+        SnPublisher? p = null;
         switch (request.QueryCase)
         {
             case GetPublisherRequest.QueryOneofCase.Id:

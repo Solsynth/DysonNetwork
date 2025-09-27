@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Discovery;
 public class DiscoveryController(DiscoveryService discoveryService) : ControllerBase
 {
     [HttpGet("realms")]
-    public Task<List<Realm.Realm>> GetPublicRealms(
+    public Task<List<Shared.Models.SnRealm>> GetPublicRealms(
         [FromQuery] string? query,
         [FromQuery] int take = 10,
         [FromQuery] int offset = 0

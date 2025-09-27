@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using NATS.Client.Core;
-using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
+using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Connection;
 

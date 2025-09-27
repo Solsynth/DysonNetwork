@@ -1,4 +1,4 @@
-﻿using DysonNetwork.Sphere.Post;
+﻿using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable

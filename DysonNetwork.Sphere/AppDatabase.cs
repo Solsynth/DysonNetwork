@@ -1,11 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Realm;
-using DysonNetwork.Sphere.Sticker;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -24,34 +20,34 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Publisher.Publisher> Publishers { get; set; } = null!;
+    public DbSet<Shared.Models.SnPublisher> Publishers { get; set; } = null!;
     public DbSet<PublisherMember> PublisherMembers { get; set; } = null!;
     public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; } = null!;
     public DbSet<PublisherFeature> PublisherFeatures { get; set; } = null!;
 
-    public DbSet<Post.Post> Posts { get; set; } = null!;
-    public DbSet<PostReaction> PostReactions { get; set; } = null!;
-    public DbSet<PostAward> PostAwards { get; set; } = null!;
-    public DbSet<PostTag> PostTags { get; set; } = null!;
-    public DbSet<PostCategory> PostCategories { get; set; } = null!;
-    public DbSet<PostCollection> PostCollections { get; set; } = null!;
-    public DbSet<PostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
-    public DbSet<PostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
+    public DbSet<SnPost> Posts { get; set; } = null!;
+    public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
+    public DbSet<SnPostAward> PostAwards { get; set; } = null!;
+    public DbSet<SnPostTag> PostTags { get; set; } = null!;
+    public DbSet<SnPostCategory> PostCategories { get; set; } = null!;
+    public DbSet<SnPostCollection> PostCollections { get; set; } = null!;
+    public DbSet<SnPostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
+    public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
 
-    public DbSet<Poll.Poll> Polls { get; set; } = null!;
-    public DbSet<Poll.PollQuestion> PollQuestions { get; set; } = null!;
-    public DbSet<Poll.PollAnswer> PollAnswers { get; set; } = null!;
+    public DbSet<Shared.Models.SnPoll> Polls { get; set; } = null!;
+    public DbSet<SnPollQuestion> PollQuestions { get; set; } = null!;
+    public DbSet<SnPollAnswer> PollAnswers { get; set; } = null!;
 
-    public DbSet<Realm.Realm> Realms { get; set; } = null!;
-    public DbSet<RealmMember> RealmMembers { get; set; } = null!;
+    public DbSet<Shared.Models.SnRealm> Realms { get; set; } = null!;
+    public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
 
-    public DbSet<ChatRoom> ChatRooms { get; set; } = null!;
-    public DbSet<ChatMember> ChatMembers { get; set; } = null!;
-    public DbSet<Message> ChatMessages { get; set; } = null!;
-    public DbSet<RealtimeCall> ChatRealtimeCall { get; set; } = null!;
-    public DbSet<MessageReaction> ChatReactions { get; set; } = null!;
+    public DbSet<SnChatRoom> ChatRooms { get; set; } = null!;
+    public DbSet<SnChatMember> ChatMembers { get; set; } = null!;
+    public DbSet<SnChatMessage> ChatMessages { get; set; } = null!;
+    public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
+    public DbSet<SnChatMessageReaction> ChatReactions { get; set; } = null!;
 
-    public DbSet<Sticker.Sticker> Stickers { get; set; } = null!;
+    public DbSet<Shared.Models.SnSticker> Stickers { get; set; } = null!;
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;
     public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; } = null!;
 
@@ -89,67 +85,67 @@ public class AppDatabase(
             .HasForeignKey(ps => ps.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Post.Post>()
+        modelBuilder.Entity<SnPost>()
             .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
             .HasIndex(p => p.SearchVector)
             .HasMethod("GIN");
 
-        modelBuilder.Entity<Post.Post>()
+        modelBuilder.Entity<SnPost>()
             .HasOne(p => p.RepliedPost)
             .WithMany()
             .HasForeignKey(p => p.RepliedPostId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Post.Post>()
+        modelBuilder.Entity<SnPost>()
             .HasOne(p => p.ForwardedPost)
             .WithMany()
             .HasForeignKey(p => p.ForwardedPostId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Post.Post>()
+        modelBuilder.Entity<SnPost>()
             .HasMany(p => p.Tags)
             .WithMany(t => t.Posts)
             .UsingEntity(j => j.ToTable("post_tag_links"));
-        modelBuilder.Entity<Post.Post>()
+        modelBuilder.Entity<SnPost>()
             .HasMany(p => p.Categories)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_category_links"));
-        modelBuilder.Entity<Post.Post>()
+        modelBuilder.Entity<SnPost>()
             .HasMany(p => p.Collections)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_collection_links"));
 
-        modelBuilder.Entity<RealmMember>()
+        modelBuilder.Entity<SnRealmMember>()
             .HasKey(pm => new { pm.RealmId, pm.AccountId });
-        modelBuilder.Entity<RealmMember>()
+        modelBuilder.Entity<SnRealmMember>()
             .HasOne(pm => pm.Realm)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<ChatMember>()
+        modelBuilder.Entity<SnChatMember>()
             .HasKey(pm => new { pm.Id });
-        modelBuilder.Entity<ChatMember>()
+        modelBuilder.Entity<SnChatMember>()
             .HasAlternateKey(pm => new { pm.ChatRoomId, pm.AccountId });
-        modelBuilder.Entity<ChatMember>()
+        modelBuilder.Entity<SnChatMember>()
             .HasOne(pm => pm.ChatRoom)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.ChatRoomId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<Message>()
+        modelBuilder.Entity<SnChatMessage>()
             .HasOne(m => m.ForwardedMessage)
             .WithMany()
             .HasForeignKey(m => m.ForwardedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Message>()
+        modelBuilder.Entity<SnChatMessage>()
             .HasOne(m => m.RepliedMessage)
             .WithMany()
             .HasForeignKey(m => m.RepliedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<RealtimeCall>()
+        modelBuilder.Entity<SnRealtimeCall>()
             .HasOne(m => m.Room)
             .WithMany()
             .HasForeignKey(m => m.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<RealtimeCall>()
+        modelBuilder.Entity<SnRealtimeCall>()
             .HasOne(m => m.Sender)
             .WithMany()
             .HasForeignKey(m => m.SenderId)

@@ -12,9 +12,9 @@ using NATS.Client.Core;
 using NetVips;
 using NodaTime;
 using System.Linq.Expressions;
-using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore.Query;
 using NATS.Net;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -512,7 +512,7 @@ public class FileService(
         }
     }
 
-    private async Task<FileBundle?> GetBundleAsync(Guid id, Guid accountId)
+    private async Task<SnFileBundle?> GetBundleAsync(Guid id, Guid accountId)
     {
         var bundle = await db.Bundles
             .Where(e => e.Id == id)
@@ -569,7 +569,7 @@ public class FileService(
         await Task.WhenAll(tasks);
     }
 
-    public async Task<List<CloudFile?>> LoadFromReference(List<CloudFileReferenceObject> references)
+    public async Task<List<CloudFile?>> LoadFromReference(List<SnCloudFileReferenceObject> references)
     {
         var cachedFiles = new Dictionary<string, CloudFile>();
         var uncachedIds = new List<string>();

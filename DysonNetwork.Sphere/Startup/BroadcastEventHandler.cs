@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using DysonNetwork.Sphere.Chat;
@@ -9,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;
 using NATS.Net;
-using WebSocketPacket = DysonNetwork.Shared.Data.WebSocketPacket;
+using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Sphere.Startup;
 

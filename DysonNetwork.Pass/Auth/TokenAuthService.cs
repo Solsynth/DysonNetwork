@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -25,7 +26,7 @@ public class TokenAuthService(
     /// <param name="token">Incoming token string</param>
     /// <param name="ipAddress">Client IP address, for logging purposes</param>
     /// <returns>(Valid, Session, Message)</returns>
-    public async Task<(bool Valid, AuthSession? Session, string? Message)> AuthenticateTokenAsync(string token, string? ipAddress = null)
+    public async Task<(bool Valid, SnAuthSession? Session, string? Message)> AuthenticateTokenAsync(string token, string? ipAddress = null)
     {
         try
         {
@@ -63,7 +64,7 @@ public class TokenAuthService(
 
             // Try cache first
             var cacheKey = $"{AuthCacheConstants.Prefix}{sessionId}";
-            var session = await cache.GetAsync<AuthSession>(cacheKey);
+            var session = await cache.GetAsync<SnAuthSession>(cacheKey);
             if (session is not null)
             {
                 logger.LogDebug("AuthenticateTokenAsync: cache hit for {CacheKey}", cacheKey);

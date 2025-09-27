@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Chat.Realtime;
 using Livekit.Server.Sdk.Dotnet;
@@ -46,7 +47,7 @@ public class RealtimeCallController(
 
     [HttpGet("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<RealtimeCall>> GetOngoingCall(Guid roomId)
+    public async Task<ActionResult<SnRealtimeCall>> GetOngoingCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -145,7 +146,7 @@ public class RealtimeCallController(
 
     [HttpPost("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<RealtimeCall>> StartCall(Guid roomId)
+    public async Task<ActionResult<SnRealtimeCall>> StartCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -165,7 +166,7 @@ public class RealtimeCallController(
 
     [HttpDelete("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<RealtimeCall>> EndCall(Guid roomId)
+    public async Task<ActionResult<SnRealtimeCall>> EndCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -250,7 +251,7 @@ public class CallParticipant
     /// <summary>
     /// The participant's profile in the chat
     /// </summary>
-    public ChatMember? Profile { get; set; }
+    public SnChatMember? Profile { get; set; }
     
     /// <summary>
     /// When the participant joined the call

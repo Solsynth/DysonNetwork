@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -49,9 +48,9 @@ namespace DysonNetwork.Pass.Migrations
                     name = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     status = table.Column<int>(type: "integer", nullable: false),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     deleted_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
@@ -242,13 +241,13 @@ namespace DysonNetwork.Pass.Migrations
                     location = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: true),
                     birthday = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     last_seen_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
-                    verification = table.Column<VerificationMark>(type: "jsonb", nullable: true),
+                    verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
                     active_badge = table.Column<BadgeReferenceObject>(type: "jsonb", nullable: true),
                     experience = table.Column<int>(type: "integer", nullable: false),
                     picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
-                    picture = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
-                    background = table.Column<CloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
+                    background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
