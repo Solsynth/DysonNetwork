@@ -167,20 +167,28 @@ public class ChatRoomService(
 
     public async Task SubscribeChatRoom(SnChatMember member)
     {
-        var cacheKey = ChatRoomSubscribeKeyPrefix + member.Id;
+        var cacheKey = $"{ChatRoomSubscribeKeyPrefix}{member.ChatRoomId}:{member.Id}";
         await cache.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
+        await cache.AddToGroupAsync(cacheKey, $"chatroom:subscribers:{member.ChatRoomId}");
     }
 
     public async Task UnsubscribeChatRoom(SnChatMember member)
     {
-        var cacheKey = ChatRoomSubscribeKeyPrefix + member.Id;
+        var cacheKey = $"{ChatRoomSubscribeKeyPrefix}{member.ChatRoomId}:{member.Id}";
         await cache.RemoveAsync(cacheKey);
     }
 
-    public async Task<bool> IsSubscribedChatRoom(Guid memberId)
+    public async Task<bool> IsSubscribedChatRoom(Guid roomId, Guid memberId)
     {
-        var cacheKey = ChatRoomSubscribeKeyPrefix + memberId;
+        var cacheKey = $"{ChatRoomSubscribeKeyPrefix}{roomId}:{memberId}";
         var result = await cache.GetAsync<bool?>(cacheKey);
         return result ?? false;
+    }
+
+    public async Task<List<Guid>> GetSubscribedMembers(Guid roomId)
+    {
+        var group = $"chatroom:subscribers:{roomId}";
+        var keys = await cache.GetGroupKeysAsync(group);
+        return keys.Select(k => Guid.Parse(k.Split(':').Last())).ToList();
     }
 }

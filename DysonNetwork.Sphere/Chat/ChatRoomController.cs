@@ -483,6 +483,36 @@ public class ChatRoomController(
         return Ok(await crs.LoadMemberAccount(member));
     }
 
+    [HttpGet("{roomId:guid}/members/online")]
+    public async Task<ActionResult<int>> GetOnlineUsersCount(Guid roomId)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+
+        var room = await db.ChatRooms
+            .FirstOrDefaultAsync(r => r.Id == roomId);
+        if (room is null) return NotFound();
+
+        if (!room.IsPublic)
+        {
+            if (currentUser is null) return Unauthorized();
+            var member = await db.ChatMembers
+                .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id));
+            if (member is null) return StatusCode(403, "You need to be a member to see online count of private chat room.");
+        }
+
+        var members = await db.ChatMembers
+            .Where(m => m.ChatRoomId == roomId)
+            .Where(m => m.LeaveAt == null)
+            .Select(m => m.AccountId)
+            .ToListAsync();
+
+        var memberStatuses = await accountsHelper.GetAccountStatusBatch(members);
+
+        var onlineCount = memberStatuses.Count(s => s.Value.IsOnline);
+
+        return Ok(onlineCount);
+    }
+
     [HttpGet("{roomId:guid}/members")]
     public async Task<ActionResult<List<SnChatMember>>> ListMembers(Guid roomId,
         [FromQuery] int take = 20,

@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Post;
+using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;
@@ -39,8 +40,9 @@ public class BroadcastEventHandler(
         var paymentTask = HandlePaymentOrders(stoppingToken);
         var accountTask = HandleAccountDeletions(stoppingToken);
         var websocketTask = HandleWebSocketPackets(stoppingToken);
+        var accountStatusTask = HandleAccountStatusUpdates(stoppingToken);
 
-        await Task.WhenAll(paymentTask, accountTask, websocketTask);
+        await Task.WhenAll(paymentTask, accountTask, websocketTask, accountStatusTask);
     }
 
     private async Task HandlePaymentOrders(CancellationToken stoppingToken)
@@ -338,6 +340,67 @@ public class BroadcastEventHandler(
         }
 
         await crs.UnsubscribeChatRoom(sender);
+    }
+
+    private async Task HandleAccountStatusUpdates(CancellationToken stoppingToken)
+    {
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(AccountStatusUpdatedEvent.Type, cancellationToken: stoppingToken))
+        {
+            try
+            {
+                var evt = GrpcTypeHelper.ConvertByteStringToObject<AccountStatusUpdatedEvent>(ByteString.CopyFrom(msg.Data));
+                if (evt == null)
+                    continue;
+
+                logger.LogInformation("Account status updated: {AccountId}", evt.AccountId);
+
+                await using var scope = serviceProvider.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                var chatRoomService = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+
+                // Get user's joined chat rooms
+                var userRooms = await db.ChatMembers
+                    .Where(m => m.AccountId == evt.AccountId && m.LeaveAt == null)
+                    .Select(m => m.ChatRoomId)
+                    .ToListAsync(cancellationToken: stoppingToken);
+
+                // Send WebSocket packet to subscribed users per room
+                foreach (var roomId in userRooms)
+                {
+                    var members = await chatRoomService.ListRoomMembers(roomId);
+                    var subscribedMemberIds = await chatRoomService.GetSubscribedMembers(roomId);
+                    var subscribedUsers = members
+                        .Where(m => subscribedMemberIds.Contains(m.Id))
+                        .Select(m => m.AccountId.ToString())
+                        .ToList();
+
+                    if (subscribedUsers.Count == 0) continue;
+                    var packet = new WebSocketPacket
+                    {
+                        Type = "accounts.status.update",
+                        Data = new Dictionary<string, object>
+                        {
+                            ["status"] = evt.Status,
+                            ["chat_room_id"] = roomId
+                        }
+                    };
+
+                    var request = new PushWebSocketPacketToUsersRequest
+                    {
+                        Packet = packet.ToProtoValue()
+                    };
+                    request.UserIds.AddRange(subscribedUsers);
+
+                    await pusher.PushWebSocketPacketToUsersAsync(request, cancellationToken: stoppingToken);
+
+                    logger.LogInformation("Sent status update for room {roomId} to {count} subscribed users", roomId, subscribedUsers.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing AccountStatusUpdated");
+            }
+        }
     }
 
     private async Task SendErrorResponse(WebSocketPacketEvent evt, string message)

@@ -1,7 +1,10 @@
 using System.Net.WebSockets;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Stream;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NATS.Client.Core;
+using NATS.Net;
 using Swashbuckle.AspNetCore.Annotations;
 using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
@@ -10,7 +13,8 @@ namespace DysonNetwork.Ring.Connection;
 [ApiController]
 public class WebSocketController(
     WebSocketService ws,
-    ILogger<WebSocketContext> logger
+    ILogger<WebSocketContext> logger,
+    INatsConnection nats
 ) : ControllerBase
 {
     [Route("/ws")]
@@ -64,6 +68,18 @@ public class WebSocketController(
         logger.LogDebug(
             $"Connection established with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}");
 
+        // Broadcast WebSocket connected event
+        await nats.PublishAsync(
+            WebSocketConnectedEvent.Type,
+            GrpcTypeHelper.ConvertObjectToByteString(new WebSocketConnectedEvent
+            {
+                AccountId = accountId,
+                DeviceId = deviceId,
+                IsOffline = false
+            }).ToByteArray(),
+            cancellationToken: cts.Token
+        );
+
         try
         {
             await _ConnectionEventLoop(deviceId, currentUser, webSocket, cts.Token);
@@ -80,6 +96,19 @@ public class WebSocketController(
         finally
         {
             ws.Disconnect(connectionKey);
+
+            // Broadcast WebSocket disconnected event
+            await nats.PublishAsync(
+                WebSocketDisconnectedEvent.Type,
+                GrpcTypeHelper.ConvertObjectToByteString(new WebSocketDisconnectedEvent
+                {
+                    AccountId = accountId,
+                    DeviceId = deviceId,
+                    IsOffline = !WebSocketService.GetAccountIsConnected(accountId)
+                }).ToByteArray(),
+                cancellationToken: cts.Token
+            );
+
             logger.LogDebug(
                 $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}"
             );
