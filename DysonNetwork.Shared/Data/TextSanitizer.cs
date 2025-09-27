@@ -1,7 +1,7 @@
-using System.Text;
 using System.Globalization;
+using System.Text;
 
-namespace DysonNetwork.Shared.Content;
+namespace DysonNetwork.Shared.Data;
 
 public abstract partial class TextSanitizer
 {

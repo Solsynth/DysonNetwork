@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Error;
+using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;

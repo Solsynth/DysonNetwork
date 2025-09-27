@@ -40,10 +40,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Error\" />
-    </ItemGroup>
-
-    <ItemGroup>
       <ProjectReference Include="..\DysonNetwork.ServiceDefaults\DysonNetwork.ServiceDefaults.csproj" />
     </ItemGroup>
 

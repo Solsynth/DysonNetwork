@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace DysonNetwork.Shared.Error;
+namespace DysonNetwork.Shared.Http;
 
 /// <summary>
 /// Standardized error payload to return to clients.
