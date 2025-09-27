@@ -192,6 +192,12 @@ public class BroadcastEventHandler(
                     case "messages.typing":
                         await HandleMessageTyping(evt, packet);
                         break;
+                    case "messages.subscribe":
+                        await HandleMessageSubscribe(evt, packet);
+                        break;
+                    case "messages.unsubscribe":
+                        await HandleMessageUnsubscribe(evt, packet);
+                        break;
                 }
             }
             catch (Exception ex)
@@ -276,6 +282,62 @@ public class BroadcastEventHandler(
         respRequest.UserIds.AddRange(otherMembers);
 
         await pusher.PushWebSocketPacketToUsersAsync(respRequest);
+    }
+
+    private async Task HandleMessageSubscribe(WebSocketPacketEvent evt, WebSocketPacket packet)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var crs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+
+        if (packet.Data == null)
+        {
+            await SendErrorResponse(evt, "messages.subscribe requires you to provide the ChatRoomId");
+            return;
+        }
+
+        var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
+        if (requestData == null)
+        {
+            await SendErrorResponse(evt, "Invalid request data");
+            return;
+        }
+
+        var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
+        if (sender == null)
+        {
+            await SendErrorResponse(evt, "User is not a member of the chat room.");
+            return;
+        }
+
+        await crs.SubscribeChatRoom(sender);
+    }
+
+    private async Task HandleMessageUnsubscribe(WebSocketPacketEvent evt, WebSocketPacket packet)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var crs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+
+        if (packet.Data == null)
+        {
+            await SendErrorResponse(evt, "messages.unsubscribe requires you to provide the ChatRoomId");
+            return;
+        }
+
+        var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
+        if (requestData == null)
+        {
+            await SendErrorResponse(evt, "Invalid request data");
+            return;
+        }
+
+        var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
+        if (sender == null)
+        {
+            await SendErrorResponse(evt, "User is not a member of the chat room.");
+            return;
+        }
+
+        await crs.UnsubscribeChatRoom(sender);
     }
 
     private async Task SendErrorResponse(WebSocketPacketEvent evt, string message)

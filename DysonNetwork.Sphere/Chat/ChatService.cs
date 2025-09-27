@@ -280,7 +280,16 @@ public partial class ChatService(
 
         var accountsToNotify = FilterAccountsForNotification(members, message, sender);
 
-        logger.LogInformation($"Trying to deliver message to {accountsToNotify.Count} accounts...");
+        // Filter out subscribed users from push notifications
+        var subscribedMemberIds = new List<Guid>();
+        foreach (var member in members)
+        {
+            if (await scopedCrs.IsSubscribedChatRoom(member.Id))
+                subscribedMemberIds.Add(member.AccountId);
+        }
+        accountsToNotify = accountsToNotify.Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id))).ToList();
+
+        logger.LogInformation("Trying to deliver message to {count} accounts...", accountsToNotify.Count);
 
         if (accountsToNotify.Count > 0)
         {
@@ -289,7 +298,7 @@ public partial class ChatService(
             await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
         }
 
-        logger.LogInformation($"Delivered message to {accountsToNotify.Count} accounts.");
+        logger.LogInformation("Delivered message to {count} accounts.", accountsToNotify.Count);
     }
 
     private PushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room, string roomSubject,

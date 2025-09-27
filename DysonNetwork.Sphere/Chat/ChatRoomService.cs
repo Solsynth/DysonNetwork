@@ -162,4 +162,25 @@ public class ChatRoomService(
             return m;
         })];
     }
+
+    private const string ChatRoomSubscribeKeyPrefix = "chatroom:subscribe:";
+
+    public async Task SubscribeChatRoom(SnChatMember member)
+    {
+        var cacheKey = ChatRoomSubscribeKeyPrefix + member.Id;
+        await cache.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
+    }
+
+    public async Task UnsubscribeChatRoom(SnChatMember member)
+    {
+        var cacheKey = ChatRoomSubscribeKeyPrefix + member.Id;
+        await cache.RemoveAsync(cacheKey);
+    }
+
+    public async Task<bool> IsSubscribedChatRoom(Guid memberId)
+    {
+        var cacheKey = ChatRoomSubscribeKeyPrefix + memberId;
+        var result = await cache.GetAsync<bool?>(cacheKey);
+        return result ?? false;
+    }
 }
