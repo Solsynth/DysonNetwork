@@ -284,7 +284,7 @@ public partial class ChatService(
         var subscribedMemberIds = new List<Guid>();
         foreach (var member in members)
         {
-            if (await scopedCrs.IsSubscribedChatRoom(member.Id))
+            if (await scopedCrs.IsSubscribedChatRoom(member.ChatRoomId, member.Id))
                 subscribedMemberIds.Add(member.AccountId);
         }
         accountsToNotify = accountsToNotify.Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id))).ToList();
