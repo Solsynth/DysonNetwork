@@ -104,7 +104,7 @@ public enum SubscriptionStatus
 /// The paid subscription in another word.
 /// </summary>
 [Index(nameof(Identifier))]
-public class SnSubscription : ModelBase
+public class SnWalletSubscription : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Instant BegunAt { get; set; }
@@ -133,10 +133,10 @@ public class SnSubscription : ModelBase
     public SubscriptionStatus Status { get; set; } = SubscriptionStatus.Unpaid;
 
     [MaxLength(4096)] public string PaymentMethod { get; set; } = null!;
-    [Column(TypeName = "jsonb")] public PaymentDetails PaymentDetails { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public SnPaymentDetails PaymentDetails { get; set; } = null!;
     public decimal BasePrice { get; set; }
     public Guid? CouponId { get; set; }
-    public Coupon? Coupon { get; set; }
+    public SnWalletCoupon? Coupon { get; set; }
     public Instant? RenewalAt { get; set; }
 
     public Guid AccountId { get; set; }
@@ -182,9 +182,9 @@ public class SnSubscription : ModelBase
     /// Returns a reference object that contains a subset of subscription data
     /// suitable for client-side use, with sensitive information removed.
     /// </summary>
-    public SubscriptionReferenceObject ToReference()
+    public SnSubscriptionReferenceObject ToReference()
     {
-        return new SubscriptionReferenceObject
+        return new SnSubscriptionReferenceObject
         {
             Id = Id,
             Identifier = Identifier,
@@ -223,7 +223,7 @@ public class SnSubscription : ModelBase
         UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
-    public static SnSubscription FromProtoValue(Proto.Subscription proto) => new()
+    public static SnWalletSubscription FromProtoValue(Proto.Subscription proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         BegunAt = proto.BegunAt.ToInstant(),
@@ -233,10 +233,10 @@ public class SnSubscription : ModelBase
         IsFreeTrial = proto.IsFreeTrial,
         Status = (SubscriptionStatus)proto.Status,
         PaymentMethod = proto.PaymentMethod,
-        PaymentDetails = PaymentDetails.FromProtoValue(proto.PaymentDetails),
+        PaymentDetails = SnPaymentDetails.FromProtoValue(proto.PaymentDetails),
         BasePrice = decimal.Parse(proto.BasePrice),
         CouponId = proto.HasCouponId ? Guid.Parse(proto.CouponId) : null,
-        Coupon = proto.Coupon is not null ? Coupon.FromProtoValue(proto.Coupon) : null,
+        Coupon = proto.Coupon is not null ? SnWalletCoupon.FromProtoValue(proto.Coupon) : null,
         RenewalAt = proto.RenewalAt?.ToInstant(),
         AccountId = Guid.Parse(proto.AccountId),
         CreatedAt = proto.CreatedAt.ToInstant(),
@@ -248,7 +248,7 @@ public class SnSubscription : ModelBase
 /// A reference object for Subscription that contains only non-sensitive information
 /// suitable for client-side use.
 /// </summary>
-public class SubscriptionReferenceObject : ModelBase
+public class SnSubscriptionReferenceObject : ModelBase
 {
     public Guid Id { get; set; }
     public string Identifier { get; set; } = null!;
@@ -290,7 +290,7 @@ public class SubscriptionReferenceObject : ModelBase
         UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
-    public static SubscriptionReferenceObject FromProtoValue(Proto.SubscriptionReferenceObject proto) => new()
+    public static SnSubscriptionReferenceObject FromProtoValue(Proto.SubscriptionReferenceObject proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Identifier = proto.Identifier,
@@ -309,7 +309,7 @@ public class SubscriptionReferenceObject : ModelBase
     };
 }
 
-public class PaymentDetails
+public class SnPaymentDetails
 {
     public string Currency { get; set; } = null!;
     public string? OrderId { get; set; }
@@ -320,7 +320,7 @@ public class PaymentDetails
         OrderId = OrderId,
     };
 
-    public static PaymentDetails FromProtoValue(Proto.PaymentDetails proto) => new()
+    public static SnPaymentDetails FromProtoValue(Proto.PaymentDetails proto) => new()
     {
         Currency = proto.Currency,
         OrderId = proto.OrderId,
@@ -331,7 +331,7 @@ public class PaymentDetails
 /// A discount that can applies in purchases among the Solar Network.
 /// For now, it can be used in the subscription purchase.
 /// </summary>
-public class Coupon : ModelBase
+public class SnWalletCoupon : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -388,7 +388,7 @@ public class Coupon : ModelBase
         UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
-    public static Coupon FromProtoValue(Proto.Coupon proto) => new()
+    public static SnWalletCoupon FromProtoValue(Proto.Coupon proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Identifier = proto.Identifier,

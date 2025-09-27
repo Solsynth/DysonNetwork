@@ -28,11 +28,11 @@ public class FileService(
     private const string CacheKeyPrefix = "file:";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
-    public async Task<CloudFile?> GetFileAsync(string fileId)
+    public async Task<SnCloudFile?> GetFileAsync(string fileId)
     {
         var cacheKey = $"{CacheKeyPrefix}{fileId}";
 
-        var cachedFile = await cache.GetAsync<CloudFile>(cacheKey);
+        var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
         if (cachedFile is not null)
             return cachedFile;
 
@@ -48,15 +48,15 @@ public class FileService(
         return file;
     }
 
-    public async Task<List<CloudFile>> GetFilesAsync(List<string> fileIds)
+    public async Task<List<SnCloudFile>> GetFilesAsync(List<string> fileIds)
     {
-        var cachedFiles = new Dictionary<string, CloudFile>();
+        var cachedFiles = new Dictionary<string, SnCloudFile>();
         var uncachedIds = new List<string>();
 
         foreach (var fileId in fileIds)
         {
             var cacheKey = $"{CacheKeyPrefix}{fileId}";
-            var cachedFile = await cache.GetAsync<CloudFile>(cacheKey);
+            var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
 
             if (cachedFile != null)
                 cachedFiles[fileId] = cachedFile;
@@ -82,11 +82,11 @@ public class FileService(
         return fileIds
             .Select(f => cachedFiles.GetValueOrDefault(f))
             .Where(f => f != null)
-            .Cast<CloudFile>()
+            .Cast<SnCloudFile>()
             .ToList();
     }
 
-    public async Task<CloudFile> ProcessNewFileAsync(
+    public async Task<SnCloudFile> ProcessNewFileAsync(
         Account account,
         string fileId,
         string filePool,
@@ -131,7 +131,7 @@ public class FileService(
         var finalContentType = contentType ??
                                (!fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName));
 
-        var file = new CloudFile
+        var file = new SnCloudFile
         {
             Id = fileId,
             Name = fileName,
@@ -190,7 +190,7 @@ public class FileService(
         return file;
     }
 
-    private async Task ExtractMetadataAsync(CloudFile file, string filePath)
+    private async Task ExtractMetadataAsync(SnCloudFile file, string filePath)
     {
         switch (file.MimeType?.Split('/')[0])
         {
@@ -373,7 +373,7 @@ public class FileService(
         );
     }
 
-    public async Task<CloudFile> UpdateFileAsync(CloudFile file, FieldMask updateMask)
+    public async Task<SnCloudFile> UpdateFileAsync(SnCloudFile file, FieldMask updateMask)
     {
         var existingFile = await db.Files.FirstOrDefaultAsync(f => f.Id == file.Id);
         if (existingFile == null)
@@ -414,7 +414,7 @@ public class FileService(
         return await db.Files.AsNoTracking().FirstAsync(f => f.Id == file.Id);
     }
 
-    public async Task DeleteFileAsync(CloudFile file)
+    public async Task DeleteFileAsync(SnCloudFile file)
     {
         db.Remove(file);
         await db.SaveChangesAsync();
@@ -423,7 +423,7 @@ public class FileService(
         await DeleteFileDataAsync(file);
     }
 
-    public async Task DeleteFileDataAsync(CloudFile file, bool force = false)
+    public async Task DeleteFileDataAsync(SnCloudFile file, bool force = false)
     {
         if (!file.PoolId.HasValue) return;
 
@@ -482,7 +482,7 @@ public class FileService(
         }
     }
 
-    public async Task DeleteFileDataBatchAsync(List<CloudFile> files)
+    public async Task DeleteFileDataBatchAsync(List<SnCloudFile> files)
     {
         files = files.Where(f => f.PoolId.HasValue).ToList();
 
@@ -569,15 +569,15 @@ public class FileService(
         await Task.WhenAll(tasks);
     }
 
-    public async Task<List<CloudFile?>> LoadFromReference(List<SnCloudFileReferenceObject> references)
+    public async Task<List<SnCloudFile?>> LoadFromReference(List<SnCloudFileReferenceObject> references)
     {
-        var cachedFiles = new Dictionary<string, CloudFile>();
+        var cachedFiles = new Dictionary<string, SnCloudFile>();
         var uncachedIds = new List<string>();
 
         foreach (var reference in references)
         {
             var cacheKey = $"{CacheKeyPrefix}{reference.Id}";
-            var cachedFile = await cache.GetAsync<CloudFile>(cacheKey);
+            var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
 
             if (cachedFile != null)
             {
@@ -603,10 +603,9 @@ public class FileService(
             }
         }
 
-        return references
+        return [.. references
             .Select(r => cachedFiles.GetValueOrDefault(r.Id))
-            .Where(f => f != null)
-            .ToList();
+            .Where(f => f != null)];
     }
 
     public async Task<int> GetReferenceCountAsync(string fileId)
@@ -685,7 +684,7 @@ public class FileService(
         return count;
     }
 
-    public async Task<string> CreateFastUploadLinkAsync(CloudFile file)
+    public async Task<string> CreateFastUploadLinkAsync(SnCloudFile file)
     {
         if (file.PoolId is null) throw new InvalidOperationException("Pool ID is null");
 
@@ -707,7 +706,7 @@ public class FileService(
     }
 }
 
-file class UpdatableCloudFile(CloudFile file)
+file class UpdatableCloudFile(SnCloudFile file)
 {
     public string Name { get; set; } = file.Name;
     public string? Description { get; set; } = file.Description;
@@ -715,9 +714,9 @@ file class UpdatableCloudFile(CloudFile file)
     public Dictionary<string, object?>? UserMeta { get; set; } = file.UserMeta;
     public bool IsMarkedRecycle { get; set; } = file.IsMarkedRecycle;
 
-    public Expression<Func<SetPropertyCalls<CloudFile>, SetPropertyCalls<CloudFile>>> ToSetPropertyCalls()
+    public Expression<Func<SetPropertyCalls<SnCloudFile>, SetPropertyCalls<SnCloudFile>>> ToSetPropertyCalls()
     {
-        var userMeta = UserMeta ?? new Dictionary<string, object?>();
+        var userMeta = UserMeta ?? [];
         return setter => setter
             .SetProperty(f => f.Name, Name)
             .SetProperty(f => f.Description, Description)

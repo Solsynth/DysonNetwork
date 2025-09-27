@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +8,7 @@ namespace DysonNetwork.Pass.Safety;
 
 [ApiController]
 [Route("/api/safety/reports")]
-public class AbuseReportController(
+public class SnAbuseReportController(
     SafetyService safety
 ) : ControllerBase
 {
@@ -26,11 +26,11 @@ public class AbuseReportController(
 
     [HttpPost("")]
     [Authorize]
-    [ProducesResponseType<AbuseReport>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAbuseReport>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<AbuseReport>> CreateReport([FromBody] CreateReportRequest request)
+    public async Task<ActionResult<SnAbuseReport>> CreateReport([FromBody] CreateReportRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -52,8 +52,8 @@ public class AbuseReportController(
     [HttpGet("")]
     [Authorize]
     [RequiredPermission("safety", "reports.view")]
-    [ProducesResponseType<List<AbuseReport>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<AbuseReport>>> GetReports(
+    [ProducesResponseType<List<SnAbuseReport>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SnAbuseReport>>> GetReports(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery] bool includeResolved = false
@@ -67,15 +67,15 @@ public class AbuseReportController(
 
     [HttpGet("me")]
     [Authorize]
-    [ProducesResponseType<List<AbuseReport>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<List<SnAbuseReport>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<AbuseReport>>> GetMyReports(
+    public async Task<ActionResult<List<SnAbuseReport>>> GetMyReports(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery] bool includeResolved = false
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var totalCount = await safety.CountUserReports(currentUser.Id, includeResolved);
         var reports = await safety.GetUserReports(currentUser.Id, offset, take, includeResolved);
@@ -86,9 +86,9 @@ public class AbuseReportController(
     [HttpGet("{id}")]
     [Authorize]
     [RequiredPermission("safety", "reports.view")]
-    [ProducesResponseType<AbuseReport>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAbuseReport>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AbuseReport>> GetReportById(Guid id)
+    public async Task<ActionResult<SnAbuseReport>> GetReportById(Guid id)
     {
         var report = await safety.GetReportById(id);
         return report == null ? NotFound() : Ok(report);
@@ -96,12 +96,12 @@ public class AbuseReportController(
 
     [HttpGet("me/{id}")]
     [Authorize]
-    [ProducesResponseType<AbuseReport>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAbuseReport>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<ActionResult<AbuseReport>> GetMyReportById(Guid id)
+    public async Task<ActionResult<SnAbuseReport>> GetMyReportById(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var report = await safety.GetReportById(id);
         if (report == null) return NotFound();
@@ -123,9 +123,9 @@ public class AbuseReportController(
     [HttpPost("{id}/resolve")]
     [Authorize]
     [RequiredPermission("safety", "reports.resolve")]
-    [ProducesResponseType<AbuseReport>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAbuseReport>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AbuseReport>> ResolveReport(Guid id, [FromBody] ResolveReportRequest request)
+    public async Task<ActionResult<SnAbuseReport>> ResolveReport(Guid id, [FromBody] ResolveReportRequest request)
     {
         try
         {

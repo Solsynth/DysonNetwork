@@ -1,4 +1,3 @@
-using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +12,7 @@ public class CustomAppService(
     FileService.FileServiceClient files
 )
 {
-    public async Task<CustomApp?> CreateAppAsync(
+    public async Task<SnCustomApp?> CreateAppAsync(
         Guid projectId,
         CustomAppController.CustomAppRequest request
     )
@@ -25,12 +24,12 @@ public class CustomAppService(
         if (project == null)
             return null;
             
-        var app = new CustomApp
+        var app = new SnCustomApp
         {
             Slug = request.Slug!,
             Name = request.Name!,
             Description = request.Description,
-            Status = request.Status ?? CustomAppStatus.Developing,
+            Status = request.Status ?? Shared.Models.CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
             ProjectId = projectId
@@ -84,7 +83,7 @@ public class CustomAppService(
         return app;
     }
 
-    public async Task<CustomApp?> GetAppAsync(Guid id, Guid? projectId = null)
+    public async Task<SnCustomApp?> GetAppAsync(Guid id, Guid? projectId = null)
     {
         var query = db.CustomApps.AsQueryable();
         
@@ -96,7 +95,7 @@ public class CustomAppService(
         return await query.FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<List<CustomAppSecret>> GetAppSecretsAsync(Guid appId)
+    public async Task<List<SnCustomAppSecret>> GetAppSecretsAsync(Guid appId)
     {
         return await db.CustomAppSecrets
             .Where(s => s.AppId == appId)
@@ -104,13 +103,13 @@ public class CustomAppService(
             .ToListAsync();
     }
 
-    public async Task<CustomAppSecret?> GetAppSecretAsync(Guid secretId, Guid appId)
+    public async Task<SnCustomAppSecret?> GetAppSecretAsync(Guid secretId, Guid appId)
     {
         return await db.CustomAppSecrets
             .FirstOrDefaultAsync(s => s.Id == secretId && s.AppId == appId);
     }
 
-    public async Task<CustomAppSecret> CreateAppSecretAsync(CustomAppSecret secret)
+    public async Task<SnCustomAppSecret> CreateAppSecretAsync(SnCustomAppSecret secret)
     {
         if (string.IsNullOrWhiteSpace(secret.Secret))
         {
@@ -141,7 +140,7 @@ public class CustomAppService(
         return true;
     }
 
-    public async Task<CustomAppSecret> RotateAppSecretAsync(CustomAppSecret secretUpdate)
+    public async Task<SnCustomAppSecret> RotateAppSecretAsync(SnCustomAppSecret secretUpdate)
     {
         var existingSecret = await db.CustomAppSecrets
             .FirstOrDefaultAsync(s => s.Id == secretUpdate.Id && s.AppId == secretUpdate.AppId);
@@ -177,14 +176,14 @@ public class CustomAppService(
         return res.ToString();
     }
 
-    public async Task<List<CustomApp>> GetAppsByProjectAsync(Guid projectId)
+    public async Task<List<SnCustomApp>> GetAppsByProjectAsync(Guid projectId)
     {
         return await db.CustomApps
             .Where(a => a.ProjectId == projectId)
             .ToListAsync();
     }
 
-    public async Task<CustomApp?> UpdateAppAsync(CustomApp app, CustomAppController.CustomAppRequest request)
+    public async Task<SnCustomApp?> UpdateAppAsync(SnCustomApp app, CustomAppController.CustomAppRequest request)
     {
         if (request.Slug is not null)
             app.Slug = request.Slug;

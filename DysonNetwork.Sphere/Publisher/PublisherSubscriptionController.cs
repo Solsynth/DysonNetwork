@@ -1,6 +1,5 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -51,7 +50,7 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/subscribe")]
     [Authorize]
-    public async Task<ActionResult<PublisherSubscription>> Subscribe(
+    public async Task<ActionResult<SnPublisherSubscription>> Subscribe(
         string name,
         [FromBody] SubscribeRequest request)
     {
@@ -104,7 +103,7 @@ public class PublisherSubscriptionController(
     /// <returns>List of active subscriptions</returns>
     [HttpGet("subscriptions")]
     [Authorize]
-    public async Task<ActionResult<List<PublisherSubscription>>> GetCurrentSubscriptions()
+    public async Task<ActionResult<List<SnPublisherSubscription>>> GetCurrentSubscriptions()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 

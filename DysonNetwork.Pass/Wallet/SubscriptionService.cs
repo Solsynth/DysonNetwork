@@ -6,11 +6,9 @@ using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Google.Protobuf.WellKnownTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
-using AccountService = DysonNetwork.Pass.Account.AccountService;
 using Duration = NodaTime.Duration;
 
 namespace DysonNetwork.Pass.Wallet;
@@ -18,7 +16,7 @@ namespace DysonNetwork.Pass.Wallet;
 public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
-    AccountService accounts,
+    Account.AccountService accounts,
     RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
@@ -26,11 +24,11 @@ public class SubscriptionService(
     ILogger<SubscriptionService> logger
 )
 {
-    public async Task<Subscription> CreateSubscriptionAsync(
-        Account.Account account,
+    public async Task<SnWalletSubscription> CreateSubscriptionAsync(
+        SnAccount account,
         string identifier,
         string paymentMethod,
-        PaymentDetails paymentDetails,
+        SnPaymentDetails paymentDetails,
         Duration? cycleDuration = null,
         string? coupon = null,
         bool isFreeTrial = false,
@@ -80,7 +78,7 @@ public class SubscriptionService(
                 throw new InvalidOperationException("Free trial already exists.");
         }
 
-        Coupon? couponData = null;
+        SnWalletCoupon? couponData = null;
         if (coupon is not null)
         {
             var inputCouponId = Guid.TryParse(coupon, out var parsedCouponId) ? parsedCouponId : Guid.Empty;
@@ -91,14 +89,14 @@ public class SubscriptionService(
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var subscription = new Subscription
+        var subscription = new SnWalletSubscription
         {
             BegunAt = now,
             EndedAt = now.Plus(cycleDuration.Value),
             Identifier = identifier,
             IsActive = true,
             IsFreeTrial = isFreeTrial,
-            Status = SubscriptionStatus.Unpaid,
+            Status = Shared.Models.SubscriptionStatus.Unpaid,
             PaymentMethod = paymentMethod,
             PaymentDetails = paymentDetails,
             BasePrice = subscriptionInfo.BasePrice,
@@ -114,7 +112,7 @@ public class SubscriptionService(
         return subscription;
     }
 
-    public async Task<Subscription> CreateSubscriptionFromOrder(ISubscriptionOrder order)
+    public async Task<SnWalletSubscription> CreateSubscriptionFromOrder(ISubscriptionOrder order)
     {
         var cfgSection = configuration.GetSection("Payment:Subscriptions");
         var provider = order.Provider;
@@ -141,7 +139,7 @@ public class SubscriptionService(
             throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier),
                 $@"Subscription {subscriptionIdentifier} was not found.");
 
-        Account.Account? account = null;
+        SnAccount? account = null;
         if (!string.IsNullOrEmpty(provider))
             account = await accounts.LookupAccountByConnection(order.AccountId, provider);
         else if (Guid.TryParse(order.AccountId, out var accountId))
@@ -164,7 +162,7 @@ public class SubscriptionService(
             existingSubscription.PaymentDetails.OrderId = order.Id;
             existingSubscription.EndedAt = order.BegunAt.Plus(cycleDuration);
             existingSubscription.RenewalAt = order.BegunAt.Plus(cycleDuration);
-            existingSubscription.Status = SubscriptionStatus.Active;
+            existingSubscription.Status = Shared.Models.SubscriptionStatus.Active;
 
             db.Update(existingSubscription);
             await db.SaveChangesAsync();
@@ -172,15 +170,15 @@ public class SubscriptionService(
             return existingSubscription;
         }
 
-        var subscription = new Subscription
+        var subscription = new SnWalletSubscription
         {
             BegunAt = order.BegunAt,
             EndedAt = order.BegunAt.Plus(cycleDuration),
             IsActive = true,
-            Status = SubscriptionStatus.Active,
+            Status = Shared.Models.SubscriptionStatus.Active,
             Identifier = subscriptionIdentifier,
             PaymentMethod = provider,
-            PaymentDetails = new PaymentDetails
+            PaymentDetails = new Shared.Models.SnPaymentDetails
             {
                 Currency = currency,
                 OrderId = order.Id,
@@ -205,12 +203,12 @@ public class SubscriptionService(
     /// <param name="identifier">The subscription identifier</param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException">The active subscription was not found</exception>
-    public async Task<Subscription> CancelSubscriptionAsync(Guid accountId, string identifier)
+    public async Task<SnWalletSubscription> CancelSubscriptionAsync(Guid accountId, string identifier)
     {
         var subscription = await GetSubscriptionAsync(accountId, identifier);
         if (subscription is null)
             throw new InvalidOperationException($"Subscription with identifier {identifier} was not found.");
-        if (subscription.Status != SubscriptionStatus.Active)
+        if (subscription.Status != Shared.Models.SubscriptionStatus.Active)
             throw new InvalidOperationException("Subscription is already cancelled.");
         if (subscription.RenewalAt is null)
             throw new InvalidOperationException("Subscription is no need to be cancelled.");
@@ -238,11 +236,11 @@ public class SubscriptionService(
     /// <param name="identifier">The unique subscription identifier.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the created subscription order.</returns>
     /// <exception cref="InvalidOperationException">Thrown when no matching unpaid or expired subscription is found.</exception>
-    public async Task<Order> CreateSubscriptionOrder(Guid accountId, string identifier)
+    public async Task<SnWalletOrder> CreateSubscriptionOrder(Guid accountId, string identifier)
     {
         var subscription = await db.WalletSubscriptions
             .Where(s => s.AccountId == accountId && s.Identifier == identifier)
-            .Where(s => s.Status != SubscriptionStatus.Expired)
+            .Where(s => s.Status != Shared.Models.SubscriptionStatus.Expired)
             .Include(s => s.Coupon)
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
@@ -268,9 +266,9 @@ public class SubscriptionService(
         );
     }
 
-    public async Task<Subscription> HandleSubscriptionOrder(Order order)
+    public async Task<SnWalletSubscription> HandleSubscriptionOrder(SnWalletOrder order)
     {
-        if (order.Status != OrderStatus.Paid || order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
+        if (order.Status != Shared.Models.OrderStatus.Paid || order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
             throw new InvalidOperationException("Invalid order.");
 
         var subscriptionId = Guid.TryParse(subscriptionIdJson.ToString(), out var parsedSubscriptionId)
@@ -285,7 +283,7 @@ public class SubscriptionService(
         if (subscription is null)
             throw new InvalidOperationException("Invalid order.");
 
-        if (subscription.Status == SubscriptionStatus.Expired)
+        if (subscription.Status == Shared.Models.SubscriptionStatus.Expired)
         {
             var now = SystemClock.Instance.GetCurrentInstant();
             var cycle = subscription.BegunAt.Minus(subscription.RenewalAt ?? subscription.EndedAt ?? now);
@@ -297,7 +295,7 @@ public class SubscriptionService(
             subscription.EndedAt = nextEndedAt;
         }
 
-        subscription.Status = SubscriptionStatus.Active;
+        subscription.Status = Shared.Models.SubscriptionStatus.Active;
 
         db.Update(subscription);
         await db.SaveChangesAsync();
@@ -320,7 +318,7 @@ public class SubscriptionService(
         // Find active subscriptions that have passed their end date
         var expiredSubscriptions = await db.WalletSubscriptions
             .Where(s => s.IsActive)
-            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt.HasValue && s.EndedAt.Value < now)
             .Take(batchSize)
             .ToListAsync();
@@ -330,7 +328,7 @@ public class SubscriptionService(
 
         foreach (var subscription in expiredSubscriptions)
         {
-            subscription.Status = SubscriptionStatus.Expired;
+            subscription.Status = Shared.Models.SubscriptionStatus.Expired;
 
             // Clear the cache for this subscription
             var cacheKey = $"{SubscriptionCacheKeyPrefix}{subscription.AccountId}:{subscription.Identifier}";
@@ -341,12 +339,12 @@ public class SubscriptionService(
         return expiredSubscriptions.Count;
     }
 
-    private async Task NotifySubscriptionBegun(Subscription subscription)
+    private async Task NotifySubscriptionBegun(SnWalletSubscription subscription)
     {
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == subscription.AccountId);
         if (account is null) return;
 
-        AccountService.SetCultureInfo(account);
+        Account.AccountService.SetCultureInfo(account);
 
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
@@ -378,7 +376,7 @@ public class SubscriptionService(
 
     private const string SubscriptionCacheKeyPrefix = "subscription:";
 
-    public async Task<Subscription?> GetSubscriptionAsync(Guid accountId, params string[] identifiers)
+    public async Task<SnWalletSubscription?> GetSubscriptionAsync(Guid accountId, params string[] identifiers)
     {
         // Create a unique cache key for this subscription
         var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(string.Join(",", identifiers)));
@@ -387,7 +385,7 @@ public class SubscriptionService(
         var cacheKey = $"{SubscriptionCacheKeyPrefix}{accountId}:{hashIdentifier}";
 
         // Try to get the subscription from cache first
-        var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
+        var (found, cachedSubscription) = await cache.GetAsyncWithStatus<SnWalletSubscription>(cacheKey);
         if (found && cachedSubscription != null)
         {
             return cachedSubscription;
@@ -411,12 +409,12 @@ public class SubscriptionService(
     private static readonly List<string> PerkIdentifiers =
         [SubscriptionType.Stellar, SubscriptionType.Nova, SubscriptionType.Supernova];
 
-    public async Task<Subscription?> GetPerkSubscriptionAsync(Guid accountId)
+    public async Task<SnWalletSubscription?> GetPerkSubscriptionAsync(Guid accountId)
     {
         var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{accountId}";
 
         // Try to get the subscription from cache first
-        var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
+        var (found, cachedSubscription) = await cache.GetAsyncWithStatus<SnWalletSubscription>(cacheKey);
         if (found && cachedSubscription != null)
         {
             return cachedSubscription;
@@ -426,7 +424,7 @@ public class SubscriptionService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var subscription = await db.WalletSubscriptions
             .Where(s => s.AccountId == accountId && PerkIdentifiers.Contains(s.Identifier))
-            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt == null || s.EndedAt > now)
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
@@ -439,16 +437,16 @@ public class SubscriptionService(
     }
 
 
-    public async Task<Dictionary<Guid, Subscription?>> GetPerkSubscriptionsAsync(List<Guid> accountIds)
+    public async Task<Dictionary<Guid, SnWalletSubscription?>> GetPerkSubscriptionsAsync(List<Guid> accountIds)
     {
-        var result = new Dictionary<Guid, Subscription?>();
+        var result = new Dictionary<Guid, SnWalletSubscription?>();
         var missingAccountIds = new List<Guid>();
 
         // Try to get the subscription from cache first
         foreach (var accountId in accountIds)
         {
             var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{accountId}";
-            var (found, cachedSubscription) = await cache.GetAsyncWithStatus<Subscription>(cacheKey);
+            var (found, cachedSubscription) = await cache.GetAsyncWithStatus<SnWalletSubscription>(cacheKey);
             if (found && cachedSubscription != null)
                 result[accountId] = cachedSubscription;
             else
@@ -462,7 +460,7 @@ public class SubscriptionService(
         var subscriptions = await db.WalletSubscriptions
             .Where(s => missingAccountIds.Contains(s.AccountId))
             .Where(s => PerkIdentifiers.Contains(s.Identifier))
-            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt == null || s.EndedAt > now)
             .OrderByDescending(s => s.BegunAt)
             .ToListAsync();

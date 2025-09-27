@@ -1,18 +1,14 @@
 using System.Globalization;
-using System.Text.Json;
 using DysonNetwork.Pass.Auth.OpenId;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Mailer;
-using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
-using NATS.Client.JetStream;
 using NATS.Net;
 using NodaTime;
 using OtpNet;
@@ -35,7 +31,7 @@ public class AccountService(
     INatsConnection nats
 )
 {
-    public static void SetCultureInfo(Account account)
+    public static void SetCultureInfo(SnAccount account)
     {
         SetCultureInfo(account.Language);
     }
@@ -49,12 +45,12 @@ public class AccountService(
 
     public const string AccountCachePrefix = "account:";
 
-    public async Task PurgeAccountCache(Account account)
+    public async Task PurgeAccountCache(SnAccount account)
     {
         await cache.RemoveGroupAsync($"{AccountCachePrefix}{account.Id}");
     }
 
-    public async Task<Account?> LookupAccount(string probe)
+    public async Task<SnAccount?> LookupAccount(string probe)
     {
         var account = await db.Accounts.Where(a => a.Name == probe).FirstOrDefaultAsync();
         if (account is not null) return account;
@@ -66,7 +62,7 @@ public class AccountService(
         return contact?.Account;
     }
 
-    public async Task<Account?> LookupAccountByConnection(string identifier, string provider)
+    public async Task<SnAccount?> LookupAccountByConnection(string identifier, string provider)
     {
         var connection = await db.AccountConnections
             .Where(c => c.ProvidedIdentifier == identifier && c.Provider == provider)
@@ -83,7 +79,7 @@ public class AccountService(
         return profile?.Level;
     }
 
-    public async Task<Account> CreateAccount(
+    public async Task<SnAccount> CreateAccount(
         string name,
         string nick,
         string email,
@@ -99,39 +95,39 @@ public class AccountService(
             throw new InvalidOperationException("Account name has already been taken.");
 
         var dupeEmailCount = await db.AccountContacts
-            .Where(c => c.Content == email && c.Type == AccountContactType.Email
+            .Where(c => c.Content == email && c.Type == Shared.Models.AccountContactType.Email
             ).CountAsync();
         if (dupeEmailCount > 0)
             throw new InvalidOperationException("Account email has already been used.");
 
-        var account = new Account
+        var account = new SnAccount
         {
             Name = name,
             Nick = nick,
             Language = language,
             Region = region,
-            Contacts = new List<AccountContact>
-            {
+            Contacts =
+            [
                 new()
                 {
-                    Type = AccountContactType.Email,
+                    Type = Shared.Models.AccountContactType.Email,
                     Content = email,
                     VerifiedAt = isEmailVerified ? SystemClock.Instance.GetCurrentInstant() : null,
                     IsPrimary = true
                 }
-            },
+            ],
             AuthFactors = password is not null
-                ? new List<AccountAuthFactor>
+                ? new List<SnAccountAuthFactor>
                 {
-                    new AccountAuthFactor
+                    new SnAccountAuthFactor
                     {
-                        Type = AccountAuthFactorType.Password,
+                        Type = Shared.Models.AccountAuthFactorType.Password,
                         Secret = password,
                         EnabledAt = SystemClock.Instance.GetCurrentInstant()
                     }.HashSecret()
                 }
                 : [],
-            Profile = new AccountProfile()
+            Profile = new SnAccountProfile()
         };
 
         if (isActivated)
@@ -166,7 +162,7 @@ public class AccountService(
         return account;
     }
 
-    public async Task<Account> CreateAccount(OidcUserInfo userInfo)
+    public async Task<SnAccount> CreateAccount(OidcUserInfo userInfo)
     {
         if (string.IsNullOrEmpty(userInfo.Email))
             throw new ArgumentException("Email is required for account creation");
@@ -190,7 +186,7 @@ public class AccountService(
         );
     }
 
-    public async Task<Account> CreateBotAccount(Account account, Guid automatedId, string? pictureId,
+    public async Task<SnAccount> CreateBotAccount(SnAccount account, Guid automatedId, string? pictureId,
         string? backgroundId)
     {
         var dupeAutomateCount = await db.Accounts.Where(a => a.AutomatedId == automatedId).CountAsync();
@@ -239,12 +235,12 @@ public class AccountService(
         return account;
     }
 
-    public async Task<Account?> GetBotAccount(Guid automatedId)
+    public async Task<SnAccount?> GetBotAccount(Guid automatedId)
     {
         return await db.Accounts.FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
     }
 
-    public async Task RequestAccountDeletion(Account account)
+    public async Task RequestAccountDeletion(SnAccount account)
     {
         var spell = await spells.CreateMagicSpell(
             account,
@@ -256,7 +252,7 @@ public class AccountService(
         await spells.NotifyMagicSpell(spell);
     }
 
-    public async Task RequestPasswordReset(Account account)
+    public async Task RequestPasswordReset(SnAccount account)
     {
         var spell = await spells.CreateMagicSpell(
             account,
@@ -268,7 +264,7 @@ public class AccountService(
         await spells.NotifyMagicSpell(spell);
     }
 
-    public async Task<bool> CheckAuthFactorExists(Account account, AccountAuthFactorType type)
+    public async Task<bool> CheckAuthFactorExists(SnAccount account, Shared.Models.AccountAuthFactorType type)
     {
         var isExists = await db.AccountAuthFactors
             .Where(x => x.AccountId == account.Id && x.Type == type)
@@ -276,45 +272,45 @@ public class AccountService(
         return isExists;
     }
 
-    public async Task<AccountAuthFactor?> CreateAuthFactor(Account account, AccountAuthFactorType type, string? secret)
+    public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account, Shared.Models.AccountAuthFactorType type, string? secret)
     {
-        AccountAuthFactor? factor = null;
+        SnAccountAuthFactor? factor = null;
         switch (type)
         {
-            case AccountAuthFactorType.Password:
+            case Shared.Models.AccountAuthFactorType.Password:
                 if (string.IsNullOrWhiteSpace(secret)) throw new ArgumentNullException(nameof(secret));
-                factor = new AccountAuthFactor
+                factor = new SnAccountAuthFactor
                 {
-                    Type = AccountAuthFactorType.Password,
+                    Type = Shared.Models.AccountAuthFactorType.Password,
                     Trustworthy = 1,
                     AccountId = account.Id,
                     Secret = secret,
                     EnabledAt = SystemClock.Instance.GetCurrentInstant(),
                 }.HashSecret();
                 break;
-            case AccountAuthFactorType.EmailCode:
-                factor = new AccountAuthFactor
+            case Shared.Models.AccountAuthFactorType.EmailCode:
+                factor = new SnAccountAuthFactor
                 {
-                    Type = AccountAuthFactorType.EmailCode,
+                    Type = Shared.Models.AccountAuthFactorType.EmailCode,
                     Trustworthy = 2,
                     EnabledAt = SystemClock.Instance.GetCurrentInstant(),
                 };
                 break;
-            case AccountAuthFactorType.InAppCode:
-                factor = new AccountAuthFactor
+            case Shared.Models.AccountAuthFactorType.InAppCode:
+                factor = new SnAccountAuthFactor
                 {
-                    Type = AccountAuthFactorType.InAppCode,
+                    Type = Shared.Models.AccountAuthFactorType.InAppCode,
                     Trustworthy = 1,
                     EnabledAt = SystemClock.Instance.GetCurrentInstant()
                 };
                 break;
-            case AccountAuthFactorType.TimedCode:
+            case Shared.Models.AccountAuthFactorType.TimedCode:
                 var skOtp = KeyGeneration.GenerateRandomKey(20);
                 var skOtp32 = Base32Encoding.ToString(skOtp);
-                factor = new AccountAuthFactor
+                factor = new SnAccountAuthFactor
                 {
                     Secret = skOtp32,
-                    Type = AccountAuthFactorType.TimedCode,
+                    Type = Shared.Models.AccountAuthFactorType.TimedCode,
                     Trustworthy = 2,
                     EnabledAt = null, // It needs to be tired once to enable
                     CreatedResponse = new Dictionary<string, object>
@@ -328,13 +324,13 @@ public class AccountService(
                     }
                 };
                 break;
-            case AccountAuthFactorType.PinCode:
+            case Shared.Models.AccountAuthFactorType.PinCode:
                 if (string.IsNullOrWhiteSpace(secret)) throw new ArgumentNullException(nameof(secret));
                 if (!secret.All(char.IsDigit) || secret.Length != 6)
                     throw new ArgumentException("PIN code must be exactly 6 digits");
-                factor = new AccountAuthFactor
+                factor = new SnAccountAuthFactor
                 {
-                    Type = AccountAuthFactorType.PinCode,
+                    Type = Shared.Models.AccountAuthFactorType.PinCode,
                     Trustworthy = 0, // Only for confirming, can't be used for login
                     Secret = secret,
                     EnabledAt = SystemClock.Instance.GetCurrentInstant(),
@@ -351,10 +347,10 @@ public class AccountService(
         return factor;
     }
 
-    public async Task<AccountAuthFactor> EnableAuthFactor(AccountAuthFactor factor, string? code)
+    public async Task<SnAccountAuthFactor> EnableAuthFactor(SnAccountAuthFactor factor, string? code)
     {
         if (factor.EnabledAt is not null) throw new ArgumentException("The factor has been enabled.");
-        if (factor.Type is AccountAuthFactorType.Password or AccountAuthFactorType.TimedCode)
+        if (factor.Type is Shared.Models.AccountAuthFactorType.Password or Shared.Models.AccountAuthFactorType.TimedCode)
         {
             if (code is null || !factor.VerifyPassword(code))
                 throw new InvalidOperationException(
@@ -369,7 +365,7 @@ public class AccountService(
         return factor;
     }
 
-    public async Task<AccountAuthFactor> DisableAuthFactor(AccountAuthFactor factor)
+    public async Task<SnAccountAuthFactor> DisableAuthFactor(SnAccountAuthFactor factor)
     {
         if (factor.EnabledAt is null) throw new ArgumentException("The factor has been disabled.");
 
@@ -387,7 +383,7 @@ public class AccountService(
         return factor;
     }
 
-    public async Task DeleteAuthFactor(AccountAuthFactor factor)
+    public async Task DeleteAuthFactor(SnAccountAuthFactor factor)
     {
         var count = await db.AccountAuthFactors
             .Where(f => f.AccountId == factor.AccountId)
@@ -405,13 +401,13 @@ public class AccountService(
     /// </summary>
     /// <param name="account">The owner of the auth factor</param>
     /// <param name="factor">The auth factor needed to send code</param>
-    public async Task SendFactorCode(Account account, AccountAuthFactor factor)
+    public async Task SendFactorCode(SnAccount account, SnAccountAuthFactor factor)
     {
         var code = new Random().Next(100000, 999999).ToString("000000");
 
         switch (factor.Type)
         {
-            case AccountAuthFactorType.InAppCode:
+            case Shared.Models.AccountAuthFactorType.InAppCode:
                 if (await _GetFactorCode(factor) is not null)
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
 
@@ -430,12 +426,12 @@ public class AccountService(
                 );
                 await _SetFactorCode(factor, code, TimeSpan.FromMinutes(5));
                 break;
-            case AccountAuthFactorType.EmailCode:
+            case Shared.Models.AccountAuthFactorType.EmailCode:
                 if (await _GetFactorCode(factor) is not null)
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
 
                 var contact = await db.AccountContacts
-                    .Where(c => c.Type == AccountContactType.Email)
+                    .Where(c => c.Type == Shared.Models.AccountContactType.Email)
                     .Where(c => c.VerifiedAt != null)
                     .Where(c => c.IsPrimary)
                     .Where(c => c.AccountId == account.Id)
@@ -464,27 +460,27 @@ public class AccountService(
 
                 await _SetFactorCode(factor, code, TimeSpan.FromMinutes(30));
                 break;
-            case AccountAuthFactorType.Password:
-            case AccountAuthFactorType.TimedCode:
+            case Shared.Models.AccountAuthFactorType.Password:
+            case Shared.Models.AccountAuthFactorType.TimedCode:
             default:
                 // No need to send, such as password etc...
                 return;
         }
     }
 
-    public async Task<bool> VerifyFactorCode(AccountAuthFactor factor, string code)
+    public async Task<bool> VerifyFactorCode(SnAccountAuthFactor factor, string code)
     {
         switch (factor.Type)
         {
-            case AccountAuthFactorType.EmailCode:
-            case AccountAuthFactorType.InAppCode:
+            case Shared.Models.AccountAuthFactorType.EmailCode:
+            case Shared.Models.AccountAuthFactorType.InAppCode:
                 var correctCode = await _GetFactorCode(factor);
                 var isCorrect = correctCode is not null &&
                                 string.Equals(correctCode, code, StringComparison.OrdinalIgnoreCase);
                 await cache.RemoveAsync($"{AuthFactorCachePrefix}{factor.Id}:code");
                 return isCorrect;
-            case AccountAuthFactorType.Password:
-            case AccountAuthFactorType.TimedCode:
+            case Shared.Models.AccountAuthFactorType.Password:
+            case Shared.Models.AccountAuthFactorType.TimedCode:
             default:
                 return factor.VerifyPassword(code);
         }
@@ -492,7 +488,7 @@ public class AccountService(
 
     private const string AuthFactorCachePrefix = "authfactor:";
 
-    private async Task _SetFactorCode(AccountAuthFactor factor, string code, TimeSpan expires)
+    private async Task _SetFactorCode(SnAccountAuthFactor factor, string code, TimeSpan expires)
     {
         await cache.SetAsync(
             $"{AuthFactorCachePrefix}{factor.Id}:code",
@@ -501,7 +497,7 @@ public class AccountService(
         );
     }
 
-    private async Task<string?> _GetFactorCode(AccountAuthFactor factor)
+    private async Task<string?> _GetFactorCode(SnAccountAuthFactor factor)
     {
         return await cache.GetAsync<string?>(
             $"{AuthFactorCachePrefix}{factor.Id}:code"
@@ -515,7 +511,7 @@ public class AccountService(
             .AnyAsync(s => s.Challenge.ClientId == id);
     }
 
-    public async Task<SnAuthClient> UpdateDeviceName(Account account, string deviceId, string label)
+    public async Task<SnAuthClient> UpdateDeviceName(SnAccount account, string deviceId, string label)
     {
         var device = await db.AuthClients.FirstOrDefaultAsync(c => c.DeviceId == deviceId && c.AccountId == account.Id
         );
@@ -528,7 +524,7 @@ public class AccountService(
         return device;
     }
 
-    public async Task DeleteSession(Account account, Guid sessionId)
+    public async Task DeleteSession(SnAccount account, Guid sessionId)
     {
         var session = await db.AuthSessions
             .Include(s => s.Challenge)
@@ -554,7 +550,7 @@ public class AccountService(
         await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{session.Id}");
     }
 
-    public async Task DeleteDevice(Account account, string deviceId)
+    public async Task DeleteDevice(SnAccount account, string deviceId)
     {
         var device = await db.AuthClients.FirstOrDefaultAsync(c => c.DeviceId == deviceId && c.AccountId == account.Id
         );
@@ -584,7 +580,7 @@ public class AccountService(
             await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{item.Id}");
     }
 
-    public async Task<AccountContact> CreateContactMethod(Account account, AccountContactType type, string content)
+    public async Task<SnAccountContact> CreateContactMethod(SnAccount account, Shared.Models.AccountContactType type, string content)
     {
         var isExists = await db.AccountContacts
             .Where(x => x.AccountId == account.Id && x.Type == type && x.Content == content)
@@ -592,7 +588,7 @@ public class AccountService(
         if (isExists)
             throw new InvalidOperationException("Contact method already exists.");
 
-        var contact = new AccountContact
+        var contact = new SnAccountContact
         {
             Type = type,
             Content = content,
@@ -605,7 +601,7 @@ public class AccountService(
         return contact;
     }
 
-    public async Task VerifyContactMethod(Account account, AccountContact contact)
+    public async Task VerifyContactMethod(SnAccount account, SnAccountContact contact)
     {
         var spell = await spells.CreateMagicSpell(
             account,
@@ -617,7 +613,7 @@ public class AccountService(
         await spells.NotifyMagicSpell(spell);
     }
 
-    public async Task<AccountContact> SetContactMethodPrimary(Account account, AccountContact contact)
+    public async Task<SnAccountContact> SetContactMethodPrimary(SnAccount account, SnAccountContact contact)
     {
         if (contact.AccountId != account.Id)
             throw new InvalidOperationException("Contact method does not belong to this account.");
@@ -646,7 +642,7 @@ public class AccountService(
         }
     }
 
-    public async Task<AccountContact> SetContactMethodPublic(Account account, AccountContact contact, bool isPublic)
+    public async Task<SnAccountContact> SetContactMethodPublic(SnAccount account, SnAccountContact contact, bool isPublic)
     {
         contact.IsPublic = isPublic;
         db.AccountContacts.Update(contact);
@@ -654,7 +650,7 @@ public class AccountService(
         return contact;
     }
 
-    public async Task DeleteContactMethod(Account account, AccountContact contact)
+    public async Task DeleteContactMethod(SnAccount account, SnAccountContact contact)
     {
         if (contact.AccountId != account.Id)
             throw new InvalidOperationException("Contact method does not belong to this account.");
@@ -669,7 +665,7 @@ public class AccountService(
     /// This method will grant a badge to the account.
     /// Shouldn't be exposed to normal user and the user itself.
     /// </summary>
-    public async Task<AccountBadge> GrantBadge(Account account, AccountBadge badge)
+    public async Task<SnAccountBadge> GrantBadge(SnAccount account, SnAccountBadge badge)
     {
         badge.AccountId = account.Id;
         db.Badges.Add(badge);
@@ -681,14 +677,12 @@ public class AccountService(
     /// This method will revoke a badge from the account.
     /// Shouldn't be exposed to normal user and the user itself.
     /// </summary>
-    public async Task RevokeBadge(Account account, Guid badgeId)
+    public async Task RevokeBadge(SnAccount account, Guid badgeId)
     {
         var badge = await db.Badges
             .Where(b => b.AccountId == account.Id && b.Id == badgeId)
             .OrderByDescending(b => b.CreatedAt)
-            .FirstOrDefaultAsync();
-        if (badge is null) throw new InvalidOperationException("Badge was not found.");
-
+            .FirstOrDefaultAsync() ?? throw new InvalidOperationException("Badge was not found.");
         var profile = await db.AccountProfiles
             .Where(p => p.AccountId == account.Id)
             .FirstOrDefaultAsync();
@@ -699,7 +693,7 @@ public class AccountService(
         await db.SaveChangesAsync();
     }
 
-    public async Task ActiveBadge(Account account, Guid badgeId)
+    public async Task ActiveBadge(SnAccount account, Guid badgeId)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
 
@@ -733,7 +727,7 @@ public class AccountService(
         }
     }
 
-    public async Task DeleteAccount(Account account)
+    public async Task DeleteAccount(SnAccount account)
     {
         await db.AuthSessions
             .Where(s => s.AccountId == account.Id)

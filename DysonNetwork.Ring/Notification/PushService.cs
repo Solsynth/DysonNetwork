@@ -124,7 +124,7 @@ public class PushService
         if (actionUri is not null) meta["action_uri"] = actionUri;
 
         var accountId = account.Id;
-        var notification = new Notification
+        var notification = new SnNotification
         {
             Topic = topic,
             Title = title,
@@ -144,7 +144,7 @@ public class PushService
             _ = _queueService.EnqueuePushNotification(notification, Guid.Parse(accountId), save);
     }
 
-    public async Task DeliverPushNotification(Notification notification, CancellationToken cancellationToken = default)
+    public async Task DeliverPushNotification(SnNotification notification, CancellationToken cancellationToken = default)
     {
         WebSocketService.SendPacketToAccount(notification.AccountId, new WebSocketPacket()
         {
@@ -194,7 +194,7 @@ public class PushService
         }
     }
 
-    public async Task MarkNotificationsViewed(ICollection<Notification> notifications)
+    public async Task MarkNotificationsViewed(ICollection<SnNotification> notifications)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var id = notifications.Where(n => n.ViewedAt == null).Select(n => n.Id).ToList();
@@ -214,12 +214,12 @@ public class PushService
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
-    public async Task SendNotificationBatch(Notification notification, List<Guid> accounts, bool save = false)
+    public async Task SendNotificationBatch(SnNotification notification, List<Guid> accounts, bool save = false)
     {
         if (save)
         {
             var now = SystemClock.Instance.GetCurrentInstant();
-            var notifications = accounts.Select(accountId => new Notification
+            var notifications = accounts.Select(accountId => new SnNotification
             {
                 Topic = notification.Topic,
                 Title = notification.Title,
@@ -260,7 +260,7 @@ public class PushService
         await DeliverPushNotification(notification);
     }
 
-    private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription, Notification notification)
+    private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription, SnNotification notification)
     {
         try
         {
@@ -358,15 +358,15 @@ public class PushService
             $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}");
     }
 
-    public async Task SaveNotification(Notification notification)
+    public async Task SaveNotification(SnNotification notification)
     {
         _db.Notifications.Add(notification);
         await _db.SaveChangesAsync();
     }
 
-    public async Task SaveNotification(Notification notification, List<Guid> accounts)
+    public async Task SaveNotification(SnNotification notification, List<Guid> accounts)
     {
-        _db.Notifications.AddRange(accounts.Select(a => new Notification
+        _db.Notifications.AddRange(accounts.Select(a => new SnNotification
         {
             AccountId = a,
             Topic = notification.Topic,

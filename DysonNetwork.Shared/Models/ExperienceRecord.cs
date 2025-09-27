@@ -3,7 +3,7 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
-public class ExperienceRecord : ModelBase
+public class SnExperienceRecord : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string ReasonType { get; set; } = string.Empty;

@@ -31,12 +31,12 @@ public class ActivityService(
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
 
-    public async Task<List<Activity>> GetActivitiesForAnyone(
+    public async Task<List<SnActivity>> GetActivitiesForAnyone(
         int take,
         Instant? cursor,
         HashSet<string>? debugInclude = null)
     {
-        var activities = new List<Activity>();
+        var activities = new List<SnActivity>();
         debugInclude ??= new HashSet<string>();
 
         // Get and process posts
@@ -55,7 +55,7 @@ public class ActivityService(
         var posts = await GetAndProcessPosts(postsQuery);
         posts = RankPosts(posts, take);
 
-        var interleaved = new List<Activity>();
+        var interleaved = new List<SnActivity>();
         var random = new Random();
         foreach (var post in posts)
         {
@@ -73,19 +73,19 @@ public class ActivityService(
         activities.AddRange(interleaved);
 
         if (activities.Count == 0)
-            activities.Add(Activity.Empty());
+            activities.Add(SnActivity.Empty());
 
         return activities;
     }
 
-    public async Task<List<Activity>> GetActivities(
+    public async Task<List<SnActivity>> GetActivities(
         int take,
         Instant? cursor,
         Account currentUser,
         string? filter = null,
         HashSet<string>? debugInclude = null)
     {
-        var activities = new List<Activity>();
+        var activities = new List<SnActivity>();
         debugInclude ??= new HashSet<string>();
 
         // Get user's friends and publishers
@@ -124,7 +124,7 @@ public class ActivityService(
 
         posts = RankPosts(posts, take);
 
-        var interleaved = new List<Activity>();
+        var interleaved = new List<SnActivity>();
         var random = new Random();
         foreach (var post in posts)
         {
@@ -141,15 +141,15 @@ public class ActivityService(
         activities.AddRange(interleaved);
 
         if (activities.Count == 0)
-            activities.Add(Activity.Empty());
+            activities.Add(SnActivity.Empty());
 
         return activities;
     }
 
-    private async Task<Activity?> MaybeGetDiscoveryActivity(HashSet<string> debugInclude, Instant? cursor)
+    private async Task<SnActivity?> MaybeGetDiscoveryActivity(HashSet<string> debugInclude, Instant? cursor)
     {
         if (cursor != null) return null;
-        var options = new List<Func<Task<Activity?>>>();
+        var options = new List<Func<Task<SnActivity?>>>();
         if (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2)
             options.Add(() => GetRealmDiscoveryActivity());
         if (debugInclude.Contains("publishers") || Random.Shared.NextDouble() < 0.2)
@@ -200,7 +200,7 @@ public class ActivityService(
             .ToList();
     }
 
-    private async Task<Activity?> GetRealmDiscoveryActivity(int count = 5)
+    private async Task<SnActivity?> GetRealmDiscoveryActivity(int count = 5)
     {
         var realms = await ds.GetCommunityRealmAsync(null, count, 0, true);
         return realms.Count > 0
@@ -208,7 +208,7 @@ public class ActivityService(
             : null;
     }
 
-    private async Task<Activity?> GetPublisherDiscoveryActivity(int count = 5)
+    private async Task<SnActivity?> GetPublisherDiscoveryActivity(int count = 5)
     {
         var popularPublishers = await GetPopularPublishers(count);
         return popularPublishers.Count > 0
@@ -217,7 +217,7 @@ public class ActivityService(
             : null;
     }
 
-    private async Task<Activity?> GetShuffledPostsActivity(int count = 5)
+    private async Task<SnActivity?> GetShuffledPostsActivity(int count = 5)
     {
         var postsQuery = db.Posts
             .Include(p => p.Categories)
@@ -234,7 +234,7 @@ public class ActivityService(
             : new DiscoveryActivity(posts.Select(x => new DiscoveryItem("post", x)).ToList()).ToActivity();
     }
 
-    private async Task<Activity?> GetArticleDiscoveryActivity(int count = 5, int feedSampleSize = 10)
+    private async Task<SnActivity?> GetArticleDiscoveryActivity(int count = 5, int feedSampleSize = 10)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var today = now.InZone(DateTimeZone.Utc).Date;

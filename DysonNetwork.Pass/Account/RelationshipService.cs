@@ -1,5 +1,6 @@
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -26,7 +27,7 @@ public class RelationshipService(
         return count > 0;
     }
 
-    public async Task<Relationship?> GetRelationship(
+    public async Task<SnAccountRelationship?> GetRelationship(
         Guid accountId,
         Guid relatedId,
         RelationshipStatus? status = null,
@@ -42,7 +43,7 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<Relationship> CreateRelationship(Account sender, Account target, RelationshipStatus status)
+    public async Task<SnAccountRelationship> CreateRelationship(SnAccount sender, SnAccount target, RelationshipStatus status)
     {
         if (status == RelationshipStatus.Pending)
             throw new InvalidOperationException(
@@ -50,7 +51,7 @@ public class RelationshipService(
         if (await HasExistingRelationship(sender.Id, target.Id))
             throw new InvalidOperationException("Found existing relationship between you and target user.");
 
-        var relationship = new Relationship
+        var relationship = new SnAccountRelationship
         {
             AccountId = sender.Id,
             RelatedId = target.Id,
@@ -65,14 +66,14 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<Relationship> BlockAccount(Account sender, Account target)
+    public async Task<SnAccountRelationship> BlockAccount(SnAccount sender, SnAccount target)
     {
         if (await HasExistingRelationship(sender.Id, target.Id))
             return await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
         return await CreateRelationship(sender, target, RelationshipStatus.Blocked);
     }
 
-    public async Task<Relationship> UnblockAccount(Account sender, Account target)
+    public async Task<SnAccountRelationship> UnblockAccount(SnAccount sender, SnAccount target)
     {
         var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
@@ -84,12 +85,12 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<Relationship> SendFriendRequest(Account sender, Account target)
+    public async Task<SnAccountRelationship> SendFriendRequest(SnAccount sender, SnAccount target)
     {
         if (await HasExistingRelationship(sender.Id, target.Id))
             throw new InvalidOperationException("Found existing relationship between you and target user.");
 
-        var relationship = new Relationship
+        var relationship = new SnAccountRelationship
         {
             AccountId = sender.Id,
             RelatedId = target.Id,
@@ -128,8 +129,8 @@ public class RelationshipService(
         await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId);
     }
 
-    public async Task<Relationship> AcceptFriendRelationship(
-        Relationship relationship,
+    public async Task<SnAccountRelationship> AcceptFriendRelationship(
+        SnAccountRelationship relationship,
         RelationshipStatus status = RelationshipStatus.Friends
     )
     {
@@ -144,7 +145,7 @@ public class RelationshipService(
         relationship.ExpiredAt = null;
         db.Update(relationship);
 
-        var relationshipBackward = new Relationship
+        var relationshipBackward = new SnAccountRelationship
         {
             AccountId = relationship.RelatedId,
             RelatedId = relationship.AccountId,
@@ -159,7 +160,7 @@ public class RelationshipService(
         return relationshipBackward;
     }
 
-    public async Task<Relationship> UpdateRelationship(Guid accountId, Guid relatedId, RelationshipStatus status)
+    public async Task<SnAccountRelationship> UpdateRelationship(Guid accountId, Guid relatedId, RelationshipStatus status)
     {
         var relationship = await GetRelationship(accountId, relatedId);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
@@ -173,7 +174,7 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<List<Guid>> ListAccountFriends(Account account)
+    public async Task<List<Guid>> ListAccountFriends(SnAccount account)
     {
         return await ListAccountFriends(account.Id);
     }
@@ -197,7 +198,7 @@ public class RelationshipService(
         return friends ?? [];
     }
 
-    public async Task<List<Guid>> ListAccountBlocked(Account account)
+    public async Task<List<Guid>> ListAccountBlocked(SnAccount account)
     {
         return await ListAccountBlocked(account.Id);
     }

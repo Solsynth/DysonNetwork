@@ -23,7 +23,7 @@ public class RealmController(
 ) : Controller
 {
     [HttpGet("{slug}")]
-    public async Task<ActionResult<Realm>> GetRealm(string slug)
+    public async Task<ActionResult<SnRealm>> GetRealm(string slug)
     {
         var realm = await db.Realms
             .Where(e => e.Slug == slug)
@@ -35,7 +35,7 @@ public class RealmController(
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Realm>>> ListJoinedRealms()
+    public async Task<ActionResult<List<SnRealm>>> ListJoinedRealms()
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -143,7 +143,7 @@ public class RealmController(
 
     [HttpPost("invites/{slug}/accept")]
     [Authorize]
-    public async Task<ActionResult<Realm>> AcceptMemberInvite(string slug)
+    public async Task<ActionResult<SnRealm>> AcceptMemberInvite(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -345,7 +345,7 @@ public class RealmController(
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Realm>> CreateRealm(RealmRequest request)
+    public async Task<ActionResult<SnRealm>> CreateRealm(RealmRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
@@ -354,7 +354,7 @@ public class RealmController(
         var slugExists = await db.Realms.AnyAsync(r => r.Slug == request.Slug);
         if (slugExists) return BadRequest("Realm with this slug already exists.");
 
-        var realm = new Realm
+        var realm = new SnRealm
         {
             Name = request.Name!,
             Slug = request.Slug!,
@@ -433,7 +433,7 @@ public class RealmController(
 
     [HttpPatch("{slug}")]
     [Authorize]
-    public async Task<ActionResult<Realm>> Update(string slug, [FromBody] RealmRequest request)
+    public async Task<ActionResult<SnRealm>> Update(string slug, [FromBody] RealmRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 

@@ -22,7 +22,7 @@ public class BotAccountReceiverGrpc(
         ServerCallContext context
     )
     {
-        var account = Account.FromProtoValue(request.Account);
+        var account = SnAccount.FromProtoValue(request.Account);
         account = await accounts.CreateBotAccount(
             account,
             Guid.Parse(request.AutomatedId),
@@ -48,7 +48,7 @@ public class BotAccountReceiverGrpc(
         ServerCallContext context
     )
     {
-        var account = Account.FromProtoValue(request.Account);
+        var account = SnAccount.FromProtoValue(request.Account);
 
         if (request.PictureId is not null)
         {

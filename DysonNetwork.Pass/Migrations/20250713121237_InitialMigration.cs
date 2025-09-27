@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text.Json;
-using DysonNetwork.Pass.Account;
+﻿using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NetTopologySuite.Geometries;
@@ -157,7 +154,7 @@ namespace DysonNetwork.Pass.Migrations
                     level = table.Column<int>(type: "integer", nullable: false),
                     reward_points = table.Column<decimal>(type: "numeric", nullable: true),
                     reward_experience = table.Column<int>(type: "integer", nullable: true),
-                    tips = table.Column<ICollection<FortuneTip>>(type: "jsonb", nullable: false),
+                    tips = table.Column<ICollection<CheckInFortuneTip>>(type: "jsonb", nullable: false),
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -242,7 +239,7 @@ namespace DysonNetwork.Pass.Migrations
                     birthday = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     last_seen_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
-                    active_badge = table.Column<BadgeReferenceObject>(type: "jsonb", nullable: true),
+                    active_badge = table.Column<SnAccountBadge>(type: "jsonb", nullable: true),
                     experience = table.Column<int>(type: "integer", nullable: false),
                     picture_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     background_id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
@@ -593,7 +590,7 @@ namespace DysonNetwork.Pass.Migrations
                     is_free_trial = table.Column<bool>(type: "boolean", nullable: false),
                     status = table.Column<int>(type: "integer", nullable: false),
                     payment_method = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
-                    payment_details = table.Column<PaymentDetails>(type: "jsonb", nullable: false),
+                    payment_details = table.Column<SnPaymentDetails>(type: "jsonb", nullable: false),
                     base_price = table.Column<decimal>(type: "numeric", nullable: false),
                     coupon_id = table.Column<Guid>(type: "uuid", nullable: true),
                     renewal_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),

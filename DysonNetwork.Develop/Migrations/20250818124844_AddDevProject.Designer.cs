@@ -51,7 +51,7 @@ namespace DysonNetwork.Develop.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
 
-                    b.Property<CustomAppLinks>("Links")
+                    b.Property<SnCustomAppLinks>("Links")
                         .HasColumnType("jsonb")
                         .HasColumnName("links");
 
@@ -61,7 +61,7 @@ namespace DysonNetwork.Develop.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
-                    b.Property<CustomAppOauthConfig>("OauthConfig")
+                    b.Property<SnCustomAppOauthConfig>("OauthConfig")
                         .HasColumnType("jsonb")
                         .HasColumnName("oauth_config");
 

@@ -93,7 +93,7 @@ public class PublisherController(
     public class PublisherMemberRequest
     {
         [Required] public long RelatedUserId { get; set; }
-        [Required] public PublisherMemberRole Role { get; set; }
+        [Required] public Shared.Models.PublisherMemberRole Role { get; set; }
     }
 
     [HttpPost("invites/{name}")]
@@ -226,7 +226,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         var accountId = Guid.Parse(currentUser.Id);
         if (member is null) return NotFound("Member was not found");
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Manager))
             return StatusCode(403, "You need at least be a manager to remove members from this publisher.");
 
         db.PublisherMembers.Remove(member);
@@ -428,7 +428,7 @@ public class PublisherController(
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < PublisherMemberRole.Manager)
+        if (member.Role < Shared.Models.PublisherMemberRole.Manager)
             return StatusCode(403, "You need at least be the manager to update the publisher profile.");
 
         if (request.Name is not null) publisher.Name = request.Name;
@@ -532,7 +532,7 @@ public class PublisherController(
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < PublisherMemberRole.Owner)
+        if (member.Role < Shared.Models.PublisherMemberRole.Owner)
             return StatusCode(403, "You need to be the owner to delete the publisher.");
 
         var publisherResourceId = $"publisher:{publisher.Id}";
@@ -659,7 +659,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         if (publisher is null) return NotFound();
 
-        var feature = new PublisherFeature
+        var feature = new SnPublisherFeature
         {
             PublisherId = publisher.Id,
             Flag = request.Flag,

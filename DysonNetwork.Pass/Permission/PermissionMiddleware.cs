@@ -1,6 +1,7 @@
 namespace DysonNetwork.Pass.Permission;
 
 using System;
+using DysonNetwork.Shared.Models;
 
 [AttributeUsage(AttributeTargets.Method)]
 public class RequiredPermissionAttribute(string area, string key) : Attribute
@@ -21,7 +22,7 @@ public class PermissionMiddleware(RequestDelegate next)
 
         if (attr != null)
         {
-            if (httpContext.Items["CurrentUser"] is not Account.Account currentUser)
+            if (httpContext.Items["CurrentUser"] is not SnAccount currentUser)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await httpContext.Response.WriteAsync("Unauthorized");

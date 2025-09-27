@@ -2,9 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Permission;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -24,16 +22,16 @@ public class AppDatabase(
     public DbSet<SnPermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
 
     public DbSet<SnMagicSpell> MagicSpells { get; set; } = null!;
-    public DbSet<Account.Account> Accounts { get; set; } = null!;
-    public DbSet<AccountConnection> AccountConnections { get; set; } = null!;
+    public DbSet<SnAccount> Accounts { get; set; } = null!;
+    public DbSet<SnAccountConnection> AccountConnections { get; set; } = null!;
     public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
-    public DbSet<AccountContact> AccountContacts { get; set; } = null!;
-    public DbSet<AccountAuthFactor> AccountAuthFactors { get; set; } = null!;
+    public DbSet<SnAccountContact> AccountContacts { get; set; } = null!;
+    public DbSet<SnAccountAuthFactor> AccountAuthFactors { get; set; } = null!;
     public DbSet<SnAccountRelationship> AccountRelationships { get; set; } = null!;
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
-    public DbSet<ActionLog> ActionLogs { get; set; } = null!;
+    public DbSet<SnActionLog> ActionLogs { get; set; } = null!;
     public DbSet<SnAbuseReport> AbuseReports { get; set; } = null!;
 
     public DbSet<SnAuthSession> AuthSessions { get; set; } = null!;
@@ -41,17 +39,17 @@ public class AppDatabase(
     public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
     public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
 
-    public DbSet<Shared.Models.SnWallet> Wallets { get; set; } = null!;
+    public DbSet<SnWallet> Wallets { get; set; } = null!;
     public DbSet<SnWalletPocket> WalletPockets { get; set; } = null!;
     public DbSet<SnWalletOrder> PaymentOrders { get; set; } = null!;
     public DbSet<SnWalletTransaction> PaymentTransactions { get; set; } = null!;
-    public DbSet<SnSubscription> WalletSubscriptions { get; set; } = null!;
-    public DbSet<Coupon> WalletCoupons { get; set; } = null!;
+    public DbSet<SnWalletSubscription> WalletSubscriptions { get; set; } = null!;
+    public DbSet<SnWalletCoupon> WalletCoupons { get; set; } = null!;
 
     public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;
 
-    public DbSet<SocialCreditRecord> SocialCreditRecords { get; set; } = null!;
-    public DbSet<ExperienceRecord> ExperienceRecords { get; set; } = null!;
+    public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
+    public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

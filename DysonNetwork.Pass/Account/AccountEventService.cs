@@ -37,10 +37,10 @@ public class AccountEventService(
         cache.RemoveAsync(cacheKey);
     }
 
-    public async Task<Status> GetStatus(Guid userId)
+    public async Task<SnAccountStatus> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
-        var cachedStatus = await cache.GetAsync<Status>(cacheKey);
+        var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
         if (cachedStatus is not null)
         {
             cachedStatus!.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
@@ -64,9 +64,9 @@ public class AccountEventService(
 
         if (isOnline)
         {
-            return new Status
+            return new SnAccountStatus
             {
-                Attitude = StatusAttitude.Neutral,
+                Attitude = Shared.Models.StatusAttitude.Neutral,
                 IsOnline = true,
                 IsCustomized = false,
                 Label = "Online",
@@ -74,9 +74,9 @@ public class AccountEventService(
             };
         }
 
-        return new Status
+        return new SnAccountStatus
         {
-            Attitude = StatusAttitude.Neutral,
+            Attitude = Shared.Models.StatusAttitude.Neutral,
             IsOnline = false,
             IsCustomized = false,
             Label = "Offline",
@@ -84,15 +84,15 @@ public class AccountEventService(
         };
     }
 
-    public async Task<Dictionary<Guid, Status>> GetStatuses(List<Guid> userIds)
+    public async Task<Dictionary<Guid, SnAccountStatus>> GetStatuses(List<Guid> userIds)
     {
-        var results = new Dictionary<Guid, Status>();
+        var results = new Dictionary<Guid, SnAccountStatus>();
         var cacheMissUserIds = new List<Guid>();
 
         foreach (var userId in userIds)
         {
             var cacheKey = $"{StatusCacheKey}{userId}";
-            var cachedStatus = await cache.GetAsync<Status>(cacheKey);
+            var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
             if (cachedStatus != null)
             {
                 cachedStatus.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
@@ -132,9 +132,9 @@ public class AccountEventService(
                 foreach (var userId in usersWithoutStatus)
                 {
                     var isOnline = await GetAccountIsConnected(userId);
-                    var defaultStatus = new Status
+                    var defaultStatus = new SnAccountStatus
                     {
-                        Attitude = StatusAttitude.Neutral,
+                        Attitude = Shared.Models.StatusAttitude.Neutral,
                         IsOnline = isOnline,
                         IsCustomized = false,
                         Label = isOnline ? "Online" : "Offline",
@@ -148,7 +148,7 @@ public class AccountEventService(
         return results;
     }
 
-    public async Task<Status> CreateStatus(Account user, Status status)
+    public async Task<SnAccountStatus> CreateStatus(SnAccount user, SnAccountStatus status)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         await db.AccountStatuses
@@ -161,7 +161,7 @@ public class AccountEventService(
         return status;
     }
 
-    public async Task ClearStatus(Account user, Status status)
+    public async Task ClearStatus(SnAccount user, SnAccountStatus status)
     {
         status.ClearedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(status);
@@ -173,7 +173,7 @@ public class AccountEventService(
     private const string CaptchaCacheKey = "checkin:captcha:";
     private const int CaptchaProbabilityPercent = 20;
 
-    public async Task<bool> CheckInDailyDoAskCaptcha(Account user)
+    public async Task<bool> CheckInDailyDoAskCaptcha(SnAccount user)
     {
         var perkSubscription = await subscriptions.GetPerkSubscriptionAsync(user.Id);
         if (perkSubscription is not null) return false;
@@ -188,7 +188,7 @@ public class AccountEventService(
         return result;
     }
 
-    public async Task<bool> CheckInDailyIsAvailable(Account user)
+    public async Task<bool> CheckInDailyIsAvailable(SnAccount user)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var lastCheckIn = await db.AccountCheckInResults
@@ -205,7 +205,7 @@ public class AccountEventService(
         return lastDate < currentDate;
     }
 
-    public async Task<bool> CheckInBackdatedIsAvailable(Account user, Instant backdated)
+    public async Task<bool> CheckInBackdatedIsAvailable(SnAccount user, Instant backdated)
     {
         var aDay = Duration.FromDays(1);
         var backdatedStart = backdated.ToDateTimeUtc().Date.ToInstant();
@@ -253,7 +253,7 @@ public class AccountEventService(
 
     public const string CheckInLockKey = "checkin:lock:";
 
-    public async Task<CheckInResult> CheckInDaily(Account user, Instant? backdated = null)
+    public async Task<SnCheckInResult> CheckInDaily(SnAccount user, Instant? backdated = null)
     {
         var lockKey = $"{CheckInLockKey}{user.Id}";
 
@@ -271,9 +271,7 @@ public class AccountEventService(
 
         // Now try to acquire the lock properly
         await using var lockObj =
-            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5));
-        if (lockObj is null) throw new InvalidOperationException("Check-in was in progress.");
-
+            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5)) ?? throw new InvalidOperationException("Check-in was in progress.");
         var cultureInfo = new CultureInfo(user.Language, false);
         CultureInfo.CurrentCulture = cultureInfo;
         CultureInfo.CurrentUICulture = cultureInfo;
@@ -283,9 +281,10 @@ public class AccountEventService(
             .OrderBy(_ => Random.Next())
             .Take(2)
             .ToList();
-        var tips = positiveIndices.Select(index => new FortuneTip
+        var tips = positiveIndices.Select(index => new CheckInFortuneTip
         {
-            IsPositive = true, Title = localizer[$"FortuneTipPositiveTitle_{index}"].Value,
+            IsPositive = true,
+            Title = localizer[$"FortuneTipPositiveTitle_{index}"].Value,
             Content = localizer[$"FortuneTipPositiveContent_{index}"].Value
         }).ToList();
 
@@ -295,9 +294,10 @@ public class AccountEventService(
             .OrderBy(_ => Random.Next())
             .Take(2)
             .ToList();
-        tips.AddRange(negativeIndices.Select(index => new FortuneTip
+        tips.AddRange(negativeIndices.Select(index => new CheckInFortuneTip
         {
-            IsPositive = false, Title = localizer[$"FortuneTipNegativeTitle_{index}"].Value,
+            IsPositive = false,
+            Title = localizer[$"FortuneTipNegativeTitle_{index}"].Value,
             Content = localizer[$"FortuneTipNegativeContent_{index}"].Value
         }));
 
@@ -313,7 +313,7 @@ public class AccountEventService(
         if (accountBirthday.HasValue && accountBirthday.Value.InUtc().Date == now)
             checkInLevel = CheckInResultLevel.Special;
 
-        var result = new CheckInResult
+        var result = new SnCheckInResult
         {
             Tips = tips,
             Level = checkInLevel,
@@ -323,7 +323,7 @@ public class AccountEventService(
             BackdatedFrom = backdated.HasValue ? SystemClock.Instance.GetCurrentInstant() : null,
             CreatedAt = backdated ?? SystemClock.Instance.GetCurrentInstant(),
         };
-        
+
         try
         {
             if (result.RewardPoints.HasValue)
@@ -354,7 +354,7 @@ public class AccountEventService(
         return result;
     }
 
-    public async Task<List<DailyEventResponse>> GetEventCalendar(Account user, int month, int year = 0,
+    public async Task<List<DailyEventResponse>> GetEventCalendar(SnAccount user, int month, int year = 0,
         bool replaceInvisible = false)
     {
         if (year == 0)
@@ -368,7 +368,7 @@ public class AccountEventService(
             .AsNoTracking()
             .TagWith("eventcal:statuses")
             .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
-            .Select(x => new Status
+            .Select(x => new SnAccountStatus
             {
                 Id = x.Id,
                 Attitude = x.Attitude,
@@ -406,7 +406,7 @@ public class AccountEventService(
             {
                 Date = date,
                 CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
-                Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<Status>())
+                Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<SnAccountStatus>())
             };
         }).ToList();
     }

@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,8 +13,7 @@ public class AuthService(
     IConfiguration config,
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
-    ICacheService cache,
-    ILogger<AuthService> logger
+    ICacheService cache
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
@@ -28,7 +26,7 @@ public class AuthService(
     /// <param name="request">The request context</param>
     /// <param name="account">The account to login</param>
     /// <returns>The required steps to login</returns>
-    public async Task<int> DetectChallengeRisk(HttpRequest request, Account.Account account)
+    public async Task<int> DetectChallengeRisk(HttpRequest request, SnAccount account)
     {
         // 1) Find out how many authentication factors the account has enabled.
         var maxSteps = await db.AccountAuthFactors
@@ -77,7 +75,7 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<SnAuthSession> CreateSessionForOidcAsync(Account.Account account, Instant time,
+    public async Task<SnAuthSession> CreateSessionForOidcAsync(SnAccount account, Instant time,
         Guid? customAppId = null)
     {
         var challenge = new SnAuthChallenge

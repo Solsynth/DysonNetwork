@@ -1,5 +1,4 @@
-﻿using System;
-using DysonNetwork.Shared.Models;
+﻿using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 

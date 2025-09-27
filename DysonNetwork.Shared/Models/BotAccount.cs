@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using DysonNetwork.Shared.Data;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;

@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Account = DysonNetwork.Shared.Data.SnAccount;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -147,7 +146,7 @@ public class ChatRoomService(
     public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
-        member.Account = Account.FromProtoValue(account);
+        member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
 
@@ -156,11 +155,11 @@ public class ChatRoomService(
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
-        return members.Select(m =>
+        return [.. members.Select(m =>
         {
             if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = Account.FromProtoValue(account);
+                m.Account = SnAccount.FromProtoValue(account);
             return m;
-        }).ToList();
+        })];
     }
 }

@@ -50,7 +50,7 @@ public class MagicSpellController(AppDatabase db, MagicSpellService sp) : Contro
             return NotFound();
         try
         {
-            if (spell.Type == MagicSpellType.AuthPasswordReset && request?.NewPassword is not null)
+            if (spell.Type == Shared.Models.MagicSpellType.AuthPasswordReset && request?.NewPassword is not null)
                 await sp.ApplyPasswordReset(spell, request.NewPassword);
             else
                 await sp.ApplyMagicSpell(spell);

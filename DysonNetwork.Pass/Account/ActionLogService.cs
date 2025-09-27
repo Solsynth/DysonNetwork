@@ -8,7 +8,7 @@ public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
 {
     public void CreateActionLog(Guid accountId, string action, Dictionary<string, object?> meta)
     {
-        var log = new ActionLog
+        var log = new SnActionLog
         {
             Action = action,
             AccountId = accountId,
@@ -19,9 +19,9 @@ public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
     }
 
     public void CreateActionLogFromRequest(string action, Dictionary<string, object> meta, HttpRequest request,
-        Account? account = null)
+        SnAccount? account = null)
     {
-        var log = new ActionLog
+        var log = new SnActionLog
         {
             Action = action,
             Meta = meta,
@@ -30,7 +30,7 @@ public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
             Location = geo.GetPointFromIp(request.HttpContext.Connection.RemoteIpAddress?.ToString())
         };
         
-        if (request.HttpContext.Items["CurrentUser"] is Account currentUser)
+        if (request.HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             log.AccountId = currentUser.Id;
         else if (account != null)
             log.AccountId = account.Id;

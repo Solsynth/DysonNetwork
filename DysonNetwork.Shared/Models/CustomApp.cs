@@ -5,8 +5,6 @@ using Google.Protobuf.WellKnownTypes;
 using NodaTime.Serialization.Protobuf;
 using NodaTime;
 
-using SnVerificationMark = DysonNetwork.Shared.Models.SnVerificationMark;
-
 namespace DysonNetwork.Shared.Models;
 
 public enum CustomAppStatus
@@ -29,8 +27,8 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
 
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
-    [Column(TypeName = "jsonb")] public CustomAppOauthConfig? OauthConfig { get; set; }
-    [Column(TypeName = "jsonb")] public CustomAppLinks? Links { get; set; }
+    [Column(TypeName = "jsonb")] public SnCustomAppOauthConfig? OauthConfig { get; set; }
+    [Column(TypeName = "jsonb")] public SnCustomAppLinks? Links { get; set; }
 
     [JsonIgnore] public ICollection<SnCustomAppSecret> Secrets { get; set; } = new List<SnCustomAppSecret>();
 
@@ -105,7 +103,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
         if (p.Verification is not null) Verification = SnVerificationMark.FromProtoValue(p.Verification);
         if (p.Links is not null)
         {
-            Links = new CustomAppLinks
+            Links = new SnCustomAppLinks
             {
                 HomePage = string.IsNullOrEmpty(p.Links.HomePage) ? null : p.Links.HomePage,
                 PrivacyPolicy = string.IsNullOrEmpty(p.Links.PrivacyPolicy) ? null : p.Links.PrivacyPolicy,
@@ -116,14 +114,14 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
     }
 }
 
-public class CustomAppLinks
+public class SnCustomAppLinks
 {
     [MaxLength(8192)] public string? HomePage { get; set; }
     [MaxLength(8192)] public string? PrivacyPolicy { get; set; }
     [MaxLength(8192)] public string? TermsOfService { get; set; }
 }
 
-public class CustomAppOauthConfig
+public class SnCustomAppOauthConfig
 {
     [MaxLength(1024)] public string? ClientUri { get; set; }
     [MaxLength(4096)] public string[] RedirectUris { get; set; } = [];

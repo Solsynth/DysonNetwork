@@ -28,11 +28,11 @@ public class AccountCurrentController(
 ) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType<Account>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<Account>> GetCurrentIdentity()
+    public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var account = await db.Accounts
@@ -55,9 +55,9 @@ public class AccountCurrentController(
     }
 
     [HttpPatch]
-    public async Task<ActionResult<Account>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
+    public async Task<ActionResult<SnAccount>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var account = await db.Accounts.FirstAsync(a => a.Id == currentUser.Id);
 
@@ -88,9 +88,9 @@ public class AccountCurrentController(
     }
 
     [HttpPatch("profile")]
-    public async Task<ActionResult<AccountProfile>> UpdateProfile([FromBody] ProfileRequest request)
+    public async Task<ActionResult<SnAccountProfile>> UpdateProfile([FromBody] ProfileRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var profile = await db.AccountProfiles
@@ -163,7 +163,7 @@ public class AccountCurrentController(
     [HttpDelete]
     public async Task<ActionResult> RequestDeleteAccount()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -184,18 +184,18 @@ public class AccountCurrentController(
     }
 
     [HttpGet("statuses")]
-    public async Task<ActionResult<Status>> GetCurrentStatus()
+    public async Task<ActionResult<SnAccountStatus>> GetCurrentStatus()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var status = await events.GetStatus(currentUser.Id);
         return Ok(status);
     }
 
     [HttpPatch("statuses")]
     [RequiredPermission("global", "accounts.statuses.update")]
-    public async Task<ActionResult<Status>> UpdateStatus([FromBody] AccountController.StatusRequest request)
+    public async Task<ActionResult<SnAccountStatus>> UpdateStatus([FromBody] AccountController.StatusRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (request is { IsAutomated: true, AppIdentifier: not null })
             return BadRequest("Automated status cannot be updated.");
 
@@ -227,9 +227,9 @@ public class AccountCurrentController(
 
     [HttpPost("statuses")]
     [RequiredPermission("global", "accounts.statuses.create")]
-    public async Task<ActionResult<Status>> CreateStatus([FromBody] AccountController.StatusRequest request)
+    public async Task<ActionResult<SnAccountStatus>> CreateStatus([FromBody] AccountController.StatusRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         if (request is { IsAutomated: true, AppIdentifier: not null })
         {
@@ -261,7 +261,7 @@ public class AccountCurrentController(
                 return Ok(existingStatus); // Do not override manually set status with automated ones
         }
 
-        var status = new Status
+        var status = new SnAccountStatus
         {
             AccountId = currentUser.Id,
             Attitude = request.Attitude,
@@ -280,7 +280,7 @@ public class AccountCurrentController(
     [HttpDelete("statuses")]
     public async Task<ActionResult> DeleteStatus([FromQuery] string? app)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var queryable = db.AccountStatuses
@@ -301,9 +301,9 @@ public class AccountCurrentController(
     }
 
     [HttpGet("check-in")]
-    public async Task<ActionResult<CheckInResult>> GetCheckInResult()
+    public async Task<ActionResult<SnCheckInResult>> GetCheckInResult()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -323,12 +323,12 @@ public class AccountCurrentController(
     }
 
     [HttpPost("check-in")]
-    public async Task<ActionResult<CheckInResult>> DoCheckIn(
+    public async Task<ActionResult<SnCheckInResult>> DoCheckIn(
         [FromBody] string? captchaToken,
         [FromQuery] Instant? backdated = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         if (backdated is null)
         {
@@ -399,7 +399,7 @@ public class AccountCurrentController(
     public async Task<ActionResult<List<DailyEventResponse>>> GetEventCalendar([FromQuery] int? month,
         [FromQuery] int? year)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
         month ??= currentDate.Month;
@@ -428,7 +428,7 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var query = db.ActionLogs
             .Where(log => log.AccountId == currentUser.Id)
@@ -446,9 +446,9 @@ public class AccountCurrentController(
     }
 
     [HttpGet("factors")]
-    public async Task<ActionResult<List<AccountAuthFactor>>> GetAuthFactors()
+    public async Task<ActionResult<List<SnAccountAuthFactor>>> GetAuthFactors()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var factors = await db.AccountAuthFactors
             .Include(f => f.Account)
@@ -460,15 +460,15 @@ public class AccountCurrentController(
 
     public class AuthFactorRequest
     {
-        public AccountAuthFactorType Type { get; set; }
+        public Shared.Models.AccountAuthFactorType Type { get; set; }
         public string? Secret { get; set; }
     }
 
     [HttpPost("factors")]
     [Authorize]
-    public async Task<ActionResult<AccountAuthFactor>> CreateAuthFactor([FromBody] AuthFactorRequest request)
+    public async Task<ActionResult<SnAccountAuthFactor>> CreateAuthFactor([FromBody] AuthFactorRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (await accounts.CheckAuthFactorExists(currentUser, request.Type))
             return BadRequest(new ApiError
             {
@@ -484,9 +484,9 @@ public class AccountCurrentController(
 
     [HttpPost("factors/{id:guid}/enable")]
     [Authorize]
-    public async Task<ActionResult<AccountAuthFactor>> EnableAuthFactor(Guid id, [FromBody] string? code)
+    public async Task<ActionResult<SnAccountAuthFactor>> EnableAuthFactor(Guid id, [FromBody] string? code)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var factor = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id && f.Id == id)
@@ -513,9 +513,9 @@ public class AccountCurrentController(
 
     [HttpPost("factors/{id:guid}/disable")]
     [Authorize]
-    public async Task<ActionResult<AccountAuthFactor>> DisableAuthFactor(Guid id)
+    public async Task<ActionResult<SnAccountAuthFactor>> DisableAuthFactor(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var factor = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id && f.Id == id)
@@ -535,9 +535,9 @@ public class AccountCurrentController(
 
     [HttpDelete("factors/{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<AccountAuthFactor>> DeleteAuthFactor(Guid id)
+    public async Task<ActionResult<SnAccountAuthFactor>> DeleteAuthFactor(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var factor = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id && f.Id == id)
@@ -559,7 +559,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<List<SnAuthClientWithChallenge>>> GetDevices()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
@@ -589,7 +589,7 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         var query = db.AuthSessions
@@ -614,7 +614,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<SnAuthSession>> DeleteSession(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -631,7 +631,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<SnAuthSession>> DeleteDevice(string deviceId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -648,7 +648,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<SnAuthSession>> DeleteCurrentSession()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         try
@@ -666,7 +666,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<SnAuthSession>> UpdateDeviceLabel(string deviceId, [FromBody] string label)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -683,7 +683,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<SnAuthSession>> UpdateCurrentDeviceLabel([FromBody] string label)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser ||
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.Challenge.ClientId);
@@ -702,9 +702,9 @@ public class AccountCurrentController(
 
     [HttpGet("contacts")]
     [Authorize]
-    public async Task<ActionResult<List<AccountContact>>> GetContacts()
+    public async Task<ActionResult<List<SnAccountContact>>> GetContacts()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var contacts = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id)
@@ -715,15 +715,15 @@ public class AccountCurrentController(
 
     public class AccountContactRequest
     {
-        [Required] public AccountContactType Type { get; set; }
+        [Required] public Shared.Models.AccountContactType Type { get; set; }
         [Required] public string Content { get; set; } = null!;
     }
 
     [HttpPost("contacts")]
     [Authorize]
-    public async Task<ActionResult<AccountContact>> CreateContact([FromBody] AccountContactRequest request)
+    public async Task<ActionResult<SnAccountContact>> CreateContact([FromBody] AccountContactRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -738,9 +738,9 @@ public class AccountCurrentController(
 
     [HttpPost("contacts/{id:guid}/verify")]
     [Authorize]
-    public async Task<ActionResult<AccountContact>> VerifyContact(Guid id)
+    public async Task<ActionResult<SnAccountContact>> VerifyContact(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var contact = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id && c.Id == id)
@@ -760,9 +760,9 @@ public class AccountCurrentController(
 
     [HttpPost("contacts/{id:guid}/primary")]
     [Authorize]
-    public async Task<ActionResult<AccountContact>> SetPrimaryContact(Guid id)
+    public async Task<ActionResult<SnAccountContact>> SetPrimaryContact(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var contact = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id && c.Id == id)
@@ -782,9 +782,9 @@ public class AccountCurrentController(
 
     [HttpPost("contacts/{id:guid}/public")]
     [Authorize]
-    public async Task<ActionResult<AccountContact>> SetPublicContact(Guid id)
+    public async Task<ActionResult<SnAccountContact>> SetPublicContact(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var contact = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id && c.Id == id)
@@ -804,9 +804,9 @@ public class AccountCurrentController(
 
     [HttpDelete("contacts/{id:guid}/public")]
     [Authorize]
-    public async Task<ActionResult<AccountContact>> UnsetPublicContact(Guid id)
+    public async Task<ActionResult<SnAccountContact>> UnsetPublicContact(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var contact = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id && c.Id == id)
@@ -826,9 +826,9 @@ public class AccountCurrentController(
 
     [HttpDelete("contacts/{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<AccountContact>> DeleteContact(Guid id)
+    public async Task<ActionResult<SnAccountContact>> DeleteContact(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var contact = await db.AccountContacts
             .Where(c => c.AccountId == currentUser.Id && c.Id == id)
@@ -847,11 +847,11 @@ public class AccountCurrentController(
     }
 
     [HttpGet("badges")]
-    [ProducesResponseType<List<AccountBadge>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<List<SnAccountBadge>>(StatusCodes.Status200OK)]
     [Authorize]
-    public async Task<ActionResult<List<AccountBadge>>> GetBadges()
+    public async Task<ActionResult<List<SnAccountBadge>>> GetBadges()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var badges = await db.Badges
             .Where(b => b.AccountId == currentUser.Id)
@@ -861,9 +861,9 @@ public class AccountCurrentController(
 
     [HttpPost("badges/{id:guid}/active")]
     [Authorize]
-    public async Task<ActionResult<AccountBadge>> ActivateBadge(Guid id)
+    public async Task<ActionResult<SnAccountBadge>> ActivateBadge(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -878,12 +878,12 @@ public class AccountCurrentController(
 
     [HttpGet("leveling")]
     [Authorize]
-    public async Task<ActionResult<ExperienceRecord>> GetLevelingHistory(
+    public async Task<ActionResult<SnExperienceRecord>> GetLevelingHistory(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var queryable = db.ExperienceRecords
             .Where(r => r.AccountId == currentUser.Id)
@@ -903,7 +903,7 @@ public class AccountCurrentController(
     [HttpGet("credits")]
     public async Task<ActionResult<bool>> GetSocialCredit()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var credit = await creditService.GetSocialCredit(currentUser.Id);
         return Ok(credit);
@@ -915,7 +915,7 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var queryable = db.SocialCreditRecords
             .Where(r => r.AccountId == currentUser.Id)

@@ -9,7 +9,7 @@ namespace DysonNetwork.Pass.Handlers;
 public class LastActiveInfo
 {
     public SnAuthSession Session { get; set; } = null!;
-    public Account.Account Account { get; set; } = null!;
+    public SnAccount Account { get; set; } = null!;
     public Instant SeenAt { get; set; }
 }
 

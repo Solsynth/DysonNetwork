@@ -75,11 +75,11 @@ public class DeveloperController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        PublisherInfo? pub;
+        SnPublisher? pub;
         try
         {
             var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Name = name });
-            pub = PublisherInfo.FromProto(pubResponse.Publisher);
+            pub = SnPublisher.FromProto(pubResponse.Publisher);
         } catch (RpcException ex)
         {
             return NotFound(ex.Status.Detail);
@@ -90,7 +90,7 @@ public class DeveloperController(
         {
             PublisherId = pub.Id.ToString(),
             AccountId = currentUser.Id,
-            Role = PublisherMemberRole.Owner
+            Role = Shared.Proto.PublisherMemberRole.Owner
         });
         if (!permResponse.Valid) return StatusCode(403, "You must be the owner of the publisher to join the developer program");
 

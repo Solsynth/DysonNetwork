@@ -1,5 +1,4 @@
-﻿using System;
-using DysonNetwork.Shared.Models;
+﻿using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 
@@ -37,8 +36,8 @@ namespace DysonNetwork.Develop.Migrations
                     picture = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     background = table.Column<SnCloudFileReferenceObject>(type: "jsonb", nullable: true),
                     verification = table.Column<SnVerificationMark>(type: "jsonb", nullable: true),
-                    oauth_config = table.Column<CustomAppOauthConfig>(type: "jsonb", nullable: true),
-                    links = table.Column<CustomAppLinks>(type: "jsonb", nullable: true),
+                    oauth_config = table.Column<SnCustomAppOauthConfig>(type: "jsonb", nullable: true),
+                    links = table.Column<SnCustomAppLinks>(type: "jsonb", nullable: true),
                     developer_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),

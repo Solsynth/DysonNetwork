@@ -13,9 +13,9 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 {
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Wallet>> CreateWallet()
+    public async Task<ActionResult<SnWallet>> CreateWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -30,9 +30,9 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<Wallet>> GetWallet()
+    public async Task<ActionResult<SnWallet>> GetWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var wallet = await ws.GetWalletAsync(currentUser.Id);
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
@@ -45,7 +45,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
@@ -72,7 +72,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         
         var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();

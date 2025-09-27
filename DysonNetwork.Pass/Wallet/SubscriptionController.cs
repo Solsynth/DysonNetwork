@@ -15,12 +15,12 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 {
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<SnSubscription>>> ListSubscriptions(
+    public async Task<ActionResult<List<SnWalletSubscription>>> ListSubscriptions(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var query = db.WalletSubscriptions.AsQueryable()
             .Where(s => s.AccountId == currentUser.Id)
@@ -41,9 +41,9 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpGet("fuzzy/{prefix}")]
     [Authorize]
-    public async Task<ActionResult<SnSubscription>> GetSubscriptionFuzzy(string prefix)
+    public async Task<ActionResult<SnWalletSubscription>> GetSubscriptionFuzzy(string prefix)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var subscription = await db.WalletSubscriptions
             .Where(s => s.AccountId == currentUser.Id && s.IsActive)
@@ -57,9 +57,9 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpGet("{identifier}")]
     [Authorize]
-    public async Task<ActionResult<SnSubscription>> GetSubscription(string identifier)
+    public async Task<ActionResult<SnWalletSubscription>> GetSubscription(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var subscription = await subscriptions.GetSubscriptionAsync(currentUser.Id, identifier);
         if (subscription is null) return NotFound($"Subscription with identifier {identifier} was not found.");
@@ -71,7 +71,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     {
         [Required] public string Identifier { get; set; } = null!;
         [Required] public string PaymentMethod { get; set; } = null!;
-        [Required] public PaymentDetails PaymentDetails { get; set; } = null!;
+        [Required] public SnPaymentDetails PaymentDetails { get; set; } = null!;
         public string? Coupon { get; set; }
         public int? CycleDurationDays { get; set; }
         public bool IsFreeTrial { get; set; } = false;
@@ -80,12 +80,12 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<SnSubscription>> CreateSubscription(
+    public async Task<ActionResult<SnWalletSubscription>> CreateSubscription(
         [FromBody] CreateSubscriptionRequest request,
         [FromHeader(Name = "X-Noop")] bool noop = false
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         Duration? cycleDuration = null;
         if (request.CycleDurationDays.HasValue)
@@ -119,9 +119,9 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
 
     [HttpPost("{identifier}/cancel")]
     [Authorize]
-    public async Task<ActionResult<SnSubscription>> CancelSubscription(string identifier)
+    public async Task<ActionResult<SnWalletSubscription>> CancelSubscription(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {
@@ -138,7 +138,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     [Authorize]
     public async Task<ActionResult<SnWalletOrder>> CreateSubscriptionOrder(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         try
         {

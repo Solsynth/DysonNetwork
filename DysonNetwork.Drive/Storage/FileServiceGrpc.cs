@@ -1,4 +1,4 @@
-using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -48,7 +48,7 @@ namespace DysonNetwork.Drive.Storage
         {
             // Assuming CloudFileReferenceObject is a simple class/struct that holds an ID
             // You might need to define this or adjust the LoadFromReference method in FileService
-            var references = request.ReferenceIds.Select(id => new CloudFileReferenceObject { Id = id }).ToList();
+            var references = request.ReferenceIds.Select(id => new SnCloudFileReferenceObject { Id = id }).ToList();
             var files = await fileService.LoadFromReference(references);
             var response = new LoadFromReferenceResponse();
             response.Files.AddRange(files.Where(f => f != null).Select(f => f!.ToProtoValue()));

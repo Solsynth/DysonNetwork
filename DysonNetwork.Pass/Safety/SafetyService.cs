@@ -1,4 +1,4 @@
-using DysonNetwork.Pass.Account;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -6,7 +6,7 @@ namespace DysonNetwork.Pass.Safety;
 
 public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
 {
-    public async Task<AbuseReport> CreateReport(string resourceIdentifier, AbuseReportType type, string reason, Guid accountId)
+    public async Task<SnAbuseReport> CreateReport(string resourceIdentifier, AbuseReportType type, string reason, Guid accountId)
     {
         // Check if a similar report already exists from this user
         var existingReport = await db.AbuseReports
@@ -20,7 +20,7 @@ public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
             throw new InvalidOperationException("You have already reported this content.");
         }
 
-        var report = new AbuseReport
+        var report = new SnAbuseReport
         {
             ResourceIdentifier = resourceIdentifier,
             Type = type,
@@ -52,7 +52,7 @@ public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
             .CountAsync();
     }
 
-    public async Task<List<AbuseReport>> GetReports(int offset = 0, int take = 20, bool includeResolved = false)
+    public async Task<List<SnAbuseReport>> GetReports(int offset = 0, int take = 20, bool includeResolved = false)
     {
         return await db.AbuseReports
             .Where(r => includeResolved || r.ResolvedAt == null)
@@ -63,7 +63,7 @@ public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
             .ToListAsync();
     }
 
-    public async Task<List<AbuseReport>> GetUserReports(Guid accountId, int offset = 0, int take = 20, bool includeResolved = false)
+    public async Task<List<SnAbuseReport>> GetUserReports(Guid accountId, int offset = 0, int take = 20, bool includeResolved = false)
     {
         return await db.AbuseReports
             .Where(r => r.AccountId == accountId)
@@ -74,21 +74,16 @@ public class SafetyService(AppDatabase db, ILogger<SafetyService> logger)
             .ToListAsync();
     }
 
-    public async Task<AbuseReport?> GetReportById(Guid id)
+    public async Task<SnAbuseReport?> GetReportById(Guid id)
     {
         return await db.AbuseReports
             .Include(r => r.Account)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
-    public async Task<AbuseReport> ResolveReport(Guid id, string resolution)
+    public async Task<SnAbuseReport> ResolveReport(Guid id, string resolution)
     {
-        var report = await db.AbuseReports.FindAsync(id);
-        if (report == null)
-        {
-            throw new KeyNotFoundException("Report not found");
-        }
-
+        var report = await db.AbuseReports.FindAsync(id) ?? throw new KeyNotFoundException("Report not found");
         report.ResolvedAt = SystemClock.Instance.GetCurrentInstant();
         report.Resolution = resolution;
 

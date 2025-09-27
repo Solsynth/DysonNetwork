@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Text.Json.Serialization;
 using System.Web;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -131,7 +130,7 @@ public class OidcProviderController(
         [FromForm(Name = "code_challenge_method")]
         string? codeChallengeMethod = null)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account account)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount account)
             return Unauthorized();
 
         // Find the client
@@ -303,7 +302,7 @@ public class OidcProviderController(
     [Authorize]
     public async Task<IActionResult> GetUserInfo()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser ||
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         // Get requested scopes from the token

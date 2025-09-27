@@ -1,4 +1,3 @@
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -14,21 +13,21 @@ public class BotAccountService(
     AccountClientHelper accounts
 )
 {
-    public async Task<BotAccount?> GetBotByIdAsync(Guid id)
+    public async Task<SnBotAccount?> GetBotByIdAsync(Guid id)
     {
         return await db.BotAccounts
             .Include(b => b.Project)
             .FirstOrDefaultAsync(b => b.Id == id);
     }
 
-    public async Task<IEnumerable<BotAccount>> GetBotsByProjectAsync(Guid projectId)
+    public async Task<IEnumerable<SnBotAccount>> GetBotsByProjectAsync(Guid projectId)
     {
         return await db.BotAccounts
             .Where(b => b.ProjectId == projectId)
             .ToListAsync();
     }
 
-    public async Task<BotAccount> CreateBotAsync(
+    public async Task<SnBotAccount> CreateBotAsync(
         SnDevProject project,
         string slug,
         Account account,
@@ -58,7 +57,7 @@ public class BotAccountService(
             var botAccount = createResponse.Bot;
 
             // Then create the local bot account
-            var bot = new BotAccount
+            var bot = new SnBotAccount
             {
                 Id = automatedId,
                 Slug = slug,
@@ -89,8 +88,8 @@ public class BotAccountService(
         }
     }
 
-    public async Task<BotAccount> UpdateBotAsync(
-        BotAccount bot,
+    public async Task<SnBotAccount> UpdateBotAsync(
+        SnBotAccount bot,
         Account account,
         string? pictureId,
         string? backgroundId
@@ -130,7 +129,7 @@ public class BotAccountService(
         return bot;
     }
 
-    public async Task DeleteBotAsync(BotAccount bot)
+    public async Task DeleteBotAsync(SnBotAccount bot)
     {
         try
         {
@@ -153,12 +152,12 @@ public class BotAccountService(
         await db.SaveChangesAsync();
     }
 
-    public async Task<BotAccount?> LoadBotAccountAsync(BotAccount bot) =>
+    public async Task<SnBotAccount?> LoadBotAccountAsync(SnBotAccount bot) =>
         (await LoadBotsAccountAsync([bot])).FirstOrDefault();
 
-    public async Task<List<BotAccount>> LoadBotsAccountAsync(IEnumerable<BotAccount> bots)
+    public async Task<List<SnBotAccount>> LoadBotsAccountAsync(IEnumerable<SnBotAccount> bots)
     {
-        bots = bots.ToList();
+        bots = [.. bots];
         var automatedIds = bots.Select(b => b.Id).ToList();
         var data = await accounts.GetBotAccountBatch(automatedIds);
 
@@ -169,6 +168,6 @@ public class BotAccountService(
                 .FirstOrDefault(e => e.AutomatedId == bot.Id);
         }
 
-        return bots as List<BotAccount> ?? [];
+        return bots as List<SnBotAccount> ?? [];
     }
 }

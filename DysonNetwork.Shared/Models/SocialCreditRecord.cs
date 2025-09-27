@@ -4,7 +4,7 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
-public class SocialCreditRecord : ModelBase
+public class SnSocialCreditRecord : ModelBase
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string ReasonType { get; set; } = string.Empty;

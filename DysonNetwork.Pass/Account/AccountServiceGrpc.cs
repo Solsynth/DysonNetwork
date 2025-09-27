@@ -236,7 +236,7 @@ public class AccountServiceGrpc(
         var relationship = await relationships.GetRelationship(
             Guid.Parse(request.AccountId),
             Guid.Parse(request.RelatedId),
-            status: (RelationshipStatus?)request.Status
+            status: (Shared.Models.RelationshipStatus?)request.Status
         );
         return new GetRelationshipResponse
         {
@@ -256,7 +256,7 @@ public class AccountServiceGrpc(
             hasRelationship = await relationships.HasRelationshipWithStatus(
                 Guid.Parse(request.AccountId),
                 Guid.Parse(request.RelatedId),
-                (RelationshipStatus)request.Status
+                (Shared.Models.RelationshipStatus)request.Status
             );
         return new BoolValue { Value = hasRelationship };
     }

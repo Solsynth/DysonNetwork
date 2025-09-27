@@ -1,14 +1,11 @@
 using System.Globalization;
-using System.Text.Json;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
-using NATS.Client.JetStream;
 using NATS.Net;
 using NodaTime;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
@@ -23,7 +20,7 @@ public class PaymentService(
     INatsConnection nats
 )
 {
-    public async Task<Order> CreateOrderAsync(
+    public async Task<SnWalletOrder> CreateOrderAsync(
         Guid? payeeWalletId,
         string currency,
         decimal amount,
@@ -36,11 +33,11 @@ public class PaymentService(
     )
     {
         // Check if there's an existing unpaid order that can be reused
+        var now = SystemClock.Instance.GetCurrentInstant();
         if (reuseable && appIdentifier != null)
         {
-            var now = SystemClock.Instance.GetCurrentInstant();
             var existingOrder = await db.PaymentOrders
-                .Where(o => o.Status == OrderStatus.Unpaid &&
+                .Where(o => o.Status == Shared.Models.OrderStatus.Unpaid &&
                             o.PayeeWalletId == payeeWalletId &&
                             o.Currency == currency &&
                             o.Amount == amount &&
@@ -60,13 +57,13 @@ public class PaymentService(
             }
         }
 
-        // Create a new order if no reusable order was found
-        var order = new Order
+        // Create a new SnWalletOrder if no reusable order was found
+        var order = new SnWalletOrder
         {
             PayeeWalletId = payeeWalletId,
             Currency = currency,
             Amount = amount,
-            ExpiredAt = SystemClock.Instance.GetCurrentInstant().Plus(expiration ?? Duration.FromHours(24)),
+            ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
             AppIdentifier = appIdentifier,
             ProductIdentifier = productIdentifier,
             Remarks = remarks,
@@ -78,16 +75,16 @@ public class PaymentService(
         return order;
     }
 
-    public async Task<Transaction> CreateTransactionWithAccountAsync(
+    public async Task<SnWalletTransaction> CreateTransactionWithAccountAsync(
         Guid? payerAccountId,
         Guid? payeeAccountId,
         string currency,
         decimal amount,
         string? remarks = null,
-        TransactionType type = TransactionType.System
+        Shared.Models.TransactionType type = Shared.Models.TransactionType.System
     )
     {
-        Wallet? payer = null, payee = null;
+        SnWallet? payer = null, payee = null;
         if (payerAccountId.HasValue)
             payer = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payerAccountId.Value);
         if (payeeAccountId.HasValue)
@@ -108,13 +105,13 @@ public class PaymentService(
         );
     }
 
-    public async Task<Transaction> CreateTransactionAsync(
+    public async Task<SnWalletTransaction> CreateTransactionAsync(
         Guid? payerWalletId,
         Guid? payeeWalletId,
         string currency,
         decimal amount,
         string? remarks = null,
-        TransactionType type = TransactionType.System,
+        Shared.Models.TransactionType type = Shared.Models.TransactionType.System,
         bool silent = false
     )
     {
@@ -122,7 +119,7 @@ public class PaymentService(
             throw new ArgumentException("At least one wallet must be specified.");
         if (amount <= 0) throw new ArgumentException("Cannot create transaction with negative or zero amount.");
 
-        var transaction = new Transaction
+        var transaction = new SnWalletTransaction
         {
             PayerWalletId = payerWalletId,
             PayeeWalletId = payeeWalletId,
@@ -132,7 +129,7 @@ public class PaymentService(
             Type = type
         };
 
-        Wallet? payerWallet = null, payeeWallet = null;
+        SnWallet? payerWallet = null, payeeWallet = null;
 
         if (payerWalletId.HasValue)
         {
@@ -173,7 +170,7 @@ public class PaymentService(
         return transaction;
     }
 
-    private async Task NotifyNewTransaction(Transaction transaction, Wallet? payerWallet, Wallet? payeeWallet)
+    private async Task NotifyNewTransaction(SnWalletTransaction transaction, SnWallet? payerWallet, SnWallet? payeeWallet)
     {
         if (payerWallet is not null)
         {
@@ -244,21 +241,15 @@ public class PaymentService(
         }
     }
 
-    public async Task<Order> PayOrderAsync(Guid orderId, Wallet payerWallet)
+    public async Task<SnWalletOrder> PayOrderAsync(Guid orderId, SnWallet payerWallet)
     {
         var order = await db.PaymentOrders
             .Include(o => o.Transaction)
             .Include(o => o.PayeeWallet)
-            .FirstOrDefaultAsync(o => o.Id == orderId);
-
-        if (order == null)
-        {
-            throw new InvalidOperationException("Order not found");
-        }
-
+            .FirstOrDefaultAsync(o => o.Id == orderId) ?? throw new InvalidOperationException("Order not found");
         var js = nats.CreateJetStreamContext();
 
-        if (order.Status == OrderStatus.Paid)
+        if (order.Status == Shared.Models.OrderStatus.Paid)
         {
             await js.PublishAsync(
                 PaymentOrderEventBase.Type,
@@ -277,14 +268,14 @@ public class PaymentService(
             return order;
         }
 
-        if (order.Status != OrderStatus.Unpaid)
+        if (order.Status != Shared.Models.OrderStatus.Unpaid)
         {
             throw new InvalidOperationException($"Order is in invalid status: {order.Status}");
         }
 
         if (order.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
         {
-            order.Status = OrderStatus.Expired;
+            order.Status = Shared.Models.OrderStatus.Expired;
             await db.SaveChangesAsync();
             throw new InvalidOperationException("Order has expired");
         }
@@ -295,12 +286,12 @@ public class PaymentService(
             order.Currency,
             order.Amount,
             order.Remarks ?? $"Payment for Order #{order.Id}",
-            type: TransactionType.Order,
+            type: Shared.Models.TransactionType.Order,
             silent: true);
 
         order.TransactionId = transaction.Id;
         order.Transaction = transaction;
-        order.Status = OrderStatus.Paid;
+        order.Status = Shared.Models.OrderStatus.Paid;
 
         await db.SaveChangesAsync();
 
@@ -323,7 +314,7 @@ public class PaymentService(
         return order;
     }
 
-    private async Task NotifyOrderPaid(Order order, Wallet? payerWallet, Wallet? payeeWallet)
+    private async Task NotifyOrderPaid(SnWalletOrder order, SnWallet? payerWallet, SnWallet? payeeWallet)
     {
         if (payerWallet is not null)
         {
@@ -387,7 +378,7 @@ public class PaymentService(
         }
     }
 
-    public async Task<Order> CancelOrderAsync(Guid orderId)
+    public async Task<SnWalletOrder> CancelOrderAsync(Guid orderId)
     {
         var order = await db.PaymentOrders.FindAsync(orderId);
         if (order == null)
@@ -395,28 +386,22 @@ public class PaymentService(
             throw new InvalidOperationException("Order not found");
         }
 
-        if (order.Status != OrderStatus.Unpaid)
+        if (order.Status != Shared.Models.OrderStatus.Unpaid)
         {
             throw new InvalidOperationException($"Cannot cancel order in status: {order.Status}");
         }
 
-        order.Status = OrderStatus.Cancelled;
+        order.Status = Shared.Models.OrderStatus.Cancelled;
         await db.SaveChangesAsync();
         return order;
     }
 
-    public async Task<(Order Order, Transaction RefundTransaction)> RefundOrderAsync(Guid orderId)
+    public async Task<(SnWalletOrder Order, SnWalletTransaction RefundTransaction)> RefundOrderAsync(Guid orderId)
     {
         var order = await db.PaymentOrders
             .Include(o => o.Transaction)
-            .FirstOrDefaultAsync(o => o.Id == orderId);
-
-        if (order == null)
-        {
-            throw new InvalidOperationException("Order not found");
-        }
-
-        if (order.Status != OrderStatus.Paid)
+            .FirstOrDefaultAsync(o => o.Id == orderId) ?? throw new InvalidOperationException("Order not found");
+        if (order.Status != Shared.Models.OrderStatus.Paid)
         {
             throw new InvalidOperationException($"Cannot refund order in status: {order.Status}");
         }
@@ -433,13 +418,13 @@ public class PaymentService(
             order.Amount,
             $"Refund for order {order.Id}");
 
-        order.Status = OrderStatus.Finished;
+        order.Status = Shared.Models.OrderStatus.Finished;
         await db.SaveChangesAsync();
 
         return (order, refundTransaction);
     }
 
-    public async Task<Transaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency,
+    public async Task<SnWalletTransaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency,
         decimal amount)
     {
         var payerWallet = await wat.GetWalletAsync(payerAccountId);
@@ -460,6 +445,6 @@ public class PaymentService(
             currency,
             amount,
             $"Transfer from account {payerAccountId} to {payeeAccountId}",
-            TransactionType.Transfer);
+            Shared.Models.TransactionType.Transfer);
     }
 }

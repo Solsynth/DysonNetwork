@@ -23,18 +23,18 @@ public class SnAccount : ModelBase
     public Guid? AutomatedId { get; set; }
 
     public SnAccountProfile Profile { get; set; } = null!;
-    public ICollection<AccountContact> Contacts { get; set; } = [];
+    public ICollection<SnAccountContact> Contacts { get; set; } = [];
     public ICollection<SnAccountBadge> Badges { get; set; } = [];
 
-    [JsonIgnore] public ICollection<AccountAuthFactor> AuthFactors { get; set; } = [];
-    [JsonIgnore] public ICollection<AccountConnection> Connections { get; set; } = [];
+    [JsonIgnore] public ICollection<SnAccountAuthFactor> AuthFactors { get; set; } = [];
+    [JsonIgnore] public ICollection<SnAccountConnection> Connections { get; set; } = [];
     [JsonIgnore] public ICollection<SnAuthSession> Sessions { get; set; } = [];
     [JsonIgnore] public ICollection<SnAuthChallenge> Challenges { get; set; } = [];
 
     [JsonIgnore] public ICollection<SnAccountRelationship> OutgoingRelationships { get; set; } = [];
     [JsonIgnore] public ICollection<SnAccountRelationship> IncomingRelationships { get; set; } = [];
 
-    [NotMapped] public SubscriptionReferenceObject? PerkSubscription { get; set; }
+    [NotMapped] public SnSubscriptionReferenceObject? PerkSubscription { get; set; }
 
     public Proto.Account ToProtoValue()
     {
@@ -78,7 +78,7 @@ public class SnAccount : ModelBase
             ActivatedAt = proto.ActivatedAt?.ToInstant(),
             IsSuperuser = proto.IsSuperuser,
             PerkSubscription = proto.PerkSubscription is not null
-                ? SubscriptionReferenceObject.FromProtoValue(proto.PerkSubscription)
+                ? SnSubscriptionReferenceObject.FromProtoValue(proto.PerkSubscription)
                 : null,
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant(),
@@ -87,7 +87,7 @@ public class SnAccount : ModelBase
         };
 
         foreach (var contactProto in proto.Contacts)
-            account.Contacts.Add(AccountContact.FromProtoValue(contactProto));
+            account.Contacts.Add(SnAccountContact.FromProtoValue(contactProto));
 
         foreach (var badgeProto in proto.Badges)
             account.Badges.Add(SnAccountBadge.FromProtoValue(badgeProto));
@@ -254,7 +254,7 @@ public class ProfileLink
     public string Url { get; set; } = string.Empty;
 }
 
-public class AccountContact : ModelBase
+public class SnAccountContact : ModelBase
 {
     public Guid Id { get; set; }
     public AccountContactType Type { get; set; }
@@ -289,9 +289,9 @@ public class AccountContact : ModelBase
         return proto;
     }
 
-    public static AccountContact FromProtoValue(Proto.AccountContact proto)
+    public static SnAccountContact FromProtoValue(Proto.AccountContact proto)
     {
-        var contact = new AccountContact
+        var contact = new SnAccountContact
         {
             Id = Guid.Parse(proto.Id),
             AccountId = Guid.Parse(proto.AccountId),
@@ -320,7 +320,7 @@ public enum AccountContactType
     Address
 }
 
-public class AccountAuthFactor : ModelBase
+public class SnAccountAuthFactor : ModelBase
 {
     public Guid Id { get; set; }
     public AccountAuthFactorType Type { get; set; }
@@ -343,7 +343,7 @@ public class AccountAuthFactor : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
-    public AccountAuthFactor HashSecret(int cost = 12)
+    public SnAccountAuthFactor HashSecret(int cost = 12)
     {
         if (Secret == null) return this;
         Secret = BCrypt.Net.BCrypt.HashPassword(Secret, workFactor: cost);
@@ -386,7 +386,7 @@ public enum AccountAuthFactorType
     PinCode,
 }
 
-public class AccountConnection : ModelBase
+public class SnAccountConnection : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(4096)] public string Provider { get; set; } = null!;

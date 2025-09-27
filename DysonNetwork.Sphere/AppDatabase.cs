@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -20,10 +19,10 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Shared.Models.SnPublisher> Publishers { get; set; } = null!;
-    public DbSet<PublisherMember> PublisherMembers { get; set; } = null!;
-    public DbSet<PublisherSubscription> PublisherSubscriptions { get; set; } = null!;
-    public DbSet<PublisherFeature> PublisherFeatures { get; set; } = null!;
+    public DbSet<SnPublisher> Publishers { get; set; } = null!;
+    public DbSet<SnPublisherMember> PublisherMembers { get; set; } = null!;
+    public DbSet<SnPublisherSubscription> PublisherSubscriptions { get; set; } = null!;
+    public DbSet<SnPublisherFeature> PublisherFeatures { get; set; } = null!;
 
     public DbSet<SnPost> Posts { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
@@ -72,14 +71,14 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<PublisherMember>()
+        modelBuilder.Entity<SnPublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
-        modelBuilder.Entity<PublisherMember>()
+        modelBuilder.Entity<SnPublisherMember>()
             .HasOne(pm => pm.Publisher)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<PublisherSubscription>()
+        modelBuilder.Entity<SnPublisherSubscription>()
             .HasOne(ps => ps.Publisher)
             .WithMany(p => p.Subscriptions)
             .HasForeignKey(ps => ps.PublisherId)

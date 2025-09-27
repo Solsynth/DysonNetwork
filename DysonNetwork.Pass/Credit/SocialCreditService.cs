@@ -8,9 +8,9 @@ public class SocialCreditService(AppDatabase db, ICacheService cache)
 {
     private const string CacheKeyPrefix = "account:credits:";
     
-    public async Task<SocialCreditRecord> AddRecord(string reasonType, string reason, double delta, Guid accountId)
+    public async Task<SnSocialCreditRecord> AddRecord(string reasonType, string reason, double delta, Guid accountId)
     {
-        var record = new SocialCreditRecord
+        var record = new SnSocialCreditRecord
         {
             ReasonType = reasonType,
             Reason = reason,

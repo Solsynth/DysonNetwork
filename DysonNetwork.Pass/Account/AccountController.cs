@@ -4,6 +4,7 @@ using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Error;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -23,9 +24,9 @@ public class AccountController(
 ) : ControllerBase
 {
     [HttpGet("{name}")]
-    [ProducesResponseType<Account>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<Account?>> GetByName(string name)
+    public async Task<ActionResult<SnAccount?>> GetByName(string name)
     {
         var account = await db.Accounts
             .Include(e => e.Badges)
@@ -42,9 +43,9 @@ public class AccountController(
     }
 
     [HttpGet("{name}/badges")]
-    [ProducesResponseType<List<AccountBadge>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<List<SnAccountBadge>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<List<AccountBadge>>> GetBadgesByName(string name)
+    public async Task<ActionResult<List<SnAccountBadge>>> GetBadgesByName(string name)
     {
         var account = await db.Accounts
             .Include(e => e.Badges)
@@ -103,9 +104,9 @@ public class AccountController(
     }
 
     [HttpPost]
-    [ProducesResponseType<Account>(StatusCodes.Status200OK)]
+    [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<Account>> CreateAccount([FromBody] AccountCreateRequest request)
+    public async Task<ActionResult<SnAccount>> CreateAccount([FromBody] AccountCreateRequest request)
     {
         if (!await auth.ValidateCaptcha(request.CaptchaToken))
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
@@ -199,7 +200,7 @@ public class AccountController(
     }
 
     [HttpGet("{name}/statuses")]
-    public async Task<ActionResult<Status>> GetOtherStatus(string name)
+    public async Task<ActionResult<SnAccountStatus>> GetOtherStatus(string name)
     {
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
         if (account is null)
@@ -254,7 +255,7 @@ public class AccountController(
     }
 
     [HttpGet("search")]
-    public async Task<List<Account>> Search([FromQuery] string query, [FromQuery] int take = 20)
+    public async Task<List<SnAccount>> Search([FromQuery] string query, [FromQuery] int take = 20)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];

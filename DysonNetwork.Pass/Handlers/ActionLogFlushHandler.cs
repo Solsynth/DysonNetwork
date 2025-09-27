@@ -1,14 +1,14 @@
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using EFCore.BulkExtensions;
 using NodaTime;
 using Quartz;
 
 namespace DysonNetwork.Pass.Handlers;
 
-public class ActionLogFlushHandler(IServiceProvider serviceProvider) : IFlushHandler<ActionLog>
+public class ActionLogFlushHandler(IServiceProvider serviceProvider) : IFlushHandler<SnActionLog>
 {
-    public async Task FlushAsync(IReadOnlyList<ActionLog> items)
+    public async Task FlushAsync(IReadOnlyList<SnActionLog> items)
     {
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();

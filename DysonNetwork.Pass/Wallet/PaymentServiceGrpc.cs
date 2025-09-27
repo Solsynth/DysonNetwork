@@ -14,7 +14,7 @@ public class PaymentServiceGrpc(PaymentService paymentService) : Shared.Proto.Pa
             request.Currency,
             decimal.Parse(request.Amount),
             request.Expiration is not null ? Duration.FromSeconds(request.Expiration.Seconds) : null,
-            request.HasAppIdentifier ? request.AppIdentifier : Order.InternalAppIdentifier,
+            request.HasAppIdentifier ? request.AppIdentifier : SnWalletOrder.InternalAppIdentifier,
             request.HasProductIdentifier ? request.ProductIdentifier : null,
             request.HasRemarks ? request.Remarks : null,
             request.HasMeta
@@ -34,7 +34,7 @@ public class PaymentServiceGrpc(PaymentService paymentService) : Shared.Proto.Pa
             request.Currency,
             decimal.Parse(request.Amount),
             request.HasRemarks ? request.Remarks : null,
-            (TransactionType)request.Type
+            (Shared.Models.TransactionType)request.Type
         );
         return transaction.ToProtoValue();
     }
@@ -48,7 +48,7 @@ public class PaymentServiceGrpc(PaymentService paymentService) : Shared.Proto.Pa
             request.Currency,
             decimal.Parse(request.Amount),
             request.HasRemarks ? request.Remarks : null,
-            (TransactionType)request.Type
+            (Shared.Models.TransactionType)request.Type
         );
         return transaction.ToProtoValue();
     }

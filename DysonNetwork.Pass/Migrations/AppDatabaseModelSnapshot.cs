@@ -6,6 +6,7 @@ using DysonNetwork.Pass;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -395,7 +396,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<BadgeReferenceObject>("ActiveBadge")
+                    b.Property<SnAccountBadge>("ActiveBadge")
                         .HasColumnType("jsonb")
                         .HasColumnName("active_badge");
 
@@ -589,7 +590,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("numeric")
                         .HasColumnName("reward_points");
 
-                    b.Property<ICollection<FortuneTip>>("Tips")
+                    b.Property<ICollection<CheckInFortuneTip>>("Tips")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("tips");
@@ -1481,7 +1482,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_free_trial");
 
-                    b.Property<PaymentDetails>("PaymentDetails")
+                    b.Property<SnPaymentDetails>("PaymentDetails")
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("payment_details");

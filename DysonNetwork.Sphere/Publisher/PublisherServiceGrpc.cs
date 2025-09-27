@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -27,7 +28,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         }
 
         if (p is null) throw new RpcException(new Status(StatusCode.NotFound, "Publisher not found"));
-        return new GetPublisherResponse { Publisher = p.ToProto(db) };
+        return new GetPublisherResponse { Publisher = p.ToProto() };
     }
 
     public override async Task<ListPublishersResponse> GetPublisherBatch(
@@ -42,7 +43,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         if (ids.Count == 0) return new ListPublishersResponse();
         var list = await db.Publishers.Where(p => ids.Contains(p.Id)).ToListAsync();
         var resp = new ListPublishersResponse();
-        resp.Publishers.AddRange(list.Select(p => p.ToProto(db)));
+        resp.Publishers.AddRange(list.Select(p => p.ToProto()));
         return resp;
     }
 
@@ -63,7 +64,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
 
         var list = await query.ToListAsync();
         var resp = new ListPublishersResponse();
-        resp.Publishers.AddRange(list.Select(p => p.ToProto(db)));
+        resp.Publishers.AddRange(list.Select(p => p.ToProto()));
         return resp;
     }
 

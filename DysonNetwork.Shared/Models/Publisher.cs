@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -36,17 +35,59 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [JsonIgnore] public ICollection<SnPoll> Polls { get; set; } = [];
     [JsonIgnore] public ICollection<SnPostCollection> Collections { get; set; } = [];
     [JsonIgnore] public ICollection<SnPublisherMember> Members { get; set; } = [];
-    [JsonIgnore] public ICollection<PublisherFeature> Features { get; set; } = [];
+    [JsonIgnore] public ICollection<SnPublisherFeature> Features { get; set; } = [];
 
     [JsonIgnore]
-    public ICollection<PublisherSubscription> Subscriptions { get; set; } = [];
+    public ICollection<SnPublisherSubscription> Subscriptions { get; set; } = [];
 
     public Guid? AccountId { get; set; }
     public Guid? RealmId { get; set; }
     [JsonIgnore] public SnRealm? Realm { get; set; }
-    [NotMapped] public Account? Account { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 
     public string ResourceIdentifier => $"publisher:{Id}";
+
+    public static SnPublisher FromProto(Proto.Publisher proto)
+    {
+        var publisher = new SnPublisher
+        {
+            Id = Guid.TryParse(proto.Id, out var id) ? id : Guid.NewGuid(),
+            Type = proto.Type == Shared.Proto.PublisherType.PubIndividual
+                ? PublisherType.Individual
+                : PublisherType.Organizational,
+            Name = proto.Name,
+            Nick = proto.Nick,
+            Bio = proto.Bio,
+            AccountId = Guid.TryParse(proto.AccountId, out var accountId) ? accountId : null,
+            RealmId = Guid.TryParse(proto.RealmId, out var realmId) ? realmId : null,
+        };
+
+        if (proto.Picture != null)
+        {
+            publisher.Picture = new SnCloudFileReferenceObject
+            {
+                Id = proto.Picture.Id,
+                Name = proto.Picture.Name,
+                MimeType = proto.Picture.MimeType,
+                Hash = proto.Picture.Hash,
+                Size = proto.Picture.Size,
+            };
+        }
+
+        if (proto.Background != null)
+        {
+            publisher.Background = new SnCloudFileReferenceObject
+            {
+                Id = proto.Background.Id,
+                Name = proto.Background.Name,
+                MimeType = proto.Background.MimeType,
+                Hash = proto.Background.Hash,
+                Size = proto.Background.Size,
+            };
+        }
+
+        return publisher;
+    }
 
     public Proto.Publisher ToProto()
     {
@@ -105,7 +146,7 @@ public class SnPublisherMember : ModelBase
     public Guid PublisherId { get; set; }
     [JsonIgnore] public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public Account? Account { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
@@ -137,7 +178,7 @@ public enum PublisherSubscriptionStatus
     Cancelled
 }
 
-public class PublisherSubscription : ModelBase
+public class SnPublisherSubscription : ModelBase
 {
     public Guid Id { get; set; }
 
@@ -149,7 +190,7 @@ public class PublisherSubscription : ModelBase
     public int Tier { get; set; } = 0;
 }
 
-public class PublisherFeature : ModelBase
+public class SnPublisherFeature : ModelBase
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string Flag { get; set; } = null!;

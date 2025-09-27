@@ -2,8 +2,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using DysonNetwork.Pass.Emails;
 using DysonNetwork.Pass.Mailer;
-using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
@@ -20,8 +20,8 @@ public class MagicSpellService(
     ICacheService cache
 )
 {
-    public async Task<MagicSpell> CreateMagicSpell(
-        Account account,
+    public async Task<SnMagicSpell> CreateMagicSpell(
+        SnAccount account,
         MagicSpellType type,
         Dictionary<string, object> meta,
         Instant? expiredAt = null,
@@ -42,7 +42,7 @@ public class MagicSpellService(
         }
 
         var spellWord = _GenerateRandomString(128);
-        var spell = new MagicSpell
+        var spell = new SnMagicSpell
         {
             Spell = spellWord,
             Type = type,
@@ -60,7 +60,7 @@ public class MagicSpellService(
 
     private const string SpellNotifyCacheKeyPrefix = "spells:notify:";
 
-    public async Task NotifyMagicSpell(MagicSpell spell, bool bypassVerify = false)
+    public async Task NotifyMagicSpell(SnMagicSpell spell, bool bypassVerify = false)
     {
         var cacheKey = SpellNotifyCacheKeyPrefix + spell.Id;
         var (found, _) = await cache.GetAsyncWithStatus<bool?>(cacheKey);
@@ -156,7 +156,7 @@ public class MagicSpellService(
         }
     }
 
-    public async Task ApplyMagicSpell(MagicSpell spell)
+    public async Task ApplyMagicSpell(SnMagicSpell spell)
     {
         switch (spell.Type)
         {
@@ -191,7 +191,7 @@ public class MagicSpellService(
                 var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
                 if (defaultGroup is not null && account is not null)
                 {
-                    db.PermissionGroupMembers.Add(new PermissionGroupMember
+                    db.PermissionGroupMembers.Add(new SnPermissionGroupMember
                     {
                         Actor = $"user:{account.Id}",
                         Group = defaultGroup
@@ -218,7 +218,7 @@ public class MagicSpellService(
         await db.SaveChangesAsync();
     }
 
-    public async Task ApplyPasswordReset(MagicSpell spell, string newPassword)
+    public async Task ApplyPasswordReset(SnMagicSpell spell, string newPassword)
     {
         if (spell.Type != MagicSpellType.AuthPasswordReset)
             throw new ArgumentException("This spell is not a password reset spell.");
@@ -231,7 +231,7 @@ public class MagicSpellService(
         {
             var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
             if (account is null) throw new InvalidOperationException("Both account and auth factor was not found.");
-            passwordFactor = new AccountAuthFactor
+            passwordFactor = new SnAccountAuthFactor
             {
                 Type = AccountAuthFactorType.Password,
                 Account = account,
@@ -257,6 +257,6 @@ public class MagicSpellService(
 
         var base64String = Convert.ToBase64String(randomBytes);
 
-        return base64String.Substring(0, length);
+        return base64String[..length];
     }
 }

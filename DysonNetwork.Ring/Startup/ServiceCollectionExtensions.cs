@@ -1,8 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
-using CorePush.Apple;
-using CorePush.Firebase;
 using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
@@ -11,7 +9,6 @@ using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-using StackExchange.Redis;
 
 namespace DysonNetwork.Ring.Startup;
 
@@ -75,7 +72,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-        services.AddScoped<NotificationFlushHandler>();
 
         return services;
     }

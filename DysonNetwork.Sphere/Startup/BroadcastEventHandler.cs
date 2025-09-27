@@ -5,7 +5,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Realm;
 using Microsoft.EntityFrameworkCore;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;

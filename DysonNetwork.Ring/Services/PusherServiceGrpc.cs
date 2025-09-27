@@ -1,5 +1,6 @@
 using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Notification;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -65,7 +66,7 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
     public override async Task<Empty> SendPushNotificationToUser(SendPushNotificationToUserRequest request,
         ServerCallContext context)
     {
-        var notification = new Notification.Notification
+        var notification = new SnNotification
         {
             Topic = request.Notification.Topic,
             Title = request.Notification.Title,
@@ -95,7 +96,7 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
     public override async Task<Empty> SendPushNotificationToUsers(SendPushNotificationToUsersRequest request,
         ServerCallContext context)
     {
-        var notification = new Notification.Notification
+        var notification = new SnNotification
         {
             Topic = request.Notification.Topic,
             Title = request.Notification.Title,

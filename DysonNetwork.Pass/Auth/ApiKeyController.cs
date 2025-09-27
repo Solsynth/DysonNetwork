@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,7 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetKeys([FromQuery] int offset = 0, [FromQuery] int take = 20)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var query = db.ApiKeys
             .Where(e => e.AccountId == currentUser.Id)
@@ -34,7 +35,7 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetKey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var key = await db.ApiKeys
             .Where(e => e.AccountId == currentUser.Id)
@@ -56,7 +57,7 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Label))
             return BadRequest("Label is required");
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var key = await auth.CreateApiKey(currentUser.Id, request.Label, request.ExpiredAt);
         key.Key = await auth.IssueApiKeyToken(key);
@@ -67,7 +68,7 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
     [Authorize]
     public async Task<IActionResult> RotateKey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         
         var key = await auth.GetApiKey(id, currentUser.Id);
         if(key is null) return NotFound();
@@ -80,7 +81,7 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
     [Authorize]
     public async Task<IActionResult> DeleteKey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         
         var key = await auth.GetApiKey(id, currentUser.Id);
         if(key is null) return NotFound();

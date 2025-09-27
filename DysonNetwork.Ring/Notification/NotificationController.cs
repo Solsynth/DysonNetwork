@@ -32,7 +32,7 @@ public class NotificationController(
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<Notification>>> ListNotifications(
+    public async Task<ActionResult<List<SnNotification>>> ListNotifications(
         [FromQuery] int offset = 0,
         // The page size set to 5 is to avoid the client pulled the notification
         // but didn't render it in the screen-viewable region.
@@ -146,7 +146,7 @@ public class NotificationController(
     )
     {
         await nty.SendNotificationBatch(
-            new Notification
+            new SnNotification
             {
                 CreatedAt = SystemClock.Instance.GetCurrentInstant(),
                 UpdatedAt = SystemClock.Instance.GetCurrentInstant(),

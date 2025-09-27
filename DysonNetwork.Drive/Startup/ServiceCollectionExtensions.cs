@@ -3,11 +3,8 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.OpenApi.Models;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-using StackExchange.Redis;
-using DysonNetwork.Shared.Proto;
 using tusdotnet.Stores;
 
 namespace DysonNetwork.Drive.Startup;

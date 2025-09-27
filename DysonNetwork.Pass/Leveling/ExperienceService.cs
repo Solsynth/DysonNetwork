@@ -7,9 +7,9 @@ namespace DysonNetwork.Pass.Leveling;
 
 public class ExperienceService(AppDatabase db, SubscriptionService subscriptions, ICacheService cache)
 {
-    public async Task<ExperienceRecord> AddRecord(string reasonType, string reason, long delta, Guid accountId)
+    public async Task<SnExperienceRecord> AddRecord(string reasonType, string reason, long delta, Guid accountId)
     {
-        var record = new ExperienceRecord
+        var record = new SnExperienceRecord
         {
             ReasonType = reasonType,
             Reason = reason,

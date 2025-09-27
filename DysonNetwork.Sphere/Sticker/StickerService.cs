@@ -7,7 +7,6 @@ namespace DysonNetwork.Sphere.Sticker;
 
 public class StickerService(
     AppDatabase db,
-    FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ICacheService cache
 )
@@ -16,7 +15,7 @@ public class StickerService(
 
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
-    public async Task<Sticker> CreateStickerAsync(Sticker sticker)
+    public async Task<SnSticker> CreateStickerAsync(SnSticker sticker)
     {
         if (sticker.Image is null) throw new ArgumentNullException(nameof(sticker.Image));
 
@@ -33,7 +32,7 @@ public class StickerService(
         return sticker;
     }
 
-    public async Task<Sticker> UpdateStickerAsync(Sticker sticker, SnCloudFileReferenceObject? newImage)
+    public async Task<SnSticker> UpdateStickerAsync(SnSticker sticker, SnCloudFileReferenceObject? newImage)
     {
         if (newImage is not null)
         {
@@ -59,7 +58,7 @@ public class StickerService(
         return sticker;
     }
 
-    public async Task DeleteStickerAsync(Sticker sticker)
+    public async Task DeleteStickerAsync(SnSticker sticker)
     {
         var stickerResourceId = $"sticker:{sticker.Id}";
 
@@ -98,17 +97,17 @@ public class StickerService(
             await PurgeStickerCache(sticker);
     }
 
-    public async Task<Sticker?> LookupStickerByIdentifierAsync(string identifier)
+    public async Task<SnSticker?> LookupStickerByIdentifierAsync(string identifier)
     {
         identifier = identifier.ToLower();
         // Try to get from the cache first
         var cacheKey = $"sticker:lookup:{identifier}";
-        var cachedSticker = await cache.GetAsync<Sticker>(cacheKey);
+        var cachedSticker = await cache.GetAsync<SnSticker>(cacheKey);
         if (cachedSticker is not null)
             return cachedSticker;
 
         // If not in cache, fetch from the database
-        IQueryable<Sticker> query = db.Stickers
+        IQueryable<SnSticker> query = db.Stickers
             .Include(e => e.Pack);
         query = Guid.TryParse(identifier, out var guid)
             ? query.Where(e => e.Id == guid)
@@ -123,7 +122,7 @@ public class StickerService(
         return sticker;
     }
 
-    private async Task PurgeStickerCache(Sticker sticker)
+    private async Task PurgeStickerCache(SnSticker sticker)
     {
         // Remove both possible cache entries
         await cache.RemoveAsync($"sticker:lookup:{sticker.Id}");

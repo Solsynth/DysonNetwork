@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
@@ -9,10 +7,10 @@ public class DiscoveryActivity(List<DiscoveryItem> items) : IActivity
 {
     public List<DiscoveryItem> Items { get; set; } = items;
 
-    public Activity ToActivity()
+    public SnActivity ToActivity()
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        return new Activity
+        return new SnActivity
         {
             Id = Guid.NewGuid(),
             Type = "discovery",

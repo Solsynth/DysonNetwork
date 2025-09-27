@@ -165,7 +165,7 @@ public class FileController(
     }
 
     [HttpGet("{id}/info")]
-    public async Task<ActionResult<CloudFile>> GetFileInfo(string id)
+    public async Task<ActionResult<SnCloudFile>> GetFileInfo(string id)
     {
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound("File not found.");
@@ -175,7 +175,7 @@ public class FileController(
 
     [Authorize]
     [HttpPatch("{id}/name")]
-    public async Task<ActionResult<CloudFile>> UpdateFileName(string id, [FromBody] string name)
+    public async Task<ActionResult<SnCloudFile>> UpdateFileName(string id, [FromBody] string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -194,7 +194,7 @@ public class FileController(
 
     [Authorize]
     [HttpPut("{id}/marks")]
-    public async Task<ActionResult<CloudFile>> MarkFile(string id, [FromBody] MarkFileRequest request)
+    public async Task<ActionResult<SnCloudFile>> MarkFile(string id, [FromBody] MarkFileRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -208,7 +208,7 @@ public class FileController(
 
     [Authorize]
     [HttpPut("{id}/meta")]
-    public async Task<ActionResult<CloudFile>> UpdateFileMeta(string id, [FromBody] Dictionary<string, object?> meta)
+    public async Task<ActionResult<SnCloudFile>> UpdateFileMeta(string id, [FromBody] Dictionary<string, object?> meta)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -222,7 +222,7 @@ public class FileController(
 
     [Authorize]
     [HttpGet("me")]
-    public async Task<ActionResult<List<CloudFile>>> GetMyFiles(
+    public async Task<ActionResult<List<SnCloudFile>>> GetMyFiles(
         [FromQuery] Guid? pool,
         [FromQuery] bool recycled = false,
         [FromQuery] int offset = 0,
@@ -307,7 +307,7 @@ public class FileController(
     [Authorize]
     [HttpPost("fast")]
     [RequiredPermission("global", "files.create")]
-    public async Task<ActionResult<CloudFile>> CreateFastFile([FromBody] CreateFastFileRequest request)
+    public async Task<ActionResult<SnCloudFile>> CreateFastFile([FromBody] CreateFastFileRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -368,7 +368,7 @@ public class FileController(
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
-            var file = new CloudFile
+            var file = new SnCloudFile
             {
                 Name = request.Name,
                 Size = request.Size,

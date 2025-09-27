@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Cache;
 using NodaTime;
+using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Auth.OpenId;
 
@@ -23,9 +24,9 @@ public class ConnectionController(
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
 
     [HttpGet]
-    public async Task<ActionResult<List<AccountConnection>>> GetConnections()
+    public async Task<ActionResult<List<SnAccountConnection>>> GetConnections()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
         var connections = await db.AccountConnections
@@ -48,7 +49,7 @@ public class ConnectionController(
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult> RemoveConnection(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
         var connection = await db.AccountConnections
@@ -66,7 +67,7 @@ public class ConnectionController(
     [HttpPost("/api/auth/connect/apple/mobile")]
     public async Task<ActionResult> ConnectAppleMobile([FromBody] AppleMobileConnectRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
         if (GetOidcService("apple") is not AppleOidcService appleService)
@@ -99,7 +100,7 @@ public class ConnectionController(
                 $"This Apple account is already linked to {(existingConnection.AccountId == currentUser.Id ? "your account" : "another user")}.");
         }
 
-        db.AccountConnections.Add(new AccountConnection
+        db.AccountConnections.Add(new SnAccountConnection
         {
             AccountId = currentUser.Id,
             Provider = "apple",
@@ -250,7 +251,7 @@ public class ConnectionController(
         else
         {
             // Create new connection
-            db.AccountConnections.Add(new AccountConnection
+            db.AccountConnections.Add(new SnAccountConnection
             {
                 AccountId = accountId,
                 Provider = provider,
@@ -324,7 +325,7 @@ public class ConnectionController(
         var account = await accounts.LookupAccount(userInfo.Email) ?? await accounts.CreateAccount(userInfo);
 
         // Create connection for new or existing user
-        var newConnection = new AccountConnection
+        var newConnection = new SnAccountConnection
         {
             Account = account,
             Provider = provider,

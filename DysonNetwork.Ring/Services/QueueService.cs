@@ -1,7 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
-using NATS.Client.JetStream;
 using NATS.Net;
 
 namespace DysonNetwork.Ring.Services;

@@ -2,13 +2,10 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Localization;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Localization;
-using AccountAuthFactor = DysonNetwork.Pass.Account.AccountAuthFactor;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
 using ActionLogService = DysonNetwork.Pass.Account.ActionLogService;
 using DysonNetwork.Shared.Models;
@@ -41,7 +38,7 @@ public class AuthController(
     }
 
     [HttpPost("challenge")]
-    public async Task<ActionResult<AuthChallenge>> CreateChallenge([FromBody] ChallengeRequest request)
+    public async Task<ActionResult<SnAuthChallenge>> CreateChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
@@ -73,7 +70,7 @@ public class AuthController(
             .Where(e => e.UserAgent == userAgent)
             .Where(e => e.StepRemain > 0)
             .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
-            .Where(e => e.Type == ChallengeType.Login)
+            .Where(e => e.Type == Shared.Models.ChallengeType.Login)
             .Where(e => e.ClientId == device.Id)
             .FirstOrDefaultAsync();
         if (existingChallenge is not null)
@@ -83,7 +80,7 @@ public class AuthController(
             if (existingSession is null) return existingChallenge;
         }
 
-        var challenge = new AuthChallenge
+        var challenge = new SnAuthChallenge
         {
             ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddHours(1)),
             StepTotal = await auth.DetectChallengeRisk(Request, account),
@@ -107,7 +104,7 @@ public class AuthController(
     }
 
     [HttpGet("challenge/{id:guid}")]
-    public async Task<ActionResult<AuthChallenge>> GetChallenge([FromRoute] Guid id)
+    public async Task<ActionResult<SnAuthChallenge>> GetChallenge([FromRoute] Guid id)
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
@@ -120,7 +117,7 @@ public class AuthController(
     }
 
     [HttpGet("challenge/{id:guid}/factors")]
-    public async Task<ActionResult<List<AccountAuthFactor>>> GetChallengeFactors([FromRoute] Guid id)
+    public async Task<ActionResult<List<SnAccountAuthFactor>>> GetChallengeFactors([FromRoute] Guid id)
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
@@ -166,7 +163,7 @@ public class AuthController(
     }
 
     [HttpPatch("challenge/{id:guid}")]
-    public async Task<ActionResult<AuthChallenge>> DoChallenge(
+    public async Task<ActionResult<SnAuthChallenge>> DoChallenge(
         [FromRoute] Guid id,
         [FromBody] PerformChallengeRequest request
     )

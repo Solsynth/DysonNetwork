@@ -208,7 +208,7 @@ public class StickerController(
     }
 
     [HttpGet("{packId:guid}/content")]
-    public async Task<ActionResult<List<Sticker>>> ListStickers(Guid packId)
+    public async Task<ActionResult<List<SnSticker>>> ListStickers(Guid packId)
     {
         var stickers = await db.Stickers
             .Where(s => s.Pack.Id == packId)
@@ -220,7 +220,7 @@ public class StickerController(
     }
 
     [HttpGet("lookup/{identifier}")]
-    public async Task<ActionResult<Sticker>> GetStickerByIdentifier(string identifier)
+    public async Task<ActionResult<SnSticker>> GetStickerByIdentifier(string identifier)
     {
         var sticker = await st.LookupStickerByIdentifierAsync(identifier);
 
@@ -229,7 +229,7 @@ public class StickerController(
     }
 
     [HttpGet("lookup/{identifier}/open")]
-    public async Task<ActionResult<Sticker>> OpenStickerByIdentifier(string identifier)
+    public async Task<ActionResult<SnSticker>> OpenStickerByIdentifier(string identifier)
     {
         var sticker = await st.LookupStickerByIdentifierAsync(identifier);
 
@@ -238,7 +238,7 @@ public class StickerController(
     }
 
     [HttpGet("{packId:guid}/content/{id:guid}")]
-    public async Task<ActionResult<Sticker>> GetSticker(Guid packId, Guid id)
+    public async Task<ActionResult<SnSticker>> GetSticker(Guid packId, Guid id)
     {
         var sticker = await db.Stickers
             .Where(s => s.PackId == packId && s.Id == id)
@@ -347,7 +347,7 @@ public class StickerController(
         if (file is null)
             return BadRequest("Image not found.");
 
-        var sticker = new Sticker
+        var sticker = new SnSticker
         {
             Slug = request.Slug,
             ImageId = file.Id,

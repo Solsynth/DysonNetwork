@@ -13,7 +13,7 @@ public class DeveloperService(
     public async Task<SnDeveloper> LoadDeveloperPublisher(SnDeveloper developer)
     {
         var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Id = developer.PublisherId.ToString() });
-        developer.Publisher = PublisherInfo.FromProto(pubResponse.Publisher);
+        developer.Publisher = SnPublisher.FromProto(pubResponse.Publisher);
         return developer;
     }
 
@@ -25,7 +25,7 @@ public class DeveloperService(
         var pubRequest = new GetPublisherBatchRequest();
         pubIds.ForEach(x => pubRequest.Ids.Add(x.ToString()));
         var pubResponse = await ps.GetPublisherBatchAsync(pubRequest);
-        var pubs = pubResponse.Publishers.ToDictionary(p => Guid.Parse(p.Id), PublisherInfo.FromProto);
+        var pubs = pubResponse.Publishers.ToDictionary(p => Guid.Parse(p.Id), SnPublisher.FromProto);
 
         return enumerable.Select(d =>
         {
@@ -56,7 +56,7 @@ public class DeveloperService(
         return await db.Developers.FirstOrDefaultAsync(d => d.Id == id);
     }
 
-    public async Task<bool> IsMemberWithRole(Guid pubId, Guid accountId, PublisherMemberRole role)
+    public async Task<bool> IsMemberWithRole(Guid pubId, Guid accountId, Shared.Proto.PublisherMemberRole role)
     {
         try
         {

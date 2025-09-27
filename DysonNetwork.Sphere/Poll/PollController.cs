@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -127,7 +126,7 @@ public class PollController(
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<List<Poll>>> ListPolls(
+    public async Task<ActionResult<List<SnPoll>>> ListPolls(
         [FromQuery(Name = "pub")] string? pubName,
         [FromQuery] bool active = false,
         [FromQuery] int offset = 0,
@@ -199,7 +198,7 @@ public class PollController(
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<Poll>> CreatePoll([FromBody] PollRequest request,
+    public async Task<ActionResult<SnPoll>> CreatePoll([FromBody] PollRequest request,
         [FromQuery(Name = "pub")] string pubName)
     {
         if (request.Questions is null) return BadRequest("Questions are required.");
@@ -211,7 +210,7 @@ public class PollController(
         if (!await pub.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to create polls as this publisher.");
 
-        var poll = new Poll
+        var poll = new SnPoll
         {
             Title = request.Title,
             Description = request.Description,
@@ -237,7 +236,7 @@ public class PollController(
 
     [HttpPatch("{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<Poll>> UpdatePoll(Guid id, [FromBody] PollRequest request)
+    public async Task<ActionResult<SnPoll>> UpdatePoll(Guid id, [FromBody] PollRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);

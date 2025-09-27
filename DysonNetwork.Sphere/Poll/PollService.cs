@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.Poll;
 
 public class PollService(AppDatabase db, ICacheService cache)
 {
-    public void ValidatePoll(Poll poll)
+    public void ValidatePoll(SnPoll poll)
     {
         if (poll.Questions.Count == 0)
             throw new Exception("Poll must have at least one question");
@@ -32,7 +32,7 @@ public class PollService(AppDatabase db, ICacheService cache)
         }
     }
 
-    public async Task<Poll?> GetPoll(Guid id)
+    public async Task<SnPoll?> GetPoll(Guid id)
     {
         var poll = await db.Polls
             .Where(e => e.Id == id)
@@ -307,9 +307,7 @@ public class PollService(AppDatabase db, ICacheService cache)
 
     public async Task<PollEmbed> LoadPollEmbed(Guid pollId, Guid? accountId)
     {
-        var poll = await GetPoll(pollId);
-        if (poll is null)
-            throw new Exception("Poll not found");
+        var poll = await GetPoll(pollId) ?? throw new Exception("Poll not found");
         var pollWithStats = PollWithStats.FromPoll(poll);
         pollWithStats.Stats = await GetPollStats(poll.Id);
         if (accountId is not null)

@@ -33,7 +33,7 @@ public class OidcController(
             var oidcService = GetOidcService(provider);
 
             // If the user is already authenticated, treat as an account connection request
-            if (HttpContext.Items["CurrentUser"] is Account.Account currentUser)
+            if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             {
                 var state = Guid.NewGuid().ToString();
                 var nonce = Guid.NewGuid().ToString();
@@ -128,7 +128,7 @@ public class OidcController(
         };
     }
 
-    private async Task<Account.Account> FindOrCreateAccount(OidcUserInfo userInfo, string provider)
+    private async Task<SnAccount> FindOrCreateAccount(OidcUserInfo userInfo, string provider)
     {
         if (string.IsNullOrEmpty(userInfo.Email))
             throw new ArgumentException("Email is required for account creation");
@@ -157,7 +157,7 @@ public class OidcController(
                 return existingAccount;
             }
 
-            var connection = new AccountConnection
+            var connection = new SnAccountConnection
             {
                 AccountId = existingAccount.Id,
                 Provider = provider,
@@ -178,7 +178,7 @@ public class OidcController(
         var newAccount = await accounts.CreateAccount(userInfo);
 
         // Create the provider connection
-        var newConnection = new AccountConnection
+        var newConnection = new SnAccountConnection
         {
             AccountId = newAccount.Id,
             Provider = provider,

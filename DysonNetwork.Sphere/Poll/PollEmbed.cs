@@ -3,12 +3,12 @@ using DysonNetwork.Sphere.WebReader;
 
 namespace DysonNetwork.Sphere.Poll;
 
-public class PollWithStats : Poll
+public class PollWithStats : SnPoll
 {
     public SnPollAnswer? UserAnswer { get; set; }
     public Dictionary<Guid, Dictionary<string, int>> Stats { get; set; } = new(); // question id -> (option id -> count)
 
-    public static PollWithStats FromPoll(Poll poll, SnPollAnswer? userAnswer = null)
+    public static PollWithStats FromPoll(SnPoll poll, SnPollAnswer? userAnswer = null)
     {
         return new PollWithStats
         {

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NodaTime;
-using AccountContactType = DysonNetwork.Pass.Account.AccountContactType;
+using AccountContactType = DysonNetwork.Shared.Models.AccountContactType;
 
 namespace DysonNetwork.Pass.Auth.OidcProvider.Services;
 
@@ -39,7 +39,7 @@ public class OidcProviderService(
         return resp.App ?? null;
     }
 
-    public async Task<AuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId, bool withAccount = false)
+    public async Task<SnAuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId, bool withAccount = false)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -58,7 +58,7 @@ public class OidcProviderService(
                         s.AppId == clientId &&
                         (s.ExpiredAt == null || s.ExpiredAt > now) &&
                         s.Challenge != null &&
-                        s.Challenge.Type == ChallengeType.OAuth)
+                        s.Challenge.Type == Shared.Models.ChallengeType.OAuth)
             .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
     }
@@ -81,7 +81,7 @@ public class OidcProviderService(
 
 
         var client = await FindClientByIdAsync(clientId);
-        if (client?.Status != CustomAppStatus.Production)
+        if (client?.Status != Shared.Proto.CustomAppStatus.Production)
             return true;
 
         if (client?.OauthConfig?.RedirectUris == null)
@@ -146,7 +146,7 @@ public class OidcProviderService(
 
     private string GenerateIdToken(
         CustomApp client,
-        AuthSession session,
+        SnAuthSession session,
         string? nonce = null,
         IEnumerable<string>? scopes = null
     )
@@ -225,11 +225,9 @@ public class OidcProviderService(
         Guid? sessionId = null
     )
     {
-        var client = await FindClientByIdAsync(clientId);
-        if (client == null)
-            throw new InvalidOperationException("Client not found");
+        var client = await FindClientByIdAsync(clientId) ?? throw new InvalidOperationException("Client not found");
 
-        AuthSession session;
+        SnAuthSession session;
         var clock = SystemClock.Instance;
         var now = clock.GetCurrentInstant();
         string? nonce = null;
@@ -300,7 +298,7 @@ public class OidcProviderService(
 
     private string GenerateJwtToken(
         CustomApp client,
-        AuthSession session,
+        SnAuthSession session,
         Instant expiresAt,
         IEnumerable<string>? scopes = null
     )
@@ -372,7 +370,7 @@ public class OidcProviderService(
         }
     }
 
-    public async Task<AuthSession?> FindSessionByIdAsync(Guid sessionId)
+    public async Task<SnAuthSession?> FindSessionByIdAsync(Guid sessionId)
     {
         return await db.AuthSessions
             .Include(s => s.Account)
@@ -380,7 +378,7 @@ public class OidcProviderService(
             .FirstOrDefaultAsync(s => s.Id == sessionId);
     }
 
-    private static string GenerateRefreshToken(AuthSession session)
+    private static string GenerateRefreshToken(SnAuthSession session)
     {
         return Convert.ToBase64String(session.Id.ToByteArray());
     }

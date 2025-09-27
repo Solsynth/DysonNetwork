@@ -38,7 +38,7 @@ public class PublisherSubscriptionService(
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>The subscription or null if not found</returns>
-    public async Task<PublisherSubscription?> GetSubscriptionAsync(Guid accountId, Guid publisherId)
+    public async Task<SnPublisherSubscription?> GetSubscriptionAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
@@ -137,7 +137,7 @@ public class PublisherSubscriptionService(
     /// </summary>
     /// <param name="accountId">The account ID</param>
     /// <returns>A list of active subscriptions</returns>
-    public async Task<List<PublisherSubscription>> GetAccountSubscriptionsAsync(Guid accountId)
+    public async Task<List<SnPublisherSubscription>> GetAccountSubscriptionsAsync(Guid accountId)
     {
         return await db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
@@ -150,7 +150,7 @@ public class PublisherSubscriptionService(
     /// </summary>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>A list of active subscriptions</returns>
-    public async Task<List<PublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
+    public async Task<List<SnPublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .Where(ps => ps.PublisherId == publisherId && ps.Status == PublisherSubscriptionStatus.Active)
@@ -164,7 +164,7 @@ public class PublisherSubscriptionService(
     /// <param name="publisherId">The publisher ID</param>
     /// <param name="tier">Optional subscription tier</param>
     /// <returns>The created subscription</returns>
-    public async Task<PublisherSubscription> CreateSubscriptionAsync(
+    public async Task<SnPublisherSubscription> CreateSubscriptionAsync(
         Guid accountId,
         Guid publisherId,
         int tier = 0
@@ -187,7 +187,7 @@ public class PublisherSubscriptionService(
         }
 
         // Create a new subscription
-        var subscription = new PublisherSubscription
+        var subscription = new SnPublisherSubscription
         {
             AccountId = accountId,
             PublisherId = publisherId,

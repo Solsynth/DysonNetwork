@@ -5,14 +5,14 @@ namespace DysonNetwork.Pass.Wallet;
 
 public class WalletService(AppDatabase db)
 {
-    public async Task<Wallet?> GetWalletAsync(Guid accountId)
+    public async Task<SnWallet?> GetWalletAsync(Guid accountId)
     {
         return await db.Wallets
             .Include(w => w.Pockets)
             .FirstOrDefaultAsync(w => w.AccountId == accountId);
     }
 
-    public async Task<Wallet> CreateWalletAsync(Guid accountId)
+    public async Task<SnWallet> CreateWalletAsync(Guid accountId)
     {
         var existingWallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == accountId);
         if (existingWallet != null)
@@ -20,7 +20,7 @@ public class WalletService(AppDatabase db)
             throw new InvalidOperationException($"Wallet already exists for account {accountId}");
         }
 
-        var wallet = new Wallet { AccountId = accountId };
+        var wallet = new SnWallet { AccountId = accountId };
 
         db.Wallets.Add(wallet);
         await db.SaveChangesAsync();

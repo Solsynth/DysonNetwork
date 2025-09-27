@@ -19,9 +19,9 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [MaxLength(4096)] string? Description,
         string? PictureId,
         string? BackgroundId,
-        CustomAppStatus? Status,
-        CustomAppLinks? Links,
-        CustomAppOauthConfig? OauthConfig
+        Shared.Models.CustomAppStatus? Status,
+        SnCustomAppLinks? Links,
+        SnCustomAppOauthConfig? OauthConfig
     );
 
     public record CreateSecretRequest(
@@ -51,7 +51,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, PublisherMemberRole.Viewer))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, Shared.Proto.PublisherMemberRole.Viewer))
             return StatusCode(403, "You must be a viewer of the developer to list custom apps");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -73,7 +73,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null) return NotFound();
         
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, PublisherMemberRole.Viewer))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, Shared.Proto.PublisherMemberRole.Viewer))
             return StatusCode(403, "You must be a viewer of the developer to list custom apps");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -100,7 +100,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to create a custom app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -144,7 +144,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to update a custom app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -181,7 +181,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to delete a custom app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -213,7 +213,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to view app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -251,7 +251,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to create app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -264,7 +264,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
 
         try
         {
-            var secret = await customApps.CreateAppSecretAsync(new CustomAppSecret
+            var secret = await customApps.CreateAppSecretAsync(new SnCustomAppSecret
             {
                 AppId = appId,
                 Description = request.Description,
@@ -310,7 +310,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to view app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -351,7 +351,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to delete app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -389,7 +389,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to rotate app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -402,7 +402,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
 
         try
         {
-            var secret = await customApps.RotateAppSecretAsync(new CustomAppSecret
+            var secret = await customApps.RotateAppSecretAsync(new SnCustomAppSecret
             {
                 Id = secretId,
                 AppId = appId,

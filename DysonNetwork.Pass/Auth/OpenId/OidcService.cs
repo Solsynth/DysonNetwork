@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json.Serialization;
-using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -190,7 +189,7 @@ public abstract class OidcService(
     /// </summary>
     public async Task<SnAuthChallenge> CreateChallengeForUserAsync(
         OidcUserInfo userInfo,
-        Account.Account account,
+        SnAccount account,
         HttpContext request,
         string deviceId,
         string? deviceName = null
@@ -205,7 +204,7 @@ public abstract class OidcService(
 
         if (connection is null)
         {
-            connection = new AccountConnection
+            connection = new SnAccountConnection
             {
                 Provider = ProviderName,
                 ProvidedIdentifier = userInfo.UserId ?? "",

@@ -4,7 +4,6 @@ using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using System.Text.Json;
 using NodaTime.Serialization.Protobuf;
-using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Permission;
 
@@ -76,22 +75,3 @@ public class PermissionServiceGrpc(
         return new RemovePermissionNodeFromGroupResponse { Success = true };
     }
 }
-
-public static class PermissionExtensions
-{
-    public static DysonNetwork.Shared.Proto.PermissionNode ToProtoValue(this PermissionNode node)
-    {
-        return new DysonNetwork.Shared.Proto.PermissionNode
-        {
-            Id = node.Id.ToString(),
-            Actor = node.Actor,
-            Area = node.Area,
-            Key = node.Key,
-            Value = Value.Parser.ParseJson(node.Value.RootElement.GetRawText()),
-            ExpiredAt = node.ExpiredAt?.ToTimestamp(),
-            AffectedAt = node.AffectedAt?.ToTimestamp(),
-            GroupId = node.GroupId?.ToString() ?? string.Empty
-        };
-    }
-}
-

@@ -38,7 +38,7 @@ public class CustomAppServiceGrpc(AppDatabase db) : Shared.Proto.CustomAppServic
         if (string.IsNullOrEmpty(request.Secret))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "secret required"));
 
-        IQueryable<CustomAppSecret> q = db.CustomAppSecrets;
+        IQueryable<SnCustomAppSecret> q = db.CustomAppSecrets;
         switch (request.SecretIdentifierCase)
         {
             case CheckCustomAppSecretRequest.SecretIdentifierOneofCase.SecretId:

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,7 +27,7 @@ public class NotableDaysController(NotableDaysService days) : ControllerBase
     [Authorize]
     public async Task<ActionResult<List<NotableDay>>> GetAccountNotableDays(int year)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var region = currentUser.Region;
         if (string.IsNullOrWhiteSpace(region)) region = "us";
@@ -39,7 +40,7 @@ public class NotableDaysController(NotableDaysService days) : ControllerBase
     [Authorize]
     public async Task<ActionResult<List<NotableDay>>> GetAccountNotableDaysCurrentYear()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var currentYear = DateTime.Now.Year;
         var region = currentUser.Region;
@@ -64,7 +65,7 @@ public class NotableDaysController(NotableDaysService days) : ControllerBase
     [Authorize]
     public async Task<ActionResult<NotableDay?>> GetAccountNextHoliday()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var region = currentUser.Region;
         if (string.IsNullOrWhiteSpace(region)) region = "us";

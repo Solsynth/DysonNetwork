@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -23,7 +24,7 @@ public class ActivityController(
     /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<Activity>>> ListActivities(
+    public async Task<ActionResult<List<SnActivity>>> ListActivities(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
         [FromQuery] int take = 20,

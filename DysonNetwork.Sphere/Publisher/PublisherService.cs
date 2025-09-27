@@ -160,7 +160,7 @@ public class PublisherService(
     {
         var publisher = new SnPublisher
         {
-            Type = PublisherType.Individual,
+            Type = Shared.Models.PublisherType.Individual,
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
             Bio = bio ?? account.Profile.Bio,
@@ -171,15 +171,15 @@ public class PublisherService(
                 ? null
                 : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Background)),
             AccountId = Guid.Parse(account.Id),
-            Members = new List<SnPublisherMember>
-            {
+            Members =
+            [
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = PublisherMemberRole.Owner,
+                    Role = Shared.Models.PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
-            }
+            ]
         };
 
         db.Publishers.Add(publisher);
@@ -224,7 +224,7 @@ public class PublisherService(
     {
         var publisher = new SnPublisher
         {
-            Type = PublisherType.Organizational,
+            Type = Shared.Models.PublisherType.Organizational,
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
@@ -236,7 +236,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = PublisherMemberRole.Owner,
+                    Role = Shared.Models.PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
@@ -332,7 +332,7 @@ public class PublisherService(
 
         if (featureFlag == null)
         {
-            featureFlag = new PublisherFeature
+            featureFlag = new SnPublisherFeature
             {
                 PublisherId = publisherId,
                 Flag = flag,
@@ -368,7 +368,7 @@ public class PublisherService(
         return isEnabled.Value;
     }
 
-    public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId, PublisherMemberRole requiredRole)
+    public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId, Shared.Models.PublisherMemberRole requiredRole)
     {
         var member = await db.Publishers
             .Where(p => p.Id == publisherId)
@@ -377,7 +377,7 @@ public class PublisherService(
 
         return member != null && member.Role >= requiredRole;
     }
-    
+
     public async Task<SnPublisherMember> LoadMemberAccount(SnPublisherMember member)
     {
         var account = await accountsHelper.GetAccount(member.AccountId);
@@ -390,11 +390,11 @@ public class PublisherService(
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
-        return members.Select(m =>
+        return [.. members.Select(m =>
         {
             if (accounts.TryGetValue(m.AccountId, out var account))
                 m.Account = SnAccount.FromProtoValue(account);
             return m;
-        }).ToList();
+        })];
     }
 }
