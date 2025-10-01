@@ -1,7 +1,7 @@
 {
   "Debug": true,
-  "BaseUrl": "http://localhost:5216",
-  "SiteUrl": "https://id.solian.app",
+  "BaseUrl": "http://localhost:5001",
+  "SiteUrl": "http://localhost:3000",
   "Logging": {
     "LogLevel": {
       "Default": "Information",

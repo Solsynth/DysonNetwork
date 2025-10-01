@@ -316,9 +316,9 @@ public class CacheServiceRedis : ICacheService
     public async Task<IEnumerable<string>> GetGroupKeysAsync(string group)
     {
         if (string.IsNullOrEmpty(group))
-            throw new ArgumentException(@"Group cannot be null or empty.", nameof(group));
+            throw new ArgumentException("Group cannot be null or empty.", nameof(group));
 
-        var groupKey = $"{GroupKeyPrefix}{group}";
+        var groupKey = string.Concat(GroupKeyPrefix, group);
         var members = await _database.SetMembersAsync(groupKey);
 
         return members.Select(m => m.ToString());

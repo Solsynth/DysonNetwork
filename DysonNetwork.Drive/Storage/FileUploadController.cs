@@ -3,6 +3,7 @@ using System.Text.Json;
 using DysonNetwork.Drive.Billing;
 using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,15 +32,18 @@ public class FileUploadController(
     [HttpPost("create")]
     public async Task<IActionResult> CreateUploadTask([FromBody] CreateUploadTaskRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        {
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+        }
 
         if (!currentUser.IsSuperuser)
         {
             var allowed = await permission.HasPermissionAsync(new HasPermissionRequest
-                { Actor = $"user:{currentUser.Id}", Area = "global", Key = "files.create" });
+            { Actor = $"user:{currentUser.Id}", Area = "global", Key = "files.create" });
             if (!allowed.HasPermission)
             {
-                return Forbid();
+                return new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
             }
         }
 
@@ -48,23 +52,19 @@ public class FileUploadController(
         var pool = await fileService.GetPoolAsync(request.PoolId.Value);
         if (pool is null)
         {
-            return BadRequest("Pool not found");
+            return new ObjectResult(ApiError.NotFound("Pool")) { StatusCode = 404 };
         }
 
-        if (pool.PolicyConfig.RequirePrivilege > 0)
+        if (pool.PolicyConfig.RequirePrivilege is > 0)
         {
-            if (currentUser.PerkSubscription is null)
-            {
-                return new ObjectResult("You need to have join the Stellar Program to use this pool")
-                    { StatusCode = 403 };
-            }
-
             var privilege =
+                currentUser.PerkSubscription is null ? 0 :
                 PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier);
             if (privilege < pool.PolicyConfig.RequirePrivilege)
             {
-                return new ObjectResult(
-                    $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use this pool, you are tier {privilege}")
+                return new ObjectResult(ApiError.Unauthorized(
+                    $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use pool {pool.Name}, you are tier {privilege}",
+                    forbidden: true))
                 {
                     StatusCode = 403
                 };
@@ -74,14 +74,19 @@ public class FileUploadController(
         var policy = pool.PolicyConfig;
         if (!policy.AllowEncryption && !string.IsNullOrEmpty(request.EncryptPassword))
         {
-            return new ObjectResult("File encryption is not allowed in this pool") { StatusCode = 403 };
+            return new ObjectResult(ApiError.Unauthorized("File encryption is not allowed in this pool", true))
+            { StatusCode = 403 };
         }
 
         if (policy.AcceptTypes is { Count: > 0 })
         {
             if (string.IsNullOrEmpty(request.ContentType))
             {
-                return BadRequest("Content type is required by the pool's policy");
+                return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    { "contentType", new[] { "Content type is required by the pool's policy" } }
+                }))
+                { StatusCode = 400 };
             }
 
             var foundMatch = policy.AcceptTypes.Any(acceptType =>
@@ -97,15 +102,18 @@ public class FileUploadController(
 
             if (!foundMatch)
             {
-                return new ObjectResult($"Content type {request.ContentType} is not allowed by the pool's policy")
-                    { StatusCode = 403 };
+                return new ObjectResult(
+                    ApiError.Unauthorized($"Content type {request.ContentType} is not allowed by the pool's policy",
+                        true))
+                { StatusCode = 403 };
             }
         }
 
         if (policy.MaxFileSize is not null && request.FileSize > policy.MaxFileSize)
         {
-            return new ObjectResult(
-                $"File size {request.FileSize} is larger than the pool's maximum file size {policy.MaxFileSize}")
+            return new ObjectResult(ApiError.Unauthorized(
+                $"File size {request.FileSize} is larger than the pool's maximum file size {policy.MaxFileSize}",
+                true))
             {
                 StatusCode = 403
             };
@@ -118,8 +126,10 @@ public class FileUploadController(
         );
         if (!ok)
         {
-            return new ObjectResult($"File size {billableUnit} MiB is exceeded the user's quota {quota} MiB")
-                { StatusCode = 403 };
+            return new ObjectResult(
+                ApiError.Unauthorized($"File size {billableUnit} MiB is exceeded the user's quota {quota} MiB",
+                    true))
+            { StatusCode = 403 };
         }
 
         if (!Directory.Exists(_tempPath))
@@ -170,7 +180,7 @@ public class FileUploadController(
             ChunksCount = chunksCount
         });
     }
-    
+
     public class UploadChunkRequest
     {
         [Required]
@@ -186,7 +196,7 @@ public class FileUploadController(
         var taskPath = Path.Combine(_tempPath, taskId);
         if (!Directory.Exists(taskPath))
         {
-            return NotFound("Upload task not found.");
+            return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
         }
 
         var chunkPath = Path.Combine(taskPath, $"{chunkIndex}.chunk");
@@ -202,19 +212,20 @@ public class FileUploadController(
         var taskPath = Path.Combine(_tempPath, taskId);
         if (!Directory.Exists(taskPath))
         {
-            return NotFound("Upload task not found.");
+            return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
         }
 
         var taskJsonPath = Path.Combine(taskPath, "task.json");
         if (!System.IO.File.Exists(taskJsonPath))
         {
-            return NotFound("Upload task metadata not found.");
+            return new ObjectResult(ApiError.NotFound("Upload task metadata")) { StatusCode = 404 };
         }
 
         var task = JsonSerializer.Deserialize<UploadTask>(await System.IO.File.ReadAllTextAsync(taskJsonPath));
         if (task == null)
         {
-            return BadRequest("Invalid task metadata.");
+            return new ObjectResult(new ApiError { Code = "BAD_REQUEST", Message = "Invalid task metadata.", Status = 400 })
+            { StatusCode = 400 };
         }
 
         var mergedFilePath = Path.Combine(_tempPath, taskId + ".tmp");
@@ -229,7 +240,9 @@ public class FileUploadController(
                     mergedStream.Close();
                     System.IO.File.Delete(mergedFilePath);
                     Directory.Delete(taskPath, true);
-                    return BadRequest($"Chunk {i} is missing.");
+                    return new ObjectResult(new ApiError
+                    { Code = "CHUNK_MISSING", Message = $"Chunk {i} is missing.", Status = 400 })
+                    { StatusCode = 400 };
                 }
 
                 await using var chunkStream = new FileStream(chunkPath, FileMode.Open);
@@ -237,21 +250,24 @@ public class FileUploadController(
             }
         }
 
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        {
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+        }
 
         var fileId = await Nanoid.GenerateAsync();
 
         var cloudFile = await fileService.ProcessNewFileAsync(
-                currentUser,
-                fileId,
-                task.PoolId.ToString(),
-                task.BundleId?.ToString(),
-                mergedFilePath,
-                task.FileName,
-                task.ContentType,
-                task.EncryptPassword,
-                task.ExpiredAt
-            );
+            currentUser,
+            fileId,
+            task.PoolId.ToString(),
+            task.BundleId?.ToString(),
+            mergedFilePath,
+            task.FileName,
+            task.ContentType,
+            task.EncryptPassword,
+            task.ExpiredAt
+        );
 
         // Clean up
         Directory.Delete(taskPath, true);

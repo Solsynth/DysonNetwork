@@ -33,6 +33,8 @@ var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop"
     .WithReference(ringService)
     .WithReference(sphereService);
 
+passService.WithReference(developService).WithReference(driveService);
+
 List<IResourceBuilder<ProjectResource>> services =
     [ringService, passService, driveService, sphereService, developService];
 

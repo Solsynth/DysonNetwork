@@ -35,7 +35,7 @@ public class PolicyConfig
     public bool AllowAnonymous { get; set; } = true;
     public List<string>? AcceptTypes { get; set; }
     public long? MaxFileSize { get; set; }
-    public int RequirePrivilege { get; set; } = 0; 
+    public int? RequirePrivilege { get; set; } = 0;
 }
 
 public class FilePool : ModelBase, IIdentifiedResource
@@ -47,7 +47,7 @@ public class FilePool : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public BillingConfig BillingConfig { get; set; } = new();
     [Column(TypeName = "jsonb")] public PolicyConfig PolicyConfig { get; set; } = new();
     public bool IsHidden { get; set; } = false;
-    
+
     public Guid? AccountId { get; set; }
 
     public string ResourceIdentifier => $"file-pool/{Id}";
