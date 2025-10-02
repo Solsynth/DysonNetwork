@@ -360,7 +360,7 @@ public class BroadcastEventHandler(
 
                 // Get user's joined chat rooms
                 var userRooms = await db.ChatMembers
-                    .Where(m => m.AccountId == evt.AccountId && m.LeaveAt == null)
+                    .Where(m => m.AccountId == evt.AccountId && m.JoinedAt != null && m.LeaveAt == null)
                     .Select(m => m.ChatRoomId)
                     .ToListAsync(cancellationToken: stoppingToken);
 

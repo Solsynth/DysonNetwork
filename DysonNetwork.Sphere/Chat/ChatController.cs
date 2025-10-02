@@ -85,7 +85,7 @@ public partial class ChatController(
 
             var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -127,7 +127,7 @@ public partial class ChatController(
 
             var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -221,7 +221,8 @@ public partial class ChatController(
                     .Select(a => Guid.Parse(a.Id))
                     .ToList();
                 var mentionedMembers = await db.ChatMembers
-                    .Where(m => mentionedId.Contains(m.AccountId))
+                    .Where(m => m.ChatRoomId == roomId && mentionedId.Contains(m.AccountId))
+                    .Where(m => m.JoinedAt != null && m.LeaveAt == null)
                     .Select(m => m.Id)
                     .ToListAsync();
                 message.MembersMentioned = mentionedMembers;
@@ -321,7 +322,7 @@ public partial class ChatController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var isMember = await db.ChatMembers
-            .AnyAsync(m => m.AccountId == accountId && m.ChatRoomId == roomId);
+            .AnyAsync(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 

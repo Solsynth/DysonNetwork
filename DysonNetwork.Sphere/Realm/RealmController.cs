@@ -105,10 +105,10 @@ public class RealmController(
         var hasExistingMember = await db.RealmMembers
             .Where(m => m.AccountId == Guid.Parse(relatedUser.Id))
             .Where(m => m.RealmId == realm.Id)
-            .Where(m => m.LeaveAt == null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .AnyAsync();
         if (hasExistingMember)
-            return BadRequest("This user has been joined the realm or leave cannot be invited again.");
+            return BadRequest("This user already in the realm cannot be invited again.");
 
         var member = new SnRealmMember
         {
@@ -232,7 +232,7 @@ public class RealmController(
 
         var query = db.RealmMembers
             .Where(m => m.RealmId == realm.Id)
-            .Where(m => m.LeaveAt == null);
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null);
 
         if (withStatus)
         {
@@ -289,6 +289,7 @@ public class RealmController(
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
             .Where(m => m.Realm.Slug == slug)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
         if (member is null) return NotFound();
@@ -305,7 +306,7 @@ public class RealmController(
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
             .Where(m => m.Realm.Slug == slug)
-            .Where(m => m.JoinedAt != null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
@@ -444,7 +445,7 @@ public class RealmController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.RealmMembers
-            .Where(m => m.AccountId == accountId && m.RealmId == realm.Id && m.JoinedAt != null)
+            .Where(m => m.AccountId == accountId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null || member.Role < RealmMemberRole.Moderator)
             return StatusCode(403, "You do not have permission to update this realm.");
@@ -555,7 +556,7 @@ public class RealmController(
             return StatusCode(403, "Only community realms can be joined without invitation.");
 
         var existingMember = await db.RealmMembers
-            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.RealmId == realm.Id)
+            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (existingMember is not null)
             return BadRequest("You are already a member of this realm.");
@@ -600,7 +601,7 @@ public class RealmController(
         if (realm is null) return NotFound();
 
         var member = await db.RealmMembers
-            .Where(m => m.AccountId == memberId && m.RealmId == realm.Id)
+            .Where(m => m.AccountId == memberId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
@@ -640,7 +641,7 @@ public class RealmController(
         if (realm is null) return NotFound();
 
         var member = await db.RealmMembers
-            .Where(m => m.AccountId == memberId && m.RealmId == realm.Id)
+            .Where(m => m.AccountId == memberId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 

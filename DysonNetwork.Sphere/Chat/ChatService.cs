@@ -441,7 +441,7 @@ public partial class ChatService(
     public async Task ReadChatRoomAsync(Guid roomId, Guid userId)
     {
         var sender = await db.ChatMembers
-            .Where(m => m.AccountId == userId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == userId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (sender is null) throw new ArgumentException("User is not a member of the chat room.");
 
@@ -452,7 +452,7 @@ public partial class ChatService(
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
         var sender = await db.ChatMembers
-            .Where(m => m.AccountId == userId && m.ChatRoomId == chatRoomId)
+            .Where(m => m.AccountId == userId && m.ChatRoomId == chatRoomId && m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => new { m.LastReadAt })
             .FirstOrDefaultAsync();
         if (sender?.LastReadAt is null) return 0;

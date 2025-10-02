@@ -56,8 +56,7 @@ public class ChatRoomController(
 
         var chatRooms = await db.ChatMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.JoinedAt != null)
-            .Where(m => m.LeaveAt == null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .Select(m => m.ChatRoom)
             .ToListAsync();
@@ -166,7 +165,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required] [MaxLength(1024)] public string? Name { get; set; }
+        [Required][MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -475,6 +474,7 @@ public class ChatRoomController(
 
         var member = await db.ChatMembers
             .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
         if (member == null)
@@ -496,13 +496,14 @@ public class ChatRoomController(
         {
             if (currentUser is null) return Unauthorized();
             var member = await db.ChatMembers
-                .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id));
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
             if (member is null) return StatusCode(403, "You need to be a member to see online count of private chat room.");
         }
 
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.LeaveAt == null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => m.AccountId)
             .ToListAsync();
 
@@ -530,13 +531,14 @@ public class ChatRoomController(
         {
             if (currentUser is null) return Unauthorized();
             var member = await db.ChatMembers
-                .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id));
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
 
         var query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.LeaveAt == null);
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null);
 
         if (withStatus)
         {
@@ -633,6 +635,7 @@ public class ChatRoomController(
             var chatMember = await db.ChatMembers
                 .Where(m => m.AccountId == accountId)
                 .Where(m => m.ChatRoomId == roomId)
+                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (chatMember is null) return StatusCode(403, "You are not even a member of the targeted chat room.");
             if (chatMember.Role < ChatMemberRole.Moderator)
@@ -645,7 +648,7 @@ public class ChatRoomController(
         var hasExistingMember = await db.ChatMembers
             .Where(m => m.AccountId == request.RelatedUserId)
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.LeaveAt == null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .AnyAsync();
         if (hasExistingMember)
             return BadRequest("This user has been joined the chat cannot be invited again.");
@@ -775,7 +778,7 @@ public class ChatRoomController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var targetMember = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (targetMember is null) return BadRequest("You have not joined this chat room.");
         if (request.NotifyLevel is not null)
@@ -816,7 +819,7 @@ public class ChatRoomController(
         else
         {
             var targetMember = await db.ChatMembers
-                .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
+                .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (targetMember is null) return NotFound();
 
@@ -884,7 +887,7 @@ public class ChatRoomController(
 
         // Find the target member
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
@@ -929,7 +932,17 @@ public class ChatRoomController(
         var existingMember = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId);
         if (existingMember != null)
+        {
+            if (existingMember.LeaveAt == null)
+            {
+                existingMember.LeaveAt = null;
+                db.Update(existingMember);
+                await db.SaveChangesAsync();
+                _ = crs.PurgeRoomMembersCache(roomId);
+                return Ok(existingMember);
+            }
             return BadRequest("You are already a member of this chat room.");
+        }
 
         var newMember = new SnChatMember
         {
@@ -962,6 +975,7 @@ public class ChatRoomController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var member = await db.ChatMembers
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .Where(m => m.AccountId == Guid.Parse(currentUser.Id))
             .Where(m => m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
@@ -981,6 +995,7 @@ public class ChatRoomController(
         }
 
         member.LeaveAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        db.Update(member);
         await db.SaveChangesAsync();
         await crs.PurgeRoomMembersCache(roomId);
 
@@ -1000,7 +1015,7 @@ public class ChatRoomController(
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
         CultureService.SetCultureInfo(account);
-        
+
         string title = localizer["ChatInviteTitle"];
 
         string body = member.ChatRoom.Type == ChatRoomType.DirectMessage

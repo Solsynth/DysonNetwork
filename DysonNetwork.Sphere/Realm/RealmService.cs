@@ -30,6 +30,7 @@ public class RealmService(
         var realms = await db.RealmMembers
             .Include(m => m.Realm)
             .Where(m => m.AccountId == accountId)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => m.Realm!.Id)
             .ToListAsync();
 
@@ -67,7 +68,8 @@ public class RealmService(
 
         var maxRequiredRole = requiredRoles.Max();
         var member = await db.RealmMembers
-            .FirstOrDefaultAsync(m => m.RealmId == realmId && m.AccountId == accountId);
+            .Where(m => m.RealmId == realmId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
         return member?.Role >= maxRequiredRole;
     }
 

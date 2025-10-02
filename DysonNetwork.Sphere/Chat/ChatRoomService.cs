@@ -45,7 +45,7 @@ public class ChatRoomService(
         if (member is not null) return member;
 
         member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId && m.JoinedAt != null && m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
 
@@ -95,7 +95,7 @@ public class ChatRoomService(
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
-                .Where(m => m.LeaveAt == null)
+                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
                 .ToListAsync()
             : [];
         members = await LoadMemberAccounts(members);
@@ -121,7 +121,7 @@ public class ChatRoomService(
         if (room.Type != ChatRoomType.DirectMessage) return room;
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == room.Id && m.AccountId != userId)
-            .Where(m => m.LeaveAt == null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .ToListAsync();
 
         if (members.Count <= 0) return room;
@@ -139,7 +139,8 @@ public class ChatRoomService(
 
         var maxRequiredRole = requiredRoles.Max();
         var member = await db.ChatMembers
-            .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == accountId);
+            .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
         return member?.Role >= maxRequiredRole;
     }
 

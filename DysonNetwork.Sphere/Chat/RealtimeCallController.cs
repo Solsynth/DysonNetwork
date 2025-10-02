@@ -52,7 +52,7 @@ public class RealtimeCallController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -78,7 +78,7 @@ public class RealtimeCallController(
         // Check if the user is a member of the chat room
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -151,7 +151,7 @@ public class RealtimeCallController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Member)
@@ -171,7 +171,7 @@ public class RealtimeCallController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to end a call.");
