@@ -87,7 +87,7 @@ var swaggerRoutes = serviceNames.Select(serviceName => new RouteConfig
     RouteId = $"{serviceName}-swagger",
     ClusterId = serviceName,
     Match = new RouteMatch { Path = $"/swagger/{serviceName}/{{**catch-all}}" },
-    Transforms = 
+    Transforms =
     [
         new Dictionary<string, string> { { "PathRemovePrefix", $"/swagger/{serviceName}" } },
         new Dictionary<string, string> { { "PathPrefix", "/swagger" } }
@@ -106,9 +106,11 @@ var clusters = serviceNames.Select(serviceName => new ClusterConfig
 }).ToArray();
 
 builder.Services
-.AddReverseProxy()
-.LoadFromMemory(routes, clusters)
-.AddServiceDiscoveryDestinationResolver();
+    .AddReverseProxy()
+    .LoadFromMemory(routes, clusters)
+    .AddServiceDiscoveryDestinationResolver();
+
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -117,5 +119,7 @@ app.UseCors();
 app.UseRateLimiter();
 
 app.MapReverseProxy().RequireRateLimiting("fixed");
+
+app.MapControllers();
 
 app.Run();
