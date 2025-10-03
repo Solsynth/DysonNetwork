@@ -146,19 +146,6 @@ public class SubscriptionGiftController(
                 {
                     error = "You already have an active subscription of this type.";
                 }
-                else if (subscriptionInfo.RequiredLevel > 0)
-                {
-                    var profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == currentUser.Id);
-                    if (profile is null || profile.Level < subscriptionInfo.RequiredLevel)
-                    {
-                        error =
-                            $"Account level must be at least {subscriptionInfo.RequiredLevel} to redeem this gift.";
-                    }
-                    else
-                    {
-                        canRedeem = true;
-                    }
-                }
                 else
                 {
                     canRedeem = true;
@@ -197,6 +184,8 @@ public class SubscriptionGiftController(
         public int? SubscriptionDurationDays { get; set; } = 30; // Subscription lasts 30 days when redeemed
     }
 
+    const int MinimumAccountLevel = 60;
+
     /// <summary>
     /// Purchases a gift subscription.
     /// </summary>
@@ -205,6 +194,11 @@ public class SubscriptionGiftController(
     public async Task<ActionResult<SnWalletGift>> PurchaseGift([FromBody] PurchaseGiftRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        if (currentUser.Profile.Level < MinimumAccountLevel)
+        {
+            return StatusCode(403, "Account level must be at least 60 to purchase a gift.");
+        }
 
         Duration? giftDuration = null;
         if (request.GiftDurationDays.HasValue)

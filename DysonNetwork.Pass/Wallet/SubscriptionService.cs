@@ -710,7 +710,7 @@ public class SubscriptionService(
         // We do not check account level requirement, since it is a gift
 
         // Create the subscription from the gift
-        var cycleDuration = Duration.FromDays(30); // Standard 30-day subscription
+        var cycleDuration = Duration.FromDays(28); // Standard 28-day subscription
         var subscription = new SnWalletSubscription
         {
             BegunAt = now,
@@ -719,7 +719,7 @@ public class SubscriptionService(
             IsActive = true,
             IsFreeTrial = false,
             Status = Shared.Models.SubscriptionStatus.Active,
-            PaymentMethod = $"gift:{gift.Id}", // Special payment method indicating gift redemption
+            PaymentMethod = "gift", // Special payment method indicating gift redemption
             PaymentDetails = new Shared.Models.SnPaymentDetails
             {
                 Currency = "gift",
