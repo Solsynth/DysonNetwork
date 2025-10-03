@@ -5,8 +5,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using Google.Protobuf;
 using NATS.Client.Core;
-using NATS.Client.JetStream;
-using NATS.Client.JetStream.Models;
 using NATS.Net;
 
 namespace DysonNetwork.Ring.Services;
@@ -39,29 +37,19 @@ public class QueueBackgroundService(
     private async Task RunConsumerAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("Queue consumer started");
-        var js = nats.CreateJetStreamContext();
-
-        await js.EnsureStreamCreated("pusher_events", [QueueName]);
         
-        var consumer = await js.CreateOrUpdateConsumerAsync(
-            "pusher_events", 
-            new ConsumerConfig(QueueGroup), // durable consumer
-            cancellationToken: stoppingToken);
-
-        await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
+        await foreach (var msg in nats.SubscribeAsync<byte[]>(QueueName, queueGroup: QueueGroup, cancellationToken: stoppingToken))
         {
             try
             {
                 var message = GrpcTypeHelper.ConvertByteStringToObject<QueueMessage>(ByteString.CopyFrom(msg.Data));
                 if (message is not null)
                 {
-                    await ProcessMessageAsync(msg, message, stoppingToken);
-                    await msg.AckAsync(cancellationToken: stoppingToken);
+                    await ProcessMessageAsync(message, stoppingToken);
                 }
                 else
                 {
                     logger.LogWarning($"Invalid message format for {msg.Subject}");
-                    await msg.AckAsync(cancellationToken: stoppingToken); // Acknowledge invalid messages to avoid redelivery
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -72,12 +60,11 @@ public class QueueBackgroundService(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error in queue consumer");
-                await msg.NakAsync(cancellationToken: stoppingToken);
             }
         }
     }
 
-    private async ValueTask ProcessMessageAsync(NatsJSMsg<byte[]> rawMsg, QueueMessage message,
+    private async ValueTask ProcessMessageAsync(QueueMessage message,
         CancellationToken cancellationToken)
     {
         using var scope = serviceProvider.CreateScope();

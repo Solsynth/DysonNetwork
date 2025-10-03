@@ -1,7 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
-using NATS.Net;
 
 namespace DysonNetwork.Ring.Services;
 
@@ -21,15 +20,14 @@ public class QueueService(INatsConnection nats)
             })
         };
         var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
-        var js = nats.CreateJetStreamContext();
-        await js.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 
     public async Task EnqueuePushNotification(Shared.Models.SnNotification notification, Guid userId, bool isSavable = false)
     {
         // Update the account ID in case it wasn't set
         notification.AccountId = userId;
-        
+
         var message = new QueueMessage
         {
             Type = QueueMessageType.PushNotification,
@@ -37,8 +35,7 @@ public class QueueService(INatsConnection nats)
             Data = JsonSerializer.Serialize(notification)
         };
         var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
-        var js = nats.CreateJetStreamContext();
-        await js.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 }
 
