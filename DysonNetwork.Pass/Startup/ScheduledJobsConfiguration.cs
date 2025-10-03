@@ -46,6 +46,16 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInMinutes(30)
                     .RepeatForever())
             );
+
+            var giftCleanupJob = new JobKey("GiftCleanup");
+            q.AddJob<GiftCleanupJob>(opts => opts.WithIdentity(giftCleanupJob));
+            q.AddTrigger(opts => opts
+                .ForJob(giftCleanupJob)
+                .WithIdentity("GiftCleanupTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInHours(1)
+                    .RepeatForever())
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

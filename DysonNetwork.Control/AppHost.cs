@@ -4,9 +4,6 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var isDev = builder.Environment.IsDevelopment();
 
-// Database was configured separately in each service.
-// var database = builder.AddPostgres("database");
-
 var cache = builder.AddRedis("cache");
 var queue = builder.AddNats("queue").WithJetStream();
 

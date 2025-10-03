@@ -44,6 +44,7 @@ public class AppDatabase(
     public DbSet<SnWalletOrder> PaymentOrders { get; set; } = null!;
     public DbSet<SnWalletTransaction> PaymentTransactions { get; set; } = null!;
     public DbSet<SnWalletSubscription> WalletSubscriptions { get; set; } = null!;
+    public DbSet<SnWalletGift> WalletGifts { get; set; } = null!;
     public DbSet<SnWalletCoupon> WalletCoupons { get; set; } = null!;
 
     public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;

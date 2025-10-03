@@ -9,7 +9,10 @@ namespace DysonNetwork.Pass.Wallet;
 
 [ApiController]
 [Route("/api/subscriptions/gifts")]
-public class GiftController(SubscriptionService subscriptions, AppDatabase db) : ControllerBase
+public class SubscriptionGiftController(
+    SubscriptionService subscriptions,
+    AppDatabase db
+) : ControllerBase
 {
     /// <summary>
     /// Lists gifts purchased by the current user.
@@ -71,9 +74,9 @@ public class GiftController(SubscriptionService subscriptions, AppDatabase db) :
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var gift = await db.WalletGifts
-            .Include(g => g.Gifter)
-            .Include(g => g.Recipient)
-            .Include(g => g.Redeemer)
+            .Include(g => g.Gifter).ThenInclude(a => a.Profile)
+            .Include(g => g.Recipient).ThenInclude(a => a.Profile)
+            .Include(g => g.Redeemer).ThenInclude(a => a.Profile)
             .Include(g => g.Subscription)
             .Include(g => g.Coupon)
             .FirstOrDefaultAsync(g => g.Id == giftId);
@@ -101,7 +104,7 @@ public class GiftController(SubscriptionService subscriptions, AppDatabase db) :
         var canRedeem = false;
         var error = "";
 
-            if (gift.Status != DysonNetwork.Shared.Models.GiftStatus.Sent)
+        if (gift.Status != DysonNetwork.Shared.Models.GiftStatus.Sent)
         {
             error = gift.Status switch
             {
@@ -137,7 +140,8 @@ public class GiftController(SubscriptionService subscriptions, AppDatabase db) :
                         .ToArray()
                     : [gift.SubscriptionIdentifier];
 
-                var existingSubscription = await subscriptions.GetSubscriptionAsync(currentUser.Id, subscriptionsInGroup);
+                var existingSubscription =
+                    await subscriptions.GetSubscriptionAsync(currentUser.Id, subscriptionsInGroup);
                 if (existingSubscription is not null)
                 {
                     error = "You already have an active subscription of this type.";
@@ -147,7 +151,8 @@ public class GiftController(SubscriptionService subscriptions, AppDatabase db) :
                     var profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == currentUser.Id);
                     if (profile is null || profile.Level < subscriptionInfo.RequiredLevel)
                     {
-                        error = $"Account level must be at least {subscriptionInfo.RequiredLevel} to redeem this gift.";
+                        error =
+                            $"Account level must be at least {subscriptionInfo.RequiredLevel} to redeem this gift.";
                     }
                     else
                     {
@@ -310,4 +315,26 @@ public class GiftController(SubscriptionService subscriptions, AppDatabase db) :
             return BadRequest(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Creates an order for an unpaid gift.
+    /// </summary>
+    [HttpPost("{giftId}/order")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletOrder>> CreateGiftOrder(Guid giftId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var order = await subscriptions.CreateGiftOrder(currentUser.Id, giftId);
+            return order;
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+
 }

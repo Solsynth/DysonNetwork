@@ -31,6 +31,16 @@ enum SubscriptionStatus {
   SUBSCRIPTION_STATUS_CANCELLED = 4;
 }
 
+enum GiftStatus {
+  // Using proto3 enum naming convention
+  GIFT_STATUS_UNSPECIFIED = 0;
+  GIFT_STATUS_CREATED = 1;
+  GIFT_STATUS_SENT = 2;
+  GIFT_STATUS_REDEEMED = 3;
+  GIFT_STATUS_EXPIRED = 4;
+  GIFT_STATUS_CANCELLED = 5;
+}
+
 message Subscription {
   string id = 1;
   google.protobuf.Timestamp begun_at = 2;
@@ -91,6 +101,31 @@ message Coupon {
   optional google.protobuf.Int32Value max_usage = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+}
+
+message Gift {
+  string id = 1;
+  string gifter_id = 2;
+  optional string recipient_id = 3;
+  string gift_code = 4;
+  optional string message = 5;
+  string subscription_identifier = 6;
+  string base_price = 7;
+  string final_price = 8;
+  GiftStatus status = 9;
+  optional google.protobuf.Timestamp redeemed_at = 10;
+  optional string redeemer_id = 11;
+  optional string subscription_id = 12;
+  google.protobuf.Timestamp expires_at = 13;
+  bool is_open_gift = 14;
+  string payment_method = 15;
+  PaymentDetails payment_details = 16;
+  optional string coupon_id = 17;
+  optional Coupon coupon = 18;
+  bool is_redeemable = 19;
+  bool is_expired = 20;
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
 }
 
 service WalletService {

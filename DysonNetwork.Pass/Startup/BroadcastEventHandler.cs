@@ -49,31 +49,64 @@ public class BroadcastEventHandler(
                     evt?.OrderId
                 );
 
-                if (evt?.ProductIdentifier is null ||
-                    !evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
+                if (evt?.ProductIdentifier is null)
                     continue;
 
-                logger.LogInformation("Handling stellar program order: {OrderId}", evt.OrderId);
-
-                await using var scope = serviceProvider.CreateAsyncScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-                var subscriptions = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
-
-                var order = await db.PaymentOrders.FindAsync(
-                    [evt.OrderId],
-                    cancellationToken: stoppingToken
-                );
-                if (order is null)
+                // Handle subscription orders
+                if (evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
                 {
-                    logger.LogWarning("Order with ID {OrderId} not found. Redelivering.", evt.OrderId);
-                    await msg.NakAsync(cancellationToken: stoppingToken);
+                    logger.LogInformation("Handling stellar program order: {OrderId}", evt.OrderId);
+
+                    await using var scope = serviceProvider.CreateAsyncScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                    var subscriptions = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
+
+                    var order = await db.PaymentOrders.FindAsync(
+                        [evt.OrderId],
+                        cancellationToken: stoppingToken
+                    );
+                    if (order is null)
+                    {
+                        logger.LogWarning("Order with ID {OrderId} not found. Redelivering.", evt.OrderId);
+                        await msg.NakAsync(cancellationToken: stoppingToken);
+                        continue;
+                    }
+
+                    await subscriptions.HandleSubscriptionOrder(order);
+
+                    logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                }
+                // Handle gift orders
+                else if (evt.Meta?.TryGetValue("gift_id", out var giftIdValue) == true)
+                {
+                    logger.LogInformation("Handling gift order: {OrderId}", evt.OrderId);
+
+                    await using var scope = serviceProvider.CreateAsyncScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                    var subscriptions = scope.ServiceProvider.GetRequiredService<SubscriptionService>();
+
+                    var order = await db.PaymentOrders.FindAsync(
+                        [evt.OrderId],
+                        cancellationToken: stoppingToken
+                    );
+                    if (order is null)
+                    {
+                        logger.LogWarning("Order with ID {OrderId} not found. Redelivering.", evt.OrderId);
+                        await msg.NakAsync(cancellationToken: stoppingToken);
+                        continue;
+                    }
+
+                    await subscriptions.HandleGiftOrder(order);
+
+                    logger.LogInformation("Gift for order {OrderId} handled successfully.", evt.OrderId);
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                }
+                else
+                {
+                    // Not a subscription or gift order, skip
                     continue;
                 }
-
-                await subscriptions.HandleSubscriptionOrder(order);
-
-                logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
-                await msg.AckAsync(cancellationToken: stoppingToken);
             }
             catch (Exception ex)
             {
