@@ -56,6 +56,16 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInHours(1)
                     .RepeatForever())
             );
+
+            var fundExpirationJob = new JobKey("FundExpiration");
+            q.AddJob<FundExpirationJob>(opts => opts.WithIdentity(fundExpirationJob));
+            q.AddTrigger(opts => opts
+                .ForJob(fundExpirationJob)
+                .WithIdentity("FundExpirationTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInHours(1)
+                    .RepeatForever())
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

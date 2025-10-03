@@ -1,15 +1,17 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Pass.Wallet;
 
 [ApiController]
 [Route("/api/wallets")]
-public class WalletController(AppDatabase db, WalletService ws, PaymentService payment) : ControllerBase
+public class WalletController(AppDatabase db, WalletService ws, PaymentService payment, AuthService auth) : ControllerBase
 {
     [HttpPost]
     [Authorize]
@@ -102,6 +104,14 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         [Required] public Guid AccountId { get; set; }
     }
 
+    public class WalletTransferRequest
+    {
+        public string? Remark { get; set; }
+        [Required] public decimal Amount { get; set; }
+        [Required] public string Currency { get; set; } = null!;
+        [Required] public Guid PayeeAccountId { get; set; }
+    }
+
     [HttpPost("balance")]
     [Authorize]
     [RequiredPermission("maintenance", "wallets.balance.modify")]
@@ -127,5 +137,195 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
             );
 
         return Ok(transaction);
+    }
+
+    [HttpPost("transfer")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletTransaction>> Transfer([FromBody] WalletTransferRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var payerWallet = await ws.GetWalletAsync(currentUser.Id);
+        if (payerWallet is null) return NotFound("Your wallet was not found, please create one first.");
+
+        var payeeWallet = await ws.GetWalletAsync(request.PayeeAccountId);
+        if (payeeWallet is null) return NotFound("Payee wallet was not found.");
+
+        if (currentUser.Id == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
+
+        try
+        {
+            var transaction = await payment.CreateTransactionAsync(
+                payerWalletId: payerWallet.Id,
+                payeeWalletId: payeeWallet.Id,
+                currency: request.Currency,
+                amount: request.Amount,
+                remarks: request.Remark ?? $"Transfer from {currentUser.Id} to {request.PayeeAccountId}",
+                type: TransactionType.Transfer
+            );
+
+            return Ok(transaction);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    public class CreateFundRequest
+    {
+        [Required] public List<Guid> RecipientAccountIds { get; set; } = new();
+        [Required] public string Currency { get; set; } = null!;
+        [Required] public decimal TotalAmount { get; set; }
+        [Required] public FundSplitType SplitType { get; set; }
+        public string? Message { get; set; }
+        public int? ExpirationHours { get; set; } // Optional: hours until expiration
+        [Required] public string PinCode { get; set; } = null!; // Required PIN for fund creation
+    }
+
+    [HttpPost("funds")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletFund>> CreateFund([FromBody] CreateFundRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        // Validate PIN code
+        if (!await auth.ValidatePinCode(currentUser.Id, request.PinCode))
+            return StatusCode(403, "Invalid PIN Code");
+
+        try
+        {
+            Duration? expiration = null;
+            if (request.ExpirationHours.HasValue)
+            {
+                expiration = Duration.FromHours(request.ExpirationHours.Value);
+            }
+
+            var fund = await payment.CreateFundAsync(
+                creatorAccountId: currentUser.Id,
+                recipientAccountIds: request.RecipientAccountIds,
+                currency: request.Currency,
+                totalAmount: request.TotalAmount,
+                splitType: request.SplitType,
+                message: request.Message,
+                expiration: expiration
+            );
+
+            return Ok(fund);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpGet("funds")]
+    [Authorize]
+    public async Task<ActionResult<List<SnWalletFund>>> GetFunds(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery] FundStatus? status = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var query = db.WalletFunds
+            .Include(f => f.Recipients)
+                .ThenInclude(r => r.RecipientAccount)
+                .ThenInclude(a => a.Profile)
+            .Include(f => f.CreatorAccount)
+                .ThenInclude(a => a.Profile)
+            .Where(f => f.CreatorAccountId == currentUser.Id ||
+                       f.Recipients.Any(r => r.RecipientAccountId == currentUser.Id))
+            .AsQueryable();
+
+        if (status.HasValue)
+        {
+            query = query.Where(f => f.Status == status.Value);
+        }
+
+        var fundCount = await query.CountAsync();
+        Response.Headers["X-Total"] = fundCount.ToString();
+
+        var funds = await query
+            .OrderByDescending(f => f.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(funds);
+    }
+
+    [HttpGet("funds/{id}")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletFund>> GetFund(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var fund = await db.WalletFunds
+            .Include(f => f.Recipients)
+                .ThenInclude(r => r.RecipientAccount)
+                .ThenInclude(a => a.Profile)
+            .Include(f => f.CreatorAccount)
+                .ThenInclude(a => a.Profile)
+            .FirstOrDefaultAsync(f => f.Id == id);
+
+        if (fund == null)
+            return NotFound("Fund not found");
+
+        // Check if user is creator or recipient
+        var isCreator = fund.CreatorAccountId == currentUser.Id;
+        var isRecipient = fund.Recipients.Any(r => r.RecipientAccountId == currentUser.Id);
+
+        if (!isCreator && !isRecipient)
+            return Forbid("You don't have permission to view this fund");
+
+        return Ok(fund);
+    }
+
+    [HttpPost("funds/{id}/receive")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletTransaction>> ReceiveFund(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var transaction = await payment.ReceiveFundAsync(
+                recipientAccountId: currentUser.Id,
+                fundId: id
+            );
+
+            return Ok(transaction);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpGet("overview")]
+    [Authorize]
+    public async Task<ActionResult<WalletOverview>> GetWalletOverview(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var overview = await payment.GetWalletOverviewAsync(
+                accountId: currentUser.Id,
+                startDate: startDate,
+                endDate: endDate
+            );
+
+            return Ok(overview);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
     }
 }

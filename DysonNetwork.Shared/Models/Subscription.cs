@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -128,7 +129,8 @@ public class SnWalletGift : ModelBase
     /// <summary>
     /// The subscription created when the gift is redeemed.
     /// </summary>
-    public SnWalletSubscription? Subscription { get; set; }
+    [JsonIgnore] public SnWalletSubscription? Subscription { get; set; }
+    public Guid? SubscriptionId { get; set; }
 
     /// <summary>
     /// When the gift expires and can no longer be redeemed.
@@ -337,7 +339,6 @@ public class SnWalletSubscription : ModelBase
     /// <summary>
     /// If this subscription was redeemed from a gift, this references the gift record.
     /// </summary>
-    public Guid? GiftId { get; set; }
     public SnWalletGift? Gift { get; set; }
 
     [NotMapped]

@@ -696,6 +696,56 @@ public class SubscriptionService(
         if (subscriptionInfo is null)
             throw new InvalidOperationException("Invalid gift subscription type.");
 
+        var sameTypeSubscription = await GetSubscriptionAsync(redeemer.Id, gift.SubscriptionIdentifier);
+        if (sameTypeSubscription is not null)
+        {
+            // Extend existing subscription
+            var subscriptionDuration = Duration.FromDays(28);
+            if (sameTypeSubscription.EndedAt.HasValue && sameTypeSubscription.EndedAt.Value > now)
+            {
+                sameTypeSubscription.EndedAt = sameTypeSubscription.EndedAt.Value.Plus(subscriptionDuration);
+            }
+            else
+            {
+                sameTypeSubscription.EndedAt = now.Plus(subscriptionDuration);
+            }
+
+            if (sameTypeSubscription.RenewalAt.HasValue)
+            {
+                sameTypeSubscription.RenewalAt = sameTypeSubscription.RenewalAt.Value.Plus(subscriptionDuration);
+            }
+
+            // Update gift status and link
+            gift.Status = DysonNetwork.Shared.Models.GiftStatus.Redeemed;
+            gift.RedeemedAt = now;
+            gift.RedeemerId = redeemer.Id;
+            gift.SubscriptionId = sameTypeSubscription.Id;
+            gift.UpdatedAt = now;
+
+            using var transaction = await db.Database.BeginTransactionAsync();
+            try
+            {
+                db.WalletSubscriptions.Update(sameTypeSubscription);
+                db.WalletGifts.Update(gift);
+                await db.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
+            await NotifyGiftRedeemed(gift, sameTypeSubscription, redeemer);
+            if (gift.GifterId != redeemer.Id)
+            {
+                var gifter = await db.Accounts.FirstOrDefaultAsync(a => a.Id == gift.GifterId);
+                if (gifter != null) await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gifter, redeemer);
+            }
+
+            return (gift, sameTypeSubscription);
+        }
+
         var subscriptionsInGroup = subscriptionInfo.GroupIdentifier is not null
             ? SubscriptionTypeData.SubscriptionDict
                 .Where(s => s.Value.GroupIdentifier == subscriptionInfo.GroupIdentifier)
@@ -710,7 +760,7 @@ public class SubscriptionService(
         // We do not check account level requirement, since it is a gift
 
         // Create the subscription from the gift
-        var cycleDuration = Duration.FromDays(28); // Standard 28-day subscription
+        var cycleDuration = Duration.FromDays(28);
         var subscription = new SnWalletSubscription
         {
             BegunAt = now,
@@ -730,7 +780,6 @@ public class SubscriptionService(
             Coupon = gift.Coupon,
             RenewalAt = now.Plus(cycleDuration),
             AccountId = redeemer.Id,
-            GiftId = gift.Id
         };
 
         // Update the gift status
@@ -741,18 +790,18 @@ public class SubscriptionService(
         gift.UpdatedAt = now;
 
         // Save both gift and subscription
-        using var transaction = await db.Database.BeginTransactionAsync();
+        using var createTransaction = await db.Database.BeginTransactionAsync();
         try
         {
             db.WalletSubscriptions.Add(subscription);
             db.WalletGifts.Update(gift);
             await db.SaveChangesAsync();
 
-            await transaction.CommitAsync();
+            await createTransaction.CommitAsync();
         }
         catch
         {
-            await transaction.RollbackAsync();
+            await createTransaction.RollbackAsync();
             throw;
         }
 

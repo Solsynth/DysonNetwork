@@ -27,7 +27,7 @@ public class RingServiceGrpc(
     public override Task<Empty> PushWebSocketPacket(PushWebSocketPacketRequest request, ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-        
+
         WebSocketService.SendPacketToAccount(Guid.Parse(request.UserId), packet);
         return Task.FromResult(new Empty());
     }
@@ -36,18 +36,18 @@ public class RingServiceGrpc(
         ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-        
+
         foreach (var accountId in request.UserIds)
             WebSocketService.SendPacketToAccount(Guid.Parse(accountId), packet);
-        
+
         return Task.FromResult(new Empty());
     }
 
-public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
-        ServerCallContext context)
+    public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
+            ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-        
+
         websocket.SendPacketToDevice(request.DeviceId, packet);
         return Task.FromResult(new Empty());
     }
@@ -56,10 +56,10 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
         ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-        
+
         foreach (var deviceId in request.DeviceIds)
             websocket.SendPacketToDevice(deviceId, packet);
-        
+
         return Task.FromResult(new Empty());
     }
 
@@ -77,19 +77,19 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
                 : [],
             AccountId = Guid.Parse(request.UserId),
         };
-        
+
         if (request.Notification.ActionUri is not null)
             notification.Meta["action_uri"] = request.Notification.ActionUri;
 
         if (request.Notification.IsSavable)
             await pushService.SaveNotification(notification);
-            
+
         await queueService.EnqueuePushNotification(
             notification,
             Guid.Parse(request.UserId),
             request.Notification.IsSavable
         );
-        
+
         return new Empty();
     }
 
@@ -106,21 +106,21 @@ public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDev
                 ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
         };
-        
+
         if (request.Notification.ActionUri is not null)
             notification.Meta["action_uri"] = request.Notification.ActionUri;
 
         var userIds = request.UserIds.Select(Guid.Parse).ToList();
         if (request.Notification.IsSavable)
             await pushService.SaveNotification(notification, userIds);
-            
+
         var tasks = userIds
             .Select(userId => queueService.EnqueuePushNotification(
                 notification,
                 userId,
                 request.Notification.IsSavable
             ));
-            
+
         await Task.WhenAll(tasks);
         return new Empty();
     }

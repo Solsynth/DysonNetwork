@@ -2,10 +2,8 @@ using System.Text.Json;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Stream;
 using Google.Protobuf;
 using NATS.Client.Core;
-using NATS.Net;
 
 namespace DysonNetwork.Ring.Services;
 
@@ -37,7 +35,7 @@ public class QueueBackgroundService(
     private async Task RunConsumerAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("Queue consumer started");
-        
+
         await foreach (var msg in nats.SubscribeAsync<byte[]>(QueueName, queueGroup: QueueGroup, cancellationToken: stoppingToken))
         {
             try
@@ -105,7 +103,7 @@ public class QueueBackgroundService(
     {
         var pushService = scope.ServiceProvider.GetRequiredService<PushService>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<QueueBackgroundService>>();
-        
+
         var notification = JsonSerializer.Deserialize<Shared.Models.SnNotification>(message.Data);
         if (notification == null)
         {

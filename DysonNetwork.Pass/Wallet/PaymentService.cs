@@ -447,4 +447,315 @@ public class PaymentService(
             $"Transfer from account {payerAccountId} to {payeeAccountId}",
             Shared.Models.TransactionType.Transfer);
     }
+
+    public async Task<SnWalletFund> CreateFundAsync(
+        Guid creatorAccountId,
+        List<Guid> recipientAccountIds,
+        string currency,
+        decimal totalAmount,
+        Shared.Models.FundSplitType splitType,
+        string? message = null,
+        Duration? expiration = null)
+    {
+        if (recipientAccountIds.Count == 0)
+            throw new ArgumentException("At least one recipient is required");
+
+        if (totalAmount <= 0)
+            throw new ArgumentException("Total amount must be positive");
+
+        // Validate all recipient accounts exist and have wallets
+        var recipientWallets = new List<SnWallet>();
+        foreach (var accountId in recipientAccountIds)
+        {
+            var wallet = await wat.GetWalletAsync(accountId);
+            if (wallet == null)
+                throw new InvalidOperationException($"Wallet not found for recipient account {accountId}");
+            recipientWallets.Add(wallet);
+        }
+
+        // Check creator has sufficient funds
+        var creatorWallet = await wat.GetWalletAsync(creatorAccountId);
+        if (creatorWallet == null)
+            throw new InvalidOperationException($"Creator wallet not found for account {creatorAccountId}");
+
+        var (creatorPocket, _) = await wat.GetOrCreateWalletPocketAsync(creatorWallet.Id, currency);
+        if (creatorPocket.Amount < totalAmount)
+            throw new InvalidOperationException("Insufficient funds");
+
+        // Calculate amounts for each recipient
+        var recipientAmounts = splitType switch
+        {
+            Shared.Models.FundSplitType.Even => SplitEvenly(totalAmount, recipientAccountIds.Count),
+            Shared.Models.FundSplitType.Random => SplitRandomly(totalAmount, recipientAccountIds.Count),
+            _ => throw new ArgumentException("Invalid split type")
+        };
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var fund = new SnWalletFund
+        {
+            CreatorAccountId = creatorAccountId,
+            Currency = currency,
+            TotalAmount = totalAmount,
+            SplitType = splitType,
+            Message = message,
+            ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
+            Recipients = recipientAccountIds.Select((accountId, index) => new SnWalletFundRecipient
+            {
+                RecipientAccountId = accountId,
+                Amount = recipientAmounts[index]
+            }).ToList()
+        };
+
+        // Deduct from creator's wallet
+        await db.WalletPockets
+            .Where(p => p.Id == creatorPocket.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Amount, p => p.Amount - totalAmount));
+
+        db.WalletFunds.Add(fund);
+        await db.SaveChangesAsync();
+
+        // Load the fund with account data including profiles
+        var createdFund = await db.WalletFunds
+            .Include(f => f.Recipients)
+                .ThenInclude(r => r.RecipientAccount)
+                .ThenInclude(a => a.Profile)
+            .Include(f => f.CreatorAccount)
+                .ThenInclude(a => a.Profile)
+            .FirstOrDefaultAsync(f => f.Id == fund.Id);
+
+        return createdFund!;
+    }
+
+    private List<decimal> SplitEvenly(decimal totalAmount, int recipientCount)
+    {
+        var baseAmount = Math.Floor(totalAmount / recipientCount * 100) / 100; // Round down to 2 decimal places
+        var remainder = totalAmount - (baseAmount * recipientCount);
+
+        var amounts = new List<decimal>();
+        for (int i = 0; i < recipientCount; i++)
+        {
+            var amount = baseAmount;
+            if (i < remainder * 100) // Distribute remainder as 0.01 increments
+                amount += 0.01m;
+            amounts.Add(amount);
+        }
+
+        return amounts;
+    }
+
+    private List<decimal> SplitRandomly(decimal totalAmount, int recipientCount)
+    {
+        var random = new Random();
+        var amounts = new List<decimal>();
+
+        // Generate random amounts that sum to total
+        decimal remaining = totalAmount;
+        for (int i = 0; i < recipientCount - 1; i++)
+        {
+            // Ensure each recipient gets at least 0.01 and leave enough for remaining recipients
+            var maxAmount = remaining - (recipientCount - i - 1) * 0.01m;
+            var minAmount = 0.01m;
+            var amount = Math.Round((decimal)random.NextDouble() * (maxAmount - minAmount) + minAmount, 2);
+            amounts.Add(amount);
+            remaining -= amount;
+        }
+
+        // Last recipient gets the remainder
+        amounts.Add(Math.Round(remaining, 2));
+
+        return amounts;
+    }
+
+    public async Task<SnWalletTransaction> ReceiveFundAsync(Guid recipientAccountId, Guid fundId)
+    {
+        var fund = await db.WalletFunds
+            .Include(f => f.Recipients)
+            .FirstOrDefaultAsync(f => f.Id == fundId);
+
+        if (fund == null)
+            throw new InvalidOperationException("Fund not found");
+
+        if (fund.Status == Shared.Models.FundStatus.Expired || fund.Status == Shared.Models.FundStatus.Refunded)
+            throw new InvalidOperationException("Fund is no longer available");
+
+        var recipient = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
+        if (recipient == null)
+            throw new InvalidOperationException("You are not a recipient of this fund");
+
+        if (recipient.IsReceived)
+            throw new InvalidOperationException("You have already received this fund");
+
+        var recipientWallet = await wat.GetWalletAsync(recipientAccountId);
+        if (recipientWallet == null)
+            throw new InvalidOperationException("Recipient wallet not found");
+
+        // Create transaction to transfer funds to recipient
+        var transaction = await CreateTransactionAsync(
+            payerWalletId: null, // System transfer
+            payeeWalletId: recipientWallet.Id,
+            currency: fund.Currency,
+            amount: recipient.Amount,
+            remarks: $"Received fund portion from {fund.CreatorAccountId}",
+            type: Shared.Models.TransactionType.System,
+            silent: true
+        );
+
+        // Mark as received
+        recipient.IsReceived = true;
+        recipient.ReceivedAt = SystemClock.Instance.GetCurrentInstant();
+
+        // Update fund status
+        var allReceived = fund.Recipients.All(r => r.IsReceived);
+        if (allReceived)
+            fund.Status = Shared.Models.FundStatus.FullyReceived;
+        else
+            fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+
+        await db.SaveChangesAsync();
+
+        return transaction;
+    }
+
+    public async Task ProcessExpiredFundsAsync()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var expiredFunds = await db.WalletFunds
+            .Include(f => f.Recipients)
+            .Where(f => f.Status == Shared.Models.FundStatus.Created || f.Status == Shared.Models.FundStatus.PartiallyReceived)
+            .Where(f => f.ExpiredAt < now)
+            .ToListAsync();
+
+        foreach (var fund in expiredFunds)
+        {
+            // Calculate unclaimed amount
+            var unclaimedAmount = fund.Recipients
+                .Where(r => !r.IsReceived)
+                .Sum(r => r.Amount);
+
+            if (unclaimedAmount > 0)
+            {
+                // Refund to creator
+                var creatorWallet = await wat.GetWalletAsync(fund.CreatorAccountId);
+                if (creatorWallet != null)
+                {
+                    await CreateTransactionAsync(
+                        payerWalletId: null, // System refund
+                        payeeWalletId: creatorWallet.Id,
+                        currency: fund.Currency,
+                        amount: unclaimedAmount,
+                        remarks: $"Refund for expired fund {fund.Id}",
+                        type: Shared.Models.TransactionType.System,
+                        silent: true
+                    );
+                }
+            }
+
+            fund.Status = Shared.Models.FundStatus.Expired;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<WalletOverview> GetWalletOverviewAsync(Guid accountId, DateTime? startDate = null, DateTime? endDate = null)
+    {
+        var wallet = await wat.GetWalletAsync(accountId);
+        if (wallet == null)
+            throw new InvalidOperationException("Wallet not found");
+
+        var query = db.PaymentTransactions
+            .Where(t => t.PayerWalletId == wallet.Id || t.PayeeWalletId == wallet.Id);
+
+        if (startDate.HasValue)
+            query = query.Where(t => t.CreatedAt >= Instant.FromDateTimeUtc(startDate.Value.ToUniversalTime()));
+        if (endDate.HasValue)
+            query = query.Where(t => t.CreatedAt <= Instant.FromDateTimeUtc(endDate.Value.ToUniversalTime()));
+
+        var transactions = await query.ToListAsync();
+
+        var overview = new WalletOverview
+        {
+            AccountId = accountId,
+            StartDate = startDate?.ToString("O"),
+            EndDate = endDate?.ToString("O"),
+            Summary = new Dictionary<string, TransactionSummary>()
+        };
+
+        // Group transactions by type and currency
+        var groupedTransactions = transactions
+            .GroupBy(t => new { t.Type, t.Currency })
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var group in groupedTransactions)
+        {
+            var typeName = group.Key.Type.ToString();
+            var currency = group.Key.Currency;
+
+            if (!overview.Summary.ContainsKey(typeName))
+            {
+                overview.Summary[typeName] = new TransactionSummary
+                {
+                    Type = typeName,
+                    Currencies = new Dictionary<string, CurrencySummary>()
+                };
+            }
+
+            var currencySummary = new CurrencySummary
+            {
+                Currency = currency,
+                Income = 0,
+                Spending = 0,
+                Net = 0
+            };
+
+            foreach (var transaction in group.Value)
+            {
+                if (transaction.PayeeWalletId == wallet.Id)
+                {
+                    // Money coming in
+                    currencySummary.Income += transaction.Amount;
+                }
+                else if (transaction.PayerWalletId == wallet.Id)
+                {
+                    // Money going out
+                    currencySummary.Spending += transaction.Amount;
+                }
+            }
+
+            currencySummary.Net = currencySummary.Income - currencySummary.Spending;
+            overview.Summary[typeName].Currencies[currency] = currencySummary;
+        }
+
+        // Calculate totals
+        overview.TotalIncome = overview.Summary.Values.Sum(s => s.Currencies.Values.Sum(c => c.Income));
+        overview.TotalSpending = overview.Summary.Values.Sum(s => s.Currencies.Values.Sum(c => c.Spending));
+        overview.NetTotal = overview.TotalIncome - overview.TotalSpending;
+
+        return overview;
+    }
+}
+
+public class WalletOverview
+{
+    public Guid AccountId { get; set; }
+    public string? StartDate { get; set; }
+    public string? EndDate { get; set; }
+    public Dictionary<string, TransactionSummary> Summary { get; set; } = new();
+    public decimal TotalIncome { get; set; }
+    public decimal TotalSpending { get; set; }
+    public decimal NetTotal { get; set; }
+}
+
+public class TransactionSummary
+{
+    public string Type { get; set; } = null!;
+    public Dictionary<string, CurrencySummary> Currencies { get; set; } = new();
+}
+
+public class CurrencySummary
+{
+    public string Currency { get; set; } = null!;
+    public decimal Income { get; set; }
+    public decimal Spending { get; set; }
+    public decimal Net { get; set; }
 }

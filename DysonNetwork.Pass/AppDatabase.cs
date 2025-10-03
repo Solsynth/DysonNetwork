@@ -43,6 +43,8 @@ public class AppDatabase(
     public DbSet<SnWalletPocket> WalletPockets { get; set; } = null!;
     public DbSet<SnWalletOrder> PaymentOrders { get; set; } = null!;
     public DbSet<SnWalletTransaction> PaymentTransactions { get; set; } = null!;
+    public DbSet<SnWalletFund> WalletFunds { get; set; } = null!;
+    public DbSet<SnWalletFundRecipient> WalletFundRecipients { get; set; } = null!;
     public DbSet<SnWalletSubscription> WalletSubscriptions { get; set; } = null!;
     public DbSet<SnWalletGift> WalletGifts { get; set; } = null!;
     public DbSet<SnWalletCoupon> WalletCoupons { get; set; } = null!;

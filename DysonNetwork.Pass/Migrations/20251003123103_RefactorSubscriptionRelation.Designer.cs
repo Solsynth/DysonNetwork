@@ -7,6 +7,7 @@ using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Pass.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20251003123103_RefactorSubscriptionRelation")]
+    partial class RefactorSubscriptionRelation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1387,116 +1390,6 @@ namespace DysonNetwork.Pass.Migrations
                     b.ToTable("wallet_coupons", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletFund", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("CreatorAccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("creator_account_id");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("currency");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<string>("Message")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("message");
-
-                    b.Property<int>("SplitType")
-                        .HasColumnType("integer")
-                        .HasColumnName("split_type");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<decimal>("TotalAmount")
-                        .HasColumnType("numeric")
-                        .HasColumnName("total_amount");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_wallet_funds");
-
-                    b.HasIndex("CreatorAccountId")
-                        .HasDatabaseName("ix_wallet_funds_creator_account_id");
-
-                    b.ToTable("wallet_funds", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletFundRecipient", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric")
-                        .HasColumnName("amount");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("FundId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("fund_id");
-
-                    b.Property<bool>("IsReceived")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_received");
-
-                    b.Property<Instant?>("ReceivedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("received_at");
-
-                    b.Property<Guid>("RecipientAccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("recipient_account_id");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_wallet_fund_recipients");
-
-                    b.HasIndex("FundId")
-                        .HasDatabaseName("ix_wallet_fund_recipients_fund_id");
-
-                    b.HasIndex("RecipientAccountId")
-                        .HasDatabaseName("ix_wallet_fund_recipients_recipient_account_id");
-
-                    b.ToTable("wallet_fund_recipients", (string)null);
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletGift", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2165,39 +2058,6 @@ namespace DysonNetwork.Pass.Migrations
                     b.Navigation("Account");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletFund", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnAccount", "CreatorAccount")
-                        .WithMany()
-                        .HasForeignKey("CreatorAccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_wallet_funds_accounts_creator_account_id");
-
-                    b.Navigation("CreatorAccount");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletFundRecipient", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnWalletFund", "Fund")
-                        .WithMany("Recipients")
-                        .HasForeignKey("FundId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_wallet_fund_recipients_wallet_funds_fund_id");
-
-                    b.HasOne("DysonNetwork.Shared.Models.SnAccount", "RecipientAccount")
-                        .WithMany()
-                        .HasForeignKey("RecipientAccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_wallet_fund_recipients_accounts_recipient_account_id");
-
-                    b.Navigation("Fund");
-
-                    b.Navigation("RecipientAccount");
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletGift", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnWalletCoupon", "Coupon")
@@ -2335,11 +2195,6 @@ namespace DysonNetwork.Pass.Migrations
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnWallet", b =>
                 {
                     b.Navigation("Pockets");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletFund", b =>
-                {
-                    b.Navigation("Recipients");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletSubscription", b =>
