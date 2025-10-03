@@ -716,14 +716,7 @@ public class SubscriptionService(
         if (existingSubscription is not null)
             throw new InvalidOperationException("You already have an active subscription of this type.");
 
-        // Check account level requirement
-        if (subscriptionInfo.RequiredLevel > 0)
-        {
-            var profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == redeemer.Id);
-            if (profile is null || profile.Level < subscriptionInfo.RequiredLevel)
-                throw new InvalidOperationException(
-                    $"Account level must be at least {subscriptionInfo.RequiredLevel} to redeem this gift.");
-        }
+        // We do not check account level requirement, since it is a gift
 
         // Create the subscription from the gift
         var cycleDuration = Duration.FromDays(30); // Standard 30-day subscription
