@@ -79,15 +79,6 @@ public class SubscriptionService(
         var couponData = await couponTask;
 
         // Validation checks
-        if (subscriptionInfo.RequiredLevel > 0)
-        {
-            if (profile is null)
-                throw new InvalidOperationException("Account profile was not found.");
-            if (profile.Level < subscriptionInfo.RequiredLevel)
-                throw new InvalidOperationException(
-                    $"Account level must be at least {subscriptionInfo.RequiredLevel} to subscribe to {identifier}."
-                );
-        }
 
         if (isFreeTrial && prevFreeTrial != null)
             throw new InvalidOperationException("Free trial already exists.");
