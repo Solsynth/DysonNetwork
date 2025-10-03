@@ -30,21 +30,21 @@ public record class SubscriptionTypeData(
                 SubscriptionType.StellarProgram,
                 WalletCurrency.SourcePoint,
                 1200,
-                3
+                20
             ),
             [SubscriptionType.Nova] = new SubscriptionTypeData(
                 SubscriptionType.Nova,
                 SubscriptionType.StellarProgram,
                 WalletCurrency.SourcePoint,
                 2400,
-                6
+                40
             ),
             [SubscriptionType.Supernova] = new SubscriptionTypeData(
                 SubscriptionType.Supernova,
                 SubscriptionType.StellarProgram,
                 WalletCurrency.SourcePoint,
                 3600,
-                9
+                60
             )
         };
 
