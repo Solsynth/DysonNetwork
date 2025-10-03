@@ -645,13 +645,36 @@ public class ChatRoomController(
                 return StatusCode(403, "You cannot invite member with higher permission than yours.");
         }
 
-        var hasExistingMember = await db.ChatMembers
+        var existingMember = await db.ChatMembers
             .Where(m => m.AccountId == request.RelatedUserId)
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-            .AnyAsync();
-        if (hasExistingMember)
-            return BadRequest("This user has been joined the chat cannot be invited again.");
+            .FirstOrDefaultAsync();
+        if (existingMember != null)
+        {
+            if (existingMember.LeaveAt == null)
+                return BadRequest("This user has been joined the chat cannot be invited again.");
+
+            existingMember.LeaveAt = null;
+            existingMember.JoinedAt = null;
+            db.ChatMembers.Update(existingMember);
+            await db.SaveChangesAsync();
+            await _SendInviteNotify(existingMember, currentUser);
+
+            _ = als.CreateActionLogAsync(new CreateActionLogRequest
+            {
+                Action = "chatrooms.invite",
+                Meta =
+            {
+                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
+            },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            });
+
+            return Ok(existingMember);
+        }
 
         var newMember = new SnChatMember
         {
@@ -934,14 +957,14 @@ public class ChatRoomController(
         if (existingMember != null)
         {
             if (existingMember.LeaveAt == null)
-            {
-                existingMember.LeaveAt = null;
-                db.Update(existingMember);
-                await db.SaveChangesAsync();
-                _ = crs.PurgeRoomMembersCache(roomId);
-                return Ok(existingMember);
-            }
-            return BadRequest("You are already a member of this chat room.");
+                return BadRequest("You are already a member of this chat room.");
+
+            existingMember.LeaveAt = null;
+            db.Update(existingMember);
+            await db.SaveChangesAsync();
+            _ = crs.PurgeRoomMembersCache(roomId);
+
+            return Ok(existingMember);
         }
 
         var newMember = new SnChatMember

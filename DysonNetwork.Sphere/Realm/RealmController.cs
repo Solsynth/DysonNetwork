@@ -42,8 +42,7 @@ public class RealmController(
 
         var members = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.JoinedAt != null)
-            .Where(m => m.LeaveAt == null)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .Include(e => e.Realm)
             .Select(m => m.Realm)
             .ToListAsync();
@@ -102,13 +101,37 @@ public class RealmController(
         if (!await rs.IsMemberWithRole(realm.Id, accountId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
-        var hasExistingMember = await db.RealmMembers
+        var existingMember = await db.RealmMembers
             .Where(m => m.AccountId == Guid.Parse(relatedUser.Id))
             .Where(m => m.RealmId == realm.Id)
-            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-            .AnyAsync();
-        if (hasExistingMember)
-            return BadRequest("This user already in the realm cannot be invited again.");
+            .FirstOrDefaultAsync();
+        if (existingMember != null)
+        {
+            if (existingMember.LeaveAt == null)
+                return BadRequest("This user already in the realm cannot be invited again.");
+
+            existingMember.LeaveAt = null;
+            existingMember.JoinedAt = null;
+            db.RealmMembers.Update(existingMember);
+            await db.SaveChangesAsync();
+            await rs.SendInviteNotify(existingMember);
+
+            _ = als.CreateActionLogAsync(new CreateActionLogRequest
+            {
+                Action = "realms.members.invite",
+                Meta =
+            {
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "account_id", Value.ForString(existingMember.AccountId.ToString()) },
+                { "role", Value.ForNumber(request.Role) }
+            },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
+            });
+
+            return Ok(existingMember);
+        }
 
         var member = new SnRealmMember
         {
@@ -556,10 +579,35 @@ public class RealmController(
             return StatusCode(403, "Only community realms can be joined without invitation.");
 
         var existingMember = await db.RealmMembers
-            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
+            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.RealmId == realm.Id)
             .FirstOrDefaultAsync();
         if (existingMember is not null)
-            return BadRequest("You are already a member of this realm.");
+        {
+            if (existingMember.LeaveAt == null)
+                return BadRequest("You are already a member of this realm.");
+
+            existingMember.LeaveAt = null;
+            existingMember.JoinedAt = SystemClock.Instance.GetCurrentInstant();
+
+            db.Update(existingMember);
+            await db.SaveChangesAsync();
+
+            _ = als.CreateActionLogAsync(new CreateActionLogRequest
+            {
+                Action = "realms.members.join",
+                Meta =
+            {
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "account_id", Value.ForString(currentUser.Id) },
+                { "is_community", Value.ForBool(realm.IsCommunity) }
+            },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
+            });
+
+            return Ok(existingMember);
+        }
 
         var member = new SnRealmMember
         {
