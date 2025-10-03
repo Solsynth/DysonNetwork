@@ -662,33 +662,7 @@ public class SubscriptionService(
         db.WalletGifts.Add(gift);
         await db.SaveChangesAsync();
 
-        // Create order and process payment
-        var order = await payment.CreateOrderAsync(
-            null, // No specific payee wallet for gifts
-            subscriptionInfo.Currency,
-            finalPrice,
-            appIdentifier: "gift",
-            productIdentifier: subscriptionIdentifier,
-            meta: new Dictionary<string, object>
-            {
-                ["gift_id"] = gift.Id.ToString()
-            }
-        );
-
-        // If payment method is in-app wallet, process payment immediately
-        if (paymentMethod == SubscriptionPaymentMethod.InAppWallet)
-        {
-            var gifterWallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == gifter.Id);
-            if (gifterWallet == null)
-                throw new InvalidOperationException("Gifter wallet not found.");
-
-            await payment.PayOrderAsync(order.Id, gifterWallet);
-
-            // Mark gift as sent after successful payment
-            gift.Status = DysonNetwork.Shared.Models.GiftStatus.Sent;
-            gift.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
-            await db.SaveChangesAsync();
-        }
+        gift.Gifter = gifter;
 
         return gift;
     }
