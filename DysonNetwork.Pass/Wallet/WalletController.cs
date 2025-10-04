@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ namespace DysonNetwork.Pass.Wallet;
 
 [ApiController]
 [Route("/api/wallets")]
-public class WalletController(AppDatabase db, WalletService ws, PaymentService payment, AuthService auth) : ControllerBase
+public class WalletController(AppDatabase db, WalletService ws, PaymentService payment, AuthService auth, ICacheService cache) : ControllerBase
 {
     [HttpPost]
     [Authorize]
@@ -39,6 +40,72 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         var wallet = await ws.GetWalletAsync(currentUser.Id);
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
         return Ok(wallet);
+    }
+
+    public class WalletStats
+    {
+        public Instant PeriodBegin { get; set; }
+        public Instant PeriodEnd { get; set; }
+        public int TotalTransactions { get; set; }
+        public int TotalOrders { get; set; }
+        public Dictionary<string, decimal> IncomeCatgories { get; set; } = null!;
+        public Dictionary<string, decimal> OutgoingCategories { get; set; } = null!;
+        public decimal TotalIncome => IncomeCatgories.Values.Sum();
+        public decimal TotalOutgoing => OutgoingCategories.Values.Sum();
+        public decimal Sum => TotalIncome - TotalOutgoing;
+    }
+
+    [HttpGet("stats")]
+    [Authorize]
+    public async Task<ActionResult<WalletStats>> GetWalletStats([FromQuery] int period = 30)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var wallet = await ws.GetWalletAsync(currentUser.Id);
+        if (wallet is null) return NotFound("Wallet was not found, please create one first.");
+
+        var periodEnd = SystemClock.Instance.GetCurrentInstant();
+        var periodBegin = periodEnd.Minus(Duration.FromDays(period));
+
+        var cacheKey = $"wallet:stats:{currentUser.Id}:{period}";
+        var cached = await cache.GetAsync<WalletStats>(cacheKey);
+        if (cached != null)
+        {
+            return Ok(cached);
+        }
+
+        var transactions = await db.PaymentTransactions
+            .Where(t => (t.PayerWalletId == wallet.Id || t.PayeeWalletId == wallet.Id) &&
+                        t.CreatedAt >= periodBegin && t.CreatedAt <= periodEnd)
+            .ToListAsync();
+
+        var orders = await db.PaymentOrders
+            .Where(o => o.PayeeWalletId == wallet.Id &&
+                        o.CreatedAt >= periodBegin && o.CreatedAt <= periodEnd)
+            .ToListAsync();
+
+        var incomeCategories = transactions
+            .Where(t => t.PayeeWalletId == wallet.Id)
+            .GroupBy(t => t.Type.ToString())
+            .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
+
+        var outgoingCategories = transactions
+            .Where(t => t.PayerWalletId == wallet.Id)
+            .GroupBy(t => t.Type.ToString())
+            .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
+
+        var stats = new WalletStats
+        {
+            PeriodBegin = periodBegin,
+            PeriodEnd = periodEnd,
+            TotalTransactions = transactions.Count,
+            TotalOrders = orders.Count,
+            IncomeCatgories = incomeCategories,
+            OutgoingCategories = outgoingCategories
+        };
+
+        await cache.SetAsync(cacheKey, stats, TimeSpan.FromHours(1));
+        return Ok(stats);
     }
 
     [HttpGet("transactions")]
