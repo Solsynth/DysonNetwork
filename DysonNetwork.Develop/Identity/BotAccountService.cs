@@ -20,7 +20,7 @@ public class BotAccountService(
             .FirstOrDefaultAsync(b => b.Id == id);
     }
 
-    public async Task<IEnumerable<SnBotAccount>> GetBotsByProjectAsync(Guid projectId)
+    public async Task<List<SnBotAccount>> GetBotsByProjectAsync(Guid projectId)
     {
         return await db.BotAccounts
             .Where(b => b.ProjectId == projectId)
