@@ -97,7 +97,7 @@ public class BotAccountService(
     {
         db.Update(bot);
         await db.SaveChangesAsync();
-        
+
         try
         {
             // Update the bot account in the Pass service
@@ -155,9 +155,8 @@ public class BotAccountService(
     public async Task<SnBotAccount?> LoadBotAccountAsync(SnBotAccount bot) =>
         (await LoadBotsAccountAsync([bot])).FirstOrDefault();
 
-    public async Task<List<SnBotAccount>> LoadBotsAccountAsync(IEnumerable<SnBotAccount> bots)
+    public async Task<List<SnBotAccount>> LoadBotsAccountAsync(List<SnBotAccount> bots)
     {
-        bots = [.. bots];
         var automatedIds = bots.Select(b => b.Id).ToList();
         var data = await accounts.GetBotAccountBatch(automatedIds);
 
@@ -168,6 +167,6 @@ public class BotAccountService(
                 .FirstOrDefault(e => e.AutomatedId == bot.Id);
         }
 
-        return bots as List<SnBotAccount> ?? [];
+        return bots;
     }
 }

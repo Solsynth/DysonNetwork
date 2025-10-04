@@ -16,7 +16,7 @@ namespace DysonNetwork.Develop.Identity;
 [Authorize]
 public class BotAccountController(
     BotAccountService botService,
-    DeveloperService developerService,
+    DeveloperService ds,
     DevProjectService projectService,
     ILogger<BotAccountController> logger,
     AccountClientHelper accounts,
@@ -50,9 +50,9 @@ public class BotAccountController(
         ]
         public string Name { get; set; } = string.Empty;
 
-        [Required] [MaxLength(256)] public string Nick { get; set; } = string.Empty;
+        [Required][MaxLength(256)] public string Nick { get; set; } = string.Empty;
 
-        [Required] [MaxLength(1024)] public string Slug { get; set; } = string.Empty;
+        [Required][MaxLength(1024)] public string Slug { get; set; } = string.Empty;
 
         [MaxLength(128)] public string Language { get; set; } = "en-us";
     }
@@ -68,7 +68,7 @@ public class BotAccountController(
 
         [MaxLength(256)] public string? Nick { get; set; } = string.Empty;
 
-        [Required] [MaxLength(1024)] public string? Slug { get; set; } = string.Empty;
+        [Required][MaxLength(1024)] public string? Slug { get; set; } = string.Empty;
 
         [MaxLength(128)] public string? Language { get; set; }
 
@@ -83,11 +83,11 @@ public class BotAccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 Shared.Proto.PublisherMemberRole.Viewer))
             return StatusCode(403, "You must be an viewer of the developer to list bots");
 
@@ -108,11 +108,11 @@ public class BotAccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 Shared.Proto.PublisherMemberRole.Viewer))
             return StatusCode(403, "You must be an viewer of the developer to view bot details");
 
@@ -137,11 +137,11 @@ public class BotAccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to create a bot");
 
@@ -206,11 +206,11 @@ public class BotAccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to update a bot");
 
@@ -267,11 +267,11 @@ public class BotAccountController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 Shared.Proto.PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to delete a bot");
 
@@ -374,7 +374,7 @@ public class BotAccountController(
                 AccountId = bot.Id.ToString(),
                 Label = request.Label
             };
-            
+
             var createdKey = await accountsReceiver.CreateApiKeyAsync(newKey);
             return Ok(SnApiKey.FromProtoValue(createdKey));
         }
@@ -443,10 +443,10 @@ public class BotAccountController(
         Account currentUser,
         Shared.Proto.PublisherMemberRole requiredRole)
     {
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer == null) return (null, null, null);
 
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), requiredRole))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), requiredRole))
             return (null, null, null);
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
