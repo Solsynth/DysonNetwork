@@ -351,7 +351,7 @@ public class OidcProviderController(
                 { "code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token" },
             grant_types_supported = new[] { "authorization_code", "refresh_token" },
             token_endpoint_auth_methods_supported = new[] { "client_secret_basic", "client_secret_post" },
-            id_token_signing_alg_values_supported = new[] { "HS256" },
+            id_token_signing_alg_values_supported = new[] { "HS256", "RS256" },
             subject_types_supported = new[] { "public" },
             claims_supported = new[] { "sub", "name", "email", "email_verified" },
             code_challenge_methods_supported = new[] { "S256" },
