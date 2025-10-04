@@ -126,10 +126,16 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
         var transactionCount = await query.CountAsync();
         Response.Headers["X-Total"] = transactionCount.ToString();
-        
+
         var transactions = await query
             .Skip(offset)
             .Take(take)
+            .Include(t => t.PayerWallet)
+            .ThenInclude(w => w.Account)
+            .ThenInclude(w => w.Profile)
+            .Include(t => t.PayeeWallet)
+            .ThenInclude(w => w.Account)
+            .ThenInclude(w => w.Profile)
             .ToListAsync();
 
         return Ok(transactions);
@@ -142,18 +148,18 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        
+
         var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
-        
+
         var query = db.PaymentOrders.AsQueryable()
             .Include(o => o.Transaction)
             .Where(o => o.Transaction != null && (o.Transaction.PayeeWalletId == accountWallet.Id || o.Transaction.PayerWalletId == accountWallet.Id))
             .AsQueryable();
-        
+
         var orderCount = await query.CountAsync();
         Response.Headers["X-Total"] = orderCount.ToString();
-        
+
         var orders = await query
             .Skip(offset)
             .Take(take)
