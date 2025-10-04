@@ -200,11 +200,13 @@ public class OidcProviderService(
                 claims.Add(new Claim("family_name", session.Account.Profile.LastName));
         }
 
+        claims.Add(new Claim(JwtRegisteredClaimNames.Azp, client.Slug));
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Issuer = _options.IssuerUri,
-            Audience = client.Id.ToString(),
+            Audience = client.Slug.ToString(),
             Expires = now.Plus(Duration.FromSeconds(_options.AccessTokenLifetime.TotalSeconds)).ToDateTimeUtc(),
             NotBefore = now.ToDateTimeUtc(),
             SigningCredentials = new SigningCredentials(
@@ -314,6 +316,7 @@ public class OidcProviderService(
                 new Claim(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(),
                     ClaimValueTypes.Integer64),
+                new Claim(JwtRegisteredClaimNames.Azp, client.Slug),
             ]),
             Expires = expiresAt.ToDateTimeUtc(),
             Issuer = _options.IssuerUri,
