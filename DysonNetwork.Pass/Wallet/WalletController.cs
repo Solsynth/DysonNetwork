@@ -183,6 +183,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         [Required] public decimal Amount { get; set; }
         [Required] public string Currency { get; set; } = null!;
         [Required] public Guid PayeeAccountId { get; set; }
+        [Required] public string PinCode { get; set; } = null!;
     }
 
     [HttpPost("balance")]
@@ -218,23 +219,19 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var payerWallet = await ws.GetWalletAsync(currentUser.Id);
-        if (payerWallet is null) return NotFound("Your wallet was not found, please create one first.");
-
-        var payeeWallet = await ws.GetWalletAsync(request.PayeeAccountId);
-        if (payeeWallet is null) return NotFound("Payee wallet was not found.");
+        // Validate PIN code
+        if (!await auth.ValidatePinCode(currentUser.Id, request.PinCode))
+            return StatusCode(403, "Invalid PIN Code");
 
         if (currentUser.Id == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
 
         try
         {
-            var transaction = await payment.CreateTransactionAsync(
-                payerWalletId: payerWallet.Id,
-                payeeWalletId: payeeWallet.Id,
+            var transaction = await payment.TransferAsync(
+                payerAccountId: currentUser.Id,
+                payeeAccountId: request.PayeeAccountId,
                 currency: request.Currency,
-                amount: request.Amount,
-                remarks: request.Remark ?? $"Transfer from {currentUser.Id} to {request.PayeeAccountId}",
-                type: TransactionType.Transfer
+                amount: request.Amount
             );
 
             return Ok(transaction);

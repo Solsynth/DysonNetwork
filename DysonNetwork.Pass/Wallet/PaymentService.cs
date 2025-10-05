@@ -439,6 +439,19 @@ public class PaymentService(
             throw new InvalidOperationException($"Payee wallet not found for account {payeeAccountId}");
         }
 
+        // Calculate transfer fee (5%)
+        decimal fee = Math.Round(amount * 0.05m, 2);
+
+        // Create fee transaction (to system)
+        await CreateTransactionAsync(
+            payerWallet.Id,
+            null,
+            currency,
+            fee,
+            $"Transfer fee for transfer from account {payerAccountId} to {payeeAccountId}",
+            Shared.Models.TransactionType.System);
+
+        // Create main transfer transaction
         return await CreateTransactionAsync(
             payerWallet.Id,
             payeeWallet.Id,
