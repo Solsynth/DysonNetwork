@@ -34,7 +34,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
 
     public Guid ProjectId { get; set; }
     public SnDevProject Project { get; set; } = null!;
-    
+
     [NotMapped]
     public SnDeveloper Developer => Project.Developer;
 
@@ -81,36 +81,41 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
         };
     }
 
-    public SnCustomApp FromProtoValue(Proto.CustomApp p)
+    public static SnCustomApp FromProtoValue(Proto.CustomApp p)
     {
-        Id = Guid.Parse(p.Id);
-        Slug = p.Slug;
-        Name = p.Name;
-        Description = string.IsNullOrEmpty(p.Description) ? null : p.Description;
-        Status = p.Status switch
+        var obj = new SnCustomApp
         {
-            Shared.Proto.CustomAppStatus.Developing => CustomAppStatus.Developing,
-            Shared.Proto.CustomAppStatus.Staging => CustomAppStatus.Staging,
-            Shared.Proto.CustomAppStatus.Production => CustomAppStatus.Production,
-            Shared.Proto.CustomAppStatus.Suspended => CustomAppStatus.Suspended,
-            _ => CustomAppStatus.Developing
+            Id = Guid.Parse(p.Id),
+            Slug = p.Slug,
+            Name = p.Name,
+            Description = string.IsNullOrEmpty(p.Description) ? null : p.Description,
+            Status = p.Status switch
+            {
+                Shared.Proto.CustomAppStatus.Developing => CustomAppStatus.Developing,
+                Shared.Proto.CustomAppStatus.Staging => CustomAppStatus.Staging,
+                Shared.Proto.CustomAppStatus.Production => CustomAppStatus.Production,
+                Shared.Proto.CustomAppStatus.Suspended => CustomAppStatus.Suspended,
+                _ => CustomAppStatus.Developing
+            },
+            ProjectId = string.IsNullOrEmpty(p.ProjectId) ? Guid.Empty : Guid.Parse(p.ProjectId),
+            CreatedAt = p.CreatedAt.ToInstant(),
+            UpdatedAt = p.UpdatedAt.ToInstant(),
         };
-        ProjectId = string.IsNullOrEmpty(p.ProjectId) ? Guid.Empty : Guid.Parse(p.ProjectId);
-        CreatedAt = p.CreatedAt.ToInstant();
-        UpdatedAt = p.UpdatedAt.ToInstant();
-        if (p.Picture is not null) Picture = SnCloudFileReferenceObject.FromProtoValue(p.Picture);
-        if (p.Background is not null) Background = SnCloudFileReferenceObject.FromProtoValue(p.Background);
-        if (p.Verification is not null) Verification = SnVerificationMark.FromProtoValue(p.Verification);
+
+        if (p.Picture is not null) obj.Picture = SnCloudFileReferenceObject.FromProtoValue(p.Picture);
+        if (p.Background is not null) obj.Background = SnCloudFileReferenceObject.FromProtoValue(p.Background);
+        if (p.Verification is not null) obj.Verification = SnVerificationMark.FromProtoValue(p.Verification);
         if (p.Links is not null)
         {
-            Links = new SnCustomAppLinks
+            obj.Links = new SnCustomAppLinks
             {
                 HomePage = string.IsNullOrEmpty(p.Links.HomePage) ? null : p.Links.HomePage,
                 PrivacyPolicy = string.IsNullOrEmpty(p.Links.PrivacyPolicy) ? null : p.Links.PrivacyPolicy,
                 TermsOfService = string.IsNullOrEmpty(p.Links.TermsOfService) ? null : p.Links.TermsOfService
             };
         }
-        return this;
+
+        return obj;
     }
 }
 
