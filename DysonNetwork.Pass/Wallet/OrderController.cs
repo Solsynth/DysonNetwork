@@ -1,4 +1,3 @@
-using DysonNetwork.Pass.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
@@ -98,6 +97,47 @@ public class OrderController(
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    public class UpdateOrderStatusRequest
+    {
+        public string ClientId { get; set; } = null!;
+        public string ClientSecret { get; set; } = null!;
+        public Shared.Models.OrderStatus Status { get; set; }
+    }
+
+    [HttpPatch("{id:guid}/status")]
+    public async Task<ActionResult<SnWalletOrder>> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
+    {
+        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        if (clientResp.App is null) return BadRequest("Client not found");
+        var client = SnCustomApp.FromProtoValue(clientResp.App);
+
+        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        {
+            AppId = client.Id.ToString(),
+            Secret = request.ClientSecret,
+        });
+        if (!secret.Valid) return BadRequest("Invalid client secret");
+
+        var order = await db.PaymentOrders.FindAsync(id);
+
+        if (order == null)
+            return NotFound();
+
+        if (order.AppIdentifier != request.ClientId)
+        {
+            return BadRequest("Order does not belong to this client.");
+        }
+
+        if (request.Status != Shared.Models.OrderStatus.Finished && request.Status != Shared.Models.OrderStatus.Cancelled)
+            return BadRequest("Invalid status. Available statuses are Finished, Cancelled.");
+
+
+        order.Status = request.Status;
+        await db.SaveChangesAsync();
+
+        return Ok(order);
     }
 }
 
