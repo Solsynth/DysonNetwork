@@ -441,6 +441,23 @@ public class PaymentService(
 
         // Calculate transfer fee (5%)
         decimal fee = Math.Round(amount * 0.05m, 2);
+        decimal finalCost = amount + fee;
+
+        // Make sure the account has sufficient balanace for both fee and the transfer
+        var (payerPocket, isNewlyCreated) =
+            await wat.GetOrCreateWalletPocketAsync(payerWallet.Id, currency, amount);
+
+        if (isNewlyCreated || payerPocket.Amount < finalCost)
+            throw new InvalidOperationException("Insufficient funds");
+
+        // Create main transfer transaction
+        var transaction = await CreateTransactionAsync(
+            payerWallet.Id,
+            payeeWallet.Id,
+            currency,
+            amount,
+            $"Transfer from account {payerAccountId} to {payeeAccountId}",
+            Shared.Models.TransactionType.Transfer);
 
         // Create fee transaction (to system)
         await CreateTransactionAsync(
@@ -448,17 +465,10 @@ public class PaymentService(
             null,
             currency,
             fee,
-            $"Transfer fee for transfer from account {payerAccountId} to {payeeAccountId}",
+            $"Transfer fee for transaction #{transaction.Id}",
             Shared.Models.TransactionType.System);
 
-        // Create main transfer transaction
-        return await CreateTransactionAsync(
-            payerWallet.Id,
-            payeeWallet.Id,
-            currency,
-            amount,
-            $"Transfer from account {payerAccountId} to {payeeAccountId}",
-            Shared.Models.TransactionType.Transfer);
+        return transaction;
     }
 
     public async Task<SnWalletFund> CreateFundAsync(
