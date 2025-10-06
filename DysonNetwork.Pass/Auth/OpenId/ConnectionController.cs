@@ -16,7 +16,8 @@ public class ConnectionController(
     IEnumerable<OidcService> oidcServices,
     AccountService accounts,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    IConfiguration configuration
 ) : ControllerBase
 {
     private const string StateCachePrefix = "oidc-state:";
@@ -277,7 +278,9 @@ public class ConnectionController(
         var returnUrl = await cache.GetAsync<string>(returnUrlKey);
         await cache.RemoveAsync(returnUrlKey);
 
-        return Redirect(string.IsNullOrEmpty(returnUrl) ? "/auth/callback" : returnUrl);
+        var siteUrl = configuration["SiteUrl"];
+
+        return Redirect(string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/callback" : returnUrl);
     }
 
     private async Task<IActionResult> HandleLoginOrRegistration(
@@ -341,7 +344,10 @@ public class ConnectionController(
 
         var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
         var loginToken = auth.CreateToken(loginSession);
-        return Redirect($"/auth/callback?token={loginToken}");
+
+        var siteUrl = configuration["SiteUrl"];
+
+        return Redirect(siteUrl + $"/auth/callback?token={loginToken}");
     }
 
     private static async Task<OidcCallbackData> ExtractCallbackData(HttpRequest request)
