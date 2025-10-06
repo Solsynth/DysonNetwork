@@ -100,6 +100,22 @@ var routes = specialRoutes.Concat(apiRoutes).Concat(swaggerRoutes).ToArray();
 var clusters = serviceNames.Select(serviceName => new ClusterConfig
 {
     ClusterId = serviceName,
+    HealthCheck = new()
+    {
+        Active = new()
+        {
+            Enabled = true,
+            Interval = TimeSpan.FromSeconds(10),
+            Timeout = TimeSpan.FromSeconds(5),
+            Policy = "ActiveHealthy",
+            Path = "/health"
+        },
+        Passive = new()
+        {
+            Enabled = true,
+            Policy = "PassiveHealthy"
+        }
+    },
     Destinations = new Dictionary<string, DestinationConfig>
     {
         { "destination1", new DestinationConfig { Address = $"http://{serviceName}" } }
