@@ -107,13 +107,11 @@ var clusters = serviceNames.Select(serviceName => new ClusterConfig
             Enabled = true,
             Interval = TimeSpan.FromSeconds(10),
             Timeout = TimeSpan.FromSeconds(5),
-            Policy = "ActiveHealthy",
             Path = "/health"
         },
         Passive = new()
         {
-            Enabled = true,
-            Policy = "PassiveHealthy"
+            Enabled = true
         }
     },
     Destinations = new Dictionary<string, DestinationConfig>
