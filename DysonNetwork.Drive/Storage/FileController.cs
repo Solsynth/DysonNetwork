@@ -70,13 +70,11 @@ public class FileController(
                 }
             }
 
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, "File is being processed. Please try again later.");
+            return StatusCode(StatusCodes.Status400BadRequest, "File is being processed. Please try again later.");
         }
 
         if (!file.PoolId.HasValue)
-        {
             return StatusCode(StatusCodes.Status500InternalServerError, "File is in an inconsistent state: uploaded but no pool ID.");
-        }
 
         var pool = await fs.GetPoolAsync(file.PoolId.Value);
         if (pool is null)

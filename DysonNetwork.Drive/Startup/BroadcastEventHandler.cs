@@ -41,7 +41,7 @@ public class BroadcastEventHandler(
         
         await js.EnsureStreamCreated("file_events", [FileUploadedEvent.Type]);
         var fileUploadedConsumer = await js.CreateOrUpdateConsumerAsync("file_events",
-            new ConsumerConfig("drive_file_uploaded_handler"), cancellationToken: stoppingToken);
+            new ConsumerConfig("drive_file_uploaded_handler") { MaxDeliver = 3 }, cancellationToken: stoppingToken);
 
         var accountDeletedTask = HandleAccountDeleted(accountEventConsumer, stoppingToken);
         var fileUploadedTask = HandleFileUploaded(fileUploadedConsumer, stoppingToken);
@@ -75,8 +75,8 @@ public class BroadcastEventHandler(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error processing FileUploadedEvent for file {FileId}", payload?.FileId);
-                await msg.NakAsync(cancellationToken: stoppingToken);
+                logger.LogError(ex, "Error processing FileUploadedEvent for file {FileId}", payload.FileId);
+                await msg.NakAsync(cancellationToken: stoppingToken, delay: TimeSpan.FromSeconds(60));
             }
         }
     }
