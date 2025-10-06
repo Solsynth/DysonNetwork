@@ -57,7 +57,7 @@ public abstract class OidcService(
         {
             ClientId = Configuration[$"Oidc:{ConfigSectionName}:ClientId"] ?? "",
             ClientSecret = Configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
-            RedirectUri = Configuration["BaseUrl"] + "/auth/callback/" + ProviderName.ToLower()
+            RedirectUri = Configuration["SiteUrl"] + "/auth/callback/" + ProviderName.ToLower()
         };
     }
 

@@ -115,8 +115,8 @@ message BotAccount {
 message CreateBotAccountRequest {
   Account account = 1;
   string automated_id = 2;
-  optional string picture_id = 8;
-  optional string background_id = 9;
+  google.protobuf.StringValue picture_id = 8;
+  google.protobuf.StringValue background_id = 9;
 }
 
 message CreateBotAccountResponse {
