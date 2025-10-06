@@ -128,7 +128,7 @@ public class ConnectionController(
     }
 
     [AllowAnonymous]
-    [Route("/auth/callback/{provider}")]
+    [Route("/api/auth/callback/{provider}")]
     [HttpGet, HttpPost]
     public async Task<IActionResult> HandleCallback([FromRoute] string provider)
     {
@@ -142,10 +142,10 @@ public class ConnectionController(
 
         // Get the state from the cache
         var stateKey = $"{StateCachePrefix}{callbackData.State}";
-        
+
         // Try to get the state as OidcState first (new format)
         var oidcState = await cache.GetAsync<OidcState>(stateKey);
-        
+
         // If not found, try to get as string (legacy format)
         if (oidcState == null)
         {
@@ -153,7 +153,7 @@ public class ConnectionController(
             if (string.IsNullOrEmpty(stateValue) || !OidcState.TryParse(stateValue, out oidcState) || oidcState == null)
                 return BadRequest("Invalid or expired state parameter");
         }
-        
+
         // Remove the state from cache to prevent replay attacks
         await cache.RemoveAsync(stateKey);
 
@@ -309,14 +309,14 @@ public class ConnectionController(
         if (connection != null)
         {
             // Login existing user
-            var deviceId = !string.IsNullOrEmpty(callbackData.State) ? 
-                callbackData.State.Split('|').FirstOrDefault() : 
+            var deviceId = !string.IsNullOrEmpty(callbackData.State) ?
+                callbackData.State.Split('|').FirstOrDefault() :
                 string.Empty;
-                
+
             var challenge = await oidcService.CreateChallengeForUserAsync(
-                userInfo, 
-                connection.Account, 
-                HttpContext, 
+                userInfo,
+                connection.Account,
+                HttpContext,
                 deviceId ?? string.Empty);
             return Redirect($"/auth/callback?challenge={challenge.Id}");
         }
@@ -355,16 +355,16 @@ public class ConnectionController(
                 data.State = Uri.UnescapeDataString(request.Query["state"].FirstOrDefault() ?? "");
                 break;
             case "POST" when request.HasFormContentType:
-            {
-                var form = await request.ReadFormAsync();
-                data.Code = Uri.UnescapeDataString(form["code"].FirstOrDefault() ?? "");
-                data.IdToken = Uri.UnescapeDataString(form["id_token"].FirstOrDefault() ?? ""); 
-                data.State = Uri.UnescapeDataString(form["state"].FirstOrDefault() ?? "");
-                if (form.ContainsKey("user"))
-                    data.RawData = Uri.UnescapeDataString(form["user"].FirstOrDefault() ?? "");
+                {
+                    var form = await request.ReadFormAsync();
+                    data.Code = Uri.UnescapeDataString(form["code"].FirstOrDefault() ?? "");
+                    data.IdToken = Uri.UnescapeDataString(form["id_token"].FirstOrDefault() ?? "");
+                    data.State = Uri.UnescapeDataString(form["state"].FirstOrDefault() ?? "");
+                    if (form.ContainsKey("user"))
+                        data.RawData = Uri.UnescapeDataString(form["user"].FirstOrDefault() ?? "");
 
-                break;
-            }
+                    break;
+                }
         }
 
         return data;
