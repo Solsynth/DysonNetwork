@@ -522,6 +522,9 @@ public class PostController(
         public PostReactionAttitude Attitude { get; set; }
     }
 
+    public static readonly List<string> ReactionsAllowedDefault =
+        ["thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray", "heart"];
+
     [HttpPost("{id:guid}/reactions")]
     [Authorize]
     [RequiredPermission("global", "posts.react")]
@@ -534,6 +537,10 @@ public class PostController(
                 { AccountId = currentUser.Id.ToString() });
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        if (!ReactionsAllowedDefault.Contains(request.Symbol))
+            if (currentUser.PerkSubscription is null)
+                return BadRequest("You need subscription to send custom reactions");
 
         var post = await db.Posts
             .Where(e => e.Id == id)
