@@ -84,6 +84,15 @@ public class WebSocketController(
         {
             await _ConnectionEventLoop(deviceId, currentUser, webSocket, cts.Token);
         }
+        catch (WebSocketException ex) when (ex.Message.Contains("The remote party closed the WebSocket connection without completing the close handshake"))
+        {
+            logger.LogDebug(
+                "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} - client closed connection without proper handshake",
+                currentUser.Name,
+                currentUser.Id,
+                deviceId
+            );
+        }
         catch (Exception ex)
         {
             logger.LogError(ex,
