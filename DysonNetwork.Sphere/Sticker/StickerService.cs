@@ -26,7 +26,7 @@ public class StickerService(
         {
             FileId = sticker.Image.Id,
             Usage = StickerFileUsageIdentifier,
-            ResourceId = sticker.ResourceIdentifier 
+            ResourceId = sticker.ResourceIdentifier
         });
 
         return sticker;
@@ -109,9 +109,25 @@ public class StickerService(
         // If not in cache, fetch from the database
         IQueryable<SnSticker> query = db.Stickers
             .Include(e => e.Pack);
-        query = Guid.TryParse(identifier, out var guid)
-            ? query.Where(e => e.Id == guid)
-            : query.Where(e => EF.Functions.ILike(e.Pack.Prefix + e.Slug, identifier));
+
+        var isV2 = identifier.Contains("+");
+
+        var identifierParts = identifier.Split('+');
+        if (identifierParts.Length < 2) isV2 = false;
+
+        if (isV2)
+        {
+            var packPart = identifierParts[0];
+            var stickerPart = identifierParts[1];
+            query = query.Where(e => EF.Functions.ILike(e.Pack.Prefix, packPart) && EF.Functions.ILike(e.Slug, stickerPart));
+        }
+        else
+        {
+            query = Guid.TryParse(identifier, out var guid)
+                ? query.Where(e => e.Id == guid)
+                : query.Where(e => EF.Functions.ILike(e.Pack.Prefix + e.Slug, identifier));
+        }
+
 
         var sticker = await query.FirstOrDefaultAsync();
 
