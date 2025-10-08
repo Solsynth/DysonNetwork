@@ -142,6 +142,14 @@ public abstract class Leveling
     }
 }
 
+public class UsernameColor
+{
+    public string Type { get; set; } = "plain"; // "plain" | "gradient"
+    public string? Value { get; set; }          // e.g. "red" or "#ff6600"
+    public string? Direction { get; set; }      // e.g. "to right"
+    public List<string>? Colors { get; set; }   // e.g. ["#ff0000", "#00ff00"]
+}
+
 public class SnAccountProfile : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -154,6 +162,7 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
     [MaxLength(1024)] public string? TimeZone { get; set; }
     [MaxLength(1024)] public string? Location { get; set; }
     [Column(TypeName = "jsonb")] public List<ProfileLink>? Links { get; set; }
+    [Column(TypeName = "jsonb")] public UsernameColor? UsernameColor { get; set; }
     public Instant? Birthday { get; set; }
     public Instant? LastSeenAt { get; set; }
 

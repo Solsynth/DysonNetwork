@@ -80,6 +80,7 @@ public class AccountCurrentController(
         [MaxLength(1024)] public string? TimeZone { get; set; }
         [MaxLength(1024)] public string? Location { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
+        public UsernameColor? UsernameColor { get; set; }
         public Instant? Birthday { get; set; }
         public List<ProfileLink>? Links { get; set; }
 
@@ -115,6 +116,7 @@ public class AccountCurrentController(
         if (request.Location is not null) profile.Location = request.Location;
         if (request.TimeZone is not null) profile.TimeZone = request.TimeZone;
         if (request.Links is not null) profile.Links = request.Links;
+        if (request.UsernameColor is not null) profile.UsernameColor = request.UsernameColor;
 
         if (request.PictureId is not null)
         {
