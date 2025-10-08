@@ -10,27 +10,24 @@ public static class ScheduledJobsConfiguration
     {
         services.AddQuartz(q =>
         {
-            var appDatabaseRecyclingJob = new JobKey("AppDatabaseRecycling");
-            q.AddJob<AppDatabaseRecyclingJob>(opts => opts.WithIdentity(appDatabaseRecyclingJob));
+            q.AddJob<AppDatabaseRecyclingJob>(opts => opts.WithIdentity("AppDatabaseRecycling"));
             q.AddTrigger(opts => opts
-                .ForJob(appDatabaseRecyclingJob)
+                .ForJob("AppDatabaseRecycling")
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
-            var postViewFlushJob = new JobKey("PostViewFlush");
-            q.AddJob<PostViewFlushJob>(opts => opts.WithIdentity(postViewFlushJob));
+            q.AddJob<PostViewFlushJob>(opts => opts.WithIdentity("PostViewFlush"));
             q.AddTrigger(opts => opts
-                .ForJob(postViewFlushJob)
+                .ForJob("PostViewFlush")
                 .WithIdentity("PostViewFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(1)
                     .RepeatForever())
             );
 
-            var webFeedScraperJob = new JobKey("WebFeedScraper");
-            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity(webFeedScraperJob).StoreDurably());
+            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity("WebFeedScraper").StoreDurably());
             q.AddTrigger(opts => opts
-                .ForJob(webFeedScraperJob)
+                .ForJob("WebFeedScraper")
                 .WithIdentity("WebFeedScraperTrigger")
                 .WithCronSchedule("0 0 0 * * ?")
             );
