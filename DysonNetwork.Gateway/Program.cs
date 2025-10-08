@@ -26,11 +26,25 @@ builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("fixed", limiterOptions =>
     {
-        limiterOptions.PermitLimit = 120;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 0;
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120, // 120 requests...
+                Window = TimeSpan.FromMinutes(1), // ...per minute per IP
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 10 // allow short bursts instead of instant 503s
+            });
     });
+
+    options.OnRejected = async (context, token) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await context.HttpContext.Response.WriteAsync(
+                "Rate limit exceeded. Try again later.", token);
+        };
 });
 
 var serviceNames = new[] { "ring", "pass", "drive", "sphere", "develop" };
