@@ -1,7 +1,7 @@
 using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Http;
-using Microsoft.AspNetCore.RateLimiting;
 using Yarp.ReverseProxy.Configuration;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -151,6 +151,11 @@ builder.Services
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.All,
+});
 
 app.UseCors();
 
