@@ -24,7 +24,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("fixed", limiterOptions =>
+    options.AddPolicy("fixed", context =>
     {
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
