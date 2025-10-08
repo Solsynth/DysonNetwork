@@ -7,25 +7,17 @@ var isDev = builder.Environment.IsDevelopment();
 var cache = builder.AddRedis("cache");
 var queue = builder.AddNats("queue").WithJetStream();
 
-var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring")
-    .WithReference(queue);
+var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring");
 var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
-    .WithReference(cache)
-    .WithReference(queue)
     .WithReference(ringService);
 var driveService = builder.AddProject<Projects.DysonNetwork_Drive>("drive")
-    .WithReference(cache)
-    .WithReference(queue)
     .WithReference(passService)
     .WithReference(ringService);
 var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
-    .WithReference(cache)
-    .WithReference(queue)
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(driveService);
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")
-    .WithReference(cache)
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService);
@@ -38,6 +30,9 @@ List<IResourceBuilder<ProjectResource>> services =
 for (var idx = 0; idx < services.Count; idx++)
 {
     var service = services[idx];
+
+    service.WithReference(cache).WithReference(queue);
+
     var grpcPort = 7002 + idx;
 
     if (isDev)
@@ -60,13 +55,11 @@ for (var idx = 0; idx < services.Count; idx++)
 ringService.WithReference(passService);
 
 var gateway = builder.AddProject<Projects.DysonNetwork_Gateway>("gateway")
-    .WithReference(ringService)
-    .WithReference(passService)
-    .WithReference(driveService)
-    .WithReference(sphereService)
-    .WithReference(developService)
     .WithEnvironment("HTTP_PORTS", "5001")
     .WithHttpEndpoint(port: 5001, targetPort: null, isProxied: false, name: "http");
+
+foreach (var service in services)
+    gateway.WithReference(service);
 
 builder.AddDockerComposeEnvironment("docker-compose");
 
