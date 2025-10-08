@@ -41,6 +41,15 @@ builder.Services.AddRateLimiter(options =>
 
     options.OnRejected = async (context, token) =>
         {
+            // Log the rejected IP
+            var logger = context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("RateLimiter");
+
+            var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            logger.LogWarning("Rate limit exceeded for IP: {IP}", ip);
+
+            // Respond to the client
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             await context.HttpContext.Response.WriteAsync(
                 "Rate limit exceeded. Try again later.", token);
