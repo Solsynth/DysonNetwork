@@ -513,6 +513,8 @@ public class PostController(
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
         });
 
+        post.Publisher = publisher;
+        
         return post;
     }
 
@@ -881,7 +883,7 @@ public class PostController(
             UserAgent = Request.Headers.UserAgent,
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
         });
-
+        
         return Ok(post);
     }
 
