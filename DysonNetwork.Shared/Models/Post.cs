@@ -123,7 +123,7 @@ public class SnPostCategorySubscription : ModelBase
 {
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
- 
+
     public Guid? CategoryId { get; set; }
     public SnPostCategory? Category { get; set; }
     public Guid? TagId { get; set; }
@@ -168,6 +168,7 @@ public class SnPostReaction : ModelBase
     public Guid PostId { get; set; }
     [JsonIgnore] public SnPost Post { get; set; } = null!;
     public Guid AccountId { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 }
 
 public class SnPostAward : ModelBase
@@ -176,7 +177,7 @@ public class SnPostAward : ModelBase
     public decimal Amount { get; set; }
     public PostReactionAttitude Attitude { get; set; }
     [MaxLength(4096)] public string? Message { get; set; }
-    
+
     public Guid PostId { get; set; }
     [JsonIgnore] public SnPost Post { get; set; } = null!;
     public Guid AccountId { get; set; }
