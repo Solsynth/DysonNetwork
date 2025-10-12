@@ -160,6 +160,26 @@ public class AccountServiceGrpc(
         return response;
     }
 
+    public override async Task<GetAccountBatchResponse> SearchAccount(SearchAccountRequest request, ServerCallContext context)
+    {
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => EF.Functions.ILike(a.Name, $"%{request.Query}%"))
+            .Include(a => a.Profile)
+            .ToListAsync();
+
+        var perks = await subscriptions.GetPerkSubscriptionsAsync(
+            accounts.Select(x => x.Id).ToList()
+        );
+        foreach (var account in accounts)
+            if (perks.TryGetValue(account.Id, out var perk))
+                account.PerkSubscription = perk?.ToReference();
+
+        var response = new GetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
     public override async Task<ListAccountsResponse> ListAccounts(ListAccountsRequest request,
         ServerCallContext context)
     {

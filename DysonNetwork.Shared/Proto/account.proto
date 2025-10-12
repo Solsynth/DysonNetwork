@@ -14,232 +14,232 @@ import 'wallet.proto';
 
 // Account represents a user account in the system
 message Account {
-  string id = 1;
-  string name = 2;
-  string nick = 3;
-  string language = 4;
-  string region = 18;
-  google.protobuf.Timestamp activated_at = 5;
-  bool is_superuser = 6;
+    string id = 1;
+    string name = 2;
+    string nick = 3;
+    string language = 4;
+    string region = 18;
+    google.protobuf.Timestamp activated_at = 5;
+    bool is_superuser = 6;
 
-  AccountProfile profile = 7;
-  optional SubscriptionReferenceObject perk_subscription = 16;
-  repeated AccountContact contacts = 8;
-  repeated AccountBadge badges = 9;
-  repeated AccountAuthFactor auth_factors = 10;
-  repeated AccountConnection connections = 11;
-  repeated Relationship outgoing_relationships = 12;
-  repeated Relationship incoming_relationships = 13;
+    AccountProfile profile = 7;
+    optional SubscriptionReferenceObject perk_subscription = 16;
+    repeated AccountContact contacts = 8;
+    repeated AccountBadge badges = 9;
+    repeated AccountAuthFactor auth_factors = 10;
+    repeated AccountConnection connections = 11;
+    repeated Relationship outgoing_relationships = 12;
+    repeated Relationship incoming_relationships = 13;
 
-  google.protobuf.Timestamp created_at = 14;
-  google.protobuf.Timestamp updated_at = 15;
-  
-  google.protobuf.StringValue automated_id = 17;
+    google.protobuf.Timestamp created_at = 14;
+    google.protobuf.Timestamp updated_at = 15;
+
+    google.protobuf.StringValue automated_id = 17;
 }
 
 // Enum for status attitude
 enum StatusAttitude {
-  STATUS_ATTITUDE_UNSPECIFIED = 0;
-  POSITIVE = 1;
-  NEGATIVE = 2;
-  NEUTRAL = 3;
+    STATUS_ATTITUDE_UNSPECIFIED = 0;
+    POSITIVE = 1;
+    NEGATIVE = 2;
+    NEUTRAL = 3;
 }
 
 // AccountStatus represents the status of an account
 message AccountStatus {
-  string id = 1;
-  StatusAttitude attitude = 2;
-  bool is_online = 3;
-  bool is_customized = 4;
-  bool is_invisible = 5;
-  bool is_not_disturb = 6;
-  google.protobuf.StringValue label = 7;
-  google.protobuf.Timestamp cleared_at = 8;
-  string account_id = 9;
-  bytes meta = 10;
+    string id = 1;
+    StatusAttitude attitude = 2;
+    bool is_online = 3;
+    bool is_customized = 4;
+    bool is_invisible = 5;
+    bool is_not_disturb = 6;
+    google.protobuf.StringValue label = 7;
+    google.protobuf.Timestamp cleared_at = 8;
+    string account_id = 9;
+    bytes meta = 10;
 }
 
 // Profile contains detailed information about a user
 message AccountProfile {
-  string id = 1;
-  google.protobuf.StringValue first_name = 2;
-  google.protobuf.StringValue middle_name = 3;
-  google.protobuf.StringValue last_name = 4;
-  google.protobuf.StringValue bio = 5;
-  google.protobuf.StringValue gender = 6;
-  google.protobuf.StringValue pronouns = 7;
-  google.protobuf.StringValue time_zone = 8;
-  google.protobuf.StringValue location = 9;
-  google.protobuf.Timestamp birthday = 10;
-  google.protobuf.Timestamp last_seen_at = 11;
+    string id = 1;
+    google.protobuf.StringValue first_name = 2;
+    google.protobuf.StringValue middle_name = 3;
+    google.protobuf.StringValue last_name = 4;
+    google.protobuf.StringValue bio = 5;
+    google.protobuf.StringValue gender = 6;
+    google.protobuf.StringValue pronouns = 7;
+    google.protobuf.StringValue time_zone = 8;
+    google.protobuf.StringValue location = 9;
+    google.protobuf.Timestamp birthday = 10;
+    google.protobuf.Timestamp last_seen_at = 11;
 
-  VerificationMark verification = 12;
-  BadgeReferenceObject active_badge = 13;
+    VerificationMark verification = 12;
+    BadgeReferenceObject active_badge = 13;
 
-  int32 experience = 14;
-  int32 level = 15;
-  double leveling_progress = 16;
-  double social_credits = 17;
-  int32 social_credits_level = 18;
+    int32 experience = 14;
+    int32 level = 15;
+    double leveling_progress = 16;
+    double social_credits = 17;
+    int32 social_credits_level = 18;
 
-  CloudFile picture = 19;
-  CloudFile background = 20;
+    CloudFile picture = 19;
+    CloudFile background = 20;
 
-  string account_id = 21;
+    string account_id = 21;
 
-  google.protobuf.Timestamp created_at = 22;
-  google.protobuf.Timestamp updated_at = 23;
+    google.protobuf.Timestamp created_at = 22;
+    google.protobuf.Timestamp updated_at = 23;
 }
 
 // AccountContact represents a contact method for an account
 message AccountContact {
-  string id = 1;
-  AccountContactType type = 2;
-  google.protobuf.Timestamp verified_at = 3;
-  bool is_primary = 4;
-  string content = 5;
-  string account_id = 6;
+    string id = 1;
+    AccountContactType type = 2;
+    google.protobuf.Timestamp verified_at = 3;
+    bool is_primary = 4;
+    string content = 5;
+    string account_id = 6;
 
-  google.protobuf.Timestamp created_at = 7;
-  google.protobuf.Timestamp updated_at = 8;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
 }
 
 // Enum for contact types
 enum AccountContactType {
-  ACCOUNT_CONTACT_TYPE_UNSPECIFIED = 0;
-  EMAIL = 1;
-  PHONE_NUMBER = 2;
-  ADDRESS = 3;
+    ACCOUNT_CONTACT_TYPE_UNSPECIFIED = 0;
+    EMAIL = 1;
+    PHONE_NUMBER = 2;
+    ADDRESS = 3;
 }
 
 // AccountAuthFactor represents an authentication factor for an account
 message AccountAuthFactor {
-  string id = 1;
-  AccountAuthFactorType type = 2;
-  google.protobuf.StringValue secret = 3;  // Omitted from JSON serialization in original
-  map<string, google.protobuf.Value> config = 4;  // Omitted from JSON serialization in original
-  int32 trustworthy = 5;
-  google.protobuf.Timestamp enabled_at = 6;
-  google.protobuf.Timestamp expired_at = 7;
-  string account_id = 8;
-  map<string, google.protobuf.Value> created_response = 9;  // For initial setup
+    string id = 1;
+    AccountAuthFactorType type = 2;
+    google.protobuf.StringValue secret = 3;  // Omitted from JSON serialization in original
+    map<string, google.protobuf.Value> config = 4;  // Omitted from JSON serialization in original
+    int32 trustworthy = 5;
+    google.protobuf.Timestamp enabled_at = 6;
+    google.protobuf.Timestamp expired_at = 7;
+    string account_id = 8;
+    map<string, google.protobuf.Value> created_response = 9;  // For initial setup
 
-  google.protobuf.Timestamp created_at = 10;
-  google.protobuf.Timestamp updated_at = 11;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
 }
 
 // Enum for authentication factor types
 enum AccountAuthFactorType {
-  AUTH_FACTOR_TYPE_UNSPECIFIED = 0;
-  PASSWORD = 1;
-  EMAIL_CODE = 2;
-  IN_APP_CODE = 3;
-  TIMED_CODE = 4;
-  PIN_CODE = 5;
+    AUTH_FACTOR_TYPE_UNSPECIFIED = 0;
+    PASSWORD = 1;
+    EMAIL_CODE = 2;
+    IN_APP_CODE = 3;
+    TIMED_CODE = 4;
+    PIN_CODE = 5;
 }
 
 // AccountBadge represents a badge associated with an account
 message AccountBadge {
-  string id = 1;  // Unique identifier for the badge
-  string type = 2;  // Type/category of the badge
-  google.protobuf.StringValue label = 3;  // Display name of the badge
-  google.protobuf.StringValue caption = 4;  // Optional description of the badge
-  map<string, google.protobuf.Value> meta = 5;  // Additional metadata for the badge
-  google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
-  google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
-  string account_id = 8;  // ID of the account this badge belongs to
+    string id = 1;  // Unique identifier for the badge
+    string type = 2;  // Type/category of the badge
+    google.protobuf.StringValue label = 3;  // Display name of the badge
+    google.protobuf.StringValue caption = 4;  // Optional description of the badge
+    map<string, google.protobuf.Value> meta = 5;  // Additional metadata for the badge
+    google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
+    google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
+    string account_id = 8;  // ID of the account this badge belongs to
 
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp updated_at = 10;
+    google.protobuf.Timestamp created_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
 }
 
 // AccountConnection represents a third-party connection for an account
 message AccountConnection {
-  string id = 1;
-  string provider = 2;
-  string provided_identifier = 3;
-  map<string, google.protobuf.Value> meta = 4;
-  google.protobuf.StringValue access_token = 5;  // Omitted from JSON serialization
-  google.protobuf.StringValue refresh_token = 6;  // Omitted from JSON serialization
-  google.protobuf.Timestamp last_used_at = 7;
-  string account_id = 8;
+    string id = 1;
+    string provider = 2;
+    string provided_identifier = 3;
+    map<string, google.protobuf.Value> meta = 4;
+    google.protobuf.StringValue access_token = 5;  // Omitted from JSON serialization
+    google.protobuf.StringValue refresh_token = 6;  // Omitted from JSON serialization
+    google.protobuf.Timestamp last_used_at = 7;
+    string account_id = 8;
 
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp updated_at = 10;
+    google.protobuf.Timestamp created_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
 }
 
 // VerificationMark represents verification status
 message VerificationMark {
-  VerificationMarkType type = 1;
-  string title = 2;
-  string description = 3;
-  string verified_by = 4;
+    VerificationMarkType type = 1;
+    string title = 2;
+    string description = 3;
+    string verified_by = 4;
 
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp updated_at = 6;
+    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 6;
 }
 
 enum VerificationMarkType {
-  VERIFICATION_MARK_TYPE_UNSPECIFIED = 0;
-  OFFICIAL = 1;
-  INDIVIDUAL = 2;
-  ORGANIZATION = 3;
-  GOVERNMENT = 4;
-  CREATOR = 5;
-  DEVELOPER = 6;
-  PARODY = 7;
+    VERIFICATION_MARK_TYPE_UNSPECIFIED = 0;
+    OFFICIAL = 1;
+    INDIVIDUAL = 2;
+    ORGANIZATION = 3;
+    GOVERNMENT = 4;
+    CREATOR = 5;
+    DEVELOPER = 6;
+    PARODY = 7;
 }
 
 // BadgeReferenceObject represents a reference to a badge with minimal information
 message BadgeReferenceObject {
-  string id = 1;  // Unique identifier for the badge
-  string type = 2;  // Type/category of the badge
-  google.protobuf.StringValue label = 3;  // Display name of the badge
-  google.protobuf.StringValue caption = 4;  // Optional description of the badge
-  map<string, google.protobuf.Value> meta = 5;  // Additional metadata for the badge
-  google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
-  google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
-  string account_id = 8;  // ID of the account this badge belongs to
+    string id = 1;  // Unique identifier for the badge
+    string type = 2;  // Type/category of the badge
+    google.protobuf.StringValue label = 3;  // Display name of the badge
+    google.protobuf.StringValue caption = 4;  // Optional description of the badge
+    map<string, google.protobuf.Value> meta = 5;  // Additional metadata for the badge
+    google.protobuf.Timestamp activated_at = 6;  // When the badge was activated
+    google.protobuf.Timestamp expired_at = 7;  // Optional expiration time
+    string account_id = 8;  // ID of the account this badge belongs to
 }
 
 // Relationship represents a connection between two accounts
 message Relationship {
-  string account_id = 1;
-  string related_id = 2;
-  optional Account account = 3;
-  optional Account related = 4;
-  int32 status = 5;
+    string account_id = 1;
+    string related_id = 2;
+    optional Account account = 3;
+    optional Account related = 4;
+    int32 status = 5;
 
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp updated_at = 7;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
 }
 
 // Leveling information
 message LevelingInfo {
-  int32 current_level = 1;
-  int32 current_experience = 2;
-  int32 next_level_experience = 3;
-  int32 previous_level_experience = 4;
-  double level_progress = 5;
-  repeated int32 experience_per_level = 6;
+    int32 current_level = 1;
+    int32 current_experience = 2;
+    int32 next_level_experience = 3;
+    int32 previous_level_experience = 4;
+    double level_progress = 5;
+    repeated int32 experience_per_level = 6;
 }
 
 // ActionLog represents a record of an action taken by a user
 message ActionLog {
-  string id = 1; // Unique identifier for the log entry
-  string action = 2; // The action that was performed, e.g., "user.login"
-  map<string, google.protobuf.Value> meta = 3; // Metadata associated with the action
-  google.protobuf.StringValue user_agent = 4; // User agent of the client
-  google.protobuf.StringValue ip_address = 5; // IP address of the client
-  google.protobuf.StringValue location = 6; // Geographic location of the client, derived from IP
-  string account_id = 7; // The account that performed the action
-  google.protobuf.StringValue session_id = 8; // The session in which the action was performed
+    string id = 1; // Unique identifier for the log entry
+    string action = 2; // The action that was performed, e.g., "user.login"
+    map<string, google.protobuf.Value> meta = 3; // Metadata associated with the action
+    google.protobuf.StringValue user_agent = 4; // User agent of the client
+    google.protobuf.StringValue ip_address = 5; // IP address of the client
+    google.protobuf.StringValue location = 6; // Geographic location of the client, derived from IP
+    string account_id = 7; // The account that performed the action
+    google.protobuf.StringValue session_id = 8; // The session in which the action was performed
 
-  google.protobuf.Timestamp created_at = 9; // When the action log was created
+    google.protobuf.Timestamp created_at = 9; // When the action log was created
 }
 
 message GetAccountStatusBatchResponse {
-  repeated AccountStatus statuses = 1;
+    repeated AccountStatus statuses = 1;
 }
 
 // ====================================
@@ -248,45 +248,46 @@ message GetAccountStatusBatchResponse {
 
 // AccountService provides CRUD operations for user accounts and related entities
 service AccountService {
-  // Account Operations
-  rpc GetAccount(GetAccountRequest) returns (Account) {}
-  rpc GetBotAccount(GetBotAccountRequest) returns (Account) {}
-  rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
-  rpc GetBotAccountBatch(GetBotAccountBatchRequest) returns (GetAccountBatchResponse) {}
-  rpc LookupAccountBatch(LookupAccountBatchRequest) returns (GetAccountBatchResponse) {}
-  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
+    // Account Operations
+    rpc GetAccount(GetAccountRequest) returns (Account) {}
+    rpc GetBotAccount(GetBotAccountRequest) returns (Account) {}
+    rpc GetAccountBatch(GetAccountBatchRequest) returns (GetAccountBatchResponse) {}
+    rpc GetBotAccountBatch(GetBotAccountBatchRequest) returns (GetAccountBatchResponse) {}
+    rpc LookupAccountBatch(LookupAccountBatchRequest) returns (GetAccountBatchResponse) {}
+    rpc SearchAccount(SearchAccountRequest) returns (GetAccountBatchResponse) {}
+    rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
 
-  rpc GetAccountStatus(GetAccountRequest) returns (AccountStatus) {}
-  rpc GetAccountStatusBatch(GetAccountBatchRequest) returns (GetAccountStatusBatchResponse) {}
+    rpc GetAccountStatus(GetAccountRequest) returns (AccountStatus) {}
+    rpc GetAccountStatusBatch(GetAccountBatchRequest) returns (GetAccountStatusBatchResponse) {}
 
-  // Profile Operations
-  rpc GetProfile(GetProfileRequest) returns (AccountProfile) {}
+    // Profile Operations
+    rpc GetProfile(GetProfileRequest) returns (AccountProfile) {}
 
-  // Contact Operations
-  rpc ListContacts(ListContactsRequest) returns (ListContactsResponse) {}
+    // Contact Operations
+    rpc ListContacts(ListContactsRequest) returns (ListContactsResponse) {}
 
-  // Badge Operations
-  rpc ListBadges(ListBadgesRequest) returns (ListBadgesResponse) {}
+    // Badge Operations
+    rpc ListBadges(ListBadgesRequest) returns (ListBadgesResponse) {}
 
-  // Authentication Factor Operations
-  rpc ListAuthFactors(ListAuthFactorsRequest) returns (ListAuthFactorsResponse) {}
+    // Authentication Factor Operations
+    rpc ListAuthFactors(ListAuthFactorsRequest) returns (ListAuthFactorsResponse) {}
 
-  // Connection Operations
-  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse) {}
+    // Connection Operations
+    rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse) {}
 
-  // Relationship Operations
-  rpc ListRelationships(ListRelationshipsRequest) returns (ListRelationshipsResponse) {}
+    // Relationship Operations
+    rpc ListRelationships(ListRelationshipsRequest) returns (ListRelationshipsResponse) {}
 
-  rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse) {}
-  rpc HasRelationship(GetRelationshipRequest) returns (google.protobuf.BoolValue) {}
-  rpc ListFriends(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
-  rpc ListBlocked(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
+    rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse) {}
+    rpc HasRelationship(GetRelationshipRequest) returns (google.protobuf.BoolValue) {}
+    rpc ListFriends(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
+    rpc ListBlocked(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
 }
 
 // ActionLogService provides operations for action logs
 service ActionLogService {
-  rpc CreateActionLog(CreateActionLogRequest) returns (CreateActionLogResponse) {}
-  rpc ListActionLogs(ListActionLogsRequest) returns (ListActionLogsResponse) {}
+    rpc CreateActionLog(CreateActionLogRequest) returns (CreateActionLogResponse) {}
+    rpc ListActionLogs(ListActionLogsRequest) returns (ListActionLogsResponse) {}
 }
 
 // ====================================
@@ -295,184 +296,188 @@ service ActionLogService {
 
 // ActionLog Requests/Responses
 message CreateActionLogRequest {
-  string action = 1;
-  map<string, google.protobuf.Value> meta = 2;
-  google.protobuf.StringValue user_agent = 3;
-  google.protobuf.StringValue ip_address = 4;
-  google.protobuf.StringValue location = 5;
-  string account_id = 6;
-  google.protobuf.StringValue session_id = 7;
+    string action = 1;
+    map<string, google.protobuf.Value> meta = 2;
+    google.protobuf.StringValue user_agent = 3;
+    google.protobuf.StringValue ip_address = 4;
+    google.protobuf.StringValue location = 5;
+    string account_id = 6;
+    google.protobuf.StringValue session_id = 7;
 }
 
 message CreateActionLogResponse {
-  ActionLog action_log = 1;
+    ActionLog action_log = 1;
 }
 
 message ListActionLogsRequest {
-  string account_id = 1;
-  string action = 2;
-  int32 page_size = 3;
-  string page_token = 4;
-  string order_by = 5;
+    string account_id = 1;
+    string action = 2;
+    int32 page_size = 3;
+    string page_token = 4;
+    string order_by = 5;
 }
 
 message ListActionLogsResponse {
-  repeated ActionLog action_logs = 1;
-  string next_page_token = 2;
-  int32 total_size = 3;
+    repeated ActionLog action_logs = 1;
+    string next_page_token = 2;
+    int32 total_size = 3;
 }
 
 // Account Requests/Responses
 message GetAccountRequest {
-  string id = 1;  // Account ID to retrieve
+    string id = 1;  // Account ID to retrieve
 }
 
 message GetBotAccountRequest {
-  string automated_id = 1;
+    string automated_id = 1;
 }
 
 message GetAccountBatchRequest {
-  repeated string id = 1;  // Account ID to retrieve
+    repeated string id = 1;  // Account ID to retrieve
 }
 
 message GetBotAccountBatchRequest {
-  repeated string automated_id = 1;
+    repeated string automated_id = 1;
 }
 
 message LookupAccountBatchRequest {
-  repeated string names = 1;
+    repeated string names = 1;
+}
+
+message SearchAccountRequest {
+    string query = 1;
 }
 
 message GetAccountBatchResponse {
-  repeated Account accounts = 1;  // List of accounts
+    repeated Account accounts = 1;  // List of accounts
 }
 
 message CreateAccountRequest {
-  string name = 1;  // Required: Unique username
-  string nick = 2;  // Optional: Display name
-  string language = 3;  // Default language
-  bool is_superuser = 4;  // Admin flag
-  AccountProfile profile = 5;  // Initial profile data
+    string name = 1;  // Required: Unique username
+    string nick = 2;  // Optional: Display name
+    string language = 3;  // Default language
+    bool is_superuser = 4;  // Admin flag
+    AccountProfile profile = 5;  // Initial profile data
 }
 
 message UpdateAccountRequest {
-  string id = 1;  // Account ID to update
-  google.protobuf.StringValue name = 2;  // New username if changing
-  google.protobuf.StringValue nick = 3;  // New display name
-  google.protobuf.StringValue language = 4;  // New language
-  google.protobuf.BoolValue is_superuser = 5;  // Admin status
+    string id = 1;  // Account ID to update
+    google.protobuf.StringValue name = 2;  // New username if changing
+    google.protobuf.StringValue nick = 3;  // New display name
+    google.protobuf.StringValue language = 4;  // New language
+    google.protobuf.BoolValue is_superuser = 5;  // Admin status
 }
 
 message DeleteAccountRequest {
-  string id = 1;  // Account ID to delete
-  bool purge = 2;  // If true, permanently delete instead of soft delete
+    string id = 1;  // Account ID to delete
+    bool purge = 2;  // If true, permanently delete instead of soft delete
 }
 
 message ListAccountsRequest {
-  int32 page_size = 1;  // Number of results per page
-  string page_token = 2;  // Token for pagination
-  string filter = 3;  // Filter expression
-  string order_by = 4;  // Sort order
+    int32 page_size = 1;  // Number of results per page
+    string page_token = 2;  // Token for pagination
+    string filter = 3;  // Filter expression
+    string order_by = 4;  // Sort order
 }
 
 message ListAccountsResponse {
-  repeated Account accounts = 1;  // List of accounts
-  string next_page_token = 2;  // Token for next page
-  int32 total_size = 3;  // Total number of accounts
+    repeated Account accounts = 1;  // List of accounts
+    string next_page_token = 2;  // Token for next page
+    int32 total_size = 3;  // Total number of accounts
 }
 
 // Profile Requests/Responses
 message GetProfileRequest {
-  string account_id = 1;  // Account ID to get profile for
+    string account_id = 1;  // Account ID to get profile for
 }
 
 message UpdateProfileRequest {
-  string account_id = 1;  // Account ID to update profile for
-  AccountProfile profile = 2;  // Profile data to update
-  google.protobuf.FieldMask update_mask = 3;  // Fields to update
+    string account_id = 1;  // Account ID to update profile for
+    AccountProfile profile = 2;  // Profile data to update
+    google.protobuf.FieldMask update_mask = 3;  // Fields to update
 }
 
 // Contact Requests/Responses
 message AddContactRequest {
-  string account_id = 1;  // Account to add contact to
-  AccountContactType type = 2;  // Type of contact
-  string content = 3;  // Contact content (email, phone, etc.)
-  bool is_primary = 4;  // If this should be the primary contact
+    string account_id = 1;  // Account to add contact to
+    AccountContactType type = 2;  // Type of contact
+    string content = 3;  // Contact content (email, phone, etc.)
+    bool is_primary = 4;  // If this should be the primary contact
 }
 
 message ListContactsRequest {
-  string account_id = 1;  // Account ID to list contacts for
-  AccountContactType type = 2;  // Optional: filter by type
-  bool verified_only = 3;  // Only return verified contacts
+    string account_id = 1;  // Account ID to list contacts for
+    AccountContactType type = 2;  // Optional: filter by type
+    bool verified_only = 3;  // Only return verified contacts
 }
 
 message ListContactsResponse {
-  repeated AccountContact contacts = 1;  // List of contacts
+    repeated AccountContact contacts = 1;  // List of contacts
 }
 
 message VerifyContactRequest {
-  string id = 1;  // Contact ID to verify
-  string account_id = 2;  // Account ID (for validation)
-  string code = 3;  // Verification code
+    string id = 1;  // Contact ID to verify
+    string account_id = 2;  // Account ID (for validation)
+    string code = 3;  // Verification code
 }
 
 // Badge Requests/Responses
 message ListBadgesRequest {
-  string account_id = 1;  // Account to list badges for
-  string type = 2;  // Optional: filter by type
-  bool active_only = 3;  // Only return active (non-expired) badges
+    string account_id = 1;  // Account to list badges for
+    string type = 2;  // Optional: filter by type
+    bool active_only = 3;  // Only return active (non-expired) badges
 }
 
 message ListBadgesResponse {
-  repeated AccountBadge badges = 1;  // List of badges
+    repeated AccountBadge badges = 1;  // List of badges
 }
 
 message ListAuthFactorsRequest {
-  string account_id = 1;  // Account to list factors for
-  bool active_only = 2;  // Only return active (non-expired) factors
+    string account_id = 1;  // Account to list factors for
+    bool active_only = 2;  // Only return active (non-expired) factors
 }
 
 message ListAuthFactorsResponse {
-  repeated AccountAuthFactor factors = 1;  // List of auth factors
+    repeated AccountAuthFactor factors = 1;  // List of auth factors
 }
 
 message ListConnectionsRequest {
-  string account_id = 1;  // Account to list connections for
-  string provider = 2;  // Optional: filter by provider
+    string account_id = 1;  // Account to list connections for
+    string provider = 2;  // Optional: filter by provider
 }
 
 message ListConnectionsResponse {
-  repeated AccountConnection connections = 1;  // List of connections
+    repeated AccountConnection connections = 1;  // List of connections
 }
 
 // Relationship Requests/Responses
 message ListRelationshipsRequest {
-  string account_id = 1;  // Account to list relationships for
-  optional int32 status = 2;  // Filter by status
-  int32 page_size = 5;  // Number of results per page
-  string page_token = 6;  // Token for pagination
+    string account_id = 1;  // Account to list relationships for
+    optional int32 status = 2;  // Filter by status
+    int32 page_size = 5;  // Number of results per page
+    string page_token = 6;  // Token for pagination
 }
 
 message ListRelationshipsResponse {
-  repeated Relationship relationships = 1;  // List of relationships
-  string next_page_token = 2;  // Token for next page
-  int32 total_size = 3;  // Total number of relationships
+    repeated Relationship relationships = 1;  // List of relationships
+    string next_page_token = 2;  // Token for next page
+    int32 total_size = 3;  // Total number of relationships
 }
 
 message GetRelationshipRequest {
-  string account_id = 1;
-  string related_id = 2;
-  optional int32 status = 3;
+    string account_id = 1;
+    string related_id = 2;
+    optional int32 status = 3;
 }
 
 message GetRelationshipResponse {
-  optional Relationship relationship = 1;
+    optional Relationship relationship = 1;
 }
 
 message ListRelationshipSimpleRequest {
-  string account_id = 1;
+    string account_id = 1;
 }
 
 message ListRelationshipSimpleResponse {
-  repeated string accounts_id = 1;
+    repeated string accounts_id = 1;
 }

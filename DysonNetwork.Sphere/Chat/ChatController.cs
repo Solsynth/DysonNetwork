@@ -332,7 +332,7 @@ public partial class ChatController(
         return Ok(response);
     }
 
-    [HttpGet("{roomId:guid}/autocomplete")]
+    [HttpPost("{roomId:guid}/autocomplete")]
     public async Task<ActionResult<List<DysonNetwork.Shared.Models.Autocompletion>>> ChatAutoComplete([FromBody] AutocompletionRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
@@ -344,7 +344,7 @@ public partial class ChatController(
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 
-        var result = await aus.GetAutocompletion(request.Content, limit: 10);
+        var result = await aus.GetAutocompletion(request.Content, chatId: roomId, limit: 10);
         return Ok(result);
     }
 }

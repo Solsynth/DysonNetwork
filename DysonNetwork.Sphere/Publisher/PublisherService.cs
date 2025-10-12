@@ -282,9 +282,9 @@ public class PublisherService(
         public int SubscribersCount { get; set; }
     }
 
-    private const string PublisherStatsCacheKey = "PublisherStats_{0}";
-    private const string PublisherHeatmapCacheKey = "PublisherHeatmap_{0}";
-    private const string PublisherFeatureCacheKey = "PublisherFeature_{0}_{1}";
+    private const string PublisherStatsCacheKey = "publisher:{0}:stats";
+    private const string PublisherHeatmapCacheKey = "publisher:{0}:heatmap";
+    private const string PublisherFeatureCacheKey = "publisher:{0}:feature:{1}";
 
     public async Task<PublisherStats?> GetPublisherStats(string name)
     {
@@ -329,7 +329,7 @@ public class PublisherService(
     public async Task<ActivityHeatmap?> GetPublisherHeatmap(string name)
     {
         var cacheKey = string.Format(PublisherHeatmapCacheKey, name);
-        var heatmap = await cache.GetAsync<ActivityHeatmap>(cacheKey);
+        var heatmap = await cache.GetAsync<ActivityHeatmap?>(cacheKey);
         if (heatmap is not null)
             return heatmap;
 

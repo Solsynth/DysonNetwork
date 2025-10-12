@@ -11,7 +11,7 @@ public class AccountClientHelper(AccountService.AccountServiceClient accounts)
         var response = await accounts.GetAccountAsync(request);
         return response;
     }
-    
+
     public async Task<Account> GetBotAccount(Guid automatedId)
     {
         var request = new GetBotAccountRequest { AutomatedId = automatedId.ToString() };
@@ -26,7 +26,14 @@ public class AccountClientHelper(AccountService.AccountServiceClient accounts)
         var response = await accounts.GetAccountBatchAsync(request);
         return response.Accounts.ToList();
     }
-    
+
+    public async Task<List<Account>> SearchAccounts(string query)
+    {
+        var request = new SearchAccountRequest { Query = query };
+        var response = await accounts.SearchAccountAsync(request);
+        return response.Accounts.ToList();
+    }
+
     public async Task<List<Account>> GetBotAccountBatch(List<Guid> automatedIds)
     {
         var request = new GetBotAccountBatchRequest();

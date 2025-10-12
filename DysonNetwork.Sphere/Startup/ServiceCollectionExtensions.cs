@@ -15,6 +15,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Discovery;
@@ -25,7 +26,7 @@ namespace DysonNetwork.Sphere.Startup;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAppServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
         services.AddLocalization(options => options.ResourcesPath = "Resources");
 
@@ -119,6 +120,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<PollService>();
+        services.AddScoped<AccountClientHelper>();
         services.AddScoped<AutocompletionService>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();
