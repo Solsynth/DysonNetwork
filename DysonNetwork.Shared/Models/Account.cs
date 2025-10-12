@@ -148,6 +148,32 @@ public class UsernameColor
     public string? Value { get; set; }          // e.g. "red" or "#ff6600"
     public string? Direction { get; set; }      // e.g. "to right"
     public List<string>? Colors { get; set; }   // e.g. ["#ff0000", "#00ff00"]
+
+    public Proto.UsernameColor ToProtoValue()
+    {
+        var proto = new Proto.UsernameColor
+        {
+            Type = Type,
+            Value = Value,
+            Direction = Direction,
+        };
+        if (Colors is not null)
+        {
+            proto.Colors.AddRange(Colors);
+        }
+        return proto;
+    }
+
+    public static UsernameColor FromProtoValue(Proto.UsernameColor proto)
+    {
+        return new UsernameColor
+        {
+            Type = proto.Type,
+            Value = proto.Value,
+            Direction = proto.Direction,
+            Colors = proto.Colors?.ToList()
+        };
+    }
 }
 
 public class SnAccountProfile : ModelBase, IIdentifiedResource
@@ -218,6 +244,7 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
             AccountId = AccountId.ToString(),
             Verification = Verification?.ToProtoValue(),
             ActiveBadge = ActiveBadge?.ToProtoValue(),
+            UsernameColor = UsernameColor?.ToProtoValue(),
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp()
         };
@@ -247,6 +274,7 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
             Picture = proto.Picture is null ? null : SnCloudFileReferenceObject.FromProtoValue(proto.Picture),
             Background = proto.Background is null ? null : SnCloudFileReferenceObject.FromProtoValue(proto.Background),
             AccountId = Guid.Parse(proto.AccountId),
+            UsernameColor = proto.UsernameColor is not null ? UsernameColor.FromProtoValue(proto.UsernameColor) : null,
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant()
         };

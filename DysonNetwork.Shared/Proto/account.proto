@@ -59,6 +59,13 @@ message AccountStatus {
     bytes meta = 10;
 }
 
+message UsernameColor {
+    string type = 1;
+    google.protobuf.StringValue value = 2;
+    google.protobuf.StringValue direction = 3;
+    repeated string colors = 4;
+}
+
 // Profile contains detailed information about a user
 message AccountProfile {
     string id = 1;
@@ -89,6 +96,7 @@ message AccountProfile {
 
     google.protobuf.Timestamp created_at = 22;
     google.protobuf.Timestamp updated_at = 23;
+    optional UsernameColor username_color = 24;
 }
 
 // AccountContact represents a contact method for an account
