@@ -237,6 +237,22 @@ public class StickerController(
         return Redirect($"/drive/files/{sticker.Image.Id}?original=true");
     }
 
+    [HttpGet("search")]
+    public async Task<ActionResult<List<SnSticker>>> SearchSticker([FromQuery] string query, [FromQuery] int take = 10, [FromQuery] int offset = 0)
+    {
+        var queryable = db.Stickers
+            .Include(s => s.Pack)
+            .Where(s => EF.Functions.Like(s.Pack.Prefix + "+" + s.Slug, $"{query}%"))
+            .OrderByDescending(s => s.CreatedAt)
+            .AsQueryable();
+
+        var totalCount = await queryable.CountAsync();
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        var stickers = await queryable.Take(take).Skip(offset).ToListAsync();
+        return Ok(stickers);
+    }
+
     [HttpGet("{packId:guid}/content/{id:guid}")]
     public async Task<ActionResult<SnSticker>> GetSticker(Guid packId, Guid id)
     {
