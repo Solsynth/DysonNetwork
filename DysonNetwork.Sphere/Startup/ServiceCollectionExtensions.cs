@@ -15,6 +15,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Poll;
@@ -118,6 +119,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<PollService>();
+        services.AddScoped<AutocompletionService>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();
         switch (translationProvider)

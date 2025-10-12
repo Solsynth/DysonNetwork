@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Sphere.Autocompletion;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,8 @@ public partial class ChatController(
     ChatService cs,
     ChatRoomService crs,
     FileService.FileServiceClient files,
-    AccountService.AccountServiceClient accounts
+    AccountService.AccountServiceClient accounts,
+    AutocompletionService aus
 ) : ControllerBase
 {
     public class MarkMessageReadRequest
@@ -328,5 +330,21 @@ public partial class ChatController(
 
         var response = await cs.GetSyncDataAsync(roomId, request.LastSyncTimestamp);
         return Ok(response);
+    }
+
+    [HttpGet("{roomId:guid}/autocomplete")]
+    public async Task<ActionResult<List<DysonNetwork.Shared.Models.Autocompletion>>> ChatAutoComplete([FromBody] AutocompletionRequest request, Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var isMember = await db.ChatMembers
+            .AnyAsync(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
+        if (!isMember)
+            return StatusCode(403, "You are not a member of this chat room.");
+
+        var result = await aus.GetAutocompletion(request.Content, limit: 10);
+        return Ok(result);
     }
 }
