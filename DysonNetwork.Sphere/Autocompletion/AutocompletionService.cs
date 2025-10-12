@@ -135,7 +135,7 @@ public class AutocompletionService(AppDatabase db, AccountClientHelper accountsH
             .Select(s => new DysonNetwork.Shared.Models.Autocompletion
             {
                 Type = "sticker",
-                Keyword = s.Slug,
+                Keyword = $":{s.Pack.Prefix}+{s.Slug}:",
                 Data = s
             })
             .ToListAsync();
