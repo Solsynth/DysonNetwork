@@ -80,7 +80,7 @@ public class AccountCurrentController(
         [MaxLength(1024)] public string? TimeZone { get; set; }
         [MaxLength(1024)] public string? Location { get; set; }
         [MaxLength(4096)] public string? Bio { get; set; }
-        public UsernameColor? UsernameColor { get; set; }
+        public Shared.Models.UsernameColor? UsernameColor { get; set; }
         public Instant? Birthday { get; set; }
         public List<ProfileLink>? Links { get; set; }
 
