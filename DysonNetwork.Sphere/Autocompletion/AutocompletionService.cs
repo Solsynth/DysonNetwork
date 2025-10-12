@@ -130,7 +130,7 @@ public class AutocompletionService(AppDatabase db, AccountClientHelper accountsH
     {
         var stickers = await db.Stickers
             .Include(s => s.Pack)
-            .Where(s => EF.Functions.Like(s.Slug, $"{query}%"))
+            .Where(s => EF.Functions.Like(s.Pack.Prefix + "+" + s.Slug, $"{query}%"))
             .Take(limit)
             .Select(s => new DysonNetwork.Shared.Models.Autocompletion
             {
@@ -140,20 +140,7 @@ public class AutocompletionService(AppDatabase db, AccountClientHelper accountsH
             })
             .ToListAsync();
 
-        // Also possibly search by pack prefix? But user said slug after :
-        // Perhaps combine or search packs
-        var packs = await db.StickerPacks
-            .Where(p => EF.Functions.Like(p.Prefix, $"{query}%"))
-            .Take(limit)
-            .Select(p => new DysonNetwork.Shared.Models.Autocompletion
-            {
-                Type = "sticker_pack",
-                Keyword = p.Prefix,
-                Data = p
-            })
-            .ToListAsync();
-
-        var results = stickers.Concat(packs).Take(limit).ToList();
+        var results = stickers.ToList();
         return results;
     }
 }
