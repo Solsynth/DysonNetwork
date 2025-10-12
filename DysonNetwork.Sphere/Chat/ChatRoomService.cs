@@ -45,7 +45,8 @@ public class ChatRoomService(
         if (member is not null) return member;
 
         member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId && m.JoinedAt != null && m.LeaveAt == null)
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId && m.JoinedAt != null &&
+                        m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
 
@@ -95,7 +96,7 @@ public class ChatRoomService(
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
-                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                // Ignored the joined at condition here to keep showing userinfo when other didn't accept the invite of DM
                 .ToListAsync()
             : [];
         members = await LoadMemberAccounts(members);
@@ -156,12 +157,15 @@ public class ChatRoomService(
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
-        return [.. members.Select(m =>
-        {
-            if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = SnAccount.FromProtoValue(account);
-            return m;
-        })];
+        return
+        [
+            .. members.Select(m =>
+            {
+                if (accounts.TryGetValue(m.AccountId, out var account))
+                    m.Account = SnAccount.FromProtoValue(account);
+                return m;
+            })
+        ];
     }
 
     private const string ChatRoomSubscribeKeyPrefix = "chatroom:subscribe:";
