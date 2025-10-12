@@ -37,6 +37,14 @@ public class PublisherController(
 
         return Ok(publisher);
     }
+    
+    [HttpGet("{name}/heatmap")]
+    public async Task<ActionResult<ActivityHeatmap>> GetPublisherHeatmap(string name)
+    {
+        var heatmap = await ps.GetPublisherHeatmap(name);
+        if (heatmap is null) return NotFound();
+        return Ok(heatmap);
+    }
 
     [HttpGet("{name}/stats")]
     public async Task<ActionResult<PublisherService.PublisherStats>> GetPublisherStats(string name)

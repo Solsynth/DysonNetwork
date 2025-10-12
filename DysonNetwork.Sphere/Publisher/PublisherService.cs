@@ -283,6 +283,7 @@ public class PublisherService(
     }
 
     private const string PublisherStatsCacheKey = "PublisherStats_{0}";
+    private const string PublisherHeatmapCacheKey = "PublisherHeatmap_{0}";
     private const string PublisherFeatureCacheKey = "PublisherFeature_{0}_{1}";
 
     public async Task<PublisherStats?> GetPublisherStats(string name)
@@ -323,6 +324,45 @@ public class PublisherService(
 
         await cache.SetAsync(cacheKey, stats, TimeSpan.FromMinutes(5));
         return stats;
+    }
+
+    public async Task<ActivityHeatmap?> GetPublisherHeatmap(string name)
+    {
+        var cacheKey = string.Format(PublisherHeatmapCacheKey, name);
+        var heatmap = await cache.GetAsync<ActivityHeatmap>(cacheKey);
+        if (heatmap is not null)
+            return heatmap;
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
+        if (publisher is null) return null;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var periodStart = now.Minus(Duration.FromDays(365));
+        var periodEnd = now;
+
+        var postGroups = await db.Posts
+            .Where(p => p.PublisherId == publisher.Id && p.CreatedAt >= periodStart && p.CreatedAt <= periodEnd)
+            .Select(p => p.CreatedAt.InUtc().Date)
+            .GroupBy(d => d)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var items = postGroups.Select(p => new ActivityHeatmapItem
+        {
+            Date = p.Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant(),
+            Count = p.Count
+        }).ToList();
+
+        heatmap = new ActivityHeatmap
+        {
+            Unit = "posts",
+            PeriodStart = periodStart,
+            PeriodEnd = periodEnd,
+            Items = items.OrderBy(i => i.Date).ToList()
+        };
+
+        await cache.SetAsync(cacheKey, heatmap, TimeSpan.FromMinutes(5));
+        return heatmap;
     }
 
     public async Task SetFeatureFlag(Guid publisherId, string flag)
