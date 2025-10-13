@@ -458,7 +458,10 @@ public class PostController(
 
         if (request.RepliedPostId is not null)
         {
-            var repliedPost = await db.Posts.FindAsync(request.RepliedPostId.Value);
+            var repliedPost = await db.Posts
+                .Where(p => p.Id == request.RepliedPostId.Value)
+                .Include(p => p.Publisher)
+                .FirstOrDefaultAsync();
             if (repliedPost is null) return BadRequest("Post replying to was not found.");
             post.RepliedPost = repliedPost;
             post.RepliedPostId = repliedPost.Id;
@@ -466,7 +469,10 @@ public class PostController(
 
         if (request.ForwardedPostId is not null)
         {
-            var forwardedPost = await db.Posts.FindAsync(request.ForwardedPostId.Value);
+            var forwardedPost = await db.Posts
+                .Where(p => p.Id == request.ForwardedPostId.Value)
+                .Include(p => p.Publisher)
+                .FirstOrDefaultAsync();
             if (forwardedPost is null) return BadRequest("Forwarded post was not found.");
             post.ForwardedPost = forwardedPost;
             post.ForwardedPostId = forwardedPost.Id;
