@@ -16,7 +16,7 @@ public class AutocompletionService(AppDatabase db, AccountClientHelper accountsH
             var afterAt = content[1..];
             string type;
             string query;
-            bool hadSlash = afterAt.Contains('/');
+            var hadSlash = afterAt.Contains('/');
             if (hadSlash)
             {
                 var parts = afterAt.Split('/', 2);

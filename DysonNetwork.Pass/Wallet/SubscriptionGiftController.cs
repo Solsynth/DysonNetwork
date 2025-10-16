@@ -197,7 +197,8 @@ public class SubscriptionGiftController(
 
         if (currentUser.Profile.Level < MinimumAccountLevel)
         {
-            return StatusCode(403, "Account level must be at least 60 to purchase a gift.");
+            if (currentUser.PerkSubscription is null)
+                return StatusCode(403, "Account level must be at least 60 or a member of the Stellar Program to purchase a gift.");
         }
 
         Duration? giftDuration = null;

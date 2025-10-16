@@ -250,6 +250,14 @@ public class SubscriptionService(
             : null;
         if (subscriptionInfo is null) throw new InvalidOperationException("No matching subscription found.");
 
+        if (subscriptionInfo.RequiredLevel > 0)
+        {
+            var profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == subscription.AccountId);
+            if (profile is null) throw new InvalidOperationException("Account must have a profile");
+            if (profile.Level < subscriptionInfo.RequiredLevel)
+                throw new InvalidOperationException("Account level must be at least 60 to purchase a gift.");
+        }
+
         return await payment.CreateOrderAsync(
             null,
             subscriptionInfo.Currency,
@@ -683,6 +691,9 @@ public class SubscriptionService(
 
         if (now > gift.ExpiresAt)
             throw new InvalidOperationException("Gift has expired.");
+
+        if (gift.GifterId == redeemer.Id)
+            throw new InvalidOperationException("You cannot redeem your own gift.");
 
         // Validate redeemer permissions
         if (!gift.IsOpenGift && gift.RecipientId != redeemer.Id)
