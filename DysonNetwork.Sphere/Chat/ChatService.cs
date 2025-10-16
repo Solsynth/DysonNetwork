@@ -198,8 +198,6 @@ public partial class ChatService(
     public async Task<SnChatMessage> SendMessageAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room)
     {
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
-        message.CreatedAt = SystemClock.Instance.GetCurrentInstant();
-        message.UpdatedAt = message.CreatedAt;
 
         // First complete the save operation
         db.ChatMessages.Add(message);
@@ -209,20 +207,25 @@ public partial class ChatService(
         await CreateFileReferencesForMessageAsync(message);
 
         // Then start the delivery process
+        var localMessage = message;
+        var localSender = sender;
+        var localRoom = room;
+        var localLogger = logger;
         _ = Task.Run(async () =>
         {
             try
             {
-                await DeliverMessageAsync(message, sender, room);
+                await DeliverMessageAsync(localMessage, localSender, localRoom);
             }
             catch (Exception ex)
             {
-                logger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
+                localLogger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
             }
         });
 
         // Process link preview in the background to avoid delaying message sending
-        _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(message));
+        var localMessageForPreview = message;
+        _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(localMessageForPreview));
 
         message.Sender = sender;
         message.ChatRoom = room;

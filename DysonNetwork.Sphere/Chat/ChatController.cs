@@ -87,7 +87,8 @@ public partial class ChatController(
 
             var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null &&
+                            m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -103,10 +104,10 @@ public partial class ChatController(
             .Skip(offset)
             .Take(take)
             .ToListAsync();
-        
+
         var members = messages.Select(m => m.Sender).DistinctBy(x => x.Id).ToList();
         members = await crs.LoadMemberAccounts(members);
-        
+
         foreach (var message in messages)
             message.Sender = members.First(x => x.Id == message.SenderId);
 
@@ -129,7 +130,8 @@ public partial class ChatController(
 
             var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null &&
+                            m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member == null || member.Role < ChatMemberRole.Member)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -141,15 +143,80 @@ public partial class ChatController(
             .FirstOrDefaultAsync();
 
         if (message is null) return NotFound();
-        
+
         message.Sender = await crs.LoadMemberAccount(message.Sender);
 
         return Ok(message);
     }
 
 
-    [GeneratedRegex("@([A-Za-z0-9_-]+)")]
+    [GeneratedRegex(@"@(?:u/)?([A-Za-z0-9_-]+)")]
     private static partial Regex MentionRegex();
+
+    /// <summary>
+    /// Extracts mentioned users from message content, replies, and forwards
+    /// </summary>
+    private async Task<List<Guid>> ExtractMentionedUsersAsync(string? content, Guid? repliedMessageId,
+        Guid? forwardedMessageId, Guid roomId, Guid? excludeSenderId = null)
+    {
+        var mentionedUsers = new List<Guid>();
+
+        // Add sender of a replied message
+        if (repliedMessageId.HasValue)
+        {
+            var replyingTo = await db.ChatMessages
+                .Where(m => m.Id == repliedMessageId.Value && m.ChatRoomId == roomId)
+                .Include(m => m.Sender)
+                .Select(m => m.Sender)
+                .FirstOrDefaultAsync();
+            if (replyingTo != null)
+                mentionedUsers.Add(replyingTo.AccountId);
+        }
+
+        // Add sender of a forwarded message
+        if (forwardedMessageId.HasValue)
+        {
+            var forwardedMessage = await db.ChatMessages
+                .Where(m => m.Id == forwardedMessageId.Value)
+                .Select(m => new { m.SenderId })
+                .FirstOrDefaultAsync();
+            if (forwardedMessage != null)
+            {
+                mentionedUsers.Add(forwardedMessage.SenderId);
+            }
+        }
+
+        // Extract mentions from content using regex
+        if (!string.IsNullOrWhiteSpace(content))
+        {
+            var mentionedNames = MentionRegex()
+                .Matches(content)
+                .Select(m => m.Groups[1].Value)
+                .Distinct()
+                .ToList();
+
+            if (mentionedNames.Count > 0)
+            {
+                var queryRequest = new LookupAccountBatchRequest();
+                queryRequest.Names.AddRange(mentionedNames);
+                var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
+                var mentionedIds = queryResponse.Select(a => Guid.Parse(a.Id)).ToList();
+
+                if (mentionedIds.Count > 0)
+                {
+                    var mentionedMembers = await db.ChatMembers
+                        .Where(m => m.ChatRoomId == roomId && mentionedIds.Contains(m.AccountId))
+                        .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                        .Where(m => excludeSenderId == null || m.AccountId != excludeSenderId.Value)
+                        .Select(m => m.AccountId)
+                        .ToListAsync();
+                    mentionedUsers.AddRange(mentionedMembers);
+                }
+            }
+        }
+
+        return mentionedUsers.Distinct().ToList();
+    }
 
     [HttpPost("{roomId:guid}/messages")]
     [Authorize]
@@ -188,6 +255,7 @@ public partial class ChatController(
                 .ToList();
         }
 
+        // Validate reply and forward message IDs exist
         if (request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
@@ -208,28 +276,9 @@ public partial class ChatController(
             message.ForwardedMessageId = forwardedMessage.Id;
         }
 
-        if (request.Content is not null)
-        {
-            var mentioned = MentionRegex()
-                .Matches(request.Content)
-                .Select(m => m.Groups[1].Value)
-                .ToList();
-            if (mentioned.Count > 0)
-            {
-                var queryRequest = new LookupAccountBatchRequest();
-                queryRequest.Names.AddRange(mentioned);
-                var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
-                var mentionedId = queryResponse
-                    .Select(a => Guid.Parse(a.Id))
-                    .ToList();
-                var mentionedMembers = await db.ChatMembers
-                    .Where(m => m.ChatRoomId == roomId && mentionedId.Contains(m.AccountId))
-                    .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-                    .Select(m => m.Id)
-                    .ToListAsync();
-                message.MembersMentioned = mentionedMembers;
-            }
-        }
+        // Extract mentioned users
+        message.MembersMentioned = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
+            request.ForwardedMessageId, roomId);
 
         var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
 
@@ -259,6 +308,7 @@ public partial class ChatController(
             (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
             return BadRequest("You cannot send an empty message.");
 
+        // Validate reply and forward message IDs exist
         if (request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
@@ -274,6 +324,11 @@ public partial class ChatController(
             if (forwardedMessage == null)
                 return BadRequest("The message you're forwarding does not exist.");
         }
+
+        // Update mentions based on new content and references
+        var updatedMentions = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
+            request.ForwardedMessageId, roomId, accountId);
+        message.MembersMentioned = updatedMentions;
 
         // Call service method to update the message
         await cs.UpdateMessageAsync(
@@ -324,7 +379,8 @@ public partial class ChatController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var isMember = await db.ChatMembers
-            .AnyAsync(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
+            .AnyAsync(m =>
+                m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 
@@ -333,14 +389,16 @@ public partial class ChatController(
     }
 
     [HttpPost("{roomId:guid}/autocomplete")]
-    public async Task<ActionResult<List<DysonNetwork.Shared.Models.Autocompletion>>> ChatAutoComplete([FromBody] AutocompletionRequest request, Guid roomId)
+    public async Task<ActionResult<List<DysonNetwork.Shared.Models.Autocompletion>>> ChatAutoComplete(
+        [FromBody] AutocompletionRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var isMember = await db.ChatMembers
-            .AnyAsync(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
+            .AnyAsync(m =>
+                m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 
