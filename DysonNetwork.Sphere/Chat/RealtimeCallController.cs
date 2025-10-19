@@ -19,6 +19,7 @@ public class SignalingMessage
 {
     public string Type { get; set; } = null!;
     public object? Data { get; set; }
+    public string? To { get; set; }
     public string? AccountId { get; set; }
     public SnAccount? Account { get; set; }
 }
@@ -377,9 +378,16 @@ public class RealtimeCallController(
         var messageBytes = packet.ToBytes();
         var segment = new ArraySegment<byte>(messageBytes);
 
+        var signalingMessage = packet.GetData<SignalingMessage>();
+        var targetAccountId = signalingMessage?.To;
+
         foreach (var pair in roomDict)
         {
-            if (pair.Key == senderId) continue;
+            // Skip sender unless it's broadcast message
+            if (!string.IsNullOrEmpty(targetAccountId) && pair.Key == senderId) continue;
+
+            // If directed message, only send to target
+            if (!string.IsNullOrEmpty(targetAccountId) && pair.Value.AccountId != targetAccountId) continue;
 
             if (pair.Value.Socket.State != WebSocketState.Open) continue;
             await pair.Value.Socket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);

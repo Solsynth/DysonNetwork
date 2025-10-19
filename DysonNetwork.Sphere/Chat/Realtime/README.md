@@ -108,10 +108,10 @@ The signaling server broadcasts messages using the WebSocketPacket format. All m
 
 **WebSocketPacket Format:**
 
-For signaling messages:
+For signaling messages (see SignalingMessage model):
 ```json
 {
-  "type": "signaling",
+  "type": "webrtc.signal",
   "data": {
     "type": "signaling-message-type",
     "data": {
@@ -119,14 +119,14 @@ For signaling messages:
       "answer": "...SDP string here...",
       "candidate": {...ICE candidate data...}
     },
+    "to": "optional-target-user-id-for-directed-messaging",
     "senderAccountId": "server-validated-user-guid",
     "senderInfo": {
-      // Full SnAccount model with user details
       "id": "user-guid",
       "name": "username",
       "nick": "display nickname",
-      "profile": { ... },
-      // ... complete account information
+      "profile": {},
+      "updatedAt": "2022-01-01T00:00:00Z"
     }
   }
 }
@@ -137,7 +137,11 @@ For connection established:
 {
   "type": "webrtc",
   "data": {
-    // welcome data
+    "userId": "user-guid",
+    "roomId": "room-guid",
+    "message": "Connected to call...",
+    "timestamp": "2022-01-01T00:00:00Z",
+    "participants": [...]
   }
 }
 ```
