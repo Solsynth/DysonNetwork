@@ -15,7 +15,6 @@ public partial class ChatService(
     FileService.FileServiceClient filesClient,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     IServiceScopeFactory scopeFactory,
-    IRealtimeService realtime,
     ILogger<ChatService> logger
 )
 {
@@ -535,26 +534,9 @@ public partial class ChatService(
         {
             RoomId = room.Id,
             SenderId = sender.Id,
-            ProviderName = realtime.ProviderName
+            ProviderName = "Built-in WebRTC Signaling",
+            SessionId = Guid.NewGuid().ToString() // Simple session ID for built-in signaling
         };
-
-        try
-        {
-            var sessionConfig = await realtime.CreateSessionAsync(room.Id, new Dictionary<string, object>
-            {
-                { "room_id", room.Id },
-                { "user_id", sender.AccountId },
-            });
-
-            // Store session details
-            call.SessionId = sessionConfig.SessionId;
-            call.UpstreamConfig = sessionConfig.Parameters;
-        }
-        catch (Exception ex)
-        {
-            // Log the exception but continue with call creation
-            throw new InvalidOperationException($"Failed to create {realtime.ProviderName} session: {ex.Message}");
-        }
 
         db.ChatRealtimeCall.Add(call);
         await db.SaveChangesAsync();
@@ -580,26 +562,7 @@ public partial class ChatService(
         if (sender.Role < ChatMemberRole.Moderator && call.SenderId != sender.Id)
             throw new InvalidOperationException("You are not the call initiator either the chat room moderator.");
 
-        // End the realtime session if it exists
-        if (!string.IsNullOrEmpty(call.SessionId) && !string.IsNullOrEmpty(call.ProviderName))
-        {
-            try
-            {
-                var config = new RealtimeSessionConfig
-                {
-                    SessionId = call.SessionId,
-                    Parameters = call.UpstreamConfig
-                };
-
-                await realtime.EndSessionAsync(call.SessionId, config);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception but continue with call ending
-                throw new InvalidOperationException($"Failed to end {call.ProviderName} session: {ex.Message}");
-            }
-        }
-
+        // For built-in WebRTC signaling, just set the end time
         call.EndedAt = SystemClock.Instance.GetCurrentInstant();
         db.ChatRealtimeCall.Update(call);
         await db.SaveChangesAsync();
