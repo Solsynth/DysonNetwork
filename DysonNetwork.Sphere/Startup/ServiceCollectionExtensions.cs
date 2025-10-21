@@ -5,7 +5,6 @@ using DysonNetwork.Sphere.Chat.Realtime;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.Sticker;
 using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
@@ -110,7 +109,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PublisherSubscriptionService>();
         services.AddScoped<ActivityService>();
         services.AddScoped<PostService>();
-        services.AddScoped<RealmService>();
         services.AddScoped<ChatRoomService>();
         services.AddScoped<ChatService>();
         services.AddScoped<StickerService>();
@@ -119,7 +117,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<PollService>();
-        services.AddScoped<AccountClientHelper>();
+        services.AddScoped<RemoteAccountService>();
+        services.AddScoped<RemoteRealmService>();
         services.AddScoped<AutocompletionService>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();

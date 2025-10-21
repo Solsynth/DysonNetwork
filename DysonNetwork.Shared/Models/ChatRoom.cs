@@ -30,7 +30,7 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
     [JsonIgnore] public ICollection<SnChatMember> Members { get; set; } = new List<SnChatMember>();
 
     public Guid? RealmId { get; set; }
-    public SnRealm? Realm { get; set; }
+    [NotMapped] public SnRealm? Realm { get; set; }
 
     [NotMapped]
     [JsonPropertyName("members")]

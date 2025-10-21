@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -31,6 +33,28 @@ public class SnRealm : ModelBase, IIdentifiedResource
     public Guid AccountId { get; set; }
 
     public string ResourceIdentifier => $"realm:{Id}";
+
+    public Realm ToProtoValue()
+    {
+        return new Realm
+        {
+            Id = Id.ToString(),
+            Name = Name
+        };
+    }
+
+    public static SnRealm FromProtoValue(Realm proto)
+    {
+        return new SnRealm
+        {
+            Id = Guid.Parse(proto.Id),
+            Name = proto.Name,
+            Slug = "",  // Required but not in proto
+            Description = "",
+            IsCommunity = false,
+            IsPublic = false
+        };
+    }
 }
 
 public abstract class RealmMemberRole
@@ -51,4 +75,40 @@ public class SnRealmMember : ModelBase
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
+
+    public Proto.RealmMember ToProtoValue()
+    {
+        var proto = new Proto.RealmMember
+        {
+            AccountId = AccountId.ToString(),
+            RealmId = RealmId.ToString(),
+            Role = Role,
+            JoinedAt = JoinedAt?.ToTimestamp(),
+            LeaveAt = LeaveAt?.ToTimestamp(),
+            Realm = Realm.ToProtoValue()
+        };
+        if (Account != null)
+        {
+            proto.Account = Account.ToProtoValue();
+        }
+        return proto;
+    }
+
+    public static SnRealmMember FromProtoValue(RealmMember proto)
+    {
+        var member = new SnRealmMember
+        {
+            AccountId = Guid.Parse(proto.AccountId),
+            RealmId = Guid.Parse(proto.RealmId),
+            Role = proto.Role,
+            JoinedAt = proto.JoinedAt?.ToInstant(),
+            LeaveAt = proto.LeaveAt?.ToInstant(),
+            Realm = proto.Realm != null ? SnRealm.FromProtoValue(proto.Realm) : new SnRealm() // Provide default or handle null
+        };
+        if (proto.Account != null)
+        {
+            member.Account = SnAccount.FromProtoValue(proto.Account);
+        }
+        return member;
+    }
 }

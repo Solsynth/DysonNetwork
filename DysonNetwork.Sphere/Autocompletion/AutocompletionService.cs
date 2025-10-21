@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Autocompletion;
 
-public class AutocompletionService(AppDatabase db, AccountClientHelper accountsHelper)
+public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAccountsHelper)
 {
     public async Task<List<DysonNetwork.Shared.Models.Autocompletion>> GetAutocompletion(string content, Guid? chatId = null, Guid? realmId = null, int limit = 10)
     {
@@ -47,7 +47,7 @@ public class AutocompletionService(AppDatabase db, AccountClientHelper accountsH
         switch (type)
         {
             case "u":
-                var allAccounts = await accountsHelper.SearchAccounts(query);
+                var allAccounts = await remoteAccountsHelper.SearchAccounts(query);
                 var filteredAccounts = allAccounts;
 
                 if (chatId.HasValue)

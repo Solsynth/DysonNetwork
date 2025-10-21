@@ -3,7 +3,7 @@ using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class AccountClientHelper(AccountService.AccountServiceClient accounts)
+public class RemoteAccountService(AccountService.AccountServiceClient accounts)
 {
     public async Task<Account> GetAccount(Guid id)
     {

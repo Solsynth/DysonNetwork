@@ -6,7 +6,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Poll;
-using DysonNetwork.Sphere.Realm;
+
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,12 +24,12 @@ public class PostController(
     AppDatabase db,
     PostService ps,
     PublisherService pub,
-    AccountClientHelper accountsHelper,
+    RemoteAccountService remoteAccountsHelper,
     AccountService.AccountServiceClient accounts,
     ActionLogService.ActionLogServiceClient als,
     PaymentService.PaymentServiceClient payments,
     PollService polls,
-    RealmService rs
+    RemoteRealmService rs
 )
     : ControllerBase
 {
@@ -108,7 +108,7 @@ public class PostController(
         var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
-        var realm = realmName == null ? null : await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmName);
+        var realm = realmName == null ? null : (realmName != null ? await rs.GetRealmBySlug(realmName) : null);
 
         var query = db.Posts
             .Include(e => e.Categories)
@@ -274,7 +274,7 @@ public class PostController(
             .Skip(offset)
             .ToListAsync();
 
-        var accountsProto = await accountsHelper.GetAccountBatch(reactions.Select(r => r.AccountId).ToList());
+        var accountsProto = await remoteAccountsHelper.GetAccountBatch(reactions.Select(r => r.AccountId).ToList());
         var accounts = accountsProto.ToDictionary(a => Guid.Parse(a.Id), a => SnAccount.FromProtoValue(a));
 
         foreach (var reaction in reactions)
@@ -480,9 +480,8 @@ public class PostController(
 
         if (request.RealmId is not null)
         {
-            var realm = await db.Realms.FindAsync(request.RealmId.Value);
-            if (realm is null) return BadRequest("Realm was not found.");
-            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
+            var realm = await rs.GetRealm(request.RealmId.Value.ToString());
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, new List<int> { RealmMemberRole.Normal }))
                 return StatusCode(403, "You are not a member of this realm.");
             post.RealmId = realm.Id;
         }
@@ -708,7 +707,7 @@ public class PostController(
 
         if (request.Mode == PostPinMode.RealmPage && post.RealmId != null)
         {
-            if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, RealmMemberRole.Moderator))
+            if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, new List<int> { RealmMemberRole.Moderator }))
                 return StatusCode(403, "You are not a moderator of this realm");
         }
 
@@ -756,7 +755,7 @@ public class PostController(
 
         if (post is { PinMode: PostPinMode.RealmPage, RealmId: not null })
         {
-            if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, RealmMemberRole.Moderator))
+            if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, new List<int> { RealmMemberRole.Moderator }))
                 return StatusCode(403, "You are not a moderator of this realm");
         }
 
@@ -865,9 +864,8 @@ public class PostController(
         // The realm is the same as well as the poll
         if (request.RealmId is not null)
         {
-            var realm = await db.Realms.FindAsync(request.RealmId.Value);
-            if (realm is null) return BadRequest("Realm was not found.");
-            if (!await rs.IsMemberWithRole(realm.Id, accountId, RealmMemberRole.Normal))
+            var realm = await rs.GetRealm(request.RealmId.Value.ToString());
+            if (!await rs.IsMemberWithRole(realm.Id, accountId, new List<int> { RealmMemberRole.Normal }))
                 return StatusCode(403, "You are not a member of this realm.");
             post.RealmId = realm.Id;
         }

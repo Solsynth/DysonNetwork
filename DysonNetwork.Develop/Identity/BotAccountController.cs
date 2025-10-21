@@ -19,7 +19,7 @@ public class BotAccountController(
     DeveloperService ds,
     DevProjectService projectService,
     ILogger<BotAccountController> logger,
-    AccountClientHelper accounts,
+    RemoteAccountService remoteAccounts,
     BotAccountReceiverService.BotAccountReceiverServiceClient accountsReceiver
 )
     : ControllerBase
@@ -222,7 +222,7 @@ public class BotAccountController(
         if (bot is null || bot.ProjectId != projectId)
             return NotFound("Bot not found");
 
-        var botAccount = await accounts.GetBotAccount(bot.Id);
+        var botAccount = await remoteAccounts.GetBotAccount(bot.Id);
 
         if (request.Name is not null) botAccount.Name = request.Name;
         if (request.Nick is not null) botAccount.Nick = request.Nick;

@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
@@ -24,6 +25,10 @@ public class AppDatabase(
     public DbSet<SnPublisherSubscription> PublisherSubscriptions { get; set; } = null!;
     public DbSet<SnPublisherFeature> PublisherFeatures { get; set; } = null!;
 
+    // TODO Remove the realms table after the data migration is done
+    public DbSet<SnRealm> Realms { get; set; } = null!;
+    public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
+
     public DbSet<SnPost> Posts { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
     public DbSet<SnPostAward> PostAwards { get; set; } = null!;
@@ -33,12 +38,9 @@ public class AppDatabase(
     public DbSet<SnPostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
 
-    public DbSet<Shared.Models.SnPoll> Polls { get; set; } = null!;
+    public DbSet<SnPoll> Polls { get; set; } = null!;
     public DbSet<SnPollQuestion> PollQuestions { get; set; } = null!;
     public DbSet<SnPollAnswer> PollAnswers { get; set; } = null!;
-
-    public DbSet<Shared.Models.SnRealm> Realms { get; set; } = null!;
-    public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
 
     public DbSet<SnChatRoom> ChatRooms { get; set; } = null!;
     public DbSet<SnChatMember> ChatMembers { get; set; } = null!;
@@ -46,13 +48,13 @@ public class AppDatabase(
     public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
     public DbSet<SnChatMessageReaction> ChatReactions { get; set; } = null!;
 
-    public DbSet<Shared.Models.SnSticker> Stickers { get; set; } = null!;
+    public DbSet<SnSticker> Stickers { get; set; } = null!;
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;
     public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; } = null!;
 
-    public DbSet<WebReader.WebArticle> WebArticles { get; set; } = null!;
-    public DbSet<WebReader.WebFeed> WebFeeds { get; set; } = null!;
-    public DbSet<WebReader.WebFeedSubscription> WebFeedSubscriptions { get; set; } = null!;
+    public DbSet<WebArticle> WebArticles { get; set; } = null!;
+    public DbSet<WebFeed> WebFeeds { get; set; } = null!;
+    public DbSet<WebFeedSubscription> WebFeedSubscriptions { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -150,10 +152,10 @@ public class AppDatabase(
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<WebReader.WebFeed>()
+        modelBuilder.Entity<WebFeed>()
             .HasIndex(f => f.Url)
             .IsUnique();
-        modelBuilder.Entity<WebReader.WebArticle>()
+        modelBuilder.Entity<WebArticle>()
             .HasIndex(a => a.Url)
             .IsUnique();
 

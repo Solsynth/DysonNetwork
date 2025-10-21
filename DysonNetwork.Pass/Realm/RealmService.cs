@@ -1,20 +1,18 @@
+using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
-namespace DysonNetwork.Sphere.Realm;
+namespace DysonNetwork.Pass.Realm;
 
 public class RealmService(
     AppDatabase db,
     RingService.RingServiceClient pusher,
-    AccountService.AccountServiceClient accounts,
     IStringLocalizer<NotificationResource> localizer,
-    AccountClientHelper accountsHelper,
     ICacheService cache
 )
 {
@@ -42,13 +40,18 @@ public class RealmService(
     
     public async Task SendInviteNotify(SnRealmMember member)
     {
-        var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
-        CultureService.SetCultureInfo(account);
+        var account = await db.Accounts
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.Id == member.AccountId);
+        
+        if (account == null) throw new InvalidOperationException("Account not found");
+        
+        CultureService.SetCultureInfo(account.Language);
 
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {
-                UserId = account.Id,
+                UserId = account.Id.ToString(),
                 Notification = new PushNotification
                 {
                     Topic = "invites.realms",
@@ -75,20 +78,26 @@ public class RealmService(
 
     public async Task<SnRealmMember> LoadMemberAccount(SnRealmMember member)
     {
-        var account = await accountsHelper.GetAccount(member.AccountId);
-        member.Account = SnAccount.FromProtoValue(account);
+        var account = await db.Accounts
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.Id == member.AccountId);
+        if (account != null)
+            member.Account = account;
         return member;
     }
 
     public async Task<List<SnRealmMember>> LoadMemberAccounts(ICollection<SnRealmMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var accountsDict = await db.Accounts
+            .Include(a => a.Profile)
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id, a => a);
 
         return members.Select(m =>
         {
-            if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = SnAccount.FromProtoValue(account);
+            if (accountsDict.TryGetValue(m.AccountId, out var account))
+                m.Account = account;
             return m;
         }).ToList();
     }

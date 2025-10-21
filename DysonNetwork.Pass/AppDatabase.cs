@@ -38,6 +38,9 @@ public class AppDatabase(
     public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
     public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
     public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
+    
+    public DbSet<SnRealm> Realms { get; set; } = null!;
+    public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
 
     public DbSet<SnWallet> Wallets { get; set; } = null!;
     public DbSet<SnWalletPocket> WalletPockets { get; set; } = null!;
@@ -127,6 +130,14 @@ public class AppDatabase(
             .HasOne(r => r.Related)
             .WithMany(a => a.IncomingRelationships)
             .HasForeignKey(r => r.RelatedId);
+        
+        modelBuilder.Entity<SnRealmMember>()
+            .HasKey(pm => new { pm.RealmId, pm.AccountId });
+        modelBuilder.Entity<SnRealmMember>()
+            .HasOne(pm => pm.Realm)
+            .WithMany(p => p.Members)
+            .HasForeignKey(pm => pm.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Automatically apply soft-delete filter to all entities inheriting BaseModel
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

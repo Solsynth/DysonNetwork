@@ -64,7 +64,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
     public SnPost? ForwardedPost { get; set; }
 
     public Guid? RealmId { get; set; }
-    public SnRealm? Realm { get; set; }
+    [NotMapped] public SnRealm? Realm { get; set; }
 
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = [];
 

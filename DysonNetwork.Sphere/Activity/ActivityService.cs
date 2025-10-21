@@ -1,8 +1,8 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Realm;
 using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -13,7 +13,7 @@ public class ActivityService(
     AppDatabase db,
     Publisher.PublisherService pub,
     PostService ps,
-    RealmService rs,
+    RemoteRealmService rs,
     DiscoveryService ds,
     AccountService.AccountServiceClient accounts
 )

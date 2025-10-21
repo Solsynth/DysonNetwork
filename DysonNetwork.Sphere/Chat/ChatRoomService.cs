@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.Chat;
 public class ChatRoomService(
     AppDatabase db,
     ICacheService cache,
-    AccountClientHelper accountsHelper
+    RemoteAccountService remoteAccountsHelper
 )
 {
     private const string ChatRoomGroupPrefix = "chatroom:";
@@ -147,7 +147,7 @@ public class ChatRoomService(
 
     public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)
     {
-        var account = await accountsHelper.GetAccount(member.AccountId);
+        var account = await remoteAccountsHelper.GetAccount(member.AccountId);
         member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
@@ -155,7 +155,7 @@ public class ChatRoomService(
     public async Task<List<SnChatMember>> LoadMemberAccounts(ICollection<SnChatMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var accounts = (await remoteAccountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
         return
         [

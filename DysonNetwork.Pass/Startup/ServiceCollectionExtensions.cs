@@ -17,6 +17,7 @@ using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Mailer;
+using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
@@ -152,6 +153,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SafetyService>();
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
+        services.AddScoped<RealmService>();
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();

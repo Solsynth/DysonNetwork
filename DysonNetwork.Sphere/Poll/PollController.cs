@@ -16,7 +16,7 @@ public class PollController(
     AppDatabase db,
     PollService polls,
     Publisher.PublisherService pub,
-    AccountClientHelper accountsHelper
+    RemoteAccountService remoteAccountsHelper
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -110,7 +110,7 @@ public class PollController(
         if (!poll.IsAnonymous)
         {
             var answeredAccountsId = answers.Select(x => x.AccountId).Distinct().ToList();
-            var answeredAccounts = await accountsHelper.GetAccountBatch(answeredAccountsId);
+            var answeredAccounts = await remoteAccountsHelper.GetAccountBatch(answeredAccountsId);
 
             // Populate Account field for each answer
             foreach (var answer in answers)

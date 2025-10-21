@@ -11,7 +11,7 @@ public class PublisherService(
     AppDatabase db,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ICacheService cache,
-    AccountClientHelper accountsHelper
+    RemoteAccountService remoteAccountsHelper
 )
 {
     public async Task<SnPublisher?> GetPublisherByName(string name)
@@ -420,7 +420,7 @@ public class PublisherService(
 
     public async Task<SnPublisherMember> LoadMemberAccount(SnPublisherMember member)
     {
-        var account = await accountsHelper.GetAccount(member.AccountId);
+        var account = await remoteAccountsHelper.GetAccount(member.AccountId);
         member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
@@ -428,7 +428,7 @@ public class PublisherService(
     public async Task<List<SnPublisherMember>> LoadMemberAccounts(ICollection<SnPublisherMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = (await accountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var accounts = (await remoteAccountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
         return [.. members.Select(m =>
         {

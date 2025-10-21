@@ -1,14 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Google.Protobuf.WellKnownTypes;
-using DysonNetwork.Shared.Models;
 
-namespace DysonNetwork.Sphere.Realm;
+namespace DysonNetwork.Pass.Realm;
 
 [ApiController]
 [Route("/api/realms")]
@@ -19,7 +19,7 @@ public class RealmController(
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
     AccountService.AccountServiceClient accounts,
-    AccountClientHelper accountsHelper
+    RemoteAccountService remoteAccountsHelper
 ) : Controller
 {
     [HttpGet("{slug}")]
@@ -37,7 +37,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealm>>> ListJoinedRealms()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.RealmMembers
@@ -54,7 +54,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealmMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.RealmMembers
@@ -77,7 +77,7 @@ public class RealmController(
     public async Task<ActionResult<SnRealmMember>> InviteMember(string slug,
         [FromBody] RealmMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var relatedUser =
@@ -168,7 +168,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> AcceptMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.RealmMembers
@@ -202,7 +202,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.RealmMembers
@@ -248,7 +248,7 @@ public class RealmController(
 
         if (!realm.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+            if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
             if (!await rs.IsMemberWithRole(realm.Id, Guid.Parse(currentUser.Id), RealmMemberRole.Normal))
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
@@ -263,7 +263,7 @@ public class RealmController(
                 .OrderBy(m => m.JoinedAt)
                 .ToListAsync();
 
-            var memberStatuses = await accountsHelper.GetAccountStatusBatch(
+            var memberStatuses = await remoteAccountsHelper.GetAccountStatusBatch(
                 members.Select(m => m.AccountId).ToList()
             );
 
@@ -306,7 +306,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> GetCurrentIdentity(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.RealmMembers
@@ -323,7 +323,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> LeaveRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.RealmMembers
@@ -371,7 +371,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> CreateRealm(RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
         if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest("You cannot create a realm without a slug.");
 
@@ -459,7 +459,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> Update(string slug, [FromBody] RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -568,7 +568,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> JoinRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -641,7 +641,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string slug, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -681,7 +681,7 @@ public class RealmController(
     public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -723,7 +723,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> Delete(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
 
         var transaction = await db.Database.BeginTransactionAsync();
 
@@ -737,26 +737,12 @@ public class RealmController(
 
         try
         {
-            var chats = await db.ChatRooms
-                .Where(c => c.RealmId == realm.Id)
-                .Select(c => c.Id)
-                .ToListAsync();
-
             db.Realms.Remove(realm);
             await db.SaveChangesAsync();
 
             var now = SystemClock.Instance.GetCurrentInstant();
             await db.RealmMembers
                 .Where(m => m.RealmId == realm.Id)
-                .ExecuteUpdateAsync(m => m.SetProperty(m => m.DeletedAt, now));
-            await db.ChatRooms
-                .Where(c => c.RealmId == realm.Id)
-                .ExecuteUpdateAsync(c => c.SetProperty(c => c.DeletedAt, now));
-            await db.ChatMessages
-                .Where(m => chats.Contains(m.ChatRoomId))
-                .ExecuteUpdateAsync(m => m.SetProperty(m => m.DeletedAt, now));
-            await db.ChatMembers
-                .Where(m => chats.Contains(m.ChatRoomId))
                 .ExecuteUpdateAsync(m => m.SetProperty(m => m.DeletedAt, now));
             await db.SaveChangesAsync();
             await transaction.CommitAsync();

@@ -134,10 +134,6 @@ public class BroadcastEventHandler(
                     .Where(m => m.AccountId == evt.AccountId)
                     .ExecuteDeleteAsync(cancellationToken: stoppingToken);
 
-                await db.RealmMembers
-                    .Where(m => m.AccountId == evt.AccountId)
-                    .ExecuteDeleteAsync(cancellationToken: stoppingToken);
-
                 await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken: stoppingToken);
                 try
                 {

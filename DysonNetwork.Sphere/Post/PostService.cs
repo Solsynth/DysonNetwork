@@ -938,7 +938,7 @@ public partial class PostService(
             var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
             var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
-            var accountsHelper = scope.ServiceProvider.GetRequiredService<AccountClientHelper>();
+            var accountsHelper = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
             try
             {
                 var sender = await accountsHelper.GetAccount(accountId);

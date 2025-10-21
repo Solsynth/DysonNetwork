@@ -10,7 +10,7 @@ namespace DysonNetwork.Develop.Identity;
 public class BotAccountService(
     AppDatabase db,
     BotAccountReceiverService.BotAccountReceiverServiceClient accountReceiver,
-    AccountClientHelper accounts
+    RemoteAccountService remoteAccounts
 )
 {
     public async Task<SnBotAccount?> GetBotByIdAsync(Guid id)
@@ -158,7 +158,7 @@ public class BotAccountService(
     public async Task<List<SnBotAccount>> LoadBotsAccountAsync(List<SnBotAccount> bots)
     {
         var automatedIds = bots.Select(b => b.Id).ToList();
-        var data = await accounts.GetBotAccountBatch(automatedIds);
+        var data = await remoteAccounts.GetBotAccountBatch(automatedIds);
 
         foreach (var bot in bots)
         {

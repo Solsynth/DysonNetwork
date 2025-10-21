@@ -36,11 +36,11 @@ public static class ServiceInjectionHelper
     public static IServiceCollection AddAccountService(this IServiceCollection services)
     {
         services
-            .AddGrpcClient<AccountService.AccountServiceClient>(o => o.Address = new Uri("https://_grpc.pass") )
+            .AddGrpcClient<AccountService.AccountServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
-        services.AddSingleton<AccountClientHelper>();
+        services.AddSingleton<RemoteAccountService>();
 
         services
             .AddGrpcClient<BotAccountReceiverService.BotAccountReceiverServiceClient>(o =>
@@ -59,10 +59,17 @@ public static class ServiceInjectionHelper
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
+        
+        services
+            .AddGrpcClient<RealmService.RealmServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
+        services.AddSingleton<RemoteRealmService>();
 
         return services;
     }
-
+    
     public static IServiceCollection AddDriveService(this IServiceCollection services)
     {
         services.AddGrpcClient<FileService.FileServiceClient>(o => o.Address = new Uri("https://_grpc.drive"))
@@ -70,7 +77,8 @@ public static class ServiceInjectionHelper
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
 
-        services.AddGrpcClient<FileReferenceService.FileReferenceServiceClient>(o => o.Address = new Uri("https://_grpc.drive"))
+        services.AddGrpcClient<FileReferenceService.FileReferenceServiceClient>(o =>
+                o.Address = new Uri("https://_grpc.drive"))
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
@@ -80,7 +88,8 @@ public static class ServiceInjectionHelper
 
     public static IServiceCollection AddPublisherService(this IServiceCollection services)
     {
-        services.AddGrpcClient<PublisherService.PublisherServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
+        services
+            .AddGrpcClient<PublisherService.PublisherServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
@@ -90,7 +99,8 @@ public static class ServiceInjectionHelper
 
     public static IServiceCollection AddDevelopService(this IServiceCollection services)
     {
-        services.AddGrpcClient<CustomAppService.CustomAppServiceClient>(o => o.Address = new Uri("https://_grpc.develop"))
+        services.AddGrpcClient<CustomAppService.CustomAppServiceClient>(o =>
+                o.Address = new Uri("https://_grpc.develop"))
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
