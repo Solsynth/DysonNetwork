@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Autocompletion;
 
-public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAccountsHelper)
+public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAccountsHelper, RemoteRealmService remoteRealmService)
 {
     public async Task<List<DysonNetwork.Shared.Models.Autocompletion>> GetAutocompletion(string content, Guid? chatId = null, Guid? realmId = null, int limit = 10)
     {
@@ -95,17 +95,14 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                 break;
 
             case "r":
-                var realms = await db.Realms
-                    .Where(r => EF.Functions.Like(r.Slug, $"{query}%") || EF.Functions.Like(r.Name, $"{query}%"))
-                    .Take(limit)
-                    .Select(r => new DysonNetwork.Shared.Models.Autocompletion
-                    {
-                        Type = "realm",
-                        Keyword = "@r/" + r.Slug,
-                        Data = r
-                    })
-                    .ToListAsync();
-                results.AddRange(realms);
+                var realms = await remoteRealmService.SearchRealms(query, limit);
+                var autocompletions = realms.Select(r => new DysonNetwork.Shared.Models.Autocompletion
+                {
+                    Type = "realm",
+                    Keyword = "@r/" + r.Slug,
+                    Data = r
+                });
+                results.AddRange(autocompletions);
                 break;
 
             case "c":

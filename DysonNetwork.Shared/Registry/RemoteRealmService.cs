@@ -33,6 +33,13 @@ public class RemoteRealmService(RealmService.RealmServiceClient realms)
         return response.Realms.Select(SnRealm.FromProtoValue).ToList();
     }
 
+    public async Task<List<SnRealm>> SearchRealms(string query, int limit)
+    {
+        var request = new SearchRealmsRequest { Query = query, Limit = limit };
+        var response = await realms.SearchRealmsAsync(request);
+        return response.Realms.Select(SnRealm.FromProtoValue).ToList();
+    }
+
     public async Task<List<SnRealm>> GetRealmBatch(List<string> ids)
     {
         var request = new GetRealmBatchRequest();

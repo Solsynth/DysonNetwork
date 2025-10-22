@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,8 @@ public class PublisherController(
     AccountService.AccountServiceClient accounts,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    ActionLogService.ActionLogServiceClient als
+    ActionLogService.ActionLogServiceClient als,
+    RemoteRealmService remoteRealmService
 )
     : ControllerBase
 {
@@ -352,7 +354,7 @@ public class PublisherController(
             return BadRequest("Name and Nick are required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == realmSlug);
+        var realm = await remoteRealmService.GetRealmBySlug(realmSlug);
         if (realm == null) return NotFound("Realm not found");
 
         var accountId = Guid.Parse(currentUser.Id);

@@ -75,6 +75,18 @@ public class RealmServiceGrpc(
         return response;
     }
 
+    public override async Task<GetPublicRealmsResponse> SearchRealms(SearchRealmsRequest request, ServerCallContext context)
+    {
+        var realms = await db.Realms
+            .Where(r => r.IsPublic)
+            .Where(r => EF.Functions.Like(r.Slug, $"{request.Query}%") || EF.Functions.Like(r.Name, $"{request.Query}%"))
+            .Take(request.Limit)
+            .ToListAsync();
+        var response = new GetPublicRealmsResponse();
+        response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
+        return response;
+    }
+
     public override async Task<Empty> SendInviteNotify(SendInviteNotifyRequest request, ServerCallContext context)
     {
         var member = request.Member;

@@ -39,7 +39,8 @@ public class SnRealm : ModelBase, IIdentifiedResource
         return new Realm
         {
             Id = Id.ToString(),
-            Name = Name
+            Name = Name,
+            Slug = Slug
         };
     }
 
@@ -49,7 +50,7 @@ public class SnRealm : ModelBase, IIdentifiedResource
         {
             Id = Guid.Parse(proto.Id),
             Name = proto.Name,
-            Slug = "",  // Required but not in proto
+            Slug = proto.Slug,
             Description = "",
             IsCommunity = false,
             IsPublic = false

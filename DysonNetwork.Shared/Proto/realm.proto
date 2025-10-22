@@ -15,6 +15,7 @@ import 'account.proto';
 message Realm {
     string id = 1;
     string name = 2;
+    string slug = 3;
 }
 
 message RealmMember {
@@ -38,6 +39,8 @@ service RealmService {
     rpc GetUserRealms(GetUserRealmsRequest) returns (GetUserRealmsResponse) {}
     // Get public realms
     rpc GetPublicRealms(google.protobuf.Empty) returns (GetPublicRealmsResponse) {}
+    // Search public realms
+    rpc SearchRealms(SearchRealmsRequest) returns (GetPublicRealmsResponse) {}
     // Send invitation notification
     rpc SendInviteNotify(SendInviteNotifyRequest) returns (google.protobuf.Empty) {}
     // Check if member has required role
@@ -75,6 +78,11 @@ message GetUserRealmsResponse {
 
 message GetPublicRealmsResponse {
     repeated Realm realms = 1;
+}
+
+message SearchRealmsRequest {
+    string query = 1;
+    int32 limit = 2;
 }
 
 message SendInviteNotifyRequest {
