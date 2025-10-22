@@ -6,12 +6,10 @@ using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Sticker;
-using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Registry;
@@ -72,20 +70,7 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-
-    public static IServiceCollection AddAppRateLimiting(this IServiceCollection services)
-    {
-        services.AddRateLimiter(o => o.AddFixedWindowLimiter(policyName: "fixed", opts =>
-        {
-            opts.Window = TimeSpan.FromMinutes(1);
-            opts.PermitLimit = 120;
-            opts.QueueLimit = 2;
-            opts.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        }));
-
-        return services;
-    }
-
+    
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
         services.AddAuthorization();

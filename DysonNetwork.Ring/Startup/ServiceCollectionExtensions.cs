@@ -50,19 +50,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAppRateLimiting(this IServiceCollection services)
-    {
-        services.AddRateLimiter(o => o.AddFixedWindowLimiter(policyName: "fixed", opts =>
-        {
-            opts.Window = TimeSpan.FromMinutes(1);
-            opts.PermitLimit = 120;
-            opts.QueueLimit = 2;
-            opts.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        }));
-
-        return services;
-    }
-
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
         services.AddAuthorization();

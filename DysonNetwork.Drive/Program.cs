@@ -16,7 +16,6 @@ builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxV
 // Add application services
 
 builder.Services.AddAppServices(builder.Configuration);
-builder.Services.AddAppRateLimiting();
 builder.Services.AddAppAuthentication();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
