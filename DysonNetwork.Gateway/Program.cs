@@ -90,7 +90,6 @@ var apiRoutes = serviceNames.Select(serviceName =>
 {
     var apiPath = serviceName switch
     {
-        "pass" => "/id",
         _ => $"/{serviceName}"
     };
     return new RouteConfig
@@ -161,8 +160,6 @@ forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseCors();
-
-app.UseRateLimiter();
 
 app.MapReverseProxy().RequireRateLimiting("fixed");
 

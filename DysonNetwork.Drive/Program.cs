@@ -48,6 +48,6 @@ app.ConfigureAppMiddleware(tusDiskStore);
 // Configure gRPC
 app.ConfigureGrpcServices();
 
-app.UseSwaggerManifest();
+app.UseSwaggerManifest("DysonNetwork.Drive");
 
 app.Run();

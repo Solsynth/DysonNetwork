@@ -343,8 +343,8 @@ public class OidcProviderController(
         {
             issuer,
             authorization_endpoint = $"{siteUrl}/auth/authorize",
-            token_endpoint = $"{baseUrl}/id/auth/open/token",
-            userinfo_endpoint = $"{baseUrl}/id/auth/open/userinfo",
+            token_endpoint = $"{baseUrl}/pass/auth/open/token",
+            userinfo_endpoint = $"{baseUrl}/pass/auth/open/userinfo",
             jwks_uri = $"{baseUrl}/.well-known/jwks",
             scopes_supported = new[] { "openid", "profile", "email" },
             response_types_supported = new[]

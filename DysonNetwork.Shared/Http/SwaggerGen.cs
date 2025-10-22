@@ -56,7 +56,7 @@ public static class SwaggerGen
         return builder;
     }
 
-    public static WebApplication UseSwaggerManifest(this WebApplication app)
+    public static WebApplication UseSwaggerManifest(this WebApplication app, string serviceName)
     {
         app.MapOpenApi();
         
@@ -103,7 +103,7 @@ public static class SwaggerGen
             var publicBasePath = configuration["Swagger:PublicBasePath"]?.TrimEnd('/') ?? "";
             options.SwaggerEndpoint(
                 $"{publicBasePath}/swagger/v1/swagger.json",
-                "Develop API v1");
+                $"{serviceName} API v1");
         });
 
         return app;

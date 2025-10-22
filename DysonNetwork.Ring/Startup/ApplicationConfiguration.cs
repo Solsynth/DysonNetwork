@@ -12,7 +12,6 @@ public static class ApplicationConfiguration
         app.ConfigureForwardedHeaders(configuration);
 
         app.UseWebSockets();
-        app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
 

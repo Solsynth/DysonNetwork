@@ -35,6 +35,6 @@ using (var scope = app.Services.CreateScope())
 
 app.ConfigureAppMiddleware(builder.Configuration);
 
-app.UseSwaggerManifest();
+app.UseSwaggerManifest("DysonNetwork.Develop");
 
 app.Run();

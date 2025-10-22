@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Pass.Account;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -7,6 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using AccountService = DysonNetwork.Pass.Account.AccountService;
+using ActionLogService = DysonNetwork.Pass.Account.ActionLogService;
 
 namespace DysonNetwork.Pass.Realm;
 
@@ -17,9 +20,9 @@ public class RealmController(
     RealmService rs,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    ActionLogService.ActionLogServiceClient als,
-    AccountService.AccountServiceClient accounts,
-    RemoteAccountService remoteAccountsHelper
+    ActionLogService als,
+    RelationshipService rels,
+    AccountEventService accountEvents
 ) : Controller
 {
     [HttpGet("{slug}")]
@@ -37,8 +40,8 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealm>>> ListJoinedRealms()
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
         var members = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
@@ -54,8 +57,8 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealmMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
         var members = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
@@ -77,20 +80,18 @@ public class RealmController(
     public async Task<ActionResult<SnRealmMember>> InviteMember(string slug,
         [FromBody] RealmMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
-        var relatedUser =
-            await accounts.GetAccountAsync(new GetAccountRequest { Id = request.RelatedUserId.ToString() });
+        var relatedUser = await db.Accounts.Where(a => a.Id == request.RelatedUserId).FirstOrDefaultAsync();
         if (relatedUser == null) return BadRequest("Related user was not found");
 
-        var hasBlocked = await accounts.HasRelationshipAsync(new GetRelationshipRequest()
-        {
-            AccountId = currentUser.Id,
-            RelatedId = request.RelatedUserId.ToString(),
-            Status = -100
-        });
-        if (hasBlocked?.Value ?? false)
+        var hasBlocked = await rels.HasRelationshipWithStatus(
+            currentUser.Id,
+            request.RelatedUserId,
+            RelationshipStatus.Blocked
+        );
+        if (hasBlocked)
             return StatusCode(403, "You cannot invite a user that blocked you.");
 
         var realm = await db.Realms
@@ -102,7 +103,7 @@ public class RealmController(
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
 
         var existingMember = await db.RealmMembers
-            .Where(m => m.AccountId == Guid.Parse(relatedUser.Id))
+            .Where(m => m.AccountId == relatedUser.Id)
             .Where(m => m.RealmId == realm.Id)
             .FirstOrDefaultAsync();
         if (existingMember != null)
@@ -116,48 +117,42 @@ public class RealmController(
             await db.SaveChangesAsync();
             await rs.SendInviteNotify(existingMember);
 
-            _ = als.CreateActionLogAsync(new CreateActionLogRequest
-            {
-                Action = "realms.members.invite",
-                Meta =
-            {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "account_id", Value.ForString(existingMember.AccountId.ToString()) },
-                { "role", Value.ForNumber(request.Role) }
-            },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent.ToString(),
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-            });
+            als.CreateActionLogFromRequest(
+                "realms.members.invite",
+                new Dictionary<string, object>()
+                {
+                    { "realm_id", Value.ForString(realm.Id.ToString()) },
+                    { "account_id", Value.ForString(existingMember.AccountId.ToString()) },
+                    { "role", Value.ForNumber(request.Role) }
+                },
+                Request
+            );
 
             return Ok(existingMember);
         }
 
         var member = new SnRealmMember
         {
-            AccountId = Guid.Parse(relatedUser.Id),
+            AccountId = relatedUser.Id,
             RealmId = realm.Id,
             Role = request.Role,
         };
 
         db.RealmMembers.Add(member);
         await db.SaveChangesAsync();
-
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.invite",
-            Meta =
+        
+        als.CreateActionLogFromRequest(
+            "realms.members.invite",
+            new Dictionary<string, object>()
             {
                 { "realm_id", Value.ForString(realm.Id.ToString()) },
                 { "account_id", Value.ForString(member.AccountId.ToString()) },
                 { "role", Value.ForNumber(request.Role) }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
-        member.AccountId = Guid.Parse(relatedUser.Id);
+        member.AccountId = relatedUser.Id;
         member.Realm = realm;
         await rs.SendInviteNotify(member);
 
@@ -168,8 +163,8 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> AcceptMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
@@ -182,18 +177,15 @@ public class RealmController(
         db.Update(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.join",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.members.join",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(member.RealmId.ToString()) },
-                { "account_id", Value.ForString(member.AccountId.ToString()) }
+                { "realm_id", member.RealmId.ToString() },
+                { "account_id", member.AccountId.ToString() }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return Ok(member);
     }
@@ -202,8 +194,8 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
@@ -215,19 +207,16 @@ public class RealmController(
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.decline_invite",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.members.decline_invite",
+            new Dictionary<string, object>()
             {
                 { "realm_id", Value.ForString(member.RealmId.ToString()) },
                 { "account_id", Value.ForString(member.AccountId.ToString()) },
-                { "decliner_id", Value.ForString(currentUser.Id) }
+                { "decliner_id", Value.ForString(currentUser.Id.ToString()) }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return NoContent();
     }
@@ -248,8 +237,8 @@ public class RealmController(
 
         if (!realm.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-            if (!await rs.IsMemberWithRole(realm.Id, Guid.Parse(currentUser.Id), RealmMemberRole.Normal))
+            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
@@ -263,7 +252,7 @@ public class RealmController(
                 .OrderBy(m => m.JoinedAt)
                 .ToListAsync();
 
-            var memberStatuses = await remoteAccountsHelper.GetAccountStatusBatch(
+            var memberStatuses = await accountEvents.GetStatuses(
                 members.Select(m => m.AccountId).ToList()
             );
 
@@ -306,8 +295,8 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> GetCurrentIdentity(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
@@ -323,8 +312,8 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> LeaveRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
@@ -339,19 +328,16 @@ public class RealmController(
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.leave",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.members.leave",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(member.RealmId.ToString()) },
-                { "account_id", Value.ForString(member.AccountId.ToString()) },
-                { "leaver_id", Value.ForString(currentUser.Id) }
+                { "realm_id", member.RealmId.ToString() },
+                { "account_id", member.AccountId.ToString() },
+                { "leaver_id", currentUser.Id }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return NoContent();
     }
@@ -371,7 +357,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> CreateRealm(RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
         if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest("You cannot create a realm without a slug.");
 
@@ -383,7 +369,7 @@ public class RealmController(
             Name = request.Name!,
             Slug = request.Slug!,
             Description = request.Description!,
-            AccountId = Guid.Parse(currentUser.Id),
+            AccountId = currentUser.Id,
             IsCommunity = request.IsCommunity ?? false,
             IsPublic = request.IsPublic ?? false,
             Members = new List<SnRealmMember>
@@ -391,7 +377,7 @@ public class RealmController(
                 new()
                 {
                     Role = RealmMemberRole.Owner,
-                    AccountId = Guid.Parse(currentUser.Id),
+                    AccountId = currentUser.Id,
                     JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
@@ -414,21 +400,18 @@ public class RealmController(
         db.Realms.Add(realm);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.create",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.create",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "name", Value.ForString(realm.Name) },
-                { "slug", Value.ForString(realm.Slug) },
-                { "is_community", Value.ForBool(realm.IsCommunity) },
-                { "is_public", Value.ForBool(realm.IsPublic) }
+                { "realm_id", realm.Id.ToString() },
+                { "name", realm.Name },
+                { "slug", realm.Slug },
+                { "is_community", realm.IsCommunity },
+                { "is_public", realm.IsPublic }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         var realmResourceId = $"realm:{realm.Id}";
 
@@ -459,14 +442,14 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> Update(string slug, [FromBody] RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
-        var accountId = Guid.Parse(currentUser.Id);
+        var accountId = currentUser.Id;
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
@@ -542,24 +525,21 @@ public class RealmController(
         db.Realms.Update(realm);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.update",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.update",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "name_updated", Value.ForBool(request.Name != null) },
-                { "slug_updated", Value.ForBool(request.Slug != null) },
-                { "description_updated", Value.ForBool(request.Description != null) },
-                { "picture_updated", Value.ForBool(request.PictureId != null) },
-                { "background_updated", Value.ForBool(request.BackgroundId != null) },
-                { "is_community_updated", Value.ForBool(request.IsCommunity != null) },
-                { "is_public_updated", Value.ForBool(request.IsPublic != null) }
+                { "realm_id", realm.Id.ToString() },
+                { "name_updated", request.Name != null },
+                { "slug_updated", request.Slug != null },
+                { "description_updated", request.Description != null },
+                { "picture_updated", request.PictureId != null },
+                { "background_updated", request.BackgroundId != null },
+                { "is_community_updated", request.IsCommunity != null },
+                { "is_public_updated", request.IsPublic != null }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return Ok(realm);
     }
@@ -568,7 +548,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> JoinRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -579,7 +559,7 @@ public class RealmController(
             return StatusCode(403, "Only community realms can be joined without invitation.");
 
         var existingMember = await db.RealmMembers
-            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.RealmId == realm.Id)
+            .Where(m => m.AccountId == currentUser.Id && m.RealmId == realm.Id)
             .FirstOrDefaultAsync();
         if (existingMember is not null)
         {
@@ -592,26 +572,23 @@ public class RealmController(
             db.Update(existingMember);
             await db.SaveChangesAsync();
 
-            _ = als.CreateActionLogAsync(new CreateActionLogRequest
-            {
-                Action = "realms.members.join",
-                Meta =
-            {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "account_id", Value.ForString(currentUser.Id) },
-                { "is_community", Value.ForBool(realm.IsCommunity) }
-            },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent.ToString(),
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-            });
+            als.CreateActionLogFromRequest(
+                "realms.members.join",
+                new Dictionary<string, object>()
+                {
+                    { "realm_id", existingMember.RealmId.ToString() },
+                    { "account_id", currentUser.Id },
+                    { "is_community", realm.IsCommunity }
+                },
+                Request
+            );
 
             return Ok(existingMember);
         }
 
         var member = new SnRealmMember
         {
-            AccountId = Guid.Parse(currentUser.Id),
+            AccountId = currentUser.Id,
             RealmId = realm.Id,
             Role = RealmMemberRole.Normal,
             JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
@@ -620,19 +597,16 @@ public class RealmController(
         db.RealmMembers.Add(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.join",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.members.join",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "account_id", Value.ForString(currentUser.Id) },
-                { "is_community", Value.ForBool(realm.IsCommunity) }
+                { "realm_id", realm.Id.ToString() },
+                { "account_id", currentUser.Id },
+                { "is_community", realm.IsCommunity }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return Ok(member);
     }
@@ -641,7 +615,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string slug, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -653,25 +627,22 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, Guid.Parse(currentUser.Id), RealmMemberRole.Moderator, member.Role))
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role))
             return StatusCode(403, "You do not have permission to remove members from this realm.");
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.kick",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.members.kick",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "account_id", Value.ForString(memberId.ToString()) },
-                { "kicker_id", Value.ForString(currentUser.Id) }
+                { "realm_id", realm.Id.ToString() },
+                { "account_id", memberId.ToString() },
+                { "kicker_id", currentUser.Id }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return NoContent();
     }
@@ -681,7 +652,7 @@ public class RealmController(
     public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
             .Where(r => r.Slug == slug)
@@ -693,7 +664,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, Guid.Parse(currentUser.Id), RealmMemberRole.Moderator, member.Role,
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role,
                 newRole))
             return StatusCode(403, "You do not have permission to update member roles in this realm.");
 
@@ -701,20 +672,17 @@ public class RealmController(
         db.RealmMembers.Update(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.members.role_update",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.members.role_update",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "account_id", Value.ForString(memberId.ToString()) },
-                { "new_role", Value.ForNumber(newRole) },
-                { "updater_id", Value.ForString(currentUser.Id) }
+                { "realm_id", realm.Id.ToString() },
+                { "account_id", memberId.ToString() },
+                { "new_role", newRole },
+                { "updater_id", currentUser.Id }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         return Ok(member);
     }
@@ -723,7 +691,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> Delete(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var transaction = await db.Database.BeginTransactionAsync();
 
@@ -732,7 +700,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, Guid.Parse(currentUser.Id), RealmMemberRole.Owner))
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Owner))
             return StatusCode(403, "Only the owner can delete this realm.");
 
         try
@@ -753,19 +721,16 @@ public class RealmController(
             throw;
         }
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "realms.delete",
-            Meta =
+        als.CreateActionLogFromRequest(
+            "realms.delete",
+            new Dictionary<string, object>()
             {
-                { "realm_id", Value.ForString(realm.Id.ToString()) },
-                { "realm_name", Value.ForString(realm.Name) },
-                { "realm_slug", Value.ForString(realm.Slug) }
+                { "realm_id", realm.Id.ToString() },
+                { "realm_name", realm.Name },
+                { "realm_slug", realm.Slug }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString() ?? ""
-        });
+            Request
+        );
 
         // Delete all file references for this realm
         var realmResourceId = $"realm:{realm.Id}";

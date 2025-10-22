@@ -44,6 +44,6 @@ using (var scope = app.Services.CreateScope())
 // Configure application middleware pipeline
 app.ConfigureAppMiddleware(builder.Configuration);
 
-app.UseSwaggerManifest();
+app.UseSwaggerManifest("DysonNetwork.Sphere");
 
 app.Run();

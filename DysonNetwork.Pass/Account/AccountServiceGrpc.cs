@@ -12,13 +12,11 @@ public class AccountServiceGrpc(
     AccountEventService accountEvents,
     RelationshipService relationships,
     SubscriptionService subscriptions,
-    IClock clock,
     ILogger<AccountServiceGrpc> logger
 )
     : Shared.Proto.AccountService.AccountServiceBase
 {
     private readonly AppDatabase _db = db ?? throw new ArgumentNullException(nameof(db));
-    private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     private readonly ILogger<AccountServiceGrpc>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -266,7 +264,7 @@ public class AccountServiceGrpc(
 
     public override async Task<BoolValue> HasRelationship(GetRelationshipRequest request, ServerCallContext context)
     {
-        var hasRelationship = false;
+        bool hasRelationship;
         if (!request.HasStatus)
             hasRelationship = await relationships.HasExistingRelationship(
                 Guid.Parse(request.AccountId),

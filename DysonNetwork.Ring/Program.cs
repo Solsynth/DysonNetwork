@@ -44,6 +44,6 @@ app.ConfigureAppMiddleware(builder.Configuration);
 // Configure gRPC
 app.ConfigureGrpcServices();
 
-app.UseSwaggerManifest();
+app.UseSwaggerManifest("DysonNetwork.Ring");
 
 app.Run();
