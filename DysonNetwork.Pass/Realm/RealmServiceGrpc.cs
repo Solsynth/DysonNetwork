@@ -35,6 +35,15 @@ public class RealmServiceGrpc(
             : realm.ToProtoValue();
     }
 
+    public override async Task<GetRealmBatchResponse> GetRealmBatch(GetRealmBatchRequest request, ServerCallContext context)
+    {
+        var ids = request.Ids.Select(Guid.Parse).ToList();
+        var realms = await db.Realms.Where(r => ids.Contains(r.Id)).ToListAsync();
+        var response = new GetRealmBatchResponse();
+        response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
+        return response;
+    }
+
     public override async Task<GetUserRealmsResponse> GetUserRealms(GetUserRealmsRequest request,
         ServerCallContext context)
     {
@@ -48,6 +57,7 @@ public class RealmServiceGrpc(
             .Include(m => m.Realm)
             .Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .Where(m => m.Realm != null)
             .Select(m => m.Realm!.Id)
             .ToListAsync();
 
@@ -55,6 +65,14 @@ public class RealmServiceGrpc(
         await cache.SetAsync(cacheKey, realms, TimeSpan.FromMinutes(5));
 
         return new GetUserRealmsResponse { RealmIds = { realms.Select(g => g.ToString()) } };
+    }
+
+    public override async Task<GetPublicRealmsResponse> GetPublicRealms(Empty request, ServerCallContext context)
+    {
+        var realms = await db.Realms.Where(r => r.IsPublic).ToListAsync();
+        var response = new GetPublicRealmsResponse();
+        response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
+        return response;
     }
 
     public override async Task<Empty> SendInviteNotify(SendInviteNotifyRequest request, ServerCallContext context)

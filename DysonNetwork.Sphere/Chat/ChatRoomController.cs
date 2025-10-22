@@ -35,9 +35,12 @@ public class ChatRoomController(
     {
         var chatRoom = await db.ChatRooms
             .Where(c => c.Id == id)
-            .Include(e => e.Realm)
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
+
+        if (chatRoom.RealmId != null)
+            chatRoom.Realm = await rs.GetRealm(chatRoom.RealmId.Value.ToString());
+
         if (chatRoom.Type != ChatRoomType.DirectMessage) return Ok(chatRoom);
 
         if (HttpContext.Items["CurrentUser"] is Account currentUser)

@@ -40,19 +40,23 @@ public class ActivityService(
         debugInclude ??= new HashSet<string>();
 
         // Get and process posts
+        var publicRealms = await rs.GetPublicRealms();
+        var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
+
         var postsQuery = db.Posts
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
-            .Include(e => e.Realm)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
+            .Where(p => p.RealmId == null || publicRealmIds.Contains(p.RealmId.Value))
             .OrderByDescending(p => p.PublishedAt)
             .FilterWithVisibility(null, [], [], isListing: true)
             .Take(take * 5);
 
         var posts = await GetAndProcessPosts(postsQuery);
+        await LoadPostsRealmsAsync(posts, rs);
         posts = RankPosts(posts, take);
 
         var interleaved = new List<SnActivity>();
@@ -121,6 +125,9 @@ public class ActivityService(
             userFriends,
             userPublishers,
             trackViews: true);
+
+        if (currentUser != null)
+            await LoadPostsRealmsAsync(posts, rs);
 
         posts = RankPosts(posts, take);
 
@@ -219,15 +226,19 @@ public class ActivityService(
 
     private async Task<SnActivity?> GetShuffledPostsActivity(int count = 5)
     {
+        var publicRealms = await rs.GetPublicRealms();
+        var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
+
         var postsQuery = db.Posts
             .Include(p => p.Categories)
             .Include(p => p.Tags)
-            .Include(p => p.Realm)
             .Where(p => p.RepliedPostId == null)
+            .Where(p => p.RealmId == null || publicRealmIds.Contains(p.RealmId.Value))
             .OrderBy(_ => EF.Functions.Random())
             .Take(count);
 
         var posts = await GetAndProcessPosts(postsQuery, trackViews: false);
+        await LoadPostsRealmsAsync(posts, rs);
 
         return posts.Count == 0
             ? null
@@ -306,7 +317,6 @@ public class ActivityService(
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
-            .Include(e => e.Realm)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
@@ -315,10 +325,14 @@ public class ActivityService(
         if (filteredPublishersId != null && filteredPublishersId.Count != 0)
             query = query.Where(p => filteredPublishersId.Contains(p.PublisherId));
         if (userRealms == null)
-            query = query.Where(p => p.Realm == null || p.Realm.IsPublic);
+        {
+            // For anonymous users, only show public realm posts or posts without realm
+            // Get public realm ids in the caller and pass them
+            query = query.Where(p => p.RealmId == null); // Modify in caller
+        }
         else
             query = query.Where(p =>
-                p.Realm == null || p.Realm.IsPublic || p.RealmId == null || userRealms.Contains(p.RealmId.Value));
+                p.RealmId == null || userRealms.Contains(p.RealmId.Value));
 
         return query;
     }
@@ -337,6 +351,23 @@ public class ActivityService(
                 .ToList(),
             _ => null
         };
+    }
+
+    private static async Task LoadPostsRealmsAsync(List<SnPost> posts, RemoteRealmService rs)
+    {
+        var postRealmIds = posts.Where(p => p.RealmId != null).Select(p => p.RealmId.Value).Distinct().ToList();
+        if (!postRealmIds.Any()) return;
+
+        var realms = await rs.GetRealmBatch(postRealmIds.Select(id => id.ToString()).ToList());
+        var realmDict = realms.ToDictionary(r => r.Id, r => r);
+
+        foreach (var post in posts.Where(p => p.RealmId != null))
+        {
+            if (post.RealmId != null && realmDict.TryGetValue(post.RealmId.Value, out var realm))
+            {
+                post.Realm = realm;
+            }
+        }
     }
 
     private static double CalculatePopularity(List<SnPost> posts)

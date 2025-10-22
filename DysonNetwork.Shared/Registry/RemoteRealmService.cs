@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 
 namespace DysonNetwork.Shared.Registry;
 
@@ -24,6 +25,20 @@ public class RemoteRealmService(RealmService.RealmServiceClient realms)
         var request = new GetUserRealmsRequest { AccountId = accountId.ToString() };
         var response = await realms.GetUserRealmsAsync(request);
         return response.RealmIds.Select(Guid.Parse).ToList();
+    }
+
+    public async Task<List<SnRealm>> GetPublicRealms()
+    {
+        var response = await realms.GetPublicRealmsAsync(new Empty());
+        return response.Realms.Select(SnRealm.FromProtoValue).ToList();
+    }
+
+    public async Task<List<SnRealm>> GetRealmBatch(List<string> ids)
+    {
+        var request = new GetRealmBatchRequest();
+        request.Ids.AddRange(ids);
+        var response = await realms.GetRealmBatchAsync(request);
+        return response.Realms.Select(SnRealm.FromProtoValue).ToList();
     }
 
     public async Task SendInviteNotify(SnRealmMember member)

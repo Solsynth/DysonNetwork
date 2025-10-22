@@ -105,7 +105,10 @@ public class PostController(
 
         var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
-        var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
+        var userRealms = currentUser is null ? new List<Guid>() : await rs.GetUserRealms(accountId);
+        var publicRealms = await rs.GetPublicRealms();
+        var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
+        var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
         var realm = realmName == null ? null : (realmName != null ? await rs.GetRealmBySlug(realmName) : null);
@@ -115,7 +118,6 @@ public class PostController(
             .Include(e => e.Tags)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
-            .Include(e => e.Realm)
             .AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.PublisherId == publisher.Id);
@@ -131,8 +133,7 @@ public class PostController(
             query = query.Where(e => e.Attachments.Count > 0);
 
         if (realm == null)
-            query = query.Where(p =>
-                p.RealmId == null || p.Realm == null || userRealms.Contains(p.RealmId.Value) || p.Realm.IsPublic);
+            query = query.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
 
         switch (pinned)
         {
@@ -185,9 +186,29 @@ public class PostController(
             .ToListAsync();
         posts = await ps.LoadPostInfo(posts, currentUser, true);
 
+        // Load realm data for posts that have realm
+        await LoadPostsRealmsAsync(posts, rs);
+
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return Ok(posts);
+    }
+
+    private static async Task LoadPostsRealmsAsync(List<SnPost> posts, RemoteRealmService rs)
+    {
+        var postRealmIds = posts.Where(p => p.RealmId != null).Select(p => p.RealmId.Value).Distinct().ToList();
+        if (!postRealmIds.Any()) return;
+
+        var realms = await rs.GetRealmBatch(postRealmIds.Select(id => id.ToString()).ToList());
+        var realmDict = realms.GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.FirstOrDefault());
+
+        foreach (var post in posts.Where(p => p.RealmId != null))
+        {
+            if (post.RealmId != null && realmDict.TryGetValue(post.RealmId.Value, out var realm))
+            {
+                post.Realm = realm;
+            }
+        }
     }
 
     [HttpGet("{publisherName}/{slug}")]
@@ -208,7 +229,6 @@ public class PostController(
         var post = await db.Posts
             .Include(e => e.Publisher)
             .Where(e => e.Slug == slug && e.Publisher.Name == publisherName)
-            .Include(e => e.Realm)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
@@ -217,6 +237,8 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
         post = await ps.LoadPostInfo(post, currentUser);
+        if (post.RealmId != null)
+            post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
 
         return Ok(post);
     }
@@ -239,7 +261,6 @@ public class PostController(
         var post = await db.Posts
             .Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .Include(e => e.Realm)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
@@ -248,6 +269,10 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
         post = await ps.LoadPostInfo(post, currentUser);
+        if (post.RealmId != null)
+        {
+            post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
+        }
 
         return Ok(post);
     }
