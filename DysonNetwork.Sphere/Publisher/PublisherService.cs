@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PublisherType = DysonNetwork.Shared.Models.PublisherType;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -11,7 +12,7 @@ public class PublisherService(
     AppDatabase db,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ICacheService cache,
-    RemoteAccountService remoteAccountsHelper
+    RemoteAccountService remoteAccounts
 )
 {
     public async Task<SnPublisher?> GetPublisherByName(string name)
@@ -408,7 +409,8 @@ public class PublisherService(
         return isEnabled.Value;
     }
 
-    public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId, Shared.Models.PublisherMemberRole requiredRole)
+    public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId,
+        Shared.Models.PublisherMemberRole requiredRole)
     {
         var member = await db.Publishers
             .Where(p => p.Id == publisherId)
@@ -420,7 +422,7 @@ public class PublisherService(
 
     public async Task<SnPublisherMember> LoadMemberAccount(SnPublisherMember member)
     {
-        var account = await remoteAccountsHelper.GetAccount(member.AccountId);
+        var account = await remoteAccounts.GetAccount(member.AccountId);
         member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
@@ -428,13 +430,35 @@ public class PublisherService(
     public async Task<List<SnPublisherMember>> LoadMemberAccounts(ICollection<SnPublisherMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = (await remoteAccountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
-        return [.. members.Select(m =>
+        return
+        [
+            .. members.Select(m =>
+            {
+                if (accounts.TryGetValue(m.AccountId, out var account))
+                    m.Account = SnAccount.FromProtoValue(account);
+                return m;
+            })
+        ];
+    }
+
+    public async Task<List<SnPublisher>> LoadIndividualPublisherAccounts(ICollection<SnPublisher> publishers)
+    {
+        var accountIds = publishers
+            .Where(p => p.AccountId.HasValue && p.Type == PublisherType.Individual)
+            .Select(p => p.AccountId!.Value)
+            .ToList();
+        if (accountIds.Count == 0) return publishers.ToList();
+
+        var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+
+        foreach (var p in publishers)
         {
-            if (accounts.TryGetValue(m.AccountId, out var account))
-                m.Account = SnAccount.FromProtoValue(account);
-            return m;
-        })];
+            if (p.AccountId.HasValue && accounts.TryGetValue(p.AccountId.Value, out var account))
+                p.Account = SnAccount.FromProtoValue(account);
+        }
+
+        return publishers.ToList();
     }
 }

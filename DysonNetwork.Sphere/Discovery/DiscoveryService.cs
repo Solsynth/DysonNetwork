@@ -1,30 +1,31 @@
-using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Sphere.Discovery;
 
-public class DiscoveryService(AppDatabase appDatabase)
+public class DiscoveryService(RemoteRealmService remoteRealmService)
 {
-    public Task<List<Shared.Models.SnRealm>> GetCommunityRealmAsync(
+    public async Task<List<Shared.Models.SnRealm>> GetCommunityRealmAsync(
         string? query,
         int take = 10,
         int offset = 0,
         bool randomizer = false
     )
     {
-        var realmsQuery = appDatabase.Realms
-            .Where(r => r.IsCommunity)
-            .OrderByDescending(r => r.CreatedAt)
-            .AsQueryable();
+        var allRealms = await remoteRealmService.GetPublicRealms();
+        var communityRealms = allRealms.Where(r => r.IsCommunity);
 
         if (!string.IsNullOrEmpty(query))
-            realmsQuery = realmsQuery.Where(r =>
-                EF.Functions.ILike(r.Name, $"%{query}%") ||
-                EF.Functions.ILike(r.Description, $"%{query}%")
+        {
+            communityRealms = communityRealms.Where(r =>
+                r.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
             );
-        realmsQuery = randomizer
-            ? realmsQuery.OrderBy(r => EF.Functions.Random())
-            : realmsQuery.OrderByDescending(r => r.CreatedAt);
+        }
 
-        return realmsQuery.Skip(offset).Take(take).ToListAsync();
+        // Since we don't have CreatedAt in the proto model, we'll just apply randomizer if requested
+        var orderedRealms = randomizer
+            ? communityRealms.OrderBy(_ => Random.Shared.Next())
+            : communityRealms;
+
+        return orderedRealms.Skip(offset).Take(take).ToList();
     }
 }

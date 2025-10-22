@@ -685,6 +685,8 @@ public partial class PostService(
                 post.ForwardedPost.Publisher = forwardedPublisher;
         }
 
+        await ps.LoadIndividualPublisherAccounts(publishers.Values);
+
         return posts;
     }
 

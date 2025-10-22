@@ -42,7 +42,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
     public Guid? AccountId { get; set; }
     public Guid? RealmId { get; set; }
-    [JsonIgnore] public SnRealm? Realm { get; set; }
+    [NotMapped] public SnRealm? Realm { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
 
     public string ResourceIdentifier => $"publisher:{Id}";

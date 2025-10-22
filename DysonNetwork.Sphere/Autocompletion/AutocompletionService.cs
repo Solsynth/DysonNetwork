@@ -61,12 +61,13 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                 }
                 else if (realmId.HasValue)
                 {
-                    var realmMemberIds = await db.RealmMembers
-                        .Where(m => m.RealmId == realmId.Value && m.LeaveAt == null)
-                        .Select(m => m.AccountId)
-                        .ToListAsync();
-                    var realmMemberIdStrings = realmMemberIds.Select(id => id.ToString()).ToHashSet();
-                    filteredAccounts = allAccounts.Where(a => realmMemberIdStrings.Contains(a.Id)).ToList();
+                    // TODO: Filter to realm members only - needs efficient implementation
+                    // var realmMemberIds = await db.RealmMembers
+                    //     .Where(m => m.RealmId == realmId.Value && m.LeaveAt == null)
+                    //     .Select(m => m.AccountId)
+                    //     .ToListAsync();
+                    // var realmMemberIdStrings = realmMemberIds.Select(id => id.ToString()).ToHashSet();
+                    // filteredAccounts = allAccounts.Where(a => realmMemberIdStrings.Contains(a.Id)).ToList();
                 }
 
                 var users = filteredAccounts

@@ -28,7 +28,6 @@ public class SnRealm : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
-    [JsonIgnore] public ICollection<SnChatRoom> ChatRooms { get; set; } = new List<SnChatRoom>();
 
     public Guid AccountId { get; set; }
 
@@ -40,7 +39,9 @@ public class SnRealm : ModelBase, IIdentifiedResource
         {
             Id = Id.ToString(),
             Name = Name,
-            Slug = Slug
+            Slug = Slug,
+            IsCommunity = IsCommunity,
+            IsPublic = IsPublic
         };
     }
 
@@ -52,8 +53,8 @@ public class SnRealm : ModelBase, IIdentifiedResource
             Name = proto.Name,
             Slug = proto.Slug,
             Description = "",
-            IsCommunity = false,
-            IsPublic = false
+            IsCommunity = proto.IsCommunity,
+            IsPublic = proto.IsPublic
         };
     }
 }

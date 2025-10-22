@@ -25,10 +25,6 @@ public class AppDatabase(
     public DbSet<SnPublisherSubscription> PublisherSubscriptions { get; set; } = null!;
     public DbSet<SnPublisherFeature> PublisherFeatures { get; set; } = null!;
 
-    // TODO Remove the realms table after the data migration is done
-    public DbSet<SnRealm> Realms { get; set; } = null!;
-    public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
-
     public DbSet<SnPost> Posts { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
     public DbSet<SnPostAward> PostAwards { get; set; } = null!;
@@ -113,14 +109,6 @@ public class AppDatabase(
             .HasMany(p => p.Collections)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_collection_links"));
-
-        modelBuilder.Entity<SnRealmMember>()
-            .HasKey(pm => new { pm.RealmId, pm.AccountId });
-        modelBuilder.Entity<SnRealmMember>()
-            .HasOne(pm => pm.Realm)
-            .WithMany(p => p.Members)
-            .HasForeignKey(pm => pm.RealmId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnChatMember>()
             .HasKey(pm => new { pm.Id });

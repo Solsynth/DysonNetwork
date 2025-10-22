@@ -41,7 +41,7 @@ public class WebFeed : ModelBase
     [Column(TypeName = "jsonb")] public WebFeedConfig Config { get; set; } = new();
 
     public Guid PublisherId { get; set; }
-    public Shared.Models.SnPublisher Publisher { get; set; } = null!;
+    public SnPublisher Publisher { get; set; } = null!;
 
     [JsonIgnore] public ICollection<WebArticle> Articles { get; set; } = new List<WebArticle>();
 }

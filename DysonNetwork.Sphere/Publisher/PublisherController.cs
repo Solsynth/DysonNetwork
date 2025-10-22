@@ -358,9 +358,7 @@ public class PublisherController(
         if (realm == null) return NotFound("Realm not found");
 
         var accountId = Guid.Parse(currentUser.Id);
-        var isAdmin = await db.RealmMembers
-            .AnyAsync(m =>
-                m.RealmId == realm.Id && m.AccountId == accountId && m.Role >= RealmMemberRole.Moderator);
+        var isAdmin = await remoteRealmService.IsMemberWithRole(realm.Id, accountId, [RealmMemberRole.Moderator]);
         if (!isAdmin)
             return StatusCode(403, "You need to be a moderator of the realm to create an organization publisher");
 
