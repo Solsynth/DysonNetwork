@@ -25,9 +25,9 @@ public partial class PostService(
     ILogger<PostService> logger,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
-    PollService polls,
     Publisher.PublisherService ps,
-    WebReaderService reader
+    WebReaderService reader,
+    AccountService.AccountServiceClient accounts
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -702,6 +702,16 @@ public partial class PostService(
             : new Dictionary<Guid, Dictionary<string, bool>>();
         var repliesCountMap = await GetPostRepliesCountBatch(postsId);
 
+        // Load user friends if the current user exists
+        List<SnPublisher> publishers = [];
+        List<Guid> userFriends = [];
+        if (currentUser is not null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest { AccountId = currentUser.Id });
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+            publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
+        }
+
         foreach (var post in posts)
         {
             // Set reaction count
@@ -719,6 +729,26 @@ public partial class PostService(
                 ? repliesCount
                 : 0;
 
+            // Check visibility for replied post
+            if (post.RepliedPost != null)
+            {
+                if (!CanViewPost(post.RepliedPost, currentUser, publishers, userFriends))
+                {
+                    post.RepliedPost = null;
+                    post.RepliedGone = true;
+                }
+            }
+
+            // Check visibility for forwarded post
+            if (post.ForwardedPost != null)
+            {
+                if (!CanViewPost(post.ForwardedPost, currentUser, publishers, userFriends))
+                {
+                    post.ForwardedPost = null;
+                    post.ForwardedGone = true;
+                }
+            }
+
             // Track view for each post in the list
             if (currentUser != null)
                 await IncreaseViewCount(post.Id, currentUser.Id);
@@ -727,6 +757,39 @@ public partial class PostService(
         }
 
         return posts;
+    }
+
+    private bool CanViewPost(SnPost post, Account? currentUser, List<SnPublisher> publishers, List<Guid> userFriends)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var publishersId = publishers.Select(e => e.Id).ToList();
+
+        // Check if post is deleted
+        if (post.DeletedAt != null)
+            return false;
+
+        if (currentUser is null)
+        {
+            // Anonymous user can only view public posts that are published
+            return post.PublishedAt != null && now >= post.PublishedAt && post.Visibility == PostVisibility.Public;
+        }
+
+        // Check publication status - either published or user is member
+        var isPublished = post.PublishedAt != null && now >= post.PublishedAt;
+        var isMember = publishersId.Contains(post.PublisherId);
+        if (!isPublished && !isMember)
+            return false;
+
+        // Check visibility
+        if (post.Visibility == PostVisibility.Private && !isMember)
+            return false;
+
+        if (post.Visibility == PostVisibility.Friends &&
+            !(post.Publisher.AccountId.HasValue && userFriends.Contains(post.Publisher.AccountId.Value) || isMember))
+            return false;
+
+        // Public and Unlisted are allowed
+        return true;
     }
 
     private async Task<Dictionary<Guid, int>> GetPostRepliesCountBatch(List<Guid> postIds)
@@ -739,47 +802,7 @@ public partial class PostService(
                 g => g.Count()
             );
     }
-
-    private async Task LoadPostEmbed(SnPost post, Account? currentUser)
-    {
-        if (!post.Meta!.TryGetValue("embeds", out var value))
-            return;
-
-        var embeds = value switch
-        {
-            JsonElement e => e.Deserialize<List<Dictionary<string, object>>>(),
-            _ => null
-        };
-        if (embeds is null)
-            return;
-
-        // Find the index of the poll embed first
-        var pollIndex = embeds.FindIndex(e =>
-            e.ContainsKey("type") && ((JsonElement)e["type"]).ToString() == "poll"
-        );
-
-        if (pollIndex < 0)
-        {
-            post.Meta["embeds"] = embeds;
-            return;
-        }
-
-        var pollEmbed = embeds[pollIndex];
-        try
-        {
-            var pollId = Guid.Parse(((JsonElement)pollEmbed["id"]).ToString());
-
-            Guid? currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
-            var updatedPoll = await polls.LoadPollEmbed(pollId, currentUserId);
-            embeds[pollIndex] = EmbeddableBase.ToDictionary(updatedPoll);
-            post.Meta["embeds"] = embeds;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to load poll embed for post {PostId}", post.Id);
-        }
-    }
-
+    
     public async Task<List<SnPost>> LoadPostInfo(
         List<SnPost> posts,
         Account? currentUser = null,
@@ -790,12 +813,6 @@ public partial class PostService(
 
         posts = await LoadPublishers(posts);
         posts = await LoadInteractive(posts, currentUser);
-
-        foreach (
-            var post in posts
-                .Where(e => e.Meta is not null && e.Meta.ContainsKey("embeds"))
-        )
-            await LoadPostEmbed(post, currentUser);
 
         if (truncate)
             posts = TruncatePostContent(posts);

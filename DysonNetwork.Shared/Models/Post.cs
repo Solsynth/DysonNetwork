@@ -73,11 +73,12 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 
-    public ICollection<SnPostAward> Awards { get; set; } = null!;
-    [JsonIgnore] public ICollection<SnPostReaction> Reactions { get; set; } = new List<SnPostReaction>();
-    public ICollection<SnPostTag> Tags { get; set; } = new List<SnPostTag>();
-    public ICollection<SnPostCategory> Categories { get; set; } = new List<SnPostCategory>();
-    [JsonIgnore] public ICollection<SnPostCollection> Collections { get; set; } = new List<SnPostCollection>();
+    public List<SnPostAward> Awards { get; set; } = null!;
+    [JsonIgnore] public List<SnPostReaction> Reactions { get; set; } = [];
+    public List<SnPostTag> Tags { get; set; } = [];
+    public List<SnPostCategory> Categories { get; set; } = [];
+    [JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];
+    public List<SnPostFeaturedRecord> FeaturedRecords { get; set; } = [];
 
     [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
     [NotMapped] public bool IsTruncated { get; set; } = false;
@@ -104,7 +105,7 @@ public class SnPostTag : ModelBase
     public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
-    [JsonIgnore] public ICollection<SnPost> Posts { get; set; } = new List<SnPost>();
+    [JsonIgnore] public List<SnPost> Posts { get; set; } = new List<SnPost>();
 
     [NotMapped] public int? Usage { get; set; }
 }
@@ -114,7 +115,7 @@ public class SnPostCategory : ModelBase
     public Guid Id { get; set; }
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [MaxLength(256)] public string? Name { get; set; }
-    [JsonIgnore] public ICollection<SnPost> Posts { get; set; } = new List<SnPost>();
+    [JsonIgnore] public List<SnPost> Posts { get; set; } = new List<SnPost>();
 
     [NotMapped] public int? Usage { get; set; }
 }
@@ -139,7 +140,7 @@ public class SnPostCollection : ModelBase
 
     public SnPublisher Publisher { get; set; } = null!;
 
-    public ICollection<SnPost> Posts { get; set; } = new List<SnPost>();
+    public List<SnPost> Posts { get; set; } = new List<SnPost>();
 }
 
 public class SnPostFeaturedRecord : ModelBase

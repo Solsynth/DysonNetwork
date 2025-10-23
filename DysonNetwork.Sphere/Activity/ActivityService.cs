@@ -106,7 +106,7 @@ public class ActivityService(
 
         var userRealms = await rs.GetUserRealms(Guid.Parse(currentUser.Id));
 
-        // Build and execute the posts query
+        // Build and execute the post query
         var postsQuery = BuildPostsQuery(cursor, filteredPublishersId, userRealms);
 
         // Apply visibility filtering and execute
@@ -122,12 +122,9 @@ public class ActivityService(
         var posts = await GetAndProcessPosts(
             postsQuery,
             currentUser,
-            userFriends,
-            userPublishers,
             trackViews: true);
 
-        if (currentUser != null)
-            await LoadPostsRealmsAsync(posts, rs);
+        await LoadPostsRealmsAsync(posts, rs);
 
         posts = RankPosts(posts, take);
 
@@ -283,8 +280,6 @@ public class ActivityService(
     private async Task<List<SnPost>> GetAndProcessPosts(
         IQueryable<SnPost> baseQuery,
         Account? currentUser = null,
-        List<Guid>? userFriends = null,
-        List<Shared.Models.SnPublisher>? userPublishers = null,
         bool trackViews = true)
     {
         var posts = await baseQuery.ToListAsync();
