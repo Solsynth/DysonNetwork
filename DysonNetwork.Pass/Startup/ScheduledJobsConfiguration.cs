@@ -66,6 +66,13 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInHours(1)
                     .RepeatForever())
             );
+
+            var lotteryDrawJob = new JobKey("LotteryDraw");
+            q.AddJob<Lotteries.LotteryDrawJob>(opts => opts.WithIdentity(lotteryDrawJob));
+            q.AddTrigger(opts => opts
+                .ForJob(lotteryDrawJob)
+                .WithIdentity("LotteryDrawTrigger")
+                .WithCronSchedule("0 0 0 * * ?"));
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

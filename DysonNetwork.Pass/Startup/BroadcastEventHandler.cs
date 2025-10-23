@@ -104,9 +104,33 @@ public class BroadcastEventHandler(
                     logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
                     await msg.AckAsync(cancellationToken: stoppingToken);
                 }
+                else if (evt.ProductIdentifier == "lottery")
+                {
+                    logger.LogInformation("Handling lottery order: {OrderId}", evt.OrderId);
+
+                    await using var scope = serviceProvider.CreateAsyncScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                    var lotteries = scope.ServiceProvider.GetRequiredService<Lotteries.LotteryService>();
+
+                    var order = await db.PaymentOrders.FindAsync(
+                        [evt.OrderId],
+                        cancellationToken: stoppingToken
+                    );
+                    if (order == null)
+                    {
+                        logger.LogWarning("Order with ID {OrderId} not found. Redelivering.", evt.OrderId);
+                        await msg.NakAsync(cancellationToken: stoppingToken);
+                        continue;
+                    }
+
+                    await lotteries.HandleLotteryOrder(order);
+
+                    logger.LogInformation("Lottery ticket for order {OrderId} created successfully.", evt.OrderId);
+                    await msg.AckAsync(cancellationToken: stoppingToken);
+                }
                 else
                 {
-                    // Not a subscription or gift order, skip
+                    // Not a subscription, gift, or lottery order, skip
                     continue;
                 }
             }

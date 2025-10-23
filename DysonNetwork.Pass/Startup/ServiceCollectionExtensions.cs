@@ -141,6 +141,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
+        services.AddScoped<Lotteries.LotteryService>();
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();

@@ -57,6 +57,9 @@ public class AppDatabase(
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
 
+    public DbSet<SnLottery> Lotteries { get; set; } = null!;
+    public DbSet<SnLotteryRecord> LotteryRecords { get; set; } = null!;
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
