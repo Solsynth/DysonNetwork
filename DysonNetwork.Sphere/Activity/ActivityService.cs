@@ -43,15 +43,7 @@ public class ActivityService(
         var publicRealms = await rs.GetPublicRealms();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
-        var postsQuery = db.Posts
-            .Include(e => e.RepliedPost)
-            .Include(e => e.ForwardedPost)
-            .Include(e => e.Categories)
-            .Include(e => e.Tags)
-            .Where(e => e.RepliedPostId == null)
-            .Where(p => cursor == null || p.PublishedAt < cursor)
-            .Where(p => p.RealmId == null || publicRealmIds.Contains(p.RealmId.Value))
-            .OrderByDescending(p => p.PublishedAt)
+        var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds)
             .FilterWithVisibility(null, [], [], isListing: true)
             .Take(take * 5);
 
@@ -312,6 +304,7 @@ public class ActivityService(
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)

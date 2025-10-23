@@ -146,9 +146,8 @@ public class SnPostCollection : ModelBase
 public class SnPostFeaturedRecord : ModelBase
 {
     public Guid Id { get; set; }
-
     public Guid PostId { get; set; }
-    public SnPost Post { get; set; } = null!;
+    [JsonIgnore] public SnPost Post { get; set; } = null!;
     public Instant? FeaturedAt { get; set; }
     public int SocialCredits { get; set; }
 }

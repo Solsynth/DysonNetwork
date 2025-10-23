@@ -915,6 +915,7 @@ public partial class PostService(
             .Include(e => e.RepliedPost)
             .Include(e => e.Categories)
             .Include(e => e.Publisher)
+            .Include(e => e.FeaturedRecords)
             .Take(featuredIds.Count)
             .ToListAsync();
         posts = posts.OrderBy(e => featuredIds.IndexOf(e.Id)).ToList();

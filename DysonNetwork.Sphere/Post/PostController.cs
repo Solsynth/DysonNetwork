@@ -111,13 +111,14 @@ public class PostController(
         var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
 
         var publisher = pubName == null ? null : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
-        var realm = realmName == null ? null : (realmName != null ? await rs.GetRealmBySlug(realmName) : null);
+        var realm = realmName == null ? null : (await rs.GetRealmBySlug(realmName));
 
         var query = db.Posts
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
             .AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.PublisherId == publisher.Id);
@@ -233,6 +234,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
@@ -265,6 +267,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
@@ -397,6 +400,7 @@ public class PostController(
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
@@ -825,6 +829,7 @@ public class PostController(
             .Include(e => e.Publisher)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
             .FirstOrDefaultAsync();
         if (post is null) return NotFound();
 
