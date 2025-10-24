@@ -44,6 +44,10 @@ public class LotteryController(AppDatabase db, LotteryService lotteryService) : 
         {
             return BadRequest(err.Message);
         }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
     }
 
     [HttpGet]
@@ -80,21 +84,20 @@ public class LotteryController(AppDatabase db, LotteryService lotteryService) : 
     [RequiredPermission("maintenance", "lotteries.draw.perform")]
     public async Task<IActionResult> PerformLotteryDraw()
     {
-        await lotteryService.PerformDailyDrawAsync();
-        return Ok("Lottery draw performed successfully.");
+        await lotteryService.DrawLotteries();
+        return Ok();
     }
 
     [HttpGet("records")]
-    [Authorize]
     public async Task<ActionResult<List<SnLotteryRecord>>> GetLotteryRecords(
         [FromQuery] Instant? startDate = null,
         [FromQuery] Instant? endDate = null,
         [FromQuery] int offset = 0,
         [FromQuery] int limit = 20)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var query = db.LotteryRecords.AsQueryable();
+        var query = db.LotteryRecords
+            .OrderByDescending(r => r.CreatedAt)
+            .AsQueryable();
 
         if (startDate.HasValue)
             query = query.Where(r => r.DrawDate >= startDate.Value);
@@ -105,7 +108,6 @@ public class LotteryController(AppDatabase db, LotteryService lotteryService) : 
         Response.Headers["X-Total"] = total.ToString();
 
         var records = await query
-            .OrderByDescending(r => r.DrawDate)
             .Skip(offset)
             .Take(limit)
             .ToListAsync();

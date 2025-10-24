@@ -30,20 +30,25 @@ public class SnLotteryRecord : ModelBase
 
 public class SnLottery : ModelBase
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; init; } = Guid.NewGuid();
 
-    public SnAccount Account { get; set; } = null!;
-    public Guid AccountId { get; set; }
+    public SnAccount Account { get; init; } = null!;
+    public Guid AccountId { get; init; }
 
     [Column(TypeName = "jsonb")]
-    public List<int> RegionOneNumbers { get; set; } = new(); // 5 numbers, 0-99, unique
+    public List<int> RegionOneNumbers { get; set; } = []; // 5 numbers, 0-99, unique
 
     [Range(0, 99)]
-    public int RegionTwoNumber { get; set; } // 1 number, 0-99, can repeat
+    public int RegionTwoNumber { get; init; } // 1 number, 0-99, can repeat
 
-    public int Multiplier { get; set; } = 1; // Default 1x
+    public int Multiplier { get; init; } = 1; // Default 1x
 
     public LotteryDrawStatus DrawStatus { get; set; } = LotteryDrawStatus.Pending; // Status to track draw processing
 
     public Instant? DrawDate { get; set; } // Date when this ticket was drawn
+
+    [Column(TypeName = "jsonb")]
+    public List<int>? MatchedRegionOneNumbers { get; set; } // The actual numbers that matched in region one
+
+    public int? MatchedRegionTwoNumber { get; set; } // The matched number if special number matched (null otherwise)
 }

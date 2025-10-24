@@ -1,12 +1,28 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Pass.Wallet;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NodaTime;
+using System.Text.Json;
 
 namespace DysonNetwork.Pass.Lotteries;
 
-public class LotteryService(AppDatabase db, PaymentService paymentService, WalletService walletService)
+public class LotteryOrderMetaData
 {
+    public Guid AccountId { get; set; }
+    public List<int> RegionOneNumbers { get; set; } = new();
+    public int RegionTwoNumber { get; set; }
+    public int Multiplier { get; set; } = 1;
+}
+
+public class LotteryService(
+    AppDatabase db,
+    PaymentService paymentService,
+    WalletService walletService,
+    ILogger<LotteryService> logger)
+{
+    private readonly ILogger<LotteryService> _logger = logger;
+
     private static bool ValidateNumbers(List<int> region1, int region2)
     {
         if (region1.Count != 5 || region1.Distinct().Count() != 5)
@@ -62,18 +78,32 @@ public class LotteryService(AppDatabase db, PaymentService paymentService, Walle
         return 10 + (multiplier - 1) * 10;
     }
 
-    public async Task<SnWalletOrder> CreateLotteryOrderAsync(Guid accountId, List<int> region1, int region2, int multiplier = 1)
+    public async Task<SnWalletOrder> CreateLotteryOrderAsync(Guid accountId, List<int> region1, int region2,
+        int multiplier = 1)
     {
         if (!ValidateNumbers(region1, region2))
             throw new ArgumentException("Invalid lottery numbers");
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var todayStart = new LocalDateTime(now.InUtc().Year, now.InUtc().Month, now.InUtc().Day, 0, 0).InUtc().ToInstant();
-        var hasPurchasedToday = await db.Lotteries.AnyAsync(l => l.AccountId == accountId && l.CreatedAt >= todayStart);
+        var todayStart = new LocalDateTime(now.InUtc().Year, now.InUtc().Month, now.InUtc().Day, 0, 0).InUtc()
+            .ToInstant();
+        var hasPurchasedToday = await db.Lotteries.AnyAsync(l =>
+            l.AccountId == accountId &&
+            l.CreatedAt >= todayStart &&
+            l.DrawStatus == LotteryDrawStatus.Pending
+        );
         if (hasPurchasedToday)
             throw new InvalidOperationException("You can only purchase one lottery per day.");
 
         var price = CalculateLotteryPrice(multiplier);
+
+        var lotteryData = new LotteryOrderMetaData
+        {
+            AccountId = accountId,
+            RegionOneNumbers = region1,
+            RegionTwoNumber = region2,
+            Multiplier = multiplier
+        };
 
         return await paymentService.CreateOrderAsync(
             null,
@@ -83,29 +113,33 @@ public class LotteryService(AppDatabase db, PaymentService paymentService, Walle
             productIdentifier: "lottery",
             meta: new Dictionary<string, object>
             {
-                ["account_id"] = accountId.ToString(),
-                ["region_one_numbers"] = region1,
-                ["region_two_number"] = region2,
-                ["multiplier"] = multiplier
+                ["data"] = JsonSerializer.Serialize(lotteryData)
             });
     }
 
     public async Task HandleLotteryOrder(SnWalletOrder order)
     {
+        if (order.Status == OrderStatus.Finished)
+            return; // Already processed
+
         if (order.Status != OrderStatus.Paid ||
-            !order.Meta.TryGetValue("account_id", out var accountIdValue) ||
-            !order.Meta.TryGetValue("region_one_numbers", out var region1Value) ||
-            !order.Meta.TryGetValue("region_two_number", out var region2Value) ||
-            !order.Meta.TryGetValue("multiplier", out var multiplierValue))
+            !order.Meta.TryGetValue("data", out var dataValue) ||
+            dataValue is null ||
+            dataValue is not JsonElement { ValueKind: JsonValueKind.String } jsonElem)
             throw new InvalidOperationException("Invalid order.");
 
-        var accountId = Guid.Parse((string)accountIdValue!);
-        var region1Json = (System.Text.Json.JsonElement)region1Value;
-        var region1 = region1Json.EnumerateArray().Select(e => e.GetInt32()).ToList();
-        var region2 = Convert.ToInt32((string)region2Value!);
-        var multiplier = Convert.ToInt32((string)multiplierValue!);
+        var jsonString = jsonElem.GetString();
+        if (jsonString is null)
+            throw new InvalidOperationException("Invalid order.");
 
-        await CreateTicketAsync(accountId, region1, region2, multiplier);
+        var data = JsonSerializer.Deserialize<LotteryOrderMetaData>(jsonString);
+        if (data is null)
+            throw new InvalidOperationException("Invalid order data.");
+
+        await CreateTicketAsync(data.AccountId, data.RegionOneNumbers, data.RegionTwoNumber, data.Multiplier);
+
+        order.Status = OrderStatus.Finished;
+        await db.SaveChangesAsync();
     }
 
     private static int CalculateReward(int region1Matches, bool region2Match)
@@ -133,6 +167,7 @@ public class LotteryService(AppDatabase db, PaymentService paymentService, Walle
             var num = random.Next(min, max + 1);
             if (!numbers.Contains(num)) numbers.Add(num);
         }
+
         return numbers.OrderBy(n => n).ToList();
     }
 
@@ -141,68 +176,101 @@ public class LotteryService(AppDatabase db, PaymentService paymentService, Walle
         return playerNumbers.Intersect(winningNumbers).Count();
     }
 
-    public async Task PerformDailyDrawAsync()
+    public async Task DrawLotteries()
     {
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var yesterdayStart = new LocalDateTime(now.InUtc().Year, now.InUtc().Month, now.InUtc().Day, 0, 0).InUtc().ToInstant().Minus(Duration.FromDays(1));
-        var todayStart = new LocalDateTime(now.InUtc().Year, now.InUtc().Month, now.InUtc().Day, 0, 0).InUtc().ToInstant();
-
-        // Tickets purchased yesterday that are still pending draw
-        var tickets = await db.Lotteries
-            .Where(l => l.CreatedAt >= yesterdayStart && l.CreatedAt < todayStart && l.DrawStatus == LotteryDrawStatus.Pending)
-            .ToListAsync();
-
-        if (!tickets.Any()) return;
-
-        // Generate winning numbers
-        var winningRegion1 = GenerateUniqueRandomNumbers(5, 0, 99);
-        var winningRegion2 = GenerateUniqueRandomNumbers(1, 0, 99)[0];
-
-        var drawDate = Instant.FromDateTimeUtc(DateTime.Today.AddDays(-1)); // Yesterday's date
-
-        var totalPrizesAwarded = 0;
-        long totalPrizeAmount = 0;
-
-        // Process each ticket
-        foreach (var ticket in tickets)
+        try
         {
-            var region1Matches = CountMatches(ticket.RegionOneNumbers, winningRegion1);
-            var region2Match = ticket.RegionTwoNumber == winningRegion2;
-            var reward = CalculateReward(region1Matches, region2Match);
+            _logger.LogInformation("Starting drawing lotteries...");
 
-            if (reward > 0)
+            var now = SystemClock.Instance.GetCurrentInstant();
+
+            // All pending lottery tickets
+            var tickets = await db.Lotteries
+                .Where(l => l.DrawStatus == LotteryDrawStatus.Pending)
+                .ToListAsync();
+
+            if (tickets.Count == 0)
             {
-                var wallet = await walletService.GetWalletAsync(ticket.AccountId);
-                if (wallet != null)
-                {
-                    await paymentService.CreateTransactionAsync(
-                        payerWalletId: null,
-                        payeeWalletId: wallet.Id,
-                        currency: "isp",
-                        amount: reward,
-                        remarks: $"Lottery prize: {region1Matches} matches{(region2Match ? " + special" : "")}"
-                    );
-                    totalPrizesAwarded++;
-                    totalPrizeAmount += reward;
-                }
+                _logger.LogInformation("No pending lottery tickets");
+                return;
             }
 
-            ticket.DrawStatus = LotteryDrawStatus.Drawn;
-            ticket.DrawDate = drawDate;
+            _logger.LogInformation("Found {Count} pending lottery tickets for draw", tickets.Count);
+
+            // Generate winning numbers
+            var winningRegion1 = GenerateUniqueRandomNumbers(5, 0, 99);
+            var winningRegion2 = GenerateUniqueRandomNumbers(1, 0, 99)[0];
+
+            _logger.LogInformation("Winning numbers generated: Region1 [{Region1}], Region2 [{Region2}]",
+                string.Join(",", winningRegion1), winningRegion2);
+
+            var drawDate = Instant.FromDateTimeUtc(new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month,
+                DateTime.UtcNow.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(-1)); // Yesterday's date
+
+            var totalPrizesAwarded = 0;
+            long totalPrizeAmount = 0;
+
+            // Process each ticket
+            foreach (var ticket in tickets)
+            {
+                var region1Matches = CountMatches(ticket.RegionOneNumbers, winningRegion1);
+                var region2Match = ticket.RegionTwoNumber == winningRegion2;
+                var reward = CalculateReward(region1Matches, region2Match);
+
+                // Record match results
+                ticket.MatchedRegionOneNumbers = ticket.RegionOneNumbers.Intersect(winningRegion1).ToList();
+                ticket.MatchedRegionTwoNumber = region2Match ? (int?)winningRegion2 : null;
+
+                if (reward > 0)
+                {
+                    var wallet = await walletService.GetWalletAsync(ticket.AccountId);
+                    if (wallet != null)
+                    {
+                        await paymentService.CreateTransactionAsync(
+                            payerWalletId: null,
+                            payeeWalletId: wallet.Id,
+                            currency: WalletCurrency.SourcePoint,
+                            amount: reward,
+                            remarks: $"Lottery prize: {region1Matches} matches{(region2Match ? " + special" : "")}"
+                        );
+                        _logger.LogInformation(
+                            "Awarded {Amount} to account {AccountId} for {Matches} matches{(Special ? \" + special\" : \"\")}",
+                            reward, ticket.AccountId, region1Matches, region2Match ? " + special" : "");
+                        totalPrizesAwarded++;
+                        totalPrizeAmount += reward;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Wallet not found for account {AccountId}, skipping prize award",
+                            ticket.AccountId);
+                    }
+                }
+
+                ticket.DrawStatus = LotteryDrawStatus.Drawn;
+                ticket.DrawDate = drawDate;
+            }
+
+            // Save the draw record
+            var lotteryRecord = new SnLotteryRecord
+            {
+                DrawDate = drawDate,
+                WinningRegionOneNumbers = winningRegion1,
+                WinningRegionTwoNumber = winningRegion2,
+                TotalTickets = tickets.Count,
+                TotalPrizesAwarded = totalPrizesAwarded,
+                TotalPrizeAmount = totalPrizeAmount
+            };
+
+            db.LotteryRecords.Add(lotteryRecord);
+            await db.SaveChangesAsync();
+
+            _logger.LogInformation("Daily lottery draw completed: {Prizes} prizes awarded, total amount {Amount}",
+                totalPrizesAwarded, totalPrizeAmount);
         }
-
-        // Save the draw record
-        var lotteryRecord = new SnLotteryRecord
+        catch (Exception ex)
         {
-            DrawDate = drawDate,
-            WinningRegionOneNumbers = winningRegion1,
-            WinningRegionTwoNumber = winningRegion2,
-            TotalTickets = tickets.Count,
-            TotalPrizesAwarded = totalPrizesAwarded,
-            TotalPrizeAmount = totalPrizeAmount
-        };
-
-        db.LotteryRecords.Add(lotteryRecord);
-        await db.SaveChangesAsync();
+            _logger.LogError(ex, "An error occurred during the daily lottery draw");
+            throw;
+        }
     }
 }

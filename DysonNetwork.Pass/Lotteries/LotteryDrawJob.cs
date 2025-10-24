@@ -10,7 +10,7 @@ public class LotteryDrawJob(LotteryService lotteryService, ILogger<LotteryDrawJo
 
         try
         {
-            await lotteryService.PerformDailyDrawAsync();
+            await lotteryService.DrawLotteries();
             logger.LogInformation("Daily lottery draw completed successfully.");
         }
         catch (Exception ex)

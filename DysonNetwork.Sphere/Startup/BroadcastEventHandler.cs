@@ -93,7 +93,7 @@ public class BroadcastEventHandler(
                             break;
                         }
                     default:
-                        await msg.NakAsync(cancellationToken: stoppingToken);
+                        // ignore
                         break;
                 }
             }
