@@ -271,7 +271,7 @@ public class AccountEventService(
         return backdatedCheckInMonths < 4;
     }
 
-    public const string CheckInLockKey = "checkin:lock:";
+    private const string CheckInLockKey = "checkin:lock:";
 
     public async Task<SnCheckInResult> CheckInDaily(SnAccount user, Instant? backdated = null)
     {
@@ -322,7 +322,11 @@ public class AccountEventService(
         }));
 
         // The 5 is specialized, keep it alone.
-        var checkInLevel = (CheckInResultLevel)Random.Next(Enum.GetValues<CheckInResultLevel>().Length - 1);
+        var sum = 0;
+        var maxLevel = Enum.GetValues<CheckInResultLevel>().Length - 1;
+        for (var i = 0; i < 5; i++)
+            sum += Random.Next(maxLevel);
+        var checkInLevel = (CheckInResultLevel)(sum / 5);
 
         var accountBirthday = await db.AccountProfiles
             .Where(x => x.AccountId == user.Id)
