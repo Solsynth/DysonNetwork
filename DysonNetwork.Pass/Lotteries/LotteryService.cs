@@ -21,8 +21,6 @@ public class LotteryService(
     WalletService walletService,
     ILogger<LotteryService> logger)
 {
-    private readonly ILogger<LotteryService> _logger = logger;
-
     private static bool ValidateNumbers(List<int> region1, int region2)
     {
         if (region1.Count != 5 || region1.Distinct().Count() != 5)
@@ -180,7 +178,7 @@ public class LotteryService(
     {
         try
         {
-            _logger.LogInformation("Starting drawing lotteries...");
+            logger.LogInformation("Starting drawing lotteries...");
 
             var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -191,17 +189,17 @@ public class LotteryService(
 
             if (tickets.Count == 0)
             {
-                _logger.LogInformation("No pending lottery tickets");
+                logger.LogInformation("No pending lottery tickets");
                 return;
             }
 
-            _logger.LogInformation("Found {Count} pending lottery tickets for draw", tickets.Count);
+            logger.LogInformation("Found {Count} pending lottery tickets for draw", tickets.Count);
 
             // Generate winning numbers
             var winningRegion1 = GenerateUniqueRandomNumbers(5, 0, 99);
             var winningRegion2 = GenerateUniqueRandomNumbers(1, 0, 99)[0];
 
-            _logger.LogInformation("Winning numbers generated: Region1 [{Region1}], Region2 [{Region2}]",
+            logger.LogInformation("Winning numbers generated: Region1 [{Region1}], Region2 [{Region2}]",
                 string.Join(",", winningRegion1), winningRegion2);
 
             var drawDate = Instant.FromDateTimeUtc(new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month,
@@ -233,7 +231,7 @@ public class LotteryService(
                             amount: reward,
                             remarks: $"Lottery prize: {region1Matches} matches{(region2Match ? " + special" : "")}"
                         );
-                        _logger.LogInformation(
+                        logger.LogInformation(
                             "Awarded {Amount} to account {AccountId} for {Matches} matches{(Special ? \" + special\" : \"\")}",
                             reward, ticket.AccountId, region1Matches, region2Match ? " + special" : "");
                         totalPrizesAwarded++;
@@ -241,7 +239,7 @@ public class LotteryService(
                     }
                     else
                     {
-                        _logger.LogWarning("Wallet not found for account {AccountId}, skipping prize award",
+                        logger.LogWarning("Wallet not found for account {AccountId}, skipping prize award",
                             ticket.AccountId);
                     }
                 }
@@ -264,12 +262,12 @@ public class LotteryService(
             db.LotteryRecords.Add(lotteryRecord);
             await db.SaveChangesAsync();
 
-            _logger.LogInformation("Daily lottery draw completed: {Prizes} prizes awarded, total amount {Amount}",
+            logger.LogInformation("Daily lottery draw completed: {Prizes} prizes awarded, total amount {Amount}",
                 totalPrizesAwarded, totalPrizeAmount);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred during the daily lottery draw");
+            logger.LogError(ex, "An error occurred during the daily lottery draw");
             throw;
         }
     }

@@ -21,5 +21,6 @@
     <ProjectReference Include="..\DysonNetwork.Ring\DysonNetwork.Ring.csproj" />
     <ProjectReference Include="..\DysonNetwork.Sphere\DysonNetwork.Sphere.csproj" />
     <ProjectReference Include="..\DysonNetwork.Gateway\DysonNetwork.Gateway.csproj" />
+    <ProjectReference Include="..\DysonNetwork.Insight\DysonNetwork.Insight.csproj" />
   </ItemGroup>
 </Project>
