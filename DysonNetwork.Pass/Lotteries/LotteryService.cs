@@ -77,7 +77,7 @@ public class LotteryService(AppDatabase db, PaymentService paymentService, Walle
 
         return await paymentService.CreateOrderAsync(
             null,
-            "isp",
+            WalletCurrency.SourcePoint,
             price,
             appIdentifier: "lottery",
             productIdentifier: "lottery",
