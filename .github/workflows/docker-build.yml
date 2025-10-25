@@ -7,29 +7,69 @@ on:
   workflow_dispatch:
 
 jobs:
+  determine-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.changes.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | xargs)" >> $GITHUB_OUTPUT
+
+      - name: Determine changed services
+        id: changes
+        run: |
+          files="${{ steps.changed-files.outputs.files }}"
+          matrix="{\"include\":[]}"
+          services=("Sphere" "Pass" "Ring" "Drive" "Develop" "Gateway" "Insight")
+          images=("sphere" "pass" "ring" "drive" "develop" "gateway" "insight")
+          changed_services=()
+
+          for file in $files; do
+            if [[ "$file" == DysonNetwork.Shared/* ]]; then
+              changed_services=("${services[@]}")
+              break
+            fi
+            for i in "${!services[@]}"; do
+              if [[ "$file" == DysonNetwork.${services[$i]}/* ]]; then
+                # check if service is already in changed_services
+                if [[ ! " ${changed_services[@]} " =~ " ${services[$i]} " ]]; then
+                  changed_services+=("${services[$i]}")
+                fi
+              fi
+            done
+          done
+
+          if [ ${#changed_services[@]} -gt 0 ]; then
+            json_objects=""
+            for service in "${changed_services[@]}"; do
+              for i in "${!services[@]}"; do
+                if [[ "${services[$i]}" == "$service" ]]; then
+                  image="${images[$i]}"
+                  break
+                fi
+              done
+              json_objects+="{\"service\":\"$service\",\"image\":\"$image\"},"
+            done
+            matrix="{\"include\":[${json_objects%,}]}"
+          fi
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+
   build-and-push:
+    needs: determine-changes
+    if: ${{ needs.determine-changes.outputs.matrix != '{"include":[]}' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     strategy:
-      matrix:
-        include:
-          - service: Sphere
-            image: sphere
-          - service: Pass
-            image: pass
-          - service: Ring
-            image: ring
-          - service: Drive
-            image: drive
-          - service: Develop
-            image: develop
-          - service: Gateway
-            image: gateway
-          - service: Insight
-            image: insight
+      matrix: ${{ fromJson(needs.determine-changes.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
