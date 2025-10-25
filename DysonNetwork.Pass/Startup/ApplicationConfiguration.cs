@@ -6,7 +6,6 @@ using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Http;
-using Prometheus;
 
 namespace DysonNetwork.Pass.Startup;
 
@@ -14,7 +13,6 @@ public static class ApplicationConfiguration
 {
     public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
     {
-        app.MapMetrics();
         app.MapOpenApi();
 
         app.UseRequestLocalization();

@@ -119,9 +119,5 @@
       }
     }
   },
-  "KnownProxies": ["127.0.0.1", "::1"],
-  "Service": {
-    "Name": "DysonNetwork.Drive",
-    "Url": "https://localhost:7092"
-  }
+  "KnownProxies": ["127.0.0.1", "::1"]
 }

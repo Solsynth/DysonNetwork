@@ -21,7 +21,6 @@ var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop"
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService);
-
 var insightService = builder.AddProject<Projects.DysonNetwork_Insight>("insight")
     .WithReference(passService)
     .WithReference(ringService)

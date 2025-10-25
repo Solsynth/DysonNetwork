@@ -1,7 +1,6 @@
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
-using Prometheus;
 
 namespace DysonNetwork.Develop.Startup;
 
@@ -9,7 +8,6 @@ public static class ApplicationConfiguration
 {
     public static WebApplication ConfigureAppMiddleware(this WebApplication app, IConfiguration configuration)
     {
-        app.MapMetrics();
         app.MapOpenApi();
 
         app.UseRequestLocalization();

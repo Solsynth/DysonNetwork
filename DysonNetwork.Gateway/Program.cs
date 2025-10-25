@@ -56,7 +56,7 @@ builder.Services.AddRateLimiter(options =>
         };
 });
 
-var serviceNames = new[] { "ring", "pass", "drive", "sphere", "develop" };
+var serviceNames = new[] { "ring", "pass", "drive", "sphere", "develop", "insight" };
 
 var specialRoutes = new[]
 {

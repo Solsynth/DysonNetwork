@@ -36,12 +36,5 @@
   "GeoIp": {
     "DatabasePath": "/app/keys/GeoLite2-City.mmdb"
   },
-  "KnownProxies": ["127.0.0.1", "::1"],
-  "Service": {
-    "Name": "DysonNetwork.Ring",
-    "Url": "https://localhost:7259"
-  },
-  "Etcd": {
-    "Insecure": true
-  }
+  "KnownProxies": ["127.0.0.1", "::1"]
 }
