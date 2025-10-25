@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Pass.Leveling;
 
-public class ExperienceService(AppDatabase db, SubscriptionService subscriptions, ICacheService cache)
+public class ExperienceService(AppDatabase db, SubscriptionService subscriptions)
 {
     public async Task<SnExperienceRecord> AddRecord(string reasonType, string reason, long delta, Guid accountId)
     {

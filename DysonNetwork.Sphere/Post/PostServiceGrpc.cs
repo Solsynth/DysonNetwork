@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -29,7 +30,8 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         return post.ToProtoValue();
     }
 
-    public override async Task<GetPostBatchResponse> GetPostBatch(GetPostBatchRequest request, ServerCallContext context)
+    public override async Task<GetPostBatchResponse> GetPostBatch(GetPostBatchRequest request,
+        ServerCallContext context)
     {
         var ids = request.Ids
             .Where(s => !string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out _))
@@ -76,9 +78,9 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         {
             // Simple search, assuming full-text search or title/content contains
             query = query.Where(p =>
-                EF.Functions.ILike(p.Title, $"%{request.Query}%") ||
-                EF.Functions.ILike(p.Content, $"%{request.Query}%") ||
-                EF.Functions.ILike(p.Description, $"%{request.Query}%"));
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{request.Query}%")) ||
+                (p.Content != null && EF.Functions.ILike(p.Content, $"%{request.Query}%")) ||
+                (p.Description != null && EF.Functions.ILike(p.Description, $"%{request.Query}%")));
         }
 
         if (!string.IsNullOrWhiteSpace(request.PublisherId) && Guid.TryParse(request.PublisherId, out var pid))
@@ -163,30 +165,16 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             query = query.Where(e => e.Attachments.Count > 0);
         }
 
-        // Pinned filtering
-        switch (request.Pinned)
+        query = request.Pinned switch
         {
-            case Shared.Proto.PostPinMode.RealmPage when !string.IsNullOrWhiteSpace(request.RealmId):
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
-                break;
-            case Shared.Proto.PostPinMode.PublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId):
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
-                break;
-            case Shared.Proto.PostPinMode.ReplyPage:
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.ReplyPage);
-                break;
-            default:
-                if (request.Pinned != null)
-                {
-                    // Specific pinned mode but conditions not met, or unknown mode
-                    query = query.Where(p => p.PinMode == (Shared.Models.PostPinMode)request.Pinned);
-                }
-                else
-                {
-                    query = query.Where(p => p.PinMode == null);
-                }
-                break;
-        }
+            // Pinned filtering
+            Shared.Proto.PostPinMode.RealmPage when !string.IsNullOrWhiteSpace(request.RealmId) => query.Where(p =>
+                p.PinMode == Shared.Models.PostPinMode.RealmPage),
+            Shared.Proto.PostPinMode.PublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId) =>
+                query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage),
+            Shared.Proto.PostPinMode.ReplyPage => query.Where(p => p.PinMode == Shared.Models.PostPinMode.ReplyPage),
+            _ => query.Where(p => p.PinMode == (Shared.Models.PostPinMode)request.Pinned)
+        };
 
         // Include/exclude replies
         if (request.IncludeReplies)
@@ -199,27 +187,25 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             query = query.Where(e => e.RepliedPostId == null);
         }
 
-        // TODO: Time range filtering when proto fields are available
-        // if (request.After != null)
-        // {
-        //     var afterTime = request.After.ToDateTimeOffset();
-        //     query = query.Where(p => (p.CreatedAt >= afterTime) || (p.PublishedAt >= afterTime));
-        // }
+        if (request.After != null)
+        {
+            var afterTime = request.After.ToInstant();
+            query = query.Where(p => (p.CreatedAt >= afterTime) || (p.PublishedAt >= afterTime));
+        }
 
-        // if (request.Before != null)
-        // {
-        //     var beforeTime = request.Before.ToDateTimeOffset();
-        //     query = query.Where(p => (p.CreatedAt <= beforeTime) || (p.PublishedAt <= beforeTime));
-        // }
+        if (request.Before != null)
+        {
+            var beforeTime = request.Before.ToInstant();
+            query = query.Where(p => (p.CreatedAt <= beforeTime) || (p.PublishedAt <= beforeTime));
+        }
 
-        // TODO: Query text search when proto field is available
-        // if (!string.IsNullOrWhiteSpace(request.Query))
-        // {
-        //     query = query.Where(p =>
-        //         EF.Functions.ILike(p.Title, $"%{request.Query}%") ||
-        //         EF.Functions.ILike(p.Content, $"%{request.Query}%") ||
-        //         EF.Functions.ILike(p.Description, $"%{request.Query}%"));
-        // }
+        if (!string.IsNullOrWhiteSpace(request.Query))
+        {
+            query = query.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{request.Query}%")) ||
+                (p.Content != null && EF.Functions.ILike(p.Content, $"%{request.Query}%")) ||
+                (p.Description != null && EF.Functions.ILike(p.Description, $"%{request.Query}%")));
+        }
 
         // Visibility filter (simplified for grpc - no user context)
         query = query.FilterWithVisibility(null, [], []);
@@ -231,7 +217,9 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         var offset = string.IsNullOrEmpty(pageToken) ? 0 : int.Parse(pageToken);
 
         // Ordering - TODO: Add shuffle when proto field is available
-        var orderedQuery = query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
+        var orderedQuery = request.Shuffle
+            ? query.OrderBy(e => EF.Functions.Random())
+            : query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
 
         var posts = await orderedQuery
             .Skip(offset)

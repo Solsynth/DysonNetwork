@@ -6,7 +6,7 @@ namespace DysonNetwork.Pass.Account;
 
 public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
 {
-    public void CreateActionLog(Guid accountId, string action, Dictionary<string, object?> meta)
+    public void CreateActionLog(Guid accountId, string action, Dictionary<string, object> meta)
     {
         var log = new SnActionLog
         {

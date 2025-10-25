@@ -6,7 +6,6 @@ using Quartz;
 namespace DysonNetwork.Pass.Wallet;
 
 public class FundExpirationJob(
-    AppDatabase db,
     PaymentService paymentService,
     ILogger<FundExpirationJob> logger
 ) : IJob

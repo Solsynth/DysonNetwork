@@ -32,8 +32,8 @@ public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServi
         try
         {
             var meta = request.Meta
-                ?.Select(x => new KeyValuePair<string, object?>(x.Key, GrpcTypeHelper.ConvertValueToObject(x.Value)))
-                .ToDictionary() ?? new Dictionary<string, object?>();
+                ?.Select(x => new KeyValuePair<string, object>(x.Key, GrpcTypeHelper.ConvertValueToObject(x.Value)))
+                .ToDictionary() ?? new Dictionary<string, object>();
 
             _actionLogService.CreateActionLog(
                 accountId,
@@ -41,6 +41,7 @@ public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServi
                 meta
             );
 
+            await Task.CompletedTask;
             return new CreateActionLogResponse();
         }
         catch (Exception ex)

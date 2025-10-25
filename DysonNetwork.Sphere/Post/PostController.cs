@@ -197,7 +197,7 @@ public class PostController(
 
     private static async Task LoadPostsRealmsAsync(List<SnPost> posts, RemoteRealmService rs)
     {
-        var postRealmIds = posts.Where(p => p.RealmId != null).Select(p => p.RealmId.Value).Distinct().ToList();
+        var postRealmIds = posts.Where(p => p.RealmId != null).Select(p => p.RealmId!.Value).Distinct().ToList();
         if (!postRealmIds.Any()) return;
 
         var realms = await rs.GetRealmBatch(postRealmIds.Select(id => id.ToString()).ToList());
@@ -205,7 +205,7 @@ public class PostController(
 
         foreach (var post in posts.Where(p => p.RealmId != null))
         {
-            if (post.RealmId != null && realmDict.TryGetValue(post.RealmId.Value, out var realm))
+            if (realmDict.TryGetValue(post.RealmId!.Value, out var realm))
             {
                 post.Realm = realm;
             }

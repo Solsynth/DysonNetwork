@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
