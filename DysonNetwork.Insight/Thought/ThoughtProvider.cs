@@ -1,11 +1,10 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
-using Microsoft.Extensions.Configuration;
-using System.Text.Json;
 
-namespace DysonNetwork.Insight.Thinking;
+namespace DysonNetwork.Insight.Thought;
 
-public class ThinkingProvider
+public class ThoughtProvider
 {
     private readonly Kernel _kernel;
     private readonly PostService.PostServiceClient _postClient;
@@ -15,7 +14,7 @@ public class ThinkingProvider
     public string? ModelProviderType { get; private set; }
     public string? ModelDefault { get; private set; }
 
-    public ThinkingProvider(
+    public ThoughtProvider(
         IConfiguration configuration,
         PostService.PostServiceClient postClient,
         AccountService.AccountServiceClient accountClient

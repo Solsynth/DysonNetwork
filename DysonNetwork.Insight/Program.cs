@@ -1,5 +1,6 @@
 using DysonNetwork.Insight;
 using DysonNetwork.Insight.Startup;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ builder.Services.AddAppAuthentication();
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices();
 
+builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 builder.Services.AddSphereService();
 builder.Services.AddThinkingServices(builder.Configuration);

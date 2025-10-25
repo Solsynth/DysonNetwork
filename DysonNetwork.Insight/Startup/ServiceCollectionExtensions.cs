@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Insight.Thinking;
+using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Cache;
 using Microsoft.SemanticKernel;
 using NodaTime;
@@ -65,7 +65,8 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddThinkingServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton<ThinkingProvider>();
+        services.AddSingleton<ThoughtProvider>();
+        services.AddScoped<ThoughtService>();
 
         return services;
     }
