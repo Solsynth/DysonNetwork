@@ -22,10 +22,6 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [MaxLength(256)] public string Nick { get; set; } = string.Empty;
     [MaxLength(4096)] public string? Bio { get; set; }
 
-    // Outdated fields, for backward compability
-    [MaxLength(32)] public string? PictureId { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
 

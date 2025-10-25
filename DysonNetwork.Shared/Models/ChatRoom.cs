@@ -20,10 +20,6 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
 
-    // Outdated fields, for backward compability
-    [MaxLength(32)] public string? PictureId { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
-
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
 

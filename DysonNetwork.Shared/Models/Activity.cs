@@ -19,9 +19,6 @@ public class SnActivity : ModelBase
 
     public object? Data { get; set; }
 
-    // Outdated fields, for backward compability
-    public int Visibility => 0;
-
     public static SnActivity Empty()
     {
         var now = SystemClock.Instance.GetCurrentInstant();

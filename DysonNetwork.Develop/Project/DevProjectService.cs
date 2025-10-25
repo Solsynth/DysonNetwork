@@ -4,11 +4,7 @@ using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Develop.Project;
 
-public class DevProjectService(
-    AppDatabase db,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
-    FileService.FileServiceClient files
-)
+public class DevProjectService(AppDatabase db )
 {
     public async Task<SnDevProject> CreateProjectAsync(
         SnDeveloper developer,
@@ -25,14 +21,14 @@ public class DevProjectService(
 
         db.DevProjects.Add(project);
         await db.SaveChangesAsync();
-        
+
         return project;
     }
 
     public async Task<SnDevProject?> GetProjectAsync(Guid id, Guid? developerId = null)
     {
         var query = db.DevProjects.AsQueryable();
-        
+
         if (developerId.HasValue)
         {
             query = query.Where(p => p.DeveloperId == developerId.Value);
