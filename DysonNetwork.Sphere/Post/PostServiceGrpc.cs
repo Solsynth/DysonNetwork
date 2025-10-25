@@ -67,9 +67,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             .Include(p => p.Categories)
             .Include(p => p.RepliedPost)
             .Include(p => p.ForwardedPost)
-            .Include(p => p.Attachments)
             .Include(p => p.Awards)
-            .Include(p => p.Reactions)
             .Include(p => p.FeaturedRecords)
             .Where(p => p.DeletedAt == null) // Only active posts
             .AsQueryable();

@@ -73,7 +73,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 
-    public List<SnPostAward> Awards { get; set; } = null!;
+    public List<SnPostAward> Awards { get; set; } = [];
     [JsonIgnore] public List<SnPostReaction> Reactions { get; set; } = [];
     public List<SnPostTag> Tags { get; set; } = [];
     public List<SnPostCategory> Categories { get; set; } = [];
@@ -174,7 +174,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
         }
 
         proto.Attachments.AddRange(Attachments.Select(a => a.ToProtoValue()));
-        proto.Awards.AddRange(Awards.Select(a => a.ToProto()));
+        proto.Awards.AddRange(Awards.Select(a => a.ToProtoValue()));
         proto.Reactions.AddRange(Reactions.Select(r => r.ToProtoValue()));
         proto.Tags.AddRange(Tags.Select(t => t.ToProtoValue()));
         proto.Categories.AddRange(Categories.Select(c => c.ToProtoValue()));
@@ -382,7 +382,7 @@ public class SnPostAward : ModelBase
     [JsonIgnore] public SnPost Post { get; set; } = null!;
     public Guid AccountId { get; set; }
 
-    public PostAward ToProto()
+    public PostAward ToProtoValue()
     {
         var proto = new PostAward
         {
@@ -395,9 +395,7 @@ public class SnPostAward : ModelBase
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
         };
         if (Message != null)
-        {
             proto.Message = Message;
-        }
         return proto;
     }
 }
