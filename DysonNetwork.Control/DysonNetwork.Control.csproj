@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.1" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.2" />
+    
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
@@ -8,11 +9,12 @@
     <UserSecretsId>a68b3195-a00d-40c2-b5ed-d675356b7cde</UserSecretsId>
     <RootNamespace>DysonNetwork.Control</RootNamespace>
   </PropertyGroup>
+    
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.5.1" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.5.2" />
     <PackageReference Include="Aspire.Hosting.Docker" Version="9.4.2-preview.1.25428.12" />
-    <PackageReference Include="Aspire.Hosting.Nats" Version="9.5.1" />
-    <PackageReference Include="Aspire.Hosting.Redis" Version="9.5.1" />
+    <PackageReference Include="Aspire.Hosting.Nats" Version="9.5.2" />
+    <PackageReference Include="Aspire.Hosting.Redis" Version="9.5.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DysonNetwork.Develop\DysonNetwork.Develop.csproj" />

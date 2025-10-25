@@ -37,7 +37,7 @@
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0"/>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3"/>
         <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1"/>
-        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1"/>
+        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.2" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.6" />

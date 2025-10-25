@@ -9,12 +9,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CorePush" Version="4.3.0" />
+        <PackageReference Include="CorePush" Version="4.4.0" />
         <PackageReference Include="EFCore.BulkExtensions" Version="9.0.1" />
-        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.1" />
+        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.2" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.71.0" />
-        <PackageReference Include="MailKit" Version="4.13.0" />
+        <PackageReference Include="MailKit" Version="4.14.1" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
