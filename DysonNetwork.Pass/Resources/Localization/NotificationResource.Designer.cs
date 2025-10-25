@@ -212,5 +212,17 @@ namespace DysonNetwork.Sphere.Resources.Localization {
                 return ResourceManager.GetString("TransactionNewBodyMinus", resourceCulture);
             }
         }
+        
+        internal static string GiftClaimedTitle {
+            get {
+                return ResourceManager.GetString("GiftClaimedTitle", resourceCulture);
+            }
+        }
+        
+        internal static string GiftClaimedBody {
+            get {
+                return ResourceManager.GetString("GiftClaimedBody", resourceCulture);
+            }
+        }
     }
 }

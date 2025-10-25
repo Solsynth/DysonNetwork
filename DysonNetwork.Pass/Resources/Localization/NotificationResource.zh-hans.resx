@@ -99,4 +99,10 @@
     <data name="TransactionNewBodyMinus" xml:space="preserve">
         <value>{0} {1} 从您的钱包移除</value>
     </data>
+    <data name="GiftClaimedTitle" xml:space="preserve">
+        <value>有人领取了你的礼物</value>
+    </data>
+    <data name="GiftClaimedBody" xml:space="preserve">
+        <value>你的礼物 {0} 已被 {1} 领取</value>
+    </data>
 </root>

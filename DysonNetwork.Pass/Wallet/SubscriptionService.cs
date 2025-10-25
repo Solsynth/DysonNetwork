@@ -983,7 +983,7 @@ public class SubscriptionService(
         {
             Topic = "gifts.claimed",
             Title = localizer["GiftClaimedTitle"],
-            Body = localizer["GiftClaimedBody", humanReadableName, redeemer.Name ?? redeemer.Id.ToString()],
+            Body = localizer["GiftClaimedBody", humanReadableName, redeemer.Name],
             Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["gift_id"] = gift.Id.ToString(),

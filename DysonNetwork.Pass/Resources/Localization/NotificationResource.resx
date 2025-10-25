@@ -107,4 +107,10 @@
     <data name="TransactionNewBodyMinus" xml:space="preserve">
         <value>{0} {1} removed from your wallet</value>
     </data>
+    <data name="GiftClaimedTitle" xml:space="preserve">
+        <value>Someone claimed your gift</value>
+    </data>
+    <data name="GiftClaimedBody" xml:space="preserve">
+        <value>Your gift {0} has been claimed by {1}</value>
+    </data>
 </root>
