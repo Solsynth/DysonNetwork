@@ -1,11 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
 using DysonNetwork.Shared.Cache;
-using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-using tusdotnet.Stores;
 
 namespace DysonNetwork.Drive.Startup;
 
@@ -52,17 +49,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-
-        return services;
-    }
-
-    public static IServiceCollection AddAppFileStorage(this IServiceCollection services, IConfiguration configuration)
-    {
-        var tusStorePath = configuration.GetSection("Tus").GetValue<string>("StorePath")!;
-        Directory.CreateDirectory(tusStorePath);
-        var tusDiskStore = new TusDiskStore(tusStorePath);
-
-        services.AddSingleton(tusDiskStore);
 
         return services;
     }

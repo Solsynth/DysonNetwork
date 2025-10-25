@@ -19,8 +19,6 @@ builder.Services.AddAppAuthentication();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 
-builder.Services.AddAppFileStorage(builder.Configuration);
-
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices();
 builder.Services.AddAppScheduledJobs();
