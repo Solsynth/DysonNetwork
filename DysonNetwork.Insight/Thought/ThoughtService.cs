@@ -51,11 +51,11 @@ public class ThoughtService(AppDatabase db, ICacheService cache)
 
         var thoughts = await db.ThinkingThoughts
             .Where(t => t.SequenceId == sequence.Id)
-            .OrderBy(t => t.CreatedAt)
+            .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         // Cache for 10 minutes
-        await cache.SetWithGroupsAsync(cacheKey, thoughts, new[] { $"sequence:{sequence.Id}" }, TimeSpan.FromMinutes(10));
+        await cache.SetWithGroupsAsync(cacheKey, thoughts, [$"sequence:{sequence.Id}"], TimeSpan.FromMinutes(10));
 
         return thoughts;
     }

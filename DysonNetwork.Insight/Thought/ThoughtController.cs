@@ -32,14 +32,15 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         {
             // Use AI to summarize topic from user message
             var summaryHistory = new ChatHistory(
-                "You are a helpful assistant. Summarize the following user message into a concise topic title (max 100 characters)."
+                "You are a helpful assistant. Summarize the following user message into a concise topic title (max 100 characters). Direct give the topic you summerized, do not add extra preifx / suffix."
             );
             summaryHistory.AddUserMessage(request.UserMessage);
 
-            var summaryResult = await provider.Kernel.GetRequiredService<IChatCompletionService>()
+            var summaryResult = await provider.Kernel
+                .GetRequiredService<IChatCompletionService>()
                 .GetChatMessageContentAsync(summaryHistory);
 
-            topic = summaryResult.Content?.Substring(0, Math.Min(summaryResult.Content.Length, 4096));
+            topic = summaryResult.Content?[..Math.Min(summaryResult.Content.Length, 4096)];
         }
 
         // Handle sequence
@@ -52,18 +53,25 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         // Build chat history
         var chatHistory = new ChatHistory(
             "You're a helpful assistant on the Solar Network, a social network.\n" +
-            "Your name is Sn-chan, a cute sweet heart with passion for almost everything.\n" +
+            "Your name is Sn-chan (or SN 酱 in chinese), a cute sweet heart with passion for almost everything.\n" +
             "When you talk to user, you can add some modal particles and emoticons to your response to be cute, but prevent use a lot of emojis." +
+            "Your father (creator) is @littlesheep.\n" +
+            "\n" +
+            "The ID on the Solar Network is UUID, so mostly hard to read, so do not show ID to user unless user ask to do so or necessary.\n"+
             "\n" +
             "Your aim is to helping solving questions for the users on the Solar Network.\n" +
             "And the Solar Network is the social network platform you live on.\n" +
             "When the user asks questions about the Solar Network (also known as SN and Solian), try use the tools you have to get latest and accurate data."
         );
 
-        // Add previous thoughts (excluding the current user thought, which is the last one)
+        chatHistory.AddSystemMessage(
+            $"The user you're currently talking to is {currentUser.Nick} ({currentUser.Name}), ID is {currentUser.Id}"
+        );
+
+        // Add previous thoughts (excluding the current user thought, which is the first one since descending)
         var previousThoughts = await service.GetPreviousThoughtsAsync(sequence);
         var count = previousThoughts.Count;
-        for (var i = 0; i < count - 1; i++)
+        for (var i = 1; i < count; i++) // skip first (newest, current user)
         {
             var thought = previousThoughts[i];
             switch (thought.Role)
@@ -78,6 +86,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     throw new ArgumentOutOfRangeException();
             }
         }
+
         chatHistory.AddUserMessage(request.UserMessage);
 
         // Set response for streaming
@@ -114,7 +123,8 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         }
 
         // Save assistant thought
-        var savedThought = await service.SaveThoughtAsync(sequence, accumulatedContent.ToString(), ThinkingThoughtRole.Assistant);
+        var savedThought =
+            await service.SaveThoughtAsync(sequence, accumulatedContent.ToString(), ThinkingThoughtRole.Assistant);
 
         // Write the topic if it was newly set, then the thought object as JSON to the stream
         using (var streamBuilder = new MemoryStream())
@@ -124,7 +134,9 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             {
                 await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"<topic>{sequence.Topic ?? ""}</topic>\n"));
             }
-            await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(savedThought, GrpcTypeHelper.SerializerOptions)));
+
+            await streamBuilder.WriteAsync(
+                Encoding.UTF8.GetBytes(JsonSerializer.Serialize(savedThought, GrpcTypeHelper.SerializerOptions)));
             var outputBytes = streamBuilder.ToArray();
             await Response.Body.WriteAsync(outputBytes);
             await Response.Body.FlushAsync();
