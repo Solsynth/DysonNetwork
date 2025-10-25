@@ -1,17 +1,13 @@
 using DysonNetwork.Drive.Storage;
-using tusdotnet;
-using tusdotnet.Interfaces;
 
 namespace DysonNetwork.Drive.Startup;
 
 public static class ApplicationBuilderExtensions
 {
-    public static WebApplication ConfigureAppMiddleware(this WebApplication app, ITusStore tusStore)
+    public static WebApplication ConfigureAppMiddleware(this WebApplication app)
     {
         app.UseAuthorization();
         app.MapControllers();
-
-        app.MapTus("/api/tus", _ => Task.FromResult(TusService.BuildConfiguration(tusStore, app.Configuration)));
 
         return app;
     }

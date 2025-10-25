@@ -4,7 +4,6 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using tusdotnet.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,8 +41,7 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-var tusDiskStore = app.Services.GetRequiredService<TusDiskStore>();
-app.ConfigureAppMiddleware(tusDiskStore);
+app.ConfigureAppMiddleware();
 
 // Configure gRPC
 app.ConfigureGrpcServices();
