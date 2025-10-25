@@ -70,8 +70,6 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
 
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = [];
 
-    [JsonIgnore] public NpgsqlTsVector SearchVector { get; set; } = null!;
-
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 

@@ -83,11 +83,6 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPost>()
-            .HasGeneratedTsVectorColumn(p => p.SearchVector, "simple", p => new { p.Title, p.Description, p.Content })
-            .HasIndex(p => p.SearchVector)
-            .HasMethod("GIN");
-
-        modelBuilder.Entity<SnPost>()
             .HasOne(p => p.RepliedPost)
             .WithMany()
             .HasForeignKey(p => p.RepliedPostId)
