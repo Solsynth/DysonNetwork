@@ -122,9 +122,9 @@ var routes = specialRoutes.Concat(apiRoutes).Concat(swaggerRoutes).ToArray();
 var clusters = serviceNames.Select(serviceName => new ClusterConfig
 {
     ClusterId = serviceName,
-    HealthCheck = new()
+    HealthCheck = new HealthCheckConfig
     {
-        Active = new()
+        Active = new ActiveHealthCheckConfig
         {
             Enabled = true,
             Interval = TimeSpan.FromSeconds(10),

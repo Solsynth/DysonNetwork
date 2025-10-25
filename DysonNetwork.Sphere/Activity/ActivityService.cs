@@ -12,7 +12,7 @@ namespace DysonNetwork.Sphere.Activity;
 public class ActivityService(
     AppDatabase db,
     Publisher.PublisherService pub,
-    PostService ps,
+    Post.PostService ps,
     RemoteRealmService rs,
     DiscoveryService ds,
     AccountService.AccountServiceClient accounts

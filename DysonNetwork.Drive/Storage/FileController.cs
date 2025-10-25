@@ -187,7 +187,7 @@ public class FileController(
 
     public class MarkFileRequest
     {
-        public List<ContentSensitiveMark>? SensitiveMarks { get; set; }
+        public List<Shared.Models.ContentSensitiveMark>? SensitiveMarks { get; set; }
     }
 
     [Authorize]
@@ -298,7 +298,7 @@ public class FileController(
         public string? Description { get; set; }
         public Dictionary<string, object?>? UserMeta { get; set; }
         public Dictionary<string, object?>? FileMeta { get; set; }
-        public List<ContentSensitiveMark>? SensitiveMarks { get; set; }
+        public List<Shared.Models.ContentSensitiveMark>? SensitiveMarks { get; set; }
         public Guid PoolId { get; set; }
     }
 

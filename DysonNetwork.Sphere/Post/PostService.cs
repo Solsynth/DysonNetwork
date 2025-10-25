@@ -290,7 +290,7 @@ public partial class PostService(
 
     public async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
-        if (item.Type != PostType.Moment || string.IsNullOrEmpty(item.Content)) return item;
+        if (item.Type != Shared.Models.PostType.Moment || string.IsNullOrEmpty(item.Content)) return item;
 
         // Find all URLs in the content
         var matches = GetLinkRegex().Matches(item.Content);
@@ -420,12 +420,12 @@ public partial class PostService(
         }
     }
 
-    public async Task<SnPost> PinPostAsync(SnPost post, Account currentUser, PostPinMode pinMode)
+    public async Task<SnPost> PinPostAsync(SnPost post, Account currentUser, Shared.Models.PostPinMode pinMode)
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
         {
-            if (pinMode != PostPinMode.ReplyPage)
+            if (pinMode != Shared.Models.PostPinMode.ReplyPage)
                 throw new InvalidOperationException("Replies can only be pinned in the reply page.");
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
@@ -516,11 +516,11 @@ public partial class PostService(
 
         switch (reaction.Attitude)
         {
-            case PostReactionAttitude.Positive:
+            case Shared.Models.PostReactionAttitude.Positive:
                 if (isRemoving) post.Upvotes--;
                 else post.Upvotes++;
                 break;
-            case PostReactionAttitude.Negative:
+            case Shared.Models.PostReactionAttitude.Negative:
                 if (isRemoving) post.Downvotes--;
                 else post.Downvotes++;
                 break;
@@ -771,7 +771,7 @@ public partial class PostService(
         if (currentUser is null)
         {
             // Anonymous user can only view public posts that are published
-            return post.PublishedAt != null && now >= post.PublishedAt && post.Visibility == PostVisibility.Public;
+            return post.PublishedAt != null && now >= post.PublishedAt && post.Visibility == Shared.Models.PostVisibility.Public;
         }
 
         // Check publication status - either published or user is member
@@ -781,10 +781,10 @@ public partial class PostService(
             return false;
 
         // Check visibility
-        if (post.Visibility == PostVisibility.Private && !isMember)
+        if (post.Visibility == Shared.Models.PostVisibility.Private && !isMember)
             return false;
 
-        if (post.Visibility == PostVisibility.Friends &&
+        if (post.Visibility == Shared.Models.PostVisibility.Friends &&
             !(post.Publisher.AccountId.HasValue && userFriends.Contains(post.Publisher.AccountId.Value) || isMember))
             return false;
 
@@ -843,7 +843,7 @@ public partial class PostService(
             var periodEnd = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
 
             var postsInPeriod = await db.Posts
-                .Where(e => e.Visibility == PostVisibility.Public)
+                .Where(e => e.Visibility == Shared.Models.PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Select(e => e.Id)
                 .ToListAsync();
@@ -854,7 +854,7 @@ public partial class PostService(
                 .Select(e => new
                 {
                     PostId = e.Key,
-                    Score = e.Sum(r => r.Attitude == PostReactionAttitude.Positive ? 1 : -1)
+                    Score = e.Sum(r => r.Attitude == Shared.Models.PostReactionAttitude.Positive ? 1 : -1)
                 })
                 .ToDictionaryAsync(e => e.PostId, e => e.Score);
 
@@ -928,7 +928,7 @@ public partial class PostService(
         Guid postId,
         Guid accountId,
         decimal amount,
-        PostReactionAttitude attitude,
+        Shared.Models.PostReactionAttitude attitude,
         string? message
     )
     {
@@ -947,7 +947,7 @@ public partial class PostService(
         db.PostAwards.Add(award);
         await db.SaveChangesAsync();
 
-        var delta = award.Attitude == PostReactionAttitude.Positive ? amount : -amount;
+        var delta = award.Attitude == Shared.Models.PostReactionAttitude.Positive ? amount : -amount;
 
         await db.Posts.Where(p => p.Id == postId)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.AwardedScore, p => p.AwardedScore + delta));
@@ -1017,20 +1017,20 @@ public static class PostQueryExtensions
         source = isListing switch
         {
             true when currentUser is not null => source.Where(e =>
-                e.Visibility != PostVisibility.Unlisted || publishersId.Contains(e.PublisherId)),
-            true => source.Where(e => e.Visibility != PostVisibility.Unlisted),
+                e.Visibility != Shared.Models.PostVisibility.Unlisted || publishersId.Contains(e.PublisherId)),
+            true => source.Where(e => e.Visibility != Shared.Models.PostVisibility.Unlisted),
             _ => source
         };
 
         if (currentUser is null)
             return source
                 .Where(e => e.PublishedAt != null && now >= e.PublishedAt)
-                .Where(e => e.Visibility == PostVisibility.Public);
+                .Where(e => e.Visibility == Shared.Models.PostVisibility.Public);
 
         return source
             .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || publishersId.Contains(e.PublisherId))
-            .Where(e => e.Visibility != PostVisibility.Private || publishersId.Contains(e.PublisherId))
-            .Where(e => e.Visibility != PostVisibility.Friends ||
+            .Where(e => e.Visibility != Shared.Models.PostVisibility.Private || publishersId.Contains(e.PublisherId))
+            .Where(e => e.Visibility != Shared.Models.PostVisibility.Friends ||
                         (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
                         publishersId.Contains(e.PublisherId));
     }

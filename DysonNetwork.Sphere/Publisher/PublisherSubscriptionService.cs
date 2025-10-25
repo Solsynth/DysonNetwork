@@ -11,7 +11,7 @@ namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherSubscriptionService(
     AppDatabase db,
-    PostService ps,
+    Post.PostService ps,
     IStringLocalizer<NotificationResource> localizer,
     ICacheService cache,
     RingService.RingServiceClient pusher,
@@ -54,7 +54,7 @@ public class PublisherSubscriptionService(
     {
         if (post.RepliedPostId is not null)
             return 0;
-        if (post.Visibility != PostVisibility.Public)
+        if (post.Visibility != Shared.Models.PostVisibility.Public)
             return 0;
         
         // Create notification data

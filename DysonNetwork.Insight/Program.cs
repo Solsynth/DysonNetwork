@@ -1,6 +1,7 @@
 using DysonNetwork.Insight;
 using DysonNetwork.Insight.Startup;
 using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,10 +11,13 @@ builder.AddServiceDefaults();
 builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddControllers();
-builder.Services.AddAppServices(builder.Configuration);
+builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices();
+
+builder.Services.AddAccountService();
+builder.Services.AddSphereService();
 builder.Services.AddThinkingServices(builder.Configuration);
 
 builder.AddSwaggerManifest(

@@ -10,7 +10,7 @@ namespace DysonNetwork.Insight.Startup;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAppServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
         services.AddDbContext<AppDatabase>();
         services.AddSingleton<IClock>(SystemClock.Instance);
@@ -65,8 +65,7 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddThinkingServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var thinkingProvider = new ThinkingProvider(configuration);
-        services.AddSingleton(thinkingProvider);
+        services.AddSingleton<ThinkingProvider>();
 
         return services;
     }

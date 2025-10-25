@@ -1,0 +1,283 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/struct.proto";
+import "file.proto";
+import "realm.proto";
+import "publisher.proto";
+
+// Enums
+enum PostType {
+  POST_TYPE_UNSPECIFIED = 0;
+  MOMENT = 1;
+  ARTICLE = 2;
+}
+
+enum PostVisibility {
+  VISIBILITY_UNSPECIFIED = 0;
+  PUBLIC = 1;
+  FRIENDS = 2;
+  UNLISTED = 3;
+  PRIVATE = 4;
+}
+
+enum PostPinMode {
+  PIN_MODE_UNSPECIFIED = 0;
+  PUBLISHER_PAGE = 1;
+  REALM_PAGE = 2;
+  REPLY_PAGE = 3;
+}
+
+enum ContentSensitiveMark {
+  SENSITIVE_MARK_UNSPECIFIED = 0;
+  LANGUAGE = 1;
+  SEXUAL_CONTENT = 2;
+  VIOLENCE = 3;
+  PROFANITY = 4;
+  HATE_SPEECH = 5;
+  RACISM = 6;
+  ADULT_CONTENT = 7;
+  DRUG_ABUSE = 8;
+  ALCOHOL_ABUSE = 9;
+  GAMBLING = 10;
+  SELF_HARM = 11;
+  CHILD_ABUSE = 12;
+  OTHER = 13;
+}
+
+enum PostReactionAttitude {
+  ATTITUDE_UNSPECIFIED = 0;
+  POST_ATTITUDE_POSITIVE = 1;
+  POST_ATTITUDE_NEUTRAL = 2;
+  POST_ATTITUDE_NEGATIVE = 3;
+}
+
+enum PostEmbedViewRenderer {
+  RENDERER_UNSPECIFIED = 0;
+  WEBVIEW = 1;
+}
+
+// Messages
+
+message PostEmbedView {
+  string uri = 1;
+  optional double aspect_ratio = 2;
+  PostEmbedViewRenderer renderer = 3;
+}
+
+message Post {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string slug = 4;
+  optional google.protobuf.Timestamp edited_at = 5;
+  optional google.protobuf.Timestamp published_at = 6;
+  PostVisibility visibility = 7;
+  optional string content = 8;
+
+  PostType type = 9;
+  optional PostPinMode pin_mode = 10;
+  optional bytes meta = 11; // Dictionary<string, object>
+  optional bytes sensitive_marks = 12; // List<ContentSensitiveMark>
+  optional PostEmbedView embed_view = 13;
+
+  int32 views_unique = 14;
+  int32 views_total = 15;
+  int32 upvotes = 16;
+  int32 downvotes = 17;
+  double awarded_score = 18;
+
+  // Not mapped fields: handled client-side
+  map<string, int32> reactions_count = 19; // Dictionary<string, int>
+  int32 replies_count = 20;
+  map<string, bool> reactions_made = 21; // Dictionary<string, bool>
+
+  bool replied_gone = 22;
+  bool forwarded_gone = 23;
+
+  optional string replied_post_id = 24;
+  optional Post replied_post = 25; // full if populated
+  optional string forwarded_post_id = 26;
+  optional Post forwarded_post = 27; // full if populated
+
+  optional string realm_id = 28;
+  optional Realm realm = 29; // full if populated
+
+  repeated CloudFile attachments = 30; // List<SnCloudFileReferenceObject>
+
+  string publisher_id = 31;
+  Publisher publisher = 32;
+
+  repeated PostAward awards = 33;
+  repeated PostReaction reactions = 34;
+  repeated PostTag tags = 35;
+  repeated PostCategory categories = 36;
+  repeated PostFeaturedRecord featured_records = 37;
+
+  // Added for ToActivity
+  google.protobuf.Timestamp created_at = 38;
+  google.protobuf.Timestamp updated_at = 39;
+  optional google.protobuf.Timestamp deleted_at = 40;
+}
+
+message PostTag {
+  string id = 1;
+  string slug = 2;
+  string name = 3;
+
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message PostCategory {
+  string id = 1;
+  string slug = 2;
+  string name = 3;
+
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message PostCategorySubscription {
+  string id = 1;
+  string account_id = 2;
+
+  optional string category_id = 3;
+  optional PostCategory category = 4;
+  optional string tag_id = 5;
+  optional PostTag tag = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message PostCollection {
+  string id = 1;
+  string slug = 2;
+  optional google.protobuf.StringValue name = 3;
+  optional google.protobuf.StringValue description = 4;
+
+  Publisher publisher = 5;
+  optional string publisher_id = 6; // for cases where full publisher not needed
+
+  repeated Post posts = 7;
+
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message PostFeaturedRecord {
+  string id = 1;
+  string post_id = 2;
+  optional google.protobuf.Timestamp featured_at = 3;
+  int32 social_credits = 4;
+
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message PostReaction {
+  string id = 1;
+  string symbol = 2;
+  PostReactionAttitude attitude = 3;
+
+  string post_id = 4;
+  string account_id = 5;
+  optional Account account = 6; // optional full account
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message PostAward {
+  string id = 1;
+  double amount = 2;
+  PostReactionAttitude attitude = 3;
+  optional google.protobuf.StringValue message = 4;
+
+  string post_id = 5;
+  string account_id = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// ====================================
+// Request/Response Messages
+// ====================================
+
+message GetPostRequest {
+  string id = 1;
+}
+
+message GetPostBatchRequest {
+  repeated string ids = 1;
+}
+
+message GetPostBatchResponse {
+  repeated Post posts = 1;
+}
+
+message SearchPostsRequest {
+  string query = 1;
+  string publisher_id = 2;
+  string realm_id = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+  string order_by = 6;
+}
+
+message SearchPostsResponse {
+  repeated Post posts = 1;
+  string next_page_token = 2;
+  int32 total_size = 3;
+}
+
+message ListPostsRequest {
+  string publisher_id = 1;
+  string realm_id = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+  string order_by = 5;
+  repeated string categories = 6;
+  repeated string tags = 7;
+  string query = 8;
+  repeated PostType types = 9;
+  optional google.protobuf.Timestamp after = 10;  // Filter posts created after this timestamp
+  optional google.protobuf.Timestamp before = 11; // Filter posts created before this timestamp
+  bool include_replies = 12; // Include reply posts
+  optional PostPinMode pinned = 13; // Filter by pinned mode (if present, null means not pinned)
+  bool only_media = 14; // Only return posts with attachments
+  bool shuffle = 15; // Random order
+}
+
+message ListPostsResponse {
+  repeated Post posts = 1;
+  string next_page_token = 2;
+  int32 total_size = 3;
+}
+
+// ====================================
+// Service Definitions
+// ====================================
+
+service PostService {
+  // Get a single post by id
+  rpc GetPost(GetPostRequest) returns (Post);
+
+  // Get multiple posts by ids
+  rpc GetPostBatch(GetPostBatchRequest) returns (GetPostBatchResponse);
+
+  // Search posts
+  rpc SearchPosts(SearchPostsRequest) returns (SearchPostsResponse);
+
+  // List posts with filters
+  rpc ListPosts(ListPostsRequest) returns (ListPostsResponse);
+}
+
+import 'account.proto';

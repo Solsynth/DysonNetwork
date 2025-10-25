@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherType = DysonNetwork.Shared.Models.PublisherType;
 
 namespace DysonNetwork.Sphere.Publisher;
@@ -161,7 +162,7 @@ public class PublisherService(
     {
         var publisher = new SnPublisher
         {
-            Type = Shared.Models.PublisherType.Individual,
+            Type = PublisherType.Individual,
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
             Bio = bio ?? account.Profile.Bio,
@@ -177,7 +178,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = Shared.Models.PublisherMemberRole.Owner,
+                    Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             ]
@@ -214,7 +215,7 @@ public class PublisherService(
     }
 
     public async Task<SnPublisher> CreateOrganizationPublisher(
-        Shared.Models.SnRealm realm,
+        SnRealm realm,
         Account account,
         string? name,
         string? nick,
@@ -225,7 +226,7 @@ public class PublisherService(
     {
         var publisher = new SnPublisher
         {
-            Type = Shared.Models.PublisherType.Organizational,
+            Type = PublisherType.Organizational,
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
@@ -237,7 +238,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = Shared.Models.PublisherMemberRole.Owner,
+                    Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
@@ -299,10 +300,10 @@ public class PublisherService(
 
         var postsCount = await db.Posts.Where(e => e.Publisher.Id == publisher.Id).CountAsync();
         var postsUpvotes = await db.PostReactions
-            .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == PostReactionAttitude.Positive)
+            .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == Shared.Models.PostReactionAttitude.Positive)
             .CountAsync();
         var postsDownvotes = await db.PostReactions
-            .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == PostReactionAttitude.Negative)
+            .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == Shared.Models.PostReactionAttitude.Negative)
             .CountAsync();
 
         var stickerPacksId = await db.StickerPacks.Where(e => e.Publisher.Id == publisher.Id).Select(e => e.Id)

@@ -24,7 +24,7 @@ public class PaymentOrderAwardMeta
     [JsonPropertyName("account_id")] public Guid AccountId { get; set; }
     [JsonPropertyName("post_id")] public Guid PostId { get; set; }
     [JsonPropertyName("amount")] public string Amount { get; set; } = null!;
-    [JsonPropertyName("attitude")] public PostReactionAttitude Attitude { get; set; }
+    [JsonPropertyName("attitude")] public Shared.Models.PostReactionAttitude Attitude { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
 }
 
@@ -82,7 +82,7 @@ public class BroadcastEventHandler(
                             logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
 
                             await using var scope = serviceProvider.CreateAsyncScope();
-                            var ps = scope.ServiceProvider.GetRequiredService<PostService>();
+                            var ps = scope.ServiceProvider.GetRequiredService<Post.PostService>();
 
                             var amountNum = decimal.Parse(meta.Amount);
 

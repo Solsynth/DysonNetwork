@@ -125,7 +125,7 @@ public class PostController(
         if (realm != null)
             query = query.Where(p => p.RealmId == realm.Id);
         if (type != null)
-            query = query.Where(p => p.Type == (PostType)type);
+            query = query.Where(p => p.Type == (Shared.Models.PostType)type);
         if (categories is { Count: > 0 })
             query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
         if (tags is { Count: > 0 })
@@ -139,10 +139,10 @@ public class PostController(
         switch (pinned)
         {
             case true when realm != null:
-                query = query.Where(p => p.PinMode == PostPinMode.RealmPage);
+                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
                 break;
             case true when publisher != null:
-                query = query.Where(p => p.PinMode == PostPinMode.PublisherPage);
+                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
                 return BadRequest(
@@ -360,7 +360,7 @@ public class PostController(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var posts = await db.Posts
-            .Where(e => e.RepliedPostId == id && e.PinMode == PostPinMode.ReplyPage)
+            .Where(e => e.RepliedPostId == id && e.PinMode == Shared.Models.PostPinMode.ReplyPage)
             .OrderByDescending(p => p.CreatedAt)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .ToListAsync();
@@ -425,9 +425,9 @@ public class PostController(
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(1024)] public string? Slug { get; set; }
         public string? Content { get; set; }
-        public PostVisibility? Visibility { get; set; } = PostVisibility.Public;
-        public PostType? Type { get; set; }
-        public PostEmbedView? EmbedView { get; set; }
+        public Shared.Models.PostVisibility? Visibility { get; set; } = Shared.Models.PostVisibility.Public;
+        public Shared.Models.PostType? Type { get; set; }
+        public Shared.Models.PostEmbedView? EmbedView { get; set; }
         [MaxLength(16)] public List<string>? Tags { get; set; }
         [MaxLength(8)] public List<string>? Categories { get; set; }
         [MaxLength(32)] public List<string>? Attachments { get; set; }
@@ -477,9 +477,9 @@ public class PostController(
             Description = request.Description,
             Slug = request.Slug,
             Content = request.Content,
-            Visibility = request.Visibility ?? PostVisibility.Public,
+            Visibility = request.Visibility ?? Shared.Models.PostVisibility.Public,
             PublishedAt = request.PublishedAt,
-            Type = request.Type ?? PostType.Moment,
+            Type = request.Type ?? Shared.Models.PostType.Moment,
             Meta = request.Meta,
             EmbedView = request.EmbedView,
             Publisher = publisher,
@@ -565,7 +565,7 @@ public class PostController(
     public class PostReactionRequest
     {
         [MaxLength(256)] public string Symbol { get; set; } = null!;
-        public PostReactionAttitude Attitude { get; set; }
+        public Shared.Models.PostReactionAttitude Attitude { get; set; }
     }
 
     public static readonly List<string> ReactionsAllowedDefault =
@@ -638,7 +638,7 @@ public class PostController(
     public class PostAwardRequest
     {
         public decimal Amount { get; set; }
-        public PostReactionAttitude Attitude { get; set; }
+        public Shared.Models.PostReactionAttitude Attitude { get; set; }
         [MaxLength(4096)] public string? Message { get; set; }
     }
 
@@ -671,7 +671,7 @@ public class PostController(
     public async Task<ActionResult<PostAwardResponse>> AwardPost(Guid id, [FromBody] PostAwardRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        if (request.Attitude == PostReactionAttitude.Neutral)
+        if (request.Attitude == Shared.Models.PostReactionAttitude.Neutral)
             return BadRequest("You cannot create a neutral post award");
 
         var friendsResponse =
@@ -714,7 +714,7 @@ public class PostController(
 
     public class PostPinRequest
     {
-        [Required] public PostPinMode Mode { get; set; }
+        [Required] public Shared.Models.PostPinMode Mode { get; set; }
     }
 
     [HttpPost("{id:guid}/pin")]
@@ -734,7 +734,7 @@ public class PostController(
         if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
-        if (request.Mode == PostPinMode.RealmPage && post.RealmId != null)
+        if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
         {
             if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, new List<int> { RealmMemberRole.Moderator }))
                 return StatusCode(403, "You are not a moderator of this realm");
@@ -782,7 +782,7 @@ public class PostController(
         if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
-        if (post is { PinMode: PostPinMode.RealmPage, RealmId: not null })
+        if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
         {
             if (!await rs.IsMemberWithRole(post.RealmId.Value, accountId, new List<int> { RealmMemberRole.Moderator }))
                 return StatusCode(403, "You are not a moderator of this realm");
