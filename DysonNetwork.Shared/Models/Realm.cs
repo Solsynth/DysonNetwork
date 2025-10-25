@@ -17,10 +17,6 @@ public class SnRealm : ModelBase, IIdentifiedResource
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
-    
-    // Outdated fields, for backward compability
-    [MaxLength(32)] public string? PictureId { get; set; }
-    [MaxLength(32)] public string? BackgroundId { get; set; }
 
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }

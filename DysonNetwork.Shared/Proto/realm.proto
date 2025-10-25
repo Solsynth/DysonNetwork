@@ -9,6 +9,7 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/empty.proto";
 
 import 'account.proto';
+import "file.proto";
 
 // Message Definitions
 
@@ -18,6 +19,11 @@ message Realm {
     string slug = 3;
     bool is_community = 4;
     bool is_public = 5;
+    string description = 6;
+    optional CloudFile picture = 7;
+    optional CloudFile background = 8;
+    optional VerificationMark verification = 9;
+    string account_id = 10;
 }
 
 message RealmMember {
