@@ -2,13 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Insight.Thinking;
 using DysonNetwork.Shared.Cache;
-using LangChain.Memory;
-using LangChain.Serve;
-using LangChain.Serve.Abstractions.Repository;
-using LangChain.Serve.OpenAI;
-using static LangChain.Chains.Chain;
-using Message = LangChain.Providers.Message;
-using MessageRole = LangChain.Providers.MessageRole;
+using Microsoft.SemanticKernel;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -71,45 +65,9 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddThinkingServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var modelProvider = new ThinkingProvider(configuration);
-        services.AddSingleton(modelProvider);
-
-        services.AddCustomNameGenerator(async messages =>
-        {
-            var template =
-                @"You will be given conversation between User and Assistant. Your task is to give name to this conversation using maximum 3 words
-Conversation:
-{chat_history}
-Your name: ";
-            var conversationBufferMemory = await ConvertToConversationBuffer(messages);
-            var chain = LoadMemory(conversationBufferMemory, "chat_history")
-                        | Template(template)
-                        | LLM(modelProvider.GetModel());
-
-            return await chain.RunAsync("text") ?? string.Empty;
-        });
+        var thinkingProvider = new ThinkingProvider(configuration);
+        services.AddSingleton(thinkingProvider);
 
         return services;
-    }
-
-    private static async Task<ConversationBufferMemory> ConvertToConversationBuffer(
-        IReadOnlyCollection<StoredMessage> list
-        )
-    {
-        var conversationBufferMemory = new ConversationBufferMemory
-        {
-            Formatter =
-            {
-                HumanPrefix = "User",
-                AiPrefix = "Assistant",
-            }
-        };
-        List<Message> converted = list
-            .Select(x => new Message(x.Content, x.Author == MessageAuthor.User ? MessageRole.Human : MessageRole.Ai))
-            .ToList();
-
-        await conversationBufferMemory.ChatHistory.AddMessages(converted);
-
-        return conversationBufferMemory;
     }
 }

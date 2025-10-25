@@ -8,11 +8,9 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
-    <PackageReference Include="LangChain" Version="0.17.0" />
-    <PackageReference Include="LangChain.Databases.Postgres" Version="0.17.0" />
-    <PackageReference Include="LangChain.Serve" Version="0.17.0" />
-    <PackageReference Include="LangChain.Serve.OpenAI" Version="0.17.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.66.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.66.0-alpha" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="9.0.4" />
   </ItemGroup>
