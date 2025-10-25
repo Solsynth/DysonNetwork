@@ -1,6 +1,10 @@
+using System.ClientModel;
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Connectors.Ollama;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using OpenAI;
 
 namespace DysonNetwork.Insight.Thought;
 
@@ -33,6 +37,7 @@ public class ThoughtProvider
         ModelProviderType = cfg.GetValue<string>("Provider")?.ToLower();
         ModelDefault = cfg.GetValue<string>("Model");
         var endpoint = cfg.GetValue<string>("Endpoint");
+        var apiKey = cfg.GetValue<string>("ApiKey");
 
         var builder = Kernel.CreateBuilder();
 
@@ -40,6 +45,14 @@ public class ThoughtProvider
         {
             case "ollama":
                 builder.AddOllamaChatCompletion(ModelDefault!, new Uri(endpoint ?? "http://localhost:11434/api"));
+                break;
+            case "deepseek":
+                builder.AddOpenAIChatCompletion(ModelDefault!,
+                    new OpenAIClient(
+                        new ApiKeyCredential(apiKey!),
+                        new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
+                    )
+                );
                 break;
             default:
                 throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
@@ -77,5 +90,29 @@ public class ThoughtProvider
                 return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
             }, "get_recent_posts", "Get recent posts from the Solar Network.")
         ]);
+    }
+
+    public PromptExecutionSettings CreatePromptExecutionSettings()
+    {
+        return ModelProviderType switch
+        {
+            "ollama" => new OllamaPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
+                    options: new FunctionChoiceBehaviorOptions
+                    {
+                        AllowParallelCalls = true, AllowConcurrentInvocation = true
+                    })
+            },
+            "deepseek" => new OpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
+                    options: new FunctionChoiceBehaviorOptions
+                    {
+                        AllowParallelCalls = true, AllowConcurrentInvocation = true
+                    })
+            },
+            _ => throw new InvalidOperationException("Unknown provider: " + ModelProviderType)
+        };
     }
 }

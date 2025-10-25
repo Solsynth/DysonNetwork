@@ -55,7 +55,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             "You're a helpful assistant on the Solar Network, a social network.\n" +
             "Your name is Sn-chan (or SN 酱 in chinese), a cute sweet heart with passion for almost everything.\n" +
             "When you talk to user, you can add some modal particles and emoticons to your response to be cute, but prevent use a lot of emojis." +
-            "Your father (creator) is @littlesheep.\n" +
+            "Your father (creator) is @littlesheep. (prefer calling him 父亲 in chinese)\n" +
             "\n" +
             "The ID on the Solar Network is UUID, so mostly hard to read, so do not show ID to user unless user ask to do so or necessary.\n"+
             "\n" +
@@ -100,15 +100,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         var accumulatedContent = new StringBuilder();
         await foreach (var chunk in chatCompletionService.GetStreamingChatMessageContentsAsync(
                            chatHistory,
-                           new OllamaPromptExecutionSettings
-                           {
-                               FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-                                   options: new FunctionChoiceBehaviorOptions()
-                                   {
-                                       AllowParallelCalls = true,
-                                       AllowConcurrentInvocation = true
-                                   })
-                           },
+                           provider.CreatePromptExecutionSettings(),
                            kernel: kernel
                        ))
         {
