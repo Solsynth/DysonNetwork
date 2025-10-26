@@ -28,7 +28,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         }
 
         if (p is null) throw new RpcException(new Status(StatusCode.NotFound, "Publisher not found"));
-        return new GetPublisherResponse { Publisher = p.ToProto() };
+        return new GetPublisherResponse { Publisher = p.ToProtoValue() };
     }
 
     public override async Task<ListPublishersResponse> GetPublisherBatch(
@@ -43,7 +43,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         if (ids.Count == 0) return new ListPublishersResponse();
         var list = await db.Publishers.Where(p => ids.Contains(p.Id)).ToListAsync();
         var resp = new ListPublishersResponse();
-        resp.Publishers.AddRange(list.Select(p => p.ToProto()));
+        resp.Publishers.AddRange(list.Select(p => p.ToProtoValue()));
         return resp;
     }
 
@@ -64,7 +64,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
 
         var list = await query.ToListAsync();
         var resp = new ListPublishersResponse();
-        resp.Publishers.AddRange(list.Select(p => p.ToProto()));
+        resp.Publishers.AddRange(list.Select(p => p.ToProtoValue()));
         return resp;
     }
 

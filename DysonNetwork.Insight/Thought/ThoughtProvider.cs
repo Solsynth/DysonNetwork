@@ -1,22 +1,25 @@
 using System.ClientModel;
 using System.Text.Json;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI;
+using PostPinMode = DysonNetwork.Shared.Proto.PostPinMode;
+using PostType = DysonNetwork.Shared.Proto.PostType;
 
 namespace DysonNetwork.Insight.Thought;
 
 public class ThoughtProvider
 {
-    private readonly Kernel _kernel;
     private readonly PostService.PostServiceClient _postClient;
     private readonly AccountService.AccountServiceClient _accountClient;
 
-    public Kernel Kernel => _kernel;
-    public string? ModelProviderType { get; private set; }
-    public string? ModelDefault { get; private set; }
+    public Kernel Kernel { get; }
+
+    private string? ModelProviderType { get; set; }
+    private string? ModelDefault { get; set; }
 
     public ThoughtProvider(
         IConfiguration configuration,
@@ -27,7 +30,7 @@ public class ThoughtProvider
         _postClient = postClient;
         _accountClient = accountClient;
 
-        _kernel = InitializeThinkingProvider(configuration);
+        Kernel = InitializeThinkingProvider(configuration);
         InitializeHelperFunctions();
     }
 
@@ -63,7 +66,7 @@ public class ThoughtProvider
     private void InitializeHelperFunctions()
     {
         // Add Solar Network tools plugin
-        _kernel.ImportPluginFromFunctions("helper_functions", [
+        Kernel.ImportPluginFromFunctions("helper_functions", [
             KernelFunctionFactory.CreateFromMethod(async (string userId) =>
             {
                 var request = new GetAccountRequest { Id = userId };
@@ -131,7 +134,7 @@ public class ThoughtProvider
                 if (tags != null) request.Tags.AddRange(tags);
                 if (types != null) request.Types_.AddRange(types.Select(t => (PostType)t));
                 var response = await _postClient.ListPostsAsync(request);
-                return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
+                return JsonSerializer.Serialize(response.Posts.Select(SnPost.FromProtoValue), GrpcTypeHelper.SerializerOptions);
             }, "list_posts", "Get posts from the Solar Network with customizable filters.")
         ]);
     }

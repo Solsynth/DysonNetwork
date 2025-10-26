@@ -100,13 +100,13 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
             Upvotes = Upvotes,
             Downvotes = Downvotes,
             AwardedScore = (double)AwardedScore,
-            ReactionsCount = { ReactionsCount ?? new Dictionary<string, int>() },
+            ReactionsCount = { ReactionsCount },
             RepliesCount = RepliesCount,
             ReactionsMade = { ReactionsMade ?? new Dictionary<string, bool>() },
             RepliedGone = RepliedGone,
             ForwardedGone = ForwardedGone,
             PublisherId = PublisherId.ToString(),
-            Publisher = Publisher.ToProto(),
+            Publisher = Publisher.ToProtoValue(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
         };
@@ -128,7 +128,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
 
         if (PinMode.HasValue)
         {
-            proto.PinMode = (Proto.PostPinMode)((int)PinMode.Value);
+            proto.PinMode = (Proto.PostPinMode)((int)PinMode.Value + 1);
         }
 
         if (Meta != null)
@@ -184,6 +184,95 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
             proto.DeletedAt = Timestamp.FromDateTimeOffset(DeletedAt.Value.ToDateTimeOffset());
 
         return proto;
+    }
+
+    public static SnPost FromProtoValue(Post proto)
+    {
+        var post = new SnPost
+        {
+            Id = Guid.Parse(proto.Id),
+            Title = string.IsNullOrEmpty(proto.Title) ? null : proto.Title,
+            Description = string.IsNullOrEmpty(proto.Description) ? null : proto.Description,
+            Slug = string.IsNullOrEmpty(proto.Slug) ? null : proto.Slug,
+            Visibility = (PostVisibility)((int)proto.Visibility - 1),
+            Type = (PostType)((int)proto.Type - 1),
+            ViewsUnique = proto.ViewsUnique,
+            ViewsTotal = proto.ViewsTotal,
+            Upvotes = proto.Upvotes,
+            Downvotes = proto.Downvotes,
+            AwardedScore = (decimal)proto.AwardedScore,
+            ReactionsCount = proto.ReactionsCount.ToDictionary(kv => kv.Key, kv => kv.Value),
+            RepliesCount = proto.RepliesCount,
+            ReactionsMade = proto.ReactionsMade.ToDictionary(kv => kv.Key, kv => kv.Value),
+            RepliedGone = proto.RepliedGone,
+            ForwardedGone = proto.ForwardedGone,
+            PublisherId = Guid.Parse(proto.PublisherId),
+            Publisher = SnPublisher.FromProtoValue(proto.Publisher),
+            CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset())
+        };
+
+        if (proto.EditedAt is not null)
+            post.EditedAt = Instant.FromDateTimeOffset(proto.EditedAt.ToDateTimeOffset());
+
+        if (proto.PublishedAt is not null)
+            post.PublishedAt = Instant.FromDateTimeOffset(proto.PublishedAt.ToDateTimeOffset());
+
+        if (!string.IsNullOrEmpty(proto.Content))
+            post.Content = proto.Content;
+
+        if (proto is { HasPinMode: true, PinMode: > 0 })
+            post.PinMode = (PostPinMode)(proto.PinMode - 1);
+
+        if (proto.Meta != null)
+            post.Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta);
+
+        if (proto.SensitiveMarks != null)
+            post.SensitiveMarks =
+                GrpcTypeHelper.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks);
+
+        if (proto.EmbedView is not null)
+            post.EmbedView = PostEmbedView.FromProtoValue(proto.EmbedView);
+
+        if (!string.IsNullOrEmpty(proto.RepliedPostId))
+        {
+            post.RepliedPostId = Guid.Parse(proto.RepliedPostId);
+            if (proto.RepliedPost is not null)
+                post.RepliedPost = FromProtoValue(proto.RepliedPost);
+        }
+
+        if (!string.IsNullOrEmpty(proto.ForwardedPostId))
+        {
+            post.ForwardedPostId = Guid.Parse(proto.ForwardedPostId);
+            if (proto.ForwardedPost is not null)
+                post.ForwardedPost = FromProtoValue(proto.ForwardedPost);
+        }
+
+        if (!string.IsNullOrEmpty(proto.RealmId))
+        {
+            post.RealmId = Guid.Parse(proto.RealmId);
+            if (proto.Realm is not null)
+                post.Realm = SnRealm.FromProtoValue(proto.Realm);
+        }
+
+        post.Attachments.AddRange(proto.Attachments.Select(SnCloudFileReferenceObject.FromProtoValue));
+        post.Awards.AddRange(proto.Awards.Select(a => new SnPostAward
+        {
+            Id = Guid.Parse(a.Id), PostId = Guid.Parse(a.PostId), AccountId = Guid.Parse(a.AccountId),
+            Amount = (decimal)a.Amount, Attitude = (PostReactionAttitude)((int)a.Attitude - 1),
+            Message = string.IsNullOrEmpty(a.Message) ? null : a.Message,
+            CreatedAt = Instant.FromDateTimeOffset(a.CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Instant.FromDateTimeOffset(a.UpdatedAt.ToDateTimeOffset())
+        }));
+        post.Reactions.AddRange(proto.Reactions.Select(SnPostReaction.FromProtoValue));
+        post.Tags.AddRange(proto.Tags.Select(SnPostTag.FromProtoValue));
+        post.Categories.AddRange(proto.Categories.Select(SnPostCategory.FromProtoValue));
+        post.FeaturedRecords.AddRange(proto.FeaturedRecords.Select(SnPostFeaturedRecord.FromProtoValue));
+
+        if (proto.DeletedAt is not null)
+            post.DeletedAt = Instant.FromDateTimeOffset(proto.DeletedAt.ToDateTimeOffset());
+
+        return post;
     }
 
     public SnActivity ToActivity()
@@ -314,7 +403,21 @@ public class SnPostFeaturedRecord : ModelBase
         {
             proto.FeaturedAt = Timestamp.FromDateTimeOffset(FeaturedAt.Value.ToDateTimeOffset());
         }
+
         return proto;
+    }
+
+    public static SnPostFeaturedRecord FromProtoValue(PostFeaturedRecord proto)
+    {
+        return new SnPostFeaturedRecord
+        {
+            Id = Guid.Parse(proto.Id),
+            PostId = Guid.Parse(proto.PostId),
+            SocialCredits = proto.SocialCredits,
+            CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
+            FeaturedAt = proto.FeaturedAt != null ? Instant.FromDateTimeOffset(proto.FeaturedAt.ToDateTimeOffset()) : null
+        };
     }
 }
 
@@ -352,6 +455,7 @@ public class SnPostReaction : ModelBase
         {
             proto.Account = Account.ToProtoValue();
         }
+
         return proto;
     }
 
@@ -422,6 +526,7 @@ public class PostEmbedView
         {
             proto.AspectRatio = AspectRatio.Value;
         }
+
         return proto;
     }
 

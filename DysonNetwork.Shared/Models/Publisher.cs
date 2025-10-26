@@ -43,7 +43,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
     public string ResourceIdentifier => $"publisher:{Id}";
 
-    public static SnPublisher FromProto(Proto.Publisher proto)
+    public static SnPublisher FromProtoValue(Proto.Publisher proto)
     {
         var publisher = new SnPublisher
         {
@@ -85,7 +85,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
         return publisher;
     }
 
-    public Proto.Publisher ToProto()
+    public Proto.Publisher ToProtoValue()
     {
         var p = new Proto.Publisher()
         {

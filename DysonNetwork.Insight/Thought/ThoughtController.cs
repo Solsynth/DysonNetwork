@@ -26,13 +26,14 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        // Generate topic if creating new sequence
+        // Generate a topic if creating a new sequence
         string? topic = null;
         if (!request.SequenceId.HasValue)
         {
-            // Use AI to summarize topic from user message
+            // Use AI to summarize a topic from a user message
             var summaryHistory = new ChatHistory(
-                "You are a helpful assistant. Summarize the following user message into a concise topic title (max 100 characters). Direct give the topic you summerized, do not add extra preifx / suffix."
+                "You are a helpful assistant. Summarize the following user message into a concise topic title (max 100 characters).\n" +
+                "Direct give the topic you summerized, do not add extra prefix / suffix."
             );
             summaryHistory.AddUserMessage(request.UserMessage);
 
@@ -105,7 +106,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                        ))
         {
             // Write each chunk to the HTTP response as SSE
-            var data = chunk.Content ?? "";
+            var data = chunk.ToString();
             accumulatedContent.Append(data);
             if (string.IsNullOrEmpty(data)) continue;
 
@@ -121,14 +122,15 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         // Write the topic if it was newly set, then the thought object as JSON to the stream
         using (var streamBuilder = new MemoryStream())
         {
-            await streamBuilder.WriteAsync("\n"u8.ToArray());
+            await streamBuilder.WriteAsync("\n\ndata: "u8.ToArray());
             if (topic != null)
             {
-                await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"<topic>{sequence.Topic ?? ""}</topic>\n"));
+                var topicJson = JsonSerializer.Serialize(new { type = "topic", data = sequence.Topic ?? "" });
+                await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"{topicJson}\n\n"));
             }
 
-            await streamBuilder.WriteAsync(
-                Encoding.UTF8.GetBytes(JsonSerializer.Serialize(savedThought, GrpcTypeHelper.SerializerOptions)));
+            var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought }, GrpcTypeHelper.SerializerOptions);
+            await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"data: {thoughtJson}\n\n"));
             var outputBytes = streamBuilder.ToArray();
             await Response.Body.WriteAsync(outputBytes);
             await Response.Body.FlushAsync();

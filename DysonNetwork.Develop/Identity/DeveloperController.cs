@@ -79,7 +79,7 @@ public class DeveloperController(
         try
         {
             var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Name = name });
-            pub = SnPublisher.FromProto(pubResponse.Publisher);
+            pub = SnPublisher.FromProtoValue(pubResponse.Publisher);
         } catch (RpcException ex)
         {
             return NotFound(ex.Status.Detail);
