@@ -21,7 +21,7 @@ public abstract class GrpcTypeHelper
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
         PropertyNameCaseInsensitive = true,
     }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-    
+
     public static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
     {
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
@@ -51,6 +51,7 @@ public abstract class GrpcTypeHelper
                 _ => Value.ForString(JsonSerializer.Serialize(kvp.Value, SerializerOptions)) // fallback to JSON string
             };
         }
+
         return result;
     }
 
@@ -66,13 +67,15 @@ public abstract class GrpcTypeHelper
                     try
                     {
                         // Try to parse as JSON object or primitive
-                        result[kvp.Key] = JsonNode.Parse(value.StringValue)?.AsObject() ?? JsonObject.Create(new JsonElement());
+                        result[kvp.Key] = JsonNode.Parse(value.StringValue)?.AsObject() ??
+                                          JsonObject.Create(new JsonElement());
                     }
                     catch
                     {
                         // Fallback to raw string
                         result[kvp.Key] = value.StringValue;
                     }
+
                     break;
                 case Value.KindOneofCase.NumberValue:
                     result[kvp.Key] = value.NumberValue;
@@ -106,6 +109,7 @@ public abstract class GrpcTypeHelper
                     break;
             }
         }
+
         return result;
     }
 
@@ -117,7 +121,8 @@ public abstract class GrpcTypeHelper
             Value.KindOneofCase.NumberValue => value.NumberValue,
             Value.KindOneofCase.BoolValue => value.BoolValue,
             Value.KindOneofCase.NullValue => null,
-            _ => JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(value, SerializerOptions), SerializerOptions)
+            _ => JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(value, SerializerOptions),
+                SerializerOptions)
         };
     }
 
@@ -162,9 +167,9 @@ public abstract class GrpcTypeHelper
             JsonSerializer.Serialize(obj, SerializerOptions)
         );
     }
-    
+
     public static T? ConvertByteStringToObject<T>(ByteString bytes)
     {
-        return JsonSerializer.Deserialize<T>(bytes.ToStringUtf8(), SerializerOptions);
+        return bytes.IsEmpty ? default : JsonSerializer.Deserialize<T>(bytes.ToStringUtf8(), SerializerOptions);
     }
 }

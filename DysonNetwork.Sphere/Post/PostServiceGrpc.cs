@@ -124,10 +124,14 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             .Include(p => p.Awards)
             .Include(p => p.FeaturedRecords)
             .AsQueryable();
-        
+
         query = request.Shuffle
             ? query.OrderBy(e => EF.Functions.Random())
-            : query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
+            : request.OrderBy switch
+            {
+                "asc" => query.OrderBy(e => e.PublishedAt ?? e.CreatedAt),
+                _ => query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt),
+            };
 
         if (!string.IsNullOrWhiteSpace(request.PublisherId) && Guid.TryParse(request.PublisherId, out var pid))
             query = query.Where(p => p.PublisherId == pid);

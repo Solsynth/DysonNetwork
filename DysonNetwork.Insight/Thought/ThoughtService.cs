@@ -6,7 +6,8 @@ namespace DysonNetwork.Insight.Thought;
 
 public class ThoughtService(AppDatabase db, ICacheService cache)
 {
-    public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(Guid accountId, Guid? sequenceId, string? topic = null)
+    public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(Guid accountId, Guid? sequenceId,
+        string? topic = null)
     {
         if (sequenceId.HasValue)
         {
@@ -23,13 +24,19 @@ public class ThoughtService(AppDatabase db, ICacheService cache)
         }
     }
 
-    public async Task<SnThinkingThought> SaveThoughtAsync(SnThinkingSequence sequence, string content, ThinkingThoughtRole role)
+    public async Task<SnThinkingThought> SaveThoughtAsync(
+        SnThinkingSequence sequence,
+        string content,
+        ThinkingThoughtRole role,
+        List<SnThinkingChunk>? chunks = null
+    )
     {
         var thought = new SnThinkingThought
         {
             SequenceId = sequence.Id,
             Content = content,
-            Role = role
+            Role = role,
+            Chunks = chunks ?? []
         };
         db.ThinkingThoughts.Add(thought);
         await db.SaveChangesAsync();
@@ -60,7 +67,8 @@ public class ThoughtService(AppDatabase db, ICacheService cache)
         return thoughts;
     }
 
-    public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(Guid accountId, int offset, int take)
+    public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(Guid accountId, int offset,
+        int take)
     {
         var query = db.ThinkingSequences.Where(s => s.AccountId == accountId);
         var totalCount = await query.CountAsync();

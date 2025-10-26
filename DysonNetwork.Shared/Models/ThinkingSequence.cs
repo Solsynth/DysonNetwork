@@ -18,12 +18,28 @@ public enum ThinkingThoughtRole
     User
 }
 
+public enum StreamingContentType
+{
+    Text,
+    Reasoning,
+    FunctionCall,
+    Unknown
+}
+
+public class SnThinkingChunk
+{
+    public StreamingContentType Type { get; set; }
+    public Dictionary<string, object>? Data { get; set; } = new();
+}
+
 public class SnThinkingThought : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string? Content { get; set; }
 
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Files { get; set; } = [];
+
+    [Column(TypeName = "jsonb")] public List<SnThinkingChunk> Chunks { get; set; } = [];
 
     public ThinkingThoughtRole Role { get; set; }
 

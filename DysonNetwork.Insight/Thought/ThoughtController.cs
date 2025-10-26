@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
@@ -21,6 +24,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
     }
 
     [HttpPost]
+    [Experimental("SKEXP0110")]
     public async Task<ActionResult> Think([FromBody] StreamThinkingRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -72,7 +76,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         // Add previous thoughts (excluding the current user thought, which is the first one since descending)
         var previousThoughts = await service.GetPreviousThoughtsAsync(sequence);
         var count = previousThoughts.Count;
-        for (var i = 1; i < count; i++) // skip first (newest, current user)
+        for (var i = 1; i < count; i++) // skip first (the newest, current user)
         {
             var thought = previousThoughts[i];
             switch (thought.Role)
@@ -99,6 +103,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
 
         // Kick off streaming generation
         var accumulatedContent = new StringBuilder();
+        var thinkingChunks = new List<SnThinkingChunk>();
         await foreach (var chunk in chatCompletionService.GetStreamingChatMessageContentsAsync(
                            chatHistory,
                            provider.CreatePromptExecutionSettings(),
@@ -108,10 +113,33 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             // Process each item in the chunk for detailed streaming
             foreach (var item in chunk.Items)
             {
+                var streamingChunk = item switch
+                {
+                    StreamingTextContent textContent => new SnThinkingChunk
+                        { Type = StreamingContentType.Text, Data = new() { ["text"] = textContent.Text ?? "" } },
+                    StreamingReasoningContent reasoningContent => new SnThinkingChunk
+                    {
+                        Type = StreamingContentType.Reasoning, Data = new() { ["text"] = reasoningContent.Text ?? "" }
+                    },
+                    StreamingFunctionCallUpdateContent functionCall => new SnThinkingChunk
+                    {
+                        Type = StreamingContentType.FunctionCall,
+                        Data = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                            JsonSerializer.Serialize(functionCall)) ?? new()
+                    },
+                    _ => new SnThinkingChunk
+                    {
+                        Type = StreamingContentType.Unknown, Data = new() { ["data"] = JsonSerializer.Serialize(item) }
+                    }
+                };
+                thinkingChunks.Add(streamingChunk);
+
                 var messageJson = item switch
                 {
                     StreamingTextContent textContent =>
                         JsonSerializer.Serialize(new { type = "text", data = textContent.Text ?? "" }),
+                    StreamingReasoningContent reasoningContent =>
+                        JsonSerializer.Serialize(new { type = "reasoning", data = reasoningContent.Text ?? "" }),
                     StreamingFunctionCallUpdateContent functionCall =>
                         JsonSerializer.Serialize(new { type = "function_call", data = functionCall }),
                     _ =>
@@ -120,7 +148,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
 
                 // Write a structured JSON message to the HTTP response as SSE
                 var messageBytes = Encoding.UTF8.GetBytes($"data: {messageJson}\n\n");
-                await Response.Body.WriteAsync(messageBytes, 0, messageBytes.Length);
+                await Response.Body.WriteAsync(messageBytes);
                 await Response.Body.FlushAsync();
             }
 
@@ -129,8 +157,12 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         }
 
         // Save assistant thought
-        var savedThought =
-            await service.SaveThoughtAsync(sequence, accumulatedContent.ToString(), ThinkingThoughtRole.Assistant);
+        var savedThought = await service.SaveThoughtAsync(
+            sequence,
+            accumulatedContent.ToString(),
+            ThinkingThoughtRole.Assistant,
+            thinkingChunks
+        );
 
         // Write the topic if it was newly set, then the thought object as JSON to the stream
         using (var streamBuilder = new MemoryStream())

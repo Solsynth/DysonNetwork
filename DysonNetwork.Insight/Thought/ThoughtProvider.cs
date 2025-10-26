@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -6,8 +7,12 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI;
-using PostPinMode = DysonNetwork.Shared.Proto.PostPinMode;
 using PostType = DysonNetwork.Shared.Proto.PostType;
+using Microsoft.SemanticKernel.Plugins.Web;
+using Microsoft.SemanticKernel.Plugins.Web.Bing;
+using Microsoft.SemanticKernel.Plugins.Web.Google;
+using NodaTime.Serialization.Protobuf;
+using NodaTime.Text;
 
 namespace DysonNetwork.Insight.Thought;
 
@@ -15,20 +20,26 @@ public class ThoughtProvider
 {
     private readonly PostService.PostServiceClient _postClient;
     private readonly AccountService.AccountServiceClient _accountClient;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<ThoughtProvider> _logger;
 
     public Kernel Kernel { get; }
 
     private string? ModelProviderType { get; set; }
     private string? ModelDefault { get; set; }
 
+    [Experimental("SKEXP0050")]
     public ThoughtProvider(
         IConfiguration configuration,
-        PostService.PostServiceClient postClient,
-        AccountService.AccountServiceClient accountClient
+        PostService.PostServiceClient postServiceClient,
+        AccountService.AccountServiceClient accountServiceClient,
+        ILogger<ThoughtProvider> logger
     )
     {
-        _postClient = postClient;
-        _accountClient = accountClient;
+        _logger = logger;
+        _postClient = postServiceClient;
+        _accountClient = accountServiceClient;
+        _configuration = configuration;
 
         Kernel = InitializeThinkingProvider(configuration);
         InitializeHelperFunctions();
@@ -63,10 +74,11 @@ public class ThoughtProvider
         return builder.Build();
     }
 
+    [Experimental("SKEXP0050")]
     private void InitializeHelperFunctions()
     {
         // Add Solar Network tools plugin
-        Kernel.ImportPluginFromFunctions("helper_functions", [
+        Kernel.ImportPluginFromFunctions("solar_network", [
             KernelFunctionFactory.CreateFromMethod(async (string userId) =>
             {
                 var request = new GetAccountRequest { Id = userId };
@@ -80,83 +92,79 @@ public class ThoughtProvider
                 return JsonSerializer.Serialize(response, GrpcTypeHelper.SerializerOptions);
             }, "get_post", "Get a single post by ID from the Solar Network."),
             KernelFunctionFactory.CreateFromMethod(async (string query) =>
-            {
-                var request = new SearchPostsRequest { Query = query, PageSize = 10 };
-                var response = await _postClient.SearchPostsAsync(request);
-                return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
-            }, "search_posts", "Search posts by query from the Solar Network."),
+                {
+                    var request = new SearchPostsRequest { Query = query, PageSize = 10 };
+                    var response = await _postClient.SearchPostsAsync(request);
+                    return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
+                }, "search_posts",
+                "Search posts by query from the Solar Network. The input query is will be used to search with title, description and body content"),
             KernelFunctionFactory.CreateFromMethod(async (
-                    string? publisherId = null,
-                    string? realmId = null,
-                    int pageSize = 10,
-                    string? pageToken = null,
                     string? orderBy = null,
-                    List<string>? categories = null,
-                    List<string>? tags = null,
-                    string? query = null,
-                    List<int>? types = null,
                     string? afterIso = null,
-                    string? beforeIso = null,
-                    bool includeReplies = false,
-                    string? pinned = null,
-                    bool onlyMedia = false,
-                    bool shuffle = false
+                    string? beforeIso = null
                 ) =>
                 {
+                    _logger.LogInformation("Begin building request to list post from sphere...");
+
                     var request = new ListPostsRequest
                     {
-                        PublisherId = publisherId,
-                        RealmId = realmId,
-                        PageSize = pageSize,
-                        PageToken = pageToken,
+                        PageSize = 20,
                         OrderBy = orderBy,
-                        Query = query,
-                        IncludeReplies = includeReplies,
-                        Pinned =
-                            !string.IsNullOrEmpty(pinned) && int.TryParse(pinned, out int p) ? (PostPinMode)p : default,
-                        OnlyMedia = onlyMedia,
-                        Shuffle = shuffle
                     };
                     if (!string.IsNullOrEmpty(afterIso))
-                    {
-                        request.After =
-                            Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(DateTimeOffset.Parse(afterIso)
-                                .ToUniversalTime());
-                    }
-
+                        try
+                        {
+                            request.After = InstantPattern.General.Parse(afterIso).Value.ToTimestamp();
+                        }
+                        catch (Exception)
+                        {
+                            _logger.LogWarning("Invalid afterIso format: {AfterIso}", afterIso);
+                        }
                     if (!string.IsNullOrEmpty(beforeIso))
-                    {
-                        request.Before =
-                            Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(DateTimeOffset.Parse(beforeIso)
-                                .ToUniversalTime());
-                    }
+                        try
+                        {
+                            request.Before = InstantPattern.General.Parse(beforeIso).Value.ToTimestamp();
+                        }
+                        catch (Exception)
+                        {
+                            _logger.LogWarning("Invalid beforeIso format: {BeforeIso}", beforeIso);
+                        }
 
-                    if (categories != null) request.Categories.AddRange(categories);
-                    if (tags != null) request.Tags.AddRange(tags);
-                    if (types != null) request.Types_.AddRange(types.Select(t => (PostType)t));
+                    _logger.LogInformation("Request built, {Request}", request);
+
                     var response = await _postClient.ListPostsAsync(request);
-                    return JsonSerializer.Serialize(response.Posts.Select(SnPost.FromProtoValue),
-                        GrpcTypeHelper.SerializerOptions);
+
+                    var data = response.Posts.Select(SnPost.FromProtoValue);
+                    _logger.LogInformation("Sphere service returned posts: {Posts}", data);
+                    return JsonSerializer.Serialize(data, GrpcTypeHelper.SerializerOptions);
                 }, "list_posts",
-                "Get posts from the Solar Network with customizable filters.\n" +
+                "Get posts from the Solar Network.\n" +
                 "Parameters:\n" +
-                "publisherId (optional, string: publisher ID to filter by)\n" +
-                "realmId (optional, string: realm ID to filter by)\n" +
-                "pageSize (optional, integer: posts per page, default 20)\n" +
-                "pageToken (optional, string: pagination token)\n" +
-                "orderBy (optional, string: field to order by)\n" +
-                "categories (optional, array of strings: category slugs)\n" +
-                "tags (optional, array of strings: tag slugs)\n" +
-                "query (optional, string: search query, will search in title, description and body)\n" +
-                "types (optional, array of integers: post types, use 0 for Moment, 1 for Article)\n" +
+                "orderBy (optional, string: order by published date, accept asc or desc)\n" +
                 "afterIso (optional, string: ISO date for posts after this date)\n" +
-                "beforeIso (optional, string: ISO date for posts before this date)\n" +
-                "includeReplies (optional, boolean: include replies, default false)\n" +
-                "pinned (optional, string: pin mode as integer string, '0' for PublisherPage, '1' for RealmPage, '2' for ReplyPage)\n" +
-                "onlyMedia (optional, boolean: only posts with media, default false)\n" +
-                "shuffle (optional, boolean: shuffle results, default false)"
+                "beforeIso (optional, string: ISO date for posts before this date)"
             )
         ]);
+
+        // Add web search plugins if configured
+        var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
+        if (!string.IsNullOrEmpty(bingApiKey))
+        {
+            var bingConnector = new BingConnector(bingApiKey);
+            var bing = new WebSearchEnginePlugin(bingConnector);
+            Kernel.ImportPluginFromObject(bing, "bing");
+        }
+
+        var googleApiKey = _configuration.GetValue<string>("Thinking:GoogleApiKey");
+        var googleCx = _configuration.GetValue<string>("Thinking:GoogleCx");
+        if (!string.IsNullOrEmpty(googleApiKey) && !string.IsNullOrEmpty(googleCx))
+        {
+            var googleConnector = new GoogleConnector(
+                apiKey: googleApiKey,
+                searchEngineId: googleCx);
+            var google = new WebSearchEnginePlugin(googleConnector);
+            Kernel.ImportPluginFromObject(google, "google");
+        }
     }
 
     public PromptExecutionSettings CreatePromptExecutionSettings()
