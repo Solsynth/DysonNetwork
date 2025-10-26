@@ -239,14 +239,14 @@ message SearchPostsResponse {
 }
 
 message ListPostsRequest {
-  string publisher_id = 1;
-  string realm_id = 2;
+  google.protobuf.StringValue publisher_id = 1;
+  google.protobuf.StringValue realm_id = 2;
   int32 page_size = 3;
   string page_token = 4;
-  string order_by = 5;
+  google.protobuf.StringValue order_by = 5;
   repeated string categories = 6;
   repeated string tags = 7;
-  string query = 8;
+  google.protobuf.StringValue query = 8;
   repeated PostType types = 9;
   optional google.protobuf.Timestamp after = 10;  // Filter posts created after this timestamp
   optional google.protobuf.Timestamp before = 11; // Filter posts created before this timestamp

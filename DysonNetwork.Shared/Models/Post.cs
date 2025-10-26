@@ -112,39 +112,25 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
         };
 
         if (EditedAt.HasValue)
-        {
             proto.EditedAt = Timestamp.FromDateTimeOffset(EditedAt.Value.ToDateTimeOffset());
-        }
 
         if (PublishedAt.HasValue)
-        {
             proto.PublishedAt = Timestamp.FromDateTimeOffset(PublishedAt.Value.ToDateTimeOffset());
-        }
 
         if (Content != null)
-        {
             proto.Content = Content;
-        }
 
         if (PinMode.HasValue)
-        {
             proto.PinMode = (Proto.PostPinMode)((int)PinMode.Value + 1);
-        }
 
         if (Meta != null)
-        {
             proto.Meta = GrpcTypeHelper.ConvertObjectToByteString(Meta);
-        }
 
         if (SensitiveMarks != null)
-        {
             proto.SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks);
-        }
 
         if (EmbedView != null)
-        {
             proto.EmbedView = EmbedView.ToProtoValue();
-        }
 
         if (RepliedPostId.HasValue)
         {
