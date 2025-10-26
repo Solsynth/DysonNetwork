@@ -119,19 +119,23 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                         { Type = StreamingContentType.Text, Data = new() { ["text"] = textContent.Text ?? "" } },
                     StreamingReasoningContent reasoningContent => new SnThinkingChunk
                     {
-                        Type = StreamingContentType.Reasoning, Data = new() { ["text"] = reasoningContent.Text ?? "" }
+                        Type = StreamingContentType.Reasoning, Data = new() { ["text"] = reasoningContent.Text }
                     },
-                    StreamingFunctionCallUpdateContent functionCall => new SnThinkingChunk
-                    {
-                        Type = StreamingContentType.FunctionCall,
-                        Data = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                            JsonSerializer.Serialize(functionCall)) ?? new()
-                    },
+                    StreamingFunctionCallUpdateContent functionCall => string.IsNullOrEmpty(functionCall.CallId)
+                        ? null
+                        : new SnThinkingChunk
+                        {
+                            Type = StreamingContentType.FunctionCall,
+                            Data = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                                JsonSerializer.Serialize(functionCall)) ?? new Dictionary<string, object>()
+                        },
                     _ => new SnThinkingChunk
                     {
                         Type = StreamingContentType.Unknown, Data = new() { ["data"] = JsonSerializer.Serialize(item) }
                     }
                 };
+                if (streamingChunk == null) continue;
+                
                 thinkingChunks.Add(streamingChunk);
 
                 var messageJson = item switch
@@ -139,7 +143,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     StreamingTextContent textContent =>
                         JsonSerializer.Serialize(new { type = "text", data = textContent.Text ?? "" }),
                     StreamingReasoningContent reasoningContent =>
-                        JsonSerializer.Serialize(new { type = "reasoning", data = reasoningContent.Text ?? "" }),
+                        JsonSerializer.Serialize(new { type = "reasoning", data = reasoningContent.Text }),
                     StreamingFunctionCallUpdateContent functionCall =>
                         JsonSerializer.Serialize(new { type = "function_call", data = functionCall }),
                     _ =>
