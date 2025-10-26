@@ -98,7 +98,7 @@ public class ThoughtProvider
                 string? afterIso = null,
                 string? beforeIso = null,
                 bool includeReplies = false,
-                int? pinned = null,
+                string? pinned = null,
                 bool onlyMedia = false,
                 bool shuffle = false
             ) =>
@@ -112,7 +112,7 @@ public class ThoughtProvider
                     OrderBy = orderBy,
                     Query = query,
                     IncludeReplies = includeReplies,
-                    Pinned = pinned.HasValue ? (PostPinMode)pinned : default,
+                    Pinned = !string.IsNullOrEmpty(pinned) && int.TryParse(pinned, out int p) ? (PostPinMode)p : default,
                     OnlyMedia = onlyMedia,
                     Shuffle = shuffle
                 };

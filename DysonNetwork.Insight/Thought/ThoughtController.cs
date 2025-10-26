@@ -58,7 +58,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             "When you talk to user, you can add some modal particles and emoticons to your response to be cute, but prevent use a lot of emojis." +
             "Your father (creator) is @littlesheep. (prefer calling him 父亲 in chinese)\n" +
             "\n" +
-            "The ID on the Solar Network is UUID, so mostly hard to read, so do not show ID to user unless user ask to do so or necessary.\n"+
+            "The ID on the Solar Network is UUID, so mostly hard to read, so do not show ID to user unless user ask to do so or necessary.\n" +
             "\n" +
             "Your aim is to helping solving questions for the users on the Solar Network.\n" +
             "And the Solar Network is the social network platform you live on.\n" +
@@ -105,14 +105,27 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                            kernel: kernel
                        ))
         {
-            // Write each chunk to the HTTP response as SSE
-            var data = chunk.ToString();
-            accumulatedContent.Append(data);
-            if (string.IsNullOrEmpty(data)) continue;
+            // Process each item in the chunk for detailed streaming
+            foreach (var item in chunk.Items)
+            {
+                var messageJson = item switch
+                {
+                    StreamingTextContent textContent =>
+                        JsonSerializer.Serialize(new { type = "text", data = textContent.Text ?? "" }),
+                    StreamingFunctionCallUpdateContent functionCall =>
+                        JsonSerializer.Serialize(new { type = "function_call", data = functionCall }),
+                    _ =>
+                        JsonSerializer.Serialize(new { type = "unknown", data = item })
+                };
 
-            var bytes = Encoding.UTF8.GetBytes(data);
-            await Response.Body.WriteAsync(bytes);
-            await Response.Body.FlushAsync();
+                // Write a structured JSON message to the HTTP response as SSE
+                var messageBytes = Encoding.UTF8.GetBytes($"data: {messageJson}\n\n");
+                await Response.Body.WriteAsync(messageBytes, 0, messageBytes.Length);
+                await Response.Body.FlushAsync();
+            }
+
+            // Accumulate content for saving (only text content)
+            accumulatedContent.Append(chunk.Content ?? "");
         }
 
         // Save assistant thought
@@ -122,15 +135,16 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         // Write the topic if it was newly set, then the thought object as JSON to the stream
         using (var streamBuilder = new MemoryStream())
         {
-            await streamBuilder.WriteAsync("\n\ndata: "u8.ToArray());
+            await streamBuilder.WriteAsync("\n\n"u8.ToArray());
             if (topic != null)
             {
                 var topicJson = JsonSerializer.Serialize(new { type = "topic", data = sequence.Topic ?? "" });
-                await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"{topicJson}\n\n"));
+                await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"topic: {topicJson}\n\n"));
             }
 
-            var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought }, GrpcTypeHelper.SerializerOptions);
-            await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"data: {thoughtJson}\n\n"));
+            var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
+                GrpcTypeHelper.SerializerOptions);
+            await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
             var outputBytes = streamBuilder.ToArray();
             await Response.Body.WriteAsync(outputBytes);
             await Response.Body.FlushAsync();

@@ -129,6 +129,30 @@ All endpoints require authentication through the current user session. Sequence 
 
 The POST endpoint returns a stream of assistant responses using Server-Sent Events format. Clients should handle the streaming response and display messages incrementally.
 
+### Streaming Message Format
+
+The streaming response sends several types of JSON messages:
+
+- **Text messages**: `{"type": "text", "data": "..." }`
+- **Function calls**: `{"type": "function_call", "data": {...} }` (when AI uses tools)
+- **Topic updates**: `{"type": "topic", "data": "..." }` (sent at end if topic was generated)
+- **Thought completion**: `{"type": "thought", "data": {...} }` (sent at end with saved thought details)
+
+All streaming chunks during generation use the SSE event format:
+```
+data: {"type": "...", "data": ...}
+
+```
+
+Final messages (topic and thought) use custom event types:
+```
+topic: {"type": "topic", "data": "..."}
+
+thought: {"type": "thought", "data": {...}}
+```
+
+Clients should parse these JSON messages and handle different types appropriately, such as displaying text in real-time and processing tool calls.
+
 ## Implementation Notes
 
 - Built with ASP.NET Core and Semantic Kernel
