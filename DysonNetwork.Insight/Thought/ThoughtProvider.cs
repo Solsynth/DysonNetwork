@@ -26,7 +26,7 @@ public class ThoughtProvider
     public Kernel Kernel { get; }
 
     private string? ModelProviderType { get; set; }
-    private string? ModelDefault { get; set; }
+    public string? ModelDefault { get; set; }
 
     [Experimental("SKEXP0050")]
     public ThoughtProvider(

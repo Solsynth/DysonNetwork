@@ -178,7 +178,8 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             sequence,
             accumulatedContent.ToString(),
             ThinkingThoughtRole.Assistant,
-            thinkingChunks
+            thinkingChunks,
+            provider.ModelDefault
         );
 
         // Write the topic if it was newly set, then the thought object as JSON to the stream

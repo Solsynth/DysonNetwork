@@ -60,6 +60,11 @@ public static class ServiceInjectionHelper
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
 
+        services.AddGrpcClient<WalletService.WalletServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
+
         services
             .AddGrpcClient<RealmService.RealmServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()

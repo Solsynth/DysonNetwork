@@ -8,6 +8,9 @@ public class SnThinkingSequence : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(4096)] public string? Topic { get; set; }
+    
+    public long TotalToken { get; set; }
+    public long PaidToken { get; set; }
 
     public Guid AccountId { get; set; }
 }
@@ -38,11 +41,13 @@ public class SnThinkingThought : ModelBase
     public string? Content { get; set; }
 
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Files { get; set; } = [];
-
     [Column(TypeName = "jsonb")] public List<SnThinkingChunk> Chunks { get; set; } = [];
 
     public ThinkingThoughtRole Role { get; set; }
 
+    public long TokenCount { get; set; }
+    [MaxLength(4096)] public string? ModelName { get; set; }
+    
     public Guid SequenceId { get; set; }
     [JsonIgnore] public SnThinkingSequence Sequence { get; set; } = null!;
 }

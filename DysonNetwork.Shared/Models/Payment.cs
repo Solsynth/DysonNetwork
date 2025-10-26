@@ -6,7 +6,7 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
-public class WalletCurrency
+public abstract class WalletCurrency
 {
     public const string SourcePoint = "points";
     public const string GoldenPoint = "golds";

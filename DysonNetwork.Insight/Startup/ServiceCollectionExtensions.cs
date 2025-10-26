@@ -66,6 +66,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ThoughtProvider>();
         services.AddScoped<ThoughtService>();
 
+        // Add gRPC clients for ThoughtService
+        services.AddGrpcClient<Shared.Proto.PaymentService.PaymentServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true });
+        services.AddGrpcClient<Shared.Proto.WalletService.WalletServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true });
+
         return services;
     }
 }
