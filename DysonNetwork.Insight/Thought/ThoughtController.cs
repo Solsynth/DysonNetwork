@@ -21,6 +21,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
     {
         [Required] public string UserMessage { get; set; } = null!;
         public Guid? SequenceId { get; set; }
+        public List<string> AcceptProposals { get; set; } = [];
     }
 
     [HttpPost]
@@ -67,6 +68,18 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             "Your aim is to helping solving questions for the users on the Solar Network.\n" +
             "And the Solar Network is the social network platform you live on.\n" +
             "When the user asks questions about the Solar Network (also known as SN and Solian), try use the tools you have to get latest and accurate data."
+        );
+
+        chatHistory.AddSystemMessage(
+            "You can issue some proposals to user, like creating a post. The proposal syntax is like a xml tag, with an attribute indicates which proposal.\n" +
+            "Depends on the proposal type, the payload (content inside the xml tag) might be different.\n" +
+            "\n" +
+            "Example: <proposal type=\"post_create\">...post content...</proposal>\n" +
+            "\n" +
+            "Here are some references of the proposals you can issue, but if you want to issue one, make sure the user is accept it.\n" +
+            "1. post_create: body takes simple string, create post for user." +
+            "\n" +
+            $"The user currently accept these proposals: {string.Join(',', request.AcceptProposals)}"
         );
 
         chatHistory.AddSystemMessage(
@@ -135,7 +148,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     }
                 };
                 if (streamingChunk == null) continue;
-                
+
                 thinkingChunks.Add(streamingChunk);
 
                 var messageJson = item switch
