@@ -47,12 +47,11 @@ public class ThoughtProvider
                 builder.AddOllamaChatCompletion(ModelDefault!, new Uri(endpoint ?? "http://localhost:11434/api"));
                 break;
             case "deepseek":
-                builder.AddOpenAIChatCompletion(ModelDefault!,
-                    new OpenAIClient(
-                        new ApiKeyCredential(apiKey!),
-                        new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
-                    )
+                var client = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
+                builder.AddOpenAIChatCompletion(ModelDefault!, client);
                 break;
             default:
                 throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
@@ -70,7 +69,7 @@ public class ThoughtProvider
                 var request = new GetAccountRequest { Id = userId };
                 var response = await _accountClient.GetAccountAsync(request);
                 return JsonSerializer.Serialize(response, GrpcTypeHelper.SerializerOptions);
-            }, "get_user_profile", "Get a user profile from the Solar Network."),
+            }, "get_user", "Get a user profile from the Solar Network."),
             KernelFunctionFactory.CreateFromMethod(async (string postId) =>
             {
                 var request = new GetPostRequest { Id = postId };
@@ -83,36 +82,86 @@ public class ThoughtProvider
                 var response = await _postClient.SearchPostsAsync(request);
                 return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
             }, "search_posts", "Search posts by query from the Solar Network."),
-            KernelFunctionFactory.CreateFromMethod(async () =>
+            KernelFunctionFactory.CreateFromMethod(async (
+                string? publisherId = null,
+                string? realmId = null,
+                int pageSize = 10,
+                string? pageToken = null,
+                string? orderBy = null,
+                List<string>? categories = null,
+                List<string>? tags = null,
+                string? query = null,
+                List<int>? types = null,
+                string? afterIso = null,
+                string? beforeIso = null,
+                bool includeReplies = false,
+                int? pinned = null,
+                bool onlyMedia = false,
+                bool shuffle = false
+            ) =>
             {
-                var request = new ListPostsRequest { PageSize = 10 };
+                var request = new ListPostsRequest
+                {
+                    PublisherId = publisherId,
+                    RealmId = realmId,
+                    PageSize = pageSize,
+                    PageToken = pageToken,
+                    OrderBy = orderBy,
+                    Query = query,
+                    IncludeReplies = includeReplies,
+                    Pinned = pinned.HasValue ? (PostPinMode)pinned : default,
+                    OnlyMedia = onlyMedia,
+                    Shuffle = shuffle
+                };
+                if (!string.IsNullOrEmpty(afterIso))
+                {
+                    request.After =
+                        Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(DateTimeOffset.Parse(afterIso)
+                            .ToUniversalTime());
+                }
+
+                if (!string.IsNullOrEmpty(beforeIso))
+                {
+                    request.Before =
+                        Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(DateTimeOffset.Parse(beforeIso)
+                            .ToUniversalTime());
+                }
+
+                if (categories != null) request.Categories.AddRange(categories);
+                if (tags != null) request.Tags.AddRange(tags);
+                if (types != null) request.Types_.AddRange(types.Select(t => (PostType)t));
                 var response = await _postClient.ListPostsAsync(request);
                 return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
-            }, "get_recent_posts", "Get recent posts from the Solar Network.")
+            }, "list_posts", "Get posts from the Solar Network with customizable filters.")
         ]);
     }
 
     public PromptExecutionSettings CreatePromptExecutionSettings()
     {
-        return ModelProviderType switch
+        switch (ModelProviderType)
         {
-            "ollama" => new OllamaPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-                    options: new FunctionChoiceBehaviorOptions
-                    {
-                        AllowParallelCalls = true, AllowConcurrentInvocation = true
-                    })
-            },
-            "deepseek" => new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-                    options: new FunctionChoiceBehaviorOptions
-                    {
-                        AllowParallelCalls = true, AllowConcurrentInvocation = true
-                    })
-            },
-            _ => throw new InvalidOperationException("Unknown provider: " + ModelProviderType)
-        };
+            case "ollama":
+                return new OllamaPromptExecutionSettings
+                {
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
+                        options: new FunctionChoiceBehaviorOptions
+                        {
+                            AllowParallelCalls = true, 
+                            AllowConcurrentInvocation = true
+                        })
+                };
+            case "deepseek":
+                return new OpenAIPromptExecutionSettings
+                {
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
+                        options: new FunctionChoiceBehaviorOptions
+                        {
+                            AllowParallelCalls = true,
+                            AllowConcurrentInvocation = true
+                        })
+                };
+            default:
+                throw new InvalidOperationException("Unknown provider: " + ModelProviderType);
+        }
     }
 }

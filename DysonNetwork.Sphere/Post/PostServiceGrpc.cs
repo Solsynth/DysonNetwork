@@ -69,7 +69,6 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             .Include(p => p.ForwardedPost)
             .Include(p => p.Awards)
             .Include(p => p.FeaturedRecords)
-            .Where(p => p.DeletedAt == null) // Only active posts
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Query))
@@ -82,14 +81,10 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         }
 
         if (!string.IsNullOrWhiteSpace(request.PublisherId) && Guid.TryParse(request.PublisherId, out var pid))
-        {
             query = query.Where(p => p.PublisherId == pid);
-        }
 
         if (!string.IsNullOrWhiteSpace(request.RealmId) && Guid.TryParse(request.RealmId, out var rid))
-        {
             query = query.Where(p => p.RealmId == rid);
-        }
 
         query = query.FilterWithVisibility(null, [], []);
 
@@ -128,7 +123,6 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             .Include(p => p.ForwardedPost)
             .Include(p => p.Awards)
             .Include(p => p.FeaturedRecords)
-            .Where(p => p.DeletedAt == null)
             .AsQueryable();
         
         query = request.Shuffle
@@ -154,9 +148,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         }
 
         if (request.OnlyMedia)
-        {
             query = query.Where(e => e.Attachments.Count > 0);
-        }
 
         query = request.Pinned switch
         {
@@ -166,7 +158,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             Shared.Proto.PostPinMode.PublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId) =>
                 query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage),
             Shared.Proto.PostPinMode.ReplyPage => query.Where(p => p.PinMode == Shared.Models.PostPinMode.ReplyPage),
-            _ => query.Where(p => p.PinMode == (Shared.Models.PostPinMode)request.Pinned)
+            _ => query
         };
 
         // Include/exclude replies
