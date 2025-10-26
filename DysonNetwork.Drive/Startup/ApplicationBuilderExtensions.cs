@@ -17,6 +17,7 @@ public static class ApplicationBuilderExtensions
         // Map your gRPC services here
         app.MapGrpcService<FileServiceGrpc>();
         app.MapGrpcService<FileReferenceServiceGrpc>();
+        app.MapGrpcReflectionService();
 
         return app;
     }

@@ -21,6 +21,7 @@ public static class ApplicationConfiguration
         app.MapControllers();
         
         app.MapGrpcService<CustomAppServiceGrpc>();
+        app.MapGrpcReflectionService();
 
         return app;
     }

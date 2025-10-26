@@ -130,33 +130,28 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             .Include(p => p.FeaturedRecords)
             .Where(p => p.DeletedAt == null)
             .AsQueryable();
+        
+        query = request.Shuffle
+            ? query.OrderBy(e => EF.Functions.Random())
+            : query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
 
         if (!string.IsNullOrWhiteSpace(request.PublisherId) && Guid.TryParse(request.PublisherId, out var pid))
-        {
             query = query.Where(p => p.PublisherId == pid);
-        }
 
         if (!string.IsNullOrWhiteSpace(request.RealmId) && Guid.TryParse(request.RealmId, out var rid))
-        {
             query = query.Where(p => p.RealmId == rid);
-        }
 
         if (request.Categories.Count > 0)
-        {
             query = query.Where(p => p.Categories.Any(c => request.Categories.Contains(c.Slug)));
-        }
 
         if (request.Tags.Count > 0)
-        {
             query = query.Where(p => p.Tags.Any(c => request.Tags.Contains(c.Slug)));
-        }
 
-        // TODO: Add types filtering when proto is regenerated
-        // if (request.Types.Count > 0)
-        // {
-        //     var types = request.Types.Select(t => (Shared.Models.PostType)t).Distinct();
-        //     query = query.Where(p => types.Contains(p.Type));
-        // }
+        if (request.Types_.Count > 0)
+        {
+            var types = request.Types_.Select(t => (Shared.Models.PostType)t).Distinct();
+            query = query.Where(p => types.Contains(p.Type));
+        }
 
         if (request.OnlyMedia)
         {
@@ -175,11 +170,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         };
 
         // Include/exclude replies
-        if (request.IncludeReplies)
-        {
-            // Include both root and reply posts
-        }
-        else
+        if (!request.IncludeReplies)
         {
             // Exclude reply posts, only root posts
             query = query.Where(e => e.RepliedPostId == null);
@@ -214,12 +205,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         var pageToken = request.PageToken;
         var offset = string.IsNullOrEmpty(pageToken) ? 0 : int.Parse(pageToken);
 
-        // Ordering - TODO: Add shuffle when proto field is available
-        var orderedQuery = request.Shuffle
-            ? query.OrderBy(e => EF.Functions.Random())
-            : query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt);
-
-        var posts = await orderedQuery
+        var posts = await query
             .Skip(offset)
             .Take(pageSize)
             .ToListAsync();

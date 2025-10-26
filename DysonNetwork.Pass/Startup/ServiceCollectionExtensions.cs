@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
             options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
+        services.AddGrpcReflection();
 
         services.AddRingService();
 

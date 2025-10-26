@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddGrpc(options => { options.EnableDetailedErrors = true; });
+        services.AddGrpcReflection();
 
         services.Configure<RequestLocalizationOptions>(options =>
         {

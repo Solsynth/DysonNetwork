@@ -23,6 +23,7 @@ public static class ApplicationConfiguration
         // Map gRPC services
         app.MapGrpcService<PostServiceGrpc>();
         app.MapGrpcService<PublisherServiceGrpc>();
+        app.MapGrpcReflectionService();
 
         return app;
     }

@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         services.AddRazorPages();
 
         services.AddGrpc(options => { options.EnableDetailedErrors = true; });
+        services.AddGrpcReflection();
 
         services.Configure<RequestLocalizationOptions>(options =>
         {

@@ -41,6 +41,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<WalletServiceGrpc>();
         app.MapGrpcService<PaymentServiceGrpc>();
         app.MapGrpcService<RealmServiceGrpc>();
+        app.MapGrpcReflectionService();
 
         return app;
     }

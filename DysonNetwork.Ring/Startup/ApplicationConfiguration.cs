@@ -23,6 +23,7 @@ public static class ApplicationConfiguration
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         app.MapGrpcService<RingServiceGrpc>();
+        app.MapGrpcReflectionService();
 
         return app;
     }
