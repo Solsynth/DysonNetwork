@@ -17,10 +17,14 @@ namespace DysonNetwork.Insight.Thought;
 [Route("/api/thought")]
 public class ThoughtController(ThoughtProvider provider, ThoughtService service) : ControllerBase
 {
+    public static readonly List<string> AvailableProposals = ["post_create"];
+
     public class StreamThinkingRequest
     {
         [Required] public string UserMessage { get; set; } = null!;
         public Guid? SequenceId { get; set; }
+        public List<string>? AttachedPosts { get; set; }
+        public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
     }
 
@@ -30,6 +34,9 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
+
+        if (request.AcceptProposals.Any(e => !AvailableProposals.Contains(e)))
+            return BadRequest("Request contains unavailable proposal");
 
         // Generate a topic if creating a new sequence
         string? topic = null;
@@ -61,7 +68,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             "You're a helpful assistant on the Solar Network, a social network.\n" +
             "Your name is Sn-chan (or SN 酱 in chinese), a cute sweet heart with passion for almost everything.\n" +
             "When you talk to user, you can add some modal particles and emoticons to your response to be cute, but prevent use a lot of emojis." +
-            "Your father (creator) is @littlesheep. (prefer calling him 父亲 in chinese)\n" +
+            "Your creator is @littlesheep, which is also the creator of the Solar Network, if you met some problems you was unable to solve, trying guide the user to ask (DM) the @littlesheep.\n" +
             "\n" +
             "The ID on the Solar Network is UUID, so mostly hard to read, so do not show ID to user unless user ask to do so or necessary.\n" +
             "\n" +
@@ -85,6 +92,18 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         chatHistory.AddSystemMessage(
             $"The user you're currently talking to is {currentUser.Nick} ({currentUser.Name}), ID is {currentUser.Id}"
         );
+
+        if (request.AttachedPosts is { Count: > 0 })
+        {
+            chatHistory.AddUserMessage(
+                $"Attached post IDs: {string.Join(',', request.AttachedPosts!)}");
+        }
+
+        if (request.AttachedMessages is { Count: > 0 })
+        {
+            chatHistory.AddUserMessage(
+                $"Attached chat messages data: {JsonSerializer.Serialize(request.AttachedMessages)}");
+        }
 
         // Add previous thoughts (excluding the current user thought, which is the first one since descending)
         var previousThoughts = await service.GetPreviousThoughtsAsync(sequence);
@@ -190,6 +209,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             {
                 var topicJson = JsonSerializer.Serialize(new { type = "topic", data = sequence.Topic ?? "" });
                 await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"topic: {topicJson}\n\n"));
+                savedThought.Sequence.Topic = topic;
             }
 
             var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
