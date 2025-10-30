@@ -4,16 +4,14 @@ using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using NodaTime.Text;
 
-namespace DysonNetwork.Sphere.Activity;
+namespace DysonNetwork.Sphere.Timeline;
 
 /// <summary>
 /// Activity is a universal feed that contains multiple kinds of data. Personalized and generated dynamically.
 /// </summary>
 [ApiController]
-[Route("/api/activities")]
-public class ActivityController(
-    ActivityService acts
-) : ControllerBase
+[Route("/api/timeline")]
+public class ActivityController(TimelineService acts) : ControllerBase
 {
     /// <summary>
     /// Listing the activities for the user, users may be logged in or not to use this API.
@@ -24,7 +22,7 @@ public class ActivityController(
     /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<SnActivity>>> ListActivities(
+    public async Task<ActionResult<List<SnTimelineEvent>>> ListEvents(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
         [FromQuery] int take = 20,
@@ -48,7 +46,9 @@ public class ActivityController(
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not Account currentUser
-            ? Ok(await acts.GetActivitiesForAnyone(take, cursorTimestamp, debugIncludeSet))
-            : Ok(await acts.GetActivities(take, cursorTimestamp, currentUser, filter, debugIncludeSet));
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, debugIncludeSet))
+            : Ok(
+                await acts.ListEvents(take, cursorTimestamp, currentUser, filter, debugIncludeSet)
+            );
     }
 }

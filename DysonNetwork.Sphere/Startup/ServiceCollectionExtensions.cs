@@ -1,23 +1,23 @@
 using System.Globalization;
-using DysonNetwork.Sphere.Activity;
-using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Chat.Realtime;
-using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Sticker;
-using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Autocompletion;
-using DysonNetwork.Sphere.WebReader;
+using DysonNetwork.Sphere.Chat;
+using DysonNetwork.Sphere.Chat.Realtime;
 using DysonNetwork.Sphere.Discovery;
+using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Sticker;
+using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
+using DysonNetwork.Sphere.WebReader;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace DysonNetwork.Sphere.Startup;
 
@@ -34,34 +34,41 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient();
 
-        services.AddControllers().AddJsonOptions(options =>
-        {
-            options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
-            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+        services
+            .AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.NumberHandling =
+                    JsonNumberHandling.AllowNamedFloatingPointLiterals;
+                options.JsonSerializerOptions.PropertyNamingPolicy =
+                    JsonNamingPolicy.SnakeCaseLower;
 
-            options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-        }).AddDataAnnotationsLocalization(options =>
-        {
-            options.DataAnnotationLocalizerProvider = (type, factory) =>
-                factory.Create(typeof(SharedResource));
-        }).ConfigureApplicationPartManager(opts =>
-        {
-            var mockingPart = opts.ApplicationParts.FirstOrDefault(a => a.Name == "DysonNetwork.Pass");
-            if (mockingPart != null)
-                opts.ApplicationParts.Remove(mockingPart);
-        });
+                options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+            })
+            .AddDataAnnotationsLocalization(options =>
+            {
+                options.DataAnnotationLocalizerProvider = (type, factory) =>
+                    factory.Create(typeof(SharedResource));
+            })
+            .ConfigureApplicationPartManager(opts =>
+            {
+                var mockingPart = opts.ApplicationParts.FirstOrDefault(a =>
+                    a.Name == "DysonNetwork.Pass"
+                );
+                if (mockingPart != null)
+                    opts.ApplicationParts.Remove(mockingPart);
+            });
         services.AddRazorPages();
 
-        services.AddGrpc(options => { options.EnableDetailedErrors = true; });
+        services.AddGrpc(options =>
+        {
+            options.EnableDetailedErrors = true;
+        });
         services.AddGrpcReflection();
 
         services.Configure<RequestLocalizationOptions>(options =>
         {
-            var supportedCultures = new[]
-            {
-                new CultureInfo("en-US"),
-                new CultureInfo("zh-Hans"),
-            };
+            var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("zh-Hans") };
 
             options.SupportedCultures = supportedCultures;
             options.SupportedUICultures = supportedCultures;
@@ -71,7 +78,7 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-    
+
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
         services.AddAuthorization();
@@ -86,14 +93,16 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
-        IConfiguration configuration)
+    public static IServiceCollection AddAppBusinessServices(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
     {
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoIpService>();
         services.AddScoped<PublisherService>();
         services.AddScoped<PublisherSubscriptionService>();
-        services.AddScoped<ActivityService>();
+        services.AddScoped<TimelineService>();
         services.AddScoped<PostService>();
         services.AddScoped<ChatRoomService>();
         services.AddScoped<ChatService>();

@@ -2,16 +2,15 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
-using NodaTime;
-using NpgsqlTypes;
 using Google.Protobuf.WellKnownTypes;
+using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
 
 public enum PostType
 {
     Moment,
-    Article
+    Article,
 }
 
 public enum PostVisibility
@@ -19,7 +18,7 @@ public enum PostVisibility
     Public,
     Friends,
     Unlisted,
-    Private
+    Private,
 }
 
 public enum PostPinMode
@@ -29,12 +28,18 @@ public enum PostPinMode
     ReplyPage,
 }
 
-public class SnPost : ModelBase, IIdentifiedResource, IActivity
+public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 {
     public Guid Id { get; set; }
-    [MaxLength(1024)] public string? Title { get; set; }
-    [MaxLength(4096)] public string? Description { get; set; }
-    [MaxLength(1024)] public string? Slug { get; set; }
+
+    [MaxLength(1024)]
+    public string? Title { get; set; }
+
+    [MaxLength(4096)]
+    public string? Description { get; set; }
+
+    [MaxLength(1024)]
+    public string? Slug { get; set; }
     public Instant? EditedAt { get; set; }
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
@@ -44,18 +49,30 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
 
     public PostType Type { get; set; }
     public PostPinMode? PinMode { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
-    [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
-    [Column(TypeName = "jsonb")] public PostEmbedView? EmbedView { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public Dictionary<string, object>? Meta { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
+
+    [Column(TypeName = "jsonb")]
+    public PostEmbedView? EmbedView { get; set; }
 
     public int ViewsUnique { get; set; }
     public int ViewsTotal { get; set; }
     public int Upvotes { get; set; }
     public int Downvotes { get; set; }
     public decimal AwardedScore { get; set; }
-    [NotMapped] public Dictionary<string, int> ReactionsCount { get; set; } = new();
-    [NotMapped] public int RepliesCount { get; set; }
-    [NotMapped] public Dictionary<string, bool>? ReactionsMade { get; set; }
+
+    [NotMapped]
+    public Dictionary<string, int> ReactionsCount { get; set; } = new();
+
+    [NotMapped]
+    public int RepliesCount { get; set; }
+
+    [NotMapped]
+    public Dictionary<string, bool>? ReactionsMade { get; set; }
 
     public bool RepliedGone { get; set; }
     public bool ForwardedGone { get; set; }
@@ -66,22 +83,32 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
     public SnPost? ForwardedPost { get; set; }
 
     public Guid? RealmId { get; set; }
-    [NotMapped] public SnRealm? Realm { get; set; }
 
-    [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = [];
+    [NotMapped]
+    public SnRealm? Realm { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public List<SnCloudFileReferenceObject> Attachments { get; set; } = [];
 
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 
     public List<SnPostAward> Awards { get; set; } = [];
-    [JsonIgnore] public List<SnPostReaction> Reactions { get; set; } = [];
+
+    [JsonIgnore]
+    public List<SnPostReaction> Reactions { get; set; } = [];
     public List<SnPostTag> Tags { get; set; } = [];
     public List<SnPostCategory> Categories { get; set; } = [];
-    [JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];
+
+    [JsonIgnore]
+    public List<SnPostCollection> Collections { get; set; } = [];
     public List<SnPostFeaturedRecord> FeaturedRecords { get; set; } = [];
 
-    [JsonIgnore] public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
-    [NotMapped] public bool IsTruncated { get; set; } = false;
+    [JsonIgnore]
+    public bool Empty => Content == null && Attachments.Count == 0 && ForwardedPostId == null;
+
+    [NotMapped]
+    public bool IsTruncated { get; set; } = false;
 
     public string ResourceIdentifier => $"post:{Id}";
 
@@ -108,7 +135,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
             PublisherId = PublisherId.ToString(),
             Publisher = Publisher.ToProtoValue(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
 
         if (EditedAt.HasValue)
@@ -195,7 +222,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
             PublisherId = Guid.Parse(proto.PublisherId),
             Publisher = SnPublisher.FromProtoValue(proto.Publisher),
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };
 
         if (proto.EditedAt is not null)
@@ -211,11 +238,14 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
             post.PinMode = (PostPinMode)(proto.PinMode - 1);
 
         if (proto.Meta != null)
-            post.Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta);
+            post.Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(
+                proto.Meta
+            );
 
         if (proto.SensitiveMarks != null)
-            post.SensitiveMarks =
-                GrpcTypeHelper.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks);
+            post.SensitiveMarks = GrpcTypeHelper.ConvertByteStringToObject<
+                List<ContentSensitiveMark>
+            >(proto.SensitiveMarks);
 
         if (proto.EmbedView is not null)
             post.EmbedView = PostEmbedView.FromProtoValue(proto.EmbedView);
@@ -241,19 +271,28 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
                 post.Realm = SnRealm.FromProtoValue(proto.Realm);
         }
 
-        post.Attachments.AddRange(proto.Attachments.Select(SnCloudFileReferenceObject.FromProtoValue));
-        post.Awards.AddRange(proto.Awards.Select(a => new SnPostAward
-        {
-            Id = Guid.Parse(a.Id), PostId = Guid.Parse(a.PostId), AccountId = Guid.Parse(a.AccountId),
-            Amount = (decimal)a.Amount, Attitude = (PostReactionAttitude)((int)a.Attitude - 1),
-            Message = string.IsNullOrEmpty(a.Message) ? null : a.Message,
-            CreatedAt = Instant.FromDateTimeOffset(a.CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Instant.FromDateTimeOffset(a.UpdatedAt.ToDateTimeOffset())
-        }));
+        post.Attachments.AddRange(
+            proto.Attachments.Select(SnCloudFileReferenceObject.FromProtoValue)
+        );
+        post.Awards.AddRange(
+            proto.Awards.Select(a => new SnPostAward
+            {
+                Id = Guid.Parse(a.Id),
+                PostId = Guid.Parse(a.PostId),
+                AccountId = Guid.Parse(a.AccountId),
+                Amount = (decimal)a.Amount,
+                Attitude = (PostReactionAttitude)((int)a.Attitude - 1),
+                Message = string.IsNullOrEmpty(a.Message) ? null : a.Message,
+                CreatedAt = Instant.FromDateTimeOffset(a.CreatedAt.ToDateTimeOffset()),
+                UpdatedAt = Instant.FromDateTimeOffset(a.UpdatedAt.ToDateTimeOffset()),
+            })
+        );
         post.Reactions.AddRange(proto.Reactions.Select(SnPostReaction.FromProtoValue));
         post.Tags.AddRange(proto.Tags.Select(SnPostTag.FromProtoValue));
         post.Categories.AddRange(proto.Categories.Select(SnPostCategory.FromProtoValue));
-        post.FeaturedRecords.AddRange(proto.FeaturedRecords.Select(SnPostFeaturedRecord.FromProtoValue));
+        post.FeaturedRecords.AddRange(
+            proto.FeaturedRecords.Select(SnPostFeaturedRecord.FromProtoValue)
+        );
 
         if (proto.DeletedAt is not null)
             post.DeletedAt = Instant.FromDateTimeOffset(proto.DeletedAt.ToDateTimeOffset());
@@ -261,9 +300,9 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
         return post;
     }
 
-    public SnActivity ToActivity()
+    public SnTimelineEvent ToActivity()
     {
-        return new SnActivity()
+        return new SnTimelineEvent()
         {
             CreatedAt = PublishedAt ?? CreatedAt,
             UpdatedAt = UpdatedAt,
@@ -271,7 +310,7 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
             Id = Id,
             Type = RepliedPostId is null ? "posts.new" : "posts.new.replies",
             ResourceIdentifier = ResourceIdentifier,
-            Data = this
+            Data = this,
         };
     }
 }
@@ -279,11 +318,18 @@ public class SnPost : ModelBase, IIdentifiedResource, IActivity
 public class SnPostTag : ModelBase
 {
     public Guid Id { get; set; }
-    [MaxLength(128)] public string Slug { get; set; } = null!;
-    [MaxLength(256)] public string? Name { get; set; }
-    [JsonIgnore] public List<SnPost> Posts { get; set; } = new List<SnPost>();
 
-    [NotMapped] public int? Usage { get; set; }
+    [MaxLength(128)]
+    public string Slug { get; set; } = null!;
+
+    [MaxLength(256)]
+    public string? Name { get; set; }
+
+    [JsonIgnore]
+    public List<SnPost> Posts { get; set; } = new List<SnPost>();
+
+    [NotMapped]
+    public int? Usage { get; set; }
 
     public PostTag ToProtoValue()
     {
@@ -293,7 +339,7 @@ public class SnPostTag : ModelBase
             Slug = Slug,
             Name = Name ?? string.Empty,
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
     }
 
@@ -305,7 +351,7 @@ public class SnPostTag : ModelBase
             Slug = proto.Slug,
             Name = proto.Name != string.Empty ? proto.Name : null,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };
     }
 }
@@ -313,11 +359,18 @@ public class SnPostTag : ModelBase
 public class SnPostCategory : ModelBase
 {
     public Guid Id { get; set; }
-    [MaxLength(128)] public string Slug { get; set; } = null!;
-    [MaxLength(256)] public string? Name { get; set; }
-    [JsonIgnore] public List<SnPost> Posts { get; set; } = new List<SnPost>();
 
-    [NotMapped] public int? Usage { get; set; }
+    [MaxLength(128)]
+    public string Slug { get; set; } = null!;
+
+    [MaxLength(256)]
+    public string? Name { get; set; }
+
+    [JsonIgnore]
+    public List<SnPost> Posts { get; set; } = new List<SnPost>();
+
+    [NotMapped]
+    public int? Usage { get; set; }
 
     public PostCategory ToProtoValue()
     {
@@ -327,7 +380,7 @@ public class SnPostCategory : ModelBase
             Slug = Slug,
             Name = Name ?? string.Empty,
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
     }
 
@@ -339,7 +392,7 @@ public class SnPostCategory : ModelBase
             Slug = proto.Slug,
             Name = proto.Name != string.Empty ? proto.Name : null,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };
     }
 }
@@ -358,9 +411,15 @@ public class SnPostCategorySubscription : ModelBase
 public class SnPostCollection : ModelBase
 {
     public Guid Id { get; set; }
-    [MaxLength(128)] public string Slug { get; set; } = null!;
-    [MaxLength(256)] public string? Name { get; set; }
-    [MaxLength(4096)] public string? Description { get; set; }
+
+    [MaxLength(128)]
+    public string Slug { get; set; } = null!;
+
+    [MaxLength(256)]
+    public string? Name { get; set; }
+
+    [MaxLength(4096)]
+    public string? Description { get; set; }
 
     public SnPublisher Publisher { get; set; } = null!;
 
@@ -371,7 +430,9 @@ public class SnPostFeaturedRecord : ModelBase
 {
     public Guid Id { get; set; }
     public Guid PostId { get; set; }
-    [JsonIgnore] public SnPost Post { get; set; } = null!;
+
+    [JsonIgnore]
+    public SnPost Post { get; set; } = null!;
     public Instant? FeaturedAt { get; set; }
     public int SocialCredits { get; set; }
 
@@ -383,7 +444,7 @@ public class SnPostFeaturedRecord : ModelBase
             PostId = PostId.ToString(),
             SocialCredits = SocialCredits,
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
         if (FeaturedAt.HasValue)
         {
@@ -402,7 +463,10 @@ public class SnPostFeaturedRecord : ModelBase
             SocialCredits = proto.SocialCredits,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
-            FeaturedAt = proto.FeaturedAt != null ? Instant.FromDateTimeOffset(proto.FeaturedAt.ToDateTimeOffset()) : null
+            FeaturedAt =
+                proto.FeaturedAt != null
+                    ? Instant.FromDateTimeOffset(proto.FeaturedAt.ToDateTimeOffset())
+                    : null,
         };
     }
 }
@@ -417,13 +481,19 @@ public enum PostReactionAttitude
 public class SnPostReaction : ModelBase
 {
     public Guid Id { get; set; }
-    [MaxLength(256)] public string Symbol { get; set; } = null!;
+
+    [MaxLength(256)]
+    public string Symbol { get; set; } = null!;
     public PostReactionAttitude Attitude { get; set; }
 
     public Guid PostId { get; set; }
-    [JsonIgnore] public SnPost Post { get; set; } = null!;
+
+    [JsonIgnore]
+    public SnPost Post { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public SnAccount? Account { get; set; }
+
+    [NotMapped]
+    public SnAccount? Account { get; set; }
 
     public PostReaction ToProtoValue()
     {
@@ -435,7 +505,7 @@ public class SnPostReaction : ModelBase
             PostId = PostId.ToString(),
             AccountId = AccountId.ToString(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
         if (Account != null)
         {
@@ -456,7 +526,7 @@ public class SnPostReaction : ModelBase
             AccountId = Guid.Parse(proto.AccountId),
             Account = proto.Account != null ? SnAccount.FromProtoValue(proto.Account) : null,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };
     }
 }
@@ -466,10 +536,14 @@ public class SnPostAward : ModelBase
     public Guid Id { get; set; }
     public decimal Amount { get; set; }
     public PostReactionAttitude Attitude { get; set; }
-    [MaxLength(4096)] public string? Message { get; set; }
+
+    [MaxLength(4096)]
+    public string? Message { get; set; }
 
     public Guid PostId { get; set; }
-    [JsonIgnore] public SnPost Post { get; set; } = null!;
+
+    [JsonIgnore]
+    public SnPost Post { get; set; } = null!;
     public Guid AccountId { get; set; }
 
     public PostAward ToProtoValue()
@@ -482,7 +556,7 @@ public class SnPostAward : ModelBase
             PostId = PostId.ToString(),
             AccountId = AccountId.ToString(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
         if (Message != null)
             proto.Message = Message;
@@ -506,7 +580,7 @@ public class PostEmbedView
         var proto = new Proto.PostEmbedView
         {
             Uri = Uri,
-            Renderer = (Proto.PostEmbedViewRenderer)(int)Renderer
+            Renderer = (Proto.PostEmbedViewRenderer)(int)Renderer,
         };
         if (AspectRatio.HasValue)
         {
@@ -522,12 +596,12 @@ public class PostEmbedView
         {
             Uri = proto.Uri,
             AspectRatio = proto.HasAspectRatio ? proto.AspectRatio : null,
-            Renderer = (PostEmbedViewRenderer)((int)proto.Renderer - 1)
+            Renderer = (PostEmbedViewRenderer)((int)proto.Renderer - 1),
         };
     }
 }
 
 public enum PostEmbedViewRenderer
 {
-    WebView
+    WebView,
 }

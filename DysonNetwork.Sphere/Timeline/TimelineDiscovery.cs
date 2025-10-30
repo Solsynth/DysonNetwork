@@ -1,16 +1,16 @@
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Activity;
+namespace DysonNetwork.Sphere.Timeline;
 
-public class DiscoveryActivity(List<DiscoveryItem> items) : IActivity
+public class TimelineDiscoveryEvent(List<DiscoveryItem> items) : ITimelineEvent
 {
     public List<DiscoveryItem> Items { get; set; } = items;
 
-    public SnActivity ToActivity()
+    public SnTimelineEvent ToActivity()
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        return new SnActivity
+        return new SnTimelineEvent
         {
             Id = Guid.NewGuid(),
             Type = "discovery",
@@ -23,3 +23,4 @@ public class DiscoveryActivity(List<DiscoveryItem> items) : IActivity
 }
 
 public record DiscoveryItem(string Type, object Data);
+
