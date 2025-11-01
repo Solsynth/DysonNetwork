@@ -1,3 +1,4 @@
+using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Wallet;
 using Quartz;
@@ -72,6 +73,13 @@ public static class ScheduledJobsConfiguration
             q.AddTrigger(opts => opts
                 .ForJob(lotteryDrawJob)
                 .WithIdentity("LotteryDrawTrigger")
+                .WithCronSchedule("0 0 0 * * ?"));
+
+            var socialCreditValidationJob = new JobKey("SocialCreditValidation");
+            q.AddJob<SocialCreditValidationJob>(opts => opts.WithIdentity(socialCreditValidationJob));
+            q.AddTrigger(opts => opts
+                .ForJob(socialCreditValidationJob)
+                .WithIdentity("SocialCreditValidationTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

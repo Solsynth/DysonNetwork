@@ -35,14 +35,7 @@ app.MapDefaultEndpoints();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-    try
-    {
-        await db.Database.MigrateAsync();
-    }
-    catch (Exception err)
-    {
-        Console.WriteLine(err);
-    }
+    await db.Database.MigrateAsync();
 }
 
 // Configure application middleware pipeline

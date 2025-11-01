@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
+using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -265,5 +267,14 @@ public class AccountController(
                         EF.Functions.ILike(a.Nick, $"%{query}%"))
             .Take(take)
             .ToListAsync();
+    }
+
+    [HttpPost("credits/validate")]
+    [Authorize]
+    [RequiredPermission("maintenance", "credits.validate.perform")]
+    public async Task<IActionResult> PerformSocialCreditValidation()
+    {
+        await socialCreditService.ValidateSocialCredits();
+        return Ok();
     }
 }
