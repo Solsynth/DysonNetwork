@@ -26,6 +26,7 @@ public class AccountEventService(
 {
     private static readonly Random Random = new();
     private const string StatusCacheKey = "account:status:";
+    private const string ActivityCacheKey = "account:activities:";
 
     private async Task<bool> GetAccountIsConnected(Guid userId)
     {
@@ -38,6 +39,12 @@ public class AccountEventService(
     public void PurgeStatusCache(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
+        cache.RemoveAsync(cacheKey);
+    }
+
+    public void PurgeActivityCache(Guid userId)
+    {
+        var cacheKey = $"{ActivityCacheKey}{userId}";
         cache.RemoveAsync(cacheKey);
     }
 
@@ -433,5 +440,106 @@ public class AccountEventService(
                 Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<SnAccountStatus>())
             };
         }).ToList();
+    }
+
+    public async Task<List<SnPresenceActivity>> GetActiveActivities(Guid userId)
+    {
+        var cacheKey = $"{ActivityCacheKey}{userId}";
+        var cachedActivities = await cache.GetAsync<List<SnPresenceActivity>>(cacheKey);
+        if (cachedActivities != null)
+        {
+            return cachedActivities;
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var activities = await db.PresenceActivities
+            .Where(e => e.AccountId == userId && e.LeaseExpiresAt > now)
+            .ToListAsync();
+
+        await cache.SetWithGroupsAsync(cacheKey, activities, [$"{AccountService.AccountCachePrefix}{userId}"], TimeSpan.FromMinutes(1));
+        return activities;
+    }
+
+    public async Task<SnPresenceActivity> SetActivity(SnPresenceActivity activity, int leaseMinutes)
+    {
+        if (leaseMinutes < 1 || leaseMinutes > 60)
+            throw new ArgumentException("Lease minutes must be between 1 and 60");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        activity.LeaseMinutes = leaseMinutes;
+        activity.LeaseExpiresAt = now + Duration.FromMinutes(leaseMinutes);
+
+        db.PresenceActivities.Add(activity);
+        await db.SaveChangesAsync();
+
+        PurgeActivityCache(activity.AccountId);
+
+        return activity;
+    }
+
+    public async Task<SnPresenceActivity> UpdateActivity(Guid activityId, Action<SnPresenceActivity> update, int? leaseMinutes = null)
+    {
+        var activity = await db.PresenceActivities.FindAsync(activityId);
+        if (activity == null)
+            throw new KeyNotFoundException("Activity not found");
+
+        if (leaseMinutes.HasValue)
+        {
+            if (leaseMinutes.Value < 1 || leaseMinutes.Value > 60)
+                throw new ArgumentException("Lease minutes must be between 1 and 60");
+
+            activity.LeaseMinutes = leaseMinutes.Value;
+            activity.LeaseExpiresAt = SystemClock.Instance.GetCurrentInstant() + Duration.FromMinutes(leaseMinutes.Value);
+        }
+
+        update(activity);
+        await db.SaveChangesAsync();
+
+        PurgeActivityCache(activity.AccountId);
+
+        return activity;
+    }
+
+    public async Task<SnPresenceActivity?> UpdateActivityByManualId(string manualId, Guid userId, Action<SnPresenceActivity> update, int? leaseMinutes = null)
+    {
+        var activity = await db.PresenceActivities.FirstOrDefaultAsync(e => e.ManualId == manualId && e.AccountId == userId);
+        if (activity == null)
+            return null;
+
+        if (leaseMinutes.HasValue)
+        {
+            if (leaseMinutes.Value < 1 || leaseMinutes.Value > 60)
+                throw new ArgumentException("Lease minutes must be between 1 and 60");
+
+            activity.LeaseMinutes = leaseMinutes.Value;
+            activity.LeaseExpiresAt = SystemClock.Instance.GetCurrentInstant() + Duration.FromMinutes(leaseMinutes.Value);
+        }
+
+        update(activity);
+        await db.SaveChangesAsync();
+
+        PurgeActivityCache(activity.AccountId);
+
+        return activity;
+    }
+
+    public async Task<bool> DeleteActivityByManualId(string manualId, Guid userId)
+    {
+        var activity = await db.PresenceActivities.FirstOrDefaultAsync(e => e.ManualId == manualId && e.AccountId == userId);
+        if (activity == null) return false;
+        db.Remove(activity);
+        await db.SaveChangesAsync();
+        PurgeActivityCache(activity.AccountId);
+        return true;
+    }
+
+    public async Task<bool> DeleteActivity(Guid activityId)
+    {
+        var activity = await db.PresenceActivities.FindAsync(activityId);
+        if (activity == null) return false;
+        db.Remove(activity);
+        await db.SaveChangesAsync();
+        PurgeActivityCache(activity.AccountId);
+        return true;
     }
 }
