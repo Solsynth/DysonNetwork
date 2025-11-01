@@ -8,15 +8,24 @@ using WalletService = DysonNetwork.Shared.Proto.WalletService;
 
 namespace DysonNetwork.Insight.Thought;
 
-public class ThoughtService(AppDatabase db, ICacheService cache, PaymentService.PaymentServiceClient paymentService, WalletService.WalletServiceClient walletService)
+public class ThoughtService(
+    AppDatabase db,
+    ICacheService cache,
+    PaymentService.PaymentServiceClient paymentService,
+    WalletService.WalletServiceClient walletService
+)
 {
-    public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(Guid accountId, Guid? sequenceId,
-        string? topic = null)
+    public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(
+        Guid accountId,
+        Guid? sequenceId,
+        string? topic = null
+    )
     {
         if (sequenceId.HasValue)
         {
             var seq = await db.ThinkingSequences.FindAsync(sequenceId.Value);
-            if (seq == null || seq.AccountId != accountId) return null;
+            if (seq == null || seq.AccountId != accountId)
+                return null;
             return seq;
         }
         else
@@ -46,7 +55,7 @@ public class ThoughtService(AppDatabase db, ICacheService cache, PaymentService.
             Role = role,
             TokenCount = tokenCount,
             ModelName = model,
-            Chunks = chunks ?? new List<SnThinkingChunk>()
+            Chunks = chunks ?? new List<SnThinkingChunk>(),
         };
         db.ThinkingThoughts.Add(thought);
 
@@ -65,25 +74,35 @@ public class ThoughtService(AppDatabase db, ICacheService cache, PaymentService.
     public async Task<List<SnThinkingThought>> GetPreviousThoughtsAsync(SnThinkingSequence sequence)
     {
         var cacheKey = $"thoughts:{sequence.Id}";
-        var (found, cachedThoughts) = await cache.GetAsyncWithStatus<List<SnThinkingThought>>(cacheKey);
+        var (found, cachedThoughts) = await cache.GetAsyncWithStatus<List<SnThinkingThought>>(
+            cacheKey
+        );
         if (found && cachedThoughts != null)
         {
             return cachedThoughts;
         }
 
-        var thoughts = await db.ThinkingThoughts
-            .Where(t => t.SequenceId == sequence.Id)
+        var thoughts = await db
+            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         // Cache for 10 minutes
-        await cache.SetWithGroupsAsync(cacheKey, thoughts, [$"sequence:{sequence.Id}"], TimeSpan.FromMinutes(10));
+        await cache.SetWithGroupsAsync(
+            cacheKey,
+            thoughts,
+            [$"sequence:{sequence.Id}"],
+            TimeSpan.FromMinutes(10)
+        );
 
         return thoughts;
     }
 
-    public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(Guid accountId, int offset,
-        int take)
+    public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(
+        Guid accountId,
+        int offset,
+        int take
+    )
     {
         var query = db.ThinkingSequences.Where(s => s.AccountId == accountId);
         var totalCount = await query.CountAsync();
@@ -98,8 +117,8 @@ public class ThoughtService(AppDatabase db, ICacheService cache, PaymentService.
 
     public async Task SettleThoughtBills(ILogger logger)
     {
-        var sequences = await db.ThinkingSequences
-            .Where(s => s.PaidToken < s.TotalToken)
+        var sequences = await db
+            .ThinkingSequences.Where(s => s.PaidToken < s.TotalToken)
             .ToListAsync();
 
         if (sequences.Count == 0)
@@ -117,29 +136,32 @@ public class ThoughtService(AppDatabase db, ICacheService cache, PaymentService.
             var totalUnpaidTokens = accountGroup.Sum(s => s.TotalToken - s.PaidToken);
             var cost = (long)Math.Ceiling(totalUnpaidTokens / 1000.0);
 
-            if (cost == 0) continue;
+            if (cost == 0)
+                continue;
 
             try
             {
-                var walletResponse = await walletService.GetWalletAsync(new GetWalletRequest { AccountId = accountId.ToString() });
-                var walletId = Guid.Parse(walletResponse.Id);
-
                 var date = DateTime.Now.ToString("yyyy-MM-dd");
-                await paymentService.CreateTransactionAsync(new CreateTransactionRequest
-                {
-                    PayerWalletId = walletId.ToString(),
-                    PayeeWalletId = null,
-                    Currency = WalletCurrency.SourcePoint,
-                    Amount = cost.ToString(),
-                    Remarks = $"Wage for SN-chan on {date}",
-                    Type = TransactionType.System
-                });
+                await paymentService.CreateTransactionWithAccountAsync(
+                    new CreateTransactionWithAccountRequest
+                    {
+                        PayeeAccountId = accountId.ToString(),
+                        Currency = WalletCurrency.SourcePoint,
+                        Amount = cost.ToString(),
+                        Remarks = $"Wage for SN-chan on {date}",
+                        Type = TransactionType.System,
+                    }
+                );
 
                 // Mark all sequences for this account as paid
                 foreach (var sequence in accountGroup)
                     sequence.PaidToken = sequence.TotalToken;
 
-                logger.LogInformation("Billed {cost} points for account {accountId}", cost, accountId);
+                logger.LogInformation(
+                    "Billed {cost} points for account {accountId}",
+                    cost,
+                    accountId
+                );
             }
             catch (Exception ex)
             {

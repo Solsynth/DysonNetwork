@@ -188,7 +188,6 @@ service PaymentService {
   rpc CreateOrder(CreateOrderRequest) returns (Order);
   rpc CreateTransactionWithAccount(CreateTransactionWithAccountRequest) returns (Transaction);
   rpc CreateTransaction(CreateTransactionRequest) returns (Transaction);
-  rpc PayOrder(PayOrderRequest) returns (Order);
   rpc CancelOrder(CancelOrderRequest) returns (Order);
   rpc RefundOrder(RefundOrderRequest) returns (RefundOrderResponse);
   rpc Transfer(TransferRequest) returns (Transaction);
@@ -252,26 +251,21 @@ enum TransactionType {
 }
 
 message CreateTransactionWithAccountRequest {
-  optional string payer_account_id = 1;
-  optional string payee_account_id = 2;
+  google.protobuf.StringValue payer_account_id = 1;
+  google.protobuf.StringValue payee_account_id = 2;
   string currency = 3;
   string amount = 4;
-  optional string remarks = 5;
+  google.protobuf.StringValue remarks = 5;
   TransactionType type = 6;
 }
 
 message CreateTransactionRequest {
-  optional string payer_wallet_id = 1;
-  optional string payee_wallet_id = 2;
+  google.protobuf.StringValue payer_wallet_id = 1;
+  google.protobuf.StringValue payee_wallet_id = 2;
   string currency = 3;
   string amount = 4;
-  optional string remarks = 5;
+  google.protobuf.StringValue remarks = 5;
   TransactionType type = 6;
-}
-
-message PayOrderRequest {
-  string order_id = 1;
-  string payer_wallet_id = 2;
 }
 
 message CancelOrderRequest {
