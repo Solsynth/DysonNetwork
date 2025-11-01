@@ -367,7 +367,7 @@ public class TimelineService(
             .Select(p => p.RealmId!.Value)
             .Distinct()
             .ToList();
-        if (!postRealmIds.Any())
+        if (postRealmIds.Count == 0)
             return;
 
         var realms = await rs.GetRealmBatch(postRealmIds.Select(id => id.ToString()).ToList());
@@ -376,9 +376,7 @@ public class TimelineService(
         foreach (var post in posts.Where(p => p.RealmId != null))
         {
             if (realmDict.TryGetValue(post.RealmId!.Value, out var realm))
-            {
                 post.Realm = realm;
-            }
         }
     }
 

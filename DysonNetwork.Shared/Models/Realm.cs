@@ -20,7 +20,7 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Picture { get; set; }
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
-    
+
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
 
     [JsonIgnore] public ICollection<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
@@ -36,7 +36,12 @@ public class SnRealm : ModelBase, IIdentifiedResource
             Id = Id.ToString(),
             Name = Name,
             Slug = Slug,
+            Description = Description,
+            Picture = Picture?.ToProtoValue(),
+            Background = Background?.ToProtoValue(),
+            Verification = Verification?.ToProtoValue(),
             IsCommunity = IsCommunity,
+            AccountId = AccountId.ToString(),
             IsPublic = IsPublic
         };
     }
@@ -48,9 +53,16 @@ public class SnRealm : ModelBase, IIdentifiedResource
             Id = Guid.Parse(proto.Id),
             Name = proto.Name,
             Slug = proto.Slug,
-            Description = "",
+            Description = proto.Description,
+            Picture = proto.Picture is not null ? SnCloudFileReferenceObject.FromProtoValue(proto.Picture) : null,
+            Background = proto.Background is not null
+                ? SnCloudFileReferenceObject.FromProtoValue(proto.Background)
+                : null,
+            Verification =
+                proto.Verification is not null ? SnVerificationMark.FromProtoValue(proto.Verification) : null,
             IsCommunity = proto.IsCommunity,
-            IsPublic = proto.IsPublic
+            IsPublic = proto.IsPublic,
+            AccountId = Guid.Parse(proto.AccountId),
         };
     }
 }
@@ -89,6 +101,7 @@ public class SnRealmMember : ModelBase
         {
             proto.Account = Account.ToProtoValue();
         }
+
         return proto;
     }
 
@@ -101,12 +114,15 @@ public class SnRealmMember : ModelBase
             Role = proto.Role,
             JoinedAt = proto.JoinedAt?.ToInstant(),
             LeaveAt = proto.LeaveAt?.ToInstant(),
-            Realm = proto.Realm != null ? SnRealm.FromProtoValue(proto.Realm) : new SnRealm() // Provide default or handle null
+            Realm = proto.Realm != null
+                ? SnRealm.FromProtoValue(proto.Realm)
+                : new SnRealm() // Provide default or handle null
         };
         if (proto.Account != null)
         {
             member.Account = SnAccount.FromProtoValue(proto.Account);
         }
+
         return member;
     }
 }
