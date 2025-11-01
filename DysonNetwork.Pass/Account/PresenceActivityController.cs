@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -10,8 +11,8 @@ namespace DysonNetwork.Pass.Account;
 /// </summary>
 [ApiController]
 [Route("/api/activities")]
-[Authorize]
-public class PresenceActivityController(AppDatabase db, AccountEventService service) : ControllerBase
+public class PresenceActivityController(AppDatabase db, AccountEventService service)
+    : ControllerBase
 {
     /// <summary>
     /// Retrieves all active (non-expired) presence activities for the authenticated user.
@@ -22,7 +23,8 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<List<SnPresenceActivity>>> GetActivities()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
         var activities = await service.GetActiveActivities(currentUser.Id);
         return Ok(activities);
     }
@@ -30,14 +32,20 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     /// <summary>
     /// Retrieves active presence activities for any user account (admin/debugging endpoint).
     /// </summary>
-    /// <param name="accountId">The account ID to fetch activities for</param>
     /// <returns>List of active presence activities</returns>
-    [HttpGet("{accountId:guid}")]
+    [HttpGet("{identifier}")]
     [ProducesResponseType<List<SnPresenceActivity>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<SnPresenceActivity>>> GetActivitiesByAccountId(Guid accountId)
+    public async Task<ActionResult<List<SnPresenceActivity>>> GetActivitiesByAccountId(
+        string identifier
+    )
     {
-        var activities = await service.GetActiveActivities(accountId);
+        var account = Guid.TryParse(identifier, out var identifierGuid)
+            ? await db.Accounts.FirstOrDefaultAsync(a => a.Id == identifierGuid)
+            : await db.Accounts.FirstOrDefaultAsync(a => a.Name == identifier);
+        if (account is null)
+            return NotFound();
+
+        var activities = await service.GetActiveActivities(account.Id);
         return Ok(activities);
     }
 
@@ -54,7 +62,8 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
         [FromBody] SetActivityRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
 
         var activity = new SnPresenceActivity
         {
@@ -89,7 +98,8 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
         [FromBody] UpdateActivityRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
 
         var type = request.Type;
         var title = request.Title;
@@ -106,14 +116,21 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
                 currentUser.Id,
                 activity =>
                 {
-                    if (type.HasValue) activity.Type = type.Value;
-                    if (title != null) activity.Title = title;
-                    if (subtitle != null) activity.Subtitle = subtitle;
-                    if (caption != null) activity.Caption = caption;
-                    if (requestManualId != null) activity.ManualId = requestManualId;
-                    if (requestMeta != null) activity.Meta = requestMeta;
+                    if (type.HasValue)
+                        activity.Type = type.Value;
+                    if (title != null)
+                        activity.Title = title;
+                    if (subtitle != null)
+                        activity.Subtitle = subtitle;
+                    if (caption != null)
+                        activity.Caption = caption;
+                    if (requestManualId != null)
+                        activity.ManualId = requestManualId;
+                    if (requestMeta != null)
+                        activity.Meta = requestMeta;
                 },
-                leaseMinutes);
+                leaseMinutes
+            );
 
             if (result == null)
                 return NotFound();
@@ -126,14 +143,21 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
                 activityGuid,
                 activity =>
                 {
-                    if (type.HasValue) activity.Type = type.Value;
-                    if (title != null) activity.Title = title;
-                    if (subtitle != null) activity.Subtitle = subtitle;
-                    if (caption != null) activity.Caption = caption;
-                    if (requestManualId != null) activity.ManualId = requestManualId;
-                    if (requestMeta != null) activity.Meta = requestMeta;
+                    if (type.HasValue)
+                        activity.Type = type.Value;
+                    if (title != null)
+                        activity.Title = title;
+                    if (subtitle != null)
+                        activity.Subtitle = subtitle;
+                    if (caption != null)
+                        activity.Caption = caption;
+                    if (requestManualId != null)
+                        activity.ManualId = requestManualId;
+                    if (requestMeta != null)
+                        activity.Meta = requestMeta;
                 },
-                leaseMinutes);
+                leaseMinutes
+            );
 
             return Ok(result);
         }
@@ -157,9 +181,11 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteActivityById(
         [FromQuery] string? id,
-        [FromQuery] string? manualId)
+        [FromQuery] string? manualId
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
 
         if (!string.IsNullOrWhiteSpace(manualId))
         {
