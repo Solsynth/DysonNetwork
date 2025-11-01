@@ -134,7 +134,7 @@ public class ThoughtService(
         {
             var accountId = accountGroup.Key;
             var totalUnpaidTokens = accountGroup.Sum(s => s.TotalToken - s.PaidToken);
-            var cost = (long)Math.Ceiling(totalUnpaidTokens / 1000.0);
+            var cost = (long)Math.Ceiling(totalUnpaidTokens / 10.0);
 
             if (cost == 0)
                 continue;
@@ -145,7 +145,7 @@ public class ThoughtService(
                 await paymentService.CreateTransactionWithAccountAsync(
                     new CreateTransactionWithAccountRequest
                     {
-                        PayeeAccountId = accountId.ToString(),
+                        PayerAccountId = accountId.ToString(),
                         Currency = WalletCurrency.SourcePoint,
                         Amount = cost.ToString(),
                         Remarks = $"Wage for SN-chan on {date}",
