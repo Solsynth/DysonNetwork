@@ -298,7 +298,8 @@ public class AccountEventService(
 
         // Now try to acquire the lock properly
         await using var lockObj =
-            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5)) ?? throw new InvalidOperationException("Check-in was in progress.");
+            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5)) ??
+            throw new InvalidOperationException("Check-in was in progress.");
         var cultureInfo = new CultureInfo(user.Language, false);
         CultureInfo.CurrentCulture = cultureInfo;
         CultureInfo.CurrentUICulture = cultureInfo;
@@ -456,7 +457,8 @@ public class AccountEventService(
             .Where(e => e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null)
             .ToListAsync();
 
-        await cache.SetWithGroupsAsync(cacheKey, activities, [$"{AccountService.AccountCachePrefix}{userId}"], TimeSpan.FromMinutes(1));
+        await cache.SetWithGroupsAsync(cacheKey, activities, [$"{AccountService.AccountCachePrefix}{userId}"],
+            TimeSpan.FromMinutes(1));
         return activities;
     }
 
@@ -478,7 +480,7 @@ public class AccountEventService(
 
     public async Task<SnPresenceActivity> SetActivity(SnPresenceActivity activity, int leaseMinutes)
     {
-        if (leaseMinutes < 1 || leaseMinutes > 60)
+        if (leaseMinutes is < 1 or > 60)
             throw new ArgumentException("Lease minutes must be between 1 and 60");
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -493,7 +495,8 @@ public class AccountEventService(
         return activity;
     }
 
-    public async Task<SnPresenceActivity> UpdateActivity(Guid activityId, Guid userId, Action<SnPresenceActivity> update, int? leaseMinutes = null)
+    public async Task<SnPresenceActivity> UpdateActivity(Guid activityId, Guid userId,
+        Action<SnPresenceActivity> update, int? leaseMinutes = null)
     {
         var activity = await db.PresenceActivities.FindAsync(activityId);
         if (activity == null)
@@ -508,7 +511,8 @@ public class AccountEventService(
                 throw new ArgumentException("Lease minutes must be between 1 and 60");
 
             activity.LeaseMinutes = leaseMinutes.Value;
-            activity.LeaseExpiresAt = SystemClock.Instance.GetCurrentInstant() + Duration.FromMinutes(leaseMinutes.Value);
+            activity.LeaseExpiresAt =
+                SystemClock.Instance.GetCurrentInstant() + Duration.FromMinutes(leaseMinutes.Value);
         }
 
         update(activity);
@@ -519,19 +523,28 @@ public class AccountEventService(
         return activity;
     }
 
-    public async Task<SnPresenceActivity?> UpdateActivityByManualId(string manualId, Guid userId, Action<SnPresenceActivity> update, int? leaseMinutes = null)
+    public async Task<SnPresenceActivity?> UpdateActivityByManualId(
+        string manualId,
+        Guid userId,
+        Action<SnPresenceActivity> update,
+        int? leaseMinutes = null
+    )
     {
-        var activity = await db.PresenceActivities.FirstOrDefaultAsync(e => e.ManualId == manualId && e.AccountId == userId);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var activity = await db.PresenceActivities.FirstOrDefaultAsync(
+                e => e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+            );
         if (activity == null)
             return null;
 
         if (leaseMinutes.HasValue)
         {
-            if (leaseMinutes.Value < 1 || leaseMinutes.Value > 60)
+            if (leaseMinutes.Value is < 1 or > 60)
                 throw new ArgumentException("Lease minutes must be between 1 and 60");
 
             activity.LeaseMinutes = leaseMinutes.Value;
-            activity.LeaseExpiresAt = SystemClock.Instance.GetCurrentInstant() + Duration.FromMinutes(leaseMinutes.Value);
+            activity.LeaseExpiresAt =
+                SystemClock.Instance.GetCurrentInstant() + Duration.FromMinutes(leaseMinutes.Value);
         }
 
         update(activity);
@@ -544,9 +557,11 @@ public class AccountEventService(
 
     public async Task<bool> DeleteActivityByManualId(string manualId, Guid userId)
     {
-        var activity = await db.PresenceActivities.FirstOrDefaultAsync(e => e.ManualId == manualId && e.AccountId == userId);
-        if (activity == null) return false;
         var now = SystemClock.Instance.GetCurrentInstant();
+        var activity = await db.PresenceActivities.FirstOrDefaultAsync(
+            e => e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+        );
+        if (activity == null) return false;
         if (activity.LeaseExpiresAt <= now)
         {
             activity.DeletedAt = now;
@@ -555,6 +570,7 @@ public class AccountEventService(
         {
             activity.LeaseExpiresAt = now;
         }
+
         db.Update(activity);
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
@@ -578,6 +594,7 @@ public class AccountEventService(
         {
             activity.LeaseExpiresAt = now;
         }
+
         db.Update(activity);
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
