@@ -453,11 +453,27 @@ public class AccountEventService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var activities = await db.PresenceActivities
-            .Where(e => e.AccountId == userId && e.LeaseExpiresAt > now)
+            .Where(e => e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null)
             .ToListAsync();
 
         await cache.SetWithGroupsAsync(cacheKey, activities, [$"{AccountService.AccountCachePrefix}{userId}"], TimeSpan.FromMinutes(1));
         return activities;
+    }
+
+    public async Task<(List<SnPresenceActivity>, int)> GetAllActivities(Guid userId, int offset = 0, int take = 20)
+    {
+        var query = db.PresenceActivities
+            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+
+        var totalCount = await query.CountAsync();
+
+        var activities = await query
+            .OrderByDescending(e => e.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return (activities, totalCount);
     }
 
     public async Task<SnPresenceActivity> SetActivity(SnPresenceActivity activity, int leaseMinutes)
@@ -477,11 +493,14 @@ public class AccountEventService(
         return activity;
     }
 
-    public async Task<SnPresenceActivity> UpdateActivity(Guid activityId, Action<SnPresenceActivity> update, int? leaseMinutes = null)
+    public async Task<SnPresenceActivity> UpdateActivity(Guid activityId, Guid userId, Action<SnPresenceActivity> update, int? leaseMinutes = null)
     {
         var activity = await db.PresenceActivities.FindAsync(activityId);
         if (activity == null)
             throw new KeyNotFoundException("Activity not found");
+
+        if (activity.AccountId != userId)
+            throw new UnauthorizedAccessException("Activity does not belong to user");
 
         if (leaseMinutes.HasValue)
         {
@@ -527,17 +546,39 @@ public class AccountEventService(
     {
         var activity = await db.PresenceActivities.FirstOrDefaultAsync(e => e.ManualId == manualId && e.AccountId == userId);
         if (activity == null) return false;
-        db.Remove(activity);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (activity.LeaseExpiresAt <= now)
+        {
+            activity.DeletedAt = now;
+        }
+        else
+        {
+            activity.LeaseExpiresAt = now;
+        }
+        db.Update(activity);
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
         return true;
     }
 
-    public async Task<bool> DeleteActivity(Guid activityId)
+    public async Task<bool> DeleteActivity(Guid activityId, Guid userId)
     {
         var activity = await db.PresenceActivities.FindAsync(activityId);
         if (activity == null) return false;
-        db.Remove(activity);
+
+        if (activity.AccountId != userId)
+            throw new UnauthorizedAccessException("Activity does not belong to user");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (activity.LeaseExpiresAt <= now)
+        {
+            activity.DeletedAt = now;
+        }
+        else
+        {
+            activity.LeaseExpiresAt = now;
+        }
+        db.Update(activity);
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
         return true;

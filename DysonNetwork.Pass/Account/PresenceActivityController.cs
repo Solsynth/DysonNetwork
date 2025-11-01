@@ -15,17 +15,35 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     : ControllerBase
 {
     /// <summary>
-    /// Retrieves all active (non-expired) presence activities for the authenticated user.
+    /// Retrieves active (non-expired) presence activities for the authenticated user.
+    /// Optionally includes expired activities if includeExpired is true.
     /// </summary>
-    /// <returns>List of active presence activities</returns>
+    /// <param name="includeExpired">Whether to include expired activities</param>
+    /// <param name="offset">The number of activities to skip for pagination</param>
+    /// <param name="take">The maximum number of activities to return</param>
+    /// <returns>List of presence activities</returns>
     [HttpGet]
     [ProducesResponseType<List<SnPresenceActivity>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<SnPresenceActivity>>> GetActivities()
+    public async Task<ActionResult<List<SnPresenceActivity>>> GetActivities(
+        [FromQuery] bool includeExpired = false,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
-        var activities = await service.GetActiveActivities(currentUser.Id);
+        List<SnPresenceActivity> activities;
+        if (includeExpired)
+        {
+            (activities, var total) = await service.GetAllActivities(currentUser.Id, offset, take);
+            Response.Headers["X-Total"] = total.ToString();
+        }
+        else
+        {
+            activities = await service.GetActiveActivities(currentUser.Id);
+        }
+
         return Ok(activities);
     }
 
@@ -50,10 +68,12 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     }
 
     /// <summary>
-    /// Creates a new presence activity with lease expiration.
+    /// Creates or updates a presence activity with lease expiration.
+    /// If an activity with the same 'manualId' exists, it will be updated.
+    /// Otherwise, a new activity will be created.
     /// </summary>
-    /// <param name="request">Activity creation parameters</param>
-    /// <returns>The created activity</returns>
+    /// <param name="request">Activity creation or update parameters</param>
+    /// <returns>The created or updated activity</returns>
     [HttpPost]
     [ProducesResponseType<SnPresenceActivity>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -65,106 +85,97 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var activity = new SnPresenceActivity
+        if (!string.IsNullOrWhiteSpace(request.ManualId))
         {
-            Type = request.Type,
+            var result = await service.UpdateActivityByManualId(
+                request.ManualId,
+                currentUser.Id,
+                activity =>
+                {
+                    if (request.Type.HasValue)
+                        activity.Type = request.Type.Value;
+                    activity.Title = request.Title;
+                    activity.Subtitle = request.Subtitle;
+                    activity.Caption = request.Caption;
+                    activity.LargeImage = request.LargeImage;
+                    activity.SmallImage = request.SmallImage;
+                    activity.TitleUrl = request.TitleUrl;
+                    activity.SubtitleUrl = request.SubtitleUrl;
+                    activity.Meta = request.Meta;
+                },
+                request.LeaseMinutes
+            );
+
+            if (result != null)
+            {
+                return Ok(result);
+            }
+        }
+
+        if (!request.Type.HasValue)
+            return BadRequest("Type is required when creating a new activity");
+
+        var newActivity = new SnPresenceActivity
+        {
+            AccountId = currentUser.Id,
+            Type = request.Type.Value,
             ManualId = request.ManualId,
             Title = request.Title,
             Subtitle = request.Subtitle,
             Caption = request.Caption,
-            Meta = request.Meta,
-            AccountId = currentUser.Id,
+            LargeImage = request.LargeImage,
+            SmallImage = request.SmallImage,
+            TitleUrl = request.TitleUrl,
+            SubtitleUrl = request.SubtitleUrl,
+            Meta = request.Meta
         };
-        var result = await service.SetActivity(activity, request.LeaseMinutes);
-        return Ok(result);
+
+        var createResult = await service.SetActivity(newActivity, request.LeaseMinutes);
+        return Ok(createResult);
     }
 
     /// <summary>
     /// Updates an existing presence activity using either its GUID or manual ID.
     /// </summary>
     /// <param name="id">System-generated GUID of the activity (optional)</param>
-    /// <param name="manualId">User-defined manual ID of the activity (optional)</param>
     /// <param name="request">Update parameters (only provided fields are updated)</param>
     /// <returns>The updated activity</returns>
     /// <remarks>One of 'id' or 'manualId' must be provided and non-empty.</remarks>
-    [HttpPut]
+    [HttpPut("{id:guid}")]
     [ProducesResponseType<SnPresenceActivity>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnPresenceActivity>> UpdateActivity(
-        [FromQuery] string? id,
-        [FromQuery] string? manualId,
-        [FromBody] UpdateActivityRequest request
+        [FromRoute] Guid id,
+        [FromBody] SetActivityRequest request
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var type = request.Type;
-        var title = request.Title;
-        var subtitle = request.Subtitle;
-        var caption = request.Caption;
-        var requestManualId = request.ManualId;
-        var requestMeta = request.Meta;
-        var leaseMinutes = request.LeaseMinutes;
+        var result = await service.UpdateActivity(
+            id,
+            currentUser.Id,
+            activity =>
+            {
+                if (request.Type.HasValue)
+                    activity.Type = request.Type.Value;
+                if (request.Title != null)
+                    activity.Title = request.Title;
+                if (request.Subtitle != null)
+                    activity.Subtitle = request.Subtitle;
+                if (request.Caption != null)
+                    activity.Caption = request.Caption;
+                if (request.ManualId != null)
+                    activity.ManualId = request.ManualId;
+                if (request.Meta != null)
+                    activity.Meta = request.Meta;
+            },
+            request.LeaseMinutes
+        );
 
-        if (!string.IsNullOrWhiteSpace(manualId))
-        {
-            var result = await service.UpdateActivityByManualId(
-                manualId,
-                currentUser.Id,
-                activity =>
-                {
-                    if (type.HasValue)
-                        activity.Type = type.Value;
-                    if (title != null)
-                        activity.Title = title;
-                    if (subtitle != null)
-                        activity.Subtitle = subtitle;
-                    if (caption != null)
-                        activity.Caption = caption;
-                    if (requestManualId != null)
-                        activity.ManualId = requestManualId;
-                    if (requestMeta != null)
-                        activity.Meta = requestMeta;
-                },
-                leaseMinutes
-            );
-
-            if (result == null)
-                return NotFound();
-
-            return Ok(result);
-        }
-        else if (!string.IsNullOrWhiteSpace(id) && Guid.TryParse(id, out var activityGuid))
-        {
-            var result = await service.UpdateActivity(
-                activityGuid,
-                activity =>
-                {
-                    if (type.HasValue)
-                        activity.Type = type.Value;
-                    if (title != null)
-                        activity.Title = title;
-                    if (subtitle != null)
-                        activity.Subtitle = subtitle;
-                    if (caption != null)
-                        activity.Caption = caption;
-                    if (requestManualId != null)
-                        activity.ManualId = requestManualId;
-                    if (requestMeta != null)
-                        activity.Meta = requestMeta;
-                },
-                leaseMinutes
-            );
-
-            return Ok(result);
-        }
-        else
-        {
-            return BadRequest("Either 'id' (GUID) or 'manualId' must be provided");
-        }
+        return Ok(result);
     }
 
     /// <summary>
@@ -195,18 +206,17 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
 
             return NoContent();
         }
-        else
-        {
-            if (!string.IsNullOrWhiteSpace(id) && Guid.TryParse(id, out var activityGuid))
-            {
-                var deleted = await service.DeleteActivity(activityGuid);
-                if (!deleted)
-                    return NotFound();
 
-                return NoContent();
-            }
+        if (string.IsNullOrWhiteSpace(id) || !Guid.TryParse(id, out var activityGuid))
             return BadRequest("Either 'id' (GUID) or 'manualId' must be provided");
+        {
+            var deleted = await service.DeleteActivity(activityGuid, currentUser.Id);
+            if (!deleted)
+                return NotFound();
+
+            return NoContent();
         }
+
     }
 
     /// <summary>
@@ -215,7 +225,7 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     public class SetActivityRequest
     {
         /// <summary>The type of presence activity (e.g., Gaming, Music, Workout)</summary>
-        public PresenceType Type { get; set; }
+        public PresenceType? Type { get; set; }
 
         /// <summary>User-defined identifier for the activity (optional, for easy reference)</summary>
         public string? ManualId { get; set; }
@@ -229,38 +239,22 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
         /// <summary>Additional caption/description</summary>
         public string? Caption { get; set; }
 
+        /// <summary>Large image URL or base64 string</summary>
+        public string? LargeImage { get; set; }
+
+        /// <summary>Small image URL or base64 string</summary>
+        public string? SmallImage { get; set; }
+
+        /// <summary>Title URL</summary>
+        public string? TitleUrl { get; set; }
+
+        /// <summary>Subtitle URL</summary>
+        public string? SubtitleUrl { get; set; }
+
         /// <summary>Extensible metadata dictionary for custom developer data</summary>
         public Dictionary<string, object>? Meta { get; set; }
 
         /// <summary>Lease duration in minutes (1-60, default: 5)</summary>
         public int LeaseMinutes { get; set; } = 5;
-    }
-
-    /// <summary>
-    /// Request model for updating an existing presence activity.
-    /// All fields are optional and will only update if provided.
-    /// </summary>
-    public class UpdateActivityRequest
-    {
-        /// <summary>The type of presence activity (optional update)</summary>
-        public PresenceType? Type { get; set; }
-
-        /// <summary>User-defined identifier update</summary>
-        public string? ManualId { get; set; }
-
-        /// <summary>Title update</summary>
-        public string? Title { get; set; }
-
-        /// <summary>Subtitle update</summary>
-        public string? Subtitle { get; set; }
-
-        /// <summary>Caption update</summary>
-        public string? Caption { get; set; }
-
-        /// <summary>Metadata update</summary>
-        public Dictionary<string, object>? Meta { get; set; }
-
-        /// <summary>Lease renewal in minutes</summary>
-        public int? LeaseMinutes { get; set; }
     }
 }

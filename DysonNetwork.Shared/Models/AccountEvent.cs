@@ -163,6 +163,18 @@ public class SnPresenceActivity : ModelBase
     [MaxLength(4096)]
     public string? Caption { get; set; }
 
+    [MaxLength(4096)]
+    public string? LargeImage { get; set; }
+
+    [MaxLength(4096)]
+    public string? SmallImage { get; set; }
+
+    [MaxLength(4096)]
+    public string? TitleUrl { get; set; }
+
+    [MaxLength(4096)]
+    public string? SubtitleUrl { get; set; }
+
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object>? Meta { get; set; }
 

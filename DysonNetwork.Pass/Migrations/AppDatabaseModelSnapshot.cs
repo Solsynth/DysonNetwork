@@ -1387,6 +1387,11 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("LargeImage")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("large_image");
+
                     b.Property<Instant>("LeaseExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("lease_expires_at");
@@ -1404,15 +1409,30 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("meta");
 
+                    b.Property<string>("SmallImage")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("small_image");
+
                     b.Property<string>("Subtitle")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("subtitle");
 
+                    b.Property<string>("SubtitleUrl")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("subtitle_url");
+
                     b.Property<string>("Title")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("title");
+
+                    b.Property<string>("TitleUrl")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("title_url");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer")
