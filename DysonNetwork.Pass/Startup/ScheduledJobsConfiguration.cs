@@ -1,3 +1,5 @@
+using DysonNetwork.Pass.Account;
+using DysonNetwork.Pass.Account.Presences;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Wallet;
@@ -81,6 +83,16 @@ public static class ScheduledJobsConfiguration
                 .ForJob(socialCreditValidationJob)
                 .WithIdentity("SocialCreditValidationTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
+
+            var spotifyPresenceUpdateJob = new JobKey("SpotifyPresenceUpdate");
+            q.AddJob<SpotifyPresenceUpdateJob>(opts => opts.WithIdentity(spotifyPresenceUpdateJob));
+            q.AddTrigger(opts => opts
+                .ForJob(spotifyPresenceUpdateJob)
+                .WithIdentity("SpotifyPresenceUpdateTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(2)
+                    .RepeatForever())
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

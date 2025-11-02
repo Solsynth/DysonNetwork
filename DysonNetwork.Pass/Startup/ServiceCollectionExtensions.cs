@@ -57,12 +57,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OidcService, MicrosoftOidcService>();
         services.AddScoped<OidcService, DiscordOidcService>();
         services.AddScoped<OidcService, AfdianOidcService>();
+        services.AddScoped<OidcService, SpotifyOidcService>();
         services.AddScoped<GoogleOidcService>();
         services.AddScoped<AppleOidcService>();
         services.AddScoped<GitHubOidcService>();
         services.AddScoped<MicrosoftOidcService>();
         services.AddScoped<DiscordOidcService>();
         services.AddScoped<AfdianOidcService>();
+        services.AddScoped<SpotifyOidcService>();
 
         services.AddControllers().AddJsonOptions(options =>
         {
@@ -142,6 +144,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActionLogService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
+        services.AddScoped<DysonNetwork.Pass.Account.Presences.SpotifyPresenceService>();
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
         services.AddScoped<AccountUsernameService>();
