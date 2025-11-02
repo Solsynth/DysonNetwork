@@ -79,7 +79,7 @@ public class MagicSpellService(
             .FirstOrDefaultAsync();
         if (contact is null) throw new ArgumentException("Account has no contact method that can use");
 
-        var link = $"{configuration.GetValue<string>("BaseUrl")}/spells/{Uri.EscapeDataString(spell.Spell)}";
+        var link = $"{configuration.GetValue<string>("SiteUrl")}/spells/{Uri.EscapeDataString(spell.Spell)}";
 
         logger.LogInformation("Sending magic spell... {Link}", link);
 
