@@ -20,6 +20,27 @@ public class MicrosoftOidcService(
 
     protected override string ConfigSectionName => "Microsoft";
 
+    public override async Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    {
+        var config = GetProviderConfig();
+        var discoveryDocument = await GetDiscoveryDocumentAsync();
+
+        if (discoveryDocument?.AuthorizationEndpoint == null)
+            throw new InvalidOperationException("Authorization endpoint not found in discovery document.");
+
+        var queryParams = BuildAuthorizationParameters(
+            config.ClientId,
+            config.RedirectUri,
+            "openid profile email",
+            "code",
+            state,
+            nonce
+        );
+
+        var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
+        return $"{discoveryDocument.AuthorizationEndpoint}?{queryString}";
+    }
+
     public override string GetAuthorizationUrl(string state, string nonce)
     {
         var config = GetProviderConfig();

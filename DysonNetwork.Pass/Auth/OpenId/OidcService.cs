@@ -42,9 +42,17 @@ public abstract class OidcService(
     protected abstract string ConfigSectionName { get; }
 
     /// <summary>
-    /// Gets the authorization URL for initiating the authentication flow
+    /// Gets the authorization URL for initiating the authentication flow (async)
     /// </summary>
-    public abstract string GetAuthorizationUrl(string state, string nonce);
+    public abstract Task<string> GetAuthorizationUrlAsync(string state, string nonce);
+
+    /// <summary>
+    /// Gets the authorization URL for initiating the authentication flow (sync for backward compatibility)
+    /// </summary>
+    public virtual string GetAuthorizationUrl(string state, string nonce)
+    {
+        return GetAuthorizationUrlAsync(state, nonce).GetAwaiter().GetResult();
+    }
 
     /// <summary>
     /// Builds common authorization URL query parameters

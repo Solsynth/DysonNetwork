@@ -19,10 +19,10 @@ public class GoogleOidcService(
     protected override string DiscoveryEndpoint => "https://accounts.google.com/.well-known/openid-configuration";
     protected override string ConfigSectionName => "Google";
 
-    public override string GetAuthorizationUrl(string state, string nonce)
+    public override async Task<string> GetAuthorizationUrlAsync(string state, string nonce)
     {
         var config = GetProviderConfig();
-        var discoveryDocument = GetDiscoveryDocumentAsync().GetAwaiter().GetResult();
+        var discoveryDocument = await GetDiscoveryDocumentAsync();
 
         if (discoveryDocument?.AuthorizationEndpoint == null)
         {
@@ -48,7 +48,7 @@ public class GoogleOidcService(
 
         // Store code verifier in cache for later token exchange
         var codeVerifierKey = $"pkce:{state}";
-        cache.SetAsync(codeVerifierKey, codeVerifier, TimeSpan.FromMinutes(15)).GetAwaiter().GetResult();
+        await cache.SetAsync(codeVerifierKey, codeVerifier, TimeSpan.FromMinutes(15));
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
         return $"{discoveryDocument.AuthorizationEndpoint}?{queryString}";

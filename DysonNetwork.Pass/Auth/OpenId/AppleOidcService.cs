@@ -27,6 +27,30 @@ public class AppleOidcService(
     protected override string DiscoveryEndpoint => "https://appleid.apple.com/.well-known/openid-configuration";
     protected override string ConfigSectionName => "Apple";
 
+    public override async Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    {
+        var config = GetProviderConfig();
+        var discoveryDocument = await GetDiscoveryDocumentAsync();
+
+        if (discoveryDocument?.AuthorizationEndpoint == null)
+        {
+            throw new InvalidOperationException("Authorization endpoint not found in discovery document");
+        }
+
+        var queryParams = BuildAuthorizationParameters(
+            config.ClientId,
+            config.RedirectUri,
+            "name email",
+            "code id_token",
+            state,
+            nonce,
+            "form_post"
+        );
+
+        var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
+        return $"{discoveryDocument.AuthorizationEndpoint}?{queryString}";
+    }
+
     public override string GetAuthorizationUrl(string state, string nonce)
     {
         var config = GetProviderConfig();

@@ -43,7 +43,7 @@ public class OidcController(
                 await cache.SetAsync($"{StateCachePrefix}{state}", oidcState, StateExpiration);
 
                 // The state parameter sent to the provider is the GUID key for the cache.
-                var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
+                var authUrl = await oidcService.GetAuthorizationUrlAsync(state, nonce);
                 return Redirect(authUrl);
             }
             else // Otherwise, proceed with the login / registration flow
@@ -54,7 +54,7 @@ public class OidcController(
                 // Create login state with return URL and device ID
                 var oidcState = OidcState.ForLogin(returnUrl ?? "/", deviceId);
                 await cache.SetAsync($"{StateCachePrefix}{state}", oidcState, StateExpiration);
-                var authUrl = oidcService.GetAuthorizationUrl(state, nonce);
+                var authUrl = await oidcService.GetAuthorizationUrlAsync(state, nonce);
                 return Redirect(authUrl);
             }
         }

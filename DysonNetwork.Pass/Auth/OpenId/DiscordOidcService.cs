@@ -16,6 +16,11 @@ public class DiscordOidcService(
     protected override string DiscoveryEndpoint => ""; // Discord doesn't have a standard OIDC discovery endpoint
     protected override string ConfigSectionName => "Discord";
 
+    public override Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    {
+        return Task.FromResult(GetAuthorizationUrl(state, nonce));
+    }
+
     public override string GetAuthorizationUrl(string state, string nonce)
     {
         var config = GetProviderConfig();

@@ -17,6 +17,11 @@ public class AfdianOidcService(
     protected override string DiscoveryEndpoint => ""; // Afdian doesn't have a standard OIDC discovery endpoint
     protected override string ConfigSectionName => "Afdian";
 
+    public override Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    {
+        return Task.FromResult(GetAuthorizationUrl(state, nonce));
+    }
+
     public override string GetAuthorizationUrl(string state, string nonce)
     {
         var config = GetProviderConfig();

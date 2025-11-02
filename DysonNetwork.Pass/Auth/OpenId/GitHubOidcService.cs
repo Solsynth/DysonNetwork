@@ -16,6 +16,11 @@ public class GitHubOidcService(
     protected override string DiscoveryEndpoint => ""; // GitHub doesn't have a standard OIDC discovery endpoint
     protected override string ConfigSectionName => "GitHub";
 
+    public override Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    {
+        return Task.FromResult(GetAuthorizationUrl(state, nonce));
+    }
+
     public override string GetAuthorizationUrl(string state, string nonce)
     {
         var config = GetProviderConfig();
