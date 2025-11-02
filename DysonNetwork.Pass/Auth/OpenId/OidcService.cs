@@ -44,6 +44,29 @@ public abstract class OidcService(
     public abstract string GetAuthorizationUrl(string state, string nonce);
 
     /// <summary>
+    /// Builds common authorization URL query parameters
+    /// </summary>
+    protected Dictionary<string, string> BuildAuthorizationParameters(string clientId, string redirectUri, string scope, string responseType, string state, string nonce, string? responseMode = null)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            ["client_id"] = clientId,
+            ["redirect_uri"] = redirectUri,
+            ["response_type"] = responseType,
+            ["scope"] = scope,
+            ["state"] = state,
+            ["nonce"] = nonce
+        };
+
+        if (!string.IsNullOrEmpty(responseMode))
+        {
+            parameters["response_mode"] = responseMode;
+        }
+
+        return parameters;
+    }
+
+    /// <summary>
     /// Process the callback from the OIDC provider
     /// </summary>
     public abstract Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData);

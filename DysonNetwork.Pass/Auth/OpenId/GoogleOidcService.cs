@@ -29,15 +29,14 @@ public class GoogleOidcService(
             throw new InvalidOperationException("Authorization endpoint not found in discovery document");
         }
 
-        var queryParams = new Dictionary<string, string>
-        {
-            { "client_id", config.ClientId },
-            { "redirect_uri", config.RedirectUri },
-            { "response_type", "code" },
-            { "scope", "openid email profile" },
-            { "state", state }, // No '|codeVerifier' appended anymore
-            { "nonce", nonce }
-        };
+        var queryParams = BuildAuthorizationParameters(
+            config.ClientId,
+            config.RedirectUri,
+            "openid email profile",
+            "code",
+            state,
+            nonce
+        );
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
         return $"{discoveryDocument.AuthorizationEndpoint}?{queryString}";
