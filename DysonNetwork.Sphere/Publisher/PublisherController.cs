@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -39,7 +40,7 @@ public class PublisherController(
 
         return Ok(publisher);
     }
-    
+
     [HttpGet("{name}/heatmap")]
     public async Task<ActionResult<ActivityHeatmap>> GetPublisherHeatmap(string name)
     {
@@ -650,6 +651,27 @@ public class PublisherController(
         return Ok(dict);
     }
 
+    [HttpGet("{name}/rewards")]
+    [Authorize]
+    public async Task<ActionResult<PublisherService.PublisherRewardPreview>> GetPublisherExpectedReward(
+        string name
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
+            return StatusCode(403, "You are not allowed to view stats data of this publisher.");
+
+        var result = await ps.GetPublisherExpectedReward(publisher.Id);
+        return Ok(result);
+    }
+
     public class PublisherFeatureRequest
     {
         [Required] public string Flag { get; set; } = null!;
@@ -700,5 +722,14 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    [HttpPost("rewards/settle")]
+    [Authorize]
+    [RequiredPermission("maintenance", "publishers.reward.settle")]
+    public async Task<IActionResult> PerformLotteryDraw()
+    {
+        await ps.SettlePublisherRewards();
+        return Ok();
     }
 }

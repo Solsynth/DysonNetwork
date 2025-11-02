@@ -71,6 +71,18 @@ public static class ServiceInjectionHelper
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
         services.AddSingleton<RemoteRealmService>();
+        
+        services
+            .AddGrpcClient<SocialCreditService.SocialCreditServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
+        
+        services
+            .AddGrpcClient<ExperienceService.ExperienceServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
 
         return services;
     }

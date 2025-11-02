@@ -1,9 +1,11 @@
+using System.Globalization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherType = DysonNetwork.Shared.Models.PublisherType;
 
@@ -12,6 +14,8 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherService(
     AppDatabase db,
     FileReferenceService.FileReferenceServiceClient fileRefs,
+    SocialCreditService.SocialCreditServiceClient socialCredits,
+    ExperienceService.ExperienceServiceClient experiences,
     ICacheService cache,
     RemoteAccountService remoteAccounts
 )
@@ -300,10 +304,12 @@ public class PublisherService(
 
         var postsCount = await db.Posts.Where(e => e.Publisher.Id == publisher.Id).CountAsync();
         var postsUpvotes = await db.PostReactions
-            .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == Shared.Models.PostReactionAttitude.Positive)
+            .Where(r => r.Post.Publisher.Id == publisher.Id &&
+                        r.Attitude == Shared.Models.PostReactionAttitude.Positive)
             .CountAsync();
         var postsDownvotes = await db.PostReactions
-            .Where(r => r.Post.Publisher.Id == publisher.Id && r.Attitude == Shared.Models.PostReactionAttitude.Negative)
+            .Where(r => r.Post.Publisher.Id == publisher.Id &&
+                        r.Attitude == Shared.Models.PostReactionAttitude.Negative)
             .CountAsync();
 
         var stickerPacksId = await db.StickerPacks.Where(e => e.Publisher.Id == publisher.Id).Select(e => e.Id)
@@ -461,5 +467,183 @@ public class PublisherService(
         }
 
         return publishers.ToList();
+    }
+
+    public class PublisherRewardPreview
+    {
+        public int Experience { get; set; }
+        public int SocialCredits { get; set; }
+    }
+
+    public async Task<PublisherRewardPreview> GetPublisherExpectedReward(Guid publisherId)
+    {
+        var cacheKey = $"publisher:{publisherId}:rewards";
+        var (found, cached) = await cache.GetAsyncWithStatus<PublisherRewardPreview>(cacheKey);
+        if (found)
+            return cached!;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var yesterday = now.InZone(DateTimeZone.Utc).Date.PlusDays(-1);
+        var periodStart = yesterday.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var periodEnd = periodStart.Plus(Duration.FromDays(1)).Minus(Duration.FromMilliseconds(1));
+
+        // Get posts stats for this publisher: count, id, exclude content
+        var postsInPeriod = await db.Posts
+            .Where(p => p.PublisherId == publisherId && p.CreatedAt >= periodStart && p.CreatedAt <= periodEnd)
+            .Select(p => new { Id = p.Id, AwardedScore = p.AwardedScore })
+            .ToListAsync();
+
+        // Get reactions for these posts
+        var postIds = postsInPeriod.Select(p => p.Id).ToList();
+        var reactions = await db.PostReactions
+            .Where(r => postIds.Contains(r.PostId))
+            .ToListAsync();
+
+        if (postsInPeriod.Count == 0)
+            return new PublisherRewardPreview { Experience = 0, SocialCredits = 0 };
+
+        // Calculate stats
+        var postCount = postsInPeriod.Count;
+        var upvotes = reactions.Count(r => r.Attitude == Shared.Models.PostReactionAttitude.Positive);
+        var downvotes = reactions.Count(r => r.Attitude == Shared.Models.PostReactionAttitude.Negative);
+        var awardScore = postsInPeriod.Sum(p => (double)p.AwardedScore);
+
+        // Each post counts as 100 experiences,
+        // and each point (upvote - downvote + award score * 0.1) count as 10 experiences
+        var netVotes = upvotes - downvotes;
+        var points = netVotes + awardScore * 0.1;
+        var experienceFromPosts = postCount * 100;
+        var experienceFromPoints = (int)(points * 10);
+        var totalExperience = experienceFromPosts + experienceFromPoints;
+
+        var preview = new PublisherRewardPreview
+        {
+            Experience = totalExperience,
+            SocialCredits = (int)(points * 10)
+        };
+
+        await cache.SetAsync(cacheKey, preview, TimeSpan.FromMinutes(5));
+        return preview;
+    }
+
+    public async Task SettlePublisherRewards()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var yesterday = now.InZone(DateTimeZone.Utc).Date.PlusDays(-1);
+        var periodStart = yesterday.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var periodEnd = periodStart.Plus(Duration.FromDays(1)).Minus(Duration.FromMilliseconds(1));
+
+        // Get posts stats: count, publisher id, exclude content
+        var postsInPeriod = await db.Posts
+            .Where(p => p.CreatedAt >= periodStart && p.CreatedAt <= periodEnd)
+            .Select(p => new { Id = p.Id, PublisherId = p.PublisherId, AwardedScore = p.AwardedScore })
+            .ToListAsync();
+
+        // Get reactions for these posts
+        var postIds = postsInPeriod.Select(p => p.Id).ToList();
+        var reactions = await db.PostReactions
+            .Where(r => postIds.Contains(r.PostId))
+            .ToListAsync();
+
+        // Group stats by publisher id
+        var postIdToPublisher = postsInPeriod.ToDictionary(p => p.Id, p => p.PublisherId);
+        var publisherStats = postsInPeriod
+            .GroupBy(p => p.PublisherId)
+            .ToDictionary(g => g.Key,
+                g => new
+                {
+                    PostCount = g.Count(), Upvotes = 0, Downvotes = 0, AwardScore = g.Sum(p => (double)p.AwardedScore)
+                });
+
+        foreach (var reaction in reactions.Where(r => r.Attitude == Shared.Models.PostReactionAttitude.Positive))
+        {
+            if (!postIdToPublisher.TryGetValue(reaction.PostId, out var pubId) ||
+                !publisherStats.TryGetValue(pubId, out var stat)) continue;
+            stat = new { stat.PostCount, Upvotes = stat.Upvotes + 1, stat.Downvotes, stat.AwardScore };
+            publisherStats[pubId] = stat;
+        }
+
+        foreach (var reaction in reactions.Where(r => r.Attitude == Shared.Models.PostReactionAttitude.Negative))
+        {
+            if (!postIdToPublisher.TryGetValue(reaction.PostId, out var pubId) ||
+                !publisherStats.TryGetValue(pubId, out var stat)) continue;
+            stat = new { stat.PostCount, stat.Upvotes, Downvotes = stat.Downvotes + 1, stat.AwardScore };
+            publisherStats[pubId] = stat;
+        }
+
+        var date = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var publisherIds = publisherStats.Keys.ToList();
+        var publisherMembers = await db.PublisherMembers
+            .Where(m => publisherIds.Contains(m.PublisherId))
+            .ToListAsync();
+        var accountIds = publisherMembers.Select(m => m.AccountId).ToList();
+        var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var publisherAccounts = publisherMembers
+            .GroupBy(m => m.PublisherId)
+            .ToDictionary(g => g.Key, g => g.Select(m => SnAccount.FromProtoValue(accounts[m.AccountId])).ToList());
+
+        // Foreach loop through publishers to calculate experience
+        foreach (var (publisherId, value) in publisherStats)
+        {
+            var postCount = value.PostCount;
+            var upvotes = value.Upvotes;
+            var downvotes = value.Downvotes;
+            var awardScore = value.AwardScore; // Fetch or calculate here
+
+            // Each post counts as 100 experiences,
+            // and each point (upvote - downvote + award score * 0.1) count as 10 experiences
+            var netVotes = upvotes - downvotes;
+            var points = netVotes + awardScore * 0.1;
+            var experienceFromPosts = postCount * 100;
+            var experienceFromPoints = (int)(points * 10);
+            var totalExperience = experienceFromPosts + experienceFromPoints;
+
+            if (!publisherAccounts.TryGetValue(publisherId, out var receivers) || receivers.Count == 0)
+                continue;
+
+            // Use totalExperience for rewarding
+            foreach (var receiver in receivers)
+            {
+                await experiences.AddRecordAsync(new AddExperienceRecordRequest
+                {
+                    Reason = $"Publishing Reward on {date}",
+                    ReasonType = "publishers.rewards",
+                    AccountId = receiver.Id.ToString(),
+                    Delta = totalExperience,
+                });
+            }
+        }
+
+        // Foreach loop through publishers to set social credit
+        var expiredAt = now.InZone(DateTimeZone.Utc).Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).Minus(Duration.FromMilliseconds(1)).ToInstant();
+        foreach (var (publisherId, value) in publisherStats)
+        {
+            var upvotes = value.Upvotes;
+            var downvotes = value.Downvotes;
+            var awardScore = value.AwardScore; // Fetch or calculate here
+
+            var netVotes = upvotes - downvotes;
+            var points = netVotes + awardScore * 0.1;
+            var socialCreditDelta = (int)(points * 10);
+
+            if (socialCreditDelta == 0) continue;
+
+            if (!publisherAccounts.TryGetValue(publisherId, out var receivers) || receivers.Count == 0)
+                continue;
+
+            // Set social credit for receivers, expired before next settle
+            foreach (var receiver in receivers)
+            {
+                await socialCredits.AddRecordAsync(new AddSocialCreditRecordRequest
+                {
+                    Reason = $"Publishing Reward on {date}",
+                    ReasonType = "publishers.rewards",
+                    AccountId = receiver.Id.ToString(),
+                    Delta = socialCreditDelta,
+                    ExpiredAt = expiredAt.ToTimestamp(),
+                });
+            }
+        }
     }
 }

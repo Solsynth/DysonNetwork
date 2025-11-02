@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.WebReader;
 using Quartz;
 
@@ -29,6 +30,13 @@ public static class ScheduledJobsConfiguration
             q.AddTrigger(opts => opts
                 .ForJob("WebFeedScraper")
                 .WithIdentity("WebFeedScraperTrigger")
+                .WithCronSchedule("0 0 0 * * ?")
+            );
+
+            q.AddJob<PublisherSettlementJob>(opts => opts.WithIdentity("PublisherSettlement"));
+            q.AddTrigger(opts => opts
+                .ForJob("PublisherSettlement")
+                .WithIdentity("PublisherSettlementTrigger")
                 .WithCronSchedule("0 0 0 * * ?")
             );
         });

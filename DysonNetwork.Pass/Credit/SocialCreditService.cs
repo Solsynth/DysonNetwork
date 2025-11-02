@@ -8,8 +8,14 @@ namespace DysonNetwork.Pass.Credit;
 public class SocialCreditService(AppDatabase db, ICacheService cache)
 {
     private const string CacheKeyPrefix = "account:credits:";
-    
-    public async Task<SnSocialCreditRecord> AddRecord(string reasonType, string reason, double delta, Guid accountId)
+
+    public async Task<SnSocialCreditRecord> AddRecord(
+        string reasonType,
+        string reason,
+        double delta,
+        Guid accountId,
+        Instant? expiredAt
+    )
     {
         var record = new SnSocialCreditRecord
         {
@@ -17,21 +23,22 @@ public class SocialCreditService(AppDatabase db, ICacheService cache)
             Reason = reason,
             Delta = delta,
             AccountId = accountId,
+            ExpiredAt = expiredAt
         };
         db.SocialCreditRecords.Add(record);
         await db.SaveChangesAsync();
-        
+
         await db.AccountProfiles
             .Where(p => p.AccountId == accountId)
             .ExecuteUpdateAsync(p => p.SetProperty(v => v.SocialCredits, v => v.SocialCredits + record.Delta));
-        
+
         await cache.RemoveAsync($"{CacheKeyPrefix}{accountId}");
-        
+
         return record;
     }
-    
+
     private const double BaseSocialCredit = 100;
-    
+
     public async Task<double> GetSocialCredit(Guid accountId)
     {
         var cached = await cache.GetAsync<double?>($"{CacheKeyPrefix}{accountId}");
@@ -61,7 +68,8 @@ public class SocialCreditService(AppDatabase db, ICacheService cache)
         {
             await db.AccountProfiles
                 .Where(p => p.AccountId == accountId)
-                .ExecuteUpdateAsync(p => p.SetProperty(v => v.SocialCredits, v => v.SocialCredits - totalDeltaSubtracted));
+                .ExecuteUpdateAsync(p =>
+                    p.SetProperty(v => v.SocialCredits, v => v.SocialCredits - totalDeltaSubtracted));
             await cache.RemoveAsync($"{CacheKeyPrefix}{accountId}");
         }
 
