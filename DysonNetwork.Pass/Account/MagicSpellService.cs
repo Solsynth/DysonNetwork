@@ -251,12 +251,15 @@ public class MagicSpellService(
 
     private static string _GenerateRandomString(int length)
     {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var result = new char[length];
         using var rng = RandomNumberGenerator.Create();
-        var randomBytes = new byte[length];
-        rng.GetBytes(randomBytes);
-
-        var base64String = Convert.ToBase64String(randomBytes);
-
-        return base64String[..length];
+        for (var i = 0; i < length; i++)
+        {
+            var bytes = new byte[1];
+            rng.GetBytes(bytes);
+            result[i] = chars[bytes[0] % chars.Length];
+        }
+        return new string(result);
     }
 }
