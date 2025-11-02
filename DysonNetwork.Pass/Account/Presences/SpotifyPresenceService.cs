@@ -1,7 +1,7 @@
-using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using SpotifyAPI.Web;
 
 namespace DysonNetwork.Pass.Account.Presences;
 
@@ -45,19 +45,28 @@ public class SpotifyPresenceService(
 
         try
         {
-            var currentlyPlayingJson = await spotifyService.GetCurrentlyPlayingAsync(
-                connection.RefreshToken,
-                connection.AccessToken
-            );
-
-            if (string.IsNullOrEmpty(currentlyPlayingJson) || currentlyPlayingJson == "{}")
+            // Ensure we have a valid access token
+            var validToken = await spotifyService.GetValidAccessTokenAsync(connection.RefreshToken, connection.AccessToken);
+            if (string.IsNullOrEmpty(validToken))
             {
-                // Nothing playing, remove the presence
+                // Couldn't get a valid token, remove presence
                 await RemoveSpotifyPresenceAsync(account.Id);
                 return;
             }
 
-            var presenceActivity = await ParseAndCreatePresenceActivityAsync(account.Id, currentlyPlayingJson);
+            // Create Spotify client with the valid token
+            var spotify = new SpotifyClient(validToken);
+
+            // Get currently playing track
+            var currentlyPlaying = await spotify.Player.GetCurrentlyPlaying(new PlayerCurrentlyPlayingRequest());
+            if (currentlyPlaying?.Item == null || currentlyPlaying.IsPlaying == false)
+            {
+                // Nothing playing or paused, remove the presence
+                await RemoveSpotifyPresenceAsync(account.Id);
+                return;
+            }
+
+            var presenceActivity = ParseCurrentlyPlayingToPresenceActivity(account.Id, currentlyPlaying);
 
             // Update or create the presence activity
             await accountEventService.UpdateActivityByManualId(
@@ -104,81 +113,98 @@ public class SpotifyPresenceService(
         );
     }
 
-    private static Task<SnPresenceActivity> ParseAndCreatePresenceActivityAsync(Guid accountId, string currentlyPlayingJson)
+    private static SnPresenceActivity ParseCurrentlyPlayingToPresenceActivity(Guid accountId, CurrentlyPlaying currentlyPlaying)
     {
-        var document = JsonDocument.Parse(currentlyPlayingJson);
-        var root = document.RootElement;
-
-        // Extract track information
-        var item = root.GetProperty("item");
-        var trackName = item.GetProperty("name").GetString() ?? "";
-        var isPlaying = root.GetProperty("is_playing").GetBoolean();
-
-        // Only create presence if actually playing
-        if (!isPlaying)
+        // Cast the item to FullTrack (it should be a track for music presence)
+        if (currentlyPlaying.Item is not FullTrack track)
         {
-            throw new InvalidOperationException("Track is not currently playing");
+            throw new InvalidOperationException("Currently playing item is not a track");
+        }
+
+        // Get track name
+        var trackName = track.Name ?? "";
+        if (string.IsNullOrEmpty(trackName))
+        {
+            throw new InvalidOperationException("Track name not available");
         }
 
         // Get artists
-        var artists = item.GetProperty("artists");
-        var artistNames = artists.EnumerateArray()
-            .Select(a => a.GetProperty("name").GetString() ?? "")
-            .Where(name => !string.IsNullOrEmpty(name))
-            .ToArray();
+        var artists = track.Artists ?? new List<SimpleArtist>();
+        var artistNames = artists.Select(a => a.Name).Where(name => !string.IsNullOrEmpty(name)).ToList();
         var artistsString = string.Join(", ", artistNames);
 
-        // Get album
-        var album = item.GetProperty("album");
-        var albumName = album.GetProperty("name").GetString() ?? "";
+        // Get artist URLs
+        var artistsUrls = artists
+            .Where(a => a.ExternalUrls?.ContainsKey("spotify") == true)
+            .Select(a => a.ExternalUrls!["spotify"])
+            .ToList();
 
-        // Get album images (artwork)
+        // Get album info
+        var album = track.Album;
+        var albumName = album?.Name ?? "";
         string? albumImageUrl = null;
-        if (album.TryGetProperty("images", out var images) && images.ValueKind == JsonValueKind.Array)
+
+        // Get largest album image
+        if (album?.Images != null && album.Images.Count > 0)
         {
-            var albumImages = images.EnumerateArray().ToList();
-            // Take the largest image (usually last in the array)
-            if (albumImages.Count > 0)
-            {
-                albumImageUrl = albumImages[0].GetProperty("url").GetString();
-            }
+            albumImageUrl = album.Images
+                .OrderByDescending(img => img.Width)
+                .FirstOrDefault()?.Url;
         }
 
-        // Get external URLs
-        var externalUrls = item.GetProperty("external_urls");
-        var trackUrl = externalUrls.GetProperty("spotify").GetString();
-
-        var artistsUrls = new List<string>();
-        foreach (var artist in artists.EnumerateArray())
+        // Get track URL
+        string? trackUrl = null;
+        if (track.ExternalUrls?.ContainsKey("spotify") == true)
         {
-            if (artist.TryGetProperty("external_urls", out var artistUrls))
-            {
-                var spotifyUrl = artistUrls.GetProperty("spotify").GetString();
-                if (!string.IsNullOrEmpty(spotifyUrl))
-                {
-                    artistsUrls.Add(spotifyUrl);
-                }
-            }
+            trackUrl = track.ExternalUrls["spotify"];
         }
 
-        // Get progress and duration for metadata
-        var progressMs = root.GetProperty("progress_ms").GetInt32();
-        var durationMs = item.GetProperty("duration_ms").GetInt32();
-
-        // Calculate progress percentage
+        // Get progress and duration
+        var progressMs = currentlyPlaying.ProgressMs ?? 0;
+        var durationMs = track.DurationMs;
         var progressPercent = durationMs > 0 ? (double)progressMs / durationMs * 100 : 0;
 
-        // Get context info (playlist, album, etc.)
-        string? contextType = null;
+        // Get context info
+        var contextType = currentlyPlaying.Context?.Type;
         string? contextUrl = null;
-        if (root.TryGetProperty("context", out var context))
+        if (currentlyPlaying.Context?.ExternalUrls?.ContainsKey("spotify") == true)
         {
-            contextType = context.GetProperty("type").GetString();
-            var contextExternalUrls = context.GetProperty("external_urls");
-            contextUrl = contextExternalUrls.GetProperty("spotify").GetString();
+            contextUrl = currentlyPlaying.Context.ExternalUrls["spotify"];
         }
 
-        return Task.FromResult(new SnPresenceActivity
+        // Build metadata
+        var meta = new Dictionary<string, object>
+        {
+            ["track_duration_ms"] = durationMs,
+            ["progress_ms"] = progressMs,
+            ["progress_percent"] = progressPercent,
+            ["spotify_track_url"] = trackUrl,
+            ["updated_at"] = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        // Add track ID
+        if (!string.IsNullOrEmpty(track.Id))
+            meta["track_id"] = track.Id;
+
+        // Add album ID
+        if (!string.IsNullOrEmpty(album?.Id))
+            meta["album_id"] = album.Id;
+
+        // Add artist IDs
+        var artistIds = artists.Select(a => a.Id).Where(id => !string.IsNullOrEmpty(id)).ToArray();
+        meta["artist_ids"] = artistIds;
+
+        // Add context info
+        if (!string.IsNullOrEmpty(contextType))
+            meta["context_type"] = contextType;
+        if (!string.IsNullOrEmpty(contextUrl))
+            meta["context_url"] = contextUrl;
+
+        // Add track properties
+        meta["is_explicit"] = track.Explicit;
+        meta["popularity"] = track.Popularity;
+
+        return new SnPresenceActivity
         {
             AccountId = accountId,
             Type = PresenceType.Music,
@@ -189,21 +215,7 @@ public class SpotifyPresenceService(
             LargeImage = albumImageUrl,
             TitleUrl = trackUrl,
             SubtitleUrl = artistsUrls.FirstOrDefault(),
-            Meta = new Dictionary<string, object>
-            {
-                ["track_duration_ms"] = durationMs,
-                ["progress_ms"] = progressMs,
-                ["progress_percent"] = progressPercent,
-                ["track_id"] = item.GetProperty("id").GetString() ?? "",
-                ["album_id"] = album.GetProperty("id").GetString() ?? "",
-                ["artist_ids"] = artists.EnumerateArray().Select(a => a.GetProperty("id").GetString() ?? "").ToArray(),
-                ["context_type"] = contextType,
-                ["context_url"] = contextUrl,
-                ["is_explicit"] = item.GetProperty("explicit").GetBoolean(),
-                ["popularity"] = item.GetProperty("popularity").GetInt32(),
-                ["spotify_track_url"] = trackUrl,
-                ["updated_at"] = SystemClock.Instance.GetCurrentInstant()
-            }
-        });
+            Meta = meta
+        };
     }
 }
