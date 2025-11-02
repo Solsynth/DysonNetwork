@@ -31,7 +31,7 @@ public class SpotifyPresenceService(
     /// <summary>
     /// Updates the Spotify presence activity for a specific user
     /// </summary>
-    public async Task UpdateSpotifyPresenceAsync(SnAccount account)
+    private async Task UpdateSpotifyPresenceAsync(SnAccount account)
     {
         var connection = await db.AccountConnections
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Provider == "spotify");
@@ -104,7 +104,7 @@ public class SpotifyPresenceService(
         );
     }
 
-    private async Task<SnPresenceActivity> ParseAndCreatePresenceActivityAsync(Guid accountId, string currentlyPlayingJson)
+    private static Task<SnPresenceActivity> ParseAndCreatePresenceActivityAsync(Guid accountId, string currentlyPlayingJson)
     {
         var document = JsonDocument.Parse(currentlyPlayingJson);
         var root = document.RootElement;
@@ -178,7 +178,7 @@ public class SpotifyPresenceService(
             contextUrl = contextExternalUrls.GetProperty("spotify").GetString();
         }
 
-        return new SnPresenceActivity
+        return Task.FromResult(new SnPresenceActivity
         {
             AccountId = accountId,
             Type = PresenceType.Music,
@@ -204,6 +204,6 @@ public class SpotifyPresenceService(
                 ["spotify_track_url"] = trackUrl,
                 ["updated_at"] = SystemClock.Instance.GetCurrentInstant()
             }
-        };
+        });
     }
 }

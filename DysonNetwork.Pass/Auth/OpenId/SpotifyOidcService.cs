@@ -29,7 +29,7 @@ public class SpotifyOidcService(
             { "client_id", config.ClientId },
             { "redirect_uri", config.RedirectUri },
             { "response_type", "code" },
-            { "scope", "user-read-private user-read-current-playing user-read-email" },
+            { "scope", "user-read-private user-read-email user-read-currently-playing" },
             { "state", state },
         };
 
