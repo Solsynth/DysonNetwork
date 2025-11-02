@@ -23,9 +23,7 @@ public class SpotifyPresenceService(
             .ToListAsync();
 
         foreach (var connection in userConnections)
-        {
             await UpdateSpotifyPresenceAsync(connection.Account);
-        }
     }
 
     /// <summary>
@@ -59,7 +57,7 @@ public class SpotifyPresenceService(
 
             // Get currently playing track
             var currentlyPlaying = await spotify.Player.GetCurrentlyPlaying(new PlayerCurrentlyPlayingRequest());
-            if (currentlyPlaying?.Item == null || currentlyPlaying.IsPlaying == false)
+            if (currentlyPlaying?.Item == null || !currentlyPlaying.IsPlaying)
             {
                 // Nothing playing or paused, remove the presence
                 await RemoveSpotifyPresenceAsync(account.Id);
@@ -68,24 +66,31 @@ public class SpotifyPresenceService(
 
             var presenceActivity = ParseCurrentlyPlayingToPresenceActivity(account.Id, currentlyPlaying);
 
-            // Update or create the presence activity
-            await accountEventService.UpdateActivityByManualId(
+            // Try to update existing activity first
+            var updatedActivity = await accountEventService.UpdateActivityByManualId(
                 "spotify",
                 account.Id,
-                activity =>
-                {
-                    activity.Type = PresenceType.Music;
-                    activity.Title = presenceActivity.Title;
-                    activity.Subtitle = presenceActivity.Subtitle;
-                    activity.Caption = presenceActivity.Caption;
-                    activity.LargeImage = presenceActivity.LargeImage;
-                    activity.SmallImage = presenceActivity.SmallImage;
-                    activity.TitleUrl = presenceActivity.TitleUrl;
-                    activity.SubtitleUrl = presenceActivity.SubtitleUrl;
-                    activity.Meta = presenceActivity.Meta;
-                },
-                10 // 10 minute lease
+                UpdateActivityWithPresenceData,
+                5 
             );
+
+            // If update failed (no existing activity), create a new one
+            if (updatedActivity == null)
+                await accountEventService.SetActivity(presenceActivity, 5);
+
+            // Local function to avoid capturing external variables in lambda
+            void UpdateActivityWithPresenceData(SnPresenceActivity activity)
+            {
+                activity.Type = PresenceType.Music;
+                activity.Title = presenceActivity.Title;
+                activity.Subtitle = presenceActivity.Subtitle;
+                activity.Caption = presenceActivity.Caption;
+                activity.LargeImage = presenceActivity.LargeImage;
+                activity.SmallImage = presenceActivity.SmallImage;
+                activity.TitleUrl = presenceActivity.TitleUrl;
+                activity.SubtitleUrl = presenceActivity.SubtitleUrl;
+                activity.Meta = presenceActivity.Meta;
+            }
         }
         catch (Exception ex)
         {
