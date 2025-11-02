@@ -72,82 +72,18 @@ public class GoogleOidcService(
 
         // Exchange the code for tokens using PKCE
         var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code, codeVerifier);
-        if (tokenResponse?.IdToken == null)
+        if (tokenResponse == null)
         {
-            throw new InvalidOperationException("Failed to obtain ID token from Google");
+            throw new InvalidOperationException("Failed to exchange code for tokens");
         }
 
-        // Validate the ID token
-        var userInfo = await ValidateTokenAsync(tokenResponse.IdToken);
-
-        // Set tokens on the user info
-        userInfo.AccessToken = tokenResponse.AccessToken;
-        userInfo.RefreshToken = tokenResponse.RefreshToken;
-
-        // Try to fetch additional profile data if userinfo endpoint is available
-        try
-        {
-            var discoveryDocument = await GetDiscoveryDocumentAsync();
-            if (discoveryDocument?.UserinfoEndpoint != null && !string.IsNullOrEmpty(tokenResponse.AccessToken))
-            {
-                var client = _httpClientFactory.CreateClient();
-                client.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResponse.AccessToken);
-
-                var userInfoResponse =
-                    await client.GetFromJsonAsync<Dictionary<string, object>>(discoveryDocument.UserinfoEndpoint);
-
-                if (userInfoResponse != null)
-                {
-                    if (userInfoResponse.TryGetValue("picture", out var picture) && picture != null)
-                    {
-                        userInfo.ProfilePictureUrl = picture.ToString();
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Ignore errors when fetching additional profile data
-        }
-
-        return userInfo;
-    }
-
-    private async Task<OidcUserInfo> ValidateTokenAsync(string idToken)
-    {
+        // Use the strategy pattern to retrieve user info
         var discoveryDocument = await GetDiscoveryDocumentAsync();
-        if (discoveryDocument?.JwksUri == null)
-        {
-            throw new InvalidOperationException("JWKS URI not found in discovery document");
-        }
+        var config = GetProviderConfig();
+        var strategy = new IdTokenValidationStrategy(_httpClientFactory);
 
-        var client = _httpClientFactory.CreateClient();
-        var jwksResponse = await client.GetFromJsonAsync<JsonWebKeySet>(discoveryDocument.JwksUri);
-        if (jwksResponse == null)
-        {
-            throw new InvalidOperationException("Failed to retrieve JWKS from Google");
-        }
-
-        var handler = new JwtSecurityTokenHandler();
-        var jwtToken = handler.ReadJwtToken(idToken);
-        var kid = jwtToken.Header.Kid;
-        var signingKey = jwksResponse.Keys.FirstOrDefault(k => k.Kid == kid);
-        if (signingKey == null)
-        {
-            throw new SecurityTokenValidationException("Unable to find matching key in Google's JWKS");
-        }
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = "https://accounts.google.com",
-            ValidateAudience = true,
-            ValidAudience = GetProviderConfig().ClientId,
-            ValidateLifetime = true,
-            IssuerSigningKey = signingKey
-        };
-
-        return ValidateAndExtractIdToken(idToken, validationParameters);
+        return await strategy.GetUserInfoAsync(tokenResponse, discoveryDocument, config.ClientId, ProviderName);
     }
+
+
 }
