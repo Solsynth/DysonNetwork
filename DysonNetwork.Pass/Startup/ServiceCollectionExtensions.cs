@@ -78,6 +78,18 @@ public static class ServiceCollectionExtensions
         });
         services.AddRazorPages();
 
+        // Configure rate limiting
+        services.AddRateLimiter(options =>
+        {
+            options.AddFixedWindowLimiter("captcha", opt =>
+            {
+                opt.Window = TimeSpan.FromMinutes(1);
+                opt.PermitLimit = 5; // 5 attempts per minute
+                opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+                opt.QueueLimit = 2;
+            });
+        });
+
         services.Configure<RequestLocalizationOptions>(options =>
         {
             var supportedCultures = new[]
@@ -118,7 +130,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddScoped<CompactTokenService>();
         services.AddScoped<RazorViewRenderer>();
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoIpService>();

@@ -22,7 +22,8 @@ public class AuthController(
     ActionLogService als,
     RingService.RingServiceClient pusher,
     IConfiguration configuration,
-    IStringLocalizer<NotificationResource> localizer
+    IStringLocalizer<NotificationResource> localizer,
+    ILogger<AuthController> logger
 ) : ControllerBase
 {
     private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
@@ -111,9 +112,14 @@ public class AuthController(
             .ThenInclude(e => e.Profile)
             .FirstOrDefaultAsync(e => e.Id == id);
 
-        return challenge is null
-            ? NotFound("Auth challenge was not found.")
-            : challenge;
+        if (challenge is null)
+        {
+            logger.LogWarning("GetChallenge: challenge not found (challengeId={ChallengeId}, ip={IpAddress})",
+                id, HttpContext.Connection.RemoteIpAddress?.ToString());
+            return NotFound("Auth challenge was not found.");
+        }
+
+        return challenge;
     }
 
     [HttpGet("challenge/{id:guid}/factors")]
@@ -212,7 +218,7 @@ public class AuthController(
                 throw new ArgumentException("Invalid password.");
             }
         }
-        catch
+        catch (Exception ex)
         {
             challenge.FailedAttempts++;
             db.Update(challenge);
@@ -224,6 +230,10 @@ public class AuthController(
                 }, Request, challenge.Account
             );
             await db.SaveChangesAsync();
+
+            logger.LogWarning("DoChallenge: authentication failure (challengeId={ChallengeId}, factorId={FactorId}, accountId={AccountId}, failedAttempts={FailedAttempts}, factorType={FactorType}, ip={IpAddress}, uaLength={UaLength})",
+                challenge.Id, factor.Id, challenge.AccountId, challenge.FailedAttempts, factor.Type, HttpContext.Connection.RemoteIpAddress?.ToString(), (HttpContext.Request.Headers.UserAgent.ToString() ?? "").Length);
+
             return BadRequest("Invalid password.");
         }
 

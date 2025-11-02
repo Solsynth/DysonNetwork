@@ -29,47 +29,152 @@ public class AuthService(
     public async Task<int> DetectChallengeRisk(HttpRequest request, SnAccount account)
     {
         // 1) Find out how many authentication factors the account has enabled.
-        var maxSteps = await db.AccountAuthFactors
+        var enabledFactors = await db.AccountAuthFactors
             .Where(f => f.AccountId == account.Id)
             .Where(f => f.EnabledAt != null)
-            .CountAsync();
+            .ToListAsync();
+        var maxSteps = enabledFactors.Count;
 
-        // We’ll accumulate a “risk score” based on various factors.
+        // We'll accumulate a "risk score" based on various factors.
         // Then we can decide how many total steps are required for the challenge.
-        var riskScore = 0;
+        var riskScore = 0.0;
 
-        // 2) Get the remote IP address from the request (if any).
-        var ipAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
-        var lastActiveInfo = await db.AuthSessions
-            .OrderByDescending(s => s.LastGrantedAt)
+        // 2) Get login context from recent sessions
+        var recentSessions = await db.AuthSessions
             .Include(s => s.Challenge)
             .Where(s => s.AccountId == account.Id)
-            .FirstOrDefaultAsync();
+            .Where(s => s.LastGrantedAt != null)
+            .OrderByDescending(s => s.LastGrantedAt)
+            .Take(10)
+            .ToListAsync();
 
-        // Example check: if IP is missing or in an unusual range, increase the risk.
-        // (This is just a placeholder; in reality, you’d integrate with GeoIpService or a custom check.)
+        var ipAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = request.Headers.UserAgent.ToString();
+
+        // 3) IP Address Risk Assessment
         if (string.IsNullOrWhiteSpace(ipAddress))
-            riskScore += 1;
+        {
+            riskScore += 10;
+        }
         else
         {
-            if (!string.IsNullOrEmpty(lastActiveInfo?.Challenge?.IpAddress) &&
-                !lastActiveInfo.Challenge.IpAddress.Equals(ipAddress, StringComparison.OrdinalIgnoreCase))
-                riskScore += 1;
+            // Check if IP has been used before
+            var ipPreviouslyUsed = recentSessions.Any(s => s.Challenge?.IpAddress == ipAddress);
+            if (!ipPreviouslyUsed)
+            {
+                riskScore += 8;
+            }
+
+            // Check geographical distance for last known location
+            var lastKnownIp = recentSessions.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s.Challenge?.IpAddress))?.Challenge?.IpAddress;
+            if (!string.IsNullOrWhiteSpace(lastKnownIp) && lastKnownIp != ipAddress)
+            {
+                riskScore += 6;
+            }
         }
 
-        // 3) (Optional) Check how recent the last login was.
-        // If it was a long time ago, the risk might be higher.
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var daysSinceLastActive = lastActiveInfo?.LastGrantedAt is not null
-            ? (now - lastActiveInfo.LastGrantedAt.Value).TotalDays
-            : double.MaxValue;
-        if (daysSinceLastActive > 30)
-            riskScore += 1;
+        // 4) User Agent Analysis
+        if (string.IsNullOrWhiteSpace(userAgent))
+        {
+            riskScore += 5;
+        }
+        else
+        {
+            var uaPreviouslyUsed = recentSessions.Any(s =>
+                !string.IsNullOrWhiteSpace(s.Challenge?.UserAgent) &&
+                string.Equals(s.Challenge.UserAgent, userAgent, StringComparison.OrdinalIgnoreCase));
 
-        // 4) Combine base “maxSteps” (the number of enabled factors) with any accumulated risk score.
-        const int totalRiskScore = 3;
-        var totalRequiredSteps = (int)Math.Round((float)maxSteps * riskScore / totalRiskScore);
-        // Clamp the steps
+            if (!uaPreviouslyUsed)
+            {
+                riskScore += 4;
+
+                // Check for suspicious user agent patterns
+                if (userAgent.Contains("bot", StringComparison.OrdinalIgnoreCase) ||
+                    userAgent.Contains("crawler", StringComparison.OrdinalIgnoreCase) ||
+                    userAgent.Contains("spider", StringComparison.OrdinalIgnoreCase))
+                {
+                    riskScore += 8;
+                }
+            }
+        }
+
+        // 5) Time-based Risk Assessment
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var lastLogin = recentSessions.FirstOrDefault()?.LastGrantedAt;
+
+        if (lastLogin.HasValue)
+        {
+            var hoursSinceLastLogin = (now - lastLogin.Value).TotalHours;
+
+            // Very high risk: long time since last activity
+            if (hoursSinceLastLogin > 720) // 30 days
+            {
+                riskScore += 9;
+            }
+            else if (hoursSinceLastLogin > 168) // 7 days
+            {
+                riskScore += 6;
+            }
+            else if (hoursSinceLastLogin > 24) // 24 hours
+            {
+                riskScore += 3;
+            }
+        }
+        else
+        {
+            // First login ever for this account
+            riskScore += 7;
+        }
+
+        // 6) Failed Login Attempts Assessment
+        var recentFailedChallenges = await db.AuthChallenges
+            .Where(c => c.AccountId == account.Id)
+            .Where(c => c.CreatedAt > now.Minus(Duration.FromHours(1))) // Last hour
+            .Where(c => c.FailedAttempts > 0)
+            .SumAsync(c => c.FailedAttempts);
+
+        if (recentFailedChallenges > 0)
+        {
+            riskScore += Math.Min(recentFailedChallenges * 2, 10);
+        }
+
+        // 7) Account Security Status
+        var totalAuthFactors = enabledFactors.Count;
+        var timedCodeEnabled = enabledFactors.Any(f => f.Type == AccountAuthFactorType.TimedCode); // TOTP-like
+        var pinCodeEnabled = enabledFactors.Any(f => f.Type == AccountAuthFactorType.PinCode);
+
+        // Bonus for strong security
+        if (totalAuthFactors >= 2)
+            riskScore -= 3;
+        else if (totalAuthFactors == 1)
+            riskScore -= 1;
+
+        // Additional bonuses for specific factors
+        if (timedCodeEnabled) riskScore -= 2; // TOTP-like security
+        if (pinCodeEnabled) riskScore -= 1;
+
+        // 8) Device Trust Assessment
+        var trustedDeviceIds = recentSessions
+            .Where(s => s.CreatedAt > now.Minus(Duration.FromDays(30))) // Trust devices from last 30 days
+            .Select(s => s.Challenge?.ClientId)
+            .Where(id => id.HasValue)
+            .Distinct()
+            .ToList();
+
+        // If using a trusted device, reduce risk (this will be validated later)
+        if (trustedDeviceIds.Any())
+        {
+            riskScore -= 1;
+        }
+
+        // Clamp risk score between 0 and 20
+        riskScore = Math.Max(0, Math.Min(riskScore, 20));
+
+        // 9) Calculate required steps based on risk
+        var riskWeight = maxSteps > 0 ? riskScore / 20.0 : 0.5; // Default 50% if no factors
+        var totalRequiredSteps = (int)Math.Round(maxSteps * riskWeight);
+
+        // Minimum 1 step, maximum all enabled factors
         totalRequiredSteps = Math.Max(Math.Min(totalRequiredSteps, maxSteps), 1);
 
         return totalRequiredSteps;
@@ -178,6 +283,72 @@ public class AuthService(
             default:
                 throw new ArgumentException("The server misconfigured for the captcha.");
         }
+    }
+
+    /// <summary>
+    /// Immediately revoke a session by setting expiry to now and clearing from cache
+    /// This provides immediate invalidation of tokens and sessions
+    /// </summary>
+    /// <param name="sessionId">Session ID to revoke</param>
+    /// <returns>True if session was found and revoked, false otherwise</returns>
+    public async Task<bool> RevokeSessionAsync(Guid sessionId)
+    {
+        var session = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session == null)
+        {
+            return false;
+        }
+
+        // Set expiry to now (immediate invalidation)
+        var now = SystemClock.Instance.GetCurrentInstant();
+        session.ExpiredAt = now;
+        db.AuthSessions.Update(session);
+
+        // Clear from cache immediately
+        var cacheKey = $"{AuthCachePrefix}{session.Id}";
+        await cache.RemoveAsync(cacheKey);
+
+        // Clear account-level cache groups that include this session
+        await cache.RemoveAsync($"{AuthCachePrefix}{session.AccountId}");
+
+        await db.SaveChangesAsync();
+
+        return true;
+    }
+
+    /// <summary>
+    /// Revoke all sessions for an account (logout everywhere)
+    /// </summary>
+    /// <param name="accountId">Account ID to revoke all sessions for</param>
+    /// <returns>Number of sessions revoked</returns>
+    public async Task<int> RevokeAllSessionsForAccountAsync(Guid accountId)
+    {
+        var sessions = await db.AuthSessions
+            .Where(s => s.AccountId == accountId && !s.ExpiredAt.HasValue)
+            .ToListAsync();
+
+        if (!sessions.Any())
+        {
+            return 0;
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        foreach (var session in sessions)
+        {
+            session.ExpiredAt = now;
+
+            // Clear individual session cache
+            var cacheKey = $"{AuthCachePrefix}{session.Id}";
+            await cache.RemoveAsync(cacheKey);
+        }
+
+        // Clear account-level cache
+        await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
+
+        db.AuthSessions.UpdateRange(sessions);
+        await db.SaveChangesAsync();
+
+        return sessions.Count;
     }
 
     public string CreateToken(SnAuthSession session)
@@ -370,6 +541,21 @@ public class AuthService(
         {
             var oldSessionId = key.SessionId;
 
+            // Immediately expire old session and clear from cache
+            if (oldSessionId != Guid.Empty)
+            {
+                var oldSession = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == oldSessionId);
+                if (oldSession != null)
+                {
+                    oldSession.ExpiredAt = SystemClock.Instance.GetCurrentInstant();
+                    db.AuthSessions.Update(oldSession);
+
+                    // Clear old session from cache
+                    var oldCacheKey = $"{AuthCachePrefix}{oldSessionId}";
+                    await cache.RemoveAsync(oldCacheKey);
+                }
+            }
+
             // Create new session
             var newSession = new SnAuthSession
             {
@@ -386,8 +572,14 @@ public class AuthService(
             db.ApiKeys.Update(key);
             await db.SaveChangesAsync();
 
-            // Delete old session
-            await db.AuthSessions.Where(s => s.Id == oldSessionId).ExecuteDeleteAsync();
+            // Delete expired old session
+            if (oldSessionId != Guid.Empty)
+            {
+                await db.AuthSessions.Where(s => s.Id == oldSessionId).ExecuteDeleteAsync<SnAuthSession>();
+            }
+
+            // Clear account-level cache to ensure new API key is picked up
+            await cache.RemoveAsync($"{AuthCachePrefix}{key.AccountId}");
 
             await transaction.CommitAsync();
             return key;
