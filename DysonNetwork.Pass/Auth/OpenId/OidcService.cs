@@ -1,4 +1,7 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
@@ -82,6 +85,38 @@ public abstract class OidcService(
             ClientSecret = Configuration[$"Oidc:{ConfigSectionName}:ClientSecret"] ?? "",
             RedirectUri = Configuration["SiteUrl"] + "/auth/callback/" + ProviderName.ToLower()
         };
+    }
+
+    /// <summary>
+    /// Generates a cryptographically secure random code verifier for PKCE
+    /// </summary>
+    protected static string GenerateCodeVerifier()
+    {
+        // Generate a 32-byte (256-bit) random byte array
+        var randomBytes = new byte[32];
+        RandomNumberGenerator.Fill(randomBytes);
+
+        // Convert to URL-safe base64 (no padding)
+        return Convert.ToBase64String(randomBytes)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .TrimEnd('=');
+    }
+
+    /// <summary>
+    /// Generates the code challenge from a code verifier using S256 method
+    /// </summary>
+    protected static string GenerateCodeChallenge(string codeVerifier)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(codeVerifier);
+        var hash = sha256.ComputeHash(bytes);
+
+        // Convert to URL-safe base64 (no padding)
+        return Convert.ToBase64String(hash)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .TrimEnd('=');
     }
 
     /// <summary>

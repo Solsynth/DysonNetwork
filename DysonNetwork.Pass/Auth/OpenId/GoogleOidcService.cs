@@ -29,6 +29,10 @@ public class GoogleOidcService(
             throw new InvalidOperationException("Authorization endpoint not found in discovery document");
         }
 
+        // Generate PKCE code verifier and challenge for enhanced security
+        var codeVerifier = GenerateCodeVerifier();
+        var codeChallenge = GenerateCodeChallenge(codeVerifier);
+
         var queryParams = BuildAuthorizationParameters(
             config.ClientId,
             config.RedirectUri,
@@ -38,19 +42,36 @@ public class GoogleOidcService(
             nonce
         );
 
+        // Add PKCE parameters
+        queryParams["code_challenge"] = codeChallenge;
+        queryParams["code_challenge_method"] = "S256";
+
+        // Store code verifier in cache for later token exchange
+        var codeVerifierKey = $"pkce:{state}";
+        cache.SetAsync(codeVerifierKey, codeVerifier, TimeSpan.FromMinutes(15)).GetAwaiter().GetResult();
+
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
         return $"{discoveryDocument.AuthorizationEndpoint}?{queryString}";
     }
 
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)
     {
-        // No need to split or parse code verifier from state
         var state = callbackData.State ?? "";
         callbackData.State = state; // Keep the original state if needed
 
-        // Exchange the code for tokens
-        // Pass null or omit the parameter for codeVerifier as PKCE is removed
-        var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code, null);
+        // Retrieve PKCE code verifier from cache
+        var codeVerifierKey = $"pkce:{state}";
+        var (found, codeVerifier) = await cache.GetAsyncWithStatus<string>(codeVerifierKey);
+        if (!found || string.IsNullOrEmpty(codeVerifier))
+        {
+            throw new InvalidOperationException("PKCE code verifier not found or expired");
+        }
+
+        // Remove the code verifier from cache to prevent replay attacks
+        await cache.RemoveAsync(codeVerifierKey);
+
+        // Exchange the code for tokens using PKCE
+        var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code, codeVerifier);
         if (tokenResponse?.IdToken == null)
         {
             throw new InvalidOperationException("Failed to obtain ID token from Google");
