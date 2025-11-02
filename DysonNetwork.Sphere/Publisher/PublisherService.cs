@@ -574,6 +574,10 @@ public class PublisherService(
         var date = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         var publisherIds = publisherStats.Keys.ToList();
+        var publishers = await db.Publishers
+            .Where(p => publisherIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Name })
+            .ToDictionaryAsync(p => p.Id, p => p);
         var publisherMembers = await db.PublisherMembers
             .Where(m => publisherIds.Contains(m.PublisherId))
             .ToListAsync();
@@ -602,12 +606,14 @@ public class PublisherService(
             if (!publisherAccounts.TryGetValue(publisherId, out var receivers) || receivers.Count == 0)
                 continue;
 
+            var publisherName = publishers.TryGetValue(publisherId, out var pub) ? pub.Name : "unknown";
+
             // Use totalExperience for rewarding
             foreach (var receiver in receivers)
             {
                 await experiences.AddRecordAsync(new AddExperienceRecordRequest
                 {
-                    Reason = $"Publishing Reward on {date}",
+                    Reason = $"Publishing Reward on {date} for @{publisherName}",
                     ReasonType = "publishers.rewards",
                     AccountId = receiver.Id.ToString(),
                     Delta = totalExperience,
@@ -616,7 +622,8 @@ public class PublisherService(
         }
 
         // Foreach loop through publishers to set social credit
-        var expiredAt = now.InZone(DateTimeZone.Utc).Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).Minus(Duration.FromMilliseconds(1)).ToInstant();
+        var expiredAt = now.InZone(DateTimeZone.Utc).Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc)
+            .Minus(Duration.FromMilliseconds(1)).ToInstant();
         foreach (var (publisherId, value) in publisherStats)
         {
             var upvotes = value.Upvotes;
@@ -631,13 +638,15 @@ public class PublisherService(
 
             if (!publisherAccounts.TryGetValue(publisherId, out var receivers) || receivers.Count == 0)
                 continue;
+            
+            var publisherName = publishers.TryGetValue(publisherId, out var pub) ? pub.Name : "unknown";
 
             // Set social credit for receivers, expired before next settle
             foreach (var receiver in receivers)
             {
                 await socialCredits.AddRecordAsync(new AddSocialCreditRecordRequest
                 {
-                    Reason = $"Publishing Reward on {date}",
+                    Reason = $"Publishing Reward on {date} for @{publisherName}",
                     ReasonType = "publishers.rewards",
                     AccountId = receiver.Id.ToString(),
                     Delta = socialCreditDelta,
