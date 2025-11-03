@@ -81,24 +81,6 @@
     <data name="PasswordResetPara4" xml:space="preserve">
         <value>If you didn't request this, you can ignore this email safety.</value>
     </data>
-    <data name="VerificationHeader1" xml:space="preserve">
-        <value>Verify Your Email Address</value>
-    </data>
-    <data name="VerificationPara1" xml:space="preserve">
-        <value>Dear, </value>
-    </data>
-    <data name="VerificationPara2" xml:space="preserve">
-        <value>Thank you for creating an account on the Solar Network. We're excited to have you join our community!</value>
-    </data>
-    <data name="VerificationPara3" xml:space="preserve">
-        <value>To verify your email address and access all features of your account, please use the verification code below:</value>
-    </data>
-    <data name="VerificationPara4" xml:space="preserve">
-        <value>This code will expire in 30 minutes. Please enter it on the verification page to complete your registration.</value>
-    </data>
-    <data name="VerificationPara5" xml:space="preserve">
-        <value>If you didn't create this account, please ignore this email.</value>
-    </data>
     <data name="EmailVerificationTitle" xml:space="preserve">
         <value>Verify your email address</value>
     </data>
@@ -122,5 +104,26 @@
     </data>
     <data name="EmailContactVerificationTitle" xml:space="preserve">
         <value>Verify your contact information</value>
+    </data>
+    <data name="EmailCodeTitle" xml:space="preserve">
+        <value>Your email one-time-password</value>
+    </data>
+    <data name="CodeHeader1" xml:space="preserve">
+        <value>Email One-time-password</value>
+    </data>
+    <data name="CodePara1" xml:space="preserve">
+        <value>Dear, </value>
+    </data>
+    <data name="CodePara2" xml:space="preserve">
+        <value>Someone trying to use email auth factor to authorize an access request</value>
+    </data>
+    <data name="CodePara3" xml:space="preserve">
+        <value>If that is you, enter the code below to continue</value>
+    </data>
+    <data name="CodePara4" xml:space="preserve">
+        <value>This code will expire in 30 minutes.</value>
+    </data>
+    <data name="CodePara5" xml:space="preserve">
+        <value>If you didn't request this, you can ignore this email safely</value>
     </data>
 </root>

@@ -74,24 +74,6 @@
     <data name="EmailPasswordResetTitle" xml:space="preserve">
         <value>重置您的密码</value>
     </data>
-    <data name="VerificationHeader1" xml:space="preserve">
-        <value>验证您的电子邮箱</value>
-    </data>
-    <data name="VerificationPara1" xml:space="preserve">
-        <value>尊敬的 </value>
-    </data>
-    <data name="VerificationPara2" xml:space="preserve">
-        <value>感谢您在 Solar Network 上注册账号，我们很高兴您即将加入我们的社区！</value>
-    </data>
-    <data name="VerificationPara3" xml:space="preserve">
-        <value>请使用以下验证码来验证您的电子邮箱并获取账号的所有功能：</value>
-    </data>
-    <data name="VerificationPara4" xml:space="preserve">
-        <value>此验证码将在30分钟后失效。请在验证页面输入此验证码以完成注册。</value>
-    </data>
-    <data name="VerificationPara5" xml:space="preserve">
-        <value>如果您并未创建此账号，请忽略此邮件。</value>
-    </data>
     <data name="EmailVerificationTitle" xml:space="preserve">
         <value>验证您的电子邮箱</value>
     </data>
@@ -115,5 +97,26 @@
     </data>
     <data name="EmailContactVerificationTitle" xml:space="preserve">
         <value>验证您的联系信息</value>
+    </data>
+    <data name="EmailCodeTitle" xml:space="preserve">
+        <value>您的一次性邮件验证码</value>
+    </data>
+    <data name="CodeHeader1" xml:space="preserve">
+        <value>邮件一次性验证码</value>
+    </data>
+    <data name="CodePara1" xml:space="preserve">
+        <value>尊敬的</value>
+    </data>
+    <data name="CodePara2" xml:space="preserve">
+        <value>有人正在尝试使用邮件验证码作为验证因子授权访问</value>
+    </data>
+    <data name="CodePara3" xml:space="preserve">
+        <value>如果那位用户就是您，输入下方的验证码来继续访问</value>
+    </data>
+    <data name="CodePara4" xml:space="preserve">
+        <value>验证码会在 30 分钟后过期</value>
+    </data>
+    <data name="CodePara5" xml:space="preserve">
+        <value>如果您未申请过本验证码，您可以安全的忽略这封邮件</value>
     </data>
 </root>

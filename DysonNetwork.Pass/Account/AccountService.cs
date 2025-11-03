@@ -450,7 +450,7 @@ public class AccountService(
                     .SendTemplatedEmailAsync<Emails.VerificationEmail, VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
-                        emailLocalizer["VerificationEmail"],
+                        emailLocalizer["EmailCodeTitle"],
                         new VerificationEmailModel
                         {
                             Name = account.Name,
