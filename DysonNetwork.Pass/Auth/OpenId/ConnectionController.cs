@@ -353,24 +353,36 @@ public class ConnectionController(
     private static async Task<OidcCallbackData> ExtractCallbackData(HttpRequest request)
     {
         var data = new OidcCallbackData();
-        switch (request.Method)
-        {
-            case "GET":
-                data.Code = Uri.UnescapeDataString(request.Query["code"].FirstOrDefault() ?? "");
-                data.IdToken = Uri.UnescapeDataString(request.Query["id_token"].FirstOrDefault() ?? "");
-                data.State = Uri.UnescapeDataString(request.Query["state"].FirstOrDefault() ?? "");
-                break;
-            case "POST" when request.HasFormContentType:
-                {
-                    var form = await request.ReadFormAsync();
-                    data.Code = Uri.UnescapeDataString(form["code"].FirstOrDefault() ?? "");
-                    data.IdToken = Uri.UnescapeDataString(form["id_token"].FirstOrDefault() ?? "");
-                    data.State = Uri.UnescapeDataString(form["state"].FirstOrDefault() ?? "");
-                    if (form.ContainsKey("user"))
-                        data.RawData = Uri.UnescapeDataString(form["user"].FirstOrDefault() ?? "");
 
-                    break;
-                }
+        // Extract data based on request method
+        if (request.Method == "GET")
+        {
+            // Extract from query string
+            data.Code = Uri.UnescapeDataString(request.Query["code"].FirstOrDefault() ?? "");
+            data.IdToken = Uri.UnescapeDataString(request.Query["id_token"].FirstOrDefault() ?? "");
+            data.State = Uri.UnescapeDataString(request.Query["state"].FirstOrDefault() ?? "");
+
+            // Populate all query parameters for providers that need them (like Steam OpenID)
+            foreach (var param in request.Query)
+            {
+                data.QueryParameters[param.Key] = Uri.UnescapeDataString(param.Value.FirstOrDefault() ?? "");
+            }
+        }
+        else if (request.Method == "POST" && request.HasFormContentType)
+        {
+            var form = await request.ReadFormAsync();
+            data.Code = Uri.UnescapeDataString(form["code"].FirstOrDefault() ?? "");
+            data.IdToken = Uri.UnescapeDataString(form["id_token"].FirstOrDefault() ?? "");
+            data.State = Uri.UnescapeDataString(form["state"].FirstOrDefault() ?? "");
+
+            if (form.ContainsKey("user"))
+                data.RawData = Uri.UnescapeDataString(form["user"].FirstOrDefault() ?? "");
+
+            // Populate all form parameters
+            foreach (var param in form)
+            {
+                data.QueryParameters[param.Key] = Uri.UnescapeDataString(param.Value.FirstOrDefault() ?? "");
+            }
         }
 
         return data;

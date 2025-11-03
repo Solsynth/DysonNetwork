@@ -124,6 +124,7 @@ public class OidcController(
             "discord" => serviceProvider.GetRequiredService<DiscordOidcService>(),
             "github" => serviceProvider.GetRequiredService<GitHubOidcService>(),
             "spotify" => serviceProvider.GetRequiredService<SpotifyOidcService>(),
+            "steam" => serviceProvider.GetRequiredService<SteamOidcService>(),
             "afdian" => serviceProvider.GetRequiredService<AfdianOidcService>(),
             _ => throw new ArgumentException($"Unsupported provider: {provider}")
         };
