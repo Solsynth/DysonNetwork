@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using System.Web;
 
 namespace DysonNetwork.Pass.Auth.OpenId;
 
@@ -25,17 +26,19 @@ public class SteamOidcService(
         var config = GetProviderConfig();
         var returnUrl = config.RedirectUri;
 
+        // Steam OpenID 2.0 doesn't support state parameter directly
+        // Include state in the return URL as a query parameter
+        var returnUrlWithState = $"{returnUrl}{(returnUrl.Contains('?') ? '&' : '?')}state={Uri.EscapeDataString(state)}";
+
         // Steam OpenID 2.0 authorization URL construction
         var queryParams = new Dictionary<string, string>
         {
             { "openid.ns", "http://specs.openid.net/auth/2.0" },
             { "openid.mode", "checkid_setup" },
-            { "openid.return_to", returnUrl },
+            { "openid.return_to", returnUrlWithState },
             { "openid.realm", new Uri(returnUrl).GetLeftPart(UriPartial.Authority) },
             { "openid.identity", "http://specs.openid.net/auth/2.0/identifier_select" },
-            { "openid.claimed_id", "http://specs.openid.net/auth/2.0/identifier_select" },
-            // Store state in the return URL as a query parameter since Steam doesn't support state directly
-            { "openid.state", state }
+            { "openid.claimed_id", "http://specs.openid.net/auth/2.0/identifier_select" }
         };
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
@@ -57,6 +60,18 @@ public class SteamOidcService(
         if (queryParams.GetValueOrDefault("openid.mode") != "id_res")
         {
             throw new InvalidOperationException("Invalid OpenID response mode");
+        }
+
+        // Extract state from the return_to URL since Steam doesn't support state parameter directly
+        var returnTo = queryParams.GetValueOrDefault("openid.return_to");
+        if (!string.IsNullOrEmpty(returnTo))
+        {
+            var returnToUri = new Uri(returnTo);
+            var stateParam = System.Web.HttpUtility.ParseQueryString(returnToUri.Query).Get("state");
+            if (!string.IsNullOrEmpty(stateParam))
+            {
+                callbackData.State = stateParam;
+            }
         }
 
         // Extract Steam ID from claimed_id
