@@ -10,15 +10,17 @@ public class SpotifyPresenceService(
     Auth.OpenId.SpotifyOidcService spotifyService,
     AccountEventService accountEventService,
     ILogger<SpotifyPresenceService> logger
-)
+) : IPresenceService
 {
-    /// <summary>
-    /// Updates presence activities for users who have Spotify connections and are currently playing music
-    /// </summary>
-    public async Task UpdateAllSpotifyPresencesAsync()
+    /// <inheritdoc />
+    public string ServiceId => "spotify";
+
+    /// <inheritdoc />
+    public async Task UpdatePresencesAsync(IEnumerable<Guid> userIds)
     {
+        var userIdList = userIds.ToList();
         var userConnections = await db.AccountConnections
-            .Where(c => c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
+            .Where(c => userIdList.Contains(c.AccountId) && c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
             .Include(c => c.Account)
             .ToListAsync();
 

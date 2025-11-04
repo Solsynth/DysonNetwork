@@ -84,14 +84,38 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("SocialCreditValidationTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
-            var spotifyPresenceUpdateJob = new JobKey("SpotifyPresenceUpdate");
-            q.AddJob<SpotifyPresenceUpdateJob>(opts => opts.WithIdentity(spotifyPresenceUpdateJob));
+            // Presence update jobs for different user stages
+            var activePresenceUpdateJob = new JobKey("ActivePresenceUpdate");
+            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity(activePresenceUpdateJob));
             q.AddTrigger(opts => opts
-                .ForJob(spotifyPresenceUpdateJob)
-                .WithIdentity("SpotifyPresenceUpdateTrigger")
+                .ForJob(activePresenceUpdateJob)
+                .WithIdentity("ActivePresenceUpdateTrigger")
                 .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(2)
+                    .WithIntervalInMinutes(1)
                     .RepeatForever())
+                .UsingJobData("stage", nameof(PresenceUpdateStage.Active))
+            );
+
+            var maybePresenceUpdateJob = new JobKey("MaybePresenceUpdate");
+            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity(maybePresenceUpdateJob));
+            q.AddTrigger(opts => opts
+                .ForJob(maybePresenceUpdateJob)
+                .WithIdentity("MaybePresenceUpdateTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(3)
+                    .RepeatForever())
+                .UsingJobData("stage", nameof(PresenceUpdateStage.Maybe))
+            );
+
+            var coldPresenceUpdateJob = new JobKey("ColdPresenceUpdate");
+            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity(coldPresenceUpdateJob));
+            q.AddTrigger(opts => opts
+                .ForJob(coldPresenceUpdateJob)
+                .WithIdentity("ColdPresenceUpdateTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(10)
+                    .RepeatForever())
+                .UsingJobData("stage", nameof(PresenceUpdateStage.Cold))
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

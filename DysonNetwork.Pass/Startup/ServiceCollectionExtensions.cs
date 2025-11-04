@@ -10,12 +10,13 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
+using DysonNetwork.Pass.Account.Presences;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Leveling;
+using DysonNetwork.Pass.Lotteries;
 using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Safety;
@@ -144,7 +145,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActionLogService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
-        services.AddScoped<DysonNetwork.Pass.Account.Presences.SpotifyPresenceService>();
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
         services.AddScoped<AccountUsernameService>();
@@ -156,7 +156,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
-        services.AddScoped<Lotteries.LotteryService>();
+        services.AddScoped<LotteryService>();
+        
+        services.AddScoped<SpotifyPresenceService>();
+        services.AddScoped<IPresenceService, SpotifyPresenceService>();
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();

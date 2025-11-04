@@ -7,7 +7,6 @@ using DysonNetwork.Shared.Stream;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
-using NATS.Net;
 using NodaTime;
 using NodaTime.Extensions;
 
@@ -28,12 +27,22 @@ public class AccountEventService(
     private const string StatusCacheKey = "account:status:";
     private const string ActivityCacheKey = "account:activities:";
 
-    private async Task<bool> GetAccountIsConnected(Guid userId)
+    public async Task<bool> GetAccountIsConnected(Guid userId)
     {
         var resp = await pusher.GetWebsocketConnectionStatusAsync(
             new GetWebsocketConnectionStatusRequest { UserId = userId.ToString() }
         );
         return resp.IsConnected;
+    }
+
+    public async Task<Dictionary<string, bool>> GetAccountIsConnectedBatch(List<Guid> userIds)
+    {
+        var req = new GetWebsocketConnectionStatusBatchRequest();
+        req.UsersId.AddRange(userIds.Select(u => u.ToString()));
+        var resp = await pusher.GetWebsocketConnectionStatusBatchAsync(
+            req
+        );
+        return resp.IsConnected.ToDictionary();
     }
 
     public void PurgeStatusCache(Guid userId)
@@ -531,9 +540,9 @@ public class AccountEventService(
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var activity = await db.PresenceActivities.FirstOrDefaultAsync(
-                e => e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
-            );
+        var activity = await db.PresenceActivities.FirstOrDefaultAsync(e =>
+            e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+        );
         if (activity == null)
             return null;
 
@@ -558,8 +567,8 @@ public class AccountEventService(
     public async Task<bool> DeleteActivityByManualId(string manualId, Guid userId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var activity = await db.PresenceActivities.FirstOrDefaultAsync(
-            e => e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+        var activity = await db.PresenceActivities.FirstOrDefaultAsync(e =>
+            e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
         );
         if (activity == null) return false;
         if (activity.LeaseExpiresAt <= now)
@@ -599,5 +608,17 @@ public class AccountEventService(
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
         return true;
+    }
+
+    /// <summary>
+    /// Gets all user IDs that have Spotify connections
+    /// </summary>
+    public async Task<List<Guid>> GetSpotifyConnectedUsersAsync()
+    {
+        return await db.AccountConnections
+            .Where(c => c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
+            .Select(c => c.AccountId)
+            .Distinct()
+            .ToListAsync();
     }
 }
