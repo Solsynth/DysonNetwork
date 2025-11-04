@@ -161,7 +161,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<LotteryService>();
         
         services.AddScoped<SpotifyPresenceService>();
+        services.AddScoped<SteamPresenceService>();
         services.AddScoped<IPresenceService, SpotifyPresenceService>();
+        services.AddScoped<IPresenceService, SteamPresenceService>();
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
