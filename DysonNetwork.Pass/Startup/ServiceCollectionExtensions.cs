@@ -59,6 +59,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OidcService, DiscordOidcService>();
         services.AddScoped<OidcService, AfdianOidcService>();
         services.AddScoped<OidcService, SpotifyOidcService>();
+        services.AddScoped<OidcService, SteamOidcService>();
         services.AddScoped<GoogleOidcService>();
         services.AddScoped<AppleOidcService>();
         services.AddScoped<GitHubOidcService>();
@@ -66,6 +67,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DiscordOidcService>();
         services.AddScoped<AfdianOidcService>();
         services.AddScoped<SpotifyOidcService>();
+        services.AddScoped<SteamOidcService>();
 
         services.AddControllers().AddJsonOptions(options =>
         {

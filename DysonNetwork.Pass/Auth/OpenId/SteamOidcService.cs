@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 
 namespace DysonNetwork.Pass.Auth.OpenId;
@@ -74,51 +73,21 @@ public class SteamOidcService(
             throw new InvalidOperationException("Invalid Steam ID format");
         }
 
-        // Fetch user information from Steam API
+        // Create user information with Steam ID
         var userInfo = await GetUserInfoAsync(steamId);
 
         return userInfo;
     }
 
-    private async Task<OidcUserInfo> GetUserInfoAsync(string steamId)
+    private Task<OidcUserInfo> GetUserInfoAsync(string steamId)
     {
-        var config = GetProviderConfig();
-        var apiKey = Configuration[$"Oidc:Steam:ApiKey"] ?? throw new InvalidOperationException("Steam API key not configured");
-
-        var client = HttpClientFactory.CreateClient();
-        var url = $"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={apiKey}&steamids={steamId}";
-
-        var response = await client.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-
-        var json = await response.Content.ReadAsStringAsync();
-        var steamResponse = JsonDocument.Parse(json).RootElement;
-
-        var players = steamResponse.GetProperty("response").GetProperty("players");
-        if (players.GetArrayLength() == 0)
+        return Task.FromResult(new OidcUserInfo
         {
-            throw new InvalidOperationException("Steam user not found");
-        }
-
-        var player = players[0];
-        var steamIdStr = player.GetProperty("steamid").GetString() ?? "";
-        var personaName = player.GetProperty("personaname").GetString() ?? "";
-        var avatarUrl = player.TryGetProperty("avatarfull", out var avatarElement)
-            ? avatarElement.GetString()
-            : player.TryGetProperty("avatarmedium", out var mediumAvatarElement)
-                ? mediumAvatarElement.GetString()
-                : null;
-
-        return new OidcUserInfo
-        {
-            UserId = steamIdStr,
-            DisplayName = personaName,
-            PreferredUsername = personaName,
-            ProfilePictureUrl = avatarUrl,
+            UserId = steamId,
             Provider = ProviderName,
-            // Steam OpenID doesn't provide email
+            // Steam OpenID doesn't provide additional user info
             Email = null,
             EmailVerified = false
-        };
+        });
     }
 }

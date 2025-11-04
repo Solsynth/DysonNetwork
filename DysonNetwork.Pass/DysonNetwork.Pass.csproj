@@ -40,6 +40,7 @@
         <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.2" />
         <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
         <PackageReference Include="SpotifyAPI.Web" Version="7.2.1" />
+        <PackageReference Include="SteamWebAPI2" Version="4.4.1" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.6" />
     </ItemGroup>
