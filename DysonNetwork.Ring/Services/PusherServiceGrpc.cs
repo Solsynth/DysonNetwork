@@ -2,6 +2,7 @@ using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
@@ -44,7 +45,7 @@ public class RingServiceGrpc(
     }
 
     public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
-            ServerCallContext context)
+        ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
 
@@ -139,10 +140,24 @@ public class RingServiceGrpc(
         {
             GetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId =>
                 WebSocketService.GetDeviceIsConnected(request.DeviceId),
-            GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => WebSocketService.GetAccountIsConnected(Guid.Parse(request.UserId)),
+            GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => WebSocketService.GetAccountIsConnected(
+                Guid.Parse(request.UserId)),
             _ => false
         };
 
         return Task.FromResult(new GetWebsocketConnectionStatusResponse { IsConnected = isConnected });
+    }
+
+    public override Task<GetWebsocketConnectionStatusBatchResponse> GetWebsocketConnectionStatusBatch(
+        GetWebsocketConnectionStatusBatchRequest request, ServerCallContext context)
+    {
+        var resp = new GetWebsocketConnectionStatusBatchResponse();
+        foreach (var id in request.UsersId)
+        {
+            var gid = Guid.Parse(id);
+            resp.IsConnected[id] = WebSocketService.GetAccountIsConnected(gid);
+        }
+
+        return Task.FromResult(resp);
     }
 }
