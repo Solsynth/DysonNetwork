@@ -11,7 +11,7 @@ public class PresenceUpdateJob(
     public async Task Execute(IJobExecutionContext context)
     {
         // Get the stage parameter from the job data
-        var stageString = context.JobDetail.JobDataMap.GetString("stage");
+        var stageString = context.MergedJobDataMap.GetString("stage");
         if (!Enum.TryParse<PresenceUpdateStage>(stageString, out var stage))
         {
             logger.LogError("Invalid or missing stage parameter: {Stage}", stageString);
