@@ -13,82 +13,73 @@ public static class ScheduledJobsConfiguration
     {
         services.AddQuartz(q =>
         {
-            var appDatabaseRecyclingJob = new JobKey("AppDatabaseRecycling");
-            q.AddJob<AppDatabaseRecyclingJob>(opts => opts.WithIdentity(appDatabaseRecyclingJob));
+            q.AddJob<AppDatabaseRecyclingJob>(opts => opts.WithIdentity("AppDatabaseRecycling"));
             q.AddTrigger(opts => opts
-                .ForJob(appDatabaseRecyclingJob)
+                .ForJob("AppDatabaseRecycling")
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
-            var actionLogFlushJob = new JobKey("ActionLogFlush");
-            q.AddJob<ActionLogFlushJob>(opts => opts.WithIdentity(actionLogFlushJob));
+            q.AddJob<ActionLogFlushJob>(opts => opts.WithIdentity("ActionLogFlush"));
             q.AddTrigger(opts => opts
-                .ForJob(actionLogFlushJob)
+                .ForJob("ActionLogFlush")
                 .WithIdentity("ActionLogFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(5)
                     .RepeatForever())
             );
 
-            var lastActiveFlushJob = new JobKey("LastActiveFlush");
-            q.AddJob<LastActiveFlushJob>(opts => opts.WithIdentity(lastActiveFlushJob));
+            q.AddJob<LastActiveFlushJob>(opts => opts.WithIdentity("LastActiveFlush"));
             q.AddTrigger(opts => opts
-                .ForJob(lastActiveFlushJob)
+                .ForJob("LastActiveFlush")
                 .WithIdentity("LastActiveFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(5)
                     .RepeatForever())
             );
 
-            var subscriptionRenewalJob = new JobKey("SubscriptionRenewal");
-            q.AddJob<SubscriptionRenewalJob>(opts => opts.WithIdentity(subscriptionRenewalJob));
+            q.AddJob<SubscriptionRenewalJob>(opts => opts.WithIdentity("SubscriptionRenewal"));
             q.AddTrigger(opts => opts
-                .ForJob(subscriptionRenewalJob)
+                .ForJob("SubscriptionRenewal")
                 .WithIdentity("SubscriptionRenewalTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(30)
                     .RepeatForever())
             );
 
-            var giftCleanupJob = new JobKey("GiftCleanup");
-            q.AddJob<GiftCleanupJob>(opts => opts.WithIdentity(giftCleanupJob));
+            q.AddJob<GiftCleanupJob>(opts => opts.WithIdentity("GiftCleanup"));
             q.AddTrigger(opts => opts
-                .ForJob(giftCleanupJob)
+                .ForJob("GiftCleanup")
                 .WithIdentity("GiftCleanupTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInHours(1)
                     .RepeatForever())
             );
 
-            var fundExpirationJob = new JobKey("FundExpiration");
-            q.AddJob<FundExpirationJob>(opts => opts.WithIdentity(fundExpirationJob));
+            q.AddJob<FundExpirationJob>(opts => opts.WithIdentity("FundExpiration"));
             q.AddTrigger(opts => opts
-                .ForJob(fundExpirationJob)
+                .ForJob("FundExpiration")
                 .WithIdentity("FundExpirationTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInHours(1)
                     .RepeatForever())
             );
 
-            var lotteryDrawJob = new JobKey("LotteryDraw");
-            q.AddJob<Lotteries.LotteryDrawJob>(opts => opts.WithIdentity(lotteryDrawJob));
+            q.AddJob<Lotteries.LotteryDrawJob>(opts => opts.WithIdentity("LotteryDraw"));
             q.AddTrigger(opts => opts
-                .ForJob(lotteryDrawJob)
+                .ForJob("LotteryDraw")
                 .WithIdentity("LotteryDrawTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
-            var socialCreditValidationJob = new JobKey("SocialCreditValidation");
-            q.AddJob<SocialCreditValidationJob>(opts => opts.WithIdentity(socialCreditValidationJob));
+            q.AddJob<SocialCreditValidationJob>(opts => opts.WithIdentity("SocialCreditValidation"));
             q.AddTrigger(opts => opts
-                .ForJob(socialCreditValidationJob)
+                .ForJob("SocialCreditValidation")
                 .WithIdentity("SocialCreditValidationTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
             // Presence update jobs for different user stages
-            var activePresenceUpdateJob = new JobKey("ActivePresenceUpdate");
-            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity(activePresenceUpdateJob));
+            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity("ActivePresenceUpdate"));
             q.AddTrigger(opts => opts
-                .ForJob(activePresenceUpdateJob)
+                .ForJob("ActivePresenceUpdate")
                 .WithIdentity("ActivePresenceUpdateTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(1)
@@ -96,21 +87,19 @@ public static class ScheduledJobsConfiguration
                 .UsingJobData("stage", nameof(PresenceUpdateStage.Active))
             );
 
-            var maybePresenceUpdateJob = new JobKey("MaybePresenceUpdate");
-            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity(maybePresenceUpdateJob));
+            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity("MaybePresenceUpdate"));
             q.AddTrigger(opts => opts
-                .ForJob(maybePresenceUpdateJob)
+                .ForJob("MaybePresenceUpdate")
                 .WithIdentity("MaybePresenceUpdateTrigger")
                 .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(3)
+                    .WithIntervalInMinutes(5)
                     .RepeatForever())
                 .UsingJobData("stage", nameof(PresenceUpdateStage.Maybe))
             );
 
-            var coldPresenceUpdateJob = new JobKey("ColdPresenceUpdate");
-            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity(coldPresenceUpdateJob));
+            q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity("ColdPresenceUpdate"));
             q.AddTrigger(opts => opts
-                .ForJob(coldPresenceUpdateJob)
+                .ForJob("ColdPresenceUpdate")
                 .WithIdentity("ColdPresenceUpdateTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(10)

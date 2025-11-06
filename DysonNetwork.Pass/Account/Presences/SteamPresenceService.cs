@@ -106,12 +106,12 @@ public class SteamPresenceService(
                 "steam",
                 account.Id,
                 UpdateActivityWithPresenceData,
-                5
+                10
             );
 
             // If update failed (no existing activity), create a new one
             if (updatedActivity == null)
-                await accountEventService.SetActivity(presenceActivity, 5);
+                await accountEventService.SetActivity(presenceActivity, 10);
 
             // Local function to avoid capturing external variables in lambda
             void UpdateActivityWithPresenceData(SnPresenceActivity activity)
@@ -167,12 +167,12 @@ public class SteamPresenceService(
                     "steam",
                     account.Id,
                     UpdateActivityWithPresenceData,
-                    5
+                    10
                 );
 
                 // If update failed (no existing activity), create a new one
                 if (updatedActivity == null)
-                    await accountEventService.SetActivity(presenceActivity, 5);
+                    await accountEventService.SetActivity(presenceActivity, 10);
 
                 // Local function to avoid capturing external variables in lambda
                 void UpdateActivityWithPresenceData(SnPresenceActivity activity)
