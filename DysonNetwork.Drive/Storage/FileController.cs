@@ -29,137 +29,200 @@ public class FileController(
         [FromQuery] string? passcode = null
     )
     {
-        // Support the file extension for client side data recognize
-        string? fileExtension = null;
-        if (id.Contains('.'))
-        {
-            var splitId = id.Split('.');
-            id = splitId.First();
-            fileExtension = splitId.Last();
-        }
-
-        var file = await fs.GetFileAsync(id);
+        var (fileId, fileExtension) = ParseFileId(id);
+        var file = await fs.GetFileAsync(fileId);
         if (file is null) return NotFound("File not found.");
 
+        var accessResult = await ValidateFileAccess(file, passcode);
+        if (accessResult is not null) return accessResult;
+
+        // Handle direct storage URL redirect
+        if (!string.IsNullOrWhiteSpace(file.StorageUrl))
+            return Redirect(file.StorageUrl);
+
+        // Handle files not yet uploaded to remote storage
+        if (file.UploadedAt is null)
+            return await ServeLocalFile(file);
+
+        // Handle uploaded files
+        return await ServeRemoteFile(file, fileExtension, download, original, thumbnail, overrideMimeType);
+    }
+
+    private (string fileId, string? extension) ParseFileId(string id)
+    {
+        if (!id.Contains('.')) return (id, null);
+
+        var parts = id.Split('.');
+        return (parts.First(), parts.Last());
+    }
+
+    private async Task<ActionResult?> ValidateFileAccess(SnCloudFile file, string? passcode)
+    {
         if (file.Bundle is not null && !file.Bundle.VerifyPasscode(passcode))
             return StatusCode(StatusCodes.Status403Forbidden, "The passcode is incorrect.");
+        return null;
+    }
 
-        if (!string.IsNullOrWhiteSpace(file.StorageUrl)) return Redirect(file.StorageUrl);
-
-        if (file.UploadedAt is null)
+    private async Task<ActionResult> ServeLocalFile(SnCloudFile file)
+    {
+        // Try temp storage first
+        var tempFilePath = Path.Combine(Path.GetTempPath(), file.Id);
+        if (System.IO.File.Exists(tempFilePath))
         {
-            // File is not yet uploaded to remote storage. Try to serve from local temp storage.
-            var tempFilePath = Path.Combine(Path.GetTempPath(), file.Id);
-            if (System.IO.File.Exists(tempFilePath))
-            {
-                if (file.IsEncrypted)
-                {
-                    return StatusCode(StatusCodes.Status403Forbidden, "Encrypted files cannot be accessed before they are processed and stored.");
-                }
-                return PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
-            }
-        
-            // Fallback for tus uploads that are not processed yet.
-            var tusStorePath = configuration.GetValue<string>("Tus:StorePath");
-            if (!string.IsNullOrEmpty(tusStorePath))
-            {
-                var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
-                if (System.IO.File.Exists(tusFilePath))
-                {
-                    return PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
-                }
-            }
+            if (file.IsEncrypted)
+                return StatusCode(StatusCodes.Status403Forbidden, "Encrypted files cannot be accessed before they are processed and stored.");
 
-            return StatusCode(StatusCodes.Status400BadRequest, "File is being processed. Please try again later.");
+            return PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
         }
 
+        // Fallback for tus uploads
+        var tusStorePath = configuration.GetValue<string>("Tus:StorePath");
+        if (!string.IsNullOrEmpty(tusStorePath))
+        {
+            var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
+            if (System.IO.File.Exists(tusFilePath))
+            {
+                return PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
+            }
+        }
+
+        return StatusCode(StatusCodes.Status400BadRequest, "File is being processed. Please try again later.");
+    }
+
+    private async Task<ActionResult> ServeRemoteFile(
+        SnCloudFile file,
+        string? fileExtension,
+        bool download,
+        bool original,
+        bool thumbnail,
+        string? overrideMimeType
+    )
+    {
         if (!file.PoolId.HasValue)
             return StatusCode(StatusCodes.Status500InternalServerError, "File is in an inconsistent state: uploaded but no pool ID.");
 
         var pool = await fs.GetPoolAsync(file.PoolId.Value);
         if (pool is null)
             return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
+
+        if (!pool.PolicyConfig.AllowAnonymous && HttpContext.Items["CurrentUser"] is not Account)
+            return Unauthorized();
+
         var dest = pool.StorageConfig;
+        var fileName = BuildRemoteFileName(file, original, thumbnail);
 
-        if (!pool.PolicyConfig.AllowAnonymous)
-            if (HttpContext.Items["CurrentUser"] is not Account currentUser)
-                return Unauthorized();
-        // TODO: Provide ability to add access log
+        // Try proxy redirects first
+        var proxyResult = TryProxyRedirect(file, dest, fileName);
+        if (proxyResult is not null) return proxyResult;
 
+        // Handle signed URLs
+        if (dest.EnableSigned)
+            return await CreateSignedUrl(file, dest, fileName, fileExtension, download, overrideMimeType);
+
+        // Fallback to direct S3 endpoint
+        var protocol = dest.EnableSsl ? "https" : "http";
+        return Redirect($"{protocol}://{dest.Endpoint}/{dest.Bucket}/{fileName}");
+    }
+
+    private string BuildRemoteFileName(SnCloudFile file, bool original, bool thumbnail)
+    {
         var fileName = string.IsNullOrWhiteSpace(file.StorageId) ? file.Id : file.StorageId;
 
-        switch (thumbnail)
+        if (thumbnail)
         {
-            case true when file.HasThumbnail:
-                fileName += ".thumbnail";
-                break;
-            case true when !file.HasThumbnail:
-                return NotFound();
+            if (!file.HasThumbnail) throw new InvalidOperationException("Thumbnail not available");
+            fileName += ".thumbnail";
+        }
+        else if (!original && file.HasCompression)
+        {
+            fileName += ".compressed";
         }
 
-        if (!original && file.HasCompression)
-            fileName += ".compressed";
+        return fileName;
+    }
 
+    private ActionResult? TryProxyRedirect(SnCloudFile file, RemoteStorageConfig dest, string fileName)
+    {
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
         {
-            var proxyUrl = dest.ImageProxy;
-            var baseUri = new Uri(proxyUrl.EndsWith('/') ? proxyUrl : $"{proxyUrl}/");
-            var fullUri = new Uri(baseUri, fileName);
-            return Redirect(fullUri.ToString());
+            return Redirect(BuildProxyUrl(dest.ImageProxy, fileName));
         }
 
         if (dest.AccessProxy is not null)
         {
-            var proxyUrl = dest.AccessProxy;
-            var baseUri = new Uri(proxyUrl.EndsWith('/') ? proxyUrl : $"{proxyUrl}/");
-            var fullUri = new Uri(baseUri, fileName);
-            return Redirect(fullUri.ToString());
+            return Redirect(BuildProxyUrl(dest.AccessProxy, fileName));
         }
 
-        if (dest.EnableSigned)
+        return null;
+    }
+
+    private string BuildProxyUrl(string proxyUrl, string fileName)
+    {
+        var baseUri = new Uri(proxyUrl.EndsWith('/') ? proxyUrl : $"{proxyUrl}/");
+        var fullUri = new Uri(baseUri, fileName);
+        return fullUri.ToString();
+    }
+
+    private async Task<ActionResult> CreateSignedUrl(
+        SnCloudFile file,
+        RemoteStorageConfig dest,
+        string fileName,
+        string? fileExtension,
+        bool download,
+        string? overrideMimeType
+    )
+    {
+        var client = fs.CreateMinioClient(dest);
+        if (client is null)
+            return BadRequest("Failed to configure client for remote destination, file got an invalid storage remote.");
+
+        var headers = BuildSignedUrlHeaders(file, fileExtension, overrideMimeType, download);
+
+        var openUrl = await client.PresignedGetObjectAsync(
+            new PresignedGetObjectArgs()
+                .WithBucket(dest.Bucket)
+                .WithObject(fileName)
+                .WithExpiry(3600)
+                .WithHeaders(headers)
+        );
+
+        return Redirect(openUrl);
+    }
+
+    private Dictionary<string, string> BuildSignedUrlHeaders(
+        SnCloudFile file,
+        string? fileExtension,
+        string? overrideMimeType,
+        bool download
+    )
+    {
+        var headers = new Dictionary<string, string>();
+
+        string? contentType = null;
+        if (fileExtension is not null && MimeTypes.TryGetMimeType(fileExtension, out var mimeType))
         {
-            var client = fs.CreateMinioClient(dest);
-            if (client is null)
-                return BadRequest(
-                    "Failed to configure client for remote destination, file got an invalid storage remote."
-                );
-
-            var headers = new Dictionary<string, string>();
-            if (fileExtension is not null)
-            {
-                if (MimeTypes.TryGetMimeType(fileExtension, out var mimeType))
-                    headers.Add("Response-Content-Type", mimeType);
-            }
-            else if (overrideMimeType is not null)
-            {
-                headers.Add("Response-Content-Type", overrideMimeType);
-            }
-            else if (file.MimeType is not null && !file.MimeType!.EndsWith("unknown"))
-            {
-                headers.Add("Response-Content-Type", file.MimeType);
-            }
-
-            if (download)
-            {
-                headers.Add("Response-Content-Disposition", $"attachment; filename=\"{file.Name}\"");
-            }
-
-            var bucket = dest.Bucket;
-            var openUrl = await client.PresignedGetObjectAsync(
-                new PresignedGetObjectArgs()
-                    .WithBucket(bucket)
-                    .WithObject(fileName)
-                    .WithExpiry(3600)
-                    .WithHeaders(headers)
-            );
-
-            return Redirect(openUrl);
+            contentType = mimeType;
+        }
+        else if (overrideMimeType is not null)
+        {
+            contentType = overrideMimeType;
+        }
+        else if (file.MimeType is not null && !file.MimeType.EndsWith("unknown"))
+        {
+            contentType = file.MimeType;
         }
 
-        // Fallback redirect to the S3 endpoint (public read)
-        var protocol = dest.EnableSsl ? "https" : "http";
-        // Use the path bucket lookup mode
-        return Redirect($"{protocol}://{dest.Endpoint}/{dest.Bucket}/{fileName}");
+        if (contentType is not null)
+        {
+            headers.Add("Response-Content-Type", contentType);
+        }
+
+        if (download)
+        {
+            headers.Add("Response-Content-Disposition", $"attachment; filename=\"{file.Name}\"");
+        }
+
+        return headers;
     }
 
     [HttpGet("{id}/info")]
@@ -175,14 +238,7 @@ public class FileController(
     [HttpPatch("{id}/name")]
     public async Task<ActionResult<SnCloudFile>> UpdateFileName(string id, [FromBody] string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
-        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
-        if (file is null) return NotFound();
-        file.Name = name;
-        await db.SaveChangesAsync();
-        await fs._PurgeCacheAsync(file.Id);
-        return file;
+        return await UpdateFileProperty(id, file => file.Name = name);
     }
 
     public class MarkFileRequest
@@ -194,27 +250,28 @@ public class FileController(
     [HttpPut("{id}/marks")]
     public async Task<ActionResult<SnCloudFile>> MarkFile(string id, [FromBody] MarkFileRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
-        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
-        if (file is null) return NotFound();
-        file.SensitiveMarks = request.SensitiveMarks;
-        await db.SaveChangesAsync();
-        await fs._PurgeCacheAsync(file.Id);
-        return file;
+        return await UpdateFileProperty(id, file => file.SensitiveMarks = request.SensitiveMarks);
     }
 
     [Authorize]
     [HttpPut("{id}/meta")]
     public async Task<ActionResult<SnCloudFile>> UpdateFileMeta(string id, [FromBody] Dictionary<string, object?> meta)
     {
+        return await UpdateFileProperty(id, file => file.UserMeta = meta);
+    }
+
+    private async Task<ActionResult<SnCloudFile>> UpdateFileProperty(string fileId, Action<SnCloudFile> updateAction)
+    {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
-        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
+
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId && f.AccountId == accountId);
         if (file is null) return NotFound();
-        file.UserMeta = meta;
+
+        updateAction(file);
         await db.SaveChangesAsync();
         await fs._PurgeCacheAsync(file.Id);
+
         return file;
     }
 

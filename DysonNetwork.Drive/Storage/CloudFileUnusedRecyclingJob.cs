@@ -6,7 +6,6 @@ namespace DysonNetwork.Drive.Storage;
 
 public class CloudFileUnusedRecyclingJob(
     AppDatabase db,
-    FileReferenceService fileRefService,
     ILogger<CloudFileUnusedRecyclingJob> logger,
     IConfiguration configuration
 )
@@ -80,15 +79,15 @@ public class CloudFileUnusedRecyclingJob(
             processedCount += fileBatch.Count;
             lastProcessedId = fileBatch.Last();
 
-            // Get all relevant file references for this batch
-            var fileReferences = await fileRefService.GetReferencesAsync(fileBatch);
-
-            // Filter to find files that have no references or all expired references
-            var filesToMark = fileBatch.Where(fileId =>
-                !fileReferences.TryGetValue(fileId, out var references) ||
-                references.Count == 0 ||
-                references.All(r => r.ExpiredAt.HasValue && r.ExpiredAt.Value <= now)
-            ).ToList();
+            // Optimized query: Find files that have no references OR all references are expired
+            // This replaces the memory-intensive approach of loading all references
+            var filesToMark = await db.Files
+                .Where(f => fileBatch.Contains(f.Id))
+                .Where(f => !db.FileReferences.Any(r => r.FileId == f.Id) || // No references at all
+                           !db.FileReferences.Any(r => r.FileId == f.Id && // OR has references but all are expired
+                                                     (r.ExpiredAt == null || r.ExpiredAt > now)))
+                .Select(f => f.Id)
+                .ToListAsync();
 
             if (filesToMark.Count > 0)
             {

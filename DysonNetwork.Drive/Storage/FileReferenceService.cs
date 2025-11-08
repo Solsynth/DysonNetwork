@@ -90,13 +90,45 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         return references;
     }
 
-    public async Task<Dictionary<string, List<CloudFileReference>>> GetReferencesAsync(IEnumerable<string> fileId)
+    public async Task<Dictionary<string, List<CloudFileReference>>> GetReferencesAsync(IEnumerable<string> fileIds)
     {
-        var references = await db.FileReferences
-            .Where(r => fileId.Contains(r.FileId))
-            .GroupBy(r => r.FileId)
-            .ToDictionaryAsync(r => r.Key, r => r.ToList());
-        return references;
+        var fileIdList = fileIds.ToList();
+        var result = new Dictionary<string, List<CloudFileReference>>();
+
+        // Check cache for each file ID
+        var uncachedFileIds = new List<string>();
+        foreach (var fileId in fileIdList)
+        {
+            var cacheKey = $"{CacheKeyPrefix}list:{fileId}";
+            var cachedReferences = await cache.GetAsync<List<CloudFileReference>>(cacheKey);
+            if (cachedReferences is not null)
+            {
+                result[fileId] = cachedReferences;
+            }
+            else
+            {
+                uncachedFileIds.Add(fileId);
+            }
+        }
+
+        // Fetch uncached references from database
+        if (uncachedFileIds.Any())
+        {
+            var dbReferences = await db.FileReferences
+                .Where(r => uncachedFileIds.Contains(r.FileId))
+                .GroupBy(r => r.FileId)
+                .ToDictionaryAsync(r => r.Key, r => r.ToList());
+
+            // Cache the results
+            foreach (var kvp in dbReferences)
+            {
+                var cacheKey = $"{CacheKeyPrefix}list:{kvp.Key}";
+                await cache.SetAsync(cacheKey, kvp.Value, CacheDuration);
+                result[kvp.Key] = kvp.Value;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -150,9 +182,19 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// <returns>A list of file references with the specified usage</returns>
     public async Task<List<CloudFileReference>> GetUsageReferencesAsync(string usage)
     {
-        return await db.FileReferences
+        var cacheKey = $"{CacheKeyPrefix}usage:{usage}";
+
+        var cachedReferences = await cache.GetAsync<List<CloudFileReference>>(cacheKey);
+        if (cachedReferences is not null)
+            return cachedReferences;
+
+        var references = await db.FileReferences
             .Where(r => r.Usage == usage)
             .ToListAsync();
+
+        await cache.SetAsync(cacheKey, references, CacheDuration);
+
+        return references;
     }
 
     /// <summary>
@@ -209,8 +251,9 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     
     public async Task<int> DeleteResourceReferencesBatchAsync(IEnumerable<string> resourceIds, string? usage = null)
     {
+        var resourceIdList = resourceIds.ToList();
         var references = await db.FileReferences
-            .Where(r => resourceIds.Contains(r.ResourceId))
+            .Where(r => resourceIdList.Contains(r.ResourceId))
             .If(usage != null, q => q.Where(q => q.Usage == usage))
             .ToListAsync();
 
@@ -222,8 +265,9 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         db.FileReferences.RemoveRange(references);
         var deletedCount = await db.SaveChangesAsync();
 
-        // Purge caches
+        // Purge caches for files and resources
         var tasks = fileIds.Select(fileService._PurgeCacheAsync).ToList();
+        tasks.AddRange(resourceIdList.Select(PurgeCacheForResourceAsync));
         await Task.WhenAll(tasks);
 
         return deletedCount;

@@ -10,53 +10,59 @@ namespace DysonNetwork.Drive.Storage;
 public class FileExpirationJob(AppDatabase db, FileService fileService, ILogger<FileExpirationJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
-    {        
+    {
         var now = SystemClock.Instance.GetCurrentInstant();
         logger.LogInformation("Running file reference expiration job at {now}", now);
 
-        // Find all expired references
-        var expiredReferences = await db.FileReferences
+        // Delete expired references in bulk and get affected file IDs
+        var affectedFileIds = await db.FileReferences
             .Where(r => r.ExpiredAt < now && r.ExpiredAt != null)
+            .Select(r => r.FileId)
+            .Distinct()
             .ToListAsync();
 
-        if (!expiredReferences.Any())
+        if (!affectedFileIds.Any())
         {
             logger.LogInformation("No expired file references found");
             return;
         }
 
-        logger.LogInformation("Found {count} expired file references", expiredReferences.Count);
+        logger.LogInformation("Found expired references for {count} files", affectedFileIds.Count);
 
-        // Get unique file IDs
-        var fileIds = expiredReferences.Select(r => r.FileId).Distinct().ToList();
-        var filesAndReferenceCount = new Dictionary<string, int>();
+        // Delete expired references in bulk
+        var deletedReferencesCount = await db.FileReferences
+            .Where(r => r.ExpiredAt < now && r.ExpiredAt != null)
+            .ExecuteDeleteAsync();
 
-        // Delete expired references
-        db.FileReferences.RemoveRange(expiredReferences);
-        await db.SaveChangesAsync();
+        logger.LogInformation("Deleted {count} expired file references", deletedReferencesCount);
 
-        // Check remaining references for each file
-        foreach (var fileId in fileIds)
-        {            
-            var remainingReferences = await db.FileReferences
-                .Where(r => r.FileId == fileId)
-                .CountAsync();
+        // Find files that now have no remaining references (bulk operation)
+        var filesToDelete = await db.Files
+            .Where(f => affectedFileIds.Contains(f.Id))
+            .Where(f => !db.FileReferences.Any(r => r.FileId == f.Id))
+            .Select(f => f.Id)
+            .ToListAsync();
 
-            filesAndReferenceCount[fileId] = remainingReferences;
+        if (filesToDelete.Any())
+        {
+            logger.LogInformation("Deleting {count} files that have no remaining references", filesToDelete.Count);
 
-            // If no references remain, delete the file
-            if (remainingReferences == 0)
-            {
-                var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
-                if (file == null) continue;
-                logger.LogInformation("Deleting file {fileId} as all references have expired", fileId);
-                await fileService.DeleteFileAsync(file);
-            }
-            else
-            {
-                // Just purge the cache
-                await fileService._PurgeCacheAsync(fileId);
-            }
+            // Get files for deletion
+            var files = await db.Files
+                .Where(f => filesToDelete.Contains(f.Id))
+                .ToListAsync();
+
+            // Delete files and their data in parallel
+            var deleteTasks = files.Select(f => fileService.DeleteFileAsync(f));
+            await Task.WhenAll(deleteTasks);
+        }
+
+        // Purge cache for files that still have references
+        var filesWithRemainingRefs = affectedFileIds.Except(filesToDelete).ToList();
+        if (filesWithRemainingRefs.Any())
+        {
+            var cachePurgeTasks = filesWithRemainingRefs.Select(fileService._PurgeCacheAsync);
+            await Task.WhenAll(cachePurgeTasks);
         }
 
         logger.LogInformation("Completed file reference expiration job");

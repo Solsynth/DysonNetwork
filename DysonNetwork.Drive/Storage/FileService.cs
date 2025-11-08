@@ -99,30 +99,75 @@ public class FileService(
     )
     {
         var accountId = Guid.Parse(account.Id);
+        var pool = await ValidateAndGetPoolAsync(filePool);
+        var bundle = await ValidateAndGetBundleAsync(fileBundleId, accountId);
+        var finalExpiredAt = CalculateFinalExpiration(expiredAt, pool, bundle);
 
+        var (managedTempPath, fileSize, finalContentType) = await PrepareFileAsync(fileId, filePath, fileName, contentType);
+
+        var file = CreateFileObject(fileId, fileName, finalContentType, fileSize, finalExpiredAt, bundle, accountId);
+
+        if (!pool.PolicyConfig.NoMetadata)
+        {
+            await ExtractMetadataAsync(file, managedTempPath);
+        }
+
+        var (processingPath, isTempFile) = await ProcessEncryptionAsync(fileId, managedTempPath, encryptPassword, pool, file);
+
+        file.Hash = await HashFileAsync(processingPath);
+
+        await SaveFileToDatabaseAsync(file);
+
+        await PublishFileUploadedEventAsync(file, pool, processingPath, isTempFile);
+
+        return file;
+    }
+
+    private async Task<FilePool> ValidateAndGetPoolAsync(string filePool)
+    {
         var pool = await GetPoolAsync(Guid.Parse(filePool));
         if (pool is null) throw new InvalidOperationException("Pool not found");
+        return pool;
+    }
 
+    private async Task<SnFileBundle?> ValidateAndGetBundleAsync(string? fileBundleId, Guid accountId)
+    {
+        if (fileBundleId is null) return null;
+
+        var bundle = await GetBundleAsync(Guid.Parse(fileBundleId), accountId);
+        if (bundle is null) throw new InvalidOperationException("Bundle not found");
+
+        return bundle;
+    }
+
+    private Instant? CalculateFinalExpiration(Instant? expiredAt, FilePool pool, SnFileBundle? bundle)
+    {
+        var finalExpiredAt = expiredAt;
+
+        // Apply pool expiration policy
         if (pool.StorageConfig.Expiration is not null && expiredAt.HasValue)
         {
             var expectedExpiration = SystemClock.Instance.GetCurrentInstant() - expiredAt.Value;
             var effectiveExpiration = pool.StorageConfig.Expiration < expectedExpiration
                 ? pool.StorageConfig.Expiration
                 : expectedExpiration;
-            expiredAt = SystemClock.Instance.GetCurrentInstant() + effectiveExpiration;
+            finalExpiredAt = SystemClock.Instance.GetCurrentInstant() + effectiveExpiration;
         }
 
-        var bundle = fileBundleId is not null
-            ? await GetBundleAsync(Guid.Parse(fileBundleId), accountId)
-            : null;
-        if (fileBundleId is not null && bundle is null)
-        {
-            throw new InvalidOperationException("Bundle not found");
-        }
-
+        // Bundle expiration takes precedence
         if (bundle?.ExpiredAt != null)
-            expiredAt = bundle.ExpiredAt.Value;
+            finalExpiredAt = bundle.ExpiredAt.Value;
 
+        return finalExpiredAt;
+    }
+
+    private async Task<(string tempPath, long fileSize, string contentType)> PrepareFileAsync(
+        string fileId,
+        string filePath,
+        string fileName,
+        string? contentType
+    )
+    {
         var managedTempPath = Path.Combine(Path.GetTempPath(), fileId);
         File.Copy(filePath, managedTempPath, true);
 
@@ -131,49 +176,66 @@ public class FileService(
         var finalContentType = contentType ??
                                (!fileName.Contains('.') ? "application/octet-stream" : MimeTypes.GetMimeType(fileName));
 
-        var file = new SnCloudFile
+        return (managedTempPath, fileSize, finalContentType);
+    }
+
+    private SnCloudFile CreateFileObject(
+        string fileId,
+        string fileName,
+        string contentType,
+        long fileSize,
+        Instant? expiredAt,
+        SnFileBundle? bundle,
+        Guid accountId
+    )
+    {
+        return new SnCloudFile
         {
             Id = fileId,
             Name = fileName,
-            MimeType = finalContentType,
+            MimeType = contentType,
             Size = fileSize,
             ExpiredAt = expiredAt,
             BundleId = bundle?.Id,
-            AccountId = Guid.Parse(account.Id),
+            AccountId = accountId,
         };
+    }
 
-        if (!pool.PolicyConfig.NoMetadata)
-        {
-            await ExtractMetadataAsync(file, managedTempPath);
-        }
+    private async Task<(string processingPath, bool isTempFile)> ProcessEncryptionAsync(
+        string fileId,
+        string managedTempPath,
+        string? encryptPassword,
+        FilePool pool,
+        SnCloudFile file
+    )
+    {
+        if (string.IsNullOrWhiteSpace(encryptPassword))
+            return (managedTempPath, true);
 
-        string processingPath = managedTempPath;
-        bool isTempFile = true;
+        if (!pool.PolicyConfig.AllowEncryption)
+            throw new InvalidOperationException("Encryption is not allowed in this pool");
 
-        if (!string.IsNullOrWhiteSpace(encryptPassword))
-        {
-            if (!pool.PolicyConfig.AllowEncryption)
-                throw new InvalidOperationException("Encryption is not allowed in this pool");
+        var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
+        FileEncryptor.EncryptFile(managedTempPath, encryptedPath, encryptPassword);
 
-            var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
-            FileEncryptor.EncryptFile(managedTempPath, encryptedPath, encryptPassword);
+        File.Delete(managedTempPath);
 
-            File.Delete(managedTempPath);
+        file.IsEncrypted = true;
+        file.MimeType = "application/octet-stream";
+        file.Size = new FileInfo(encryptedPath).Length;
 
-            processingPath = encryptedPath;
+        return (encryptedPath, true);
+    }
 
-            file.IsEncrypted = true;
-            file.MimeType = "application/octet-stream";
-            file.Size = new FileInfo(processingPath).Length;
-        }
-
-        file.Hash = await HashFileAsync(processingPath);
-
+    private async Task SaveFileToDatabaseAsync(SnCloudFile file)
+    {
         db.Files.Add(file);
         await db.SaveChangesAsync();
-
         file.StorageId ??= file.Id;
+    }
 
+    private async Task PublishFileUploadedEventAsync(SnCloudFile file, FilePool pool, string processingPath, bool isTempFile)
+    {
         var js = nats.CreateJetStreamContext();
         await js.PublishAsync(
             FileUploadedEvent.Type,
@@ -186,8 +248,6 @@ public class FileService(
                 isTempFile)
             ).ToByteArray()
         );
-
-        return file;
     }
 
     private async Task ExtractMetadataAsync(SnCloudFile file, string filePath)
