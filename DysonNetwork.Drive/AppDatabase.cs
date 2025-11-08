@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using DysonNetwork.Drive.Billing;
+using DysonNetwork.Drive.Storage;
+using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -22,6 +24,9 @@ public class AppDatabase(
     
     public DbSet<SnCloudFile> Files { get; set; } = null!;
     public DbSet<CloudFileReference> FileReferences { get; set; } = null!;
+
+    public DbSet<PersistentTask> Tasks { get; set; } = null!;
+    public DbSet<PersistentUploadTask> UploadTasks { get; set; } = null!; // Backward compatibility
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -40,14 +45,23 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
-        // Automatically apply soft-delete filter to all entities inheriting BaseModel
+        // Apply soft-delete filter only to root entities, not derived types
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (!typeof(ModelBase).IsAssignableFrom(entityType.ClrType)) continue;
+
+            // Skip derived types to avoid filter conflicts
+            var clrType = entityType.ClrType;
+            if (clrType.BaseType != typeof(object) &&
+                typeof(ModelBase).IsAssignableFrom(clrType.BaseType))
+            {
+                continue; // Skip derived types
+            }
+
             var method = typeof(AppDatabase)
                 .GetMethod(nameof(SetSoftDeleteFilter),
                     BindingFlags.NonPublic | BindingFlags.Static)!
-                .MakeGenericMethod(entityType.ClrType);
+                .MakeGenericMethod(clrType);
 
             method.Invoke(null, [modelBuilder]);
         }
@@ -133,6 +147,30 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
         }
 
         await db.SaveChangesAsync();
+    }
+}
+
+public class UploadTaskCleanupJob(
+    IServiceProvider serviceProvider,
+    ILogger<UploadTaskCleanupJob> logger
+) : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        logger.LogInformation("Cleaning up stale upload tasks...");
+
+        // Get the PersistentUploadService from DI
+        using var scope = serviceProvider.CreateScope();
+        var persistentUploadService = scope.ServiceProvider.GetService(typeof(DysonNetwork.Drive.Storage.PersistentUploadService));
+
+        if (persistentUploadService is DysonNetwork.Drive.Storage.PersistentUploadService service)
+        {
+            await service.CleanupStaleTasksAsync();
+        }
+        else
+        {
+            logger.LogWarning("PersistentUploadService not found in DI container");
+        }
     }
 }
 
