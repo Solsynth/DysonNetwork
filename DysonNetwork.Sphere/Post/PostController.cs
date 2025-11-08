@@ -219,6 +219,14 @@ public class PostController(
         var totalCount = await query.CountAsync();
 
         var posts = await query.Skip(offset).Take(take).ToListAsync();
+        foreach (var post in posts)
+        {
+            // Prevent load nested replied post
+            if (post.RepliedPost != null)
+                post.RepliedPost.RepliedPost = null;
+        }
+        
+
         posts = await ps.LoadPostInfo(posts, currentUser, true);
 
         // Load realm data for posts that have realm
@@ -475,9 +483,11 @@ public class PostController(
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
         foreach (var post in posts)
+        {
             post.ReactionsCount = reactionMaps.TryGetValue(post.Id, out var count)
                 ? count
                 : new Dictionary<string, int>();
+        }
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -593,7 +603,7 @@ public class PostController(
                 !await rs.IsMemberWithRole(
                     realm.Id,
                     accountId,
-                    new List<int> { RealmMemberRole.Normal }
+                    [RealmMemberRole.Normal]
                 )
             )
                 return StatusCode(403, "You are not a member of this realm.");
