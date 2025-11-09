@@ -697,30 +697,38 @@ public class PersistentTaskService(
         {
             var previousProgress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0;
 
-            // Use ExecuteUpdateAsync for better performance - update only the fields we need
-            var now = SystemClock.Instance.GetCurrentInstant();
-            var updatedRows = await db.Tasks
-                .OfType<PersistentUploadTask>()
-                .Where(t => t.TaskId == taskId)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(t => t.UploadedChunks, t => t.UploadedChunks.Append(chunkIndex).Distinct().ToList())
-                    .SetProperty(t => t.ChunksUploaded, t => t.UploadedChunks.Count)
-                    .SetProperty(t => t.LastActivity, now)
-                    .SetProperty(t => t.UpdatedAt, now)
-                );
-
-            if (updatedRows > 0)
+            // Get current parameters and update them directly
+            var parameters = task.TypedParameters;
+            if (!parameters.UploadedChunks.Contains(chunkIndex))
             {
-                // Update the cached task
-                task.UploadedChunks.Add(chunkIndex);
-                task.ChunksUploaded = task.UploadedChunks.Count;
-                task.LastActivity = now;
-                task.UpdatedAt = now;
-                await SetCacheAsync(task);
+                parameters.UploadedChunks.Add(chunkIndex);
+                parameters.ChunksUploaded = parameters.UploadedChunks.Count;
+                
+                var now = SystemClock.Instance.GetCurrentInstant();
 
-                // Send real-time progress update
-                var newProgress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0;
-                await SendUploadProgressUpdateAsync(task, newProgress, previousProgress);
+                // Use ExecuteUpdateAsync to update the Parameters dictionary directly
+                var updatedRows = await db.Tasks
+                    .OfType<PersistentUploadTask>()
+                    .Where(t => t.TaskId == taskId)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(t => t.Parameters, ParameterHelper.Untyped(parameters))
+                        .SetProperty(t => t.LastActivity, now)
+                        .SetProperty(t => t.UpdatedAt, now)
+                    );
+
+                if (updatedRows > 0)
+                {
+                    // Update the cached task
+                    task.UploadedChunks.Add(chunkIndex);
+                    task.ChunksUploaded = task.UploadedChunks.Count;
+                    task.LastActivity = now;
+                    task.UpdatedAt = now;
+                    await SetCacheAsync(task);
+
+                    // Send real-time progress update
+                    var newProgress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0;
+                    await SendUploadProgressUpdateAsync(task, newProgress, previousProgress);
+                }
             }
         }
     }
@@ -822,13 +830,13 @@ public class PersistentTaskService(
         var stats = new UserUploadStats
         {
             TotalTasks = tasks.Count,
-            InProgressTasks = tasks.Count(t => t.Status == Model.TaskStatus.InProgress),
-            CompletedTasks = tasks.Count(t => t.Status == Model.TaskStatus.Completed),
-            FailedTasks = tasks.Count(t => t.Status == Model.TaskStatus.Failed),
-            ExpiredTasks = tasks.Count(t => t.Status == Model.TaskStatus.Expired),
-            TotalUploadedBytes = tasks.Sum(t => (long)t.ChunksUploaded * t.ChunkSize),
-            AverageProgress = tasks.Any(t => t.Status == Model.TaskStatus.InProgress)
-                ? tasks.Where(t => t.Status == Model.TaskStatus.InProgress)
+            InProgressTasks = tasks.Count(t => t.Status == TaskStatus.InProgress),
+            CompletedTasks = tasks.Count(t => t.Status == TaskStatus.Completed),
+            FailedTasks = tasks.Count(t => t.Status == TaskStatus.Failed),
+            ExpiredTasks = tasks.Count(t => t.Status == TaskStatus.Expired),
+            TotalUploadedBytes = tasks.Sum(t => t.ChunksUploaded * t.ChunkSize),
+            AverageProgress = tasks.Any(t => t.Status == TaskStatus.InProgress)
+                ? tasks.Where(t => t.Status == TaskStatus.InProgress)
                     .Average(t => t.ChunksCount > 0 ? (double)t.ChunksUploaded / t.ChunksCount * 100 : 0)
                 : 0,
             RecentActivity = tasks.OrderByDescending(t => t.LastActivity)
