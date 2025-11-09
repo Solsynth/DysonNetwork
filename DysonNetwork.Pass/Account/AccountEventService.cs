@@ -438,7 +438,8 @@ public class AccountEventService(
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var checkInByDate = checkIn
-            .ToDictionary(c => c.CreatedAt.InUtc().Date);
+            .GroupBy(c => c.CreatedAt.InUtc().Date)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAt).First());
 
         return dates.Select(date =>
         {
