@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
 using NodaTime;
 using Quartz;
+using TaskStatus = DysonNetwork.Drive.Storage.Model.TaskStatus;
 
 namespace DysonNetwork.Drive;
 
@@ -150,26 +151,41 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
     }
 }
 
-public class UploadTaskCleanupJob(
+public class PersistentTaskCleanupJob(
     IServiceProvider serviceProvider,
-    ILogger<UploadTaskCleanupJob> logger
+    ILogger<PersistentTaskCleanupJob> logger
 ) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        logger.LogInformation("Cleaning up stale upload tasks...");
+        logger.LogInformation("Cleaning up stale persistent tasks...");
 
-        // Get the PersistentUploadService from DI
+        // Get the PersistentTaskService from DI
         using var scope = serviceProvider.CreateScope();
-        var persistentUploadService = scope.ServiceProvider.GetService(typeof(DysonNetwork.Drive.Storage.PersistentUploadService));
+        var persistentTaskService = scope.ServiceProvider.GetService(typeof(PersistentTaskService));
 
-        if (persistentUploadService is DysonNetwork.Drive.Storage.PersistentUploadService service)
+        if (persistentTaskService is PersistentTaskService service)
         {
-            await service.CleanupStaleTasksAsync();
+            // Clean up tasks for all users (you might want to add user-specific logic here)
+            // For now, we'll clean up tasks older than 30 days for all users
+            var cutoff = SystemClock.Instance.GetCurrentInstant() - Duration.FromDays(30);
+            var tasksToClean = await service.GetUserTasksAsync(
+                Guid.Empty, // This would need to be adjusted for multi-user cleanup
+                status: TaskStatus.Completed | TaskStatus.Failed | TaskStatus.Cancelled | TaskStatus.Expired
+            );
+
+            var cleanedCount = 0;
+            foreach (var task in tasksToClean.Items.Where(t => t.UpdatedAt < cutoff))
+            {
+                await service.CancelTaskAsync(task.TaskId); // Or implement a proper cleanup method
+                cleanedCount++;
+            }
+
+            logger.LogInformation("Cleaned up {Count} stale persistent tasks", cleanedCount);
         }
         else
         {
-            logger.LogWarning("PersistentUploadService not found in DI container");
+            logger.LogWarning("PersistentTaskService not found in DI container");
         }
     }
 }

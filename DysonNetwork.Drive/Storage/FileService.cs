@@ -126,8 +126,7 @@ public class FileService(
     private async Task<FilePool> ValidateAndGetPoolAsync(string filePool)
     {
         var pool = await GetPoolAsync(Guid.Parse(filePool));
-        if (pool is null) throw new InvalidOperationException("Pool not found");
-        return pool;
+        return pool ?? throw new InvalidOperationException("Pool not found: " + filePool);
     }
 
     private async Task<SnFileBundle?> ValidateAndGetBundleAsync(string? fileBundleId, Guid accountId)
@@ -135,12 +134,10 @@ public class FileService(
         if (fileBundleId is null) return null;
 
         var bundle = await GetBundleAsync(Guid.Parse(fileBundleId), accountId);
-        if (bundle is null) throw new InvalidOperationException("Bundle not found");
-
-        return bundle;
+        return bundle ?? throw new InvalidOperationException("Bundle not found: " + fileBundleId);
     }
 
-    private Instant? CalculateFinalExpiration(Instant? expiredAt, FilePool pool, SnFileBundle? bundle)
+    private static Instant? CalculateFinalExpiration(Instant? expiredAt, FilePool pool, SnFileBundle? bundle)
     {
         var finalExpiredAt = expiredAt;
 

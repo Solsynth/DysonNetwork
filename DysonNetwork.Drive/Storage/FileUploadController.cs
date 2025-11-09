@@ -24,12 +24,14 @@ public class FileUploadController(
     AppDatabase db,
     PermissionService.PermissionServiceClient permission,
     QuotaService quotaService,
-    PersistentUploadService persistentUploadService
+    PersistentTaskService persistentTaskService,
+    ILogger<FileUploadController> logger
 )
     : ControllerBase
 {
     private readonly string _tempPath =
         configuration.GetValue<string>("Storage:Uploads") ?? Path.Combine(Path.GetTempPath(), "multipart-uploads");
+    private readonly ILogger<FileUploadController> _logger = logger;
 
     private const long DefaultChunkSize = 1024 * 1024 * 5; // 5MB
 
@@ -75,7 +77,7 @@ public class FileUploadController(
         var taskId = await Nanoid.GenerateAsync();
 
         // Create persistent upload task
-        var persistentTask = await persistentUploadService.CreateUploadTaskAsync(taskId, request, accountId);
+        var persistentTask = await persistentTaskService.CreateUploadTaskAsync(taskId, request, accountId);
 
         return Ok(new CreateUploadTaskResponse
         {
@@ -231,7 +233,7 @@ public class FileUploadController(
         var chunk = request.Chunk;
 
         // Check if chunk is already uploaded (resumable upload)
-        if (await persistentUploadService.IsChunkUploadedAsync(taskId, chunkIndex))
+        if (await persistentTaskService.IsChunkUploadedAsync(taskId, chunkIndex))
         {
             return Ok(new { message = "Chunk already uploaded" });
         }
@@ -247,7 +249,7 @@ public class FileUploadController(
         await chunk.CopyToAsync(stream);
 
         // Update persistent task progress
-        await persistentUploadService.UpdateChunkProgressAsync(taskId, chunkIndex);
+        await persistentTaskService.UpdateChunkProgressAsync(taskId, chunkIndex);
 
         return Ok();
     }
@@ -256,7 +258,7 @@ public class FileUploadController(
     public async Task<IActionResult> CompleteUpload(string taskId)
     {
         // Get persistent task
-        var persistentTask = await persistentUploadService.GetUploadTaskAsync(taskId);
+        var persistentTask = await persistentTaskService.GetUploadTaskAsync(taskId);
         if (persistentTask is null)
             return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
 
@@ -292,27 +294,30 @@ public class FileUploadController(
             );
 
             // Mark task as completed
-            await persistentUploadService.MarkTaskCompletedAsync(taskId);
+            await persistentTaskService.MarkTaskCompletedAsync(taskId);
 
             // Send completion notification
-            await persistentUploadService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
+            await persistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
 
             return Ok(cloudFile);
         }
         catch (Exception ex)
         {
+            // Log the actual exception for debugging
+            _logger.LogError(ex, "Failed to complete upload for task {TaskId}. Error: {ErrorMessage}", taskId, ex.Message);
+
             // Mark task as failed
-            await persistentUploadService.MarkTaskFailedAsync(taskId);
+            await persistentTaskService.MarkTaskFailedAsync(taskId);
 
             // Send failure notification
-            await persistentUploadService.SendUploadFailedNotificationAsync(persistentTask, ex.Message);
+            await persistentTaskService.SendUploadFailedNotificationAsync(persistentTask, ex.Message);
 
             await CleanupTempFiles(taskPath, mergedFilePath);
 
             return new ObjectResult(new ApiError
             {
                 Code = "UPLOAD_FAILED",
-                Message = "Failed to complete file upload.",
+                Message = $"Failed to complete file upload: {ex.Message}",
                 Status = 500
             }) { StatusCode = 500 };
         }
@@ -372,7 +377,7 @@ public class FileUploadController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        var tasks = await persistentUploadService.GetUserTasksAsync(accountId, status, sortBy, sortDescending, offset, limit);
+        var tasks = await persistentTaskService.GetUserUploadTasksAsync(accountId, status, sortBy, sortDescending, offset, limit);
 
         Response.Headers.Append("X-Total", tasks.TotalCount.ToString());
 
@@ -403,7 +408,7 @@ public class FileUploadController(
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
-        var task = await persistentUploadService.GetUploadTaskAsync(taskId);
+        var task = await persistentTaskService.GetUploadTaskAsync(taskId);
         if (task is null)
             return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
 
@@ -411,7 +416,7 @@ public class FileUploadController(
         if (task.AccountId != Guid.Parse(currentUser.Id))
             return new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
 
-        var progress = await persistentUploadService.GetUploadProgressAsync(taskId);
+        var progress = await persistentTaskService.GetUploadProgressAsync(taskId);
 
         return Ok(new
         {
@@ -434,7 +439,7 @@ public class FileUploadController(
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
-        var task = await persistentUploadService.GetUploadTaskAsync(taskId);
+        var task = await persistentTaskService.GetUploadTaskAsync(taskId);
         if (task is null)
             return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
 
@@ -470,7 +475,7 @@ public class FileUploadController(
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
-        var task = await persistentUploadService.GetUploadTaskAsync(taskId);
+        var task = await persistentTaskService.GetUploadTaskAsync(taskId);
         if (task is null)
             return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
 
@@ -479,7 +484,7 @@ public class FileUploadController(
             return new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
 
         // Mark as failed (cancelled)
-        await persistentUploadService.MarkTaskFailedAsync(taskId);
+        await persistentTaskService.MarkTaskFailedAsync(taskId);
 
         // Clean up temp files
         var taskPath = Path.Combine(_tempPath, taskId);
@@ -496,7 +501,7 @@ public class FileUploadController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        var stats = await persistentUploadService.GetUserUploadStatsAsync(accountId);
+        var stats = await persistentTaskService.GetUserUploadStatsAsync(accountId);
 
         return Ok(new
         {
@@ -519,7 +524,7 @@ public class FileUploadController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        var cleanedCount = await persistentUploadService.CleanupUserFailedTasksAsync(accountId);
+        var cleanedCount = await persistentTaskService.CleanupUserFailedTasksAsync(accountId);
 
         return Ok(new { message = $"Cleaned up {cleanedCount} failed tasks" });
     }
@@ -532,7 +537,7 @@ public class FileUploadController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        var tasks = await persistentUploadService.GetRecentUserTasksAsync(accountId, limit);
+        var tasks = await persistentTaskService.GetRecentUserTasksAsync(accountId, limit);
 
         return Ok(tasks.Select(t => new
         {
@@ -554,7 +559,7 @@ public class FileUploadController(
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
-        var task = await persistentUploadService.GetUploadTaskAsync(taskId);
+        var task = await persistentTaskService.GetUploadTaskAsync(taskId);
         if (task is null)
             return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
 

@@ -22,6 +22,13 @@ public static class ScheduledJobsConfiguration
                 .ForJob(cloudFileUnusedRecyclingJob)
                 .WithIdentity("CloudFileUnusedRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
+            
+            var persistentTaskCleanupJob = new JobKey("PersistentTaskCleanup");
+            q.AddJob<PersistentTaskCleanupJob>(opts => opts.WithIdentity(persistentTaskCleanupJob));
+            q.AddTrigger(opts => opts
+                .ForJob(persistentTaskCleanupJob)
+                .WithIdentity("PersistentTaskCleanupTrigger")
+                .WithCronSchedule("0 0 2 * * ?")); // Run daily at 2 AM
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
