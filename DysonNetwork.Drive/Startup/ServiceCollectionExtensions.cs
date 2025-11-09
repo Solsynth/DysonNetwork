@@ -55,11 +55,12 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<Storage.FileService>();
         services.AddScoped<Storage.FileReferenceService>();
+        services.AddScoped<Storage.PersistentUploadService>();
         services.AddScoped<Billing.UsageService>();
         services.AddScoped<Billing.QuotaService>();
 
         services.AddHostedService<BroadcastEventHandler>();
-        
+
         return services;
     }
 }

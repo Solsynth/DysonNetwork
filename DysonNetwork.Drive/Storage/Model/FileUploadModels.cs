@@ -2,8 +2,115 @@ using DysonNetwork.Shared.Models;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
 
 namespace DysonNetwork.Drive.Storage.Model;
+
+public static class ParameterHelper
+{
+    public static T GetParameterValue<T>(Dictionary<string, object?> parameters, string key, T defaultValue = default!)
+    {
+        if (!parameters.TryGetValue(key, out var value) || value == null)
+        {
+            return defaultValue;
+        }
+
+        // If the value is already the correct type, return it directly
+        if (value is T typedValue)
+        {
+            return typedValue;
+        }
+
+        // Handle JsonElement by deserializing to the target type
+        if (value is JsonElement jsonElement)
+        {
+            try
+            {
+                return jsonElement.Deserialize<T>() ?? defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        // Handle numeric conversions
+        if (typeof(T) == typeof(int))
+        {
+            if (value is long longValue)
+            {
+                return (T)(object)(int)longValue;
+            }
+            if (value is string stringValue && int.TryParse(stringValue, out int intValue))
+            {
+                return (T)(object)intValue;
+            }
+        }
+        else if (typeof(T) == typeof(long))
+        {
+            if (value is int intValue)
+            {
+                return (T)(object)(long)intValue;
+            }
+            if (value is string stringValue && long.TryParse(stringValue, out long longValue))
+            {
+                return (T)(object)longValue;
+            }
+        }
+        else if (typeof(T) == typeof(string))
+        {
+            return (T)(object)value.ToString()!;
+        }
+        else if (typeof(T) == typeof(bool))
+        {
+            if (value is string stringValue && bool.TryParse(stringValue, out bool boolValue))
+            {
+                return (T)(object)boolValue;
+            }
+        }
+
+        // Fallback to Convert.ChangeType for other types
+        try
+        {
+            return (T)Convert.ChangeType(value, typeof(T));
+        }
+        catch
+        {
+            return defaultValue;
+        }
+    }
+
+    public static List<T> GetParameterList<T>(Dictionary<string, object?> parameters, string key, List<T> defaultValue = null!)
+    {
+        defaultValue ??= [];
+
+        if (!parameters.TryGetValue(key, out var value) || value == null)
+        {
+            return defaultValue;
+        }
+
+        // If the value is already the correct type, return it directly
+        if (value is List<T> typedList)
+        {
+            return typedList;
+        }
+
+        // Handle JsonElement by deserializing to the target type
+        if (value is JsonElement jsonElement)
+        {
+            try
+            {
+                return jsonElement.Deserialize<List<T>>() ?? defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        return defaultValue;
+    }
+}
 
 public class CreateUploadTaskRequest
 {
@@ -100,79 +207,83 @@ public class PersistentUploadTask : PersistentTask
     [MaxLength(256)]
     public string FileName
     {
-        get => Parameters.GetValueOrDefault("fileName") as string ?? string.Empty;
-        set => Parameters["fileName"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "file_name", string.Empty);
+        set => Parameters["file_name"] = value;
     }
 
     public long FileSize
     {
-        get => Convert.ToInt64(Parameters.GetValueOrDefault("fileSize") ?? 0L);
-        set => Parameters["fileSize"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "file_size", 0L);
+        set => Parameters["file_size"] = value;
     }
 
     [MaxLength(128)]
     public string ContentType
     {
-        get => Parameters.GetValueOrDefault("contentType") as string ?? string.Empty;
-        set => Parameters["contentType"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "content_type", string.Empty);
+        set => Parameters["content_type"] = value;
     }
 
     public long ChunkSize
     {
-        get => Convert.ToInt64(Parameters.GetValueOrDefault("chunkSize") ?? 5242880L);
-        set => Parameters["chunkSize"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "chunk_size", 5242880L);
+        set => Parameters["chunk_size"] = value;
     }
 
     public int ChunksCount
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("chunksCount") ?? 0);
-        set => Parameters["chunksCount"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "chunks_count", 0);
+        set => Parameters["chunks_count"] = value;
     }
 
     public int ChunksUploaded
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("chunksUploaded") ?? 0);
+        get => ParameterHelper.GetParameterValue(Parameters, "chunks_uploaded", 0);
         set
         {
-            Parameters["chunksUploaded"] = value;
+            Parameters["chunks_uploaded"] = value;
             Progress = ChunksCount > 0 ? (double)value / ChunksCount * 100 : 0;
         }
     }
 
     public Guid PoolId
     {
-        get => Guid.Parse(Parameters.GetValueOrDefault("poolId") as string ?? Guid.Empty.ToString());
-        set => Parameters["poolId"] = value.ToString();
+        get
+        {
+            var poolIdStr = ParameterHelper.GetParameterValue(Parameters, "pool_id", Guid.Empty.ToString());
+            return Guid.Parse(poolIdStr);
+        }
+        set => Parameters["pool_id"] = value.ToString();
     }
 
     public Guid? BundleId
     {
         get
         {
-            var bundleIdStr = Parameters.GetValueOrDefault("bundleId") as string;
+            var bundleIdStr = ParameterHelper.GetParameterValue(Parameters, "bundle_id", string.Empty);
             return string.IsNullOrEmpty(bundleIdStr) ? null : Guid.Parse(bundleIdStr);
         }
-        set => Parameters["bundleId"] = value?.ToString();
+        set => Parameters["bundle_id"] = value?.ToString();
     }
 
     [MaxLength(256)]
     public string? EncryptPassword
     {
-        get => Parameters.GetValueOrDefault("encryptPassword") as string;
-        set => Parameters["encryptPassword"] = value;
+        get => ParameterHelper.GetParameterValue<string?>(Parameters, "encrypt_password", null);
+        set => Parameters["encrypt_password"] = value;
     }
 
     public string Hash
     {
-        get => Parameters.GetValueOrDefault("hash") as string ?? string.Empty;
+        get => ParameterHelper.GetParameterValue(Parameters, "hash", string.Empty);
         set => Parameters["hash"] = value;
     }
 
     // JSON array of uploaded chunk indices for resumability
     public List<int> UploadedChunks
     {
-        get => Parameters.GetValueOrDefault("uploadedChunks") as List<int> ?? [];
-        set => Parameters["uploadedChunks"] = value;
+        get => ParameterHelper.GetParameterList<int>(Parameters, "uploaded_chunks", []);
+        set => Parameters["uploaded_chunks"] = value;
     }
 }
 
@@ -212,32 +323,36 @@ public class FileMoveTask : PersistentTask
 
     public List<string> FileIds
     {
-        get => Parameters.GetValueOrDefault("fileIds") as List<string> ?? [];
-        set => Parameters["fileIds"] = value;
+        get => ParameterHelper.GetParameterList<string>(Parameters, "file_ids", []);
+        set => Parameters["file_ids"] = value;
     }
 
     public Guid TargetPoolId
     {
-        get => Guid.Parse(Parameters.GetValueOrDefault("targetPoolId") as string ?? Guid.Empty.ToString());
-        set => Parameters["targetPoolId"] = value.ToString();
+        get
+        {
+            var targetPoolIdStr = ParameterHelper.GetParameterValue(Parameters, "target_pool_id", Guid.Empty.ToString());
+            return Guid.Parse(targetPoolIdStr);
+        }
+        set => Parameters["target_pool_id"] = value.ToString();
     }
 
     public Guid? TargetBundleId
     {
         get
         {
-            var bundleIdStr = Parameters.GetValueOrDefault("targetBundleId") as string;
+            var bundleIdStr = ParameterHelper.GetParameterValue(Parameters, "target_bundle_id", string.Empty);
             return string.IsNullOrEmpty(bundleIdStr) ? null : Guid.Parse(bundleIdStr);
         }
-        set => Parameters["targetBundleId"] = value?.ToString();
+        set => Parameters["target_bundle_id"] = value?.ToString();
     }
 
     public int FilesProcessed
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("filesProcessed") ?? 0);
+        get => ParameterHelper.GetParameterValue(Parameters, "files_processed", 0);
         set
         {
-            Parameters["filesProcessed"] = value;
+            Parameters["files_processed"] = value;
             Progress = FileIds.Count > 0 ? (double)value / FileIds.Count * 100 : 0;
         }
     }
@@ -254,43 +369,43 @@ public class FileCompressTask : PersistentTask
 
     public List<string> FileIds
     {
-        get => Parameters.GetValueOrDefault("fileIds") as List<string> ?? [];
-        set => Parameters["fileIds"] = value;
+        get => ParameterHelper.GetParameterList<string>(Parameters, "file_ids", []);
+        set => Parameters["file_ids"] = value;
     }
 
     [MaxLength(32)]
     public string CompressionFormat
     {
-        get => Parameters.GetValueOrDefault("compressionFormat") as string ?? "zip";
-        set => Parameters["compressionFormat"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "compression_format", "zip");
+        set => Parameters["compression_format"] = value;
     }
 
     public int CompressionLevel
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("compressionLevel") ?? 6);
-        set => Parameters["compressionLevel"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "compression_level", 6);
+        set => Parameters["compression_level"] = value;
     }
 
     public string? OutputFileName
     {
-        get => Parameters.GetValueOrDefault("outputFileName") as string;
-        set => Parameters["outputFileName"] = value;
+        get => ParameterHelper.GetParameterValue<string?>(Parameters, "output_file_name", null);
+        set => Parameters["output_file_name"] = value;
     }
 
     public int FilesProcessed
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("filesProcessed") ?? 0);
+        get => ParameterHelper.GetParameterValue(Parameters, "files_processed", 0);
         set
         {
-            Parameters["filesProcessed"] = value;
+            Parameters["files_processed"] = value;
             Progress = FileIds.Count > 0 ? (double)value / FileIds.Count * 100 : 0;
         }
     }
 
     public string? ResultFileId
     {
-        get => Results.GetValueOrDefault("resultFileId") as string;
-        set => Results["resultFileId"] = value;
+        get => ParameterHelper.GetParameterValue<string?>(Results, "result_file_id", null);
+        set => Results["result_file_id"] = value;
     }
 }
 
@@ -306,29 +421,29 @@ public class BulkOperationTask : PersistentTask
     [MaxLength(128)]
     public string OperationType
     {
-        get => Parameters.GetValueOrDefault("operationType") as string ?? string.Empty;
-        set => Parameters["operationType"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "operation_type", string.Empty);
+        set => Parameters["operation_type"] = value;
     }
 
     public List<string> TargetIds
     {
-        get => Parameters.GetValueOrDefault("targetIds") as List<string> ?? [];
-        set => Parameters["targetIds"] = value;
+        get => ParameterHelper.GetParameterList<string>(Parameters, "target_ids", []);
+        set => Parameters["target_ids"] = value;
     }
 
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object?> OperationParameters
     {
-        get => Parameters.GetValueOrDefault("operationParameters") as Dictionary<string, object?> ?? new();
-        set => Parameters["operationParameters"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "operation_parameters", new Dictionary<string, object?>());
+        set => Parameters["operation_parameters"] = value;
     }
 
     public int ItemsProcessed
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("itemsProcessed") ?? 0);
+        get => ParameterHelper.GetParameterValue(Parameters, "items_processed", 0);
         set
         {
-            Parameters["itemsProcessed"] = value;
+            Parameters["items_processed"] = value;
             Progress = TargetIds.Count > 0 ? (double)value / TargetIds.Count * 100 : 0;
         }
     }
@@ -336,8 +451,8 @@ public class BulkOperationTask : PersistentTask
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object?> OperationResults
     {
-        get => Results.GetValueOrDefault("operationResults") as Dictionary<string, object?> ?? new();
-        set => Results["operationResults"] = value;
+        get => ParameterHelper.GetParameterValue(Results, "operation_results", new Dictionary<string, object?>());
+        set => Results["operation_results"] = value;
     }
 }
 
@@ -352,48 +467,56 @@ public class StorageMigrationTask : PersistentTask
 
     public Guid SourcePoolId
     {
-        get => Guid.Parse(Parameters.GetValueOrDefault("sourcePoolId") as string ?? Guid.Empty.ToString());
-        set => Parameters["sourcePoolId"] = value.ToString();
+        get
+        {
+            var sourcePoolIdStr = ParameterHelper.GetParameterValue(Parameters, "source_pool_id", Guid.Empty.ToString());
+            return Guid.Parse(sourcePoolIdStr);
+        }
+        set => Parameters["source_pool_id"] = value.ToString();
     }
 
     public Guid TargetPoolId
     {
-        get => Guid.Parse(Parameters.GetValueOrDefault("targetPoolId") as string ?? Guid.Empty.ToString());
-        set => Parameters["targetPoolId"] = value.ToString();
+        get
+        {
+            var targetPoolIdStr = ParameterHelper.GetParameterValue(Parameters, "target_pool_id", Guid.Empty.ToString());
+            return Guid.Parse(targetPoolIdStr);
+        }
+        set => Parameters["target_pool_id"] = value.ToString();
     }
 
     public List<string> FileIds
     {
-        get => Parameters.GetValueOrDefault("fileIds") as List<string> ?? [];
-        set => Parameters["fileIds"] = value;
+        get => ParameterHelper.GetParameterList<string>(Parameters, "file_ids", []);
+        set => Parameters["file_ids"] = value;
     }
 
     public bool PreserveOriginals
     {
-        get => Convert.ToBoolean(Parameters.GetValueOrDefault("preserveOriginals") ?? true);
-        set => Parameters["preserveOriginals"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "preserve_originals", true);
+        set => Parameters["preserve_originals"] = value;
     }
 
     public long TotalBytesToTransfer
     {
-        get => Convert.ToInt64(Parameters.GetValueOrDefault("totalBytesToTransfer") ?? 0L);
-        set => Parameters["totalBytesToTransfer"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "total_bytes_to_transfer", 0L);
+        set => Parameters["total_bytes_to_transfer"] = value;
     }
 
     public long BytesTransferred
     {
-        get => Convert.ToInt64(Parameters.GetValueOrDefault("bytesTransferred") ?? 0L);
+        get => ParameterHelper.GetParameterValue(Parameters, "bytes_transferred", 0L);
         set
         {
-            Parameters["bytesTransferred"] = value;
+            Parameters["bytes_transferred"] = value;
             Progress = TotalBytesToTransfer > 0 ? (double)value / TotalBytesToTransfer * 100 : 0;
         }
     }
 
     public int FilesMigrated
     {
-        get => Convert.ToInt32(Parameters.GetValueOrDefault("filesMigrated") ?? 0);
-        set => Parameters["filesMigrated"] = value;
+        get => ParameterHelper.GetParameterValue(Parameters, "files_migrated", 0);
+        set => Parameters["files_migrated"] = value;
     }
 }
 
