@@ -447,10 +447,10 @@ public class AccountService(
                 }
 
                 await mailer
-                    .SendTemplatedEmailAsync<Emails.VerificationEmail, VerificationEmailModel>(
+                    .SendTemplatedEmailAsync<Emails.FactorCodeEmail, VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
-                        emailLocalizer["EmailCodeTitle"],
+                        emailLocalizer["CodeEmailTitle"],
                         new VerificationEmailModel
                         {
                             Name = account.Name,

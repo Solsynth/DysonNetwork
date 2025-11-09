@@ -1,9 +1,10 @@
 @using DysonNetwork.Pass.Localization
 @using Microsoft.Extensions.Localization
+@using EmailResource = DysonNetwork.Pass.Localization.EmailResource
 
 <EmailLayout>
     <div style="display: none">
-        @Localizer["AccountDeletionHeader"]
+        @Localizer["CodeEmailHeader"]
         &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847;
         &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847;
         &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847; &#8199;&#65279;&#847;
@@ -55,17 +56,11 @@
                                         @Localizer["UsernameFormat", Name]
                                     </h1>
                                     <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #475569">
-                                        @Localizer["AccountDeletionBody"]
+                                        @Localizer["CodeEmailBody"]
                                     </p>
-                                    <div>
-                                        <a href="@Link"
-                                           style="display: inline-block; text-decoration: none; padding: 16px 24px; font-size: 16px; line-height: 1; border-radius: 4px; color: #fffffe; background-color: #020617"
-                                           class="hover-bg-slate-800">
-                                            <!--[if mso]><i style="mso-font-width: 150%; mso-text-raise: 31px" hidden>&emsp;</i><![endif]-->
-                                            <span style="mso-text-raise: 16px">@Localizer["AccountDeletionButton"]</span>
-                                            <!--[if mso]><i hidden style="mso-font-width: 150%">&emsp;&#8203;</i><![endif]-->
-                                        </a>
-                                    </div>
+                                    <p style="margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: 8px; color: #475569">
+                                        @Code
+                                    </p>
                                     <div role="separator" style="line-height: 24px">&zwj;</div>
                                     <p style="margin: 0; font-size: 16px; line-height: 24px; color: #475569">
                                         Thanks,
@@ -77,12 +72,11 @@
                                         &zwj;
                                     </div>
                                     <p class="mso-break-all" style="margin: 0 0 16px; font-size: 12px; line-height: 20px; color: #475569">
-                                        @Localizer["AccountDeletionHint"]
+                                        @Localizer["CodeEmailHint"]
                                     </p>
                                     <p class="mso-break-all"
                                        style="margin: 0; font-size: 12px; line-height: 20px; color: #475569">
-                                        @Localizer["AlternativeLinkHint"]
-                                        <a href="@Link" style="color: #1e293b; text-decoration: underline">@Link</a>
+                                        @Localizer["CodeEmailHintSecondary"]
                                     </p>
                                 </td>
                             </tr>
@@ -106,7 +100,8 @@
 
 @code {
     [Parameter] public required string Name { get; set; }
-    [Parameter] public required string Link { get; set; }
+    [Parameter] public required string Code { get; set; }
 
     [Inject] IStringLocalizer<EmailResource> Localizer { get; set; } = null!;
+    [Inject] IStringLocalizer<SharedResource> LocalizerShared { get; set; } = null!;
 }

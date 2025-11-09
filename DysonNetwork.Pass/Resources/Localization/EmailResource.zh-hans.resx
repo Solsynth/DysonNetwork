@@ -11,43 +11,28 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
-    <data name="LandingHeader1" xml:space="preserve">
+    <data name="RegConfirmHeader" xml:space="preserve">
         <value>欢迎来到 Solar Network！</value>
     </data>
-    <data name="LandingPara1" xml:space="preserve">
+    <data name="RegConfirmBody" xml:space="preserve">
         <value>尊敬的 </value>
     </data>
-    <data name="LandingButton1" xml:space="preserve">
+    <data name="RegConfirmButton" xml:space="preserve">
         <value>确认注册</value>
     </data>
-    <data name="LandingPara2" xml:space="preserve">
-        <value>感谢你在 Solar Network 上注册帐号，我们很激动你即将加入我们的社区！</value>
-    </data>
-    <data name="LandingPara3" xml:space="preserve">
-        <value>点击下方按钮来确认你的注册以获得所有功能的权限。</value>
-    </data>
-    <data name="LandingPara4" xml:space="preserve">
-        <value>如果你并没有注册帐号，你可以忽略此邮件。</value>
-    </data>
-    <data name="EmailLandingTitle" xml:space="preserve">
+    <data name="RegConfirmTitle" xml:space="preserve">
         <value>确认你的注册</value>
     </data>
     <data name="AccountDeletionHeader" xml:space="preserve">
         <value>账户删除确认</value>
     </data>
-    <data name="AccountDeletionPara1" xml:space="preserve">
-        <value>尊敬的 </value>
-    </data>
-    <data name="AccountDeletionPara2" xml:space="preserve">
-        <value>我们收到了删除您 Solar Network 账户的请求。我们很遗憾看到您的离开。</value>
-    </data>
-    <data name="AccountDeletionPara3" xml:space="preserve">
-        <value>请点击下方按钮确认删除您的账户。请注意，此操作是永久性的，无法撤销。</value>
+    <data name="AccountDeletionBody" xml:space="preserve">
+        <value>我们收到了删除您 Solar Network 账户的请求。我们很遗憾看到您的离开。请点击下方按钮确认删除您的账户。请注意，此操作是永久性的，无法撤销。</value>
     </data>
     <data name="AccountDeletionButton" xml:space="preserve">
         <value>确认删除账户</value>
     </data>
-    <data name="AccountDeletionPara4" xml:space="preserve">
+    <data name="AccountDeletionHint" xml:space="preserve">
         <value>如果您并未请求删除账户，请忽略此邮件或立即联系我们的支持团队。</value>
     </data>
     <data name="EmailAccountDeletionTitle" xml:space="preserve">
@@ -56,67 +41,52 @@
     <data name="PasswordResetHeader" xml:space="preserve">
         <value>密码重置请求</value>
     </data>
-    <data name="PasswordResetPara1" xml:space="preserve">
-        <value>尊敬的 </value>
-    </data>
-    <data name="PasswordResetPara2" xml:space="preserve">
-        <value>我们收到了重置您 Solar Network 账户密码的请求。</value>
-    </data>
-    <data name="PasswordResetPara3" xml:space="preserve">
-        <value>请点击下方按钮重置您的密码。此链接将在24小时后失效。</value>
-    </data>
     <data name="PasswordResetButton" xml:space="preserve">
         <value>重置密码</value>
     </data>
-    <data name="PasswordResetPara4" xml:space="preserve">
+    <data name="PasswordResetHint" xml:space="preserve">
         <value>如果您并未请求重置密码，你可以安全地忽略此邮件。</value>
     </data>
-    <data name="EmailPasswordResetTitle" xml:space="preserve">
+    <data name="PasswordResetTitle" xml:space="preserve">
         <value>重置您的密码</value>
     </data>
-    <data name="EmailVerificationTitle" xml:space="preserve">
-        <value>验证您的电子邮箱</value>
+    <data name="ContractMethodVerificationTitle" xml:space="preserve">
+        <value>验证您的联系方式</value>
     </data>
     <data name="ContactVerificationHeader" xml:space="preserve">
-        <value>验证您的联系信息</value>
+        <value>验证您的联系方式</value>
     </data>
-    <data name="ContactVerificationPara1" xml:space="preserve">
-        <value>尊敬的 </value>
-    </data>
-    <data name="ContactVerificationPara2" xml:space="preserve">
-        <value>感谢您更新 Solar Network 上的联系信息。为确保您的账户安全，我们需要验证此更改。</value>
-    </data>
-    <data name="ContactVerificationPara3" xml:space="preserve">
-        <value>请点击下方按钮验证您的联系信息：</value>
+    <data name="ContactVerificationBody" xml:space="preserve">
+        <value>感谢您更新 Solar Network 上的联系方式。为确保您的账户安全，我们需要验证此更改。请点击下方按钮验证您的联系方式。</value>
     </data>
     <data name="ContactVerificationButton" xml:space="preserve">
-        <value>验证联系信息</value>
+        <value>验证</value>
     </data>
-    <data name="ContactVerificationPara4" xml:space="preserve">
+    <data name="ContactVerificationHint" xml:space="preserve">
         <value>如果您没有请求此更改，请立即联系我们的支持团队。</value>
     </data>
-    <data name="EmailContactVerificationTitle" xml:space="preserve">
-        <value>验证您的联系信息</value>
-    </data>
-    <data name="EmailCodeTitle" xml:space="preserve">
+    <data name="CodeEmailTitle" xml:space="preserve">
         <value>您的一次性邮件验证码</value>
     </data>
-    <data name="CodeHeader1" xml:space="preserve">
+    <data name="CodeEmailHeader" xml:space="preserve">
         <value>邮件一次性验证码</value>
     </data>
-    <data name="CodePara1" xml:space="preserve">
-        <value>尊敬的</value>
+    <data name="CodeEmailBody" xml:space="preserve">
+        <value>有人正在尝试使用邮件验证码作为验证因子授权访问。如果那位用户就是您，输入下方的验证码来继续访问。</value>
     </data>
-    <data name="CodePara2" xml:space="preserve">
-        <value>有人正在尝试使用邮件验证码作为验证因子授权访问</value>
-    </data>
-    <data name="CodePara3" xml:space="preserve">
-        <value>如果那位用户就是您，输入下方的验证码来继续访问</value>
-    </data>
-    <data name="CodePara4" xml:space="preserve">
+    <data name="CodeEmailHint" xml:space="preserve">
         <value>验证码会在 30 分钟后过期</value>
     </data>
-    <data name="CodePara5" xml:space="preserve">
+    <data name="CodeEmailHintSecondary" xml:space="preserve">
         <value>如果您未申请过本验证码，您可以安全的忽略这封邮件</value>
+    </data>
+    <data name="UsernameFormat" xml:space="preserve">
+        <value>尊敬的 {0}</value>
+    </data>
+    <data name="AlternativeLinkHint" xml:space="preserve">
+        <value>如果您无法点击上面的按钮，您也可以尝试复制下面的连接到浏览器访问</value>
+    </data>
+    <data name="PasswordResetBody" xml:space="preserve">
+        <value>我们收到了重置您 Solar Network 账户密码的请求。请点击下方按钮重置您的密码</value>
     </data>
 </root>

@@ -94,10 +94,10 @@ public class MagicSpellService(
             switch (spell.Type)
             {
                 case MagicSpellType.AccountActivation:
-                    await email.SendTemplatedEmailAsync<LandingEmail, LandingEmailModel>(
+                    await email.SendTemplatedEmailAsync<RegistrationConfirmEmail, LandingEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["EmailLandingTitle"],
+                        localizer["RegConfirmTitle"],
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,
@@ -109,7 +109,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["EmailAccountDeletionTitle"],
+                        localizer["AccountDeletionTitle"],
                         new AccountDeletionEmailModel
                         {
                             Name = contact.Account.Name,
@@ -121,7 +121,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["EmailPasswordResetTitle"],
+                        localizer["PasswordResetTitle"],
                         new PasswordResetEmailModel
                         {
                             Name = contact.Account.Name,
@@ -135,7 +135,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<ContactVerificationEmail, ContactVerificationEmailModel>(
                         contact.Account.Nick,
                         contactMethod!,
-                        localizer["EmailContactVerificationTitle"],
+                        localizer["ContractVerificationTitle"],
                         new ContactVerificationEmailModel
                         {
                             Name = contact.Account.Name,
