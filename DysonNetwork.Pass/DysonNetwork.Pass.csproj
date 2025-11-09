@@ -131,4 +131,21 @@
             <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
         </EmbeddedResource>
     </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Emails\AccountDeletionEmail.razor" />
+      <_ContentIncludedByDefault Remove="Emails\ContactVerificationEmail.razor" />
+      <_ContentIncludedByDefault Remove="Emails\EmailLayout.razor" />
+      <_ContentIncludedByDefault Remove="Emails\FactorCodeEmail.razor" />
+      <_ContentIncludedByDefault Remove="Emails\PasswordResetEmail.razor" />
+      <_ContentIncludedByDefault Remove="Emails\RegistrationConfirmEmail.razor" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <AdditionalFiles Include="Resources\Emails\AccountDeletionEmail.razor" />
+      <AdditionalFiles Include="Resources\Emails\ContactVerificationEmail.razor" />
+      <AdditionalFiles Include="Resources\Emails\EmailLayout.razor" />
+      <AdditionalFiles Include="Resources\Emails\PasswordResetEmail.razor" />
+      <AdditionalFiles Include="Resources\Emails\RegistrationConfirmEmail.razor" />
+    </ItemGroup>
 </Project>
