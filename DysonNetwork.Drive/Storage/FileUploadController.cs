@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
 using DysonNetwork.Drive.Billing;
 using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Auth;
@@ -31,15 +30,13 @@ public class FileUploadController(
 {
     private readonly string _tempPath =
         configuration.GetValue<string>("Storage:Uploads") ?? Path.Combine(Path.GetTempPath(), "multipart-uploads");
-    private readonly ILogger<FileUploadController> _logger = logger;
 
     private const long DefaultChunkSize = 1024 * 1024 * 5; // 5MB
 
     [HttpPost("create")]
     public async Task<IActionResult> CreateUploadTask([FromBody] CreateUploadTaskRequest request)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
-        if (currentUser is null)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var permissionCheck = await ValidateUserPermissions(currentUser);
@@ -99,25 +96,25 @@ public class FileUploadController(
             new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
     }
 
-    private async Task<IActionResult?> ValidatePoolAccess(Account currentUser, FilePool pool, CreateUploadTaskRequest request)
+    private Task<IActionResult?> ValidatePoolAccess(Account currentUser, FilePool pool, CreateUploadTaskRequest request)
     {
-        if (pool.PolicyConfig.RequirePrivilege <= 0) return null;
+        if (pool.PolicyConfig.RequirePrivilege <= 0) return Task.FromResult<IActionResult?>(null);
 
         var privilege = currentUser.PerkSubscription is null ? 0 :
             PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier);
 
         if (privilege < pool.PolicyConfig.RequirePrivilege)
         {
-            return new ObjectResult(ApiError.Unauthorized(
-                $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use pool {pool.Name}, you are tier {privilege}",
-                forbidden: true))
-            { StatusCode = 403 };
+            return Task.FromResult<IActionResult?>(new ObjectResult(ApiError.Unauthorized(
+                    $"You need Stellar Program tier {pool.PolicyConfig.RequirePrivilege} to use pool {pool.Name}, you are tier {privilege}",
+                    forbidden: true))
+                { StatusCode = 403 });
         }
 
-        return null;
+        return Task.FromResult<IActionResult?>(null);
     }
 
-    private IActionResult? ValidatePoolPolicy(PolicyConfig policy, CreateUploadTaskRequest request)
+    private static IActionResult? ValidatePoolPolicy(PolicyConfig policy, CreateUploadTaskRequest request)
     {
         if (!policy.AllowEncryption && !string.IsNullOrEmpty(request.EncryptPassword))
         {
@@ -138,13 +135,11 @@ public class FileUploadController(
 
             var foundMatch = policy.AcceptTypes.Any(acceptType =>
             {
-                if (acceptType.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
-                {
-                    var type = acceptType[..^2];
-                    return request.ContentType.StartsWith($"{type}/", StringComparison.OrdinalIgnoreCase);
-                }
+                if (!acceptType.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+                    return acceptType.Equals(request.ContentType, StringComparison.OrdinalIgnoreCase);
+                var type = acceptType[..^2];
+                return request.ContentType.StartsWith($"{type}/", StringComparison.OrdinalIgnoreCase);
 
-                return acceptType.Equals(request.ContentType, StringComparison.OrdinalIgnoreCase);
             });
 
             if (!foundMatch)
@@ -191,41 +186,13 @@ public class FileUploadController(
         }
     }
 
-    private async Task<(string taskId, UploadTask task)> CreateUploadTaskInternal(CreateUploadTaskRequest request)
-    {
-        var taskId = await Nanoid.GenerateAsync();
-        var taskPath = Path.Combine(_tempPath, taskId);
-        Directory.CreateDirectory(taskPath);
-
-        var chunkSize = request.ChunkSize ?? DefaultChunkSize;
-        var chunksCount = (int)Math.Ceiling((double)request.FileSize / chunkSize);
-
-        var task = new UploadTask
-        {
-            TaskId = taskId,
-            FileName = request.FileName,
-            FileSize = request.FileSize,
-            ContentType = request.ContentType,
-            ChunkSize = chunkSize,
-            ChunksCount = chunksCount,
-            PoolId = request.PoolId.Value,
-            BundleId = request.BundleId,
-            EncryptPassword = request.EncryptPassword,
-            ExpiredAt = request.ExpiredAt,
-            Hash = request.Hash,
-        };
-
-        await System.IO.File.WriteAllTextAsync(Path.Combine(taskPath, "task.json"), JsonSerializer.Serialize(task));
-        return (taskId, task);
-    }
-
     public class UploadChunkRequest
     {
         [Required]
         public IFormFile Chunk { get; set; } = null!;
     }
 
-    [HttpPost("chunk/{taskId}/{chunkIndex}")]
+    [HttpPost("chunk/{taskId}/{chunkIndex:int}")]
     [RequestSizeLimit(DefaultChunkSize + 1024 * 1024)] // 6MB to be safe
     [RequestFormLimits(MultipartBodyLengthLimit = DefaultChunkSize + 1024 * 1024)]
     public async Task<IActionResult> UploadChunk(string taskId, int chunkIndex, [FromForm] UploadChunkRequest request)
@@ -278,7 +245,7 @@ public class FileUploadController(
 
         try
         {
-            await MergeChunks(taskPath, mergedFilePath, persistentTask.ChunksCount);
+            await MergeChunks(taskId, taskPath, mergedFilePath, persistentTask.ChunksCount, persistentTaskService);
 
             var fileId = await Nanoid.GenerateAsync();
             var cloudFile = await fileService.ProcessNewFileAsync(
@@ -304,7 +271,7 @@ public class FileUploadController(
         catch (Exception ex)
         {
             // Log the actual exception for debugging
-            _logger.LogError(ex, "Failed to complete upload for task {TaskId}. Error: {ErrorMessage}", taskId, ex.Message);
+            logger.LogError(ex, "Failed to complete upload for task {TaskId}. Error: {ErrorMessage}", taskId, ex.Message);
 
             // Mark task as failed
             await persistentTaskService.MarkTaskFailedAsync(taskId);
@@ -328,24 +295,41 @@ public class FileUploadController(
         }
     }
 
-    private async Task MergeChunks(string taskPath, string mergedFilePath, int chunksCount)
+    private static async Task MergeChunks(
+        string taskId, 
+        string taskPath, 
+        string mergedFilePath, 
+        int chunksCount,
+        PersistentTaskService persistentTaskService)
     {
         await using var mergedStream = new FileStream(mergedFilePath, FileMode.Create);
 
+        const double baseProgress = 0.8; // Start from 80% (chunk upload is already at 95%)
+        const double remainingProgress = 0.15; // Remaining 15% progress distributed across chunks
+        var progressPerChunk = remainingProgress / chunksCount;
+
         for (var i = 0; i < chunksCount; i++)
         {
-            var chunkPath = Path.Combine(taskPath, $"{i}.chunk");
+            var chunkPath = Path.Combine(taskPath, i + ".chunk");
             if (!System.IO.File.Exists(chunkPath))
             {
-                throw new InvalidOperationException($"Chunk {i} is missing.");
+                throw new InvalidOperationException("Chunk " + i + " is missing.");
             }
 
             await using var chunkStream = new FileStream(chunkPath, FileMode.Open);
             await chunkStream.CopyToAsync(mergedStream);
+
+            // Update progress after each chunk is merged
+            var currentProgress = baseProgress + (progressPerChunk * (i + 1));
+            await persistentTaskService.UpdateTaskProgressAsync(
+                taskId, 
+                currentProgress, 
+                "Merging chunks... (" + (i + 1) + "/" + chunksCount + ")"
+            );
         }
     }
 
-    private async Task CleanupTempFiles(string taskPath, string mergedFilePath)
+    private static Task CleanupTempFiles(string taskPath, string mergedFilePath)
     {
         try
         {
@@ -359,6 +343,8 @@ public class FileUploadController(
         {
             // Ignore cleanup errors to avoid masking the original exception
         }
+
+        return Task.CompletedTask;
     }
 
     // New endpoints for resumable uploads
@@ -395,7 +381,7 @@ public class FileUploadController(
             t.LastActivity,
             t.CreatedAt,
             t.UpdatedAt,
-            UploadedChunks = t.UploadedChunks,
+            t.UploadedChunks,
             Pool = new { t.PoolId, Name = "Pool Name" }, // Could be expanded to include pool details
             Bundle = t.BundleId.HasValue ? new { t.BundleId } : null
         }));
@@ -463,7 +449,7 @@ public class FileUploadController(
             task.ChunkSize,
             task.ChunksCount,
             task.ChunksUploaded,
-            UploadedChunks = task.UploadedChunks,
+            task.UploadedChunks,
             Progress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0
         });
     }
@@ -505,14 +491,14 @@ public class FileUploadController(
 
         return Ok(new
         {
-            TotalTasks = stats.TotalTasks,
-            InProgressTasks = stats.InProgressTasks,
-            CompletedTasks = stats.CompletedTasks,
-            FailedTasks = stats.FailedTasks,
-            ExpiredTasks = stats.ExpiredTasks,
-            TotalUploadedBytes = stats.TotalUploadedBytes,
-            AverageProgress = stats.AverageProgress,
-            RecentActivity = stats.RecentActivity
+            stats.TotalTasks,
+            stats.InProgressTasks,
+            stats.CompletedTasks,
+            stats.FailedTasks,
+            stats.ExpiredTasks,
+            stats.TotalUploadedBytes,
+            stats.AverageProgress,
+            stats.RecentActivity
         });
     }
 
@@ -591,7 +577,7 @@ public class FileUploadController(
                 task.UpdatedAt,
                 task.ExpiredAt,
                 task.Hash,
-                UploadedChunks = task.UploadedChunks
+                task.UploadedChunks
             },
             Pool = pool != null ? new
             {
@@ -610,9 +596,9 @@ public class FileUploadController(
         });
     }
 
-    private string? CalculateEstimatedTime(PersistentUploadTask task)
+    private static string? CalculateEstimatedTime(PersistentUploadTask task)
     {
-        if (task.Status != Model.TaskStatus.InProgress || task.ChunksUploaded == 0)
+        if (task.Status != TaskStatus.InProgress || task.ChunksUploaded == 0)
             return null;
 
         var elapsed = NodaTime.SystemClock.Instance.GetCurrentInstant() - task.CreatedAt;
@@ -625,27 +611,29 @@ public class FileUploadController(
 
         var remainingSeconds = remainingChunks / chunksPerSecond;
 
-        if (remainingSeconds < 60)
-            return $"{remainingSeconds:F0} seconds";
-        if (remainingSeconds < 3600)
-            return $"{remainingSeconds / 60:F0} minutes";
-        return $"{remainingSeconds / 3600:F1} hours";
+        return remainingSeconds switch
+        {
+            < 60 => $"{remainingSeconds:F0} seconds",
+            < 3600 => $"{remainingSeconds / 60:F0} minutes",
+            _ => $"{remainingSeconds / 3600:F1} hours"
+        };
     }
 
-    private string? CalculateUploadSpeed(PersistentUploadTask task)
+    private static string? CalculateUploadSpeed(PersistentUploadTask task)
     {
         if (task.ChunksUploaded == 0)
             return null;
 
-        var elapsed = NodaTime.SystemClock.Instance.GetCurrentInstant() - task.CreatedAt;
+        var elapsed = SystemClock.Instance.GetCurrentInstant() - task.CreatedAt;
         var elapsedSeconds = elapsed.TotalSeconds;
-        var bytesUploaded = (long)task.ChunksUploaded * task.ChunkSize;
+        var bytesUploaded = task.ChunksUploaded * task.ChunkSize;
         var bytesPerSecond = bytesUploaded / elapsedSeconds;
 
-        if (bytesPerSecond < 1024)
-            return $"{bytesPerSecond:F0} B/s";
-        if (bytesPerSecond < 1024 * 1024)
-            return $"{bytesPerSecond / 1024:F0} KB/s";
-        return $"{bytesPerSecond / (1024 * 1024):F1} MB/s";
+        return bytesPerSecond switch
+        {
+            < 1024 => $"{bytesPerSecond:F0} B/s",
+            < 1024 * 1024 => $"{bytesPerSecond / 1024:F0} KB/s",
+            _ => $"{bytesPerSecond / (1024 * 1024):F1} MB/s"
+        };
     }
 }

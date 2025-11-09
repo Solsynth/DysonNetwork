@@ -58,7 +58,6 @@ public class PersistentTaskService(
         if (task is not T typedTask) return null;
         await SetCacheAsync(typedTask);
         return typedTask;
-
     }
 
     /// <summary>
@@ -70,20 +69,35 @@ public class PersistentTaskService(
         if (task is null) return;
 
         var previousProgress = task.Progress;
-        task.Progress = Math.Clamp(progress, 0, 100);
-        task.LastActivity = SystemClock.Instance.GetCurrentInstant();
-        task.UpdatedAt = task.LastActivity;
+        var clampedProgress = Math.Clamp(progress, 0, 1.0);
+        var now = SystemClock.Instance.GetCurrentInstant();
 
-        if (statusMessage is not null)
+        // Use ExecuteUpdateAsync for better performance - update only the fields we need
+        var updatedRows = await db.Tasks
+            .Where(t => t.TaskId == taskId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(t => t.Progress, clampedProgress)
+                .SetProperty(t => t.LastActivity, now)
+                .SetProperty(t => t.UpdatedAt, now)
+                .SetProperty(t => t.Description, t => statusMessage ?? t.Description)
+            );
+
+        if (updatedRows > 0)
         {
-            task.Description = statusMessage;
+            // Update the cached task
+            task.Progress = clampedProgress;
+            task.LastActivity = now;
+            task.UpdatedAt = now;
+            if (statusMessage is not null)
+            {
+                task.Description = statusMessage;
+            }
+
+            await SetCacheAsync(task);
+
+            // Send progress update notification
+            await SendTaskProgressUpdateAsync(task, task.Progress, previousProgress);
         }
-
-        await db.SaveChangesAsync();
-        await SetCacheAsync(task);
-
-        // Send progress update notification
-        await SendTaskProgressUpdateAsync(task, task.Progress, previousProgress);
     }
 
     /// <summary>
@@ -95,24 +109,38 @@ public class PersistentTaskService(
         if (task is null) return;
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        task.Status = TaskStatus.Completed;
-        task.Progress = 100;
-        task.CompletedAt = now;
-        task.LastActivity = now;
-        task.UpdatedAt = now;
 
-        if (results is not null)
+        // Use ExecuteUpdateAsync for better performance - update only the fields we need
+        var updatedRows = await db.Tasks
+            .Where(t => t.TaskId == taskId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(t => t.Status, TaskStatus.Completed)
+                .SetProperty(t => t.Progress, 1.0)
+                .SetProperty(t => t.CompletedAt, now)
+                .SetProperty(t => t.LastActivity, now)
+                .SetProperty(t => t.UpdatedAt, now)
+            );
+
+        if (updatedRows > 0)
         {
-            foreach (var (key, value) in results)
+            // Update the cached task with results if provided
+            task.Status = TaskStatus.Completed;
+            task.Progress = 1.0;
+            task.CompletedAt = now;
+            task.LastActivity = now;
+            task.UpdatedAt = now;
+
+            if (results is not null)
             {
-                task.Results[key] = value;
+                foreach (var (key, value) in results)
+                {
+                    task.Results[key] = value;
+                }
             }
+
+            await RemoveCacheAsync(taskId);
+            await SendTaskCompletedNotificationAsync(task);
         }
-
-        await db.SaveChangesAsync();
-        await RemoveCacheAsync(taskId);
-
-        await SendTaskCompletedNotificationAsync(task);
     }
 
     /// <summary>
@@ -123,15 +151,30 @@ public class PersistentTaskService(
         var task = await GetTaskAsync<PersistentTask>(taskId);
         if (task is null) return;
 
-        task.Status = TaskStatus.Failed;
-        task.ErrorMessage = errorMessage ?? "Task failed due to an unknown error";
-        task.LastActivity = SystemClock.Instance.GetCurrentInstant();
-        task.UpdatedAt = task.LastActivity;
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var errorMsg = errorMessage ?? "Task failed due to an unknown error";
 
-        await db.SaveChangesAsync();
-        await RemoveCacheAsync(taskId);
+        // Use ExecuteUpdateAsync for better performance - update only the fields we need
+        var updatedRows = await db.Tasks
+            .Where(t => t.TaskId == taskId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(t => t.Status, TaskStatus.Failed)
+                .SetProperty(t => t.ErrorMessage, errorMsg)
+                .SetProperty(t => t.LastActivity, now)
+                .SetProperty(t => t.UpdatedAt, now)
+            );
 
-        await SendTaskFailedNotificationAsync(task);
+        if (updatedRows > 0)
+        {
+            // Update the cached task
+            task.Status = TaskStatus.Failed;
+            task.ErrorMessage = errorMsg;
+            task.LastActivity = now;
+            task.UpdatedAt = now;
+
+            await RemoveCacheAsync(taskId);
+            await SendTaskFailedNotificationAsync(task);
+        }
     }
 
     /// <summary>
@@ -278,20 +321,20 @@ public class PersistentTaskService(
             ExpiredTasks = tasks.Count(t => t.Status == TaskStatus.Expired),
             AverageProgress = tasks.Any(t => t.Status == TaskStatus.InProgress || t.Status == TaskStatus.Paused)
                 ? tasks.Where(t => t.Status == TaskStatus.InProgress || t.Status == TaskStatus.Paused)
-                       .Average(t => t.Progress)
+                    .Average(t => t.Progress)
                 : 0,
             RecentActivity = tasks.OrderByDescending(t => t.LastActivity)
-                                 .Take(10)
-                                 .Select(t => new TaskActivity
-                                 {
-                                     TaskId = t.TaskId,
-                                     Name = t.Name,
-                                     Type = t.Type,
-                                     Status = t.Status,
-                                     Progress = t.Progress,
-                                     LastActivity = t.LastActivity
-                                 })
-                                 .ToList()
+                .Take(10)
+                .Select(t => new TaskActivity
+                {
+                    TaskId = t.TaskId,
+                    Name = t.Name,
+                    Type = t.Type,
+                    Status = t.Status,
+                    Progress = t.Progress,
+                    LastActivity = t.LastActivity
+                })
+                .ToList()
         };
 
         return stats;
@@ -311,11 +354,11 @@ public class PersistentTaskService(
 
         var oldTasks = await db.Tasks
             .Where(t => t.AccountId == accountId &&
-                       (t.Status == TaskStatus.Completed ||
-                        t.Status == TaskStatus.Failed ||
-                        t.Status == TaskStatus.Cancelled ||
-                        t.Status == TaskStatus.Expired) &&
-                       t.UpdatedAt < cutoff)
+                        (t.Status == TaskStatus.Completed ||
+                         t.Status == TaskStatus.Failed ||
+                         t.Status == TaskStatus.Cancelled ||
+                         t.Status == TaskStatus.Expired) &&
+                        t.UpdatedAt < cutoff)
             .ToListAsync();
 
         db.Tasks.RemoveRange(oldTasks);
@@ -347,7 +390,7 @@ public class PersistentTaskService(
             var packet = new WebSocketPacket
             {
                 Type = "task.created",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(data))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -383,7 +426,7 @@ public class PersistentTaskService(
             var packet = new WebSocketPacket
             {
                 Type = "task.progress",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(data))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -415,7 +458,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "task.completed",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(data))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -463,7 +506,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "task.failed",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(data))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -501,7 +544,7 @@ public class PersistentTaskService(
     private async Task SetCacheAsync(PersistentTask task)
     {
         var cacheKey = $"{CacheKeyPrefix}{task.TaskId}";
-        
+
         // Cache the entire task object directly - this includes all properties including Parameters dictionary
         await cache.SetAsync(cacheKey, task, CacheDuration);
     }
@@ -534,7 +577,7 @@ public class PersistentTaskService(
 
         // If no pools exist, create a default one
         logger.LogWarning("No pools found in database. Creating default pool...");
-        
+
         var defaultPoolId = Guid.NewGuid();
         var defaultPool = new DysonNetwork.Shared.Models.FilePool
         {
@@ -590,7 +633,7 @@ public class PersistentTaskService(
     {
         var chunkSize = request.ChunkSize ?? 1024 * 1024 * 5; // 5MB default
         var chunksCount = (int)Math.Ceiling((double)request.FileSize / chunkSize);
-        
+
         // Use default pool if no pool is specified, or find first available pool
         var poolId = request.PoolId ?? await GetFirstAvailablePoolIdAsync();
 
@@ -654,16 +697,31 @@ public class PersistentTaskService(
         {
             var previousProgress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0;
 
-            task.UploadedChunks.Add(chunkIndex);
-            task.ChunksUploaded = task.UploadedChunks.Count;
-            task.LastActivity = SystemClock.Instance.GetCurrentInstant();
+            // Use ExecuteUpdateAsync for better performance - update only the fields we need
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var updatedRows = await db.Tasks
+                .OfType<PersistentUploadTask>()
+                .Where(t => t.TaskId == taskId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(t => t.UploadedChunks, t => t.UploadedChunks.Append(chunkIndex).Distinct().ToList())
+                    .SetProperty(t => t.ChunksUploaded, t => t.UploadedChunks.Count)
+                    .SetProperty(t => t.LastActivity, now)
+                    .SetProperty(t => t.UpdatedAt, now)
+                );
 
-            await db.SaveChangesAsync();
-            await SetCacheAsync(task);
+            if (updatedRows > 0)
+            {
+                // Update the cached task
+                task.UploadedChunks.Add(chunkIndex);
+                task.ChunksUploaded = task.UploadedChunks.Count;
+                task.LastActivity = now;
+                task.UpdatedAt = now;
+                await SetCacheAsync(task);
 
-            // Send real-time progress update
-            var newProgress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0;
-            await SendUploadProgressUpdateAsync(task, newProgress, previousProgress);
+                // Send real-time progress update
+                var newProgress = task.ChunksCount > 0 ? (double)task.ChunksUploaded / task.ChunksCount * 100 : 0;
+                await SendUploadProgressUpdateAsync(task, newProgress, previousProgress);
+            }
         }
     }
 
@@ -771,19 +829,19 @@ public class PersistentTaskService(
             TotalUploadedBytes = tasks.Sum(t => (long)t.ChunksUploaded * t.ChunkSize),
             AverageProgress = tasks.Any(t => t.Status == Model.TaskStatus.InProgress)
                 ? tasks.Where(t => t.Status == Model.TaskStatus.InProgress)
-                       .Average(t => t.ChunksCount > 0 ? (double)t.ChunksUploaded / t.ChunksCount * 100 : 0)
+                    .Average(t => t.ChunksCount > 0 ? (double)t.ChunksUploaded / t.ChunksCount * 100 : 0)
                 : 0,
             RecentActivity = tasks.OrderByDescending(t => t.LastActivity)
-                                 .Take(5)
-                                 .Select(t => new RecentActivity
-                                 {
-                                     TaskId = t.TaskId,
-                                     FileName = t.FileName,
-                                     Status = (UploadTaskStatus)t.Status,
-                                     LastActivity = t.LastActivity,
-                                     Progress = t.ChunksCount > 0 ? (double)t.ChunksUploaded / t.ChunksCount * 100 : 0
-                                 })
-                                 .ToList()
+                .Take(5)
+                .Select(t => new RecentActivity
+                {
+                    TaskId = t.TaskId,
+                    FileName = t.FileName,
+                    Status = (UploadTaskStatus)t.Status,
+                    LastActivity = t.LastActivity,
+                    Progress = t.ChunksCount > 0 ? (double)t.ChunksUploaded / t.ChunksCount * 100 : 0
+                })
+                .ToList()
         };
 
         return stats;
@@ -797,7 +855,7 @@ public class PersistentTaskService(
         var failedTasks = await db.Tasks
             .OfType<PersistentUploadTask>()
             .Where(t => t.AccountId == accountId &&
-                       (t.Status == Model.TaskStatus.Failed || t.Status == Model.TaskStatus.Expired))
+                        (t.Status == TaskStatus.Failed || t.Status == TaskStatus.Expired))
             .ToListAsync();
 
         foreach (var task in failedTasks)
@@ -806,16 +864,14 @@ public class PersistentTaskService(
 
             // Clean up temp files
             var taskPath = Path.Combine(Path.GetTempPath(), "multipart-uploads", task.TaskId);
-            if (Directory.Exists(taskPath))
+            if (!Directory.Exists(taskPath)) continue;
+            try
             {
-                try
-                {
-                    Directory.Delete(taskPath, true);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to cleanup temp files for task {TaskId}", task.TaskId);
-                }
+                Directory.Delete(taskPath, true);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to cleanup temp files for task {TaskId}", task.TaskId);
             }
         }
 
@@ -858,7 +914,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "upload.completed",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(completionData))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(completionData)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -909,7 +965,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "upload.failed",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(failureData))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(failureData)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -943,7 +999,8 @@ public class PersistentTaskService(
     /// <summary>
     /// Sends real-time upload progress update via WebSocket
     /// </summary>
-    private async Task SendUploadProgressUpdateAsync(PersistentUploadTask task, double newProgress, double previousProgress)
+    private async Task SendUploadProgressUpdateAsync(PersistentUploadTask task, double newProgress,
+        double previousProgress)
     {
         try
         {
@@ -966,7 +1023,7 @@ public class PersistentTaskService(
             var packet = new WebSocketPacket
             {
                 Type = "upload.progress",
-                Data = Google.Protobuf.ByteString.CopyFromUtf8(System.Text.Json.JsonSerializer.Serialize(progressData))
+                Data = GrpcTypeHelper.ConvertObjectToByteString(progressData)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest

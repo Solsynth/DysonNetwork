@@ -157,24 +157,6 @@ public class PersistentTask : ModelBase
 
     // Estimated duration in seconds
     public long? EstimatedDurationSeconds { get; set; }
-
-    // Helper methods for parameter management using GrpcTypeHelper
-    public MapField<string, Google.Protobuf.WellKnownTypes.Value> GetParametersAsGrpcMap()
-    {
-        var nonNullableParameters = Parameters.ToDictionary(kvp => kvp.Key, kvp => kvp.Value ?? string.Empty);
-        return GrpcTypeHelper.ConvertToValueMap(nonNullableParameters);
-    }
-
-    public void SetParametersFromGrpcMap(MapField<string, Google.Protobuf.WellKnownTypes.Value> map)
-    {
-        Parameters = GrpcTypeHelper.ConvertFromValueMap(map);
-    }
-
-    public MapField<string, Google.Protobuf.WellKnownTypes.Value> GetResultsAsGrpcMap()
-    {
-        var nonNullableResults = Results.ToDictionary(kvp => kvp.Key, kvp => kvp.Value ?? string.Empty);
-        return GrpcTypeHelper.ConvertToValueMap(nonNullableResults);
-    }
 }
 
 // Backward compatibility - UploadTask inherits from PersistentTask

@@ -788,7 +788,7 @@ public class PersistentTaskService(
 
 ### Real-Time Task Notifications
 
-All task operations send WebSocket notifications via RingService:
+All task operations send WebSocket notifications via RingService using the shared `GrpcTypeHelper` for consistent JSON serialization:
 
 #### Task Created
 ```json

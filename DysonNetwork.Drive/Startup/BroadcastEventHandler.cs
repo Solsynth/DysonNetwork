@@ -31,16 +31,15 @@ public class BroadcastEventHandler(
         [".gif", ".apng", ".avif"];
 
 
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var js = nats.CreateJetStreamContext();
 
         await js.EnsureStreamCreated("account_events", [AccountDeletedEvent.Type]);
-        
+
         var accountEventConsumer = await js.CreateOrUpdateConsumerAsync("account_events",
             new ConsumerConfig("drive_account_deleted_handler"), cancellationToken: stoppingToken);
-        
+
         await js.EnsureStreamCreated("file_events", [FileUploadedEvent.Type]);
         var fileUploadedConsumer = await js.CreateOrUpdateConsumerAsync("file_events",
             new ConsumerConfig("drive_file_uploaded_handler") { MaxDeliver = 3 }, cancellationToken: stoppingToken);
@@ -55,13 +54,14 @@ public class BroadcastEventHandler(
     {
         await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {
-            var payload = JsonSerializer.Deserialize<FileUploadedEventPayload>(msg.Data, GrpcTypeHelper.SerializerOptions);
+            var payload =
+                JsonSerializer.Deserialize<FileUploadedEventPayload>(msg.Data, GrpcTypeHelper.SerializerOptions);
             if (payload == null)
             {
                 await msg.AckAsync(cancellationToken: stoppingToken);
                 continue;
             }
-            
+
             try
             {
                 await ProcessAndUploadInBackgroundAsync(
@@ -131,8 +131,8 @@ public class BroadcastEventHandler(
             }
         }
     }
-    
-     private async Task ProcessAndUploadInBackgroundAsync(
+
+    private async Task ProcessAndUploadInBackgroundAsync(
         string fileId,
         Guid remoteId,
         string storageId,
@@ -307,19 +307,18 @@ public class BroadcastEventHandler(
         {
             await persistentTaskService.MarkTaskCompletedAsync(uploadTask.TaskId, new Dictionary<string, object?>
             {
-                { "fileId", fileId },
-                { "fileName", fileToUpdate.Name },
-                { "fileSize", fileToUpdate.Size },
-                { "mimeType", newMimeType },
-                { "hasCompression", hasCompression },
-                { "hasThumbnail", hasThumbnail }
+                { "FileId", fileId },
+                { "FileName", fileToUpdate.Name },
+                { "FileInfo", fileToUpdate },
+                { "FileSize", fileToUpdate.Size },
+                { "MimeType", newMimeType },
+                { "HasCompression", hasCompression },
+                { "HasThumbnail", hasThumbnail }
             });
 
             // Send push notification for large files (>5MB) that took longer to process
             if (fileToUpdate.Size > 5 * 1024 * 1024) // 5MB threshold
-            {
                 await SendLargeFileProcessingCompleteNotificationAsync(uploadTask, fileToUpdate);
-            }
         }
     }
 
@@ -328,7 +327,7 @@ public class BroadcastEventHandler(
         try
         {
             var ringService = serviceProvider.GetRequiredService<RingService.RingServiceClient>();
-            
+
             var pushNotification = new PushNotification
             {
                 Topic = "drive.tasks.upload",
