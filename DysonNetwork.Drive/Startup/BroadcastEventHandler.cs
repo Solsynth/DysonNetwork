@@ -1,5 +1,7 @@
 using System.Text.Json;
+using DysonNetwork.Drive.Storage;
 using DysonNetwork.Drive.Storage.Model;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
 using FFMpegCore;
@@ -142,6 +144,7 @@ public class BroadcastEventHandler(
         using var scope = serviceProvider.CreateScope();
         var fs = scope.ServiceProvider.GetRequiredService<FileService>();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        var persistentTaskService = scope.ServiceProvider.GetRequiredService<PersistentTaskService>();
 
         var pool = await fs.GetPoolAsync(remoteId);
         if (pool is null) return;
@@ -154,6 +157,11 @@ public class BroadcastEventHandler(
         logger.LogInformation("Processing file {FileId} in background...", fileId);
 
         var fileToUpdate = await scopedDb.Files.AsNoTracking().FirstAsync(f => f.Id == fileId);
+
+        // Find the upload task associated with this file
+        var uploadTask = await scopedDb.Tasks
+            .OfType<PersistentUploadTask>()
+            .FirstOrDefaultAsync(t => t.FileName == fileToUpdate.Name && t.FileSize == fileToUpdate.Size);
 
         if (fileToUpdate.IsEncrypted)
         {
@@ -293,5 +301,52 @@ public class BroadcastEventHandler(
         }
 
         await fs._PurgeCacheAsync(fileId);
+
+        // Complete the upload task if found
+        if (uploadTask != null)
+        {
+            await persistentTaskService.MarkTaskCompletedAsync(uploadTask.TaskId, new Dictionary<string, object?>
+            {
+                { "fileId", fileId },
+                { "fileName", fileToUpdate.Name },
+                { "fileSize", fileToUpdate.Size },
+                { "mimeType", newMimeType },
+                { "hasCompression", hasCompression },
+                { "hasThumbnail", hasThumbnail }
+            });
+
+            // Send push notification for large files (>5MB) that took longer to process
+            if (fileToUpdate.Size > 5 * 1024 * 1024) // 5MB threshold
+            {
+                await SendLargeFileProcessingCompleteNotificationAsync(uploadTask, fileToUpdate);
+            }
+        }
+    }
+
+    private async Task SendLargeFileProcessingCompleteNotificationAsync(PersistentUploadTask task, SnCloudFile file)
+    {
+        try
+        {
+            var ringService = serviceProvider.GetRequiredService<RingService.RingServiceClient>();
+            
+            var pushNotification = new PushNotification
+            {
+                Topic = "drive.tasks.upload",
+                Title = "File Processing Complete",
+                Subtitle = file.Name,
+                Body = $"Your file '{file.Name}' has finished processing and is now available.",
+                IsSavable = true
+            };
+
+            await ringService.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+            {
+                UserId = task.AccountId.ToString(),
+                Notification = pushNotification
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send large file processing notification for task {TaskId}", task.TaskId);
+        }
     }
 }

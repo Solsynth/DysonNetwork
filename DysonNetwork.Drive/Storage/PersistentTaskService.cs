@@ -26,7 +26,7 @@ public class PersistentTaskService(
     /// </summary>
     public async Task<T> CreateTaskAsync<T>(T task) where T : PersistentTask
     {
-        task.TaskId = NanoidDotNet.Nanoid.Generate();
+        task.TaskId = await Nanoid.GenerateAsync();
         var now = SystemClock.Instance.GetCurrentInstant();
         task.CreatedAt = now;
         task.UpdatedAt = now;
@@ -45,7 +45,7 @@ public class PersistentTaskService(
     /// <summary>
     /// Gets a task by ID
     /// </summary>
-    public async Task<T?> GetTaskAsync<T>(string taskId) where T : PersistentTask
+    private async Task<T?> GetTaskAsync<T>(string taskId) where T : PersistentTask
     {
         var cacheKey = $"{CacheKeyPrefix}{taskId}";
         var cachedTask = await cache.GetAsync<T>(cacheKey);
@@ -55,13 +55,10 @@ public class PersistentTaskService(
         var task = await db.Tasks
             .FirstOrDefaultAsync(t => t.TaskId == taskId);
 
-        if (task is T typedTask)
-        {
-            await SetCacheAsync(typedTask);
-            return typedTask;
-        }
+        if (task is not T typedTask) return null;
+        await SetCacheAsync(typedTask);
+        return typedTask;
 
-        return null;
     }
 
     /// <summary>
@@ -344,7 +341,7 @@ public class PersistentTaskService(
                 TaskId = task.TaskId,
                 Name = task.Name,
                 Type = task.Type.ToString(),
-                CreatedAt = task.CreatedAt.ToString("%O", null)
+                CreatedAt = task.CreatedAt.ToString()
             };
 
             var packet = new WebSocketPacket
@@ -380,7 +377,7 @@ public class PersistentTaskService(
                 Type = task.Type.ToString(),
                 Progress = newProgress,
                 Status = task.Status.ToString(),
-                LastActivity = task.LastActivity.ToString("%O", null)
+                LastActivity = task.LastActivity.ToString()
             };
 
             var packet = new WebSocketPacket
@@ -410,7 +407,7 @@ public class PersistentTaskService(
                 TaskId = task.TaskId,
                 Name = task.Name,
                 Type = task.Type.ToString(),
-                CompletedAt = task.CompletedAt?.ToString("%O", null) ?? task.UpdatedAt.ToString("%O", null),
+                CompletedAt = task.CompletedAt?.ToString() ?? task.UpdatedAt.ToString(),
                 Results = task.Results
             };
 
@@ -430,7 +427,7 @@ public class PersistentTaskService(
             // Push notification
             var pushNotification = new PushNotification
             {
-                Topic = "task",
+                Topic = "drive.tasks",
                 Title = "Task Completed",
                 Subtitle = task.Name,
                 Body = $"Your {task.Type.ToString().ToLower()} task has completed successfully.",
@@ -458,7 +455,7 @@ public class PersistentTaskService(
                 TaskId = task.TaskId,
                 Name = task.Name,
                 Type = task.Type.ToString(),
-                FailedAt = task.UpdatedAt.ToString("%O", null),
+                FailedAt = task.UpdatedAt.ToString(),
                 ErrorMessage = task.ErrorMessage ?? "Task failed due to an unknown error"
             };
 
@@ -478,7 +475,7 @@ public class PersistentTaskService(
             // Push notification
             var pushNotification = new PushNotification
             {
-                Topic = "task",
+                Topic = "drive.tasks",
                 Title = "Task Failed",
                 Subtitle = task.Name,
                 Body = $"Your {task.Type.ToString().ToLower()} task has failed.",
@@ -727,17 +724,17 @@ public class PersistentTaskService(
                     ? query.OrderByDescending(t => t.FileSize)
                     : query.OrderBy(t => t.FileSize);
                 break;
-            case "createdat":
+            case "created":
                 orderedQuery = sortDescending
                     ? query.OrderByDescending(t => t.CreatedAt)
                     : query.OrderBy(t => t.CreatedAt);
                 break;
-            case "updatedat":
+            case "updated":
                 orderedQuery = sortDescending
                     ? query.OrderByDescending(t => t.UpdatedAt)
                     : query.OrderBy(t => t.UpdatedAt);
                 break;
-            case "lastactivity":
+            case "activity":
             default:
                 orderedQuery = sortDescending
                     ? query.OrderByDescending(t => t.LastActivity)
@@ -854,7 +851,7 @@ public class PersistentTaskService(
                 FileId = fileId,
                 FileName = task.FileName,
                 FileSize = task.FileSize,
-                CompletedAt = SystemClock.Instance.GetCurrentInstant().ToString("%O", null)
+                CompletedAt = SystemClock.Instance.GetCurrentInstant().ToString()
             };
 
             // Send WebSocket notification
@@ -873,7 +870,7 @@ public class PersistentTaskService(
             // Send push notification
             var pushNotification = new PushNotification
             {
-                Topic = "upload",
+                Topic = "drive.tasks.upload",
                 Title = "Upload Completed",
                 Subtitle = task.FileName,
                 Body = $"Your file '{task.FileName}' has been uploaded successfully.",
@@ -904,7 +901,7 @@ public class PersistentTaskService(
                 TaskId = task.TaskId,
                 FileName = task.FileName,
                 FileSize = task.FileSize,
-                FailedAt = SystemClock.Instance.GetCurrentInstant().ToString("%O", null),
+                FailedAt = SystemClock.Instance.GetCurrentInstant().ToString(),
                 ErrorMessage = errorMessage ?? "Upload failed due to an unknown error"
             };
 
@@ -924,7 +921,7 @@ public class PersistentTaskService(
             // Send push notification
             var pushNotification = new PushNotification
             {
-                Topic = "upload",
+                Topic = "drive.tasks.upload",
                 Title = "Upload Failed",
                 Subtitle = task.FileName,
                 Body = $"Your file '{task.FileName}' upload has failed. You can try again.",
@@ -963,7 +960,7 @@ public class PersistentTaskService(
                 ChunksTotal = task.ChunksCount,
                 Progress = newProgress,
                 Status = task.Status.ToString(),
-                LastActivity = task.LastActivity.ToString("%O", null)
+                LastActivity = task.LastActivity.ToString()
             };
 
             var packet = new WebSocketPacket

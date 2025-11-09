@@ -293,10 +293,10 @@ public class FileUploadController(
                 persistentTask.ExpiredAt
             );
 
-            // Mark task as completed
-            await persistentTaskService.MarkTaskCompletedAsync(taskId);
+            // Update task status to "processing" - background processing is now happening
+            await persistentTaskService.UpdateTaskProgressAsync(taskId, 95, "Processing file in background...");
 
-            // Send completion notification
+            // Send upload completion notification (file is uploaded, but processing continues)
             await persistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
 
             return Ok(cloudFile);

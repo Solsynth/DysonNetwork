@@ -1,33 +1,35 @@
-# DysonNetwork Drive - Persistent/Resumable Upload System
+# DysonNetwork Drive - Persistent Task System
 
-A comprehensive, production-ready file upload system with resumable uploads, real-time progress tracking, and dynamic notifications powered by RingService.
+A comprehensive, production-ready generic task system with support for file uploads, background operations, real-time progress tracking, and dynamic notifications powered by RingService.
 
 When using with the Gateway, use the `/drive` to replace `/api`.
 The realtime messages are from the websocket gateway.
 
 ## 🚀 Features
 
-### Core Upload Features
+### Core Task Features
+- **Generic Task System**: Support for various background operations beyond file uploads
 - **Resumable Uploads**: Pause and resume uploads across app restarts
 - **Chunked Uploads**: Efficient large file handling with configurable chunk sizes
-- **Progress Persistence**: Upload state survives server restarts and network interruptions
+- **Progress Persistence**: Task state survives server restarts and network interruptions
 - **Duplicate Detection**: Automatic detection of already uploaded files via hash checking
 - **Quota Management**: Integration with user quota and billing systems
 - **Pool-based Storage**: Support for multiple storage pools with different policies
 
 ### Real-Time Features
-- **Live Progress Updates**: WebSocket-based real-time progress tracking
-- **Completion Notifications**: Instant notifications when uploads complete
-- **Failure Alerts**: Immediate notification of upload failures with error details
+- **Live Progress Updates**: WebSocket-based real-time progress tracking for all task types
+- **Task Lifecycle Notifications**: Instant notifications for task creation, progress, completion, and failure
+- **Failure Alerts**: Immediate notification of task failures with error details
 - **Push Notifications**: Cross-platform push notifications for mobile/desktop
 - **Smart Throttling**: Optimized update frequency to prevent network spam
 
 ### Management Features
-- **Task Listing**: Comprehensive API for listing and filtering upload tasks
-- **Task Statistics**: Detailed analytics and usage statistics
+- **Task Listing**: Comprehensive API for listing and filtering all task types
+- **Task Statistics**: Detailed analytics and usage statistics for all operations
 - **Cleanup Operations**: Automatic and manual cleanup of failed/stale tasks
 - **Ownership Verification**: Secure access control for all operations
-- **Detailed Task Info**: Rich metadata including speed calculations and ETAs
+- **Detailed Task Info**: Rich metadata including progress, parameters, and results
+- **Task Lifecycle Management**: Full control over task states (pause, resume, cancel)
 
 ## 📋 Table of Contents
 
@@ -93,17 +95,28 @@ Creates a new resumable upload task.
 **Request Body:**
 ```json
 {
-  "fileName": "string",           // Required: Name of the file
-  "fileSize": "long",             // Required: Size in bytes
-  "contentType": "string",        // Required: MIME type
-  "poolId": "uuid",               // Optional: Storage pool ID
-  "bundleId": "uuid",             // Optional: File bundle ID
-  "chunkSize": "long",            // Optional: Chunk size (default: 5MB)
-  "encryptPassword": "string",    // Optional: Encryption password
-  "expiredAt": "datetime",        // Optional: Expiration date
-  "hash": "string"                // Required: File hash for deduplication
+  "fileName": "string",
+  "fileSize": "long",
+  "contentType": "string",
+  "poolId": "uuid",
+  "bundleId": "uuid",
+  "chunkSize": "long",
+  "encryptPassword": "string",
+  "expiredAt": "datetime",
+  "hash": "string"
 }
 ```
+
+**Field Descriptions:**
+- `fileName`: Required - Name of the file
+- `fileSize`: Required - Size in bytes
+- `contentType`: Required - MIME type
+- `poolId`: Optional - Storage pool ID
+- `bundleId`: Optional - File bundle ID
+- `chunkSize`: Optional - Chunk size (default: 5MB)
+- `encryptPassword`: Optional - Encryption password
+- `expiredAt`: Optional - Expiration date
+- `hash`: Required - File hash for deduplication
 
 **Response:**
 ```json
@@ -175,7 +188,7 @@ Gets upload statistics for the current user.
   "expiredTasks": 1,
   "totalUploadedBytes": 5368709120,
   "averageProgress": 67.5,
-  "recentActivity": [...]
+  "recentActivity": []
 }
 ```
 
@@ -187,56 +200,73 @@ Gets the most recent upload tasks.
 
 ## 🔌 WebSocket Events
 
-The system sends real-time updates via WebSocket using RingService. Connect to the WebSocket endpoint and listen for upload-related events.
+The system sends real-time updates via WebSocket using RingService. Connect to the WebSocket endpoint and listen for task-related events.
 
 ### Event Types
 
-#### `upload.progress`
-Sent when upload progress changes significantly (every 5% or major milestones).
+#### `task.created`
+Sent when a new task is created.
 
 ```json
 {
-  "type": "upload.progress",
+  "type": "task.created",
   "data": {
-    "taskId": "abc123def456",
-    "fileName": "document.pdf",
-    "fileSize": 10485760,
-    "chunksUploaded": 5,
-    "chunksTotal": 10,
-    "progress": 50.0,
+    "taskId": "task123",
+    "name": "Upload File",
+    "type": "FileUpload",
+    "createdAt": "2025-11-09T02:00:00Z"
+  }
+}
+```
+
+#### `task.progress`
+Sent when task progress changes significantly (every 5% or major milestones).
+
+```json
+{
+  "type": "task.progress",
+  "data": {
+    "taskId": "task123",
+    "name": "Upload File",
+    "type": "FileUpload",
+    "progress": 67.5,
     "status": "InProgress",
-    "lastActivity": "2025-11-09T01:56:00.0000000Z"
+    "lastActivity": "2025-11-09T02:05:00Z"
   }
 }
 ```
 
-#### `upload.completed`
-Sent when an upload completes successfully.
+#### `task.completed`
+Sent when a task completes successfully.
 
 ```json
 {
-  "type": "upload.completed",
+  "type": "task.completed",
   "data": {
-    "taskId": "abc123def456",
-    "fileId": "file789xyz",
-    "fileName": "document.pdf",
-    "fileSize": 10485760,
-    "completedAt": "2025-11-09T01:57:00.0000000Z"
+    "taskId": "task123",
+    "name": "Upload File",
+    "type": "FileUpload",
+    "completedAt": "2025-11-09T02:10:00Z",
+    "results": {
+      "fileId": "file456",
+      "fileName": "document.pdf",
+      "fileSize": 10485760
+    }
   }
 }
 ```
 
-#### `upload.failed`
-Sent when an upload fails.
+#### `task.failed`
+Sent when a task fails.
 
 ```json
 {
-  "type": "upload.failed",
+  "type": "task.failed",
   "data": {
-    "taskId": "abc123def456",
-    "fileName": "document.pdf",
-    "fileSize": 10485760,
-    "failedAt": "2025-11-09T01:58:00.0000000Z",
+    "taskId": "task123",
+    "name": "Upload File",
+    "type": "FileUpload",
+    "failedAt": "2025-11-09T02:15:00Z",
     "errorMessage": "File processing failed: invalid format"
   }
 }
@@ -256,18 +286,18 @@ ws.onopen = () => {
     }));
 };
 
-// Handle upload events
+// Handle task events
 ws.onmessage = (event) => {
     const packet = JSON.parse(event.data);
 
     switch (packet.type) {
-        case 'upload.progress':
+        case 'task.progress':
             updateProgressBar(packet.data);
             break;
-        case 'upload.completed':
+        case 'task.completed':
             showSuccessNotification(packet.data);
             break;
-        case 'upload.failed':
+        case 'task.failed':
             showErrorNotification(packet.data);
             break;
     }
@@ -281,6 +311,10 @@ function updateProgressBar(data) {
     }
 }
 ```
+
+### Note on Upload-Specific Notifications
+
+The system also includes upload-specific notifications (`upload.progress`, `upload.completed`, `upload.failed`) for backward compatibility. However, for new implementations, it's recommended to use the generic task notifications as they provide the same functionality with less object allocation overhead. Since users are typically in the foreground during upload operations, the generic task notifications provide sufficient progress visibility.
 
 ## 🗄️ Database Schema
 
@@ -348,7 +382,7 @@ UPLOAD_CACHE_DURATION_MINUTES=30
 
 ```csharp
 // In Program.cs or Startup.cs
-builder.Services.AddScoped<PersistentUploadService>();
+builder.Services.AddScoped<PersistentTaskService>();
 builder.Services.AddSingleton<RingService.RingServiceClient>(sp => {
     // Configure gRPC client for RingService
     var channel = GrpcChannel.ForAddress("https://ring-service:50051");
@@ -866,6 +900,36 @@ Tasks support multiple statuses:
 - **Failed**: Execution failed
 - **Cancelled**: Manually cancelled
 - **Expired**: Timed out or expired
+
+### Available Service Methods
+
+Based on the `PersistentTaskService` implementation, the following methods are available:
+
+#### Core Task Operations
+- `CreateTaskAsync<T>(T task)`: Creates any type of persistent task
+- `GetTaskAsync<T>(string taskId)`: Retrieves a task by ID with caching
+- `UpdateTaskProgressAsync(string taskId, double progress, string? statusMessage)`: Updates task progress with automatic notifications
+- `MarkTaskCompletedAsync(string taskId, Dictionary<string, object?>? results)`: Marks task as completed with optional results
+- `MarkTaskFailedAsync(string taskId, string? errorMessage)`: Marks task as failed with error message
+- `PauseTaskAsync(string taskId)`: Pauses an in-progress task
+- `ResumeTaskAsync(string taskId)`: Resumes a paused task
+- `CancelTaskAsync(string taskId)`: Cancels a task
+
+#### Task Querying & Statistics
+- `GetUserTasksAsync()`: Gets tasks for a user with filtering and pagination
+- `GetUserTaskStatsAsync(Guid accountId)`: Gets comprehensive task statistics
+- `CleanupOldTasksAsync(Guid accountId, Duration maxAge)`: Cleans up old completed/failed tasks
+
+#### Upload-Specific Operations
+- `CreateUploadTaskAsync()`: Creates a new persistent upload task
+- `GetUploadTaskAsync(string taskId)`: Gets an existing upload task
+- `UpdateChunkProgressAsync(string taskId, int chunkIndex)`: Updates chunk upload progress
+- `IsChunkUploadedAsync(string taskId, int chunkIndex)`: Checks if a chunk has been uploaded
+- `GetUploadProgressAsync(string taskId)`: Gets upload progress as percentage
+- `GetUserUploadTasksAsync()`: Gets user upload tasks with filtering
+- `GetUserUploadStatsAsync(Guid accountId)`: Gets upload statistics for a user
+- `CleanupUserFailedTasksAsync(Guid accountId)`: Cleans up failed upload tasks
+- `GetRecentUserTasksAsync(Guid accountId, int limit)`: Gets recent upload tasks
 
 ### Priority System
 
