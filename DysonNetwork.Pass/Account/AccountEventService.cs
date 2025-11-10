@@ -137,7 +137,7 @@ public class AccountEventService(
             }
         }
 
-        if (cacheMissUserIds.Count != 0)
+        if (cacheMissUserIds.Count == 0) return results;
         {
             var now = SystemClock.Instance.GetCurrentInstant();
             var statusesFromDb = await db.AccountStatuses
@@ -160,7 +160,7 @@ public class AccountEventService(
             }
 
             var usersWithoutStatus = cacheMissUserIds.Except(foundUserIds).ToList();
-            if (usersWithoutStatus.Any())
+            if (usersWithoutStatus.Count == 0) return results;
             {
                 foreach (var userId in usersWithoutStatus)
                 {
@@ -339,11 +339,17 @@ public class AccountEventService(
         }));
 
         // The 5 is specialized, keep it alone.
-        var sum = 0;
-        var maxLevel = Enum.GetValues<CheckInResultLevel>().Length - 1;
-        for (var i = 0; i < 5; i++)
-            sum += Random.Next(maxLevel);
-        var checkInLevel = (CheckInResultLevel)(sum / 5);
+        // Use weighted random distribution to make all levels reasonably achievable
+        // Weights: Worst: 10%, Worse: 20%, Normal: 40%, Better: 20%, Best: 10%
+        var randomValue = Random.Next(100);
+        var checkInLevel = randomValue switch
+        {
+            < 10 => CheckInResultLevel.Worst,    // 0-9: 10% chance
+            < 30 => CheckInResultLevel.Worse,    // 10-29: 20% chance  
+            < 70 => CheckInResultLevel.Normal,   // 30-69: 40% chance
+            < 90 => CheckInResultLevel.Better,   // 70-89: 20% chance
+            _ => CheckInResultLevel.Best         // 90-99: 10% chance
+        };
 
         var accountBirthday = await db.AccountProfiles
             .Where(x => x.AccountId == user.Id)
