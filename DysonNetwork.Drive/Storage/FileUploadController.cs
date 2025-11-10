@@ -261,7 +261,7 @@ public class FileUploadController(
             );
 
             // Update task status to "processing" - background processing is now happening
-            await persistentTaskService.UpdateTaskProgressAsync(taskId, 95, "Processing file in background...");
+            await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.95, "Processing file in background...");
 
             // Send upload completion notification (file is uploaded, but processing continues)
             await persistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
@@ -312,15 +312,13 @@ public class FileUploadController(
         {
             var chunkPath = Path.Combine(taskPath, i + ".chunk");
             if (!System.IO.File.Exists(chunkPath))
-            {
                 throw new InvalidOperationException("Chunk " + i + " is missing.");
-            }
 
             await using var chunkStream = new FileStream(chunkPath, FileMode.Open);
             await chunkStream.CopyToAsync(mergedStream);
 
             // Update progress after each chunk is merged
-            var currentProgress = baseProgress + (progressPerChunk * (i + 1));
+            var currentProgress = baseProgress + progressPerChunk * (i + 1);
             await persistentTaskService.UpdateTaskProgressAsync(
                 taskId, 
                 currentProgress, 

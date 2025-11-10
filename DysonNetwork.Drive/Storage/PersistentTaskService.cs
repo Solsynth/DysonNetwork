@@ -69,34 +69,34 @@ public class PersistentTaskService(
         if (task is null) return;
 
         var previousProgress = task.Progress;
+        var delta = progress - previousProgress;
         var clampedProgress = Math.Clamp(progress, 0, 1.0);
         var now = SystemClock.Instance.GetCurrentInstant();
 
+        // Update the cached task
+        task.Progress = clampedProgress;
+        task.LastActivity = now;
+        task.UpdatedAt = now;
+        if (statusMessage is not null)
+            task.Description = statusMessage;
+
+        await SetCacheAsync(task);
+
+        // Send progress update notification
+        await SendTaskProgressUpdateAsync(task, task.Progress, previousProgress);
+
+        // Only updates when update in period
         // Use ExecuteUpdateAsync for better performance - update only the fields we need
-        var updatedRows = await db.Tasks
-            .Where(t => t.TaskId == taskId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(t => t.Progress, clampedProgress)
-                .SetProperty(t => t.LastActivity, now)
-                .SetProperty(t => t.UpdatedAt, now)
-                .SetProperty(t => t.Description, t => statusMessage ?? t.Description)
-            );
-
-        if (updatedRows > 0)
+        if (Math.Abs(progress - 1) < 0.1 || delta * 100 > 5)
         {
-            // Update the cached task
-            task.Progress = clampedProgress;
-            task.LastActivity = now;
-            task.UpdatedAt = now;
-            if (statusMessage is not null)
-            {
-                task.Description = statusMessage;
-            }
-
-            await SetCacheAsync(task);
-
-            // Send progress update notification
-            await SendTaskProgressUpdateAsync(task, task.Progress, previousProgress);
+            await db.Tasks
+                .Where(t => t.TaskId == taskId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(t => t.Progress, clampedProgress)
+                    .SetProperty(t => t.LastActivity, now)
+                    .SetProperty(t => t.UpdatedAt, now)
+                    .SetProperty(t => t.Description, t => statusMessage ?? t.Description)
+                );
         }
     }
 
@@ -384,6 +384,7 @@ public class PersistentTaskService(
                 TaskId = task.TaskId,
                 Name = task.Name,
                 Type = task.Type.ToString(),
+                Parameters = task.Parameters,
                 CreatedAt = task.CreatedAt.ToString()
             };
 
@@ -409,10 +410,6 @@ public class PersistentTaskService(
     {
         try
         {
-            // Only send significant progress updates (every 5% or major milestones)
-            if (Math.Abs(newProgress - previousProgress) < 5 && newProgress < 100 && newProgress > 0)
-                return;
-
             var data = new TaskProgressData
             {
                 TaskId = task.TaskId,
@@ -634,7 +631,7 @@ public class PersistentTaskService(
         var chunkSize = request.ChunkSize ?? 1024 * 1024 * 5; // 5MB default
         var chunksCount = (int)Math.Ceiling((double)request.FileSize / chunkSize);
 
-        // Use default pool if no pool is specified, or find first available pool
+        // Use the default pool if no pool is specified, or find first available pool
         var poolId = request.PoolId ?? await GetFirstAvailablePoolIdAsync();
 
         var uploadTask = new PersistentUploadTask
@@ -703,7 +700,7 @@ public class PersistentTaskService(
             {
                 parameters.UploadedChunks.Add(chunkIndex);
                 parameters.ChunksUploaded = parameters.UploadedChunks.Count;
-                
+
                 var now = SystemClock.Instance.GetCurrentInstant();
 
                 // Use ExecuteUpdateAsync to update the Parameters dictionary directly
@@ -1057,6 +1054,7 @@ public class TaskCreatedData
     public string Name { get; set; } = null!;
     public string Type { get; set; } = null!;
     public string CreatedAt { get; set; } = null!;
+    public Dictionary<string, object?>? Parameters { get; set; }
 }
 
 public class TaskProgressData
