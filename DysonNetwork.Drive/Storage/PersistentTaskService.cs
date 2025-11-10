@@ -463,22 +463,6 @@ public class PersistentTaskService(
                 UserId = task.AccountId.ToString(),
                 Packet = wsPacket
             });
-
-            // Push notification
-            var pushNotification = new PushNotification
-            {
-                Topic = "drive.tasks",
-                Title = "Task Completed",
-                Subtitle = task.Name,
-                Body = $"Your {task.Type.ToString().ToLower()} task has completed successfully.",
-                IsSavable = true
-            };
-
-            await ringService.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Notification = pushNotification
-            });
         }
         catch (Exception ex)
         {
@@ -516,7 +500,7 @@ public class PersistentTaskService(
             var pushNotification = new PushNotification
             {
                 Topic = "drive.tasks",
-                Title = "Task Failed",
+                Title = "Drive Task Failed",
                 Subtitle = task.Name,
                 Body = $"Your {task.Type.ToString().ToLower()} task has failed.",
                 IsSavable = true
@@ -926,22 +910,6 @@ public class PersistentTaskService(
             {
                 UserId = task.AccountId.ToString(),
                 Packet = wsPacket
-            });
-
-            // Send push notification
-            var pushNotification = new PushNotification
-            {
-                Topic = "drive.tasks.upload",
-                Title = "Upload Completed",
-                Subtitle = task.FileName,
-                Body = $"Your file '{task.FileName}' has been uploaded successfully.",
-                IsSavable = true
-            };
-
-            await ringService.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Notification = pushNotification
             });
         }
         catch (Exception ex)
