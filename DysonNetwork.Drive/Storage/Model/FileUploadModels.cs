@@ -22,6 +22,7 @@ public class FileUploadParameters
     public string? EncryptPassword { get; set; }
     public string Hash { get; set; } = string.Empty;
     public List<int> UploadedChunks { get; set; } = [];
+    public string? Path { get; set; }
 }
 
 // File Move Task Parameters
@@ -93,6 +94,7 @@ public class CreateUploadTaskRequest
     public string? EncryptPassword { get; set; }
     public Instant? ExpiredAt { get; set; }
     public long? ChunkSize { get; set; }
+    public string? Path { get; set; }
 }
 
 public class CreateUploadTaskResponse
@@ -298,6 +300,17 @@ public class PersistentUploadTask : PersistentTask
         {
             var parameters = TypedParameters;
             parameters.UploadedChunks = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    public string? Path
+    {
+        get => TypedParameters.Path;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.Path = value;
             TypedParameters = parameters;
         }
     }

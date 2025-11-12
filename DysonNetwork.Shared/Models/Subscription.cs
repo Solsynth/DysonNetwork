@@ -185,58 +185,55 @@ public class SnWalletGift : ModelBase
         }
     }
 
-    // TODO: Uncomment once protobuf files are regenerated
-    /*
-    public Proto.Gift ToProtoValue() => new()
-    {
-        Id = Id.ToString(),
-        GifterId = GifterId.ToString(),
-        RecipientId = RecipientId?.ToString(),
-        GiftCode = GiftCode,
-        Message = Message,
-        SubscriptionIdentifier = SubscriptionIdentifier,
-        BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
-        FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
-        Status = (Proto.GiftStatus)Status,
-        RedeemedAt = RedeemedAt?.ToTimestamp(),
-        RedeemerId = RedeemerId?.ToString(),
-        SubscriptionId = SubscriptionId?.ToString(),
-        ExpiresAt = ExpiresAt.ToTimestamp(),
-        IsOpenGift = IsOpenGift,
-        PaymentMethod = PaymentMethod,
-        PaymentDetails = PaymentDetails.ToProtoValue(),
-        CouponId = CouponId?.ToString(),
-        Coupon = Coupon?.ToProtoValue(),
-        IsRedeemable = IsRedeemable,
-        IsExpired = IsExpired,
-        CreatedAt = CreatedAt.ToTimestamp(),
-        UpdatedAt = UpdatedAt.ToTimestamp()
-    };
+     public Proto.Gift ToProtoValue() => new()
+     {
+         Id = Id.ToString(),
+         GifterId = GifterId.ToString(),
+         RecipientId = RecipientId?.ToString(),
+         GiftCode = GiftCode,
+         Message = Message,
+         SubscriptionIdentifier = SubscriptionIdentifier,
+         BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
+         FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
+         Status = (Proto.GiftStatus)Status,
+         RedeemedAt = RedeemedAt?.ToTimestamp(),
+         RedeemerId = RedeemerId?.ToString(),
+         SubscriptionId = SubscriptionId?.ToString(),
+         ExpiresAt = ExpiresAt.ToTimestamp(),
+         IsOpenGift = IsOpenGift,
+         PaymentMethod = PaymentMethod,
+         PaymentDetails = PaymentDetails.ToProtoValue(),
+         CouponId = CouponId?.ToString(),
+         Coupon = Coupon?.ToProtoValue(),
+         IsRedeemable = IsRedeemable,
+         IsExpired = IsExpired,
+         CreatedAt = CreatedAt.ToTimestamp(),
+         UpdatedAt = UpdatedAt.ToTimestamp()
+     };
 
-    public static SnWalletGift FromProtoValue(Proto.Gift proto) => new()
-    {
-        Id = Guid.Parse(proto.Id),
-        GifterId = Guid.Parse(proto.GifterId),
-        RecipientId = proto.HasRecipientId ? Guid.Parse(proto.RecipientId) : null,
-        GiftCode = proto.GiftCode,
-        Message = proto.Message,
-        SubscriptionIdentifier = proto.SubscriptionIdentifier,
-        BasePrice = decimal.Parse(proto.BasePrice),
-        FinalPrice = decimal.Parse(proto.FinalPrice),
-        Status = (GiftStatus)proto.Status,
-        RedeemedAt = proto.RedeemedAt?.ToInstant(),
-        RedeemerId = proto.HasRedeemerId ? Guid.Parse(proto.RedeemerId) : null,
-        SubscriptionId = proto.HasSubscriptionId ? Guid.Parse(proto.SubscriptionId) : null,
-        ExpiresAt = proto.ExpiresAt.ToInstant(),
-        IsOpenGift = proto.IsOpenGift,
-        PaymentMethod = proto.PaymentMethod,
-        PaymentDetails = SnPaymentDetails.FromProtoValue(proto.PaymentDetails),
-        CouponId = proto.HasCouponId ? Guid.Parse(proto.CouponId) : null,
-        Coupon = proto.Coupon is not null ? SnWalletCoupon.FromProtoValue(proto.Coupon) : null,
-        CreatedAt = proto.CreatedAt.ToInstant(),
-        UpdatedAt = proto.UpdatedAt.ToInstant()
-    };
-    */
+     public static SnWalletGift FromProtoValue(Proto.Gift proto) => new()
+     {
+         Id = Guid.Parse(proto.Id),
+         GifterId = Guid.Parse(proto.GifterId),
+         RecipientId = proto.HasRecipientId ? Guid.Parse(proto.RecipientId) : null,
+         GiftCode = proto.GiftCode,
+         Message = proto.Message,
+         SubscriptionIdentifier = proto.SubscriptionIdentifier,
+         BasePrice = decimal.Parse(proto.BasePrice),
+         FinalPrice = decimal.Parse(proto.FinalPrice),
+         Status = (GiftStatus)proto.Status,
+         RedeemedAt = proto.RedeemedAt?.ToInstant(),
+         RedeemerId = proto.HasRedeemerId ? Guid.Parse(proto.RedeemerId) : null,
+         SubscriptionId = proto.HasSubscriptionId ? Guid.Parse(proto.SubscriptionId) : null,
+         ExpiresAt = proto.ExpiresAt.ToInstant(),
+         IsOpenGift = proto.IsOpenGift,
+         PaymentMethod = proto.PaymentMethod,
+         PaymentDetails = SnPaymentDetails.FromProtoValue(proto.PaymentDetails),
+         CouponId = proto.HasCouponId ? Guid.Parse(proto.CouponId) : null,
+         Coupon = proto.Coupon is not null ? SnWalletCoupon.FromProtoValue(proto.Coupon) : null,
+         CreatedAt = proto.CreatedAt.ToInstant(),
+         UpdatedAt = proto.UpdatedAt.ToInstant()
+     };
 }
 
 public abstract class SubscriptionType

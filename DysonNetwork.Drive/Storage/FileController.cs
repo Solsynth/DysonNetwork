@@ -76,7 +76,7 @@ public class FileController(
         }
 
         // Fallback for tus uploads
-        var tusStorePath = configuration.GetValue<string>("Tus:StorePath");
+        var tusStorePath = configuration.GetValue<string>("Storage:Uploads");
         if (!string.IsNullOrEmpty(tusStorePath))
         {
             var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);

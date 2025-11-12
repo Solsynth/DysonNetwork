@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Drive.Index;
 using DysonNetwork.Shared.Cache;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -56,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<Storage.FileService>();
         services.AddScoped<Storage.FileReferenceService>();
         services.AddScoped<Storage.PersistentTaskService>();
+        services.AddScoped<FileIndexService>();
         services.AddScoped<Billing.UsageService>();
         services.AddScoped<Billing.QuotaService>();
 

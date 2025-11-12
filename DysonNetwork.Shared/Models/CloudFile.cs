@@ -31,6 +31,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public Guid? PoolId { get; set; }
     [JsonIgnore] public SnFileBundle? Bundle { get; set; }
     public Guid? BundleId { get; set; }
+    [JsonIgnore] public List<SnCloudFileIndex> FileIndexes { get; set; } = [];
 
     /// <summary>
     /// The field is set to true if the recycling job plans to delete the file.

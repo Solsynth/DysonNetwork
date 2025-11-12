@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Drive.Billing;
+using DysonNetwork.Drive.Index;
 using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
@@ -24,6 +25,7 @@ public class FileUploadController(
     PermissionService.PermissionServiceClient permission,
     QuotaService quotaService,
     PersistentTaskService persistentTaskService,
+    FileIndexService fileIndexService,
     ILogger<FileUploadController> logger
 )
     : ControllerBase
@@ -260,10 +262,26 @@ public class FileUploadController(
                 persistentTask.ExpiredAt
             );
 
-            // Update task status to "processing" - background processing is now happening
+            // Create the file index if a path is provided
+            if (!string.IsNullOrEmpty(persistentTask.Path))
+            {
+                try
+                {
+                    var accountId = Guid.Parse(currentUser.Id);
+                    await fileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
+                    logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId, persistentTask.Path);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to create file index for file {FileId} at path {Path}", fileId, persistentTask.Path);
+                    // Don't fail the upload if index creation fails, just log it
+                }
+            }
+
+            // Update the task status to "processing" - background processing is now happening
             await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.95, "Processing file in background...");
 
-            // Send upload completion notification (file is uploaded, but processing continues)
+            // Send upload completion notification (a file is uploaded, but processing continues)
             await persistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
 
             return Ok(cloudFile);

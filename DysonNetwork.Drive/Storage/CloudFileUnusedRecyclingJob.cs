@@ -14,7 +14,7 @@ public class CloudFileUnusedRecyclingJob(
     public async Task Execute(IJobExecutionContext context)
     {
         logger.LogInformation("Cleaning tus cloud files...");
-        var storePath = configuration["Tus:StorePath"];
+        var storePath = configuration["Storage:Uploads"];
         if (Directory.Exists(storePath))
         {
             var oneHourAgo = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
@@ -39,6 +39,7 @@ public class CloudFileUnusedRecyclingJob(
         var processedCount = 0;
         var markedCount = 0;
         var totalFiles = await db.Files
+            .Where(f => f.FileIndexes.Count == 0)
             .Where(f => f.PoolId.HasValue && recyclablePools.Contains(f.PoolId.Value))
             .Where(f => !f.IsMarkedRecycle)
             .CountAsync();

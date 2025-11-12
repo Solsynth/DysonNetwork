@@ -615,7 +615,14 @@ public class PersistentTaskService(
         var chunkSize = request.ChunkSize ?? 1024 * 1024 * 5; // 5MB default
         var chunksCount = (int)Math.Ceiling((double)request.FileSize / chunkSize);
 
-        // Use the default pool if no pool is specified, or find first available pool
+        // If the second chunk is too small (less than 1MB), merge it with the first chunk
+        if (chunksCount == 2 && (request.FileSize - chunkSize) < 1024 * 1024)
+        {
+            chunksCount = 1;
+            chunkSize = request.FileSize;
+        }
+
+        // Use the default pool if no pool is specified, or find the first available pool
         var poolId = request.PoolId ?? await GetFirstAvailablePoolIdAsync();
 
         var uploadTask = new PersistentUploadTask
@@ -632,6 +639,7 @@ public class PersistentTaskService(
             EncryptPassword = request.EncryptPassword,
             ExpiredAt = request.ExpiredAt,
             Hash = request.Hash,
+            Path = request.Path,
             AccountId = accountId,
             Status = TaskStatus.InProgress,
             UploadedChunks = [],
