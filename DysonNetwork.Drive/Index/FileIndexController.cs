@@ -36,10 +36,17 @@ public class FileIndexController(
         {
             var fileIndexes = await fileIndexService.GetByPathAsync(accountId, path);
             
+            // Get all file indexes for this account to extract child folders
+            var allFileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
+            
+            // Extract unique child folder paths
+            var childFolders = ExtractChildFolders(allFileIndexes, path);
+            
             return Ok(new
             {
                 Path = path,
                 Files = fileIndexes,
+                Folders = childFolders,
                 TotalCount = fileIndexes.Count
             });
         }
@@ -53,6 +60,41 @@ public class FileIndexController(
                 Status = 500
             }) { StatusCode = 500 };
         }
+    }
+
+    /// <summary>
+    /// Extracts unique child folder paths from all file indexes for a given parent path
+    /// </summary>
+    /// <param name="allFileIndexes">All file indexes for the account</param>
+    /// <param name="parentPath">The parent path to find children for</param>
+    /// <returns>List of unique child folder names</returns>
+    private List<string> ExtractChildFolders(List<SnCloudFileIndex> allFileIndexes, string parentPath)
+    {
+        var normalizedParentPath = FileIndexService.NormalizePath(parentPath);
+        var childFolders = new HashSet<string>();
+
+        foreach (var index in allFileIndexes)
+        {
+            var normalizedIndexPath = FileIndexService.NormalizePath(index.Path);
+            
+            // Check if this path is a direct child of the parent path
+            if (normalizedIndexPath.StartsWith(normalizedParentPath) && 
+                normalizedIndexPath != normalizedParentPath)
+            {
+                // Remove the parent path prefix to get the relative path
+                var relativePath = normalizedIndexPath.Substring(normalizedParentPath.Length);
+                
+                // Extract the first folder name (direct child)
+                var firstSlashIndex = relativePath.IndexOf('/');
+                if (firstSlashIndex > 0)
+                {
+                    var folderName = relativePath.Substring(0, firstSlashIndex);
+                    childFolders.Add(folderName);
+                }
+            }
+        }
+
+        return childFolders.OrderBy(f => f).ToList();
     }
 
     /// <summary>
