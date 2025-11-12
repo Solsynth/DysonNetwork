@@ -8,14 +8,24 @@ public class FileIndexService(AppDatabase db)
     /// <summary>
     /// Creates a new file index entry
     /// </summary>
-    /// <param name="path">The parent folder path with trailing slash</param>
+    /// <param name="path">The parent folder path with a trailing slash</param>
     /// <param name="fileId">The file ID</param>
     /// <param name="accountId">The account ID</param>
     /// <returns>The created file index</returns>
     public async Task<SnCloudFileIndex> CreateAsync(string path, string fileId, Guid accountId)
     {
-        // Ensure a path has trailing slash and is query-safe
+        // Ensure a path has a trailing slash and is query-safe
         var normalizedPath = NormalizePath(path);
+
+        // Check if a file with the same name already exists in the same path for this account
+        var existingFileIndex = await db.FileIndexes
+            .FirstOrDefaultAsync(fi => fi.AccountId == accountId && fi.Path == normalizedPath && fi.FileId == fileId);
+
+        if (existingFileIndex != null)
+        {
+            throw new InvalidOperationException(
+                $"A file with ID '{fileId}' already exists in path '{normalizedPath}' for account '{accountId}'");
+        }
 
         var fileIndex = new SnCloudFileIndex
         {
@@ -44,7 +54,7 @@ public class FileIndexService(AppDatabase db)
 
         // Since properties are init-only, we need to remove the old index and create a new one
         db.FileIndexes.Remove(fileIndex);
-        
+
         var newFileIndex = new SnCloudFileIndex
         {
             Path = NormalizePath(newPath),
@@ -104,7 +114,7 @@ public class FileIndexService(AppDatabase db)
     public async Task<int> RemoveByPathAsync(Guid accountId, string path)
     {
         var normalizedPath = NormalizePath(path);
-        
+
         var indexes = await db.FileIndexes
             .Where(fi => fi.AccountId == accountId && fi.Path == normalizedPath)
             .ToListAsync();
@@ -127,7 +137,7 @@ public class FileIndexService(AppDatabase db)
     public async Task<List<SnCloudFileIndex>> GetByPathAsync(Guid accountId, string path)
     {
         var normalizedPath = NormalizePath(path);
-        
+
         return await db.FileIndexes
             .Where(fi => fi.AccountId == accountId && fi.Path == normalizedPath)
             .Include(fi => fi.File)

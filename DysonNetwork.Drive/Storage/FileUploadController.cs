@@ -61,10 +61,32 @@ public class FileUploadController(
 
         EnsureTempDirectoryExists();
 
+        var accountId = Guid.Parse(currentUser.Id);
+
         // Check if a file with the same hash already exists
         var existingFile = await db.Files.FirstOrDefaultAsync(f => f.Hash == request.Hash);
         if (existingFile != null)
         {
+            // Create the file index if a path is provided, even for existing files
+            if (string.IsNullOrEmpty(request.Path))
+                return Ok(new CreateUploadTaskResponse
+                {
+                    FileExists = true,
+                    File = existingFile
+                });
+            try
+            {
+                await fileIndexService.CreateAsync(request.Path, existingFile.Id, accountId);
+                logger.LogInformation("Created file index for existing file {FileId} at path {Path}",
+                    existingFile.Id, request.Path);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to create file index for existing file {FileId} at path {Path}",
+                    existingFile.Id, request.Path);
+                // Don't fail the request if index creation fails, just log it
+            }
+
             return Ok(new CreateUploadTaskResponse
             {
                 FileExists = true,
@@ -72,7 +94,6 @@ public class FileUploadController(
             });
         }
 
-        var accountId = Guid.Parse(currentUser.Id);
         var taskId = await Nanoid.GenerateAsync();
 
         // Create persistent upload task
@@ -92,18 +113,20 @@ public class FileUploadController(
         if (currentUser.IsSuperuser) return null;
 
         var allowed = await permission.HasPermissionAsync(new HasPermissionRequest
-        { Actor = $"user:{currentUser.Id}", Area = "global", Key = "files.create" });
+            { Actor = $"user:{currentUser.Id}", Area = "global", Key = "files.create" });
 
-        return allowed.HasPermission ? null :
-            new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
+        return allowed.HasPermission
+            ? null
+            : new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
     }
 
     private Task<IActionResult?> ValidatePoolAccess(Account currentUser, FilePool pool, CreateUploadTaskRequest request)
     {
         if (pool.PolicyConfig.RequirePrivilege <= 0) return Task.FromResult<IActionResult?>(null);
 
-        var privilege = currentUser.PerkSubscription is null ? 0 :
-            PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier);
+        var privilege = currentUser.PerkSubscription is null
+            ? 0
+            : PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier);
 
         if (privilege < pool.PolicyConfig.RequirePrivilege)
         {
@@ -121,7 +144,7 @@ public class FileUploadController(
         if (!policy.AllowEncryption && !string.IsNullOrEmpty(request.EncryptPassword))
         {
             return new ObjectResult(ApiError.Unauthorized("File encryption is not allowed in this pool", true))
-            { StatusCode = 403 };
+                { StatusCode = 403 };
         }
 
         if (policy.AcceptTypes is { Count: > 0 })
@@ -129,10 +152,10 @@ public class FileUploadController(
             if (string.IsNullOrEmpty(request.ContentType))
             {
                 return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
-                {
-                    { "contentType", new[] { "Content type is required by the pool's policy" } }
-                }))
-                { StatusCode = 400 };
+                    {
+                        { "contentType", new[] { "Content type is required by the pool's policy" } }
+                    }))
+                    { StatusCode = 400 };
             }
 
             var foundMatch = policy.AcceptTypes.Any(acceptType =>
@@ -141,22 +164,23 @@ public class FileUploadController(
                     return acceptType.Equals(request.ContentType, StringComparison.OrdinalIgnoreCase);
                 var type = acceptType[..^2];
                 return request.ContentType.StartsWith($"{type}/", StringComparison.OrdinalIgnoreCase);
-
             });
 
             if (!foundMatch)
             {
                 return new ObjectResult(
-                    ApiError.Unauthorized($"Content type {request.ContentType} is not allowed by the pool's policy", true))
-                { StatusCode = 403 };
+                        ApiError.Unauthorized($"Content type {request.ContentType} is not allowed by the pool's policy",
+                            true))
+                    { StatusCode = 403 };
             }
         }
 
         if (policy.MaxFileSize is not null && request.FileSize > policy.MaxFileSize)
         {
             return new ObjectResult(ApiError.Unauthorized(
-                $"File size {request.FileSize} is larger than the pool's maximum file size {policy.MaxFileSize}", true))
-            { StatusCode = 403 };
+                    $"File size {request.FileSize} is larger than the pool's maximum file size {policy.MaxFileSize}",
+                    true))
+                { StatusCode = 403 };
         }
 
         return null;
@@ -173,8 +197,9 @@ public class FileUploadController(
         if (!ok)
         {
             return new ObjectResult(
-                ApiError.Unauthorized($"File size {billableUnit} MiB is exceeded the user's quota {quota} MiB", true))
-            { StatusCode = 403 };
+                    ApiError.Unauthorized($"File size {billableUnit} MiB is exceeded the user's quota {quota} MiB",
+                        true))
+                { StatusCode = 403 };
         }
 
         return null;
@@ -190,8 +215,7 @@ public class FileUploadController(
 
     public class UploadChunkRequest
     {
-        [Required]
-        public IFormFile Chunk { get; set; } = null!;
+        [Required] public IFormFile Chunk { get; set; } = null!;
     }
 
     [HttpPost("chunk/{taskId}/{chunkIndex:int}")]
@@ -269,11 +293,13 @@ public class FileUploadController(
                 {
                     var accountId = Guid.Parse(currentUser.Id);
                     await fileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
-                    logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId, persistentTask.Path);
+                    logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId,
+                        persistentTask.Path);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to create file index for file {FileId} at path {Path}", fileId, persistentTask.Path);
+                    logger.LogWarning(ex, "Failed to create file index for file {FileId} at path {Path}", fileId,
+                        persistentTask.Path);
                     // Don't fail the upload if index creation fails, just log it
                 }
             }
@@ -289,7 +315,8 @@ public class FileUploadController(
         catch (Exception ex)
         {
             // Log the actual exception for debugging
-            logger.LogError(ex, "Failed to complete upload for task {TaskId}. Error: {ErrorMessage}", taskId, ex.Message);
+            logger.LogError(ex, "Failed to complete upload for task {TaskId}. Error: {ErrorMessage}", taskId,
+                ex.Message);
 
             // Mark task as failed
             await persistentTaskService.MarkTaskFailedAsync(taskId);
@@ -314,9 +341,9 @@ public class FileUploadController(
     }
 
     private static async Task MergeChunks(
-        string taskId, 
-        string taskPath, 
-        string mergedFilePath, 
+        string taskId,
+        string taskPath,
+        string mergedFilePath,
         int chunksCount,
         PersistentTaskService persistentTaskService)
     {
@@ -338,8 +365,8 @@ public class FileUploadController(
             // Update progress after each chunk is merged
             var currentProgress = baseProgress + progressPerChunk * (i + 1);
             await persistentTaskService.UpdateTaskProgressAsync(
-                taskId, 
-                currentProgress, 
+                taskId,
+                currentProgress,
                 "Merging chunks... (" + (i + 1) + "/" + chunksCount + ")"
             );
         }
@@ -379,7 +406,8 @@ public class FileUploadController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        var tasks = await persistentTaskService.GetUserUploadTasksAsync(accountId, status, sortBy, sortDescending, offset, limit);
+        var tasks = await persistentTaskService.GetUserUploadTasksAsync(accountId, status, sortBy, sortDescending,
+            offset, limit);
 
         Response.Headers.Append("X-Total", tasks.TotalCount.ToString());
 
@@ -595,18 +623,22 @@ public class FileUploadController(
                 task.Hash,
                 task.UploadedChunks
             },
-            Pool = pool != null ? new
-            {
-                pool.Id,
-                pool.Name,
-                pool.Description
-            } : null,
-            Bundle = bundle != null ? new
-            {
-                bundle.Id,
-                bundle.Name,
-                bundle.Description
-            } : null,
+            Pool = pool != null
+                ? new
+                {
+                    pool.Id,
+                    pool.Name,
+                    pool.Description
+                }
+                : null,
+            Bundle = bundle != null
+                ? new
+                {
+                    bundle.Id,
+                    bundle.Name,
+                    bundle.Description
+                }
+                : null,
             EstimatedTimeRemaining = CalculateEstimatedTime(task),
             UploadSpeed = CalculateUploadSpeed(task)
         });
