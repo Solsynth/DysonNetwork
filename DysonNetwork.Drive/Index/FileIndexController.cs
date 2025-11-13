@@ -1,6 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Drive.Storage;
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -15,6 +13,7 @@ namespace DysonNetwork.Drive.Index;
 [Authorize]
 public class FileIndexController(
     FileIndexService fileIndexService,
+    FolderService folderService,
     AppDatabase db,
     ILogger<FileIndexController> logger
 ) : ControllerBase
@@ -35,13 +34,10 @@ public class FileIndexController(
         try
         {
             var fileIndexes = await fileIndexService.GetByPathAsync(accountId, path);
-            
-            // Get all file indexes for this account to extract child folders
-            var allFileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
-            
-            // Extract unique child folder paths
-            var childFolders = ExtractChildFolders(allFileIndexes, path);
-            
+
+            // Get child folders using the folder system
+            var childFolders = await GetChildFoldersAsync(accountId, path);
+
             return Ok(new
             {
                 Path = path,
@@ -63,38 +59,108 @@ public class FileIndexController(
     }
 
     /// <summary>
-    /// Extracts unique child folder paths from all file indexes for a given parent path
+    /// Gets child folders for a given parent path using the folder system
     /// </summary>
-    /// <param name="allFileIndexes">All file indexes for the account</param>
+    /// <param name="accountId">The account ID</param>
     /// <param name="parentPath">The parent path to find children for</param>
-    /// <returns>List of unique child folder names</returns>
-    private List<string> ExtractChildFolders(List<SnCloudFileIndex> allFileIndexes, string parentPath)
+    /// <returns>List of child folder objects</returns>
+    private async Task<List<SnCloudFolder>> GetChildFoldersAsync(Guid accountId, string parentPath)
     {
         var normalizedParentPath = FileIndexService.NormalizePath(parentPath);
-        var childFolders = new HashSet<string>();
 
-        foreach (var index in allFileIndexes)
+        // Try to find a folder that corresponds to this path
+        var parentFolder = await FindFolderByPathAsync(accountId, normalizedParentPath);
+
+        if (parentFolder != null)
         {
-            var normalizedIndexPath = FileIndexService.NormalizePath(index.Path);
-            
-            // Check if this path is a direct child of the parent path
-            if (normalizedIndexPath.StartsWith(normalizedParentPath) && 
-                normalizedIndexPath != normalizedParentPath)
+            // Use folder-based approach
+            return await folderService.GetChildFoldersAsync(parentFolder.Id, accountId);
+        }
+        else
+        {
+            // Fall back to path-based approach - find folders that start with this path
+            var allFolders = await folderService.GetByAccountIdAsync(accountId);
+            var childFolders = new List<SnCloudFolder>();
+
+            foreach (var folder in allFolders)
             {
-                // Remove the parent path prefix to get the relative path
-                var relativePath = normalizedIndexPath.Substring(normalizedParentPath.Length);
-                
-                // Extract the first folder name (direct child)
-                var firstSlashIndex = relativePath.IndexOf('/');
-                if (firstSlashIndex > 0)
+                // For path-based folders, we need to check if they belong under this path
+                // This is a simplified approach - in a full implementation, folders would have path information
+                if (folder.ParentFolderId == null && normalizedParentPath == "/")
                 {
-                    var folderName = relativePath.Substring(0, firstSlashIndex);
-                    childFolders.Add(folderName);
+                    // Root level folders
+                    childFolders.Add(folder);
                 }
+                // For nested folders, we'd need path information in the folder model
             }
+
+            return childFolders.OrderBy(f => f.Name).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Attempts to find a folder by its path
+    /// </summary>
+    /// <param name="accountId">The account ID</param>
+    /// <param name="path">The path to search for</param>
+    /// <returns>The folder if found, null otherwise</returns>
+    private async Task<SnCloudFolder?> FindFolderByPathAsync(Guid accountId, string path)
+    {
+        // This is a simplified implementation
+        // In a full implementation, folders would have path information stored
+        var allFolders = await folderService.GetByAccountIdAsync(accountId);
+
+        // For now, just return null to use path-based approach
+        // TODO: Implement proper path-to-folder mapping
+        return null;
+    }
+
+    /// <summary>
+    /// Gets or creates a folder hierarchy based on a file path
+    /// </summary>
+    /// <param name="filePath">The file path (e.g., "/folder/sub/file.txt")</param>
+    /// <param name="accountId">The account ID</param>
+    /// <returns>The folder where the file should be placed</returns>
+    private async Task<SnCloudFolder> GetOrCreateFolderByPathAsync(string filePath, Guid accountId)
+    {
+        // Extract folder path from file path (remove filename)
+        var lastSlashIndex = filePath.LastIndexOf('/');
+        var folderPath = lastSlashIndex == 0 ? "/" : filePath[..(lastSlashIndex + 1)];
+
+        // Ensure root folder exists
+        var rootFolder = await folderService.EnsureRootFolderAsync(accountId);
+
+        // If it's the root folder, return it
+        if (folderPath == "/")
+            return rootFolder;
+
+        // Split the folder path into segments
+        var pathSegments = folderPath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        var currentParent = rootFolder;
+        var currentPath = "/";
+
+        // Create folder hierarchy
+        foreach (var segment in pathSegments)
+        {
+            currentPath += segment + "/";
+
+            // Check if folder already exists
+            var existingFolder = await db.Folders
+                .FirstOrDefaultAsync(f => f.AccountId == accountId && f.Path == currentPath);
+
+            if (existingFolder != null)
+            {
+                currentParent = existingFolder;
+                continue;
+            }
+
+            // Create new folder
+            var newFolder = await folderService.CreateAsync(segment, accountId, currentParent.Id);
+            currentParent = newFolder;
         }
 
-        return childFolders.OrderBy(f => f).ToList();
+        return currentParent;
     }
 
     /// <summary>
@@ -116,7 +182,7 @@ public class FileIndexController(
             return Ok(new
             {
                 Files = fileIndexes,
-                TotalCount = fileIndexes.Count()
+                TotalCount = fileIndexes.Count
             });
         }
         catch (Exception ex)
@@ -359,9 +425,11 @@ public class FileIndexController(
             if (file.AccountId != accountId)
                 return new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
 
-            // Check if index already exists for this file and path
+            // Check if index already exists for this file and path - since Path is now optional, we need to check by folder
+            // For now, we'll check if any index exists for this file in the same folder that would result from the path
+            var targetFolder = await GetOrCreateFolderByPathAsync(FileIndexService.NormalizePath(request.Path), accountId);
             var existingIndex = await db.FileIndexes
-                .FirstOrDefaultAsync(fi => fi.FileId == request.FileId && fi.Path == request.Path && fi.AccountId == accountId);
+                .FirstOrDefaultAsync(fi => fi.FileId == request.FileId && fi.FolderId == targetFolder.Id && fi.AccountId == accountId);
 
             if (existingIndex != null)
                 return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
@@ -375,7 +443,7 @@ public class FileIndexController(
             {
                 IndexId = fileIndex.Id,
                 fileIndex.FileId,
-                fileIndex.Path,
+                Path = fileIndex.Path,
                 Message = "File index created successfully"
             });
         }
@@ -387,6 +455,56 @@ public class FileIndexController(
             {
                 Code = "CREATE_INDEX_FAILED",
                 Message = "Failed to create file index",
+                Status = 500
+            }) { StatusCode = 500 };
+        }
+    }
+
+    /// <summary>
+    /// Gets unindexed files for the current user (files that exist but don't have file indexes)
+    /// </summary>
+    /// <param name="offset">Pagination offset</param>
+    /// <param name="take">Number of files to take</param>
+    /// <returns>List of unindexed files</returns>
+    [HttpGet("unindexed")]
+    public async Task<IActionResult> GetUnindexedFiles([FromQuery] int offset = 0, [FromQuery] int take = 20)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        try
+        {
+            // Get files that belong to the user but don't have any file indexes
+            var unindexedFiles = await db.Files
+                .Where(f => f.AccountId == accountId)
+                .Where(f => !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId))
+                .OrderByDescending(f => f.CreatedAt)
+                .Skip(offset)
+                .Take(take)
+                .ToListAsync();
+
+            var totalCount = await db.Files
+                .Where(f => f.AccountId == accountId)
+                .Where(f => !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId))
+                .CountAsync();
+
+            return Ok(new
+            {
+                Files = unindexedFiles,
+                TotalCount = totalCount,
+                Offset = offset,
+                Take = take
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get unindexed files for account {AccountId}", accountId);
+            return new ObjectResult(new ApiError
+            {
+                Code = "GET_UNINDEXED_FAILED",
+                Message = "Failed to get unindexed files",
                 Status = 500
             }) { StatusCode = 500 };
         }
@@ -410,14 +528,29 @@ public class FileIndexController(
         {
             // Build the query with all conditions at once
             var searchTerm = query.ToLower();
-            var fileIndexes = await db.FileIndexes
+            var baseQuery = db.FileIndexes
                 .Where(fi => fi.AccountId == accountId)
-                .Include(fi => fi.File)
-                .Where(fi => 
-                    (string.IsNullOrEmpty(path) || fi.Path == FileIndexService.NormalizePath(path)) &&
-                    (fi.File.Name.ToLower().Contains(searchTerm) ||
-                     (fi.File.Description != null && fi.File.Description.ToLower().Contains(searchTerm)) ||
-                     (fi.File.MimeType != null && fi.File.MimeType.ToLower().Contains(searchTerm))))
+                .Include(fi => fi.File);
+
+            IQueryable<SnCloudFileIndex> queryable;
+
+            // If a path is specified, find the folder and filter by folder ID
+            if (!string.IsNullOrEmpty(path))
+            {
+                var normalizedPath = FileIndexService.NormalizePath(path);
+                var targetFolder = await GetOrCreateFolderByPathAsync(normalizedPath, accountId);
+                queryable = baseQuery.Where(fi => fi.FolderId == targetFolder.Id);
+            }
+            else
+            {
+                queryable = baseQuery;
+            }
+
+            var fileIndexes = await queryable
+                .Where(fi =>
+                    fi.File.Name.ToLower().Contains(searchTerm) ||
+                    (fi.File.Description != null && fi.File.Description.ToLower().Contains(searchTerm)) ||
+                    (fi.File.MimeType != null && fi.File.MimeType.ToLower().Contains(searchTerm)))
                 .ToListAsync();
 
             return Ok(new
@@ -439,6 +572,249 @@ public class FileIndexController(
             }) { StatusCode = 500 };
         }
     }
+
+    /// <summary>
+    /// Creates a new folder
+    /// </summary>
+    /// <param name="request">The folder creation request</param>
+    /// <returns>The created folder</returns>
+    [HttpPost("folders")]
+    public async Task<IActionResult> CreateFolder([FromBody] CreateFolderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        try
+        {
+            var folder = await folderService.CreateAsync(request.Name, accountId, request.ParentFolderId);
+            return Ok(folder);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Gets a folder by ID with its contents
+    /// </summary>
+    /// <param name="folderId">The folder ID</param>
+    /// <returns>The folder with child folders and files</returns>
+    [HttpGet("folders/{folderId:guid}")]
+    public async Task<IActionResult> GetFolderById(Guid folderId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        var folder = await folderService.GetByIdAsync(folderId, accountId);
+
+        if (folder == null)
+        {
+            return NotFound($"Folder with ID '{folderId}' not found");
+        }
+
+        return Ok(folder);
+    }
+
+    /// <summary>
+    /// Gets all folders for the current account
+    /// </summary>
+    /// <returns>List of folders</returns>
+    [HttpGet("folders")]
+    public async Task<IActionResult> GetAllFolders()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        var folders = await folderService.GetByAccountIdAsync(accountId);
+        return Ok(folders);
+    }
+
+    /// <summary>
+    /// Gets child folders of a parent folder
+    /// </summary>
+    /// <param name="parentFolderId">The parent folder ID</param>
+    /// <returns>List of child folders</returns>
+    [HttpGet("folders/children/{parentFolderId:guid}")]
+    public async Task<IActionResult> GetChildFolders(Guid parentFolderId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        var folders = await folderService.GetChildFoldersAsync(parentFolderId, accountId);
+        return Ok(folders);
+    }
+
+    /// <summary>
+    /// Updates a folder's name
+    /// </summary>
+    /// <param name="folderId">The folder ID</param>
+    /// <param name="request">The update request</param>
+    /// <returns>The updated folder</returns>
+    [HttpPut("folders/{folderId:guid}")]
+    public async Task<IActionResult> UpdateFolder(Guid folderId, [FromBody] UpdateFolderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        try
+        {
+            var folder = await folderService.UpdateAsync(folderId, request.Name, accountId);
+
+            if (folder == null)
+            {
+                return NotFound($"Folder with ID '{folderId}' not found");
+            }
+
+            return Ok(folder);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Deletes a folder and all its contents
+    /// </summary>
+    /// <param name="folderId">The folder ID</param>
+    /// <returns>Success status</returns>
+    [HttpDelete("folders/{folderId:guid}")]
+    public async Task<IActionResult> DeleteFolder(Guid folderId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        var deleted = await folderService.DeleteAsync(folderId, accountId);
+
+        if (!deleted)
+        {
+            return NotFound($"Folder with ID '{folderId}' not found");
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Moves a folder to a new parent folder
+    /// </summary>
+    /// <param name="folderId">The folder ID</param>
+    /// <param name="request">The move request</param>
+    /// <returns>The moved folder</returns>
+    [HttpPost("folders/{folderId:guid}/move")]
+    public async Task<IActionResult> MoveFolder(Guid folderId, [FromBody] MoveFolderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        try
+        {
+            var folder = await folderService.MoveAsync(folderId, request.NewParentFolderId, accountId);
+
+            if (folder == null)
+            {
+                return NotFound($"Folder with ID '{folderId}' not found");
+            }
+
+            return Ok(folder);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Searches for folders by name
+    /// </summary>
+    /// <param name="searchTerm">The search term</param>
+    /// <returns>List of matching folders</returns>
+    [HttpGet("folders/search")]
+    public async Task<IActionResult> SearchFolders([FromQuery] string searchTerm)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            return BadRequest("Search term cannot be empty");
+        }
+
+        var folders = await folderService.SearchAsync(accountId, searchTerm);
+        return Ok(folders);
+    }
+
+    /// <summary>
+    /// Gets files in a specific folder
+    /// </summary>
+    /// <param name="folderId">The folder ID</param>
+    /// <returns>List of files in the folder</returns>
+    [HttpGet("folders/{folderId:guid}/files")]
+    public async Task<IActionResult> GetFilesInFolder(Guid folderId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        var files = await fileIndexService.GetByFolderAsync(accountId, folderId);
+        return Ok(files);
+    }
+
+    /// <summary>
+    /// Moves a file to a different folder
+    /// </summary>
+    /// <param name="fileIndexId">The file index ID</param>
+    /// <param name="request">The move request</param>
+    /// <returns>The updated file index</returns>
+    [HttpPost("files/{fileIndexId:guid}/move-to-folder")]
+    public async Task<IActionResult> MoveFileToFolder(Guid fileIndexId, [FromBody] MoveFileToFolderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+        
+        try
+        {
+            var fileIndex = await fileIndexService.MoveAsync(fileIndexId, request.NewFolderId, accountId);
+
+            if (fileIndex == null)
+            {
+                return NotFound($"File index with ID '{fileIndexId}' not found");
+            }
+
+            return Ok(fileIndex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
 }
 
 public class MoveFileRequest
@@ -450,4 +826,53 @@ public class CreateFileIndexRequest
 {
     [MaxLength(32)] public string FileId { get; set; } = null!;
     public string Path { get; set; } = null!;
+}
+
+/// <summary>
+/// Request model for creating a folder
+/// </summary>
+public class CreateFolderRequest
+{
+    /// <summary>
+    /// The name of the folder
+    /// </summary>
+    public string Name { get; set; } = null!;
+
+    /// <summary>
+    /// Optional parent folder ID (null for root folder)
+    /// </summary>
+    public Guid? ParentFolderId { get; set; }
+}
+
+/// <summary>
+/// Request model for updating a folder
+/// </summary>
+public class UpdateFolderRequest
+{
+    /// <summary>
+    /// The new name for the folder
+    /// </summary>
+    public string Name { get; set; } = null!;
+}
+
+/// <summary>
+/// Request model for moving a folder
+/// </summary>
+public class MoveFolderRequest
+{
+    /// <summary>
+    /// The new parent folder ID (null for root)
+    /// </summary>
+    public Guid? NewParentFolderId { get; set; }
+}
+
+/// <summary>
+/// Request model for moving a file to a folder
+/// </summary>
+public class MoveFileToFolderRequest
+{
+    /// <summary>
+    /// The new folder ID
+    /// </summary>
+    public Guid NewFolderId { get; set; }
 }

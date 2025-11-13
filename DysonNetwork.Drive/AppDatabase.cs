@@ -26,6 +26,7 @@ public class AppDatabase(
     public DbSet<SnCloudFile> Files { get; set; } = null!;
     public DbSet<CloudFileReference> FileReferences { get; set; } = null!;
     public DbSet<SnCloudFileIndex> FileIndexes { get; set; }
+    public DbSet<SnCloudFolder> Folders { get; set; } = null!;
 
     public DbSet<PersistentTask> Tasks { get; set; } = null!;
     public DbSet<PersistentUploadTask> UploadTasks { get; set; } = null!; // Backward compatibility
