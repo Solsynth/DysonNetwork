@@ -13,11 +13,6 @@
         <PackageReference Include="FFMpegCore" Version="5.4.0" />
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.71.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-          <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
         <PackageReference Include="MimeKit" Version="4.14.0" />
         <PackageReference Include="MimeTypes" Version="2.5.2">
           <PrivateAssets>all</PrivateAssets>
@@ -35,9 +30,7 @@
         <PackageReference Include="Quartz" Version="3.15.1" />
         <PackageReference Include="Quartz.AspNetCore" Version="3.15.1" />
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.15.1" />
-        <PackageReference Include="EFCore.BulkExtensions" Version="9.0.2" />
         <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.2" />
-        <PackageReference Include="EFCore.NamingConventions" Version="10.0.0-rc.2" />
         <!-- Pin the SkiaSharp version at the 2.88.9 due to the BlurHash need this specific version -->
         <PackageReference Include="SkiaSharp" Version="2.88.9" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />

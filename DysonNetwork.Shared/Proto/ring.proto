@@ -4,7 +4,6 @@ package proto;
 
 option csharp_namespace = "DysonNetwork.Shared.Proto";
 
-import "google/protobuf/struct.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 

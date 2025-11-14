@@ -8,6 +8,8 @@
 
     <ItemGroup>
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+        <PackageReference Include="EFCore.BulkExtensions" Version="9.0.2" />
+        <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
         <PackageReference Include="Google.Api.CommonProtos" Version="2.17.0" />
         <PackageReference Include="Google.Protobuf" Version="3.33.1" />
         <PackageReference Include="Google.Protobuf.Tools" Version="3.33.1" />
@@ -37,8 +39,8 @@
         <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.5.2" />
         <PackageReference Include="Aspire.StackExchange.Redis" Version="13.0.0" />
         
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0-rc.2" />
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.0-rc.2" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="9.0.4" />
 
         <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
         <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.0.0" />

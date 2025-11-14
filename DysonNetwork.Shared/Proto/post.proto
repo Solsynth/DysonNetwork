@@ -6,7 +6,6 @@ option csharp_namespace = "DysonNetwork.Shared.Proto";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-import "google/protobuf/struct.proto";
 import "file.proto";
 import "realm.proto";
 import "publisher.proto";

@@ -12,20 +12,13 @@
 
     <ItemGroup>
         <PackageReference Include="AngleSharp" Version="1.4.0" />
-        <PackageReference Include="EFCore.BulkExtensions" Version="9.0.2" />
         <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="9.0.2" />
-        <PackageReference Include="EFCore.NamingConventions" Version="10.0.0-rc.2" />
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.71.0" />
         <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
         <PackageReference Include="Livekit.Server.Sdk.Dotnet" Version="1.0.14" />
         <PackageReference Include="Markdig" Version="0.43.0" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
         <PackageReference Include="MimeTypes" Version="2.5.2">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
