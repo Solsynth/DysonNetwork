@@ -234,11 +234,9 @@ public class CacheServiceRedis : ICacheService
 
         var value = await _database.StringGetAsync(key);
 
-        if (value.IsNullOrEmpty)
-            return default;
-
-        // For NodaTime serialization, use the configured JSON options
-        return JsonSerializer.Deserialize<T>(value!, _jsonOptions);
+        return value.IsNullOrEmpty ? default :
+            // For NodaTime serialization, use the configured JSON options
+            JsonSerializer.Deserialize<T>(value.ToString(), _jsonOptions);
     }
 
     public async Task<(bool found, T? value)> GetAsyncWithStatus<T>(string key)
@@ -249,11 +247,9 @@ public class CacheServiceRedis : ICacheService
 
         var value = await _database.StringGetAsync(key);
 
-        if (value.IsNullOrEmpty)
-            return (false, default);
-
-        // For NodaTime serialization, use the configured JSON options
-        return (true, JsonSerializer.Deserialize<T>(value!, _jsonOptions));
+        return value.IsNullOrEmpty ? (false, default) :
+            // For NodaTime serialization, use the configured JSON options
+            (true, JsonSerializer.Deserialize<T>(value!.ToString(), _jsonOptions));
     }
 
     public async Task<bool> RemoveAsync(string key)

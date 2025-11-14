@@ -22,8 +22,8 @@ RUN dotnet restore "DysonNetwork.Sphere/DysonNetwork.Sphere.csproj"
 COPY . .
 
 # Create necessary directories for localized resources
-RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net9.0/zh-hans \
-    && mkdir -p /src/DysonNetwork.Pass/bin/Release/net9.0/zh-hans
+RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net10.0/zh-hans \
+    && mkdir -p /src/DysonNetwork.Pass/bin/Release/net10.0/zh-hans
 
 # Build the application
 WORKDIR "/src/DysonNetwork.Sphere"
