@@ -132,6 +132,51 @@ public class FileIndexController(
     }
 
     /// <summary>
+    /// Gets files that have not been indexed for the current user.
+    /// </summary>
+    /// <param name="offset">The number of files to skip</param>
+    /// <param name="take">The number of files to return</param>
+    /// <returns>List of unindexed files</returns>
+    [HttpGet("unindexed")]
+    public async Task<IActionResult> GetUnindexedFiles([FromQuery] int offset = 0, [FromQuery] int take = 20)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        try
+        {
+            var query = db.Files
+                .Where(f => f.AccountId == accountId
+                            && !f.IsMarkedRecycle
+                            && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId))
+                .OrderByDescending(f => f.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+            
+            Response.Headers.Append("X-Total", totalCount.ToString());
+            
+            var unindexedFiles = await query
+                .Skip(offset)
+                .Take(take)
+                .ToListAsync();
+
+            return Ok(unindexedFiles);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get unindexed files for account {AccountId}", accountId);
+            return new ObjectResult(new ApiError
+            {
+                Code = "GET_UNINDEXED_FAILED",
+                Message = "Failed to get unindexed files",
+                Status = 500
+            }) { StatusCode = 500 };
+        }
+    }
+
+    /// <summary>
     /// Moves a file to a new path
     /// </summary>
     /// <param name="indexId">The file index ID</param>
