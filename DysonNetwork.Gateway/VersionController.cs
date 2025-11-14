@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
 using DysonNetwork.Shared.Data;
+using Microsoft.AspNetCore.Mvc;
 
-namespace DysonNetwork.Pass;
+namespace DysonNetwork.Gateway;
 
 [ApiController]
-[Route("/api/version")]
+[Route("/version")]
 public class VersionController : ControllerBase
 {
     [HttpGet]
