@@ -2,7 +2,7 @@ using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
-using IPNetwork = Microsoft.AspNetCore.HttpOverrides.IPNetwork;
+using IPNetwork = System.Net.IPNetwork;
 
 namespace DysonNetwork.Shared.Http;
 
@@ -21,18 +21,14 @@ public static class KnownProxiesConfiguration
                 foreach (var proxy in proxyAddresses)
                 {
                     if (IPAddress.TryParse(proxy, out var ipAddress))
-                    {
                         forwardedHeadersOptions.KnownProxies.Add(ipAddress);
-                    }
                     else if (IPNetwork.TryParse(proxy, out var ipNetwork))
-                    {
-                        forwardedHeadersOptions.KnownNetworks.Add(ipNetwork);
-                    }
+                        forwardedHeadersOptions.KnownIPNetworks.Add(ipNetwork);
                 }
             }
         }
 
-        if (forwardedHeadersOptions.KnownProxies.Count == 0 && forwardedHeadersOptions.KnownNetworks.Count == 0)
+        if (forwardedHeadersOptions.KnownProxies.Count == 0 && forwardedHeadersOptions.KnownIPNetworks.Count == 0)
         {
             forwardedHeadersOptions.KnownProxies.Add(IPAddress.Any);
             forwardedHeadersOptions.KnownProxies.Add(IPAddress.IPv6Any);
