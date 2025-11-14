@@ -428,14 +428,10 @@ namespace DysonNetwork.Drive.Migrations
                         .HasColumnType("character varying(32)")
                         .HasColumnName("file_id");
 
-                    b.Property<Guid>("FolderId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("folder_id");
-
                     b.Property<string>("Path")
                         .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
                         .HasColumnName("path");
 
                     b.Property<Instant>("UpdatedAt")
@@ -448,70 +444,10 @@ namespace DysonNetwork.Drive.Migrations
                     b.HasIndex("FileId")
                         .HasDatabaseName("ix_file_indexes_file_id");
 
-                    b.HasIndex("FolderId", "AccountId")
-                        .HasDatabaseName("ix_file_indexes_folder_id_account_id");
+                    b.HasIndex("Path", "AccountId")
+                        .HasDatabaseName("ix_file_indexes_path_account_id");
 
                     b.ToTable("file_indexes", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnCloudFolder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<Dictionary<string, object>>("FolderMeta")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("folder_meta");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid?>("ParentFolderId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("parent_folder_id");
-
-                    b.Property<string>("Path")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("character varying(8192)")
-                        .HasColumnName("path");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_folders");
-
-                    b.HasIndex("ParentFolderId")
-                        .HasDatabaseName("ix_folders_parent_folder_id");
-
-                    b.HasIndex("Path", "AccountId")
-                        .HasDatabaseName("ix_folders_path_account_id");
-
-                    b.ToTable("folders", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnFileBundle", b =>
@@ -673,26 +609,7 @@ namespace DysonNetwork.Drive.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_file_indexes_files_file_id");
 
-                    b.HasOne("DysonNetwork.Shared.Models.SnCloudFolder", "Folder")
-                        .WithMany("Files")
-                        .HasForeignKey("FolderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_file_indexes_folders_folder_id");
-
                     b.Navigation("File");
-
-                    b.Navigation("Folder");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnCloudFolder", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnCloudFolder", "ParentFolder")
-                        .WithMany("ChildFolders")
-                        .HasForeignKey("ParentFolderId")
-                        .HasConstraintName("fk_folders_folders_parent_folder_id");
-
-                    b.Navigation("ParentFolder");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnCloudFile", b =>
@@ -700,13 +617,6 @@ namespace DysonNetwork.Drive.Migrations
                     b.Navigation("FileIndexes");
 
                     b.Navigation("References");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnCloudFolder", b =>
-                {
-                    b.Navigation("ChildFolders");
-
-                    b.Navigation("Files");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnFileBundle", b =>

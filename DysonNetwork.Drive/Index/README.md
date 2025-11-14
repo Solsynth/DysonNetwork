@@ -12,11 +12,9 @@ And all the arguments will be transformed into snake case via the gateway.
 ### Core Components
 
 1. **SnCloudFileIndex Model** - Represents the file-to-path mapping
-2. **SnCloudFolder Model** - Represents hierarchical folder structure
-3. **FileIndexService** - Business logic for file index operations
-4. **FolderService** - Business logic for folder operations
-5. **FileIndexController** - REST API endpoints for file and folder management
-6. **FileUploadController Integration** - Automatic index creation during upload
+2. **FileIndexService** - Business logic for file index operations
+3. **FileIndexController** - REST API endpoints for file management
+4. **FileUploadController Integration** - Automatic index creation during upload
 
 ### Database Schema
 
@@ -202,138 +200,6 @@ Search for files by name or metadata.
 }
 ```
 
-### Folder Management
-
-The system provides comprehensive folder management capabilities alongside file indexing.
-
-#### Create Folder
-**POST** `/api/index/folders`
-
-Create a new folder.
-
-**Request Body:**
-```json
-{
-  "name": "Documents",
-  "parentFolderId": null  // null for root folder
-}
-```
-
-**Response:**
-```json
-{
-  "id": "guid",
-  "name": "Documents",
-  "parentFolderId": null,
-  "accountId": "guid",
-  "createdAt": "2024-01-01T00:00:00Z",
-  "updatedAt": "2024-01-01T00:00:00Z"
-}
-```
-
-#### Get Folder by ID
-**GET** `/api/index/folders/{folderId}`
-
-Get a folder with its contents.
-
-**Path Parameters:**
-- `folderId` - The folder ID
-
-**Response:**
-```json
-{
-  "id": "guid",
-  "name": "Documents",
-  "parentFolderId": null,
-  "accountId": "guid",
-  "childFolders": [
-    {
-      "id": "guid",
-      "name": "Reports",
-      "parentFolderId": "guid",
-      "accountId": "guid"
-    }
-  ],
-  "files": [
-    // File index objects
-  ],
-  "createdAt": "2024-01-01T00:00:00Z",
-  "updatedAt": "2024-01-01T00:00:00Z"
-}
-```
-
-#### Get All Folders
-**GET** `/api/index/folders`
-
-Get all folders for the current user.
-
-**Response:**
-```json
-[
-  {
-    "id": "guid",
-    "name": "Documents",
-    "parentFolderId": null,
-    "accountId": "guid",
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  }
-]
-```
-
-#### Update Folder
-**PUT** `/api/index/folders/{folderId}`
-
-Update a folder's name.
-
-**Path Parameters:**
-- `folderId` - The folder ID
-
-**Request Body:**
-```json
-{
-  "name": "Updated Documents"
-}
-```
-
-#### Delete Folder
-**DELETE** `/api/index/folders/{folderId}`
-
-Delete a folder and all its contents.
-
-**Path Parameters:**
-- `folderId` - The folder ID
-
-#### Move File to Folder
-**POST** `/api/index/files/{fileIndexId}/move-to-folder`
-
-Move a file to a different folder.
-
-**Path Parameters:**
-- `fileIndexId` - The file index ID
-
-**Request Body:**
-```json
-{
-  "newFolderId": "guid"
-}
-```
-
-#### Get Files in Folder
-**GET** `/api/index/folders/{folderId}/files`
-
-Get all files in a specific folder.
-
-**Path Parameters:**
-- `folderId` - The folder ID
-
-**Response:**
-```json
-[
-  // File index objects
-]
-```
-
 ## Path Normalization
 
 The system automatically normalizes paths to ensure consistency:
@@ -371,72 +237,29 @@ The system will automatically create a file index when the upload completes succ
 ```csharp
 public class FileIndexService
 {
-    // Create a new file index at path
-    Task<SnCloudFileIndex> CreateAsync(string path, string fileId, Guid accountId);
-
-    // Create a new file index in folder
-    Task<SnCloudFileIndex> CreateInFolderAsync(Guid folderId, string fileId, Guid accountId);
-
+    // Create a new file index
+    Task<SnCloudFileIndex> CreateAsync(string path, Guid fileId, Guid accountId);
+    
     // Get files by path
     Task<List<SnCloudFileIndex>> GetByPathAsync(Guid accountId, string path);
-
-    // Get files by folder
-    Task<List<SnCloudFileIndex>> GetByFolderAsync(Guid accountId, Guid folderId);
-
+    
     // Get all files for account
     Task<List<SnCloudFileIndex>> GetByAccountIdAsync(Guid accountId);
-
+    
     // Get indexes for specific file
-    Task<List<SnCloudFileIndex>> GetByFileIdAsync(string fileId);
-
+    Task<List<SnCloudFileIndex>> GetByFileIdAsync(Guid fileId);
+    
     // Move file to new path
     Task<SnCloudFileIndex?> UpdateAsync(Guid indexId, string newPath);
-
-    // Move file to different folder
-    Task<SnCloudFileIndex?> MoveAsync(Guid fileIndexId, Guid newFolderId, Guid accountId);
-
+    
     // Remove file index
     Task<bool> RemoveAsync(Guid indexId);
-
+    
     // Remove all indexes in path
     Task<int> RemoveByPathAsync(Guid accountId, string path);
-
-    // Remove all indexes in folder
-    Task<int> RemoveByFolderAsync(Guid accountId, Guid folderId);
-
+    
     // Normalize path format
     public static string NormalizePath(string path);
-}
-```
-
-### FolderService
-
-```csharp
-public class FolderService
-{
-    // Create a new folder
-    Task<SnCloudFolder> CreateAsync(string name, Guid accountId, Guid? parentFolderId = null);
-
-    // Get folder by ID with contents
-    Task<SnCloudFolder?> GetByIdAsync(Guid folderId, Guid accountId);
-
-    // Get all folders for account
-    Task<List<SnCloudFolder>> GetByAccountIdAsync(Guid accountId);
-
-    // Get child folders
-    Task<List<SnCloudFolder>> GetChildFoldersAsync(Guid parentFolderId, Guid accountId);
-
-    // Update folder name
-    Task<SnCloudFolder?> UpdateAsync(Guid folderId, string name, Guid accountId);
-
-    // Move folder to new parent
-    Task<SnCloudFolder?> MoveAsync(Guid folderId, Guid? newParentFolderId, Guid accountId);
-
-    // Delete folder and contents
-    Task<bool> DeleteAsync(Guid folderId, Guid accountId);
-
-    // Search folders by name
-    Task<List<SnCloudFolder>> SearchAsync(Guid accountId, string searchTerm);
 }
 ```
 
