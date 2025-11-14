@@ -36,6 +36,9 @@
         <PackageReference Include="Aspire.NATS.Net" Version="13.0.0" />
         <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.5.2" />
         <PackageReference Include="Aspire.StackExchange.Redis" Version="13.0.0" />
+        
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0-rc.2" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.0-rc.2" />
 
         <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
         <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="10.0.0" />
