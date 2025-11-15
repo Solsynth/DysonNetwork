@@ -137,6 +137,8 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                         var result = new FunctionResultContent(part.FunctionResult!.CallId, resultString);
                         chatHistory.Add(result.ToChatMessage());
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
 
@@ -149,7 +151,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                 var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, textContent.ToString());
                 if (hasFunctionCalls)
                 {
-                    assistantMessage.Items = new ChatMessageContentItemCollection();
+                    assistantMessage.Items = [];
                     foreach (var fc in functionCalls)
                     {
                         assistantMessage.Items.Add(fc);
@@ -178,8 +180,10 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             AuthorRole? authorRole = null;
             var functionCallBuilder = new FunctionCallContentBuilder();
 
-            await foreach (var streamingContent in chatCompletionService.GetStreamingChatMessageContentsAsync(
-                               chatHistory, executionSettings, kernel))
+            await foreach (
+                var streamingContent in chatCompletionService.GetStreamingChatMessageContentsAsync(
+                    chatHistory, executionSettings, kernel)
+            )
             {
                 authorRole ??= streamingContent.Role;
 
@@ -192,18 +196,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     await Response.Body.FlushAsync();
                 }
 
-                if (streamingContent.Items.Count > 0)
-                {
-                    functionCallBuilder.Append(streamingContent);
-                }
-
-                foreach (var functionCallUpdate in streamingContent.Items.OfType<StreamingFunctionCallUpdateContent>())
-                {
-                    var messageJson = JsonSerializer.Serialize(new
-                        { type = "function_call_update", data = functionCallUpdate });
-                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
-                    await Response.Body.FlushAsync();
-                }
+                functionCallBuilder.Append(streamingContent);
             }
 
             var finalMessageText = textContentBuilder.ToString();
@@ -213,19 +206,21 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     { Type = ThinkingMessagePartType.Text, Text = finalMessageText });
             }
 
-            var functionCalls = functionCallBuilder.Build();
+            var functionCalls = functionCallBuilder.Build()
+                .Where(fc => !string.IsNullOrEmpty(fc.Id)).ToList();
 
             if (functionCalls.Count == 0)
-            {
                 break;
-            }
 
-            var assistantMessage = new ChatMessageContent(authorRole ?? AuthorRole.Assistant,
-                string.IsNullOrEmpty(finalMessageText) ? null : finalMessageText);
+            var assistantMessage = new ChatMessageContent(
+                authorRole ?? AuthorRole.Assistant,
+                string.IsNullOrEmpty(finalMessageText) ? null : finalMessageText
+            );
             foreach (var functionCall in functionCalls)
             {
                 assistantMessage.Items.Add(functionCall);
             }
+
             chatHistory.Add(assistantMessage);
 
             foreach (var functionCall in functionCalls)
@@ -236,7 +231,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     FunctionCall = new SnFunctionCall
                     {
                         Id = functionCall.Id!,
-                        Name = functionCall.FunctionName!,
+                        Name = functionCall.FunctionName,
                         Arguments = JsonSerializer.Serialize(functionCall.Arguments)
                     }
                 };
@@ -263,7 +258,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     Type = ThinkingMessagePartType.FunctionResult,
                     FunctionResult = new SnFunctionResult
                     {
-                        CallId = resultContent.CallId,
+                        CallId = resultContent.CallId!,
                         Result = resultContent.Result!,
                         IsError = resultContent.Result is Exception
                     }

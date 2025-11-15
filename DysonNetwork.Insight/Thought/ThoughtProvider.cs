@@ -73,21 +73,24 @@ public class ThoughtProvider
                 throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
         }
 
-        // Add gRPC clients for Thought Plugins
-        builder.Services.AddServiceDiscoveryCore();
-        builder.Services.AddServiceDiscovery();
-        builder.Services.AddAccountService();
-        builder.Services.AddSphereService();
-        
-        builder.Plugins.AddFromType<SnAccountKernelPlugin>();
-        builder.Plugins.AddFromType<SnPostKernelPlugin>();
-
         return builder.Build();
     }
 
     [Experimental("SKEXP0050")]
     private void InitializeHelperFunctions()
     {
+        var accountPlugin = new SnAccountKernelPlugin(_accountClient);
+        var postPlugin = new SnPostKernelPlugin(_postClient);
+        
+        // Add Solar Network tools plugin
+        Kernel.ImportPluginFromFunctions("solar_network", [
+            KernelFunctionFactory.CreateFromMethod(accountPlugin.GetAccount),
+            KernelFunctionFactory.CreateFromMethod(accountPlugin.GetAccountByName),
+            KernelFunctionFactory.CreateFromMethod(postPlugin.GetPost),
+            KernelFunctionFactory.CreateFromMethod(postPlugin.ListPosts),
+            KernelFunctionFactory.CreateFromMethod(postPlugin.ListPostsWithinTime)
+        ]);
+
         // Add web search plugins if configured
         var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
         if (!string.IsNullOrEmpty(bingApiKey))
@@ -116,12 +119,12 @@ public class ThoughtProvider
             case "ollama":
                 return new OllamaPromptExecutionSettings
                 {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
                 };
             case "deepseek":
                 return new OpenAIPromptExecutionSettings
                 {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
                 };
             default:
                 throw new InvalidOperationException("Unknown provider: " + ModelProviderType);
