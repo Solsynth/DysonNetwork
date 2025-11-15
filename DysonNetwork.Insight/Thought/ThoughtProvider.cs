@@ -1,20 +1,15 @@
 using System.ClientModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using DysonNetwork.Insight.Thought.Plugins;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI;
-using PostType = DysonNetwork.Shared.Proto.PostType;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
-using NodaTime.Serialization.Protobuf;
-using NodaTime.Text;
 
 namespace DysonNetwork.Insight.Thought;
 
@@ -29,6 +24,7 @@ public class ThoughtProvider
 
     private string? ModelProviderType { get; set; }
     public string? ModelDefault { get; set; }
+    public List<string> ModelAvailable { get; set; } = [];
 
     [Experimental("SKEXP0050")]
     public ThoughtProvider(
@@ -52,6 +48,7 @@ public class ThoughtProvider
         var cfg = configuration.GetSection("Thinking");
         ModelProviderType = cfg.GetValue<string>("Provider")?.ToLower();
         ModelDefault = cfg.GetValue<string>("Model");
+        ModelAvailable = cfg.GetValue<List<string>>("ModelAvailable") ?? [];
         var endpoint = cfg.GetValue<string>("Endpoint");
         var apiKey = cfg.GetValue<string>("ApiKey");
 
@@ -60,14 +57,20 @@ public class ThoughtProvider
         switch (ModelProviderType)
         {
             case "ollama":
-                builder.AddOllamaChatCompletion(ModelDefault!, new Uri(endpoint ?? "http://localhost:11434/api"));
+                foreach (var model in ModelAvailable)
+                    builder.AddOllamaChatCompletion(
+                        ModelDefault!,
+                        new Uri(endpoint ?? "http://localhost:11434/api"),
+                        model
+                    );
                 break;
             case "deepseek":
                 var client = new OpenAIClient(
                     new ApiKeyCredential(apiKey!),
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
-                builder.AddOpenAIChatCompletion(ModelDefault!, client);
+                foreach (var model in ModelAvailable)
+                    builder.AddOpenAIChatCompletion(ModelDefault!, client, model);
                 break;
             default:
                 throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
@@ -78,7 +81,7 @@ public class ThoughtProvider
         builder.Services.AddServiceDiscovery();
         builder.Services.AddAccountService();
         builder.Services.AddSphereService();
-        
+
         builder.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
         builder.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient));
 
