@@ -13,6 +13,15 @@ using Microsoft.SemanticKernel.Plugins.Web.Google;
 
 namespace DysonNetwork.Insight.Thought;
 
+public class ThoughtServiceModel
+{
+    public string ServiceId { get; set; } = null!;
+    public string? Provider { get; set; }
+    public string? Model { get; set; }
+    public double BillingMultiplier { get; set; }
+    public int PerkLevel { get; set; }
+}
+
 public class ThoughtProvider
 {
     private readonly PostService.PostServiceClient _postClient;
@@ -20,11 +29,10 @@ public class ThoughtProvider
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
 
-    public Kernel Kernel { get; }
-
-    private string? ModelProviderType { get; set; }
-    public string? ModelDefault { get; set; }
-    public List<string> ModelAvailable { get; set; } = [];
+    private readonly Dictionary<string, Kernel> _kernels = new();
+    private readonly Dictionary<string, string> _serviceProviders = new();
+    private readonly Dictionary<string, ThoughtServiceModel> _serviceModels = new();
+    private readonly string _defaultServiceId;
 
     [Experimental("SKEXP0050")]
     public ThoughtProvider(
@@ -39,41 +47,59 @@ public class ThoughtProvider
         _accountClient = accountServiceClient;
         _configuration = configuration;
 
-        Kernel = InitializeThinkingProvider(configuration);
-        InitializeHelperFunctions();
+        var cfg = configuration.GetSection("Thinking");
+        _defaultServiceId = cfg.GetValue<string>("DefaultService")!;
+        var services = cfg.GetSection("Services").GetChildren();
+
+        foreach (var service in services)
+        {
+            var serviceId = service.Key;
+            var serviceModel = new ThoughtServiceModel
+            {
+                ServiceId = serviceId,
+                Provider = service.GetValue<string>("Provider"),
+                Model = service.GetValue<string>("Model"),
+                BillingMultiplier = service.GetValue<double>("BillingMultiplier", 1.0),
+                PerkLevel = service.GetValue<int>("PerkLevel", 0)
+            };
+            _serviceModels[serviceId] = serviceModel;
+            
+            var providerType = service.GetValue<string>("Provider")?.ToLower();
+            if (providerType is null) continue;
+
+            var kernel = InitializeThinkingService(service);
+            InitializeHelperFunctions(kernel);
+            _kernels[serviceId] = kernel;
+            _serviceProviders[serviceId] = providerType;
+        }
     }
 
-    private Kernel InitializeThinkingProvider(IConfiguration configuration)
+    private Kernel InitializeThinkingService(IConfigurationSection serviceConfig)
     {
-        var cfg = configuration.GetSection("Thinking");
-        ModelProviderType = cfg.GetValue<string>("Provider")?.ToLower();
-        ModelDefault = cfg.GetValue<string>("Model");
-        ModelAvailable = cfg.GetValue<List<string>>("ModelAvailable") ?? [];
-        var endpoint = cfg.GetValue<string>("Endpoint");
-        var apiKey = cfg.GetValue<string>("ApiKey");
+        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        var model = serviceConfig.GetValue<string>("Model");
+        var endpoint = serviceConfig.GetValue<string>("Endpoint");
+        var apiKey = serviceConfig.GetValue<string>("ApiKey");
 
         var builder = Kernel.CreateBuilder();
 
-        switch (ModelProviderType)
+        switch (providerType)
         {
             case "ollama":
-                foreach (var model in ModelAvailable)
-                    builder.AddOllamaChatCompletion(
-                        ModelDefault!,
-                        new Uri(endpoint ?? "http://localhost:11434/api"),
-                        model
-                    );
+                builder.AddOllamaChatCompletion(
+                    model!,
+                    new Uri(endpoint ?? "http://localhost:11434/api")
+                );
                 break;
             case "deepseek":
                 var client = new OpenAIClient(
                     new ApiKeyCredential(apiKey!),
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
-                foreach (var model in ModelAvailable)
-                    builder.AddOpenAIChatCompletion(ModelDefault!, client, model);
+                builder.AddOpenAIChatCompletion(model!, client);
                 break;
             default:
-                throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
+                throw new IndexOutOfRangeException("Unknown thinking provider: " + providerType);
         }
 
         // Add gRPC clients for Thought Plugins
@@ -89,7 +115,7 @@ public class ThoughtProvider
     }
 
     [Experimental("SKEXP0050")]
-    private void InitializeHelperFunctions()
+    private void InitializeHelperFunctions(Kernel kernel)
     {
         // Add web search plugins if configured
         var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
@@ -97,7 +123,7 @@ public class ThoughtProvider
         {
             var bingConnector = new BingConnector(bingApiKey);
             var bing = new WebSearchEnginePlugin(bingConnector);
-            Kernel.ImportPluginFromObject(bing, "bing");
+            kernel.ImportPluginFromObject(bing, "bing");
         }
 
         var googleApiKey = _configuration.GetValue<string>("Thinking:GoogleApiKey");
@@ -108,26 +134,58 @@ public class ThoughtProvider
                 apiKey: googleApiKey,
                 searchEngineId: googleCx);
             var google = new WebSearchEnginePlugin(googleConnector);
-            Kernel.ImportPluginFromObject(google, "google");
+            kernel.ImportPluginFromObject(google, "google");
         }
     }
 
-    public PromptExecutionSettings CreatePromptExecutionSettings()
+    public Kernel? GetKernel(string? serviceId = null)
     {
-        switch (ModelProviderType)
+        serviceId ??= _defaultServiceId;
+        return _kernels.GetValueOrDefault(serviceId);
+    }
+
+    public string GetServiceId(string? serviceId = null)
+    {
+        return serviceId ?? _defaultServiceId;
+    }
+
+    public IEnumerable<string> GetAvailableServices()
+    {
+        return _kernels.Keys;
+    }
+    
+    public IEnumerable<ThoughtServiceModel> GetAvailableServicesInfo()
+    {
+        return _serviceModels.Values;
+    }
+
+    public ThoughtServiceModel? GetServiceInfo(string? serviceId)
+    {
+        serviceId ??= _defaultServiceId;
+        return _serviceModels.GetValueOrDefault(serviceId);
+    }
+
+    public string GetDefaultServiceId()
+    {
+        return _defaultServiceId;
+    }
+
+    public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null)
+    {
+        serviceId ??= _defaultServiceId;
+        var providerType = _serviceProviders.GetValueOrDefault(serviceId);
+
+        return providerType switch
         {
-            case "ollama":
-                return new OllamaPromptExecutionSettings
-                {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
-                };
-            case "deepseek":
-                return new OpenAIPromptExecutionSettings
-                {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
-                };
-            default:
-                throw new InvalidOperationException("Unknown provider: " + ModelProviderType);
-        }
+            "ollama" => new OllamaPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
+            },
+            "deepseek" => new OpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false), ModelId = serviceId
+            },
+            _ => throw new InvalidOperationException("Unknown provider for service: " + serviceId)
+        };
     }
 }

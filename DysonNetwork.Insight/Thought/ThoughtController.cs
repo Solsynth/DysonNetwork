@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
@@ -19,10 +20,43 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
     public class StreamThinkingRequest
     {
         [Required] public string UserMessage { get; set; } = null!;
+        public string? ServiceId { get; set; }
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; }
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
+    }
+
+    public class ThoughtServiceInfo
+    {
+        public string ServiceId { get; set; } = null!;
+        public double BillingMultiplier { get; set; }
+        public int PerkLevel { get; set; }
+    }
+
+    public class ThoughtServicesResponse
+    {
+        public string DefaultService { get; set; } = null!;
+        public IEnumerable<ThoughtServiceInfo> Services { get; set; } = null!;
+    }
+
+    [HttpGet("services")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<ThoughtServicesResponse> GetAvailableServices()
+    {
+        var services = provider.GetAvailableServicesInfo()
+            .Select(s => new ThoughtServiceInfo
+            {
+                ServiceId = s.ServiceId,
+                BillingMultiplier = s.BillingMultiplier,
+                PerkLevel = s.PerkLevel
+            });
+
+        return Ok(new ThoughtServicesResponse
+        {
+            DefaultService = provider.GetDefaultServiceId(),
+            Services = services
+        });
     }
 
     [HttpPost]
@@ -35,6 +69,26 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         if (request.AcceptProposals.Any(e => !AvailableProposals.Contains(e)))
             return BadRequest("Request contains unavailable proposal");
 
+        var serviceId = provider.GetServiceId(request.ServiceId);
+        var serviceInfo = provider.GetServiceInfo(serviceId);
+        if (serviceInfo is null)
+        {
+            return BadRequest("Service not found or configured.");
+        }
+
+        // TODO: Check perk level from `currentUser`
+        if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
+            if (currentUser.PerkSubscription is null ||
+                PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier) <
+                serviceInfo.PerkLevel)
+                return StatusCode(403, "Not enough perk level");
+
+        var kernel = provider.GetKernel(request.ServiceId);
+        if (kernel is null)
+        {
+            return BadRequest("Service not found or configured.");
+        }
+
         // Generate a topic if creating a new sequence
         string? topic = null;
         if (!request.SequenceId.HasValue)
@@ -46,7 +100,13 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             );
             summaryHistory.AddUserMessage(request.UserMessage);
 
-            var summaryResult = await provider.Kernel
+            var summaryKernel = provider.GetKernel(); // Get default kernel
+            if (summaryKernel is null)
+            {
+                return BadRequest("Default service not found or configured.");
+            }
+
+            var summaryResult = await summaryKernel
                 .GetRequiredService<IChatCompletionService>()
                 .GetChatMessageContentAsync(summaryHistory);
 
@@ -58,14 +118,13 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         if (sequence == null) return Forbid(); // or NotFound
 
         // Save user thought
-        await service.SaveThoughtAsync(sequence, new List<SnThinkingMessagePart>
-        {
-            new()
+        await service.SaveThoughtAsync(sequence, [
+            new SnThinkingMessagePart
             {
                 Type = ThinkingMessagePartType.Text,
                 Text = request.UserMessage
             }
-        }, ThinkingThoughtRole.User);
+        ], ThinkingThoughtRole.User);
 
         // Build chat history
         var chatHistory = new ChatHistory(
@@ -172,12 +231,10 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
 
                 chatHistory.Add(assistantMessage);
 
-                if (functionResults.Count > 0)
+                if (functionResults.Count <= 0) continue;
+                foreach (var fr in functionResults)
                 {
-                    foreach (var fr in functionResults)
-                    {
-                        chatHistory.Add(fr.ToChatMessage());
-                    }
+                    chatHistory.Add(fr.ToChatMessage());
                 }
             }
         }
@@ -188,9 +245,8 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
 
-        var kernel = provider.Kernel;
         var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-        var executionSettings = provider.CreatePromptExecutionSettings();
+        var executionSettings = provider.CreatePromptExecutionSettings(request.ServiceId);
 
         var assistantParts = new List<SnThinkingMessagePart>();
 
@@ -300,7 +356,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             sequence,
             assistantParts,
             ThinkingThoughtRole.Assistant,
-            provider.ModelDefault
+            serviceId
         );
 
         // Write the topic if it was newly set, then the thought object as JSON to the stream
