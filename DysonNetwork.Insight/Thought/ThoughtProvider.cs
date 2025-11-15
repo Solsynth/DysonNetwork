@@ -4,6 +4,7 @@ using System.Text.Json;
 using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
@@ -72,6 +73,12 @@ public class ThoughtProvider
                 throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
         }
 
+        // Add gRPC clients for Thought Plugins
+        builder.Services.AddServiceDiscoveryCore();
+        builder.Services.AddServiceDiscovery();
+        builder.Services.AddAccountService();
+        builder.Services.AddSphereService();
+        
         builder.Plugins.AddFromType<SnAccountKernelPlugin>();
         builder.Plugins.AddFromType<SnPostKernelPlugin>();
 

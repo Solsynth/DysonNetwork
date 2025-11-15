@@ -64,10 +64,6 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddThinkingServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Add gRPC clients for ThoughtService
-        services.AddSphereService();
-        services.AddAccountService();
-        
         services.AddSingleton<ThoughtProvider>();
         services.AddScoped<ThoughtService>();
 
