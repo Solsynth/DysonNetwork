@@ -12,6 +12,7 @@ public class AppDatabase(
 {
     public DbSet<SnThinkingSequence> ThinkingSequences { get; set; }
     public DbSet<SnThinkingThought> ThinkingThoughts { get; set; }
+    public DbSet<SnUnpaidAccount> UnpaidAccounts { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

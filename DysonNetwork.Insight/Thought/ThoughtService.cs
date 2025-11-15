@@ -133,6 +133,13 @@ public class ThoughtService(
         foreach (var accountGroup in groupedByAccount)
         {
             var accountId = accountGroup.Key;
+            
+            if (await db.UnpaidAccounts.AnyAsync(u => u.AccountId == accountId))
+            {
+                logger.LogWarning("Skipping billing for marked account {accountId}", accountId);
+                continue;
+            }
+            
             var totalUnpaidTokens = accountGroup.Sum(s => s.TotalToken - s.PaidToken);
             var cost = (long)Math.Ceiling(totalUnpaidTokens / 10.0);
 
@@ -166,9 +173,86 @@ public class ThoughtService(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error billing for account {accountId}", accountId);
+                if (!await db.UnpaidAccounts.AnyAsync(u => u.AccountId == accountId))
+                {
+                    db.UnpaidAccounts.Add(new SnUnpaidAccount { AccountId = accountId, MarkedAt = DateTime.UtcNow });
+                }
             }
         }
 
         await db.SaveChangesAsync();
+    }
+
+    public async Task<(bool success, long cost)> RetryBillingForAccountAsync(Guid accountId, ILogger logger)
+    {
+        var isMarked = await db.UnpaidAccounts.FirstOrDefaultAsync(u => u.AccountId == accountId);
+        if (isMarked == null)
+        {
+            logger.LogInformation("Account {accountId} is not marked for unpaid bills.", accountId);
+            return (true, 0);
+        }
+
+        var sequences = await db
+            .ThinkingSequences.Where(s => s.AccountId == accountId && s.PaidToken < s.TotalToken)
+            .ToListAsync();
+
+        if (!sequences.Any())
+        {
+            logger.LogInformation("No unpaid sequences found for account {accountId}. Unmarking.", accountId);
+            db.UnpaidAccounts.Remove(isMarked);
+            await db.SaveChangesAsync();
+            return (true, 0);
+        }
+
+        var totalUnpaidTokens = sequences.Sum(s => s.TotalToken - s.PaidToken);
+        var cost = (long)Math.Ceiling(totalUnpaidTokens / 10.0);
+
+        if (cost == 0)
+        {
+            logger.LogInformation("Unpaid tokens for {accountId} resulted in zero cost. Marking as paid and unmarking.", accountId);
+            foreach (var sequence in sequences)
+            {
+                sequence.PaidToken = sequence.TotalToken;
+            }
+            db.UnpaidAccounts.Remove(isMarked);
+            await db.SaveChangesAsync();
+            return (true, 0);
+        }
+
+        try
+        {
+            var date = DateTime.Now.ToString("yyyy-MM-dd");
+            await paymentService.CreateTransactionWithAccountAsync(
+                new CreateTransactionWithAccountRequest
+                {
+                    PayerAccountId = accountId.ToString(),
+                    Currency = WalletCurrency.SourcePoint,
+                    Amount = cost.ToString(),
+                    Remarks = $"Wage for SN-chan on {date} (Retry)",
+                    Type = TransactionType.System,
+                }
+            );
+
+            foreach (var sequence in sequences)
+            {
+                sequence.PaidToken = sequence.TotalToken;
+            }
+
+            db.UnpaidAccounts.Remove(isMarked);
+            
+            logger.LogInformation(
+                "Successfully billed {cost} points for account {accountId} on retry.",
+                cost,
+                accountId
+            );
+            
+            await db.SaveChangesAsync();
+            return (true, cost);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error retrying billing for account {accountId}", accountId);
+            return (false, cost);
+        }
     }
 }
