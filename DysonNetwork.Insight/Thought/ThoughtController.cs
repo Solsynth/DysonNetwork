@@ -141,7 +141,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                         break;
                     case ThinkingMessagePartType.FunctionResult:
                         var resultObject = part.FunctionResult!.Result;
-                        var resultString = resultObject is string s ? s : JsonSerializer.Serialize(resultObject);
+                        var resultString = resultObject as string ?? JsonSerializer.Serialize(resultObject);
                         functionResults.Add(new FunctionResultContent(
                             callId: part.FunctionResult.CallId,
                             functionName: part.FunctionResult.FunctionName,
