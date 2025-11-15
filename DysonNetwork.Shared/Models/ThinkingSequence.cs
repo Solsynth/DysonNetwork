@@ -39,6 +39,7 @@ public class SnThinkingMessagePart
 public class SnFunctionCall
 {
     public string Id { get; set; } = null!;
+    public string? PluginName { get; set; }
     public string Name { get; set; } = null!;
     public string Arguments { get; set; } = null!;
 }
@@ -46,6 +47,8 @@ public class SnFunctionCall
 public class SnFunctionResult
 {
     public string CallId { get; set; } = null!;
+    public string? PluginName { get; set; }
+    public string FunctionName { get; set; } = null!;
     public object Result { get; set; } = null!;
     public bool IsError { get; set; }
 }

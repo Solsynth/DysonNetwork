@@ -112,12 +112,12 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         // Add previous thoughts (excluding the current user thought, which is the first one since descending)
         var previousThoughts = await service.GetPreviousThoughtsAsync(sequence);
         var count = previousThoughts.Count;
-        for (var i = 1; i < count; i++) // skip first (the newest, current user)
+        for (var i = count - 1; i >= 1; i--) // skip first (the newest, current user)
         {
             var thought = previousThoughts[i];
             var textContent = new StringBuilder();
             var functionCalls = new List<FunctionCallContent>();
-            var hasFunctionCalls = false;
+            var functionResults = new List<FunctionResultContent>();
 
             foreach (var part in thought.Parts)
             {
@@ -127,15 +127,27 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                         textContent.Append(part.Text);
                         break;
                     case ThinkingMessagePartType.FunctionCall:
-                        hasFunctionCalls = true;
-                        functionCalls.Add(new FunctionCallContent(part.FunctionCall!.Name, part.FunctionCall.Arguments,
-                            part.FunctionCall.Id));
+                        var arguments = !string.IsNullOrEmpty(part.FunctionCall!.Arguments)
+                            ? JsonSerializer.Deserialize<Dictionary<string, object?>>(part.FunctionCall!.Arguments)
+                            : null;
+                        var kernelArgs = arguments is not null ? new KernelArguments(arguments) : null;
+
+                        functionCalls.Add(new FunctionCallContent(
+                            functionName: part.FunctionCall!.Name,
+                            pluginName: part.FunctionCall.PluginName,
+                            id: part.FunctionCall.Id,
+                            arguments: kernelArgs
+                        ));
                         break;
                     case ThinkingMessagePartType.FunctionResult:
                         var resultObject = part.FunctionResult!.Result;
                         var resultString = resultObject is string s ? s : JsonSerializer.Serialize(resultObject);
-                        var result = new FunctionResultContent(part.FunctionResult!.CallId, resultString);
-                        chatHistory.Add(result.ToChatMessage());
+                        functionResults.Add(new FunctionResultContent(
+                            callId: part.FunctionResult.CallId,
+                            functionName: part.FunctionResult.FunctionName,
+                            pluginName: part.FunctionResult.PluginName,
+                            result: resultString
+                        ));
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -149,7 +161,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             else
             {
                 var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, textContent.ToString());
-                if (hasFunctionCalls)
+                if (functionCalls.Count > 0)
                 {
                     assistantMessage.Items = [];
                     foreach (var fc in functionCalls)
@@ -159,6 +171,14 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                 }
 
                 chatHistory.Add(assistantMessage);
+
+                if (functionResults.Count > 0)
+                {
+                    foreach (var fr in functionResults)
+                    {
+                        chatHistory.Add(fr.ToChatMessage());
+                    }
+                }
             }
         }
 
@@ -231,6 +251,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     FunctionCall = new SnFunctionCall
                     {
                         Id = functionCall.Id!,
+                        PluginName = functionCall.PluginName,
                         Name = functionCall.FunctionName,
                         Arguments = JsonSerializer.Serialize(functionCall.Arguments)
                     }
@@ -259,6 +280,8 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
                     FunctionResult = new SnFunctionResult
                     {
                         CallId = resultContent.CallId!,
+                        PluginName = resultContent.PluginName,
+                        FunctionName = resultContent.FunctionName,
                         Result = resultContent.Result!,
                         IsError = resultContent.Result is Exception
                     }
