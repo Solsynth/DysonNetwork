@@ -1,7 +1,6 @@
-using DysonNetwork.Insight.Thought;
 using Quartz;
 
-namespace DysonNetwork.Insight.Startup;
+namespace DysonNetwork.Insight.Thought;
 
 public class TokenBillingJob(ThoughtService thoughtService, ILogger<TokenBillingJob> logger) : IJob
 {

@@ -243,6 +243,7 @@ message ListPostsRequest {
   int32 page_size = 3;
   string page_token = 4;
   google.protobuf.StringValue order_by = 5;
+  bool order_desc = 16;
   repeated string categories = 6;
   repeated string tags = 7;
   google.protobuf.StringValue query = 8;

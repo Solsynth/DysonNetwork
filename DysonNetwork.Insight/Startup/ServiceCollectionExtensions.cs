@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -63,16 +64,12 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddThinkingServices(this IServiceCollection services, IConfiguration configuration)
     {
+        // Add gRPC clients for ThoughtService
+        services.AddSphereService();
+        services.AddAccountService();
+        
         services.AddSingleton<ThoughtProvider>();
         services.AddScoped<ThoughtService>();
-
-        // Add gRPC clients for ThoughtService
-        services.AddGrpcClient<Shared.Proto.PaymentService.PaymentServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true });
-        services.AddGrpcClient<Shared.Proto.WalletService.WalletServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true });
 
         return services;
     }

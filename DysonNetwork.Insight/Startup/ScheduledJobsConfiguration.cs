@@ -1,3 +1,4 @@
+using DysonNetwork.Insight.Thought;
 using Quartz;
 
 namespace DysonNetwork.Insight.Startup;

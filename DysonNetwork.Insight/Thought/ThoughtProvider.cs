@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
@@ -71,81 +72,15 @@ public class ThoughtProvider
                 throw new IndexOutOfRangeException("Unknown thinking provider: " + ModelProviderType);
         }
 
+        builder.Plugins.AddFromType<SnAccountKernelPlugin>();
+        builder.Plugins.AddFromType<SnPostKernelPlugin>();
+
         return builder.Build();
     }
 
     [Experimental("SKEXP0050")]
     private void InitializeHelperFunctions()
     {
-        // Add Solar Network tools plugin
-        Kernel.ImportPluginFromFunctions("solar_network", [
-            KernelFunctionFactory.CreateFromMethod(async (string userId) =>
-            {
-                var request = new GetAccountRequest { Id = userId };
-                var response = await _accountClient.GetAccountAsync(request);
-                return JsonSerializer.Serialize(response, GrpcTypeHelper.SerializerOptions);
-            }, "get_user", "Get a user profile from the Solar Network."),
-            KernelFunctionFactory.CreateFromMethod(async (string postId) =>
-            {
-                var request = new GetPostRequest { Id = postId };
-                var response = await _postClient.GetPostAsync(request);
-                return JsonSerializer.Serialize(response, GrpcTypeHelper.SerializerOptions);
-            }, "get_post", "Get a single post by ID from the Solar Network."),
-            KernelFunctionFactory.CreateFromMethod(async (string query) =>
-                {
-                    var request = new SearchPostsRequest { Query = query, PageSize = 10 };
-                    var response = await _postClient.SearchPostsAsync(request);
-                    return JsonSerializer.Serialize(response.Posts, GrpcTypeHelper.SerializerOptions);
-                }, "search_posts",
-                "Search posts by query from the Solar Network. The input query is will be used to search with title, description and body content"),
-            KernelFunctionFactory.CreateFromMethod(async (
-                    string? orderBy = null,
-                    string? afterIso = null,
-                    string? beforeIso = null
-                ) =>
-                {
-                    _logger.LogInformation("Begin building request to list post from sphere...");
-
-                    var request = new ListPostsRequest
-                    {
-                        PageSize = 20,
-                        OrderBy = orderBy,
-                    };
-                    if (!string.IsNullOrEmpty(afterIso))
-                        try
-                        {
-                            request.After = InstantPattern.General.Parse(afterIso).Value.ToTimestamp();
-                        }
-                        catch (Exception)
-                        {
-                            _logger.LogWarning("Invalid afterIso format: {AfterIso}", afterIso);
-                        }
-                    if (!string.IsNullOrEmpty(beforeIso))
-                        try
-                        {
-                            request.Before = InstantPattern.General.Parse(beforeIso).Value.ToTimestamp();
-                        }
-                        catch (Exception)
-                        {
-                            _logger.LogWarning("Invalid beforeIso format: {BeforeIso}", beforeIso);
-                        }
-
-                    _logger.LogInformation("Request built, {Request}", request);
-
-                    var response = await _postClient.ListPostsAsync(request);
-
-                    var data = response.Posts.Select(SnPost.FromProtoValue);
-                    _logger.LogInformation("Sphere service returned posts: {Posts}", data);
-                    return JsonSerializer.Serialize(data, GrpcTypeHelper.SerializerOptions);
-                }, "list_posts",
-                "Get posts from the Solar Network.\n" +
-                "Parameters:\n" +
-                "orderBy (optional, string: order by published date, accept asc or desc)\n" +
-                "afterIso (optional, string: ISO date for posts after this date)\n" +
-                "beforeIso (optional, string: ISO date for posts before this date)"
-            )
-        ]);
-
         // Add web search plugins if configured
         var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
         if (!string.IsNullOrEmpty(bingApiKey))
