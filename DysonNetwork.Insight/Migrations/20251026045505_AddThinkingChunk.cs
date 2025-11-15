@@ -12,21 +12,13 @@ namespace DysonNetwork.Insight.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<List<SnThinkingChunk>>(
-                name: "chunks",
-                table: "thinking_thoughts",
-                type: "jsonb",
-                nullable: false,
-                defaultValue: new List<SnThinkingChunk>()
-                );
+            // The chunk type has been removed, so this did nothing
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "chunks",
-                table: "thinking_thoughts");
+            // The chunk type has been removed, so this did nothing
         }
     }
 }

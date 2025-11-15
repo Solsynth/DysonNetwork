@@ -11,8 +11,7 @@ namespace DysonNetwork.Insight.Thought;
 public class ThoughtService(
     AppDatabase db,
     ICacheService cache,
-    PaymentService.PaymentServiceClient paymentService,
-    WalletService.WalletServiceClient walletService
+    PaymentService.PaymentServiceClient paymentService
 )
 {
     public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(
@@ -39,38 +38,39 @@ public class ThoughtService(
 
     public async Task<SnThinkingThought> SaveThoughtAsync(
         SnThinkingSequence sequence,
-        string content,
+        List<SnThinkingMessagePart> parts,
         ThinkingThoughtRole role,
-        List<SnThinkingChunk>? chunks = null,
         string? model = null
     )
     {
         // Approximate token count (1 token ≈ 4 characters for GPT-like models)
-        var tokenCount = content?.Length / 4 ?? 0;
-
+        var totalChars = parts.Sum(part =>
+            (part.Type == ThinkingMessagePartType.Text ? part.Text?.Length : 0) ?? 0 +
+            (part.Type == ThinkingMessagePartType.FunctionCall ? part.FunctionCall?.Arguments.Length : 0) ?? 0
+        );
+        var tokenCount = totalChars / 4;
+    
         var thought = new SnThinkingThought
         {
             SequenceId = sequence.Id,
-            Content = content,
+            Parts = parts,
             Role = role,
             TokenCount = tokenCount,
             ModelName = model,
-            Chunks = chunks ?? new List<SnThinkingChunk>(),
         };
         db.ThinkingThoughts.Add(thought);
-
+    
         // Update sequence total tokens only for assistant responses
         if (role == ThinkingThoughtRole.Assistant)
             sequence.TotalToken += tokenCount;
-
+    
         await db.SaveChangesAsync();
-
+    
         // Invalidate cache for this sequence's thoughts
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
-
+    
         return thought;
     }
-
     public async Task<List<SnThinkingThought>> GetPreviousThoughtsAsync(SnThinkingSequence sequence)
     {
         var cacheKey = $"thoughts:{sequence.Id}";

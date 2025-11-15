@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
@@ -9,7 +7,6 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.Ollama;
 
 namespace DysonNetwork.Insight.Thought;
 
@@ -61,7 +58,14 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         if (sequence == null) return Forbid(); // or NotFound
 
         // Save user thought
-        await service.SaveThoughtAsync(sequence, request.UserMessage, ThinkingThoughtRole.User);
+        await service.SaveThoughtAsync(sequence, new List<SnThinkingMessagePart>
+        {
+            new()
+            {
+                Type = ThinkingMessagePartType.Text,
+                Text = request.UserMessage
+            }
+        }, ThinkingThoughtRole.User);
 
         // Build chat history
         var chatHistory = new ChatHistory(
@@ -111,16 +115,48 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         for (var i = 1; i < count; i++) // skip first (the newest, current user)
         {
             var thought = previousThoughts[i];
-            switch (thought.Role)
+            var textContent = new StringBuilder();
+            var functionCalls = new List<FunctionCallContent>();
+            var hasFunctionCalls = false;
+
+            foreach (var part in thought.Parts)
             {
-                case ThinkingThoughtRole.User:
-                    chatHistory.AddUserMessage(thought.Content ?? "");
-                    break;
-                case ThinkingThoughtRole.Assistant:
-                    chatHistory.AddAssistantMessage(thought.Content ?? "");
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                switch (part.Type)
+                {
+                    case ThinkingMessagePartType.Text:
+                        textContent.Append(part.Text);
+                        break;
+                    case ThinkingMessagePartType.FunctionCall:
+                        hasFunctionCalls = true;
+                        functionCalls.Add(new FunctionCallContent(part.FunctionCall!.Name, part.FunctionCall.Arguments,
+                            part.FunctionCall.Id));
+                        break;
+                    case ThinkingMessagePartType.FunctionResult:
+                        var resultObject = part.FunctionResult!.Result;
+                        var resultString = resultObject is string s ? s : JsonSerializer.Serialize(resultObject);
+                        var result = new FunctionResultContent(part.FunctionResult!.CallId, resultString);
+                        chatHistory.Add(result.ToChatMessage());
+                        break;
+                }
+            }
+
+            if (thought.Role == ThinkingThoughtRole.User)
+            {
+                chatHistory.AddUserMessage(textContent.ToString());
+            }
+            else
+            {
+                var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, textContent.ToString());
+                if (hasFunctionCalls)
+                {
+                    assistantMessage.Items = new ChatMessageContentItemCollection();
+                    foreach (var fc in functionCalls)
+                    {
+                        assistantMessage.Items.Add(fc);
+                    }
+                }
+
+                chatHistory.Add(assistantMessage);
             }
         }
 
@@ -132,72 +168,120 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
 
         var kernel = provider.Kernel;
         var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
+        var executionSettings = provider.CreatePromptExecutionSettings();
 
-        // Kick off streaming generation
-        var accumulatedContent = new StringBuilder();
-        var thinkingChunks = new List<SnThinkingChunk>();
-        await foreach (var chunk in chatCompletionService.GetStreamingChatMessageContentsAsync(
-                           chatHistory,
-                           provider.CreatePromptExecutionSettings(),
-                           kernel: kernel
-                       ))
+        var assistantParts = new List<SnThinkingMessagePart>();
+
+        while (true)
         {
-            // Process each item in the chunk for detailed streaming
-            foreach (var item in chunk.Items)
+            var textContentBuilder = new StringBuilder();
+            AuthorRole? authorRole = null;
+            var functionCallBuilder = new FunctionCallContentBuilder();
+
+            await foreach (var streamingContent in chatCompletionService.GetStreamingChatMessageContentsAsync(
+                               chatHistory, executionSettings, kernel))
             {
-                var streamingChunk = item switch
+                authorRole ??= streamingContent.Role;
+
+                if (streamingContent.Content is not null)
                 {
-                    StreamingTextContent textContent => new SnThinkingChunk
-                        { Type = StreamingContentType.Text, Data = new() { ["text"] = textContent.Text ?? "" } },
-                    StreamingReasoningContent reasoningContent => new SnThinkingChunk
-                    {
-                        Type = StreamingContentType.Reasoning, Data = new() { ["text"] = reasoningContent.Text }
-                    },
-                    StreamingFunctionCallUpdateContent functionCall => string.IsNullOrEmpty(functionCall.CallId)
-                        ? null
-                        : new SnThinkingChunk
-                        {
-                            Type = StreamingContentType.FunctionCall,
-                            Data = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                                JsonSerializer.Serialize(functionCall)) ?? new Dictionary<string, object>()
-                        },
-                    _ => new SnThinkingChunk
-                    {
-                        Type = StreamingContentType.Unknown, Data = new() { ["data"] = JsonSerializer.Serialize(item) }
-                    }
-                };
-                if (streamingChunk == null) continue;
+                    textContentBuilder.Append(streamingContent.Content);
+                    var messageJson = JsonSerializer.Serialize(new
+                        { type = "text", data = streamingContent.Content });
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
+                    await Response.Body.FlushAsync();
+                }
 
-                thinkingChunks.Add(streamingChunk);
-
-                var messageJson = item switch
+                if (streamingContent.Items.Count > 0)
                 {
-                    StreamingTextContent textContent =>
-                        JsonSerializer.Serialize(new { type = "text", data = textContent.Text ?? "" }),
-                    StreamingReasoningContent reasoningContent =>
-                        JsonSerializer.Serialize(new { type = "reasoning", data = reasoningContent.Text }),
-                    StreamingFunctionCallUpdateContent functionCall =>
-                        JsonSerializer.Serialize(new { type = "function_call", data = functionCall }),
-                    _ =>
-                        JsonSerializer.Serialize(new { type = "unknown", data = item })
-                };
+                    functionCallBuilder.Append(streamingContent);
+                }
 
-                // Write a structured JSON message to the HTTP response as SSE
-                var messageBytes = Encoding.UTF8.GetBytes($"data: {messageJson}\n\n");
-                await Response.Body.WriteAsync(messageBytes);
-                await Response.Body.FlushAsync();
+                foreach (var functionCallUpdate in streamingContent.Items.OfType<StreamingFunctionCallUpdateContent>())
+                {
+                    var messageJson = JsonSerializer.Serialize(new
+                        { type = "function_call_update", data = functionCallUpdate });
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
+                    await Response.Body.FlushAsync();
+                }
             }
 
-            // Accumulate content for saving (only text content)
-            accumulatedContent.Append(chunk.Content ?? "");
+            var finalMessageText = textContentBuilder.ToString();
+            if (!string.IsNullOrEmpty(finalMessageText))
+            {
+                assistantParts.Add(new SnThinkingMessagePart
+                    { Type = ThinkingMessagePartType.Text, Text = finalMessageText });
+            }
+
+            var functionCalls = functionCallBuilder.Build();
+
+            if (functionCalls.Count == 0)
+            {
+                break;
+            }
+
+            var assistantMessage = new ChatMessageContent(authorRole ?? AuthorRole.Assistant,
+                string.IsNullOrEmpty(finalMessageText) ? null : finalMessageText);
+            foreach (var functionCall in functionCalls)
+            {
+                assistantMessage.Items.Add(functionCall);
+            }
+            chatHistory.Add(assistantMessage);
+
+            foreach (var functionCall in functionCalls)
+            {
+                var part = new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.FunctionCall,
+                    FunctionCall = new SnFunctionCall
+                    {
+                        Id = functionCall.Id!,
+                        Name = functionCall.FunctionName!,
+                        Arguments = JsonSerializer.Serialize(functionCall.Arguments)
+                    }
+                };
+                assistantParts.Add(part);
+
+                var messageJson = JsonSerializer.Serialize(new { type = "function_call", data = part.FunctionCall });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
+                await Response.Body.FlushAsync();
+
+                FunctionResultContent resultContent;
+                try
+                {
+                    resultContent = await functionCall.InvokeAsync(kernel);
+                }
+                catch (Exception ex)
+                {
+                    resultContent = new FunctionResultContent(functionCall.Id!, ex.Message);
+                }
+
+                chatHistory.Add(resultContent.ToChatMessage());
+
+                var resultPart = new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.FunctionResult,
+                    FunctionResult = new SnFunctionResult
+                    {
+                        CallId = resultContent.CallId,
+                        Result = resultContent.Result!,
+                        IsError = resultContent.Result is Exception
+                    }
+                };
+                assistantParts.Add(resultPart);
+
+                var resultMessageJson =
+                    JsonSerializer.Serialize(new { type = "function_result", data = resultPart.FunctionResult });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultMessageJson}\n\n"));
+                await Response.Body.FlushAsync();
+            }
         }
 
         // Save assistant thought
         var savedThought = await service.SaveThoughtAsync(
             sequence,
-            accumulatedContent.ToString(),
+            assistantParts,
             ThinkingThoughtRole.Assistant,
-            thinkingChunks,
             provider.ModelDefault
         );
 
@@ -209,7 +293,6 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             {
                 var topicJson = JsonSerializer.Serialize(new { type = "topic", data = sequence.Topic ?? "" });
                 await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"topic: {topicJson}\n\n"));
-                savedThought.Sequence.Topic = topic;
             }
 
             var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },

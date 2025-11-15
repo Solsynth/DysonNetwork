@@ -109,22 +109,12 @@ public class ThoughtProvider
             case "ollama":
                 return new OllamaPromptExecutionSettings
                 {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-                        options: new FunctionChoiceBehaviorOptions
-                        {
-                            AllowParallelCalls = true,
-                            AllowConcurrentInvocation = true
-                        })
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
                 };
             case "deepseek":
                 return new OpenAIPromptExecutionSettings
                 {
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-                        options: new FunctionChoiceBehaviorOptions
-                        {
-                            AllowParallelCalls = true,
-                            AllowConcurrentInvocation = true
-                        })
+                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
                 };
             default:
                 throw new InvalidOperationException("Unknown provider: " + ModelProviderType);

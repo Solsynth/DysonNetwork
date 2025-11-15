@@ -69,11 +69,6 @@ namespace DysonNetwork.Insight.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<List<SnThinkingChunk>>("Chunks")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("chunks");
-
                     b.Property<string>("Content")
                         .HasColumnType("text")
                         .HasColumnName("content");
