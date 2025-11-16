@@ -17,7 +17,8 @@ public class WalletController(
     WalletService ws,
     PaymentService payment,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<WalletController> logger
 ) : ControllerBase
 {
     [HttpPost]
@@ -369,6 +370,7 @@ public class WalletController(
         }
         catch (Exception err)
         {
+            logger.LogError(err, "Failed to receive fund...");
             return BadRequest(err.Message);
         }
     }

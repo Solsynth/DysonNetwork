@@ -165,9 +165,7 @@ public class PaymentService(
 
         db.PaymentTransactions.Add(transaction);
         if (autoSave)
-        {
             await db.SaveChangesAsync();
-        }
 
         if (!silent)
             await NotifyNewTransaction(transaction, payerWallet, payeeWallet);
@@ -614,7 +612,7 @@ public class PaymentService(
     public async Task<SnWalletTransaction> ReceiveFundAsync(Guid recipientAccountId, Guid fundId)
     {
         // Use a transaction to ensure atomicity
-        await using var transactionScope = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
 
         try
         {
@@ -649,9 +647,12 @@ public class PaymentService(
                 {
                     RecipientAccountId = recipientAccountId,
                     Amount = amount,
-                    IsReceived = false
+                    IsReceived = false,
+                    FundId = fund.Id,
                 };
-                fund.Recipients.Add(recipient);
+                db.WalletFundRecipients.Add(recipient);
+                await db.SaveChangesAsync();
+                
                 fund.RemainingAmount -= amount;
             }
             else if (recipient is null)
@@ -670,6 +671,9 @@ public class PaymentService(
                 fund.RemainingAmount -= amount;
             }
 
+            db.Update(fund);
+            await db.SaveChangesAsync();
+
             if (recipient.IsReceived)
                 throw new InvalidOperationException("You have already received this fund");
 
@@ -678,15 +682,14 @@ public class PaymentService(
                 throw new InvalidOperationException("Recipient wallet not found");
 
             // Create transaction to transfer funds to recipient
+            // This call will save changes once
             var walletTransaction = await CreateTransactionAsync(
                 payerWalletId: null, // System transfer
                 payeeWalletId: recipientWallet.Id,
                 currency: fund.Currency,
                 amount: recipient.Amount,
                 remarks: $"Received fund portion from {fund.CreatorAccountId}",
-                type: Shared.Models.TransactionType.System,
-                silent: true,
-                autoSave: false
+                type: Shared.Models.TransactionType.System
             );
 
             // Mark as received
@@ -708,6 +711,7 @@ public class PaymentService(
                     : Shared.Models.FundStatus.PartiallyReceived;
             }
 
+            db.Update(fund);
             await db.SaveChangesAsync();
             await transactionScope.CommitAsync();
 
