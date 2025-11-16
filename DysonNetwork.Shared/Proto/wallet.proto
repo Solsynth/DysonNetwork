@@ -41,6 +41,7 @@ message WalletFund {
   string id = 1;
   string currency = 2;
   string total_amount = 3;
+  string remaining_amount = 10;
   FundSplitType split_type = 4;
   FundStatus status = 5;
   optional string message = 6;

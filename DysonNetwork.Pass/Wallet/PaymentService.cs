@@ -465,8 +465,7 @@ public class PaymentService(
             null,
             currency,
             fee,
-            $"Transfer fee for transaction #{transaction.Id}",
-            Shared.Models.TransactionType.System);
+            $"Transfer fee for transaction #{transaction.Id}");
 
         return transaction;
     }
@@ -480,38 +479,25 @@ public class PaymentService(
         string? message = null,
         Duration? expiration = null)
     {
-        if (recipientAccountIds.Count == 0)
-            throw new ArgumentException("At least one recipient is required");
-
         if (totalAmount <= 0)
             throw new ArgumentException("Total amount must be positive");
-
-        // Validate all recipient accounts exist and have wallets
-        var recipientWallets = new List<SnWallet>();
-        foreach (var accountId in recipientAccountIds)
-        {
-            var wallet = await wat.GetWalletAsync(accountId);
-            if (wallet == null)
-                throw new InvalidOperationException($"Wallet not found for recipient account {accountId}");
-            recipientWallets.Add(wallet);
-        }
-
+        
         // Check creator has sufficient funds
         var creatorWallet = await wat.GetWalletAsync(creatorAccountId);
         if (creatorWallet == null)
             throw new InvalidOperationException($"Creator wallet not found for account {creatorAccountId}");
 
+        // Validate all recipient accounts exist and have wallets
+        foreach (var accountId in recipientAccountIds)
+        {
+            var wallet = await wat.GetWalletAsync(accountId);
+            if (wallet == null)
+                throw new InvalidOperationException($"Wallet not found for recipient account {accountId}");
+        }
+
         var (creatorPocket, _) = await wat.GetOrCreateWalletPocketAsync(creatorWallet.Id, currency);
         if (creatorPocket.Amount < totalAmount)
             throw new InvalidOperationException("Insufficient funds");
-
-        // Calculate amounts for each recipient
-        var recipientAmounts = splitType switch
-        {
-            Shared.Models.FundSplitType.Even => SplitEvenly(totalAmount, recipientAccountIds.Count),
-            Shared.Models.FundSplitType.Random => SplitRandomly(totalAmount, recipientAccountIds.Count),
-            _ => throw new ArgumentException("Invalid split type")
-        };
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var fund = new SnWalletFund
@@ -519,13 +505,15 @@ public class PaymentService(
             CreatorAccountId = creatorAccountId,
             Currency = currency,
             TotalAmount = totalAmount,
+            RemainingAmount = totalAmount,
             SplitType = splitType,
             Message = message,
             ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
-            Recipients = recipientAccountIds.Select((accountId, index) => new SnWalletFundRecipient
+            IsOpen = recipientAccountIds.Count == 0,
+            Recipients = recipientAccountIds.Select(accountId => new SnWalletFundRecipient
             {
                 RecipientAccountId = accountId,
-                Amount = recipientAmounts[index]
+                Amount = 0 // Amount will be calculated dynamically when claimed
             }).ToList()
         };
 
@@ -589,6 +577,36 @@ public class PaymentService(
         return amounts;
     }
 
+    private decimal CalculateDynamicAmount(SnWalletFund fund)
+    {
+        if (fund.RemainingAmount <= 0)
+            return 0;
+
+        // For open mode funds: use percentage-based calculation
+        if (fund.IsOpen)
+        {
+            const decimal percentagePerClaim = 0.1m; // 10% of remaining amount per claim
+            const decimal minimumAmount = 0.01m; // Minimum 0.01 per claim
+
+            var calculatedAmount = Math.Max(fund.RemainingAmount * percentagePerClaim, minimumAmount);
+            return Math.Min(calculatedAmount, fund.RemainingAmount);
+        }
+        // For closed mode funds: use split type calculation
+        else
+        {
+            var unclaimedRecipients = fund.Recipients.Count(r => !r.IsReceived);
+            if (unclaimedRecipients == 0)
+                return 0;
+
+            return fund.SplitType switch
+            {
+                Shared.Models.FundSplitType.Even => SplitEvenly(fund.RemainingAmount, unclaimedRecipients)[0],
+                Shared.Models.FundSplitType.Random => SplitRandomly(fund.RemainingAmount, unclaimedRecipients)[0],
+                _ => throw new ArgumentException("Invalid split type")
+            };
+        }
+    }
+
     public async Task<SnWalletTransaction> ReceiveFundAsync(Guid recipientAccountId, Guid fundId)
     {
         var fund = await db.WalletFunds
@@ -598,12 +616,49 @@ public class PaymentService(
         if (fund == null)
             throw new InvalidOperationException("Fund not found");
 
-        if (fund.Status == Shared.Models.FundStatus.Expired || fund.Status == Shared.Models.FundStatus.Refunded)
+        if (fund.Status is Shared.Models.FundStatus.Expired or Shared.Models.FundStatus.Refunded)
             throw new InvalidOperationException("Fund is no longer available");
 
         var recipient = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
-        if (recipient == null)
+        
+        // Handle open mode fund - create recipient if not exists
+        if (recipient is null && fund.IsOpen)
+        {
+            // Check if recipient has already claimed from this fund
+            var existingClaim = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
+            if (existingClaim != null)
+                throw new InvalidOperationException("You have already claimed from this fund");
+
+            // Calculate amount for new recipient
+            var amount = CalculateDynamicAmount(fund);
+            if (amount <= 0)
+                throw new InvalidOperationException("No funds remaining to claim");
+
+            // Create new recipient
+            recipient = new SnWalletFundRecipient
+            {
+                RecipientAccountId = recipientAccountId,
+                Amount = amount,
+                IsReceived = false
+            };
+            fund.Recipients.Add(recipient);
+            fund.RemainingAmount -= amount;
+        }
+        else if (recipient is null)
+        {
             throw new InvalidOperationException("You are not a recipient of this fund");
+        }
+
+        // For closed mode funds, calculate amount dynamically if not already set
+        if (!fund.IsOpen && recipient.Amount == 0)
+        {
+            var amount = CalculateDynamicAmount(fund);
+            if (amount <= 0)
+                throw new InvalidOperationException("No funds remaining to claim");
+
+            recipient.Amount = amount;
+            fund.RemainingAmount -= amount;
+        }
 
         if (recipient.IsReceived)
             throw new InvalidOperationException("You have already received this fund");
@@ -628,11 +683,21 @@ public class PaymentService(
         recipient.ReceivedAt = SystemClock.Instance.GetCurrentInstant();
 
         // Update fund status
-        var allReceived = fund.Recipients.All(r => r.IsReceived);
-        if (allReceived)
-            fund.Status = Shared.Models.FundStatus.FullyReceived;
+        if (fund.IsOpen)
+        {
+            if (fund.RemainingAmount <= 0)
+                fund.Status = Shared.Models.FundStatus.FullyReceived;
+            else
+                fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+        }
         else
-            fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+        {
+            var allReceived = fund.Recipients.All(r => r.IsReceived);
+            if (allReceived)
+                fund.Status = Shared.Models.FundStatus.FullyReceived;
+            else
+                fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+        }
 
         await db.SaveChangesAsync();
 

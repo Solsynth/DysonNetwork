@@ -85,9 +85,11 @@ public class SnWalletFund : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(128)] public string Currency { get; set; } = null!;
     public decimal TotalAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
     public FundSplitType SplitType { get; set; }
     public FundStatus Status { get; set; } = FundStatus.Created;
     [MaxLength(4096)] public string? Message { get; set; }
+    public bool IsOpen { get; set; } = false;
 
     // Creator
     public Guid CreatorAccountId { get; set; }
@@ -104,6 +106,7 @@ public class SnWalletFund : ModelBase
         Id = Id.ToString(),
         Currency = Currency,
         TotalAmount = TotalAmount.ToString(CultureInfo.InvariantCulture),
+        RemainingAmount = RemainingAmount.ToString(CultureInfo.InvariantCulture),
         SplitType = (Proto.FundSplitType)SplitType,
         Status = (Proto.FundStatus)Status,
         Message = Message,
@@ -116,6 +119,7 @@ public class SnWalletFund : ModelBase
         Id = Guid.Parse(proto.Id),
         Currency = proto.Currency,
         TotalAmount = decimal.Parse(proto.TotalAmount),
+        RemainingAmount = proto.RemainingAmount is not null ? decimal.Parse(proto.RemainingAmount) : decimal.Parse(proto.TotalAmount),
         SplitType = (FundSplitType)proto.SplitType,
         Status = (FundStatus)proto.Status,
         Message = proto.Message,

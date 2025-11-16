@@ -334,11 +334,8 @@ public class WalletController(
     }
 
     [HttpGet("funds/{id:guid}")]
-    [Authorize]
     public async Task<ActionResult<SnWalletFund>> GetFund(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
             .ThenInclude(r => r.RecipientAccount)
