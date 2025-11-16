@@ -236,7 +236,8 @@ public partial class ChatController(
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) &&
             (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
-            !request.FundId.HasValue)
+            !request.FundId.HasValue &&
+            !request.PollId.HasValue)
             return BadRequest("You cannot send an empty message.");
 
         var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
@@ -382,7 +383,9 @@ public partial class ChatController(
             return StatusCode(403, "You can only edit your own messages.");
 
         if (string.IsNullOrWhiteSpace(request.Content) &&
-            (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
+            (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
+            !request.FundId.HasValue &&
+            !request.PollId.HasValue)
             return BadRequest("You cannot send an empty message.");
 
         // Validate reply and forward message IDs exist
