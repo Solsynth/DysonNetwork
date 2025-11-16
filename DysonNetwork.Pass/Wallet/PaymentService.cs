@@ -609,99 +609,112 @@ public class PaymentService(
 
     public async Task<SnWalletTransaction> ReceiveFundAsync(Guid recipientAccountId, Guid fundId)
     {
-        var fund = await db.WalletFunds
-            .Include(f => f.Recipients)
-            .FirstOrDefaultAsync(f => f.Id == fundId);
+        // Use a transaction to ensure atomicity
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
 
-        if (fund == null)
-            throw new InvalidOperationException("Fund not found");
-
-        if (fund.Status is Shared.Models.FundStatus.Expired or Shared.Models.FundStatus.Refunded)
-            throw new InvalidOperationException("Fund is no longer available");
-
-        var recipient = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
-        
-        // Handle open mode fund - create recipient if not exists
-        if (recipient is null && fund.IsOpen)
+        try
         {
-            // Check if recipient has already claimed from this fund
-            var existingClaim = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
-            if (existingClaim != null)
-                throw new InvalidOperationException("You have already claimed from this fund");
+            // Load fund with proper locking to prevent concurrent modifications
+            var fund = await db.WalletFunds
+                .Include(f => f.Recipients)
+                .FirstOrDefaultAsync(f => f.Id == fundId);
 
-            // Calculate amount for new recipient
-            var amount = CalculateDynamicAmount(fund);
-            if (amount <= 0)
-                throw new InvalidOperationException("No funds remaining to claim");
+            if (fund == null)
+                throw new InvalidOperationException("Fund not found");
 
-            // Create new recipient
-            recipient = new SnWalletFundRecipient
+            if (fund.Status is Shared.Models.FundStatus.Expired or Shared.Models.FundStatus.Refunded)
+                throw new InvalidOperationException("Fund is no longer available");
+
+            var recipient = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
+            
+            // Handle open mode fund - create recipient if not exists
+            if (recipient is null && fund.IsOpen)
             {
-                RecipientAccountId = recipientAccountId,
-                Amount = amount,
-                IsReceived = false
-            };
-            fund.Recipients.Add(recipient);
-            fund.RemainingAmount -= amount;
-        }
-        else if (recipient is null)
-        {
-            throw new InvalidOperationException("You are not a recipient of this fund");
-        }
+                // Check if recipient has already claimed from this fund
+                var existingClaim = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
+                if (existingClaim != null)
+                    throw new InvalidOperationException("You have already claimed from this fund");
 
-        // For closed mode funds, calculate amount dynamically if not already set
-        if (!fund.IsOpen && recipient.Amount == 0)
-        {
-            var amount = CalculateDynamicAmount(fund);
-            if (amount <= 0)
-                throw new InvalidOperationException("No funds remaining to claim");
+                // Calculate amount for new recipient
+                var amount = CalculateDynamicAmount(fund);
+                if (amount <= 0)
+                    throw new InvalidOperationException("No funds remaining to claim");
 
-            recipient.Amount = amount;
-            fund.RemainingAmount -= amount;
-        }
+                // Create new recipient
+                recipient = new SnWalletFundRecipient
+                {
+                    RecipientAccountId = recipientAccountId,
+                    Amount = amount,
+                    IsReceived = false
+                };
+                fund.Recipients.Add(recipient);
+                fund.RemainingAmount -= amount;
+            }
+            else if (recipient is null)
+            {
+                throw new InvalidOperationException("You are not a recipient of this fund");
+            }
 
-        if (recipient.IsReceived)
-            throw new InvalidOperationException("You have already received this fund");
+            // For closed mode funds, calculate amount dynamically if not already set
+            if (!fund.IsOpen && recipient.Amount == 0)
+            {
+                var amount = CalculateDynamicAmount(fund);
+                if (amount <= 0)
+                    throw new InvalidOperationException("No funds remaining to claim");
 
-        var recipientWallet = await wat.GetWalletAsync(recipientAccountId);
-        if (recipientWallet == null)
-            throw new InvalidOperationException("Recipient wallet not found");
+                recipient.Amount = amount;
+                fund.RemainingAmount -= amount;
+            }
 
-        // Create transaction to transfer funds to recipient
-        var transaction = await CreateTransactionAsync(
-            payerWalletId: null, // System transfer
-            payeeWalletId: recipientWallet.Id,
-            currency: fund.Currency,
-            amount: recipient.Amount,
-            remarks: $"Received fund portion from {fund.CreatorAccountId}",
-            type: Shared.Models.TransactionType.System,
-            silent: true
-        );
+            if (recipient.IsReceived)
+                throw new InvalidOperationException("You have already received this fund");
 
-        // Mark as received
-        recipient.IsReceived = true;
-        recipient.ReceivedAt = SystemClock.Instance.GetCurrentInstant();
+            var recipientWallet = await wat.GetWalletAsync(recipientAccountId);
+            if (recipientWallet == null)
+                throw new InvalidOperationException("Recipient wallet not found");
 
-        // Update fund status
-        if (fund.IsOpen)
-        {
-            if (fund.RemainingAmount <= 0)
-                fund.Status = Shared.Models.FundStatus.FullyReceived;
+            // Create transaction to transfer funds to recipient
+            var walletTransaction = await CreateTransactionAsync(
+                payerWalletId: null, // System transfer
+                payeeWalletId: recipientWallet.Id,
+                currency: fund.Currency,
+                amount: recipient.Amount,
+                remarks: $"Received fund portion from {fund.CreatorAccountId}",
+                type: Shared.Models.TransactionType.System,
+                silent: true
+            );
+
+            // Mark as received
+            recipient.IsReceived = true;
+            recipient.ReceivedAt = SystemClock.Instance.GetCurrentInstant();
+
+            // Update fund status
+            if (fund.IsOpen)
+            {
+                if (fund.RemainingAmount <= 0)
+                    fund.Status = Shared.Models.FundStatus.FullyReceived;
+                else
+                    fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+            }
             else
-                fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+            {
+                var allReceived = fund.Recipients.All(r => r.IsReceived);
+                if (allReceived)
+                    fund.Status = Shared.Models.FundStatus.FullyReceived;
+                else
+                    fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+            }
+
+            await db.SaveChangesAsync();
+            await transactionScope.CommitAsync();
+
+            return walletTransaction;
         }
-        else
+        catch
         {
-            var allReceived = fund.Recipients.All(r => r.IsReceived);
-            if (allReceived)
-                fund.Status = Shared.Models.FundStatus.FullyReceived;
-            else
-                fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+            await transactionScope.RollbackAsync();
+            throw;
         }
-
-        await db.SaveChangesAsync();
-
-        return transaction;
     }
 
     public async Task ProcessExpiredFundsAsync()
