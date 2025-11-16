@@ -478,6 +478,54 @@ public class AccountEventService(
         return activities;
     }
 
+    public async Task<Dictionary<Guid, List<SnPresenceActivity>>> GetActiveActivitiesBatch(List<Guid> userIds)
+    {
+        var results = new Dictionary<Guid, List<SnPresenceActivity>>();
+        var cacheMissUserIds = new List<Guid>();
+
+        // Try to get activities from cache first
+        foreach (var userId in userIds)
+        {
+            var cacheKey = $"{ActivityCacheKey}{userId}";
+            var cachedActivities = await cache.GetAsync<List<SnPresenceActivity>>(cacheKey);
+            if (cachedActivities != null)
+            {
+                results[userId] = cachedActivities;
+            }
+            else
+            {
+                cacheMissUserIds.Add(userId);
+            }
+        }
+
+        // If all activities were found in cache, return early
+        if (cacheMissUserIds.Count == 0) return results;
+
+        // Fetch remaining activities from database in a single query
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var activitiesFromDb = await db.PresenceActivities
+            .Where(e => cacheMissUserIds.Contains(e.AccountId) && e.LeaseExpiresAt > now && e.DeletedAt == null)
+            .ToListAsync();
+
+        // Group activities by user ID and update cache
+        var activitiesByUser = activitiesFromDb
+            .GroupBy(a => a.AccountId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var userId in cacheMissUserIds)
+        {
+            var userActivities = activitiesByUser.GetValueOrDefault(userId, new List<SnPresenceActivity>());
+            results[userId] = userActivities;
+            
+            // Update cache for this user
+            var cacheKey = $"{ActivityCacheKey}{userId}";
+            await cache.SetWithGroupsAsync(cacheKey, userActivities, [$"{AccountService.AccountCachePrefix}{userId}"],
+                TimeSpan.FromMinutes(1));
+        }
+
+        return results;
+    }
+
     public async Task<(List<SnPresenceActivity>, int)> GetAllActivities(Guid userId, int offset = 0, int take = 20)
     {
         var query = db.PresenceActivities
