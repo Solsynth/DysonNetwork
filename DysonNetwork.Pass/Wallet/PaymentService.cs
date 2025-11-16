@@ -113,7 +113,8 @@ public class PaymentService(
         decimal amount,
         string? remarks = null,
         Shared.Models.TransactionType type = Shared.Models.TransactionType.System,
-        bool silent = false
+        bool silent = false,
+        bool autoSave = true
     )
     {
         if (payerWalletId == null && payeeWalletId == null)
@@ -163,7 +164,10 @@ public class PaymentService(
         }
 
         db.PaymentTransactions.Add(transaction);
-        await db.SaveChangesAsync();
+        if (autoSave)
+        {
+            await db.SaveChangesAsync();
+        }
 
         if (!silent)
             await NotifyNewTransaction(transaction, payerWallet, payeeWallet);
@@ -171,7 +175,8 @@ public class PaymentService(
         return transaction;
     }
 
-    private async Task NotifyNewTransaction(SnWalletTransaction transaction, SnWallet? payerWallet, SnWallet? payeeWallet)
+    private async Task NotifyNewTransaction(SnWalletTransaction transaction, SnWallet? payerWallet,
+        SnWallet? payeeWallet)
     {
         if (payerWallet is not null)
         {
@@ -483,7 +488,7 @@ public class PaymentService(
     {
         if (totalAmount <= 0)
             throw new ArgumentException("Total amount must be positive");
-        
+
         // Check creator has sufficient funds
         var creatorWallet = await wat.GetWalletAsync(creatorAccountId);
         if (creatorWallet == null)
@@ -531,10 +536,10 @@ public class PaymentService(
         // Load the fund with account data including profiles
         var createdFund = await db.WalletFunds
             .Include(f => f.Recipients)
-                .ThenInclude(r => r.RecipientAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(r => r.RecipientAccount)
+            .ThenInclude(a => a.Profile)
             .Include(f => f.CreatorAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync(f => f.Id == fund.Id);
 
         return createdFund!;
@@ -593,19 +598,17 @@ public class PaymentService(
             return Math.Max(amountPerSplit, 0.01m); // Minimum 0.01 per claim
         }
         // For closed mode funds: use split type calculation
-        else
-        {
-            var unclaimedRecipients = fund.Recipients.Count(r => !r.IsReceived);
-            if (unclaimedRecipients == 0)
-                return 0;
 
-            return fund.SplitType switch
-            {
-                Shared.Models.FundSplitType.Even => SplitEvenly(fund.RemainingAmount, unclaimedRecipients)[0],
-                Shared.Models.FundSplitType.Random => SplitRandomly(fund.RemainingAmount, unclaimedRecipients)[0],
-                _ => throw new ArgumentException("Invalid split type")
-            };
-        }
+        var unclaimedRecipients = fund.Recipients.Count(r => !r.IsReceived);
+        if (unclaimedRecipients == 0)
+            return 0;
+
+        return fund.SplitType switch
+        {
+            Shared.Models.FundSplitType.Even => SplitEvenly(fund.RemainingAmount, unclaimedRecipients)[0],
+            Shared.Models.FundSplitType.Random => SplitRandomly(fund.RemainingAmount, unclaimedRecipients)[0],
+            _ => throw new ArgumentException("Invalid split type")
+        };
     }
 
     public async Task<SnWalletTransaction> ReceiveFundAsync(Guid recipientAccountId, Guid fundId)
@@ -627,7 +630,7 @@ public class PaymentService(
                 throw new InvalidOperationException("Fund is no longer available");
 
             var recipient = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
-            
+
             // Handle open mode fund - create recipient if not exists
             if (recipient is null && fund.IsOpen)
             {
@@ -682,7 +685,8 @@ public class PaymentService(
                 amount: recipient.Amount,
                 remarks: $"Received fund portion from {fund.CreatorAccountId}",
                 type: Shared.Models.TransactionType.System,
-                silent: true
+                silent: true,
+                autoSave: false
             );
 
             // Mark as received
@@ -692,18 +696,16 @@ public class PaymentService(
             // Update fund status
             if (fund.IsOpen)
             {
-                if (fund.RemainingAmount <= 0)
-                    fund.Status = Shared.Models.FundStatus.FullyReceived;
-                else
-                    fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+                fund.Status = fund.RemainingAmount <= 0
+                    ? Shared.Models.FundStatus.FullyReceived
+                    : Shared.Models.FundStatus.PartiallyReceived;
             }
             else
             {
                 var allReceived = fund.Recipients.All(r => r.IsReceived);
-                if (allReceived)
-                    fund.Status = Shared.Models.FundStatus.FullyReceived;
-                else
-                    fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+                fund.Status = allReceived
+                    ? Shared.Models.FundStatus.FullyReceived
+                    : Shared.Models.FundStatus.PartiallyReceived;
             }
 
             await db.SaveChangesAsync();
@@ -724,7 +726,8 @@ public class PaymentService(
 
         var expiredFunds = await db.WalletFunds
             .Include(f => f.Recipients)
-            .Where(f => f.Status == Shared.Models.FundStatus.Created || f.Status == Shared.Models.FundStatus.PartiallyReceived)
+            .Where(f => f.Status == Shared.Models.FundStatus.Created ||
+                        f.Status == Shared.Models.FundStatus.PartiallyReceived)
             .Where(f => f.ExpiredAt < now)
             .ToListAsync();
 
@@ -763,10 +766,10 @@ public class PaymentService(
     {
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
-                .ThenInclude(r => r.RecipientAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(r => r.RecipientAccount)
+            .ThenInclude(a => a.Profile)
             .Include(f => f.CreatorAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync(f => f.Id == fundId);
 
         if (fund == null)
@@ -775,7 +778,8 @@ public class PaymentService(
         return fund;
     }
 
-    public async Task<WalletOverview> GetWalletOverviewAsync(Guid accountId, DateTime? startDate = null, DateTime? endDate = null)
+    public async Task<WalletOverview> GetWalletOverviewAsync(Guid accountId, DateTime? startDate = null,
+        DateTime? endDate = null)
     {
         var wallet = await wat.GetWalletAsync(accountId);
         if (wallet == null)
