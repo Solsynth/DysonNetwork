@@ -14,7 +14,8 @@ public class OidcController(
     IServiceProvider serviceProvider,
     AppDatabase db,
     AccountService accounts,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<OidcController> logger
 )
     : ControllerBase
 {
@@ -25,9 +26,10 @@ public class OidcController(
     public async Task<ActionResult> OidcLogin(
         [FromRoute] string provider,
         [FromQuery] string? returnUrl = "/",
-        [FromHeader(Name = "X-Device-Id")] string? deviceId = null
+        [FromQuery] string? deviceId = null
     )
     {
+        logger.LogInformation("OIDC login request for provider {Provider} with returnUrl {ReturnUrl} and deviceId {DeviceId}", provider, returnUrl, deviceId);
         try
         {
             var oidcService = GetOidcService(provider);
@@ -41,6 +43,7 @@ public class OidcController(
                 // Create and store connection state
                 var oidcState = OidcState.ForConnection(currentUser.Id, provider, nonce, deviceId);
                 await cache.SetAsync($"{StateCachePrefix}{state}", oidcState, StateExpiration);
+                logger.LogInformation("OIDC connection flow started for user {UserId} with state {State}", currentUser.Id, state);
 
                 // The state parameter sent to the provider is the GUID key for the cache.
                 var authUrl = await oidcService.GetAuthorizationUrlAsync(state, nonce);
@@ -54,12 +57,14 @@ public class OidcController(
                 // Create login state with return URL and device ID
                 var oidcState = OidcState.ForLogin(returnUrl ?? "/", deviceId);
                 await cache.SetAsync($"{StateCachePrefix}{state}", oidcState, StateExpiration);
+                logger.LogInformation("OIDC login flow started with state {State} and returnUrl {ReturnUrl}", state, oidcState.ReturnUrl);
                 var authUrl = await oidcService.GetAuthorizationUrlAsync(state, nonce);
                 return Redirect(authUrl);
             }
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Error initiating OIDC flow for provider {Provider}", provider);
             return BadRequest($"Error initiating OpenID Connect flow: {ex.Message}");
         }
     }

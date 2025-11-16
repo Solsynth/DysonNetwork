@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Cache;
+using Microsoft.AspNetCore.WebUtilities;
 using NodaTime;
 using DysonNetwork.Shared.Models;
 
@@ -17,7 +18,8 @@ public class ConnectionController(
     AccountService accounts,
     AuthService auth,
     ICacheService cache,
-    IConfiguration configuration
+    IConfiguration configuration,
+    ILogger<ConnectionController> logger
 ) : ControllerBase
 {
     private const string StateCachePrefix = "oidc-state:";
@@ -152,8 +154,13 @@ public class ConnectionController(
         {
             var stateValue = await cache.GetAsync<string>(stateKey);
             if (string.IsNullOrEmpty(stateValue) || !OidcState.TryParse(stateValue, out oidcState) || oidcState == null)
+            {
+                logger.LogWarning("Invalid or expired OIDC state: {State}", callbackData.State);
                 return BadRequest("Invalid or expired state parameter");
+            }
         }
+        
+        logger.LogInformation("OIDC callback for provider {Provider} with state {State} and flow {FlowType}", provider, callbackData.State, oidcState.FlowType);
 
         // Remove the state from cache to prevent replay attacks
         await cache.RemoveAsync(stateKey);
@@ -174,13 +181,16 @@ public class ConnectionController(
         {
             // Login/Registration flow
             if (!string.IsNullOrEmpty(oidcState.DeviceId))
-            {
                 callbackData.State = oidcState.DeviceId;
-            }
 
             // Store return URL if provided
             if (string.IsNullOrEmpty(oidcState.ReturnUrl) || oidcState.ReturnUrl == "/")
+            {
+                logger.LogInformation("No returnUrl provided in OIDC state, will use default.");
                 return await HandleLoginOrRegistration(provider, oidcService, callbackData);
+            }
+            
+            logger.LogInformation("Storing returnUrl {ReturnUrl} for state {State}", oidcState.ReturnUrl, callbackData.State);
             var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
             await cache.SetAsync(returnUrlKey, oidcState.ReturnUrl, StateExpiration);
 
@@ -206,6 +216,7 @@ public class ConnectionController(
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Error processing OIDC callback for provider {Provider} during connection flow", provider);
             return BadRequest($"Error processing {provider} authentication: {ex.Message}");
         }
 
@@ -270,8 +281,9 @@ public class ConnectionController(
         {
             await db.SaveChangesAsync();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
+            logger.LogError(ex, "Failed to save OIDC connection for provider {Provider}", provider);
             return StatusCode(500, $"Failed to save {provider} connection. Please try again.");
         }
 
@@ -281,8 +293,10 @@ public class ConnectionController(
         await cache.RemoveAsync(returnUrlKey);
 
         var siteUrl = configuration["SiteUrl"];
-
-        return Redirect(string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/callback" : returnUrl);
+        var redirectUrl = string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/callback" : returnUrl;
+        
+        logger.LogInformation("Redirecting after OIDC connection to {RedirectUrl}", redirectUrl);
+        return Redirect(redirectUrl);
     }
 
     private async Task<IActionResult> HandleLoginOrRegistration(
@@ -298,6 +312,7 @@ public class ConnectionController(
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Error processing OIDC callback for provider {Provider} during login/registration flow", provider);
             return BadRequest($"Error processing callback: {ex.Message}");
         }
 
@@ -305,13 +320,21 @@ public class ConnectionController(
         {
             return BadRequest($"Email or user ID is missing from {provider}'s response");
         }
+        
+        // Retrieve and clean up the return URL
+        var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
+        var returnUrl = await cache.GetAsync<string>(returnUrlKey);
+        await cache.RemoveAsync(returnUrlKey);
+
+        var siteUrl = configuration["SiteUrl"];
+        var redirectBaseUrl = string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/callback" : returnUrl;
 
         var connection = await db.AccountConnections
             .Include(c => c.Account)
             .FirstOrDefaultAsync(c => c.Provider == provider && c.ProvidedIdentifier == userInfo.UserId);
 
         var clock = SystemClock.Instance;
-        var siteUrl = configuration["SiteUrl"];
+        
         if (connection != null)
         {
             // Login existing user
@@ -325,7 +348,9 @@ public class ConnectionController(
                 HttpContext,
                 deviceId ?? string.Empty);
             
-            return Redirect(siteUrl + $"/auth/callback?challenge={challenge.Id}");
+            var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "challenge", challenge.Id.ToString());
+            logger.LogInformation("OIDC login successful for user {UserId}. Redirecting to {RedirectUrl}", connection.AccountId, redirectUrl);
+            return Redirect(redirectUrl);
         }
 
         // Register new user
@@ -349,7 +374,9 @@ public class ConnectionController(
         var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
         var loginToken = auth.CreateToken(loginSession);
 
-        return Redirect(siteUrl + $"/auth/callback?token={loginToken}");
+        var finalRedirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", loginToken);
+        logger.LogInformation("OIDC registration successful for new user {UserId}. Redirecting to {RedirectUrl}", account.Id, finalRedirectUrl);
+        return Redirect(finalRedirectUrl);
     }
 
     private static async Task<OidcCallbackData> ExtractCallbackData(HttpRequest request)
