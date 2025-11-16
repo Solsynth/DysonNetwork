@@ -5,7 +5,8 @@ namespace DysonNetwork.Pass.Auth.OidcProvider.Models;
 public class AuthorizationCodeInfo
 {
     public Guid ClientId { get; set; }
-    public Guid AccountId { get; set; }
+    public Guid? AccountId { get; set; }
+    public ExternalUserInfo? ExternalUserInfo { get; set; }
     public string RedirectUri { get; set; } = string.Empty;
     public List<string> Scopes { get; set; } = new();
     public string? CodeChallenge { get; set; }

@@ -166,9 +166,11 @@ public class ConnectionController(
             {
                 callbackData.State = oidcState.DeviceId;
             }
+            
             return await HandleManualConnection(provider, oidcService, callbackData, oidcState.AccountId.Value);
         }
-        else if (oidcState.FlowType == OidcFlowType.Login)
+
+        if (oidcState.FlowType == OidcFlowType.Login)
         {
             // Login/Registration flow
             if (!string.IsNullOrEmpty(oidcState.DeviceId))
@@ -309,6 +311,7 @@ public class ConnectionController(
             .FirstOrDefaultAsync(c => c.Provider == provider && c.ProvidedIdentifier == userInfo.UserId);
 
         var clock = SystemClock.Instance;
+        var siteUrl = configuration["SiteUrl"];
         if (connection != null)
         {
             // Login existing user
@@ -321,7 +324,8 @@ public class ConnectionController(
                 connection.Account,
                 HttpContext,
                 deviceId ?? string.Empty);
-            return Redirect($"/auth/callback?challenge={challenge.Id}");
+            
+            return Redirect(siteUrl + $"/auth/callback?challenge={challenge.Id}");
         }
 
         // Register new user
@@ -344,8 +348,6 @@ public class ConnectionController(
 
         var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
         var loginToken = auth.CreateToken(loginSession);
-
-        var siteUrl = configuration["SiteUrl"];
 
         return Redirect(siteUrl + $"/auth/callback?token={loginToken}");
     }

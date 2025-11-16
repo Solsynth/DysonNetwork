@@ -257,18 +257,15 @@ public class OidcProviderService(
     }
 
     private async Task<(SnAuthSession session, string? nonce, List<string>? scopes)> HandleAuthorizationCodeFlowAsync(
-        string authorizationCode,
-        Guid clientId,
-        string? redirectUri,
-        string? codeVerifier
+        AuthorizationCodeInfo authCode,
+        Guid clientId
     )
     {
-        var authCode = await ValidateAuthorizationCodeAsync(authorizationCode, clientId, redirectUri, codeVerifier);
-        if (authCode == null)
-            throw new InvalidOperationException("Invalid authorization code");
+        if (authCode.AccountId == null)
+            throw new InvalidOperationException("Invalid authorization code, account id is missing.");
 
         // Load the session for the user
-        var existingSession = await FindValidSessionAsync(authCode.AccountId, clientId, withAccount: true);
+        var existingSession = await FindValidSessionAsync(authCode.AccountId.Value, clientId, withAccount: true);
 
         SnAuthSession session;
         if (existingSession == null)
@@ -315,31 +312,124 @@ public class OidcProviderService(
 
         var client = await FindClientByIdAsync(clientId) ?? throw new InvalidOperationException("Client not found");
 
-        var (session, nonce, scopes) = authorizationCode != null
-            ? await HandleAuthorizationCodeFlowAsync(authorizationCode, clientId, redirectUri, codeVerifier)
-            : sessionId.HasValue
-                ? await HandleRefreshTokenFlowAsync(sessionId.Value)
-                : throw new InvalidOperationException("Either authorization code or session ID must be provided");
+        if (authorizationCode != null)
+        {
+            var authCode = await ValidateAuthorizationCodeAsync(authorizationCode, clientId, redirectUri, codeVerifier);
+            if (authCode == null)
+            {
+                throw new InvalidOperationException("Invalid authorization code");
+            }
 
+            if (authCode.AccountId.HasValue)
+            {
+                var (session, nonce, scopes) = await HandleAuthorizationCodeFlowAsync(authCode, clientId);
+                var clock = SystemClock.Instance;
+                var now = clock.GetCurrentInstant();
+                var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
+                var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
+
+                // Generate tokens
+                var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
+                var idToken = GenerateIdToken(client, session, nonce, scopes);
+                var refreshToken = GenerateRefreshToken(session);
+
+                return new TokenResponse
+                {
+                    AccessToken = accessToken,
+                    IdToken = idToken,
+                    ExpiresIn = expiresIn,
+                    TokenType = "Bearer",
+                    RefreshToken = refreshToken,
+                    Scope = scopes != null ? string.Join(" ", scopes) : null
+                };
+            }
+
+            if (authCode.ExternalUserInfo != null)
+            {
+                var onboardingToken = GenerateOnboardingToken(client, authCode.ExternalUserInfo, authCode.Nonce, authCode.Scopes);
+                return new TokenResponse
+                {
+                    OnboardingToken = onboardingToken,
+                    TokenType = "Onboarding"
+                };
+            }
+
+            throw new InvalidOperationException("Invalid authorization code state.");
+        }
+
+        if (sessionId.HasValue)
+        {
+            var (session, nonce, scopes) = await HandleRefreshTokenFlowAsync(sessionId.Value);
+            var clock = SystemClock.Instance;
+            var now = clock.GetCurrentInstant();
+            var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
+            var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
+            var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
+            var idToken = GenerateIdToken(client, session, nonce, scopes);
+            var refreshToken = GenerateRefreshToken(session);
+            return new TokenResponse
+            {
+                AccessToken = accessToken,
+                IdToken = idToken,
+                ExpiresIn = expiresIn,
+                TokenType = "Bearer",
+                RefreshToken = refreshToken,
+                Scope = scopes != null ? string.Join(" ", scopes) : null
+            };
+        }
+
+        throw new InvalidOperationException("Either authorization code or session ID must be provided");
+    }
+
+    private string GenerateOnboardingToken(CustomApp client, ExternalUserInfo externalUserInfo, string? nonce,
+        List<string> scopes)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
         var clock = SystemClock.Instance;
         var now = clock.GetCurrentInstant();
-        var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
-        var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
 
-        // Generate tokens
-        var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
-        var idToken = GenerateIdToken(client, session, nonce, scopes);
-        var refreshToken = GenerateRefreshToken(session);
-
-        return new TokenResponse
+        var claims = new List<Claim>
         {
-            AccessToken = accessToken,
-            IdToken = idToken,
-            ExpiresIn = expiresIn,
-            TokenType = "Bearer",
-            RefreshToken = refreshToken,
-            Scope = scopes != null ? string.Join(" ", scopes) : null
+            new(JwtRegisteredClaimNames.Iss, _options.IssuerUri),
+            new(JwtRegisteredClaimNames.Aud, client.Slug),
+            new(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+            new(JwtRegisteredClaimNames.Exp,
+                now.Plus(Duration.FromMinutes(15)).ToUnixTimeSeconds()
+                    .ToString(), ClaimValueTypes.Integer64),
+            new("provider", externalUserInfo.Provider),
+            new("provider_user_id", externalUserInfo.UserId)
         };
+
+        if (!string.IsNullOrEmpty(externalUserInfo.Email))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, externalUserInfo.Email));
+        }
+
+        if (!string.IsNullOrEmpty(externalUserInfo.Name))
+        {
+            claims.Add(new Claim("name", externalUserInfo.Name));
+        }
+
+        if (!string.IsNullOrEmpty(nonce))
+        {
+            claims.Add(new Claim("nonce", nonce));
+        }
+
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(claims),
+            Issuer = _options.IssuerUri,
+            Audience = client.Slug,
+            Expires = now.Plus(Duration.FromMinutes(15)).ToDateTimeUtc(),
+            NotBefore = now.ToDateTimeUtc(),
+            SigningCredentials = new SigningCredentials(
+                new RsaSecurityKey(_options.GetRsaPrivateKey()),
+                SecurityAlgorithms.RsaSha256
+            )
+        };
+
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        return tokenHandler.WriteToken(token);
     }
 
     private string GenerateJwtToken(
@@ -440,12 +530,6 @@ public class OidcProviderService(
         string? nonce = null
     )
     {
-        // Generate a random code
-        var clock = SystemClock.Instance;
-        var code = GenerateRandomString(32);
-        var now = clock.GetCurrentInstant();
-
-        // Create the authorization code info
         var authCodeInfo = new AuthorizationCodeInfo
         {
             ClientId = clientId,
@@ -455,16 +539,46 @@ public class OidcProviderService(
             CodeChallenge = codeChallenge,
             CodeChallengeMethod = codeChallengeMethod,
             Nonce = nonce,
-            CreatedAt = now
+            CreatedAt = SystemClock.Instance.GetCurrentInstant()
         };
 
-        // Store the code with its metadata in the cache
+        return await StoreAuthorizationCode(authCodeInfo);
+    }
+
+    public async Task<string> GenerateAuthorizationCodeAsync(
+        Guid clientId,
+        ExternalUserInfo externalUserInfo,
+        string redirectUri,
+        IEnumerable<string> scopes,
+        string? codeChallenge = null,
+        string? codeChallengeMethod = null,
+        string? nonce = null
+    )
+    {
+        var authCodeInfo = new AuthorizationCodeInfo
+        {
+            ClientId = clientId,
+            ExternalUserInfo = externalUserInfo,
+            RedirectUri = redirectUri,
+            Scopes = scopes.ToList(),
+            CodeChallenge = codeChallenge,
+            CodeChallengeMethod = codeChallengeMethod,
+            Nonce = nonce,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        return await StoreAuthorizationCode(authCodeInfo);
+    }
+
+    private async Task<string> StoreAuthorizationCode(AuthorizationCodeInfo authCodeInfo)
+    {
+        var code = GenerateRandomString(32);
         var cacheKey = $"{CacheKeyPrefixAuthCode}{code}";
         await cache.SetAsync(cacheKey, authCodeInfo, _options.AuthorizationCodeLifetime);
-
-        logger.LogInformation("Generated authorization code for client {ClientId} and user {UserId}", clientId, userId);
+        logger.LogInformation("Generated authorization code for client {ClientId}", authCodeInfo.ClientId);
         return code;
     }
+
 
     private async Task<AuthorizationCodeInfo?> ValidateAuthorizationCodeAsync(
         string code,

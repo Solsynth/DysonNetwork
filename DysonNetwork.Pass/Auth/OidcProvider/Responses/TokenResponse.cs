@@ -5,7 +5,7 @@ namespace DysonNetwork.Pass.Auth.OidcProvider.Responses;
 public class TokenResponse
 {
     [JsonPropertyName("access_token")]
-    public string AccessToken { get; set; } = null!;
+    public string? AccessToken { get; set; } = null!;
 
     [JsonPropertyName("expires_in")]
     public int ExpiresIn { get; set; }
@@ -22,4 +22,7 @@ public class TokenResponse
 
     [JsonPropertyName("id_token")]
     public string? IdToken { get; set; }
+    
+    [JsonPropertyName("onboarding_token")]
+    public string? OnboardingToken { get; set; }
 }
