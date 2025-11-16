@@ -254,6 +254,7 @@ public class WalletController(
         [Required] public List<Guid> RecipientAccountIds { get; set; } = new();
         [Required] public string Currency { get; set; } = null!;
         [Required] public decimal TotalAmount { get; set; }
+        [Required] public int AmountOfSplits { get; set; }
         [Required] public FundSplitType SplitType { get; set; }
         public string? Message { get; set; }
         public int? ExpirationHours { get; set; } // Optional: hours until expiration
@@ -283,6 +284,7 @@ public class WalletController(
                 recipientAccountIds: request.RecipientAccountIds,
                 currency: request.Currency,
                 totalAmount: request.TotalAmount,
+                amountOfSplits: request.AmountOfSplits,
                 splitType: request.SplitType,
                 message: request.Message,
                 expiration: expiration

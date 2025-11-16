@@ -475,6 +475,7 @@ public class PaymentService(
         List<Guid> recipientAccountIds,
         string currency,
         decimal totalAmount,
+        int amountOfSplits,
         Shared.Models.FundSplitType splitType,
         string? message = null,
         Duration? expiration = null)
@@ -506,6 +507,7 @@ public class PaymentService(
             Currency = currency,
             TotalAmount = totalAmount,
             RemainingAmount = totalAmount,
+            AmountOfSplits = amountOfSplits,
             SplitType = splitType,
             Message = message,
             ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
@@ -582,14 +584,12 @@ public class PaymentService(
         if (fund.RemainingAmount <= 0)
             return 0;
 
-        // For open mode funds: use percentage-based calculation
+        // For open mode funds: calculate amount per split
         if (fund.IsOpen)
         {
-            const decimal percentagePerClaim = 0.1m; // 10% of remaining amount per claim
-            const decimal minimumAmount = 0.01m; // Minimum 0.01 per claim
-
-            var calculatedAmount = Math.Max(fund.RemainingAmount * percentagePerClaim, minimumAmount);
-            return Math.Min(calculatedAmount, fund.RemainingAmount);
+            // Calculate amount per split: TotalAmount / AmountOfSplits
+            var amountPerSplit = fund.TotalAmount / fund.AmountOfSplits;
+            return Math.Max(amountPerSplit, 0.01m); // Minimum 0.01 per claim
         }
         // For closed mode funds: use split type calculation
         else

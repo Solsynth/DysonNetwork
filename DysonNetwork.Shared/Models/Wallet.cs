@@ -86,10 +86,11 @@ public class SnWalletFund : ModelBase
     [MaxLength(128)] public string Currency { get; set; } = null!;
     public decimal TotalAmount { get; set; }
     public decimal RemainingAmount { get; set; }
+    public int AmountOfSplits { get; set; }
     public FundSplitType SplitType { get; set; }
     public FundStatus Status { get; set; } = FundStatus.Created;
     [MaxLength(4096)] public string? Message { get; set; }
-    public bool IsOpen { get; set; } = false;
+    public bool IsOpen { get; set; }
 
     // Creator
     public Guid CreatorAccountId { get; set; }
@@ -119,7 +120,9 @@ public class SnWalletFund : ModelBase
         Id = Guid.Parse(proto.Id),
         Currency = proto.Currency,
         TotalAmount = decimal.Parse(proto.TotalAmount),
-        RemainingAmount = proto.RemainingAmount is not null ? decimal.Parse(proto.RemainingAmount) : decimal.Parse(proto.TotalAmount),
+        RemainingAmount = proto.RemainingAmount is not null
+            ? decimal.Parse(proto.RemainingAmount)
+            : decimal.Parse(proto.TotalAmount),
         SplitType = (FundSplitType)proto.SplitType,
         Status = (FundStatus)proto.Status,
         Message = proto.Message,
