@@ -26,16 +26,17 @@ public class OidcController(
     public async Task<ActionResult> OidcLogin(
         [FromRoute] string provider,
         [FromQuery] string? returnUrl = "/",
-        [FromQuery] string? deviceId = null
+        [FromQuery] string? deviceId = null,
+        [FromQuery] string? flow = null
     )
     {
-        logger.LogInformation("OIDC login request for provider {Provider} with returnUrl {ReturnUrl} and deviceId {DeviceId}", provider, returnUrl, deviceId);
+        logger.LogInformation("OIDC login request for provider {Provider} with returnUrl {ReturnUrl}, deviceId {DeviceId} and flow {Flow}", provider, returnUrl, deviceId, flow);
         try
         {
             var oidcService = GetOidcService(provider);
 
             // If the user is already authenticated, treat as an account connection request
-            if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+            if (flow != "login" && HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             {
                 var state = Guid.NewGuid().ToString();
                 var nonce = Guid.NewGuid().ToString();
