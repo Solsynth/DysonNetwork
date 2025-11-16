@@ -193,7 +193,18 @@ public class ChatRoomService(
     public async Task<List<Guid>> GetSubscribedMembers(Guid roomId)
     {
         var group = $"chatroom:subscribers:{roomId}";
-        var keys = await cache.GetGroupKeysAsync(group);
-        return keys.Select(k => Guid.Parse(k.Split(':').Last())).ToList();
+        var keys = (await cache.GetGroupKeysAsync(group)).ToList();
+        
+        var memberIds = new List<Guid>(keys.Count);
+        foreach (var key in keys)
+        {
+            var lastColonIndex = key.LastIndexOf(':');
+            if (lastColonIndex >= 0 && Guid.TryParse(key.AsSpan(lastColonIndex + 1), out var memberId))
+            {
+                memberIds.Add(memberId);
+            }
+        }
+        
+        return memberIds;
     }
 }

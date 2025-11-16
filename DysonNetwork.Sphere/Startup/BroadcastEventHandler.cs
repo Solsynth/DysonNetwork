@@ -266,20 +266,26 @@ public class BroadcastEventHandler(
             {
                 room_id = sender.ChatRoomId,
                 sender_id = sender.Id,
-                sender = sender
+                sender
             }
         };
 
-        // Broadcast typing indicator to other room members
-        var otherMembers = (await crs.ListRoomMembers(requestData.ChatRoomId))
-            .Where(m => m.AccountId != evt.AccountId)
+        // Broadcast typing indicator to subscribed room members only
+        var subscribedMemberIds = await crs.GetSubscribedMembers(requestData.ChatRoomId);
+        var roomMembers = await crs.ListRoomMembers(requestData.ChatRoomId);
+        
+        // Filter to subscribed members excluding the current user
+        var subscribedMembers = roomMembers
+            .Where(m => subscribedMemberIds.Contains(m.Id) && m.AccountId != evt.AccountId)
             .Select(m => m.AccountId.ToString())
             .ToList();
 
-        var respRequest = new PushWebSocketPacketToUsersRequest() { Packet = responsePacket.ToProtoValue() };
-        respRequest.UserIds.AddRange(otherMembers);
-
-        await pusher.PushWebSocketPacketToUsersAsync(respRequest);
+        if (subscribedMembers.Count > 0)
+        {
+            var respRequest = new PushWebSocketPacketToUsersRequest { Packet = responsePacket.ToProtoValue() };
+            respRequest.UserIds.AddRange(subscribedMembers);
+            await pusher.PushWebSocketPacketToUsersAsync(respRequest);
+        }
     }
 
     private async Task HandleMessageSubscribe(WebSocketPacketEvent evt, WebSocketPacket packet)
