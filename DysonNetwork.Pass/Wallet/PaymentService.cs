@@ -1,3 +1,4 @@
+using System.Data;
 using System.Globalization;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Models;
@@ -610,7 +611,7 @@ public class PaymentService(
     public async Task<SnWalletTransaction> ReceiveFundAsync(Guid recipientAccountId, Guid fundId)
     {
         // Use a transaction to ensure atomicity
-        await using var transactionScope = await db.Database.BeginTransactionAsync();
+        await using var transactionScope = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
         try
         {
