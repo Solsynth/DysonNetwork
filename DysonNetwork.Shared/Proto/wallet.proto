@@ -191,6 +191,7 @@ service PaymentService {
   rpc CancelOrder(CancelOrderRequest) returns (Order);
   rpc RefundOrder(RefundOrderRequest) returns (RefundOrderResponse);
   rpc Transfer(TransferRequest) returns (Transaction);
+  rpc GetWalletFund(GetWalletFundRequest) returns (WalletFund);
 }
 
 message CreateOrderRequest {
@@ -286,4 +287,8 @@ message TransferRequest {
   string payee_account_id = 2;
   string currency = 3;
   string amount = 4;
+}
+
+message GetWalletFundRequest {
+  string fund_id = 1;
 }

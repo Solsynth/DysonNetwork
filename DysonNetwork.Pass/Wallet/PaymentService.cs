@@ -680,6 +680,22 @@ public class PaymentService(
         await db.SaveChangesAsync();
     }
 
+    public async Task<SnWalletFund> GetWalletFundAsync(Guid fundId)
+    {
+        var fund = await db.WalletFunds
+            .Include(f => f.Recipients)
+                .ThenInclude(r => r.RecipientAccount)
+                .ThenInclude(a => a.Profile)
+            .Include(f => f.CreatorAccount)
+                .ThenInclude(a => a.Profile)
+            .FirstOrDefaultAsync(f => f.Id == fundId);
+
+        if (fund == null)
+            throw new InvalidOperationException("Fund not found");
+
+        return fund;
+    }
+
     public async Task<WalletOverview> GetWalletOverviewAsync(Guid accountId, DateTime? startDate = null, DateTime? endDate = null)
     {
         var wallet = await wat.GetWalletAsync(accountId);

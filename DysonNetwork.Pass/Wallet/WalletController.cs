@@ -12,7 +12,13 @@ namespace DysonNetwork.Pass.Wallet;
 
 [ApiController]
 [Route("/api/wallets")]
-public class WalletController(AppDatabase db, WalletService ws, PaymentService payment, AuthService auth, ICacheService cache) : ControllerBase
+public class WalletController(
+    AppDatabase db,
+    WalletService ws,
+    PaymentService payment,
+    AuthService auth,
+    ICacheService cache
+) : ControllerBase
 {
     [HttpPost]
     [Authorize]
@@ -154,7 +160,8 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
         var query = db.PaymentOrders.AsQueryable()
             .Include(o => o.Transaction)
-            .Where(o => o.Transaction != null && (o.Transaction.PayeeWalletId == accountWallet.Id || o.Transaction.PayerWalletId == accountWallet.Id))
+            .Where(o => o.Transaction != null && (o.Transaction.PayeeWalletId == accountWallet.Id ||
+                                                  o.Transaction.PayerWalletId == accountWallet.Id))
             .AsQueryable();
 
         var orderCount = await query.CountAsync();
@@ -301,12 +308,12 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
         var query = db.WalletFunds
             .Include(f => f.Recipients)
-                .ThenInclude(r => r.RecipientAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(r => r.RecipientAccount)
+            .ThenInclude(a => a.Profile)
             .Include(f => f.CreatorAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(a => a.Profile)
             .Where(f => f.CreatorAccountId == currentUser.Id ||
-                       f.Recipients.Any(r => r.RecipientAccountId == currentUser.Id))
+                        f.Recipients.Any(r => r.RecipientAccountId == currentUser.Id))
             .AsQueryable();
 
         if (status.HasValue)
@@ -326,7 +333,7 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
         return Ok(funds);
     }
 
-    [HttpGet("funds/{id}")]
+    [HttpGet("funds/{id:guid}")]
     [Authorize]
     public async Task<ActionResult<SnWalletFund>> GetFund(Guid id)
     {
@@ -334,26 +341,19 @@ public class WalletController(AppDatabase db, WalletService ws, PaymentService p
 
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
-                .ThenInclude(r => r.RecipientAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(r => r.RecipientAccount)
+            .ThenInclude(a => a.Profile)
             .Include(f => f.CreatorAccount)
-                .ThenInclude(a => a.Profile)
+            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync(f => f.Id == id);
 
-        if (fund == null)
+        if (fund is null)
             return NotFound("Fund not found");
-
-        // Check if user is creator or recipient
-        var isCreator = fund.CreatorAccountId == currentUser.Id;
-        var isRecipient = fund.Recipients.Any(r => r.RecipientAccountId == currentUser.Id);
-
-        if (!isCreator && !isRecipient)
-            return Forbid("You don't have permission to view this fund");
 
         return Ok(fund);
     }
 
-    [HttpPost("funds/{id}/receive")]
+    [HttpPost("funds/{id:guid}/receive")]
     [Authorize]
     public async Task<ActionResult<SnWalletTransaction>> ReceiveFund(Guid id)
     {

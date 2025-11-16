@@ -6,7 +6,9 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Wallet;
 using DysonNetwork.Sphere.WebReader;
+using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -519,6 +521,7 @@ public class PostController(
         public Guid? RealmId { get; set; }
 
         public Guid? PollId { get; set; }
+        public Guid? FundId { get; set; }
     }
 
     [HttpPost]
@@ -536,7 +539,7 @@ public class PostController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        Shared.Models.SnPublisher? publisher;
+        SnPublisher? publisher;
         if (pubName is null)
         {
             // Use the first personal publisher
@@ -626,6 +629,40 @@ public class PostController(
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+        if (request.FundId.HasValue)
+        {
+            try
+            {
+                var fundResponse = await payments.GetWalletFundAsync(new GetWalletFundRequest
+                {
+                    FundId = request.FundId.Value.ToString()
+                });
+                
+                // Check if the fund was created by the current user
+                if (fundResponse.CreatorAccountId != currentUser.Id)
+                    return BadRequest("You can only share funds that you created.");
+
+                var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+                post.Meta ??= new Dictionary<string, object>();
+                if (
+                    !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
+                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
+                post.Meta["embeds"] = embeds;
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+            {
+                return BadRequest("The specified fund does not exist.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            {
+                return BadRequest("Invalid fund ID.");
             }
         }
 
@@ -1070,6 +1107,57 @@ public class PostController(
             var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
             // Remove all old poll embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+        }
+
+        // Handle fund embeds
+        if (request.FundId.HasValue)
+        {
+            try
+            {
+                var fundResponse = await payments.GetWalletFundAsync(new GetWalletFundRequest
+                {
+                    FundId = request.FundId.Value.ToString()
+                });
+                
+                // Check if the fund was created by the current user
+                if (fundResponse.CreatorAccountId != currentUser.Id)
+                    return BadRequest("You can only share funds that you created.");
+
+                var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+                post.Meta ??= new Dictionary<string, object>();
+                if (
+                    !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
+                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                // Remove all old fund embeds
+                embeds.RemoveAll(e =>
+                    e.TryGetValue("type", out var type) && type.ToString() == "fund"
+                );
+                embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
+                post.Meta["embeds"] = embeds;
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+            {
+                return BadRequest("The specified fund does not exist.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            {
+                return BadRequest("Invalid fund ID.");
+            }
+        }
+        else
+        {
+            post.Meta ??= new Dictionary<string, object>();
+            if (
+                !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+            // Remove all old fund embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "fund");
         }
 
         // The realm is the same as well as the poll

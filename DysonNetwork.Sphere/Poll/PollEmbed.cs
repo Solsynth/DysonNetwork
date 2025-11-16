@@ -31,10 +31,4 @@ public class PollEmbed : EmbeddableBase
     public override string Type => "poll";
     
     public required Guid Id { get; set; }
-    
-    /// <summary>
-    /// Do not store this to the database
-    /// Only set this when sending the embed
-    /// </summary>
-    public PollWithStats? Poll { get; set; }
 }

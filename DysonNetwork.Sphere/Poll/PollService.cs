@@ -300,18 +300,6 @@ public class PollService(AppDatabase db, ICacheService cache)
         var poll = await db.Polls
             .Where(e => e.Id == pollId)
             .FirstOrDefaultAsync();
-        if (poll is null)
-            throw new Exception("Poll not found");
-        return new PollEmbed { Id = poll.Id };
-    }
-
-    public async Task<PollEmbed> LoadPollEmbed(Guid pollId, Guid? accountId)
-    {
-        var poll = await GetPoll(pollId) ?? throw new Exception("Poll not found");
-        var pollWithStats = PollWithStats.FromPoll(poll);
-        pollWithStats.Stats = await GetPollStats(poll.Id);
-        if (accountId is not null)
-            pollWithStats.UserAnswer = await GetPollAnswer(poll.Id, accountId.Value);
-        return new PollEmbed { Id = poll.Id, Poll = pollWithStats };
+        return poll is null ? throw new Exception("Poll not found") : new PollEmbed { Id = poll.Id };
     }
 }

@@ -8,7 +8,7 @@ namespace DysonNetwork.Pass.Wallet;
 public class PaymentServiceGrpc(PaymentService paymentService)
     : Shared.Proto.PaymentService.PaymentServiceBase
 {
-    public override async Task<Shared.Proto.Order> CreateOrder(
+    public override async Task<Order> CreateOrder(
         CreateOrderRequest request,
         ServerCallContext context
     )
@@ -31,7 +31,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         return order.ToProtoValue();
     }
 
-    public override async Task<Shared.Proto.Transaction> CreateTransactionWithAccount(
+    public override async Task<Transaction> CreateTransactionWithAccount(
         CreateTransactionWithAccountRequest request,
         ServerCallContext context
     )
@@ -87,7 +87,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         };
     }
 
-    public override async Task<Shared.Proto.Transaction> Transfer(
+    public override async Task<Transaction> Transfer(
         TransferRequest request,
         ServerCallContext context
     )
@@ -100,5 +100,13 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         );
         return transaction.ToProtoValue();
     }
-}
 
+    public override async Task<WalletFund> GetWalletFund(
+        GetWalletFundRequest request,
+        ServerCallContext context
+    )
+    {
+        var walletFund = await paymentService.GetWalletFundAsync(Guid.Parse(request.FundId));
+        return walletFund.ToProtoValue();
+    }
+}

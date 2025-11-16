@@ -5,6 +5,10 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Autocompletion;
+using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Wallet;
+using DysonNetwork.Sphere.WebReader;
+using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +23,9 @@ public partial class ChatController(
     ChatRoomService crs,
     FileService.FileServiceClient files,
     AccountService.AccountServiceClient accounts,
-    AutocompletionService aus
+    AutocompletionService aus,
+    PaymentService.PaymentServiceClient paymentClient,
+    PollService polls
 ) : ControllerBase
 {
     public class MarkMessageReadRequest
@@ -66,6 +72,8 @@ public partial class ChatController(
     {
         [MaxLength(4096)] public string? Content { get; set; }
         [MaxLength(36)] public string? Nonce { get; set; }
+        public Guid? FundId { get; set; }
+        public Guid? PollId { get; set; }
         public List<string>? AttachmentsId { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Guid? RepliedMessageId { get; set; }
@@ -227,12 +235,51 @@ public partial class ChatController(
 
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) &&
-            (request.AttachmentsId == null || request.AttachmentsId.Count == 0))
+            (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
+            !request.FundId.HasValue)
             return BadRequest("You cannot send an empty message.");
 
         var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
         if (member == null || member.Role < ChatMemberRole.Member)
             return StatusCode(403, "You need to be a normal member to send messages here.");
+
+        // Validate fund if provided
+        if (request.FundId.HasValue)
+        {
+            try
+            {
+                var fundResponse = await paymentClient.GetWalletFundAsync(new GetWalletFundRequest
+                {
+                    FundId = request.FundId.Value.ToString()
+                });
+                
+                // Check if the fund was created by the current user
+                if (fundResponse.CreatorAccountId != member.AccountId.ToString())
+                    return BadRequest("You can only share funds that you created.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+            {
+                return BadRequest("The specified fund does not exist.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            {
+                return BadRequest("Invalid fund ID.");
+            }
+        }
+
+        // Validate poll if provided
+        if (request.PollId.HasValue)
+        {
+            try
+            {
+                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                // Poll validation is handled by the MakePollEmbed method
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
         var message = new SnChatMessage
         {
@@ -242,6 +289,36 @@ public partial class ChatController(
             Nonce = request.Nonce ?? Guid.NewGuid().ToString(),
             Meta = request.Meta ?? new Dictionary<string, object>(),
         };
+
+        // Add embed for fund if provided
+        if (request.FundId.HasValue)
+        {
+            var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
+            message.Meta["embeds"] = embeds;
+        }
+
+        // Add embed for poll if provided
+        if (request.PollId.HasValue)
+        {
+            var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
+            message.Meta["embeds"] = embeds;
+        }
         if (request.Content is not null)
             message.Content = request.Content;
         if (request.AttachmentsId is not null)
@@ -329,6 +406,95 @@ public partial class ChatController(
         var updatedMentions = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
             request.ForwardedMessageId, roomId, accountId);
         message.MembersMentioned = updatedMentions;
+
+        // Handle fund embeds for update
+        if (request.FundId.HasValue)
+        {
+            try
+            {
+                var fundResponse = await paymentClient.GetWalletFundAsync(new GetWalletFundRequest
+                {
+                    FundId = request.FundId.Value.ToString()
+                });
+                
+                // Check if the fund was created by the current user
+                if (fundResponse.CreatorAccountId != accountId.ToString())
+                    return BadRequest("You can only share funds that you created.");
+
+                var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+                message.Meta ??= new Dictionary<string, object>();
+                if (
+                    !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
+                    message.Meta["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+                // Remove all old fund embeds
+                embeds.RemoveAll(e =>
+                    e.TryGetValue("type", out var type) && type.ToString() == "fund"
+                );
+                embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
+                message.Meta["embeds"] = embeds;
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+            {
+                return BadRequest("The specified fund does not exist.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            {
+                return BadRequest("Invalid fund ID.");
+            }
+        }
+        else
+        {
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            // Remove all old fund embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "fund");
+        }
+
+        // Handle poll embeds for update
+        if (request.PollId.HasValue)
+        {
+            try
+            {
+                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                message.Meta ??= new Dictionary<string, object>();
+                if (
+                    !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
+                    message.Meta["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+                // Remove all old poll embeds
+                embeds.RemoveAll(e =>
+                    e.TryGetValue("type", out var type) && type.ToString() == "poll"
+                );
+                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
+                message.Meta["embeds"] = embeds;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+        else
+        {
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            // Remove all old poll embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+        }
 
         // Call service method to update the message
         await cs.UpdateMessageAsync(
