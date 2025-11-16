@@ -22,9 +22,14 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         [Required] public string UserMessage { get; set; } = null!;
         public string? ServiceId { get; set; }
         public Guid? SequenceId { get; set; }
-        public List<string>? AttachedPosts { get; set; }
+        public List<string>? AttachedPosts { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
+    }
+
+    public class UpdateSharingRequest
+    {
+        public bool IsPublic { get; set; }
     }
 
     public class ThoughtServiceInfo
@@ -76,7 +81,6 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             return BadRequest("Service not found or configured.");
         }
 
-        // TODO: Check perk level from `currentUser`
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
             if (currentUser.PerkSubscription is null ||
                 PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier) <
@@ -407,6 +411,25 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
         return Ok(sequences);
     }
 
+    [HttpPatch("sequences/{sequenceId:guid}/sharing")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult> UpdateSequenceSharing(Guid sequenceId, [FromBody] UpdateSharingRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var sequence = await service.GetSequenceAsync(sequenceId);
+        if (sequence == null) return NotFound();
+        if (sequence.AccountId != accountId) return Forbid();
+
+        sequence.IsPublic = request.IsPublic;
+        await service.UpdateSequenceAsync(sequence);
+
+        return NoContent();
+    }
+
     /// <summary>
     /// Retrieves the thoughts in a specific thinking sequence.
     /// </summary>
@@ -419,11 +442,17 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<List<SnThinkingThought>>> GetSequenceThoughts(Guid sequenceId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
-
-        var sequence = await service.GetOrCreateSequenceAsync(accountId, sequenceId);
+        var sequence = await service.GetSequenceAsync(sequenceId);
         if (sequence == null) return NotFound();
+
+        if (!sequence.IsPublic)
+        {
+            if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+            var accountId = Guid.Parse(currentUser.Id);
+
+            if (sequence.AccountId != accountId)
+                return StatusCode(403);
+        }
 
         var thoughts = await service.GetPreviousThoughtsAsync(sequence);
 

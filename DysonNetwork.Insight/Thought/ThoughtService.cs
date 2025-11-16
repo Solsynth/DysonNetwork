@@ -36,6 +36,17 @@ public class ThoughtService(
         }
     }
 
+    public async Task<SnThinkingSequence?> GetSequenceAsync(Guid sequenceId)
+    {
+        return await db.ThinkingSequences.FindAsync(sequenceId);
+    }
+
+    public async Task UpdateSequenceAsync(SnThinkingSequence sequence)
+    {
+        db.ThinkingSequences.Update(sequence);
+        await db.SaveChangesAsync();
+    }
+
     public async Task<SnThinkingThought> SaveThoughtAsync(
         SnThinkingSequence sequence,
         List<SnThinkingMessagePart> parts,

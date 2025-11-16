@@ -12,6 +12,8 @@ public class SnThinkingSequence : ModelBase
     public long TotalToken { get; set; }
     public long PaidToken { get; set; }
 
+    public bool IsPublic { get; set; } = false;
+
     public Guid AccountId { get; set; }
 }
 
