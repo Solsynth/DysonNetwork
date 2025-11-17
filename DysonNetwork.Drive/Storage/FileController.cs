@@ -143,7 +143,7 @@ public class FileController(
         return fileName;
     }
 
-    public ActionResult? TryProxyRedirect(SnCloudFile file, RemoteStorageConfig dest, string fileName)
+    private ActionResult? TryProxyRedirect(SnCloudFile file, RemoteStorageConfig dest, string fileName)
     {
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
         {
