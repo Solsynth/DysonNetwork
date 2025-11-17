@@ -157,7 +157,8 @@ public class FileIndexController(
             var query = db.Files
                 .Where(f => f.AccountId == accountId
                             && f.IsMarkedRecycle == recycled
-                            && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId))
+                            && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId)
+                )
                 .OrderByDescending(f => f.CreatedAt)
                 .AsQueryable();
 

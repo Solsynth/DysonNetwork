@@ -86,9 +86,9 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     /// Converts the CloudFile to a protobuf message
     /// </summary>
     /// <returns>The protobuf message representation of this object</returns>
-    public Proto.CloudFile ToProtoValue()
+    public CloudFile ToProtoValue()
     {
-        var proto = new Proto.CloudFile
+        var proto = new CloudFile
         {
             Id = Id,
             Name = Name,

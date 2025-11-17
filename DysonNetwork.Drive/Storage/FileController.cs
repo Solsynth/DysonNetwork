@@ -306,7 +306,7 @@ public class FileController(
 
     [Authorize]
     [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteFile(string id)
+    public async Task<ActionResult<SnCloudFile>> DeleteFile(string id)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var userId = Guid.Parse(currentUser.Id);
@@ -318,9 +318,9 @@ public class FileController(
         if (file is null) return NotFound();
 
         await fs.DeleteFileDataAsync(file, force: true);
-        await fs.DeleteFileAsync(file);
+        await fs.DeleteFileAsync(file, skipData: true);
 
-        return NoContent();
+        return Ok(file);
     }
 
     [Authorize]

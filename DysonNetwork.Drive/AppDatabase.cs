@@ -48,25 +48,31 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
 
         // Apply soft-delete filter only to root entities, not derived types
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        var entityTypes = modelBuilder.Model.GetEntityTypes();
+        foreach (var entityType in entityTypes)
         {
             if (!typeof(ModelBase).IsAssignableFrom(entityType.ClrType)) continue;
 
             // Skip derived types to avoid filter conflicts
             var clrType = entityType.ClrType;
-            if (clrType.BaseType != typeof(object) &&
+            if (clrType.BaseType != typeof(ModelBase) && 
                 typeof(ModelBase).IsAssignableFrom(clrType.BaseType))
             {
                 continue; // Skip derived types
             }
 
-            var method = typeof(AppDatabase)
-                .GetMethod(nameof(SetSoftDeleteFilter),
-                    BindingFlags.NonPublic | BindingFlags.Static)!
-                .MakeGenericMethod(clrType);
-
-            method.Invoke(null, [modelBuilder]);
+            // Apply soft delete filter using cached reflection
+            ApplySoftDeleteFilter(modelBuilder, clrType);
         }
+    }
+
+    private static readonly MethodInfo SetSoftDeleteFilterMethod = typeof(AppDatabase)
+        .GetMethod(nameof(SetSoftDeleteFilter), BindingFlags.NonPublic | BindingFlags.Static)!;
+
+    private static void ApplySoftDeleteFilter(ModelBuilder modelBuilder, Type entityType)
+    {
+        var genericMethod = SetSoftDeleteFilterMethod.MakeGenericMethod(entityType);
+        genericMethod.Invoke(null, [modelBuilder]);
     }
 
     private static void SetSoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)

@@ -103,7 +103,8 @@ public class FileService(
         var bundle = await ValidateAndGetBundleAsync(fileBundleId, accountId);
         var finalExpiredAt = CalculateFinalExpiration(expiredAt, pool, bundle);
 
-        var (managedTempPath, fileSize, finalContentType) = await PrepareFileAsync(fileId, filePath, fileName, contentType);
+        var (managedTempPath, fileSize, finalContentType) =
+            await PrepareFileAsync(fileId, filePath, fileName, contentType);
 
         var file = CreateFileObject(fileId, fileName, finalContentType, fileSize, finalExpiredAt, bundle, accountId);
 
@@ -112,7 +113,8 @@ public class FileService(
             await ExtractMetadataAsync(file, managedTempPath);
         }
 
-        var (processingPath, isTempFile) = await ProcessEncryptionAsync(fileId, managedTempPath, encryptPassword, pool, file);
+        var (processingPath, isTempFile) =
+            await ProcessEncryptionAsync(fileId, managedTempPath, encryptPassword, pool, file);
 
         file.Hash = await HashFileAsync(processingPath);
 
@@ -231,7 +233,8 @@ public class FileService(
         file.StorageId ??= file.Id;
     }
 
-    private async Task PublishFileUploadedEventAsync(SnCloudFile file, FilePool pool, string processingPath, bool isTempFile)
+    private async Task PublishFileUploadedEventAsync(SnCloudFile file, FilePool pool, string processingPath,
+        bool isTempFile)
     {
         var js = nats.CreateJetStreamContext();
         await js.PublishAsync(
@@ -471,13 +474,14 @@ public class FileService(
         return await db.Files.AsNoTracking().FirstAsync(f => f.Id == file.Id);
     }
 
-    public async Task DeleteFileAsync(SnCloudFile file)
+    public async Task DeleteFileAsync(SnCloudFile file, bool skipData = false)
     {
         db.Remove(file);
         await db.SaveChangesAsync();
         await _PurgeCacheAsync(file.Id);
 
-        await DeleteFileDataAsync(file);
+        if (!skipData)
+            await DeleteFileDataAsync(file);
     }
 
     public async Task DeleteFileDataAsync(SnCloudFile file, bool force = false)
@@ -660,9 +664,12 @@ public class FileService(
             }
         }
 
-        return [.. references
-            .Select(r => cachedFiles.GetValueOrDefault(r.Id))
-            .Where(f => f != null)];
+        return
+        [
+            .. references
+                .Select(r => cachedFiles.GetValueOrDefault(r.Id))
+                .Where(f => f != null)
+        ];
     }
 
     public async Task<int> GetReferenceCountAsync(string fileId)
