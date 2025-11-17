@@ -16,7 +16,8 @@ public class FileController(
     FileService fs,
     QuotaService qs,
     IConfiguration configuration,
-    IWebHostEnvironment env
+    IWebHostEnvironment env,
+    FileReferenceService fileReferenceService
 ) : ControllerBase
 {
     [HttpGet("{id}")]
@@ -229,6 +230,21 @@ public class FileController(
         if (file is null) return NotFound("File not found.");
 
         return file;
+    }
+
+    [HttpGet("{id}/references")]
+    public async Task<ActionResult<List<Shared.Models.CloudFileReference>>> GetFileReferences(string id)
+    {
+        var file = await fs.GetFileAsync(id);
+        if (file is null) return NotFound("File not found.");
+
+        // Check if user has access to the file
+        var accessResult = await ValidateFileAccess(file, null);
+        if (accessResult is not null) return accessResult;
+
+        // Get references using the injected FileReferenceService
+        var references = await fileReferenceService.GetReferencesAsync(id);
+        return Ok(references);
     }
 
     [Authorize]
