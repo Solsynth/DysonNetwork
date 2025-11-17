@@ -31,17 +31,17 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             var fileIndexes = await fileIndexService.GetByPathAsync(accountId, path);
-            
+
             // Get all file indexes for this account to extract child folders
             var allFileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
-            
+
             // Extract unique child folder paths
             var childFolders = ExtractChildFolders(allFileIndexes, path);
-            
+
             return Ok(new
             {
                 Path = path,
@@ -76,14 +76,14 @@ public class FileIndexController(
         foreach (var index in allFileIndexes)
         {
             var normalizedIndexPath = FileIndexService.NormalizePath(index.Path);
-            
+
             // Check if this path is a direct child of the parent path
-            if (normalizedIndexPath.StartsWith(normalizedParentPath) && 
+            if (normalizedIndexPath.StartsWith(normalizedParentPath) &&
                 normalizedIndexPath != normalizedParentPath)
             {
                 // Remove the parent path prefix to get the relative path
                 var relativePath = normalizedIndexPath.Substring(normalizedParentPath.Length);
-                
+
                 // Extract the first folder name (direct child)
                 var firstSlashIndex = relativePath.IndexOf('/');
                 if (firstSlashIndex > 0)
@@ -108,11 +108,11 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             var fileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
-            
+
             return Ok(new
             {
                 Files = fileIndexes,
@@ -134,11 +134,18 @@ public class FileIndexController(
     /// <summary>
     /// Gets files that have not been indexed for the current user.
     /// </summary>
+    /// <param name="recycled">Shows recycled files or not</param>
     /// <param name="offset">The number of files to skip</param>
     /// <param name="take">The number of files to return</param>
+    /// <param name="pool">The pool ID of those files</param>
     /// <returns>List of unindexed files</returns>
     [HttpGet("unindexed")]
-    public async Task<IActionResult> GetUnindexedFiles([FromQuery] int offset = 0, [FromQuery] int take = 20)
+    public async Task<IActionResult> GetUnindexedFiles(
+        [FromQuery] Guid? pool,
+        [FromQuery] bool recycled = false,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
@@ -149,14 +156,17 @@ public class FileIndexController(
         {
             var query = db.Files
                 .Where(f => f.AccountId == accountId
-                            && !f.IsMarkedRecycle
+                            && f.IsMarkedRecycle == recycled
                             && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId))
-                .OrderByDescending(f => f.CreatedAt);
+                .OrderByDescending(f => f.CreatedAt)
+                .AsQueryable();
+
+            if (pool.HasValue) query = query.Where(f => f.PoolId == pool);
 
             var totalCount = await query.CountAsync();
-            
+
             Response.Headers.Append("X-Total", totalCount.ToString());
-            
+
             var unindexedFiles = await query
                 .Skip(offset)
                 .Take(take)
@@ -189,7 +199,7 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             // Verify ownership
@@ -201,7 +211,7 @@ public class FileIndexController(
                 return new ObjectResult(ApiError.NotFound("File index")) { StatusCode = 404 };
 
             var updatedIndex = await fileIndexService.UpdateAsync(indexId, request.NewPath);
-            
+
             if (updatedIndex == null)
                 return new ObjectResult(ApiError.NotFound("File index")) { StatusCode = 404 };
 
@@ -239,7 +249,7 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             // Verify ownership
@@ -256,7 +266,7 @@ public class FileIndexController(
 
             // Remove the index
             var removed = await fileIndexService.RemoveAsync(indexId);
-            
+
             if (!removed)
                 return new ObjectResult(ApiError.NotFound("File index")) { StatusCode = 404 };
 
@@ -296,7 +306,9 @@ public class FileIndexController(
 
             return Ok(new
             {
-                Message = deleteFile ? "File index and file data removed successfully" : "File index removed successfully",
+                Message = deleteFile
+                    ? "File index and file data removed successfully"
+                    : "File index removed successfully",
                 FileId = fileId,
                 FileName = fileName,
                 Path = filePath,
@@ -328,7 +340,7 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             var removedCount = await fileIndexService.RemoveByPathAsync(accountId, path);
@@ -357,13 +369,14 @@ public class FileIndexController(
                 db.Files.Remove(file);
                 logger.LogInformation("Deleted orphaned file {FileId} after clearing path {Path}", fileId, path);
             }
+
             await db.SaveChangesAsync();
 
             return Ok(new
             {
-                Message = deleteFiles ? 
-                    $"Cleared {removedCount} file indexes from path and deleted orphaned files" :
-                    $"Cleared {removedCount} file indexes from path",
+                Message = deleteFiles
+                    ? $"Cleared {removedCount} file indexes from path and deleted orphaned files"
+                    : $"Cleared {removedCount} file indexes from path",
                 Path = path,
                 RemovedCount = removedCount,
                 FilesDeleted = deleteFiles
@@ -393,7 +406,7 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             // Verify the file exists and belongs to the user
@@ -406,7 +419,8 @@ public class FileIndexController(
 
             // Check if index already exists for this file and path
             var existingIndex = await db.FileIndexes
-                .FirstOrDefaultAsync(fi => fi.FileId == request.FileId && fi.Path == request.Path && fi.AccountId == accountId);
+                .FirstOrDefaultAsync(fi =>
+                    fi.FileId == request.FileId && fi.Path == request.Path && fi.AccountId == accountId);
 
             if (existingIndex != null)
                 return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
@@ -426,7 +440,7 @@ public class FileIndexController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create file index for file {FileId} at path {Path} for account {AccountId}", 
+            logger.LogError(ex, "Failed to create file index for file {FileId} at path {Path} for account {AccountId}",
                 request.FileId, request.Path, accountId);
             return new ObjectResult(new ApiError
             {
@@ -450,7 +464,7 @@ public class FileIndexController(
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
-        
+
         try
         {
             // Build the query with all conditions at once
@@ -458,7 +472,7 @@ public class FileIndexController(
             var fileIndexes = await db.FileIndexes
                 .Where(fi => fi.AccountId == accountId)
                 .Include(fi => fi.File)
-                .Where(fi => 
+                .Where(fi =>
                     (string.IsNullOrEmpty(path) || fi.Path == FileIndexService.NormalizePath(path)) &&
                     (fi.File.Name.ToLower().Contains(searchTerm) ||
                      (fi.File.Description != null && fi.File.Description.ToLower().Contains(searchTerm)) ||

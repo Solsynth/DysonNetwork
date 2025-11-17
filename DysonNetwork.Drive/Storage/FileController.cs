@@ -63,30 +63,31 @@ public class FileController(
         return null;
     }
 
-    private async Task<ActionResult> ServeLocalFile(SnCloudFile file)
+    private Task<ActionResult> ServeLocalFile(SnCloudFile file)
     {
         // Try temp storage first
         var tempFilePath = Path.Combine(Path.GetTempPath(), file.Id);
         if (System.IO.File.Exists(tempFilePath))
         {
             if (file.IsEncrypted)
-                return StatusCode(StatusCodes.Status403Forbidden, "Encrypted files cannot be accessed before they are processed and stored.");
+                return Task.FromResult<ActionResult>(StatusCode(StatusCodes.Status403Forbidden,
+                    "Encrypted files cannot be accessed before they are processed and stored."));
 
-            return PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
+            return Task.FromResult<ActionResult>(PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream",
+                file.Name, enableRangeProcessing: true));
         }
 
         // Fallback for tus uploads
         var tusStorePath = configuration.GetValue<string>("Storage:Uploads");
-        if (!string.IsNullOrEmpty(tusStorePath))
-        {
-            var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
-            if (System.IO.File.Exists(tusFilePath))
-            {
-                return PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream", file.Name, enableRangeProcessing: true);
-            }
-        }
-
-        return StatusCode(StatusCodes.Status400BadRequest, "File is being processed. Please try again later.");
+        if (string.IsNullOrEmpty(tusStorePath))
+            return Task.FromResult<ActionResult>(StatusCode(StatusCodes.Status400BadRequest,
+                "File is being processed. Please try again later."));
+        var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
+        return System.IO.File.Exists(tusFilePath)
+            ? Task.FromResult<ActionResult>(PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream",
+                file.Name, enableRangeProcessing: true))
+            : Task.FromResult<ActionResult>(StatusCode(StatusCodes.Status400BadRequest,
+                "File is being processed. Please try again later."));
     }
 
     private async Task<ActionResult> ServeRemoteFile(
@@ -99,7 +100,8 @@ public class FileController(
     )
     {
         if (!file.PoolId.HasValue)
-            return StatusCode(StatusCodes.Status500InternalServerError, "File is in an inconsistent state: uploaded but no pool ID.");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                "File is in an inconsistent state: uploaded but no pool ID.");
 
         var pool = await fs.GetPoolAsync(file.PoolId.Value);
         if (pool is null)
@@ -141,22 +143,17 @@ public class FileController(
         return fileName;
     }
 
-    private ActionResult? TryProxyRedirect(SnCloudFile file, RemoteStorageConfig dest, string fileName)
+    public ActionResult? TryProxyRedirect(SnCloudFile file, RemoteStorageConfig dest, string fileName)
     {
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
         {
             return Redirect(BuildProxyUrl(dest.ImageProxy, fileName));
         }
 
-        if (dest.AccessProxy is not null)
-        {
-            return Redirect(BuildProxyUrl(dest.AccessProxy, fileName));
-        }
-
-        return null;
+        return dest.AccessProxy is not null ? Redirect(BuildProxyUrl(dest.AccessProxy, fileName)) : null;
     }
 
-    private string BuildProxyUrl(string proxyUrl, string fileName)
+    private static string BuildProxyUrl(string proxyUrl, string fileName)
     {
         var baseUri = new Uri(proxyUrl.EndsWith('/') ? proxyUrl : $"{proxyUrl}/");
         var fullUri = new Uri(baseUri, fileName);
@@ -189,7 +186,7 @@ public class FileController(
         return Redirect(openUrl);
     }
 
-    private Dictionary<string, string> BuildSignedUrlHeaders(
+    private static Dictionary<string, string> BuildSignedUrlHeaders(
         SnCloudFile file,
         string? fileExtension,
         string? overrideMimeType,
