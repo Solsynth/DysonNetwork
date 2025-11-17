@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -33,36 +34,15 @@ public class AppDatabase(
     
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var now = SystemClock.Instance.GetCurrentInstant();
-
-        foreach (var entry in ChangeTracker.Entries<ModelBase>())
-        {
-            switch (entry.State)
-            {
-                case EntityState.Added:
-                    entry.Entity.CreatedAt = now;
-                    entry.Entity.UpdatedAt = now;
-                    break;
-                case EntityState.Modified:
-                    entry.Entity.UpdatedAt = now;
-                    break;
-                case EntityState.Deleted:
-                    entry.State = EntityState.Modified;
-                    entry.Entity.DeletedAt = now;
-                    break;
-                case EntityState.Detached:
-                case EntityState.Unchanged:
-                default:
-                    break;
-            }
-        }
-
+        this.ApplyAuditableAndSoftDelete();
         return await base.SaveChangesAsync(cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        modelBuilder.ApplySoftDeleteFilters();
     }
 }
 

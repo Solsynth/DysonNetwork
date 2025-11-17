@@ -1,8 +1,8 @@
 using System.Linq.Expressions;
-using System.Reflection;
 using DysonNetwork.Drive.Billing;
 using DysonNetwork.Drive.Storage;
 using DysonNetwork.Drive.Storage.Model;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -46,67 +46,12 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        // Apply soft-delete filter only to root entities, not derived types
-        var entityTypes = modelBuilder.Model.GetEntityTypes();
-        foreach (var entityType in entityTypes)
-        {
-            if (!typeof(ModelBase).IsAssignableFrom(entityType.ClrType)) continue;
-
-            // Skip derived types to avoid filter conflicts
-            var clrType = entityType.ClrType;
-            if (clrType.BaseType != typeof(ModelBase) && 
-                typeof(ModelBase).IsAssignableFrom(clrType.BaseType))
-            {
-                continue; // Skip derived types
-            }
-
-            // Apply soft delete filter using cached reflection
-            ApplySoftDeleteFilter(modelBuilder, clrType);
-        }
-    }
-
-    private static readonly MethodInfo SetSoftDeleteFilterMethod = typeof(AppDatabase)
-        .GetMethod(nameof(SetSoftDeleteFilter), BindingFlags.NonPublic | BindingFlags.Static)!;
-
-    private static void ApplySoftDeleteFilter(ModelBuilder modelBuilder, Type entityType)
-    {
-        var genericMethod = SetSoftDeleteFilterMethod.MakeGenericMethod(entityType);
-        genericMethod.Invoke(null, [modelBuilder]);
-    }
-
-    private static void SetSoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)
-        where TEntity : ModelBase
-    {
-        modelBuilder.Entity<TEntity>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.ApplySoftDeleteFilters();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var now = SystemClock.Instance.GetCurrentInstant();
-
-        foreach (var entry in ChangeTracker.Entries<ModelBase>())
-        {
-            switch (entry.State)
-            {
-                case EntityState.Added:
-                    entry.Entity.CreatedAt = now;
-                    entry.Entity.UpdatedAt = now;
-                    break;
-                case EntityState.Modified:
-                    entry.Entity.UpdatedAt = now;
-                    break;
-                case EntityState.Deleted:
-                    entry.State = EntityState.Modified;
-                    entry.Entity.DeletedAt = now;
-                    break;
-                case EntityState.Detached:
-                case EntityState.Unchanged:
-                default:
-                    break;
-            }
-        }
-
+        this.ApplyAuditableAndSoftDelete();
         return await base.SaveChangesAsync(cancellationToken);
     }
 }
@@ -208,37 +153,5 @@ public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDatabase>();
         return new AppDatabase(optionsBuilder.Options, configuration);
-    }
-}
-
-public static class OptionalQueryExtensions
-{
-    public static IQueryable<T> If<T>(
-        this IQueryable<T> source,
-        bool condition,
-        Func<IQueryable<T>, IQueryable<T>> transform
-    )
-    {
-        return condition ? transform(source) : source;
-    }
-
-    public static IQueryable<T> If<T, TP>(
-        this IIncludableQueryable<T, TP> source,
-        bool condition,
-        Func<IIncludableQueryable<T, TP>, IQueryable<T>> transform
-    )
-        where T : class
-    {
-        return condition ? transform(source) : source;
-    }
-
-    public static IQueryable<T> If<T, TP>(
-        this IIncludableQueryable<T, IEnumerable<TP>> source,
-        bool condition,
-        Func<IIncludableQueryable<T, IEnumerable<TP>>, IQueryable<T>> transform
-    )
-        where T : class
-    {
-        return condition ? transform(source) : source;
     }
 }
