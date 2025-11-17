@@ -278,25 +278,31 @@ public class FileController(
         [FromQuery] Guid? pool,
         [FromQuery] bool recycled = false,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] string? query = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var query = db.Files
+        var filesQuery = db.Files
             .Where(e => e.IsMarkedRecycle == recycled)
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Pool)
             .OrderByDescending(e => e.CreatedAt)
             .AsQueryable();
 
-        if (pool.HasValue) query = query.Where(e => e.PoolId == pool);
+        if (pool.HasValue) filesQuery = filesQuery.Where(e => e.PoolId == pool);
 
-        var total = await query.CountAsync();
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            filesQuery = filesQuery.Where(e => e.Name.Contains(query));
+        }
+
+        var total = await filesQuery.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
 
-        var files = await query
+        var files = await filesQuery
             .Skip(offset)
             .Take(take)
             .ToListAsync();

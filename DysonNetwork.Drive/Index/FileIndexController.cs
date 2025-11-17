@@ -23,9 +23,10 @@ public class FileIndexController(
     /// Gets files in a specific path for the current user
     /// </summary>
     /// <param name="path">The path to browse (defaults to root "/")</param>
+    /// <param name="query">Optional query to filter files by name</param>
     /// <returns>List of files in the specified path</returns>
     [HttpGet("browse")]
-    public async Task<IActionResult> BrowseFiles([FromQuery] string path = "/")
+    public async Task<IActionResult> BrowseFiles([FromQuery] string path = "/", [FromQuery] string? query = null)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
@@ -35,6 +36,13 @@ public class FileIndexController(
         try
         {
             var fileIndexes = await fileIndexService.GetByPathAsync(accountId, path);
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                fileIndexes = fileIndexes
+                    .Where(fi => fi.File.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
 
             // Get all file indexes for this account to extract child folders
             var allFileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
@@ -100,9 +108,10 @@ public class FileIndexController(
     /// <summary>
     /// Gets all files for the current user (across all paths)
     /// </summary>
+    /// <param name="query">Optional query to filter files by name</param>
     /// <returns>List of all files for the user</returns>
     [HttpGet("all")]
-    public async Task<IActionResult> GetAllFiles()
+    public async Task<IActionResult> GetAllFiles([FromQuery] string? query = null)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
@@ -112,6 +121,13 @@ public class FileIndexController(
         try
         {
             var fileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                fileIndexes = fileIndexes
+                    .Where(fi => fi.File.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
 
             return Ok(new
             {
@@ -144,7 +160,8 @@ public class FileIndexController(
         [FromQuery] Guid? pool,
         [FromQuery] bool recycled = false,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] string? query = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
@@ -154,7 +171,7 @@ public class FileIndexController(
 
         try
         {
-            var query = db.Files
+            var filesQuery = db.Files
                 .Where(f => f.AccountId == accountId
                             && f.IsMarkedRecycle == recycled
                             && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId)
@@ -162,13 +179,18 @@ public class FileIndexController(
                 .OrderByDescending(f => f.CreatedAt)
                 .AsQueryable();
 
-            if (pool.HasValue) query = query.Where(f => f.PoolId == pool);
+            if (pool.HasValue) filesQuery = filesQuery.Where(f => f.PoolId == pool);
 
-            var totalCount = await query.CountAsync();
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                filesQuery = filesQuery.Where(f => f.Name.Contains(query));
+            }
+
+            var totalCount = await filesQuery.CountAsync();
 
             Response.Headers.Append("X-Total", totalCount.ToString());
 
-            var unindexedFiles = await query
+            var unindexedFiles = await filesQuery
                 .Skip(offset)
                 .Take(take)
                 .ToListAsync();
