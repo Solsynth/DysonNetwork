@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;

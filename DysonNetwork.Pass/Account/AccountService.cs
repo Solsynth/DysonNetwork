@@ -4,6 +4,7 @@ using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Resources.Emails;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Stream;
