@@ -333,6 +333,22 @@ public class FileController(
         return Ok(files);
     }
 
+    public class FileBatchDeletionRequest
+    {
+        public List<string> FileIds { get; set; } = [];
+    }
+
+    [Authorize]
+    [HttpPost("batches/delete")]
+    public async Task<ActionResult> DeleteFileBatch([FromBody] FileBatchDeletionRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var userId = Guid.Parse(currentUser.Id);
+
+        var count = await fs.DeleteAccountFileBatchAsync(userId, request.FileIds);
+        return Ok(new { Count = count });
+    }
+
     [Authorize]
     [HttpDelete("{id}")]
     public async Task<ActionResult<SnCloudFile>> DeleteFile(string id)

@@ -718,6 +718,21 @@ public class FileService(
         return count;
     }
 
+    public async Task<int> DeleteAccountFileBatchAsync(Guid accountId, List<string> fileIds)
+    {
+        var files = await db.Files
+            .Where(f => f.AccountId == accountId && fileIds.Contains(f.Id))
+            .ToListAsync();
+        var count = files.Count;
+        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
+        await Task.WhenAll(tasks);
+        var fileIdsList = files.Select(f => f.Id).ToList();
+        await _PurgeCacheRangeAsync(fileIdsList);
+        db.RemoveRange(files);
+        await db.SaveChangesAsync();
+        return count;
+    }
+
     public async Task<int> DeletePoolRecycledFilesAsync(Guid poolId)
     {
         var files = await db.Files
