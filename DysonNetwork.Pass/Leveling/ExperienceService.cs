@@ -24,7 +24,7 @@ public class ExperienceService(AppDatabase db, SubscriptionService subscriptions
             {
                 SubscriptionType.Stellar => 1.5,
                 SubscriptionType.Nova => 2,
-                SubscriptionType.Supernova => 2,
+                SubscriptionType.Supernova => 2.5,
                 _ => 1
             };
             if (record.Delta >= 0)

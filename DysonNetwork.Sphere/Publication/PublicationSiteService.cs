@@ -1,17 +1,23 @@
 using System.Text.RegularExpressions;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Publication;
 
-public class PublicationSiteService(AppDatabase db, PublisherService publisherService)
+public class PublicationSiteService(
+    AppDatabase db,
+    PublisherService publisherService,
+    RemoteAccountService remoteAccounts
+)
 {
     public async Task<SnPublicationSite?> GetSiteById(Guid id)
     {
         return await db.PublicationSites
             .Include(s => s.Pages)
-                   .ThenInclude(p => p.Site)
+            .ThenInclude(p => p.Site)
             .Include(s => s.Publisher)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
@@ -20,7 +26,7 @@ public class PublicationSiteService(AppDatabase db, PublisherService publisherSe
     {
         return await db.PublicationSites
             .Include(s => s.Pages)
-                   .ThenInclude(p => p.Site)
+            .ThenInclude(p => p.Site)
             .Include(s => s.Publisher)
             .FirstOrDefaultAsync(s => s.Slug == slug);
     }
@@ -29,7 +35,7 @@ public class PublicationSiteService(AppDatabase db, PublisherService publisherSe
     {
         return await db.PublicationSites
             .Include(s => s.Pages)
-                   .ThenInclude(p => p.Site)
+            .ThenInclude(p => p.Site)
             .Include(s => s.Publisher)
             .Where(s => publisherIds.Contains(s.PublisherId))
             .ToListAsync();
@@ -37,10 +43,21 @@ public class PublicationSiteService(AppDatabase db, PublisherService publisherSe
 
     public async Task<SnPublicationSite> CreateSite(SnPublicationSite site, Guid accountId)
     {
-        // Check if account already has a site
-        var existingSite = await db.PublicationSites.FirstOrDefaultAsync(s => s.AccountId == accountId);
-        if (existingSite != null)
-            throw new InvalidOperationException("Account already has a site.");
+        var perk = (await remoteAccounts.GetAccount(accountId)).PerkSubscription;
+        var perkLevel = perk is not null ? PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier) : 0;
+
+        var maxSite = (perkLevel) switch
+        {
+            1 => 2,
+            2 => 3,
+            3 => 5,
+            _ => 1
+        };
+
+        // Check if account has reached the maximum number of sites
+        var existingSitesCount = await db.PublicationSites.CountAsync(s => s.AccountId == accountId);
+        if (existingSitesCount >= maxSite)
+            throw new InvalidOperationException("Account has reached the maximum number of sites allowed.");
 
         // Check if account is member of the publisher
         var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
@@ -70,7 +87,8 @@ public class PublicationSiteService(AppDatabase db, PublisherService publisherSe
         if (site != null)
         {
             // Check permission
-            var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Owner);
+            var isMember =
+                await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Owner);
             if (!isMember)
                 throw new UnauthorizedAccessException("Account is not an owner of the publisher.");
 
@@ -83,7 +101,7 @@ public class PublicationSiteService(AppDatabase db, PublisherService publisherSe
     {
         return await db.PublicationPages
             .Include(p => p.Site)
-                   .ThenInclude(s => s.Publisher)
+            .ThenInclude(s => s.Publisher)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
@@ -137,9 +155,11 @@ public class PublicationSiteService(AppDatabase db, PublisherService publisherSe
             if (site != null)
             {
                 // Check permission
-                var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+                var isMember =
+                    await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
                 if (!isMember)
-                    throw new UnauthorizedAccessException("Account is not a member of the publisher with sufficient role.");
+                    throw new UnauthorizedAccessException(
+                        "Account is not a member of the publisher with sufficient role.");
 
                 db.PublicationPages.Remove(page);
                 await db.SaveChangesAsync();

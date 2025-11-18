@@ -11,6 +11,7 @@ using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
+using DysonNetwork.Sphere.Publication;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
@@ -112,9 +113,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WebFeedService>();
         services.AddScoped<DiscoveryService>();
         services.AddScoped<PollService>();
-        services.AddScoped<RemoteAccountService>();
-        services.AddScoped<RemoteRealmService>();
         services.AddScoped<AutocompletionService>();
+        services.AddScoped<PublicationSiteService>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();
         switch (translationProvider)
