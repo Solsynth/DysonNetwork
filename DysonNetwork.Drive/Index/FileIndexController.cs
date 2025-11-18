@@ -24,9 +24,16 @@ public class FileIndexController(
     /// </summary>
     /// <param name="path">The path to browse (defaults to root "/")</param>
     /// <param name="query">Optional query to filter files by name</param>
+    /// <param name="order">The field to order by (date, size, name - defaults to date)</param>
+    /// <param name="orderDesc">Whether to order in descending order (defaults to true)</param>
     /// <returns>List of files in the specified path</returns>
     [HttpGet("browse")]
-    public async Task<IActionResult> BrowseFiles([FromQuery] string path = "/", [FromQuery] string? query = null)
+    public async Task<IActionResult> BrowseFiles(
+        [FromQuery] string path = "/",
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
@@ -43,6 +50,17 @@ public class FileIndexController(
                     .Where(fi => fi.File.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
                     .ToList();
             }
+
+            // Apply sorting
+            fileIndexes = order.ToLower() switch
+            {
+                "name" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Name).ToList()
+                                   : fileIndexes.OrderBy(fi => fi.File.Name).ToList(),
+                "size" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Size).ToList()
+                                   : fileIndexes.OrderBy(fi => fi.File.Size).ToList(),
+                _ => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.CreatedAt).ToList()
+                              : fileIndexes.OrderBy(fi => fi.File.CreatedAt).ToList()
+            };
 
             // Get all file indexes for this account to extract child folders
             var allFileIndexes = await fileIndexService.GetByAccountIdAsync(accountId);
@@ -109,9 +127,15 @@ public class FileIndexController(
     /// Gets all files for the current user (across all paths)
     /// </summary>
     /// <param name="query">Optional query to filter files by name</param>
+    /// <param name="order">The field to order by (date, size, name - defaults to date)</param>
+    /// <param name="orderDesc">Whether to order in descending order (defaults to true)</param>
     /// <returns>List of all files for the user</returns>
     [HttpGet("all")]
-    public async Task<IActionResult> GetAllFiles([FromQuery] string? query = null)
+    public async Task<IActionResult> GetAllFiles(
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
@@ -128,6 +152,17 @@ public class FileIndexController(
                     .Where(fi => fi.File.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
                     .ToList();
             }
+
+            // Apply sorting
+            fileIndexes = order.ToLower() switch
+            {
+                "name" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Name).ToList()
+                                   : fileIndexes.OrderBy(fi => fi.File.Name).ToList(),
+                "size" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Size).ToList()
+                                   : fileIndexes.OrderBy(fi => fi.File.Size).ToList(),
+                _ => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.CreatedAt).ToList()
+                              : fileIndexes.OrderBy(fi => fi.File.CreatedAt).ToList()
+            };
 
             return Ok(new
             {
@@ -154,6 +189,9 @@ public class FileIndexController(
     /// <param name="offset">The number of files to skip</param>
     /// <param name="take">The number of files to return</param>
     /// <param name="pool">The pool ID of those files</param>
+    /// <param name="query">Optional query to filter files by name</param>
+    /// <param name="order">The field to order by (date, size, name - defaults to date)</param>
+    /// <param name="orderDesc">Whether to order in descending order (defaults to true)</param>
     /// <returns>List of unindexed files</returns>
     [HttpGet("unindexed")]
     public async Task<IActionResult> GetUnindexedFiles(
@@ -161,7 +199,9 @@ public class FileIndexController(
         [FromQuery] bool recycled = false,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] string? query = null
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
@@ -176,8 +216,18 @@ public class FileIndexController(
                             && f.IsMarkedRecycle == recycled
                             && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId)
                 )
-                .OrderByDescending(f => f.CreatedAt)
                 .AsQueryable();
+
+            // Apply sorting
+            filesQuery = order.ToLower() switch
+            {
+                "name" => orderDesc ? filesQuery.OrderByDescending(f => f.Name)
+                                   : filesQuery.OrderBy(f => f.Name),
+                "size" => orderDesc ? filesQuery.OrderByDescending(f => f.Size)
+                                   : filesQuery.OrderBy(f => f.Size),
+                _ => orderDesc ? filesQuery.OrderByDescending(f => f.CreatedAt)
+                              : filesQuery.OrderBy(f => f.CreatedAt)
+            };
 
             if (pool.HasValue) filesQuery = filesQuery.Where(f => f.PoolId == pool);
 

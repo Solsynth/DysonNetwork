@@ -293,7 +293,9 @@ public class FileController(
         [FromQuery] bool recycled = false,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] string? query = null
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
     )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
@@ -303,7 +305,6 @@ public class FileController(
             .Where(e => e.IsMarkedRecycle == recycled)
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Pool)
-            .OrderByDescending(e => e.CreatedAt)
             .AsQueryable();
 
         if (pool.HasValue) filesQuery = filesQuery.Where(e => e.PoolId == pool);
@@ -312,6 +313,14 @@ public class FileController(
         {
             filesQuery = filesQuery.Where(e => e.Name.Contains(query));
         }
+
+        filesQuery = order.ToLower() switch
+        {
+            "date" => orderDesc ? filesQuery.OrderByDescending(e => e.CreatedAt) : filesQuery.OrderBy(e => e.CreatedAt),
+            "size" => orderDesc ? filesQuery.OrderByDescending(e => e.Size) : filesQuery.OrderBy(e => e.Size),
+            "name" => orderDesc ? filesQuery.OrderByDescending(e => e.Name) : filesQuery.OrderBy(e => e.Name),
+            _ => filesQuery.OrderByDescending(e => e.CreatedAt)
+        };
 
         var total = await filesQuery.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
