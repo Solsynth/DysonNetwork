@@ -417,7 +417,7 @@ public class PublisherService(
     }
 
     public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId,
-        Shared.Models.PublisherMemberRole requiredRole)
+        PublisherMemberRole requiredRole)
     {
         var member = await db.Publishers
             .Where(p => p.Id == publisherId)
