@@ -179,7 +179,7 @@ namespace DysonNetwork.Drive.Migrations
                     b.UseTphMappingStrategy();
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.CloudFileReference", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnCloudFileReference", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -571,7 +571,7 @@ namespace DysonNetwork.Drive.Migrations
                     b.HasDiscriminator().HasValue("PersistentUploadTask");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.CloudFileReference", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnCloudFileReference", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnCloudFile", "File")
                         .WithMany("References")

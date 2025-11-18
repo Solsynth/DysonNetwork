@@ -21,7 +21,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// <param name="expiredAt">Optional expiration time for the file</param>
     /// <param name="duration">Optional duration after which the file expires (alternative to expiredAt)</param>
     /// <returns>The created file reference</returns>
-    public async Task<CloudFileReference> CreateReferenceAsync(
+    public async Task<SnCloudFileReference> CreateReferenceAsync(
         string fileId,
         string usage,
         string resourceId,
@@ -34,7 +34,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         if (duration.HasValue)
             finalExpiration = SystemClock.Instance.GetCurrentInstant() + duration.Value;
 
-        var reference = new CloudFileReference
+        var reference = new SnCloudFileReference
         {
             FileId = fileId,
             Usage = usage,
@@ -50,7 +50,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         return reference;
     }
 
-    public async Task<List<CloudFileReference>> CreateReferencesAsync(
+    public async Task<List<SnCloudFileReference>> CreateReferencesAsync(
         List<string> fileId,
         string usage,
         string resourceId,
@@ -58,7 +58,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         Duration? duration = null
     )
     {
-        var data = fileId.Select(id => new CloudFileReference
+        var data = fileId.Select(id => new SnCloudFileReference
         {
             FileId = id,
             Usage = usage,
@@ -74,11 +74,11 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// </summary>
     /// <param name="fileId">The ID of the file</param>
     /// <returns>A list of all references to the file</returns>
-    public async Task<List<CloudFileReference>> GetReferencesAsync(string fileId)
+    public async Task<List<SnCloudFileReference>> GetReferencesAsync(string fileId)
     {
         var cacheKey = $"{CacheKeyPrefix}list:{fileId}";
 
-        var cachedReferences = await cache.GetAsync<List<CloudFileReference>>(cacheKey);
+        var cachedReferences = await cache.GetAsync<List<SnCloudFileReference>>(cacheKey);
         if (cachedReferences is not null)
             return cachedReferences;
 
@@ -91,17 +91,17 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         return references;
     }
 
-    public async Task<Dictionary<string, List<CloudFileReference>>> GetReferencesAsync(IEnumerable<string> fileIds)
+    public async Task<Dictionary<string, List<SnCloudFileReference>>> GetReferencesAsync(IEnumerable<string> fileIds)
     {
         var fileIdList = fileIds.ToList();
-        var result = new Dictionary<string, List<CloudFileReference>>();
+        var result = new Dictionary<string, List<SnCloudFileReference>>();
 
         // Check cache for each file ID
         var uncachedFileIds = new List<string>();
         foreach (var fileId in fileIdList)
         {
             var cacheKey = $"{CacheKeyPrefix}list:{fileId}";
-            var cachedReferences = await cache.GetAsync<List<CloudFileReference>>(cacheKey);
+            var cachedReferences = await cache.GetAsync<List<SnCloudFileReference>>(cacheKey);
             if (cachedReferences is not null)
             {
                 result[fileId] = cachedReferences;
@@ -159,11 +159,11 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// </summary>
     /// <param name="resourceId">The ID of the resource</param>
     /// <returns>A list of file references associated with the resource</returns>
-    public async Task<List<CloudFileReference>> GetResourceReferencesAsync(string resourceId)
+    public async Task<List<SnCloudFileReference>> GetResourceReferencesAsync(string resourceId)
     {
         var cacheKey = $"{CacheKeyPrefix}resource:{resourceId}";
 
-        var cachedReferences = await cache.GetAsync<List<CloudFileReference>>(cacheKey);
+        var cachedReferences = await cache.GetAsync<List<SnCloudFileReference>>(cacheKey);
         if (cachedReferences is not null)
             return cachedReferences;
 
@@ -181,11 +181,11 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// </summary>
     /// <param name="usage">The usage context</param>
     /// <returns>A list of file references with the specified usage</returns>
-    public async Task<List<CloudFileReference>> GetUsageReferencesAsync(string usage)
+    public async Task<List<SnCloudFileReference>> GetUsageReferencesAsync(string usage)
     {
         var cacheKey = $"{CacheKeyPrefix}usage:{usage}";
 
-        var cachedReferences = await cache.GetAsync<List<CloudFileReference>>(cacheKey);
+        var cachedReferences = await cache.GetAsync<List<SnCloudFileReference>>(cacheKey);
         if (cachedReferences is not null)
             return cachedReferences;
 
@@ -307,7 +307,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// <param name="expiredAt">Optional expiration time for newly added files</param>
     /// <param name="duration">Optional duration after which newly added files expire</param>
     /// <returns>A list of the updated file references</returns>
-    public async Task<List<CloudFileReference>> UpdateResourceFilesAsync(
+    public async Task<List<SnCloudFileReference>> UpdateResourceFilesAsync(
         string resourceId,
         IEnumerable<string>? newFileIds,
         string usage,
@@ -315,7 +315,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         Duration? duration = null)
     {
         if (newFileIds == null)
-            return new List<CloudFileReference>();
+            return new List<SnCloudFileReference>();
 
         var existingReferences = await db.FileReferences
             .Where(r => r.ResourceId == resourceId && r.Usage == usage)
@@ -333,7 +333,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         // Files to add
         var toAdd = newFileIdsList
             .Where(id => !existingFileIds.Contains(id))
-            .Select(id => new CloudFileReference
+            .Select(id => new SnCloudFileReference
             {
                 FileId = id,
                 Usage = usage,
@@ -485,7 +485,7 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     /// <param name="resourceId">The resource ID</param>
     /// <param name="usageType">The usage type</param>
     /// <returns>List of file references</returns>
-    public async Task<List<CloudFileReference>> GetResourceReferencesAsync(string resourceId, string usageType)
+    public async Task<List<SnCloudFileReference>> GetResourceReferencesAsync(string resourceId, string usageType)
     {
         return await db.FileReferences
             .Where(r => r.ResourceId == resourceId && r.Usage == usageType)

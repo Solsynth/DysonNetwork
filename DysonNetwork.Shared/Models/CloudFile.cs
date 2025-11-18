@@ -57,7 +57,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FastUploadLink { get; set; }
 
-    public ICollection<CloudFileReference> References { get; set; } = new List<CloudFileReference>();
+    public ICollection<SnCloudFileReference> References { get; set; } = new List<SnCloudFileReference>();
 
     public Guid AccountId { get; set; }
 
@@ -110,11 +110,11 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     }
 }
 
-public class CloudFileReference : ModelBase
+public class SnCloudFileReference : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(32)] public string FileId { get; set; } = null!;
-    public SnCloudFile File { get; set; } = null!;
+    [JsonIgnore] public SnCloudFile File { get; set; } = null!;
     [MaxLength(1024)] public string Usage { get; set; } = null!;
     [MaxLength(1024)] public string ResourceId { get; set; } = null!;
 
@@ -124,10 +124,10 @@ public class CloudFileReference : ModelBase
     public Instant? ExpiredAt { get; set; }
 
     /// <summary>
-    /// Converts the CloudFileReference to a protobuf message
+    /// Converts the SnCloudFileReference to a protobuf message
     /// </summary>
     /// <returns>The protobuf message representation of this object</returns>
-    public Proto.CloudFileReference ToProtoValue()
+    public CloudFileReference ToProtoValue()
     {
         return new Proto.CloudFileReference
         {

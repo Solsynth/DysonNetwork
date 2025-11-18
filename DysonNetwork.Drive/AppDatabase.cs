@@ -24,7 +24,7 @@ public class AppDatabase(
     public DbSet<QuotaRecord> QuotaRecords { get; set; } = null!;
     
     public DbSet<SnCloudFile> Files { get; set; } = null!;
-    public DbSet<CloudFileReference> FileReferences { get; set; } = null!;
+    public DbSet<SnCloudFileReference> FileReferences { get; set; } = null!;
     public DbSet<SnCloudFileIndex> FileIndexes { get; set; }
 
     public DbSet<PersistentTask> Tasks { get; set; } = null!;

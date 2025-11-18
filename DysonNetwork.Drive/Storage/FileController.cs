@@ -231,7 +231,7 @@ public class FileController(
     }
 
     [HttpGet("{id}/references")]
-    public async Task<ActionResult<List<Shared.Models.CloudFileReference>>> GetFileReferences(string id)
+    public async Task<ActionResult<List<Shared.Models.SnCloudFileReference>>> GetFileReferences(string id)
     {
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound("File not found.");
