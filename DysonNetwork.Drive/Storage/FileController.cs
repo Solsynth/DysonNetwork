@@ -1,4 +1,3 @@
-using DysonNetwork.Drive.Billing;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -14,7 +13,6 @@ namespace DysonNetwork.Drive.Storage;
 public class FileController(
     AppDatabase db,
     FileService fs,
-    QuotaService qs,
     IConfiguration configuration,
     IWebHostEnvironment env,
     FileReferenceService fileReferenceService
