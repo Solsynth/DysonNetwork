@@ -3,24 +3,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
-using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Autocompletion;
-using DysonNetwork.Sphere.Chat;
-using DysonNetwork.Sphere.Chat.Realtime;
-using DysonNetwork.Sphere.Discovery;
-using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Poll;
-using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.Publication;
-using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.Sticker;
-using DysonNetwork.Sphere.Timeline;
-using DysonNetwork.Sphere.Translation;
-using DysonNetwork.Sphere.WebReader;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
-namespace DysonNetwork.Sphere.Startup;
+namespace DysonNetwork.Zone.Startup;
 
 public static class ServiceCollectionExtensions
 {
@@ -45,11 +31,6 @@ public static class ServiceCollectionExtensions
                     JsonNamingPolicy.SnakeCaseLower;
 
                 options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-            })
-            .AddDataAnnotationsLocalization(options =>
-            {
-                options.DataAnnotationLocalizerProvider = (type, factory) =>
-                    factory.Create(typeof(SharedResource));
             });
         services.AddRazorPages();
 
@@ -81,7 +62,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-        services.AddScoped<PostViewFlushHandler>();
 
         return services;
     }
@@ -93,28 +73,6 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoIpService>();
-        services.AddScoped<PublisherService>();
-        services.AddScoped<PublisherSubscriptionService>();
-        services.AddScoped<TimelineService>();
-        services.AddScoped<PostService>();
-        services.AddScoped<ChatRoomService>();
-        services.AddScoped<ChatService>();
-        services.AddScoped<StickerService>();
-        services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
-        services.AddScoped<WebReaderService>();
-        services.AddScoped<WebFeedService>();
-        services.AddScoped<DiscoveryService>();
-        services.AddScoped<PollService>();
-        services.AddScoped<AutocompletionService>();
-        services.AddScoped<PublicationSiteService>();
-
-        var translationProvider = configuration["Translation:Provider"]?.ToLower();
-        switch (translationProvider)
-        {
-            case "tencent":
-                services.AddScoped<ITranslationProvider, TencentTranslation>();
-                break;
-        }
 
         return services;
     }

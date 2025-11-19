@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Gateway", "Dys
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Insight", "DysonNetwork.Insight\DysonNetwork.Insight.csproj", "{E603CDF2-8BA0-49AE-A1F9-BD2DA5CB983D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Zone", "DysonNetwork.Zone\DysonNetwork.Zone.csproj", "{E255B723-CAC9-4AC8-AA3B-116CC256E63C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -141,6 +143,18 @@ Global
 		{E603CDF2-8BA0-49AE-A1F9-BD2DA5CB983D}.Release|x64.Build.0 = Release|Any CPU
 		{E603CDF2-8BA0-49AE-A1F9-BD2DA5CB983D}.Release|x86.ActiveCfg = Release|Any CPU
 		{E603CDF2-8BA0-49AE-A1F9-BD2DA5CB983D}.Release|x86.Build.0 = Release|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Debug|x64.Build.0 = Debug|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Debug|x86.Build.0 = Debug|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Release|x64.ActiveCfg = Release|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Release|x64.Build.0 = Release|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Release|x86.ActiveCfg = Release|Any CPU
+		{E255B723-CAC9-4AC8-AA3B-116CC256E63C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
