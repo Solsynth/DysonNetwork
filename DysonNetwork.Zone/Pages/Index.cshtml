@@ -2,11 +2,14 @@
 @model IndexModel
 @{
     ViewData["Title"] = "Solar Network Pages";
+    ViewData["SiteName"] = Request.Headers.TryGetValue("X-SiteName", out var val) ? val : "main";
 }
 
 <div class="h-screen flex justify-center items-center">
     <div class="text-center">
-        <h1 class="text-2xl">Hello, World!</h1>
-        <button class="btn btn-primary">Say Ciallo!</button>
+        <img src="~/favicon.png" width="80" height="80" alt="Logo" class="mb-1 mx-auto" />
+        <h1 class="text-2xl">Hello, World 👋</h1>
+        <p>Here are the Solar Network Pages construction site</p>
+        <p>And you're accessing the site <b>@ViewData["SiteName"]</b></p>
     </div>
 </div>
