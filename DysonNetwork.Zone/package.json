@@ -1,0 +1,18 @@
+{
+    "name": "dyson-zone",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "devDependencies": {
+        "@tailwindcss/cli": "^4.1.17",
+        "@types/bun": "latest",
+        "daisyui": "^5.5.5",
+        "tailwindcss": "^4.1.17"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "scripts": {
+        "css:build": "npx @tailwindcss/cli -i ./wwwroot/css/site.css -o ./wwwroot/css/site.dist.css"
+    }
+}
