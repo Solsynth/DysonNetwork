@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Zone.Publication;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -74,6 +75,8 @@ public static class ServiceCollectionExtensions
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoIpService>();
 
+        services.AddScoped<PublicationSiteService>();
+        
         return services;
     }
 }

@@ -14,7 +14,7 @@ public class SnPublicationSite : ModelBase
     public List<SnPublicationPage> Pages { get; set; } = [];
     
     public Guid PublisherId { get; set; }
-    public SnPublisher Publisher { get; set; } = null!;
+    [NotMapped] public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
     // Preloaded via the remote services
     [NotMapped] public SnAccount? Account { get; set; }

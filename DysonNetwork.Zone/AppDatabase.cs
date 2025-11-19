@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -6,6 +7,9 @@ namespace DysonNetwork.Zone;
 
 public class AppDatabase(DbContextOptions<AppDatabase> options, IConfiguration configuration) : DbContext(options)
 {
+    public DbSet<SnPublicationSite> PublicationSites { get; set; } = null!;
+    public DbSet<SnPublicationPage> PublicationPages { get; set; } = null!;
+    
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

@@ -2,14 +2,13 @@ using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.Publication;
+namespace DysonNetwork.Zone.Publication;
 
 public class PublicationSiteService(
     AppDatabase db,
-    PublisherService publisherService,
+    RemotePublisherService publisherService,
     RemoteAccountService remoteAccounts
 )
 {

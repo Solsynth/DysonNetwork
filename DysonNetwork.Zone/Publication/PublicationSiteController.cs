@@ -1,17 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PublicationPagePresets = DysonNetwork.Shared.Models.PublicationPagePresets;
 
-namespace DysonNetwork.Sphere.Publication;
+namespace DysonNetwork.Zone.Publication;
 
 [ApiController]
 [Route("/api/sites")]
 public class PublicationSiteController(
     PublicationSiteService publicationService,
-    PublisherService publisherService
+    RemotePublisherService publisherService
 ) : ControllerBase
 {
     [HttpGet("{slug}")]

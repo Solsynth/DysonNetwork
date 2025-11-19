@@ -116,6 +116,7 @@ public static class ServiceInjectionHelper
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
+        services.AddSingleton<RemotePublisherService>();
 
         return services;
     }

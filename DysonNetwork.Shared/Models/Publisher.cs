@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Extensions;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
@@ -148,21 +150,40 @@ public class SnPublisherMember : ModelBase
     public Instant? JoinedAt { get; set; }
     
     
-    public Proto.PublisherMember ToProto()
+    public PublisherMember ToProto()
     {
-        return new Proto.PublisherMember()
+        return new PublisherMember
         {
             PublisherId = PublisherId.ToString(),
             AccountId = AccountId.ToString(),
             Role = Role switch
             {
-                PublisherMemberRole.Owner => Shared.Proto.PublisherMemberRole.Owner,
-                PublisherMemberRole.Manager => Shared.Proto.PublisherMemberRole.Manager,
-                PublisherMemberRole.Editor => Shared.Proto.PublisherMemberRole.Editor,
-                PublisherMemberRole.Viewer => Shared.Proto.PublisherMemberRole.Viewer,
+                PublisherMemberRole.Owner => Proto.PublisherMemberRole.Owner,
+                PublisherMemberRole.Manager => Proto.PublisherMemberRole.Manager,
+                PublisherMemberRole.Editor => Proto.PublisherMemberRole.Editor,
+                PublisherMemberRole.Viewer => Proto.PublisherMemberRole.Viewer,
                 _ => throw new ArgumentOutOfRangeException(nameof(Role), Role, null)
             },
             JoinedAt = JoinedAt?.ToTimestamp()
+        };
+    }
+
+    public static SnPublisherMember FromProtoValue(PublisherMember proto)
+    {
+        return new SnPublisherMember
+        {
+            PublisherId = Guid.Parse(proto.PublisherId),
+            AccountId = Guid.Parse(proto.AccountId),
+            Role = proto.Role switch
+            {
+                Proto.PublisherMemberRole.Owner => PublisherMemberRole.Owner,
+                Proto.PublisherMemberRole.Manager => PublisherMemberRole.Manager,
+                Proto.PublisherMemberRole.Editor => PublisherMemberRole.Editor,
+                _ => PublisherMemberRole.Viewer
+            },
+            JoinedAt = proto.JoinedAt?.ToDateTimeOffset().ToInstant(),
+            CreatedAt = proto.CreatedAt.ToDateTimeOffset().ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToDateTimeOffset().ToInstant()
         };
     }
 }

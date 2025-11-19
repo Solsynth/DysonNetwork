@@ -52,9 +52,6 @@ public class AppDatabase(
     public DbSet<WebFeed> WebFeeds { get; set; } = null!;
     public DbSet<WebFeedSubscription> WebFeedSubscriptions { get; set; } = null!;
 
-    public DbSet<SnPublicationSite> PublicationSites { get; set; } = null!;
-    public DbSet<SnPublicationPage> PublicationPages { get; set; } = null!;
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
