@@ -26,11 +26,17 @@ var insightService = builder.AddProject<Projects.DysonNetwork_Insight>("insight"
     .WithReference(ringService)
     .WithReference(sphereService)
     .WithReference(developService);
+var zoneService = builder.AddProject<Projects.DysonNetwork_Zone>("zone")
+    .WithReference(passService)
+    .WithReference(ringService)
+    .WithReference(sphereService)
+    .WithReference(developService)
+    .WithReference(insightService);
 
 passService.WithReference(developService).WithReference(driveService);
 
 List<IResourceBuilder<ProjectResource>> services =
-    [ringService, passService, driveService, sphereService, developService, insightService];
+    [ringService, passService, driveService, sphereService, developService, insightService, zoneService];
 
 for (var idx = 0; idx < services.Count; idx++)
 {
