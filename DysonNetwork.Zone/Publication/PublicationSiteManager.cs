@@ -25,10 +25,10 @@ public class PublicationSiteManager(
     {
         // Treat paths starting with separator as relative to site root
         relativePath = relativePath.TrimStart('/', '\\');
-        string fullPath = Path.Combine(_basePath, siteId.ToString(), relativePath);
-        string normalizedPath = Path.GetFullPath(fullPath);
-        string siteDirFull = Path.Combine(_basePath, siteId.ToString());
-        string normalizedSiteDir = Path.GetFullPath(siteDirFull);
+        var fullPath = Path.Combine(_basePath, siteId.ToString(), relativePath);
+        var normalizedPath = Path.GetFullPath(fullPath);
+        var siteDirFull = Path.Combine(_basePath, siteId.ToString());
+        var normalizedSiteDir = Path.GetFullPath(siteDirFull);
         if (!normalizedPath.StartsWith(normalizedSiteDir + Path.DirectorySeparatorChar) &&
             !normalizedPath.Equals(normalizedSiteDir))
         {

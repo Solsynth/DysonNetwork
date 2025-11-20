@@ -1,6 +1,7 @@
 # dependencies (bun install)
 node_modules
 wwwroot/css/site.dist.css
+wwwroot/SiteData
 
 # output
 out
@@ -33,5 +34,3 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
-
-SiteData
