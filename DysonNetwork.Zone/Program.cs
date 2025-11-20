@@ -11,8 +11,7 @@ builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration);
 
-// Add services to the container.
-builder.Services.AddRazorPages();
+builder.Services.AddRazorPages(options => options.Conventions.AddPageRoute("/Index", "{**path}"));
 builder.Services.AddControllers();
 
 builder.Services.AddAppServices();

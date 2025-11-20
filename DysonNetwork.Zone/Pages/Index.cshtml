@@ -2,14 +2,18 @@
 @model IndexModel
 @{
     ViewData["Title"] = "Solar Network Pages";
-    ViewData["SiteName"] = Request.Headers.TryGetValue("X-SiteName", out var val) ? val : "main";
+    ViewData["SiteName"] = Model.SiteName ?? "main";
 }
 
 <div class="h-screen flex justify-center items-center">
-    <div class="text-center">
-        <img src="~/favicon.png" width="80" height="80" alt="Logo" class="mb-1 mx-auto" />
+    <div class="text-center max-w-96">
+        <img src="~/favicon.png" width="80" height="80" alt="Logo" class="mb-1 mx-auto"/>
         <h1 class="text-2xl">Hello, World 👋</h1>
-        <p>Here are the Solar Network Pages construction site</p>
+        <p>Here are the Solar Network Pages</p>
         <p>And you're accessing the site <b>@ViewData["SiteName"]</b></p>
+        <p class="text-sm opacity-80 mt-1">
+            The reason you're seeing this is the author of the site
+            haven't configure anything that match this route.
+        </p>
     </div>
 </div>
