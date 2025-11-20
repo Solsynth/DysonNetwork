@@ -108,4 +108,16 @@ public class RemotePublisherService(PublisherService.PublisherServiceClient publ
         };
         return await IsPublisherMember(publisherId.ToString(), accountId.ToString(), protoRole, cancellationToken);
     }
+
+    public async Task<SnPublisher?> GetPublisherByName(string name, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await GetPublisher(name: name, cancellationToken: cancellationToken);
+        }
+        catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return null;
+        }
+    }
 }

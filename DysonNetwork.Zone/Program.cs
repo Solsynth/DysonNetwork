@@ -47,10 +47,9 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 
-app.ConfigureAppMiddleware(builder.Configuration);
-
 app.UseStaticFiles();
 app.UseRouting();
+app.ConfigureAppMiddleware(builder.Configuration);
 app.MapRazorPages();
 
 app.UseSwaggerManifest("DysonNetwork.Zone");

@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Models = DysonNetwork.Shared.Models;
 using PublicationPagePresets = DysonNetwork.Shared.Models.PublicationPagePresets;
 
 namespace DysonNetwork.Zone.Publication;
@@ -14,13 +15,31 @@ public class PublicationSiteController(
     RemotePublisherService publisherService
 ) : ControllerBase
 {
-    [HttpGet("{slug}")]
+    [HttpGet("site/{slug}")]
     public async Task<ActionResult<SnPublicationSite>> GetSite(string slug)
     {
         var site = await publicationService.GetSiteBySlug(slug);
         if (site == null)
             return NotFound();
         return Ok(site);
+    }
+
+    [HttpGet("{pubName}")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPublicationSite>>> ListSitesForPublisher([FromRoute] string pubName)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var publisher = await publisherService.GetPublisherByName(pubName);
+        if (publisher == null) return NotFound();
+
+        if (!await publisherService.IsMemberWithRole(publisher.Id, accountId, Models.PublisherMemberRole.Viewer))
+            return Forbid();
+
+        var sites = await publicationService.GetSitesByPublisherIds([publisher.Id]);
+        return Ok(sites);
     }
 
     [HttpGet("me")]
@@ -39,20 +58,23 @@ public class PublicationSiteController(
         return Ok(sites);
     }
 
-    [HttpPost]
+    [HttpPost("{pubName}")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationSite>> CreateSite([FromBody] PublicationSiteRequest request)
+    public async Task<ActionResult<SnPublicationSite>> CreateSite([FromRoute] string pubName, [FromBody] PublicationSiteRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
+        var publisher = await publisherService.GetPublisherByName(pubName);
+        if (publisher == null) return NotFound();
+
         var site = new SnPublicationSite
         {
             Slug = request.Slug,
             Name = request.Name,
             Description = request.Description,
-            PublisherId = request.PublisherId,
+            PublisherId = publisher.Id,
             AccountId = accountId
         };
 
@@ -64,26 +86,31 @@ public class PublicationSiteController(
         {
             return BadRequest(ex.Message);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            return Forbid();
+            return StatusCode(403, ex.Message);
         }
 
         return Ok(site);
     }
 
-    [HttpPatch("{id:guid}")]
+    [HttpPatch("{pubName}/{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationSite>> UpdateSite(Guid id, [FromBody] PublicationSiteRequest request)
+    public async Task<ActionResult<SnPublicationSite>> UpdateSite([FromRoute] string pubName, Guid id, [FromBody] PublicationSiteRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var publisher = await publisherService.GetPublisherByName(pubName);
+        if (publisher == null) return NotFound();
 
         var site = await publicationService.GetSiteById(id);
         if (site == null)
             return NotFound();
 
-        var accountId = Guid.Parse(currentUser.Id);
+        if (site.PublisherId != publisher.Id)
+            return NotFound();
 
         site.Slug = request.Slug;
         site.Name = request.Name;
@@ -101,14 +128,20 @@ public class PublicationSiteController(
         return Ok(site);
     }
 
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{pubName}/{id:guid}")]
     [Authorize]
-    public async Task<IActionResult> DeleteSite(Guid id)
+    public async Task<IActionResult> DeleteSite([FromRoute] string pubName, Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
+        var publisher = await publisherService.GetPublisherByName(pubName);
+        if (publisher == null) return NotFound();
+
+        var site = await publicationService.GetSiteById(id);
+        if (site == null || site.PublisherId != publisher.Id)
+            return NotFound();
 
         try
         {
@@ -122,7 +155,7 @@ public class PublicationSiteController(
         return NoContent();
     }
 
-    [HttpGet("{slug}/page")]
+    [HttpGet("site/{slug}/page")]
     public async Task<ActionResult<SnPublicationPage>> RenderPage(string slug, [FromQuery] string path = "/")
     {
         var page = await publicationService.RenderPage(slug, path);
@@ -131,15 +164,21 @@ public class PublicationSiteController(
         return Ok(page);
     }
 
-    [HttpGet("{siteId:guid}/pages")]
+    [HttpGet("{pubName}/{siteSlug}/pages")]
     [Authorize]
-    public async Task<ActionResult<List<SnPublicationPage>>> ListPagesForSite(Guid siteId)
+    public async Task<ActionResult<List<SnPublicationPage>>> ListPagesForSite([FromRoute] string pubName, [FromRoute] string siteSlug)
     {
-        var pages = await publicationService.GetPagesForSite(siteId);
+        var site = await publicationService.GetSiteBySlug(siteSlug);
+        if (site == null) return NotFound();
+
+        var publisher = await publisherService.GetPublisherByName(pubName);
+        if (publisher == null || site.PublisherId != publisher.Id) return NotFound();
+
+        var pages = await publicationService.GetPagesForSite(site.Id);
         return Ok(pages);
     }
 
-    [HttpGet("page/{id:guid}")]
+    [HttpGet("pages/{id:guid}")]
     public async Task<ActionResult<SnPublicationPage>> GetPage(Guid id)
     {
         var page = await publicationService.GetPageById(id);
@@ -148,21 +187,27 @@ public class PublicationSiteController(
         return Ok(page);
     }
 
-    [HttpPost("{siteId:guid}/pages")]
+    [HttpPost("{pubName}/{siteSlug}/pages")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationPage>> CreatePage(Guid siteId, [FromBody] PublicationPageRequest request)
+    public async Task<ActionResult<SnPublicationPage>> CreatePage([FromRoute] string pubName, [FromRoute] string siteSlug, [FromBody] PublicationPageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
 
+        var site = await publicationService.GetSiteBySlug(siteSlug);
+        if (site == null) return NotFound();
+
+        var publisher = await publisherService.GetPublisherByName(pubName);
+        if (publisher == null || site.PublisherId != publisher.Id) return NotFound();
+
         var page = new SnPublicationPage
         {
             Preset = request.Preset ?? PublicationPagePresets.Landing,
             Path = request.Path ?? "/",
-            Config = request.Config ?? new(),
-            SiteId = siteId
+            Config = request.Config ?? new Dictionary<string, object?>(),
+            SiteId = site.Id
         };
 
         try
@@ -181,7 +226,7 @@ public class PublicationSiteController(
         return Ok(page);
     }
 
-    [HttpPatch("page/{id:guid}")]
+    [HttpPatch("pages/{id:guid}")]
     [Authorize]
     public async Task<ActionResult<SnPublicationPage>> UpdatePage(Guid id, [FromBody] PublicationPageRequest request)
     {
@@ -210,7 +255,7 @@ public class PublicationSiteController(
         return Ok(page);
     }
 
-    [HttpDelete("page/{id:guid}")]
+    [HttpDelete("pages/{id:guid}")]
     [Authorize]
     public async Task<IActionResult> DeletePage(Guid id)
     {
@@ -236,8 +281,6 @@ public class PublicationSiteController(
         [MaxLength(4096)] public string Slug { get; set; } = null!;
         [MaxLength(4096)] public string Name { get; set; } = null!;
         [MaxLength(8192)] public string? Description { get; set; }
-
-        public Guid PublisherId { get; set; }
     }
 
     public class PublicationPageRequest

@@ -16,8 +16,6 @@ public class PublicationSiteService(
     {
         return await db.PublicationSites
             .Include(s => s.Pages)
-            .ThenInclude(p => p.Site)
-            .Include(s => s.Publisher)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
@@ -25,8 +23,6 @@ public class PublicationSiteService(
     {
         return await db.PublicationSites
             .Include(s => s.Pages)
-            .ThenInclude(p => p.Site)
-            .Include(s => s.Publisher)
             .FirstOrDefaultAsync(s => s.Slug == slug);
     }
 
@@ -34,8 +30,6 @@ public class PublicationSiteService(
     {
         return await db.PublicationSites
             .Include(s => s.Pages)
-            .ThenInclude(p => p.Site)
-            .Include(s => s.Publisher)
             .Where(s => publisherIds.Contains(s.PublisherId))
             .ToListAsync();
     }
@@ -100,7 +94,6 @@ public class PublicationSiteService(
     {
         return await db.PublicationPages
             .Include(p => p.Site)
-            .ThenInclude(s => s.Publisher)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
