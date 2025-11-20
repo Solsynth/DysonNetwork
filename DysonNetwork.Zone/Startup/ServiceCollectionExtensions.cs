@@ -76,7 +76,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GeoIpService>();
 
         services.AddScoped<PublicationSiteService>();
-        
+        services.AddScoped<PublicationSiteManager>();
+
         return services;
     }
 }

@@ -1,0 +1,133 @@
+using DysonNetwork.Shared.Models;
+
+namespace DysonNetwork.Zone.Publication;
+
+public class FileEntry
+{
+    public bool IsDirectory { get; set; }
+    public string RelativePath { get; set; } = null!;
+    public long Size { get; set; }
+    public DateTimeOffset Modified { get; set; }
+}
+
+public class PublicationSiteManager(
+    IConfiguration configuration,
+    IWebHostEnvironment hostEnvironment,
+    PublicationSiteService publicationSiteService
+)
+{
+    private readonly string _basePath = Path.Combine(
+        hostEnvironment.WebRootPath,
+        configuration["Sites:BasePath"]!.TrimStart('/')
+    );
+
+    private string GetFullPath(Guid siteId, string relativePath)
+    {
+        var fullPath = Path.Combine(_basePath, siteId.ToString(), relativePath);
+        var siteDirPath = Path.Combine(_basePath, siteId.ToString());
+        return !Path.GetRelativePath(siteDirPath, fullPath).StartsWith('.')
+            ? throw new ArgumentException("Invalid path")
+            : fullPath;
+    }
+
+    private async Task EnsureSiteDirectory(Guid siteId)
+    {
+        var site = await publicationSiteService.GetSiteById(siteId);
+        if (site is not { Mode: PublicationSiteMode.SelfManaged })
+            throw new InvalidOperationException("Site not found or not self-managed");
+        var dir = Path.Combine(_basePath, siteId.ToString());
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+    }
+
+    public async Task<List<FileEntry>> ListFiles(Guid siteId, string relativePath = "")
+    {
+        await EnsureSiteDirectory(siteId);
+        var dir = Path.Combine(_basePath, siteId.ToString(), relativePath);
+        if (!Directory.Exists(dir))
+            throw new DirectoryNotFoundException("Directory not found");
+
+        var entries = (from file in Directory.GetFiles(dir)
+            let fileInfo = new FileInfo(file)
+            select new FileEntry
+            {
+                IsDirectory = false,
+                RelativePath = Path.GetRelativePath(Path.Combine(_basePath, siteId.ToString()), file),
+                Size = fileInfo.Length, Modified = fileInfo.LastWriteTimeUtc
+            }).ToList();
+        entries.AddRange(from subDir in Directory.GetDirectories(dir)
+            let dirInfo = new DirectoryInfo(subDir)
+            select new FileEntry
+            {
+                IsDirectory = true,
+                RelativePath = Path.GetRelativePath(Path.Combine(_basePath, siteId.ToString()), subDir),
+                Size = 0, // Directories don't have size
+                Modified = dirInfo.LastWriteTimeUtc
+            });
+
+        return entries;
+    }
+
+    public async Task UploadFile(Guid siteId, string relativePath, IFormFile file)
+    {
+        await EnsureSiteDirectory(siteId);
+        var fullPath = GetFullPath(siteId, relativePath);
+
+        var dir = Path.GetDirectoryName(fullPath);
+        if (dir != null && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        await using var stream = new FileStream(fullPath, FileMode.Create);
+        await file.CopyToAsync(stream);
+    }
+
+    public async Task<string> ReadFileContent(Guid siteId, string relativePath)
+    {
+        await EnsureSiteDirectory(siteId);
+        var fullPath = GetFullPath(siteId, relativePath);
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException();
+        return await File.ReadAllTextAsync(fullPath);
+    }
+
+    public async Task<long> GetTotalSiteSize(Guid siteId)
+    {
+        await EnsureSiteDirectory(siteId);
+        var dir = new DirectoryInfo(Path.Combine(_basePath, siteId.ToString()));
+        return GetDirectorySize(dir);
+    }
+
+    private long GetDirectorySize(DirectoryInfo dir)
+    {
+        var files = dir.GetFiles();
+        var size = files.Sum(file => file.Length);
+
+        var subDirs = dir.GetDirectories();
+        size += subDirs.Sum(GetDirectorySize);
+
+        return size;
+    }
+
+    public string GetFullPathForDownload(Guid siteId, string relativePath)
+    {
+        // Internal method to get path without throwing if not exists
+        return Path.Combine(_basePath, siteId.ToString(), relativePath);
+    }
+
+    public async Task UpdateFile(Guid siteId, string relativePath, string newContent)
+    {
+        await EnsureSiteDirectory(siteId);
+        var fullPath = GetFullPath(siteId, relativePath);
+        await File.WriteAllTextAsync(fullPath, newContent);
+    }
+
+    public async Task DeleteFile(Guid siteId, string relativePath)
+    {
+        await EnsureSiteDirectory(siteId);
+        var fullPath = GetFullPath(siteId, relativePath);
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
+        else if (Directory.Exists(fullPath))
+            Directory.Delete(fullPath, true);
+    }
+}
