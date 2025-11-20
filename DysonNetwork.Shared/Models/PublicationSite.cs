@@ -1,8 +1,24 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using Google.Api;
 
 namespace DysonNetwork.Shared.Models;
+
+public enum PublicationSiteMode
+{
+    /// <summary>
+    /// The fully managed mode which allow other server to handle all the requests
+    /// Including the rendering, data fetching etc. /// Very easy to use and efficient.
+    /// </summary>
+    FullyManaged,
+
+    /// <summary>
+    /// The self-managed mode allows user to upload their own site assets and use the Solar Network Pages
+    /// as a static site hosting platform.
+    /// </summary>
+    SelfManaged
+}
 
 public class SnPublicationSite : ModelBase
 {
@@ -11,34 +27,36 @@ public class SnPublicationSite : ModelBase
     [MaxLength(4096)] public string Name { get; set; } = null!;
     [MaxLength(8192)] public string? Description { get; set; }
 
+    public PublicationSiteMode Mode { get; set; } = PublicationSiteMode.FullyManaged;
     public List<SnPublicationPage> Pages { get; set; } = [];
-    
+
     public Guid PublisherId { get; set; }
     [NotMapped] public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
-    // Preloaded via the remote services
     [NotMapped] public SnAccount? Account { get; set; }
 }
 
-public abstract class PublicationPagePresets
+public enum PublicationPageType
 {
-    // Will told the Isolated Island to render according to prebuilt pages by us
-    public const string Landing = "landing"; // Some kind of the mixed version of the profile and the posts
-    public const string Profile = "profile";
-    public const string Posts = "posts";
-    
-    // Will told the Isolated Island to render according to the blocks to use custom stuff
-    public const string Custom = "custom";
+    /// <summary>
+    /// The HTML page type allows user adding a custom HTML page in the fully managed mode.
+    /// </summary>
+    HtmlPage,
+    /// <summary>
+    /// The redirect mode allows user to create a shortcut for their own link.
+    /// such as example.solian.page/rickroll -- DyZ 301 -> youtube.com/...
+    /// </summary>
+    Redirect
 }
 
 public class SnPublicationPage : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [MaxLength(8192)] public string Preset { get; set; } = PublicationPagePresets.Landing;
+    public PublicationPageType Type { get; set; } = PublicationPageType.HtmlPage;
     [MaxLength(8192)] public string Path { get; set; } = "/";
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
-    
+
     public Guid SiteId { get; set; }
     [JsonIgnore] public SnPublicationSite Site { get; set; } = null!;
 }

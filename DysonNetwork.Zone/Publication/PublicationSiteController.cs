@@ -4,7 +4,6 @@ using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Models = DysonNetwork.Shared.Models;
-using PublicationPagePresets = DysonNetwork.Shared.Models.PublicationPagePresets;
 
 namespace DysonNetwork.Zone.Publication;
 
@@ -15,10 +14,10 @@ public class PublicationSiteController(
     RemotePublisherService publisherService
 ) : ControllerBase
 {
-    [HttpGet("site/{slug}")]
-    public async Task<ActionResult<SnPublicationSite>> GetSite(string slug)
+    [HttpGet("{pubName}/{slug}")]
+    public async Task<ActionResult<SnPublicationSite>> GetSite(string pubName, string slug)
     {
-        var site = await publicationService.GetSiteBySlug(slug);
+        var site = await publicationService.GetSiteBySlug(slug, pubName);
         if (site == null)
             return NotFound();
         return Ok(site);
@@ -71,6 +70,7 @@ public class PublicationSiteController(
 
         var site = new SnPublicationSite
         {
+            Mode = request.Mode,
             Slug = request.Slug,
             Name = request.Name,
             Description = request.Description,
@@ -106,12 +106,10 @@ public class PublicationSiteController(
         if (publisher == null) return NotFound();
 
         var site = await publicationService.GetSiteById(id);
-        if (site == null)
+        if (site == null || site.PublisherId != publisher.Id)
             return NotFound();
 
-        if (site.PublisherId != publisher.Id)
-            return NotFound();
-
+        site.Mode = request.Mode;
         site.Slug = request.Slug;
         site.Name = request.Name;
         site.Description = request.Description ?? site.Description;
@@ -204,7 +202,7 @@ public class PublicationSiteController(
 
         var page = new SnPublicationPage
         {
-            Preset = request.Preset ?? PublicationPagePresets.Landing,
+            Type = request.Type,
             Path = request.Path ?? "/",
             Config = request.Config ?? new Dictionary<string, object?>(),
             SiteId = site.Id
@@ -239,7 +237,7 @@ public class PublicationSiteController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        if (request.Preset != null) page.Preset = request.Preset;
+        page.Type = request.Type;
         if (request.Path != null) page.Path = request.Path;
         if (request.Config != null) page.Config = request.Config;
 
@@ -278,6 +276,7 @@ public class PublicationSiteController(
 
     public class PublicationSiteRequest
     {
+        public PublicationSiteMode Mode { get; set; }
         [MaxLength(4096)] public string Slug { get; set; } = null!;
         [MaxLength(4096)] public string Name { get; set; } = null!;
         [MaxLength(8192)] public string? Description { get; set; }
@@ -285,7 +284,7 @@ public class PublicationSiteController(
 
     public class PublicationPageRequest
     {
-        [MaxLength(8192)] public string? Preset { get; set; }
+        public PublicationPageType Type { get; set; }
         [MaxLength(8192)] public string? Path { get; set; }
         public Dictionary<string, object?>? Config { get; set; }
     }
