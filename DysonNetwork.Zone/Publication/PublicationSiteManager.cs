@@ -23,11 +23,18 @@ public class PublicationSiteManager(
 
     private string GetFullPath(Guid siteId, string relativePath)
     {
-        var fullPath = Path.Combine(_basePath, siteId.ToString(), relativePath);
-        var siteDirPath = Path.Combine(_basePath, siteId.ToString());
-        return !Path.GetRelativePath(siteDirPath, fullPath).StartsWith('.')
-            ? throw new ArgumentException("Invalid path")
-            : fullPath;
+        // Treat paths starting with separator as relative to site root
+        relativePath = relativePath.TrimStart('/', '\\');
+        string fullPath = Path.Combine(_basePath, siteId.ToString(), relativePath);
+        string normalizedPath = Path.GetFullPath(fullPath);
+        string siteDirFull = Path.Combine(_basePath, siteId.ToString());
+        string normalizedSiteDir = Path.GetFullPath(siteDirFull);
+        if (!normalizedPath.StartsWith(normalizedSiteDir + Path.DirectorySeparatorChar) &&
+            !normalizedPath.Equals(normalizedSiteDir))
+        {
+            throw new ArgumentException("Path escapes site directory");
+        }
+        return normalizedPath;
     }
 
     private async Task EnsureSiteDirectory(Guid siteId)
@@ -43,11 +50,11 @@ public class PublicationSiteManager(
     public async Task<List<FileEntry>> ListFiles(Guid siteId, string relativePath = "")
     {
         await EnsureSiteDirectory(siteId);
-        var dir = Path.Combine(_basePath, siteId.ToString(), relativePath);
-        if (!Directory.Exists(dir))
+        var targetDir = GetFullPath(siteId, relativePath);
+        if (!Directory.Exists(targetDir))
             throw new DirectoryNotFoundException("Directory not found");
 
-        var entries = (from file in Directory.GetFiles(dir)
+        var entries = (from file in Directory.GetFiles(targetDir)
             let fileInfo = new FileInfo(file)
             select new FileEntry
             {
@@ -55,7 +62,7 @@ public class PublicationSiteManager(
                 RelativePath = Path.GetRelativePath(Path.Combine(_basePath, siteId.ToString()), file),
                 Size = fileInfo.Length, Modified = fileInfo.LastWriteTimeUtc
             }).ToList();
-        entries.AddRange(from subDir in Directory.GetDirectories(dir)
+        entries.AddRange(from subDir in Directory.GetDirectories(targetDir)
             let dirInfo = new DirectoryInfo(subDir)
             select new FileEntry
             {
@@ -108,10 +115,9 @@ public class PublicationSiteManager(
         return size;
     }
 
-    public string GetFullPathForDownload(Guid siteId, string relativePath)
+    public string GetValidatedFullPath(Guid siteId, string relativePath)
     {
-        // Internal method to get path without throwing if not exists
-        return Path.Combine(_basePath, siteId.ToString(), relativePath);
+        return GetFullPath(siteId, relativePath);
     }
 
     public async Task UpdateFile(Guid siteId, string relativePath, string newContent)

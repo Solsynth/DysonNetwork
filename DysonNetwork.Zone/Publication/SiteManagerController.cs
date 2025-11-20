@@ -111,7 +111,16 @@ public class SiteManagerController(
         var check = await CheckAccess(siteId);
         if (check != null) return check;
 
-        var fullPath = fileManager.GetFullPathForDownload(siteId, relativePath);
+        string fullPath;
+        try
+        {
+            fullPath = fileManager.GetValidatedFullPath(siteId, relativePath);
+        }
+        catch (ArgumentException)
+        {
+            return BadRequest("Invalid path");
+        }
+
         if (!System.IO.File.Exists(fullPath))
             return NotFound();
 
@@ -137,22 +146,26 @@ public class SiteManagerController(
         const long maxFileSize = 1048576; // 1MB
         const long maxTotalSize = 26214400; // 25MB
 
-        var fullPath = fileManager.GetFullPathForDownload(siteId, relativePath);
-        long oldSize = 0;
-        if (System.IO.File.Exists(fullPath))
-            oldSize = new FileInfo(fullPath).Length;
-
         if (request.NewContent.Length > maxFileSize)
             return BadRequest("New content exceeds 1MB limit");
 
-        var currentTotal = await fileManager.GetTotalSiteSize(siteId);
-        if (currentTotal - oldSize + request.NewContent.Length > maxTotalSize)
-            return BadRequest("Site total size would exceed 25MB limit");
-
+        long oldSize = 0;
         try
         {
+            var fullPath = fileManager.GetValidatedFullPath(siteId, relativePath);
+            if (System.IO.File.Exists(fullPath))
+                oldSize = new FileInfo(fullPath).Length;
+
+            var currentTotal = await fileManager.GetTotalSiteSize(siteId);
+            if (currentTotal - oldSize + request.NewContent.Length > maxTotalSize)
+                return BadRequest("Site total size would exceed 25MB limit");
+
             await fileManager.UpdateFile(siteId, relativePath, request.NewContent);
             return Ok();
+        }
+        catch (ArgumentException)
+        {
+            return BadRequest("Invalid path");
         }
         catch (Exception ex)
         {
