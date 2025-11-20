@@ -94,9 +94,9 @@ public class PublicationSiteController(
         return Ok(site);
     }
 
-    [HttpPatch("{pubName}/{id:guid}")]
+    [HttpPatch("{pubName}/{slug}")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationSite>> UpdateSite([FromRoute] string pubName, Guid id, [FromBody] PublicationSiteRequest request)
+    public async Task<ActionResult<SnPublicationSite>> UpdateSite([FromRoute] string pubName, string slug, [FromBody] PublicationSiteRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
@@ -105,7 +105,7 @@ public class PublicationSiteController(
         var publisher = await publisherService.GetPublisherByName(pubName);
         if (publisher == null) return NotFound();
 
-        var site = await publicationService.GetSiteById(id);
+        var site = await publicationService.GetSiteBySlug(slug, pubName);
         if (site == null || site.PublisherId != publisher.Id)
             return NotFound();
 
@@ -126,9 +126,9 @@ public class PublicationSiteController(
         return Ok(site);
     }
 
-    [HttpDelete("{pubName}/{id:guid}")]
+    [HttpDelete("{pubName}/{slug}")]
     [Authorize]
-    public async Task<IActionResult> DeleteSite([FromRoute] string pubName, Guid id)
+    public async Task<IActionResult> DeleteSite([FromRoute] string pubName, string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
@@ -137,13 +137,13 @@ public class PublicationSiteController(
         var publisher = await publisherService.GetPublisherByName(pubName);
         if (publisher == null) return NotFound();
 
-        var site = await publicationService.GetSiteById(id);
+        var site = await publicationService.GetSiteBySlug(slug, pubName);
         if (site == null || site.PublisherId != publisher.Id)
             return NotFound();
 
         try
         {
-            await publicationService.DeleteSite(id, accountId);
+            await publicationService.DeleteSite(site.Id, accountId);
         }
         catch (UnauthorizedAccessException)
         {
