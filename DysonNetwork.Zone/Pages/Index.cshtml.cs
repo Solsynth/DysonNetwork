@@ -47,19 +47,22 @@ public class IndexModel(AppDatabase db, PublicationSiteManager psm) : PageModel
         // If the site is enabled the self-managed mode, try lookup the files then
         if (Site.Mode == PublicationSiteMode.SelfManaged)
         {
-            // TODO: Fix the path contains a wwwroot
             var provider = new FileExtensionContentTypeProvider();
             var hostedFilePath = psm.GetValidatedFullPath(Site.Id, CurrentPath);
             if (System.IO.File.Exists(hostedFilePath))
             {
                 if (!provider.TryGetContentType(hostedFilePath, out var mimeType))
                     mimeType = "text/html";
-                return File(hostedFilePath, mimeType);
+                var fileStream = new FileStream(hostedFilePath, FileMode.Open, FileAccess.Read);
+                return new FileStreamResult(fileStream, mimeType);
             }
 
             var hostedNotFoundPath = psm.GetValidatedFullPath(Site.Id, "404.html");
             if (System.IO.File.Exists(hostedNotFoundPath))
-                return File(hostedNotFoundPath, "text/html");
+            {
+                var fileStream = new FileStream(hostedNotFoundPath, FileMode.Open, FileAccess.Read);
+                return new FileStreamResult(fileStream, "text/html");
+            }
         }
 
         return Page();

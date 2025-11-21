@@ -82,6 +82,7 @@
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery-validation\dist\jquery.validate.js" />
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery-validation\dist\jquery.validate.min.js" />
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery-validation\LICENSE.md" />
+      <_ContentIncludedByDefault Remove="wwwroot\SiteData\5755cb46-ae17-4b4e-9716-45b264e9851f\capture-the-flag.mp4" />
     </ItemGroup>
 
     <ItemGroup>

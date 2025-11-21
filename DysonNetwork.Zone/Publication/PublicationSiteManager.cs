@@ -17,7 +17,7 @@ public class PublicationSiteManager(
 )
 {
     private readonly string _basePath = Path.Combine(
-        hostEnvironment.WebRootPath,
+        hostEnvironment.ContentRootPath,
         configuration["Sites:BasePath"]!.TrimStart('/')
     );
 

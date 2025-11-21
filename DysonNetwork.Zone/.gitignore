@@ -1,7 +1,7 @@
 # dependencies (bun install)
 node_modules
 wwwroot/css/site.dist.css
-wwwroot/SiteData
+SiteData
 
 # output
 out
