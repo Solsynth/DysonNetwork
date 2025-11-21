@@ -1,0 +1,243 @@
+@page
+@using NodaTime.Serialization.Protobuf
+@model AboutModel
+
+@{
+    Layout = "_LayoutContained";
+}
+
+@if (Model.UserAccount != null)
+{
+    @if (!string.IsNullOrEmpty(Model.UserBackgroundUrl))
+    {
+        <img src="@Model.UserBackgroundUrl" class="w-full max-h-48 object-cover mb-8" alt="Background Image"/>
+    }
+
+    <div class="container mx-auto px-8 pb-8">
+        <div class="flex items-center gap-6 mb-8">
+            @if (!string.IsNullOrEmpty(Model.UserPictureUrl))
+            {
+                <img src="@Model.UserPictureUrl" class="w-20 h-20 rounded-full object-cover" alt="Avatar"/>
+            }
+            else
+            {
+                <div class="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
+                    <span class="text-2xl">@(Model.UserAccount.Name != null ? Model.UserAccount.Name[0] : '?')</span>
+                </div>
+            }
+            <div>
+                <div class="text-2xl font-bold">
+                    @(Model.UserAccount.Nick ?? Model.UserAccount.Name)
+                </div>
+                <div class="text-body-2 text-base-content/60">@@@Model.UserAccount.Name</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="flex flex-col gap-4">
+                <div class="card bg-base-100 border">
+                    <div class="card-body">
+                        <h2 class="card-title"><span class="mdi mdi-home"></span> Info</h2>
+
+                        <div class="space-y-2">
+                            @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.TimeZone))
+                            {
+                                <div class="flex justify-between">
+                                    <span class="flex gap-2">
+                                        <span class="mdi mdi-map-clock"></span>
+                                        Time Zone
+                                    </span>
+                                    <span class="text-right">
+                                        @Model.GetCurrentTimeInTimeZone(Model.UserAccount.Profile.TimeZone)
+                                        <span class="text-base-content/50">·</span>
+                                        @Model.GetOffsetUtcString(Model.UserAccount.Profile.TimeZone)
+                                        <span class="text-base-content/50">·</span>
+                                        @Model.UserAccount.Profile.TimeZone
+                                    </span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.Location))
+                            {
+                                <div class="flex justify-between">
+                                    <span class="flex gap-2">
+                                        <span class="mdi mdi-map-marker"></span> Location
+                                    </span>
+                                    <span>@Model.UserAccount.Profile.Location</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.FirstName) || !string.IsNullOrEmpty(Model.UserAccount.Profile?.LastName))
+                            {
+                                <div class="flex justify-between">
+                                    <span class="flex gap-2">
+                                        <span class="mdi mdi-card-bulleted-outline"></span> Name
+                                    </span>
+                                    <span>
+                                        @string.Join(" ", new[]
+                                        {
+                                            Model.UserAccount.Profile.FirstName,
+                                            Model.UserAccount.Profile.MiddleName,
+                                            Model.UserAccount.Profile.LastName
+                                        }.Where(s => !string.IsNullOrEmpty(s)))
+                                    </span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.Gender))
+                            {
+                                <div class="flex justify-between">
+                                    <span class="flex gap-2">
+                                        <span class="mdi mdi-human-non-binary"></span> Gender
+                                    </span>
+                                    <span>
+                                        @Model.UserAccount.Profile.Gender
+                                        @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.Pronouns))
+                                        {
+                                            <span class="text-base-content/50">·</span>
+                                            @Model.UserAccount.Profile.Pronouns
+                                        }
+                                    </span>
+                                </div>
+                            }
+                            <div class="flex justify-between">
+                                <span class="flex gap-2">
+                                    <span class="mdi mdi-history"></span> Joined at
+                                </span>
+                                <span>
+                                    @Model.UserAccount.CreatedAt?.ToDateTimeOffset().ToString("MMMM d, yyyy")
+                                </span>
+                            </div>
+                            @if (Model.UserAccount.Profile?.Birthday != null)
+                            {
+                                <div class="flex justify-between">
+                                    <span class="flex gap-2">
+                                        <span class="mdi mdi-cake-variant"></span> Birthday
+                                    </span>
+                                    <span>
+                                        @Model.CalculateAge(Model.UserAccount.Profile.Birthday.ToInstant()) yrs old
+                                        <span class="text-base-content/50">·</span>
+                                        @Model.UserAccount.Profile.Birthday?.ToDateTimeOffset().ToString("MMMM d")
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (Model.UserAccount.PerkSubscription != null)
+                {
+                    <div class="card bg-base-100 border">
+                        <div class="card-body">
+                            <div class="flex justify-between items-center">
+                                <div class="flex flex-col">
+                                    <div class="text-xl font-bold">
+                                        @Model.GetPerkInfo(Model.UserAccount.PerkSubscription.Identifier).Name Tier
+                                    </div>
+                                    <div class="text-sm text-base-content/70">Stellar Program Member</div>
+                                </div>
+                                <div class="text-4xl"
+                                     style="color: @Model.GetPerkInfo(Model.UserAccount.PerkSubscription.Identifier).Color">
+                                    ★
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="card bg-base-100 border">
+                    <div class="card-body">
+                        <div class="flex justify-between mb-2">
+                            <div>Level @Model.UserAccount.Profile?.Level</div>
+                            <div>@Model.UserAccount.Profile?.Experience XP</div>
+                        </div>
+                        <progress class="progress progress-success"
+                                  value="@(Model.UserAccount.Profile?.LevelingProgress ?? 0)" max="1"></progress>
+                    </div>
+                </div>
+            </div>
+
+
+            @if (Model.UserAccount.Profile?.Links.Count > 0)
+            {
+                <div>
+                    <div class="card bg-base-100 border">
+                        <div class="card-body">
+                            <h2 class="card-title">
+                                <span class="mdi mdi-link-variant"></span> Links
+                            </h2>
+                            <ul class="list pt-2">
+                                @foreach (var link in Model.UserAccount.Profile.Links)
+                                {
+                                    <li class="list-row p-0">
+                                        <div class="list-col-grow">
+                                            <div>@(link.Name)</div>
+                                            <div class="text-xs font-semibold opacity-60">@(link.Url)</div>
+                                        </div>
+                                        <a class="btn btn-square btn-ghost" href="@link.Url" target="_blank">
+                                            <span class="mdi mdi-launch"></span>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @if (Model.UserAccount.Contacts.Count > 0)
+            {
+                <div>
+                    <div class="card bg-base-100 border">
+                        <div class="card-body">
+                            <h2 class="card-title">
+                                <span class="mdi mdi-link-variant"></span> Links
+                            </h2>
+                            <ul class="list pt-2">
+                                @foreach (var contact in Model.UserAccount.Contacts)
+                                {
+                                    <li class="list-row p-0" x-data="{ content: '@contact.Content' }">
+                                        <div class="list-col-grow">
+                                            <div>@(contact.Content)</div>
+                                            <div class="text-xs font-semibold opacity-60">@(contact.Type.ToString())</div>
+                                        </div>
+                                        <button class="btn btn-square btn-ghost" x-clipboard="content">
+                                            <span class="mdi mdi-content-copy"></span>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div>
+                @if (!string.IsNullOrEmpty(Model.HtmlBio))
+                {
+                    <div class="card bg-base-100 border">
+                        <div class="card-body">
+                            <h2 class="card-title">
+                                <span class="mdi mdi-information"></span> Bio
+                            </h2>
+                            <div class="prose prose-sm max-w-none">
+                                @Html.Raw(Model.HtmlBio)
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="hero min-h-[50vh]">
+        <div class="hero-content text-center">
+            <div>
+                <div class="text-6xl mb-4">
+                    <span class="mdi mdi-account"></span>
+                </div>
+                <h1 class="text-3xl font-bold">User not found</h1>
+                <p class="py-6">The user profile you're trying to access is not found.</p>
+            </div>
+        </div>
+    </div>
+}

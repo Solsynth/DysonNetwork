@@ -24,15 +24,16 @@ public class AccountServiceGrpc(
     public override async Task<Shared.Proto.Account> GetAccount(GetAccountRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var accountId))
-            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
 
         var account = await _db.Accounts
             .AsNoTracking()
             .Include(a => a.Profile)
+            .Include(a => a.Contacts.Where(c => c.IsPublic))
             .FirstOrDefaultAsync(a => a.Id == accountId);
 
         if (account == null)
-            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, $"Account {request.Id} not found"));
+            throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.Id} not found"));
 
         var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
         account.PerkSubscription = perk?.ToReference();

@@ -442,7 +442,7 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen_at");
 
-                    b.Property<List<ProfileLink>>("Links")
+                    b.Property<List<SnProfileLink>>("Links")
                         .HasColumnType("jsonb")
                         .HasColumnName("links");
 

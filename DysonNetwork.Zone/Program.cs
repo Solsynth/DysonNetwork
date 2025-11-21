@@ -26,6 +26,8 @@ builder.Services.AddRingService();
 builder.Services.AddAccountService();
 builder.Services.AddSphereService();
 
+builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
+
 builder.AddSwaggerManifest(
     "DysonNetwork.Zone",
     "The zone service in the Solar Network."

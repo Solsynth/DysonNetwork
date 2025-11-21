@@ -66,6 +66,11 @@ message UsernameColor {
     repeated string colors = 4;
 }
 
+message ProfileLink {
+    string name = 1;
+    string url = 2;
+}
+
 // Profile contains detailed information about a user
 message AccountProfile {
     string id = 1;
@@ -97,6 +102,7 @@ message AccountProfile {
     google.protobuf.Timestamp created_at = 22;
     google.protobuf.Timestamp updated_at = 23;
     optional UsernameColor username_color = 24;
+    repeated ProfileLink links = 25;
 }
 
 // AccountContact represents a contact method for an account

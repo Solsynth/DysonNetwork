@@ -121,22 +121,23 @@ public abstract class Leveling
     {
         if (xp < 0) return 0;
 
-        int level = 0;
+        var level = 0;
         while (level < MaxLevel && TotalExpForLevel(level + 1) <= xp)
         {
             level++;
         }
+
         return level;
     }
 
     // Progress to next level (0.0 ~ 1.0)
     public static double GetProgressToNextLevel(int xp)
     {
-        int currentLevel = GetLevelFromExp(xp);
+        var currentLevel = GetLevelFromExp(xp);
         if (currentLevel >= MaxLevel) return 1.0;
 
-        double prevTotal = TotalExpForLevel(currentLevel);
-        double nextTotal = TotalExpForLevel(currentLevel + 1);
+        var prevTotal = TotalExpForLevel(currentLevel);
+        var nextTotal = TotalExpForLevel(currentLevel + 1);
 
         return (xp - prevTotal) / (nextTotal - prevTotal);
     }
@@ -145,9 +146,9 @@ public abstract class Leveling
 public class UsernameColor
 {
     public string Type { get; set; } = "plain"; // "plain" | "gradient"
-    public string? Value { get; set; }          // e.g. "red" or "#ff6600"
-    public string? Direction { get; set; }      // e.g. "to right"
-    public List<string>? Colors { get; set; }   // e.g. ["#ff0000", "#00ff00"]
+    public string? Value { get; set; } // e.g. "red" or "#ff6600"
+    public string? Direction { get; set; } // e.g. "to right"
+    public List<string>? Colors { get; set; } // e.g. ["#ff0000", "#00ff00"]
 
     public Proto.UsernameColor ToProtoValue()
     {
@@ -161,6 +162,7 @@ public class UsernameColor
         {
             proto.Colors.AddRange(Colors);
         }
+
         return proto;
     }
 
@@ -187,7 +189,7 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
     [MaxLength(1024)] public string? Pronouns { get; set; }
     [MaxLength(1024)] public string? TimeZone { get; set; }
     [MaxLength(1024)] public string? Location { get; set; }
-    [Column(TypeName = "jsonb")] public List<ProfileLink>? Links { get; set; }
+    [Column(TypeName = "jsonb")] public List<SnProfileLink>? Links { get; set; }
     [Column(TypeName = "jsonb")] public UsernameColor? UsernameColor { get; set; }
     public Instant? Birthday { get; set; }
     public Instant? LastSeenAt { get; set; }
@@ -197,10 +199,8 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
 
     public int Experience { get; set; }
 
-    [NotMapped]
-    public int Level => Leveling.GetLevelFromExp(Experience);
-    [NotMapped]
-    public double LevelingProgress => Leveling.GetProgressToNextLevel(Experience);
+    [NotMapped] public int Level => Leveling.GetLevelFromExp(Experience);
+    [NotMapped] public double LevelingProgress => Leveling.GetProgressToNextLevel(Experience);
 
     public double SocialCredits { get; set; } = 100;
 
@@ -249,8 +249,12 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
             UpdatedAt = UpdatedAt.ToTimestamp()
         };
 
+        if (Links is not null)
+            proto.Links.AddRange(Links.Select(l => l.ToProtoValue()));
+
         return proto;
     }
+
 
     public static SnAccountProfile FromProtoValue(Proto.AccountProfile proto)
     {
@@ -267,17 +271,25 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
             Location = proto.Location,
             Birthday = proto.Birthday?.ToInstant(),
             LastSeenAt = proto.LastSeenAt?.ToInstant(),
-            Verification = proto.Verification is null ? null : SnVerificationMark.FromProtoValue(proto.Verification),
+            Verification =
+                proto.Verification is null ? null : SnVerificationMark.FromProtoValue(proto.Verification),
             ActiveBadge = proto.ActiveBadge is null ? null : SnAccountBadgeRef.FromProtoValue(proto.ActiveBadge),
             Experience = proto.Experience,
             SocialCredits = proto.SocialCredits,
             Picture = proto.Picture is null ? null : SnCloudFileReferenceObject.FromProtoValue(proto.Picture),
-            Background = proto.Background is null ? null : SnCloudFileReferenceObject.FromProtoValue(proto.Background),
+            Background = proto.Background is null
+                ? null
+                : SnCloudFileReferenceObject.FromProtoValue(proto.Background),
             AccountId = Guid.Parse(proto.AccountId),
-            UsernameColor = proto.UsernameColor is not null ? UsernameColor.FromProtoValue(proto.UsernameColor) : null,
+            UsernameColor = proto.UsernameColor is not null
+                ? UsernameColor.FromProtoValue(proto.UsernameColor)
+                : null,
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant()
         };
+
+        if (proto.Links.Count > 0)
+            profile.Links = proto.Links.Select(SnProfileLink.FromProtoValue).ToList();
 
         return profile;
     }
@@ -285,10 +297,28 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
     public string ResourceIdentifier => $"account:profile:{Id}";
 }
 
-public class ProfileLink
+public class SnProfileLink
 {
     public string Name { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
+
+    public Proto.ProfileLink ToProtoValue()
+    {
+        return new Proto.ProfileLink
+        {
+            Name = Name,
+            Url = Url
+        };
+    }
+
+    public static SnProfileLink FromProtoValue(Proto.ProfileLink proto)
+    {
+        return new SnProfileLink
+        {
+            Name = proto.Name,
+            Url = proto.Url
+        };
+    }
 }
 
 public class SnAccountContact : ModelBase
@@ -361,7 +391,7 @@ public class SnAccountAuthFactor : ModelBase
 {
     public Guid Id { get; set; }
     public AccountAuthFactorType Type { get; set; }
-    [JsonIgnore][MaxLength(8196)] public string? Secret { get; set; }
+    [JsonIgnore] [MaxLength(8196)] public string? Secret { get; set; }
 
     [JsonIgnore]
     [Column(TypeName = "jsonb")]
@@ -398,11 +428,13 @@ public class SnAccountAuthFactor : ModelBase
                 return BCrypt.Net.BCrypt.Verify(password, Secret);
             case AccountAuthFactorType.TimedCode:
                 var otp = new Totp(Base32Encoding.ToBytes(Secret));
-                return otp.VerifyTotp(DateTime.UtcNow, password, out _, new VerificationWindow(previous: 5, future: 5));
+                return otp.VerifyTotp(DateTime.UtcNow, password, out _,
+                    new VerificationWindow(previous: 5, future: 5));
             case AccountAuthFactorType.EmailCode:
             case AccountAuthFactorType.InAppCode:
             default:
-                throw new InvalidOperationException("Unsupported verification type, use CheckDeliveredCode instead.");
+                throw new InvalidOperationException(
+                    "Unsupported verification type, use CheckDeliveredCode instead.");
         }
     }
 
@@ -430,8 +462,8 @@ public class SnAccountConnection : ModelBase
     [MaxLength(8192)] public string ProvidedIdentifier { get; set; } = null!;
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; } = [];
 
-    [JsonIgnore][MaxLength(4096)] public string? AccessToken { get; set; }
-    [JsonIgnore][MaxLength(4096)] public string? RefreshToken { get; set; }
+    [JsonIgnore] [MaxLength(4096)] public string? AccessToken { get; set; }
+    [JsonIgnore] [MaxLength(4096)] public string? RefreshToken { get; set; }
     public Instant? LastUsedAt { get; set; }
 
     public Guid AccountId { get; set; }
