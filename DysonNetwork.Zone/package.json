@@ -5,6 +5,7 @@
     "private": true,
     "devDependencies": {
         "@tailwindcss/cli": "^4.1.17",
+        "@tailwindcss/typography": "^0.5.19",
         "@types/bun": "latest",
         "daisyui": "^5.5.5",
         "tailwindcss": "^4.1.17"
