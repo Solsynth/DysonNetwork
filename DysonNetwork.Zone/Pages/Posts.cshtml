@@ -1,0 +1,62 @@
+
+@page
+@model DysonNetwork.Zone.Pages.PostsModel
+@using DysonNetwork.Shared.Models
+@{
+    Layout = "_LayoutContained";
+}
+
+<div class="container mx-auto px-8 pb-8">
+    <h1 class="text-3xl font-bold mb-8">Posts</h1>
+
+    <div class="flex flex-col md:flex-row gap-8">
+        <div class="w-full md:w-2/3">
+            @if (Model.Posts.Any())
+            {
+                <div class="space-y-8">
+                    @foreach (var post in Model.Posts)
+                    {
+                        <div class="card bg-base-100 border">
+                            <div class="card-body">
+                                <h2 class="card-title">@post.Title</h2>
+                                <p>@post.Content</p>
+                                <div class="card-actions justify-end">
+                                    <div class="text-sm text-base-content/60">
+                                        Posted on @post.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd")
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-16">
+                    <p class="text-lg">No posts found.</p>
+                </div>
+            }
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="flex justify-center mt-8">
+                    <div class="btn-group">
+                        @for (var i = 1; i <= Model.TotalPages; i++)
+                        {
+                            <a href="/posts?currentPage=@i" class="btn @(i == Model.CurrentPage ? "btn-active" : "")">@i</a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="w-full md:w-1/3">
+            <div class="card bg-base-100 border">
+                <div class="card-body">
+                    <h3 class="card-title">Publisher Info</h3>
+                    <p>This is where publisher information will be displayed.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
