@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Zone.Publication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace DysonNetwork.Zone.Pages;
 
@@ -19,6 +20,7 @@ public class ErrorModel : PageModel
     public SnPublicationSite? Site { get; set; }
     public string? SiteName { get; set; }
     public string? CurrentPath { get; set; }
+    public string? OriginalPath { get; set; }
 
     public void OnGet()
     {
@@ -29,5 +31,8 @@ public class ErrorModel : PageModel
 
         SiteName = Request.Headers["X-SiteName"].ToString();
         CurrentPath = Request.Path;
+
+        var statusCodeReExecuteFeature = HttpContext.Features.Get<IStatusCodeReExecuteFeature>();
+        OriginalPath = statusCodeReExecuteFeature?.OriginalPath;
     }
 }

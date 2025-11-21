@@ -21,7 +21,7 @@ public class PublicationSiteMiddleware(RequestDelegate next)
         }
 
         var site = await db.PublicationSites
-            .FirstOrDefaultAsync(s => EF.Functions.ILike(s.Name, siteNameValue));
+            .FirstOrDefaultAsync(s => EF.Functions.ILike(s.Slug, siteNameValue));
         if (site == null)
         {
             await next(context);
@@ -42,7 +42,7 @@ public class PublicationSiteMiddleware(RequestDelegate next)
                     await context.Response.WriteAsync(content.ToString());
                     return;
                 case PublicationPageType.Redirect
-                    when page.Config.TryGetValue("url", out var url) && url is JsonElement redirectUrl:
+                    when page.Config.TryGetValue("target", out var tgt) && tgt is JsonElement redirectUrl:
                     context.Response.Redirect(redirectUrl.ToString());
                     return;
             }

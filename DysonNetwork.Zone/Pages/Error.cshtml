@@ -12,7 +12,7 @@
         <p>Something went wrong...</p>
         <p class="text-sm opacity-80 mt-1">Powered by the Solar Network Pages</p>
         <div class="text-xs opacity-70 mt-1">
-            <p>Path: <b>@Model.CurrentPath</b></p>
+            <p>Path: <b>@(Model.OriginalPath ?? Model.CurrentPath)</b></p>
             <p>Site ID: <b>@(Model.Site?.Id.ToString() ?? "none")</b></p>
             @if (Model.ShowRequestId)
             {
