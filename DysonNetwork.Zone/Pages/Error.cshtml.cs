@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Zone.Publication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -12,8 +14,20 @@ public class ErrorModel : PageModel
 
     public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
 
+    [FromRoute] public new int? StatusCode { get; set; }
+    
+    public SnPublicationSite? Site { get; set; }
+    public string? SiteName { get; set; }
+    public string? CurrentPath { get; set; }
+
     public void OnGet()
     {
         RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+
+        if (HttpContext.Items.TryGetValue(PublicationSiteMiddleware.SiteContextKey, out var site))
+            Site = site as SnPublicationSite;
+
+        SiteName = Request.Headers["X-SiteName"].ToString();
+        CurrentPath = Request.Path;
     }
 }

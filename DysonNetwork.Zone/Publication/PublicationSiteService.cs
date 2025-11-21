@@ -30,7 +30,7 @@ public class PublicationSiteService(
             if (pub == null) throw new InvalidOperationException("Publisher not found.");
             pubId = pub.Id;
         }
-        
+
         return await db.PublicationSites
             .If(pubId.HasValue, q => q.Where(s => s.PublisherId == pubId.Value))
             .Include(s => s.Pages)
@@ -47,21 +47,31 @@ public class PublicationSiteService(
 
     public async Task<SnPublicationSite> CreateSite(SnPublicationSite site, Guid accountId)
     {
-        var perk = (await remoteAccounts.GetAccount(accountId)).PerkSubscription;
-        var perkLevel = perk is not null ? PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier) : 0;
+        var existingSlugSite = await db.PublicationSites
+            .AnyAsync(s => EF.Functions.ILike(s.Slug, site.Slug));
+        if (existingSlugSite) throw new InvalidOperationException("Site with the slug already exists.");
 
-        var maxSite = perkLevel switch
+        var account = await remoteAccounts.GetAccount(accountId);
+        if (!account.IsSuperuser)
         {
-            1 => 2,
-            2 => 3,
-            3 => 5,
-            _ => 1
-        };
+            var perk = account.PerkSubscription;
+            var perkLevel = perk is not null
+                ? PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier)
+                : 0;
 
-        // Check if account has reached the maximum number of sites
-        var existingSitesCount = await db.PublicationSites.CountAsync(s => s.AccountId == accountId);
-        if (existingSitesCount >= maxSite)
-            throw new InvalidOperationException("Account has reached the maximum number of sites allowed.");
+            var maxSite = perkLevel switch
+            {
+                1 => 2,
+                2 => 3,
+                3 => 5,
+                _ => 1
+            };
+
+            // Check if account has reached the maximum number of sites
+            var existingSitesCount = await db.PublicationSites.CountAsync(s => s.AccountId == accountId);
+            if (existingSitesCount >= maxSite)
+                throw new InvalidOperationException("Account has reached the maximum number of sites allowed.");
+        }
 
         // Check if account is member of the publisher
         var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);

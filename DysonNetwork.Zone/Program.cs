@@ -3,6 +3,7 @@ using DysonNetwork.Zone.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Zone.Publication;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +12,7 @@ builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration);
 
-builder.Services.AddRazorPages(options => options.Conventions.AddPageRoute("/Index", "{**path}"));
+builder.Services.AddRazorPages();
 builder.Services.AddControllers();
 
 builder.Services.AddAppServices();
@@ -46,8 +47,11 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 
+app.UseMiddleware<PublicationSiteMiddleware>();
+
 app.UseStaticFiles();
 app.UseRouting();
+app.UseStatusCodePagesWithReExecute("/Error/{0}");
 app.ConfigureAppMiddleware(builder.Configuration);
 app.MapRazorPages();
 
