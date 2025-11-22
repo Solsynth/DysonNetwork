@@ -1,28 +1,33 @@
-using Markdig;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
+using Markdig;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NodaTime;
 
 namespace DysonNetwork.Zone.Pages;
 
-public class IndexModel(PostService.PostServiceClient postClient, RemotePublisherService rps, RemoteAccountService ras) : PageModel
+public class IndexModel(
+    PostService.PostServiceClient postClient,
+    RemotePublisherService rps,
+    RemoteAccountService ras
+) : PageModel
 {
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public Account? UserAccount { get; set; }
     public List<SnPost> FeaturedPosts { get; set; } = [];
 
-    public string? UserPictureUrl => UserAccount?.Profile?.Picture?.Id != null
-        ? $"/drive/files/{UserAccount.Profile.Picture.Id}"
-        : null;
+    public string? UserPictureUrl =>
+        UserAccount?.Profile?.Picture?.Id != null
+            ? $"/drive/files/{UserAccount.Profile.Picture.Id}"
+            : null;
 
-    public string? UserBackgroundUrl => UserAccount?.Profile?.Background?.Id != null
-        ? $"/drive/files/{UserAccount.Profile.Background.Id}?original=true"
-        : null;
-
+    public string? UserBackgroundUrl =>
+        UserAccount?.Profile?.Background?.Id != null
+            ? $"/drive/files/{UserAccount.Profile.Background.Id}?original=true"
+            : null;
 
     public async Task OnGetAsync()
     {
@@ -39,10 +44,10 @@ public class IndexModel(PostService.PostServiceClient postClient, RemotePublishe
             // Fetch Featured Posts (e.g., top 5 by views)
             var request = new ListPostsRequest
             {
-                OrderBy = "views", // Assuming 'views' is a valid order-by option for popularity
+                OrderBy = "popularity",
                 OrderDesc = true,
                 PageSize = 5,
-                PublisherId = Site!.PublisherId.ToString()
+                PublisherId = Site!.PublisherId.ToString(),
             };
 
             var response = await postClient.ListPostsAsync(request);
@@ -52,18 +57,21 @@ public class IndexModel(PostService.PostServiceClient postClient, RemotePublishe
                 FeaturedPosts = response.Posts.Select(SnPost.FromProtoValue).ToList();
 
                 // Convert the markdown content to HTML
-                foreach (var post in FeaturedPosts.Where(post => !string.IsNullOrEmpty(post.Content)))
+                foreach (
+                    var post in FeaturedPosts.Where(post => !string.IsNullOrEmpty(post.Content))
+                )
                     post.Content = Markdown.ToHtml(post.Content!);
             }
         }
     }
-    
+
     public int CalculateAge(Instant birthday)
     {
         var birthDate = birthday.ToDateTimeOffset();
         var today = DateTimeOffset.Now;
         var age = today.Year - birthDate.Year;
-        if (birthDate > today.AddYears(-age)) age--;
+        if (birthDate > today.AddYears(-age))
+            age--;
         return age;
     }
 
@@ -103,7 +111,8 @@ public class IndexModel(PostService.PostServiceClient postClient, RemotePublishe
             "solian.stellar.primary" => ("Stellar", "#2196f3"),
             "solian.stellar.nova" => ("Nova", "#39c5bb"),
             "solian.stellar.supernova" => ("Supernova", "#ffc109"),
-            _ => ("Unknown", "#2196f3")
+            _ => ("Unknown", "#2196f3"),
         };
     }
 }
+
