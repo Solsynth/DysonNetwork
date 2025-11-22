@@ -142,7 +142,7 @@ public enum PublisherMemberRole
 public class SnPublisherMember : ModelBase
 {
     public Guid PublisherId { get; set; }
-    [JsonIgnore] public SnPublisher Publisher { get; set; } = null!;
+    public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
 
