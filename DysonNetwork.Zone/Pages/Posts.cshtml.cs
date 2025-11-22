@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
+using Microsoft.AspNetCore.Mvc;
 // Add this using statement
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using PostType = DysonNetwork.Shared.Models.PostType;
@@ -14,6 +15,8 @@ public class PostsModel(
     MarkdownConverter markdownConverter
 ) : PageModel
 {
+    [FromQuery] public bool ShowAll { get; set; } = false;
+
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public List<SnPost> Posts { get; set; } = [];
@@ -38,6 +41,8 @@ public class PostsModel(
             PageToken = ((CurrentPage - 1) * PageSize).ToString(),
             PublisherId = Site!.PublisherId.ToString()
         };
+
+        if (!ShowAll) request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
 
         var response = await postClient.ListPostsAsync(request);
 
