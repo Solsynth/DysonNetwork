@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using System.IO.Compression;
 
 namespace DysonNetwork.Zone.Publication;
 
@@ -135,5 +136,43 @@ public class PublicationSiteManager(
             File.Delete(fullPath);
         else if (Directory.Exists(fullPath))
             Directory.Delete(fullPath, true);
+    }
+
+    public async Task PurgeSite(Guid siteId)
+    {
+        await EnsureSiteDirectory(siteId); // This ensures site exists and is self-managed
+        var siteDirectory = Path.Combine(_basePath, siteId.ToString());
+        if (Directory.Exists(siteDirectory))
+        {
+            Directory.Delete(siteDirectory, true); // true for recursive delete
+            Directory.CreateDirectory(siteDirectory); // Recreate empty directory
+        }
+    }
+
+    public async Task DeployZip(Guid siteId, IFormFile zipFile)
+    {
+        await EnsureSiteDirectory(siteId);
+        var siteDirectory = Path.Combine(_basePath, siteId.ToString());
+
+        // Create a temporary file for the uploaded zip
+        var tempFilePath = Path.GetTempFileName();
+        try
+        {
+            await using (var stream = new FileStream(tempFilePath, FileMode.Create))
+            {
+                await zipFile.CopyToAsync(stream);
+            }
+
+            // Extract the zip file to the site's directory, overwriting existing files
+            await ZipFile.ExtractToDirectoryAsync(tempFilePath, siteDirectory, true);
+        }
+        finally
+        {
+            // Clean up the temporary file
+            if (File.Exists(tempFilePath))
+            {
+                File.Delete(tempFilePath);
+            }
+        }
     }
 }

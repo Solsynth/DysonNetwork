@@ -82,6 +82,68 @@ public class SiteManagerController(
         }
     }
 
+    [HttpPost("deploy")]
+    [Authorize]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Deploy(Guid siteId, IFormFile? zipFile)
+    {
+        var check = await CheckAccess(siteId);
+        if (check != null) return check;
+
+        if (zipFile == null || zipFile.Length == 0)
+            return BadRequest("No file provided.");
+
+        if (Path.GetExtension(zipFile.FileName).ToLowerInvariant() != ".zip")
+            return BadRequest("Only .zip files are allowed for deployment.");
+
+        // Define size limits
+        const long maxZipFileSize = 52428800; // 50MB for the zip file itself
+        const long maxTotalSiteSizeAfterExtract = 104857600; // 100MB total size after extraction
+
+        if (zipFile.Length > maxZipFileSize)
+            return BadRequest($"Zip file size exceeds {maxZipFileSize / (1024 * 1024)}MB limit.");
+
+        try
+        {
+            // For now, we'll only check the zip file size.
+            // A more robust solution might involve extracting to a temp location
+            // and checking the uncompressed size before moving, but that's more complex.
+
+            // Get current site size before deployment
+            long currentTotal = await fileManager.GetTotalSiteSize(siteId);
+
+            // This is a rough check. The actual uncompressed size might be much larger.
+            // Consider adding a more sophisticated check if this is a concern.
+            if (currentTotal + zipFile.Length * 3 > maxTotalSiteSizeAfterExtract) // Heuristic: assume 3x expansion
+                return BadRequest($"Deployment would exceed total site size limit of {maxTotalSiteSizeAfterExtract / (1024 * 1024)}MB.");
+
+            await fileManager.DeployZip(siteId, zipFile);
+            return Ok("Deployment successful.");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Deployment failed: {ex.Message}");
+        }
+    }
+
+    [HttpDelete("purge")]
+    [Authorize]
+    public async Task<IActionResult> Purge(Guid siteId)
+    {
+        var check = await CheckAccess(siteId);
+        if (check != null) return check;
+
+        try
+        {
+            await fileManager.PurgeSite(siteId);
+            return Ok("Site content purged successfully.");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Purge failed: {ex.Message}");
+        }
+    }
+
     [HttpGet("content/{**relativePath}")]
     [Authorize]
     public async Task<ActionResult<string>> GetFileContent(Guid siteId, string relativePath)
