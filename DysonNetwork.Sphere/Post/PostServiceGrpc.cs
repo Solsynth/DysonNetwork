@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime.Serialization.Protobuf;
+using PostType = DysonNetwork.Shared.Proto.PostType;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -172,7 +173,11 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
 
         if (request.Types_.Count > 0)
         {
-            var types = request.Types_.Select(t => (Shared.Models.PostType)t).Distinct();
+            var types = request.Types_.Select(t => t switch
+            {
+                PostType.Article => Shared.Models.PostType.Article,
+                _ => Shared.Models.PostType.Moment
+            }).Distinct();
             query = query.Where(p => types.Contains(p.Type));
         }
 
