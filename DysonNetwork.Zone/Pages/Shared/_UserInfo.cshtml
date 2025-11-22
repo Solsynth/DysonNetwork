@@ -1,0 +1,70 @@
+@model DysonNetwork.Zone.Pages.IndexModel
+
+@if (Model.UserAccount != null)
+{
+    <div class="card bg-base-100 border">
+        <div class="card-body">
+            <div class="flex items-center gap-6 mb-8">
+                @if (!string.IsNullOrEmpty(Model.UserPictureUrl))
+                {
+                    <img src="@Model.UserPictureUrl" class="w-20 h-20 rounded-full object-cover" alt="Avatar"/>
+                }
+                else
+                {
+                    <div class="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center">
+                        <span class="text-2xl">@(Model.UserAccount.Name != null ? Model.UserAccount.Name[0] : '?')</span>
+                    </div>
+                }
+                <div>
+                    <div class="text-2xl font-bold">
+                        @(Model.UserAccount.Nick ?? Model.UserAccount.Name)
+                    </div>
+                    <div class="text-body-2 text-base-content/60">@@@Model.UserAccount.Name</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.TimeZone))
+                {
+                    <div class="flex justify-between">
+                        <span class="flex gap-2">
+                            <span class="mdi mdi-map-clock"></span>
+                            Time Zone
+                        </span>
+                        <span class="text-right">
+                            @Model.GetCurrentTimeInTimeZone(Model.UserAccount.Profile.TimeZone)
+                            <span class="text-base-content/50">·</span>
+                            @Model.GetOffsetUtcString(Model.UserAccount.Profile.TimeZone)
+                            <span class="text-base-content/50">·</span>
+                            @Model.UserAccount.Profile.TimeZone
+                        </span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.Location))
+                {
+                    <div class="flex justify-between">
+                        <span class="flex gap-2">
+                            <span class="mdi mdi-map-marker"></span> Location
+                        </span>
+                        <span>@Model.UserAccount.Profile.Location</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.UserAccount.Profile?.FirstName) || !string.IsNullOrEmpty(Model.UserAccount.Profile?.LastName))
+                {
+                    <div class="flex justify-between">
+                        <span class="flex gap-2">
+                            <span class="mdi mdi-card-bulleted-outline"></span> Name
+                        </span>
+                        <span>
+                            @string.Join(" ", new[]
+                            {
+                                Model.UserAccount.Profile.FirstName,
+                                Model.UserAccount.Profile.MiddleName,
+                                Model.UserAccount.Profile.LastName
+                            }.Where(s => !string.IsNullOrEmpty(s)))
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}

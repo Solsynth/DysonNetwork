@@ -1,16 +1,134 @@
-﻿@page
+@page
 @model IndexModel
 
 @{
     Layout = "_LayoutContained";
-    ViewData["Title"] = "Solar Network Pages";
+
+    var pageTitle = "Home";
+    var pageDescription = "Welcome to the Solar Network Pages.";
+    var ogType = "website";
+    string? ogImageUrl = null;
+    var canonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}{Request.QueryString}";
+    var siteName = Model.Site?.Name ?? "Solar Network";
+
+    if (Model.UserAccount != null)
+    {
+        pageTitle = $"{Model.UserAccount.Nick ?? Model.UserAccount.Name}'s Page";
+        pageDescription = !string.IsNullOrWhiteSpace(Model.UserAccount.Profile?.Bio) ? Model.UserAccount.Profile.Bio : $"Profile of {Model.UserAccount.Nick ?? Model.UserAccount.Name} on {siteName}";
+        ogType = "profile";
+        ogImageUrl = Model.UserBackgroundUrl;
+        if (!string.IsNullOrEmpty(ogImageUrl) && !ogImageUrl.StartsWith("http"))
+            ogImageUrl = $"{Request.Scheme}://{Request.Host}{ogImageUrl}";
+    }
+    else if (Model.Site != null)
+    {
+        pageTitle = Model.Site.Name;
+        if (!string.IsNullOrWhiteSpace(Model.Site.Description))
+        {
+            pageDescription = Model.Site.Description;
+        }
+        ogType = "website";
+        ogImageUrl = null;
+    }
+
+    if (!string.IsNullOrWhiteSpace(pageDescription) && pageDescription.Length > 160)
+    {
+        pageDescription = pageDescription.Substring(0, 157) + "...";
+    }
+
+    ViewData["Title"] = $"{pageTitle} - {siteName}";
 }
 
-<div class="h-full flex justify-center items-center">
-    <div class="text-center max-w-96">
-        <img src="~/favicon.png" width="80" height="80" alt="Logo" class="mb-1 mx-auto"/>
-        <h1 class="text-2xl">Hello World 👋</h1>
-        <p>Here are the Solar Network Pages</p>
-        <p class="text-sm opacity-80 mt-1">为什么这个首页长这样呢？因为羊不知道该放什么，所以如果你有想法欢迎跟羊讲！</p>
+@section Head {
+    <meta name="description" content="@pageDescription"/>
+    <link rel="canonical" href="@canonicalUrl"/>
+
+    <meta property="og:title" content="@pageTitle"/>
+    <meta property="og:description" content="@pageDescription"/>
+    <meta property="og:type" content="@ogType"/>
+    <meta property="og:url" content="@canonicalUrl"/>
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta property="og:image" content="@ogImageUrl"/>
+    }
+    <meta property="og:site_name" content="@siteName"/>
+
+    <meta name="twitter:card" content="summary"/>
+    <meta name="twitter:title" content="@pageTitle"/>
+    <meta name="twitter:description" content="@pageDescription"/>
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta name="twitter:image" content="@ogImageUrl"/>
+    }
+}
+
+<div class="container mx-auto px-8 py-8">
+    @if (Model.FeaturedPosts.Any())
+    {
+        <h2 class="text-xl flex gap-2 mb-5 px-3">
+            <span class="mdi mdi-star"></span> Featured Posts
+        </h2>
+        <div class="carousel carousel-center w-full max-h-120 p-4 space-x-4 rounded-box mb-8 shadow-lg bg-base-300">
+            @for (int i = 0; i < Model.FeaturedPosts.Count; i++)
+            {
+                var post = Model.FeaturedPosts[i];
+                <div id="item@(i + 1)" class="carousel-item card card-side lg:card-side w-full bg-base-100 shadow-xl">
+                    <figure class="max-w-3/5">
+                        @if (post.Attachments.Any(a => a.MimeType!.StartsWith("image")))
+                        {
+                            var imageAttachment = post.Attachments.First(a => a.MimeType!.StartsWith("image"));
+                            <img src="/drive/files/@imageAttachment.Id" alt="@imageAttachment.Name" class="h-full object-cover"/>
+                        }
+                        else
+                        {
+                            <img src="https://placehold.co/600x400?text=No+Image" alt="No Image" class="h-full object-cover"/>
+                        }
+                    </figure>
+                    <div class="card-body">
+                        <h2 class="card-title">
+                            <a asp-page="/Posts/Details" asp-route-slug="@(post.Slug ?? post.Id.ToString())">@post.Title</a>
+                        </h2>
+                        @if (!string.IsNullOrWhiteSpace(post.Description))
+                        {
+                            <p class="text-sm">@post.Description</p>
+                        }
+                        <div class="card-actions justify-end">
+                             <a asp-page="/Posts/Details" asp-route-slug="@(post.Slug ?? post.Id.ToString())" class="btn btn-primary btn-sm">Read More</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        @if (Model.FeaturedPosts.Count > 1)
+        {
+            <div class="flex justify-center w-full py-2 gap-2 mb-8">
+                @for (var idx = 0; idx < Model.FeaturedPosts.Count; idx++)
+                {
+                    <a href="#item@(idx + 1)" class="btn btn-xs">@(idx + 1)</a>
+                }
+            </div>
+        }
+    }
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        @if (Model.UserAccount != null)
+        {
+            <div>
+                <h2 class="text-xl flex gap-2 mb-5 px-3">
+                    <span class="mdi mdi-account-circle"></span> About me
+                </h2>
+                <partial name="Shared/_UserInfo" model="Model"/>
+            </div>
+        }
+
+        @if (Model.Site != null)
+        {
+            <div>
+                <h2 class="text-xl flex gap-2 mb-5 px-3">
+                    <span class="mdi mdi-sitemap"></span> About the Site
+                </h2>
+                <partial name="Shared/_SiteInfo" model="Model.Site"/>
+            </div>
+        }
     </div>
 </div>

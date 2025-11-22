@@ -58,92 +58,7 @@
                 <div class="space-y-8">
                     @foreach (var post in Model.Posts)
                     {
-                        <div class="card bg-base-200 shadow-md">
-                            <div class="card-body flex flex-col gap-5">
-                                <div>
-                                    @if (!string.IsNullOrWhiteSpace(post.Title) || !string.IsNullOrWhiteSpace(post.Description))
-                                    {
-                                        <section class="mb-1">
-                                            @if (!string.IsNullOrWhiteSpace(post.Title))
-                                            {
-                                                <h2 class="text-lg font-bold">
-                                                    <a asp-page="/Posts/Details"
-                                                       asp-route-slug="@(post.Slug ?? post.Id.ToString())">@post.Title</a>
-                                                </h2>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(post.Description))
-                                            {
-                                                <p>@post.Description</p>
-                                            }
-                                        </section>
-                                    }
-                                    <p>@Html.Raw(post.Content)</p>
-                                </div>
-
-                                @if (post.Attachments.Any())
-                                {
-                                    <div class="flex flex-col gap-4">
-                                        @foreach (var attachment in post.Attachments)
-                                        {
-                                            <div>
-                                                @if (attachment.MimeType!.StartsWith("image"))
-                                                {
-                                                    <figure>
-                                                        <img src="/drive/files/@attachment.Id" alt="@attachment.Name"
-                                                             class="max-w-full h-auto rounded-lg"/>
-                                                    </figure>
-                                                }
-                                                else if (attachment.MimeType!.StartsWith("video"))
-                                                {
-                                                    <video controls src="/drive/files/@attachment.Id"
-                                                           class="max-w-full h-auto rounded-lg"></video>
-                                                }
-                                                else if (attachment.MimeType!.StartsWith("audio"))
-                                                {
-                                                    <audio controls src="/drive/files/@attachment.Id"
-                                                           class="max-w-full h-auto rounded-lg"></audio>
-                                                }
-                                                else
-                                                {
-                                                    <a href="/drive/files/@attachment.Id" target="_blank"
-                                                       class="text-blue-500 hover:underline">@attachment.Name</a>
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                }
-
-                                @if (post.Categories.Any() || post.Tags.Any())
-                                {
-                                    <div>
-                                        @foreach (var category in post.Categories)
-                                        {
-                                            <span class="badge badge-primary">
-                                                <span class="mdi mdi-shape"></span>
-                                                @(!string.IsNullOrEmpty(category.Name) ? category.Name : category.Slug)
-                                            </span>
-                                        }
-                                        @foreach (var tag in post.Tags)
-                                        {
-                                            <span class="badge badge-info">
-                                                <span class="mdi mdi-tag"></span>
-                                                @(!string.IsNullOrEmpty(tag.Name) ? tag.Name : tag.Slug)
-                                            </span>
-                                        }
-                                    </div>
-                                }
-
-                                <div class="card-actions justify-end items-center">
-                                    <div class="text-sm text-base-content/60">
-                                        Posted on @post.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd")
-                                    </div>
-                                    <a asp-page="/Posts/Details" asp-route-slug="@(post.Slug ?? post.Id.ToString())"
-                                       class="btn btn-sm btn-ghost btn-circle">
-                                        <span class="mdi mdi-arrow-right text-lg"></span>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
+                        <partial name="Shared/_PostItem" model="post" />
                     }
                 </div>
             }
@@ -175,35 +90,7 @@
         @if (Model.Publisher != null)
         {
             <div class="col-span-3 md:col-span-1">
-                <div class="card bg-base-200 shadow-md">
-                    @if (Model.Publisher!.Background != null)
-                    {
-                        <figure class="relative">
-                            <img
-                                src="/drive/files/@Model.Publisher!.Background.Id"
-                                alt="Background"/>
-                        </figure>
-                    }
-                    <div class="card-body">
-                        <div class="flex gap-4 card-title">
-                            <div class="avatar">
-                                <div class="w-16 rounded-full">
-                                    <img
-                                        src="@(Model.Publisher.Picture is null ? defaultAvatar : "/drive/files/" + Model.Publisher.Picture!.Id)"
-                                        alt="Avatar"/>
-                                </div>
-                            </div>
-                            <h2 class="flex-1 flex flex-col">
-                                @Model.Publisher.Nick
-                                <span class="text-xs">@@@Model.Publisher.Name</span>
-                            </h2>
-                        </div>
-                        @if (!string.IsNullOrWhiteSpace(Model.Publisher.Bio))
-                        {
-                            <p>@Model.Publisher.Bio</p>
-                        }
-                    </div>
-                </div>
+                <partial name="Shared/_PublisherInfo" model="Model.Publisher" />
             </div>
         }
     </div>

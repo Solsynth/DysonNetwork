@@ -1,0 +1,89 @@
+@using DysonNetwork.Shared.Models
+@model DysonNetwork.Shared.Models.SnPost
+
+<div class="card bg-base-200 shadow-md">
+    <div class="card-body flex flex-col gap-5">
+        <div>
+            @if (!string.IsNullOrWhiteSpace(Model.Title) || !string.IsNullOrWhiteSpace(Model.Description))
+            {
+                <section class="mb-1">
+                    @if (!string.IsNullOrWhiteSpace(Model.Title))
+                    {
+                        <h2 class="text-lg font-bold">
+                            <a asp-page="/Posts/Details"
+                               asp-route-slug="@(Model.Slug ?? Model.Id.ToString())">@Model.Title</a>
+                        </h2>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Description))
+                    {
+                        <p>@Model.Description</p>
+                    }
+                </section>
+            }
+            <p>@Html.Raw(Model.Content)</p>
+        </div>
+
+        @if (Model.Attachments.Any())
+        {
+            <div class="flex flex-col gap-4">
+                @foreach (var attachment in Model.Attachments)
+                {
+                    <div>
+                        @if (attachment.MimeType!.StartsWith("image"))
+                        {
+                            <figure>
+                                <img src="/drive/files/@attachment.Id" alt="@attachment.Name"
+                                     class="max-w-full h-auto rounded-lg"/>
+                            </figure>
+                        }
+                        else if (attachment.MimeType!.StartsWith("video"))
+                        {
+                            <video controls src="/drive/files/@attachment.Id"
+                                   class="max-w-full h-auto rounded-lg"></video>
+                        }
+                        else if (attachment.MimeType!.StartsWith("audio"))
+                        {
+                            <audio controls src="/drive/files/@attachment.Id"
+                                   class="max-w-full h-auto rounded-lg"></audio>
+                        }
+                        else
+                        {
+                            <a href="/drive/files/@attachment.Id" target="_blank"
+                               class="text-blue-500 hover:underline">@attachment.Name</a>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (Model.Categories.Any() || Model.Tags.Any())
+        {
+            <div>
+                @foreach (var category in Model.Categories)
+                {
+                    <span class="badge badge-primary">
+                        <span class="mdi mdi-shape"></span>
+                        @(!string.IsNullOrEmpty(category.Name) ? category.Name : category.Slug)
+                    </span>
+                }
+                @foreach (var tag in Model.Tags)
+                {
+                    <span class="badge badge-info">
+                        <span class="mdi mdi-tag"></span>
+                        @(!string.IsNullOrEmpty(tag.Name) ? tag.Name : tag.Slug)
+                    </span>
+                }
+            </div>
+        }
+
+        <div class="card-actions justify-end items-center">
+            <div class="text-sm text-base-content/60">
+                Posted on @Model.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd")
+            </div>
+            <a asp-page="/Posts/Details" asp-route-slug="@(Model.Slug ?? Model.Id.ToString())"
+               class="btn btn-sm btn-ghost btn-circle">
+                <span class="mdi mdi-arrow-right text-lg"></span>
+            </a>
+        </div>
+    </div>
+</div>
