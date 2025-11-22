@@ -15,10 +15,9 @@ public class MarkdownConverter
 
     public string ToHtml(string markdown, bool softBreaks = true)
     {
-        var procMarkdown = markdown.Replace("solian://files/", "/drive/files");
+        var procMarkdown = markdown.Replace("solian://files/", "/drive/files/");
         return string.IsNullOrEmpty(procMarkdown)
             ? string.Empty
             : Markdown.ToHtml(procMarkdown, softBreaks ? _pipelineSoftBreak : _pipeline);
     }
 }
-
