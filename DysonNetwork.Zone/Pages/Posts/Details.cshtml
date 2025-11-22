@@ -2,102 +2,113 @@
 @model DysonNetwork.Zone.Pages.Posts.DetailsModel
 @{
     Layout = "_LayoutContained";
-    const string defaultAvatar = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
 }
 
 <div class="container max-w-4xl mx-auto px-8 py-8">
-    @if (Model.Post != null)
-    {
-        <section class="mb-8 mt-2 px-5">
-            <h1 class="text-3xl font-bold">
-                @(Model.Post.Title ?? "Post Details")
-            </h1>
-            @if (!string.IsNullOrWhiteSpace(Model.Post.Description))
-            {
-                <p>@Model.Post.Description</p>
-            }
-        </section>
-
-        <div class="w-full flex flex-col gap-5">
-            <div class="card bg-base-200 shadow-md">
-                <div class="card-body flex flex-col gap-5">
-                    <div class="prose max-w-none">
-                        @if (!string.IsNullOrWhiteSpace(Model.Post.Description))
-                        {
-                            <p>@Model.Post.Description</p>
-                        }
-                        @Model.Post.Content
+    <article>
+        @if (Model.Post != null)
+        {
+            <section class="mb-8 mt-2 px-5">
+                <h1 class="text-3xl font-bold">
+                    @(Model.Post.Title ?? "Post Details")
+                </h1>
+                @if (!string.IsNullOrWhiteSpace(Model.Post.Description))
+                {
+                    <p>@Model.Post.Description</p>
+                }
+                
+                <div class="mt-2 flex gap-3 flex-wrap text-sm text-base-content/60">
+                    <div class="flex gap-1">
+                        <span class="mdi mdi-history"></span>
+                        <span>
+                            Posted on @Model.Post.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd HH:mm")
+                        </span>
                     </div>
-
-                    @if (Model.Post.Attachments.Any())
+                    
+                    @if (Model.Post.EditedAt.HasValue)
                     {
-                        <div class="flex flex-col gap-4">
-                            @foreach (var attachment in Model.Post.Attachments)
-                            {
-                                <div>
-                                    @if (attachment.MimeType!.StartsWith("image"))
-                                    {
-                                        <figure>
-                                            <img src="/drive/files/@attachment.Id" alt="@attachment.Name"
-                                                 class="max-w-full h-auto rounded-lg"/>
-                                        </figure>
-                                    }
-                                    else if (attachment.MimeType!.StartsWith("video"))
-                                    {
-                                        <video controls src="/drive/files/@attachment.Id"
-                                               class="max-w-full h-auto rounded-lg"></video>
-                                    }
-                                    else if (attachment.MimeType!.StartsWith("audio"))
-                                    {
-                                        <audio controls src="/drive/files/@attachment.Id"
-                                               class="max-w-full h-auto rounded-lg"></audio>
-                                    }
-                                    else
-                                    {
-                                        <a href="/drive/files/@attachment.Id" target="_blank"
-                                           class="text-blue-500 hover:underline">@attachment.Name</a>
-                                    }
-                                </div>
-                            }
+                        <div class="flex gap-1">
+                            <span class="mdi mdi-pencil"></span>
+                            <span>
+                                Updated on @Model.Post.EditedAt.Value.ToDateTimeOffset().ToString("yyyy-MM-dd HH:mm")
+                            </span>
                         </div>
                     }
+                </div>
+            </section>
 
-                    @if (Model.Post.Categories.Any() || (Model.Post.Tags != null && Model.Post.Tags.Any()))
-                    {
-                        <div>
-                            @foreach (var category in Model.Post.Categories)
+            <div class="w-full flex flex-col gap-5">
+                <div class="card bg-base-200 shadow-md">
+                    <div class="card-body flex flex-col gap-5">
+                        <div class="prose max-w-none">
+                            @if (!string.IsNullOrWhiteSpace(Model.Post.Description))
                             {
-                                <span class="badge badge-primary">
-                                        <span class="mdi mdi-shape"></span>
-                                    @(!string.IsNullOrEmpty(category.Name) ? category.Name : category.Slug)
-                                    </span>
+                                <p>@Model.Post.Description</p>
                             }
-                            @if (Model.Post.Tags != null)
-                            {
+                            @Html.Raw(Model.Post.Content)
+                        </div>
+
+                        @if (Model.Post.Attachments.Any())
+                        {
+                            <div class="flex flex-col gap-4">
+                                @foreach (var attachment in Model.Post.Attachments)
+                                {
+                                    <div>
+                                        @if (attachment.MimeType!.StartsWith("image"))
+                                        {
+                                            <figure>
+                                                <img src="/drive/files/@attachment.Id" alt="@attachment.Name"
+                                                     class="max-w-full h-auto rounded-lg"/>
+                                            </figure>
+                                        }
+                                        else if (attachment.MimeType!.StartsWith("video"))
+                                        {
+                                            <video controls src="/drive/files/@attachment.Id"
+                                                   class="max-w-full h-auto rounded-lg"></video>
+                                        }
+                                        else if (attachment.MimeType!.StartsWith("audio"))
+                                        {
+                                            <audio controls src="/drive/files/@attachment.Id"
+                                                   class="max-w-full h-auto rounded-lg"></audio>
+                                        }
+                                        else
+                                        {
+                                            <a href="/drive/files/@attachment.Id" target="_blank"
+                                               class="text-blue-500 hover:underline">@attachment.Name</a>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (Model.Post.Categories.Any() || (Model.Post.Tags.Any()))
+                        {
+                            <div>
+                                @foreach (var category in Model.Post.Categories)
+                                {
+                                    <span class="badge badge-primary">
+                                    <span class="mdi mdi-shape"></span>
+                                        @(!string.IsNullOrEmpty(category.Name) ? category.Name : category.Slug)
+                                </span>
+                                }
                                 @foreach (var tag in Model.Post.Tags)
                                 {
                                     <span class="badge badge-info">
-                                            <span class="mdi mdi-tag"></span>
+                                    <span class="mdi mdi-tag"></span>
                                         @(!string.IsNullOrEmpty(tag.Name) ? tag.Name : tag.Slug)
-                                        </span>
+                                </span>
                                 }
-                            }
-                        </div>
-                    }
-
-                    <div class="card-actions justify-end items-center">
-                        <div class="text-sm text-base-content/60">
-                            Posted on @Model.Post.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd")
-                        </div>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
-        </div>
-    }
-    else
-    {
-        <div class="text-center py-16">
-            <p class="text-lg">Post not found.</p>
-        </div>
-    }
+        }
+        else
+        {
+            <div class="text-center py-16">
+                <p class="text-lg">Post not found.</p>
+            </div>
+        }
+    </article>
 </div>

@@ -1,3 +1,4 @@
+using Markdig;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -12,7 +13,7 @@ public class PostsModel(PostService.PostServiceClient postClient, RemotePublishe
     public SnPublisher? Publisher { get; set; }
     public List<SnPost> Posts { get; set; } = [];
     public int TotalCount { get; set; }
-    
+
     public int CurrentPage { get; set; }
     public int PageSize { get; set; } = 10;
     public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
@@ -21,7 +22,7 @@ public class PostsModel(PostService.PostServiceClient postClient, RemotePublishe
     {
         Site = HttpContext.Items[PublicationSiteMiddleware.SiteContextKey] as SnPublicationSite;
         CurrentPage = currentPage;
-        
+
         Publisher = await rps.GetPublisher(id: Site!.PublisherId.ToString());
 
         var request = new ListPostsRequest
@@ -39,6 +40,10 @@ public class PostsModel(PostService.PostServiceClient postClient, RemotePublishe
         {
             Posts = response.Posts.Select(SnPost.FromProtoValue).ToList();
             TotalCount = response.TotalSize;
+
+            // Convert the markdown content to HTML
+            foreach (var post in Posts.Where(post => !string.IsNullOrEmpty(post.Content)))
+                post.Content = Markdown.ToHtml(post.Content!);
         }
     }
 }

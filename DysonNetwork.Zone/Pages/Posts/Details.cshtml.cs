@@ -1,3 +1,4 @@
+using Markdig;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Zone.Publication;
@@ -31,6 +32,10 @@ public class DetailsModel(PostService.PostServiceClient postClient) : PageModel
         }
 
         Post = SnPost.FromProtoValue(response);
+        
+        // Convert markdown content to HTML
+        if (Post != null && !string.IsNullOrEmpty(Post.Content))
+            Post.Content = Markdown.ToHtml(Post.Content);
 
         return Page();
     }
