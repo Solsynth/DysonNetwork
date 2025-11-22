@@ -7,10 +7,7 @@ using SimpleMvcSitemap;
 namespace DysonNetwork.Zone.SEO;
 
 [ApiController]
-public class SitemapController(
-    AppDatabase db,
-    PostService.PostServiceClient postClient
-)
+public class SitemapController(AppDatabase db, PostService.PostServiceClient postClient)
     : ControllerBase
 {
     [HttpGet("sitemap.xml")]
@@ -19,25 +16,26 @@ public class SitemapController(
         var nodes = new List<SitemapNode>
         {
             // Add static pages
-            new("/")
-                { ChangeFrequency = ChangeFrequency.Weekly, Priority = 1.0m },
-            new("/about")
-                { ChangeFrequency = ChangeFrequency.Monthly, Priority = 0.8m },
-            new("/posts")
-                { ChangeFrequency = ChangeFrequency.Daily, Priority = 0.9m }
+            new("/") { ChangeFrequency = ChangeFrequency.Weekly, Priority = 1.0m },
+            new("/about") { ChangeFrequency = ChangeFrequency.Monthly, Priority = 0.8m },
+            new("/posts") { ChangeFrequency = ChangeFrequency.Daily, Priority = 0.9m },
         };
 
         // Add dynamic posts
         var allPosts = await GetAllPosts();
-        nodes.AddRange(allPosts.Select(post =>
-        {
-            var uri = post.AsUrl(Request.Host.ToString(), Request.Scheme);
-            return new SitemapNode(uri)
+        nodes.AddRange(
+            allPosts.Select(post =>
             {
-                LastModificationDate = post.EditedAt?.ToDateTimeUtc() ?? post.CreatedAt.ToDateTimeUtc(),
-                ChangeFrequency = ChangeFrequency.Monthly, Priority = 0.7m
-            };
-        }));
+                var uri = post.AsUrl(Request.Host.ToString(), Request.Scheme);
+                return new SitemapNode(uri)
+                {
+                    LastModificationDate =
+                        post.EditedAt?.ToDateTimeUtc() ?? post.CreatedAt.ToDateTimeUtc(),
+                    ChangeFrequency = ChangeFrequency.Monthly,
+                    Priority = 0.7m,
+                };
+            })
+        );
 
         return new SitemapProvider().CreateSitemap(new SitemapModel(nodes));
     }
@@ -55,8 +53,10 @@ public class SitemapController(
                 OrderBy = "date",
                 OrderDesc = true,
                 PageSize = pageSize,
-                PageToken = pageToken ?? string.Empty
+                PageToken = pageToken ?? string.Empty,
             };
+
+            request.Types_.Add(Shared.Proto.PostType.Article);
 
             var response = await postClient.ListPostsAsync(request);
 
@@ -72,3 +72,4 @@ public class SitemapController(
         return allPosts;
     }
 }
+

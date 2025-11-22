@@ -9,7 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Zone.SEO;
 
 [ApiController]
-public class RssController(PostService.PostServiceClient postClient, MarkdownConverter markdownConverter) : ControllerBase
+public class RssController(
+    PostService.PostServiceClient postClient,
+    MarkdownConverter markdownConverter
+) : ControllerBase
 {
     [HttpGet("rss")]
     [Produces("application/rss+xml")]
@@ -29,8 +32,10 @@ public class RssController(PostService.PostServiceClient postClient, MarkdownCon
         {
             OrderBy = "date",
             OrderDesc = true,
-            PageSize = 20 // Get top 20 recent posts
+            PageSize = 20, // Get top 20 recent posts
         };
+
+        request.Types_.Add(Shared.Proto.PostType.Article);
 
         var response = await postClient.ListPostsAsync(request);
 
@@ -43,15 +48,18 @@ public class RssController(PostService.PostServiceClient postClient, MarkdownCon
 
                 var item = new SyndicationItem(
                     post.Title,
-                    post.Content is not null ? markdownConverter.ToHtml(post.Content!) : "No content", // Convert Markdown to HTML
+                    post.Content is not null
+                        ? markdownConverter.ToHtml(post.Content!)
+                        : "No content", // Convert Markdown to HTML
                     new Uri(postUrl),
                     post.Id.ToString(),
-                    post.EditedAt?.ToDateTimeOffset() ??
-                    post.PublishedAt?.ToDateTimeOffset() ?? post.CreatedAt.ToDateTimeOffset()
+                    post.EditedAt?.ToDateTimeOffset()
+                        ?? post.PublishedAt?.ToDateTimeOffset()
+                        ?? post.CreatedAt.ToDateTimeOffset()
                 )
                 {
-                    PublishDate = post.PublishedAt?.ToDateTimeOffset() ??
-                                  post.CreatedAt.ToDateTimeOffset() // Use CreatedAt for publish date
+                    PublishDate =
+                        post.PublishedAt?.ToDateTimeOffset() ?? post.CreatedAt.ToDateTimeOffset(), // Use CreatedAt for publish date
                 };
 
                 items.Add(item);
@@ -61,7 +69,10 @@ public class RssController(PostService.PostServiceClient postClient, MarkdownCon
         feed.Items = items;
 
         await using var sw = new StringWriter();
-        await using var reader = XmlWriter.Create(sw, new XmlWriterSettings { Indent = true, Async = true });
+        await using var reader = XmlWriter.Create(
+            sw,
+            new XmlWriterSettings { Indent = true, Async = true }
+        );
 
         var formatter = new Rss20FeedFormatter(feed);
         formatter.WriteTo(reader);
@@ -70,3 +81,4 @@ public class RssController(PostService.PostServiceClient postClient, MarkdownCon
         return Content(sw.ToString(), "application/rss+xml");
     }
 }
+
