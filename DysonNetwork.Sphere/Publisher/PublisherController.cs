@@ -21,17 +21,16 @@ public class PublisherController(
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
     RemoteRealmService remoteRealmService
-)
-    : ControllerBase
+) : ControllerBase
 {
     [HttpGet("{name}")]
     public async Task<ActionResult<SnPublisher>> GetPublisher(string name)
     {
-        var publisher = await db.Publishers
-            .Where(e => e.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
-        if (publisher.AccountId is null) return Ok(publisher);
+        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+        if (publisher.AccountId is null)
+            return Ok(publisher);
 
         var account = await accounts.GetAccountAsync(
             new GetAccountRequest { Id = publisher.AccountId.Value.ToString() }
@@ -45,7 +44,8 @@ public class PublisherController(
     public async Task<ActionResult<ActivityHeatmap>> GetPublisherHeatmap(string name)
     {
         var heatmap = await ps.GetPublisherHeatmap(name);
-        if (heatmap is null) return NotFound();
+        if (heatmap is null)
+            return NotFound();
         return Ok(heatmap);
     }
 
@@ -53,15 +53,16 @@ public class PublisherController(
     public async Task<ActionResult<PublisherService.PublisherStats>> GetPublisherStats(string name)
     {
         var stats = await ps.GetPublisherStats(name);
-        if (stats is null) return NotFound();
+        if (stats is null)
+            return NotFound();
         return Ok(stats);
     }
 
     [HttpGet("of/{accountId:guid}")]
     public async Task<ActionResult<List<SnPublisher>>> GetAccountManagedPublishers(Guid accountId)
     {
-        var members = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var members = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Publisher)
             .ToListAsync();
@@ -73,11 +74,12 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<SnPublisher>>> ListManagedPublishers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var members = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var members = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt != null)
             .Include(e => e.Publisher)
             .ToListAsync();
@@ -89,11 +91,12 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<SnPublisherMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var members = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var members = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.Publisher)
             .ToListAsync();
@@ -103,26 +106,33 @@ public class PublisherController(
 
     public class PublisherMemberRequest
     {
-        [Required] public long RelatedUserId { get; set; }
-        [Required] public Shared.Models.PublisherMemberRole Role { get; set; }
+        [Required]
+        public Guid RelatedUserId { get; set; }
+
+        [Required]
+        public Shared.Models.PublisherMemberRole Role { get; set; }
     }
 
     [HttpPost("invites/{name}")]
     [Authorize]
-    public async Task<ActionResult<SnPublisherMember>> InviteMember(string name,
-        [FromBody] PublisherMemberRequest request)
+    public async Task<ActionResult<SnPublisherMember>> InviteMember(
+        string name,
+        [FromBody] PublisherMemberRequest request
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var relatedUser =
-            await accounts.GetAccountAsync(new GetAccountRequest { Id = request.RelatedUserId.ToString() });
-        if (relatedUser == null) return BadRequest("Related user was not found");
+        var relatedUser = await accounts.GetAccountAsync(
+            new GetAccountRequest { Id = request.RelatedUserId.ToString() }
+        );
+        if (relatedUser == null)
+            return BadRequest("Related user was not found");
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
@@ -137,18 +147,26 @@ public class PublisherController(
         db.PublisherMembers.Add(newMember);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.members.invite",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.members.invite",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "account_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString())
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return Ok(newMember);
     }
@@ -157,32 +175,44 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<SnPublisher>> AcceptMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.Publisher.Name == name)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null)
+            return NotFound();
 
         member.JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.members.join",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.PublisherId.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString()) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.members.join",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(
+                            member.PublisherId.ToString()
+                        )
+                    },
+                    {
+                        "account_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString())
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return Ok(member);
     }
@@ -191,31 +221,43 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.Publisher.Name == name)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null)
+            return NotFound();
 
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.members.decline",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.PublisherId.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString()) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.members.decline",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(
+                            member.PublisherId.ToString()
+                        )
+                    },
+                    {
+                        "account_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString())
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return NoContent();
     }
@@ -224,38 +266,56 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string name, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == memberId)
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == memberId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         var accountId = Guid.Parse(currentUser.Id);
-        if (member is null) return NotFound("Member was not found");
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Manager))
-            return StatusCode(403, "You need at least be a manager to remove members from this publisher.");
+        if (member is null)
+            return NotFound("Member was not found");
+        if (
+            !await ps.IsMemberWithRole(
+                publisher.Id,
+                accountId,
+                Shared.Models.PublisherMemberRole.Manager
+            )
+        )
+            return StatusCode(
+                403,
+                "You need at least be a manager to remove members from this publisher."
+            );
 
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.members.kick",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) },
-                { "kicked_by", Google.Protobuf.WellKnownTypes.Value.ForString(currentUser.Id) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.members.kick",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "account_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString())
+                    },
+                    { "kicked_by", Google.Protobuf.WellKnownTypes.Value.ForString(currentUser.Id) },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return NoContent();
     }
@@ -264,14 +324,16 @@ public class PublisherController(
     {
         [RegularExpression(
             @"^[a-zA-Z0-9](?:[a-zA-Z0-9\-_\.]*[a-zA-Z0-9])?$",
-            ErrorMessage =
-                "Name must be URL-safe (alphanumeric, hyphens, underscores, or periods) and cannot start/end with special characters."
+            ErrorMessage = "Name must be URL-safe (alphanumeric, hyphens, underscores, or periods) and cannot start/end with special characters."
         )]
         [MaxLength(256)]
         public string? Name { get; set; }
 
-        [MaxLength(256)] public string? Nick { get; set; }
-        [MaxLength(4096)] public string? Bio { get; set; }
+        [MaxLength(256)]
+        public string? Nick { get; set; }
+
+        [MaxLength(4096)]
+        public string? Bio { get; set; }
 
         public string? PictureId { get; set; }
         public string? BackgroundId { get; set; }
@@ -280,32 +342,36 @@ public class PublisherController(
     [HttpPost("individual")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<SnPublisher>> CreatePublisherIndividual([FromBody] PublisherRequest request)
+    public async Task<ActionResult<SnPublisher>> CreatePublisherIndividual(
+        [FromBody] PublisherRequest request
+    )
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
             return BadRequest("Name and Nick are required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
 
         var takenName = request.Name ?? currentUser.Name;
-        var duplicateNameCount = await db.Publishers
-            .Where(p => p.Name == takenName)
-            .CountAsync();
+        var duplicateNameCount = await db.Publishers.Where(p => p.Name == takenName).CountAsync();
         if (duplicateNameCount > 0)
             return BadRequest(
-                "The name you requested has already be taken, " +
-                "if it is your account name, " +
-                "you can request a taken down to the publisher which created with " +
-                "your name firstly to get your name back."
+                "The name you requested has already be taken, "
+                    + "if it is your account name, "
+                    + "you can request a taken down to the publisher which created with "
+                    + "your name firstly to get your name back."
             );
 
-        SnCloudFileReferenceObject? picture = null, background = null;
+        SnCloudFileReferenceObject? picture = null,
+            background = null;
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
                 new GetFileRequest { Id = request.PictureId }
             );
             if (queryResult is null)
-                throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
+                throw new InvalidOperationException(
+                    "Invalid picture id, unable to find the file on cloud."
+                );
             picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
@@ -315,7 +381,9 @@ public class PublisherController(
                 new GetFileRequest { Id = request.BackgroundId }
             );
             if (queryResult is null)
-                throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
+                throw new InvalidOperationException(
+                    "Invalid background id, unable to find the file on cloud."
+                );
             background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
@@ -328,19 +396,30 @@ public class PublisherController(
             background
         );
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.create",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
-                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) },
-                { "publisher_type", Google.Protobuf.WellKnownTypes.Value.ForString("Individual") }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.create",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "publisher_name",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name)
+                    },
+                    {
+                        "publisher_type",
+                        Google.Protobuf.WellKnownTypes.Value.ForString("Individual")
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return Ok(publisher);
     }
@@ -348,36 +427,48 @@ public class PublisherController(
     [HttpPost("organization/{realmSlug}")]
     [Authorize]
     [RequiredPermission("global", "publishers.create")]
-    public async Task<ActionResult<SnPublisher>> CreatePublisherOrganization(string realmSlug,
-        [FromBody] PublisherRequest request)
+    public async Task<ActionResult<SnPublisher>> CreatePublisherOrganization(
+        string realmSlug,
+        [FromBody] PublisherRequest request
+    )
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
             return BadRequest("Name and Nick are required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
 
         var realm = await remoteRealmService.GetRealmBySlug(realmSlug);
-        if (realm == null) return NotFound("Realm not found");
+        if (realm == null)
+            return NotFound("Realm not found");
 
         var accountId = Guid.Parse(currentUser.Id);
-        var isAdmin = await remoteRealmService.IsMemberWithRole(realm.Id, accountId, [RealmMemberRole.Moderator]);
+        var isAdmin = await remoteRealmService.IsMemberWithRole(
+            realm.Id,
+            accountId,
+            [RealmMemberRole.Moderator]
+        );
         if (!isAdmin)
-            return StatusCode(403, "You need to be a moderator of the realm to create an organization publisher");
+            return StatusCode(
+                403,
+                "You need to be a moderator of the realm to create an organization publisher"
+            );
 
         var takenName = request.Name ?? realm.Slug;
-        var duplicateNameCount = await db.Publishers
-            .Where(p => p.Name == takenName)
-            .CountAsync();
+        var duplicateNameCount = await db.Publishers.Where(p => p.Name == takenName).CountAsync();
         if (duplicateNameCount > 0)
             return BadRequest("The name you requested has already been taken");
 
-        SnCloudFileReferenceObject? picture = null, background = null;
+        SnCloudFileReferenceObject? picture = null,
+            background = null;
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
                 new GetFileRequest { Id = request.PictureId }
             );
             if (queryResult is null)
-                throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
+                throw new InvalidOperationException(
+                    "Invalid picture id, unable to find the file on cloud."
+                );
             picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
@@ -387,7 +478,9 @@ public class PublisherController(
                 new GetFileRequest { Id = request.BackgroundId }
             );
             if (queryResult is null)
-                throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
+                throw new InvalidOperationException(
+                    "Invalid background id, unable to find the file on cloud."
+                );
             background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
         }
 
@@ -401,63 +494,87 @@ public class PublisherController(
             background
         );
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.create",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
-                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) },
-                { "publisher_type", Google.Protobuf.WellKnownTypes.Value.ForString("Organization") },
-                { "realm_slug", Google.Protobuf.WellKnownTypes.Value.ForString(realm.Slug) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.create",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "publisher_name",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name)
+                    },
+                    {
+                        "publisher_type",
+                        Google.Protobuf.WellKnownTypes.Value.ForString("Organization")
+                    },
+                    { "realm_slug", Google.Protobuf.WellKnownTypes.Value.ForString(realm.Slug) },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return Ok(publisher);
     }
 
-
     [HttpPatch("{name}")]
     [Authorize]
-    public async Task<ActionResult<SnPublisher>> UpdatePublisher(string name, PublisherRequest request)
+    public async Task<ActionResult<SnPublisher>> UpdatePublisher(
+        string name,
+        PublisherRequest request
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
-        if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
+        if (member is null)
+            return StatusCode(403, "You are not even a member of the targeted publisher.");
         if (member.Role < Shared.Models.PublisherMemberRole.Manager)
-            return StatusCode(403, "You need at least be the manager to update the publisher profile.");
+            return StatusCode(
+                403,
+                "You need at least be the manager to update the publisher profile."
+            );
 
-        if (request.Name is not null) publisher.Name = request.Name;
-        if (request.Nick is not null) publisher.Nick = request.Nick;
-        if (request.Bio is not null) publisher.Bio = request.Bio;
+        if (request.Name is not null)
+            publisher.Name = request.Name;
+        if (request.Nick is not null)
+            publisher.Nick = request.Nick;
+        if (request.Bio is not null)
+            publisher.Bio = request.Bio;
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
                 new GetFileRequest { Id = request.PictureId }
             );
             if (queryResult is null)
-                throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
+                throw new InvalidOperationException(
+                    "Invalid picture id, unable to find the file on cloud."
+                );
             var picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             // Remove old references for the publisher picture
             if (publisher.Picture is not null)
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                {
-                    ResourceId = publisher.ResourceIdentifier
-                });
+                await fileRefs.DeleteResourceReferencesAsync(
+                    new DeleteResourceReferencesRequest
+                    {
+                        ResourceId = publisher.ResourceIdentifier,
+                    }
+                );
 
             publisher.Picture = picture;
 
@@ -466,7 +583,7 @@ public class PublisherController(
                 {
                     FileId = picture.Id,
                     Usage = "publisher.picture",
-                    ResourceId = publisher.ResourceIdentifier
+                    ResourceId = publisher.ResourceIdentifier,
                 }
             );
         }
@@ -477,16 +594,20 @@ public class PublisherController(
                 new GetFileRequest { Id = request.BackgroundId }
             );
             if (queryResult is null)
-                throw new InvalidOperationException("Invalid background id, unable to find the file on cloud.");
+                throw new InvalidOperationException(
+                    "Invalid background id, unable to find the file on cloud."
+                );
             var background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             // Remove old references for the publisher background
             if (publisher.Background is not null)
             {
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                {
-                    ResourceId = publisher.ResourceIdentifier
-                });
+                await fileRefs.DeleteResourceReferencesAsync(
+                    new DeleteResourceReferencesRequest
+                    {
+                        ResourceId = publisher.ResourceIdentifier,
+                    }
+                );
             }
 
             publisher.Background = background;
@@ -496,7 +617,7 @@ public class PublisherController(
                 {
                     FileId = background.Id,
                     Usage = "publisher.background",
-                    ResourceId = publisher.ResourceIdentifier
+                    ResourceId = publisher.ResourceIdentifier,
                 }
             );
         }
@@ -504,22 +625,48 @@ public class PublisherController(
         db.Update(publisher);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.update",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
-                { "name_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(!string.IsNullOrEmpty(request.Name)) },
-                { "nick_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(!string.IsNullOrEmpty(request.Nick)) },
-                { "bio_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(!string.IsNullOrEmpty(request.Bio)) },
-                { "picture_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(request.PictureId != null) },
-                { "background_updated", Google.Protobuf.WellKnownTypes.Value.ForBool(request.BackgroundId != null) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.update",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "name_updated",
+                        Google.Protobuf.WellKnownTypes.Value.ForBool(
+                            !string.IsNullOrEmpty(request.Name)
+                        )
+                    },
+                    {
+                        "nick_updated",
+                        Google.Protobuf.WellKnownTypes.Value.ForBool(
+                            !string.IsNullOrEmpty(request.Nick)
+                        )
+                    },
+                    {
+                        "bio_updated",
+                        Google.Protobuf.WellKnownTypes.Value.ForBool(
+                            !string.IsNullOrEmpty(request.Bio)
+                        )
+                    },
+                    {
+                        "picture_updated",
+                        Google.Protobuf.WellKnownTypes.Value.ForBool(request.PictureId != null)
+                    },
+                    {
+                        "background_updated",
+                        Google.Protobuf.WellKnownTypes.Value.ForBool(request.BackgroundId != null)
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return Ok(publisher);
     }
@@ -528,19 +675,20 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<SnPublisher>> DeletePublisher(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
-        if (member is null) return StatusCode(403, "You are not even a member of the targeted publisher.");
+        if (member is null)
+            return StatusCode(403, "You are not even a member of the targeted publisher.");
         if (member.Role < Shared.Models.PublisherMemberRole.Owner)
             return StatusCode(403, "You need to be the owner to delete the publisher.");
 
@@ -554,19 +702,30 @@ public class PublisherController(
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
-        {
-            Action = "publishers.delete",
-            Meta =
+        _ = als.CreateActionLogAsync(
+            new CreateActionLogRequest
             {
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString()) },
-                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name) },
-                { "publisher_type", Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Type.ToString()) }
-            },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-        });
+                Action = "publishers.delete",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "publisher_name",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name)
+                    },
+                    {
+                        "publisher_type",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Type.ToString())
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
 
         return NoContent();
     }
@@ -578,23 +737,18 @@ public class PublisherController(
         [FromQuery] int take = 20
     )
     {
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var query = db.PublisherMembers
-            .Where(m => m.PublisherId == publisher.Id)
+        var query = db
+            .PublisherMembers.Where(m => m.PublisherId == publisher.Id)
             .Where(m => m.JoinedAt != null);
 
         var total = await query.CountAsync();
         Response.Headers["X-Total"] = total.ToString();
 
-        var members = await query
-            .OrderBy(m => m.CreatedAt)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
+        var members = await query.OrderBy(m => m.CreatedAt).Skip(offset).Take(take).ToListAsync();
         members = await ps.LoadMemberAccounts(members);
 
         return Ok(members.Where(m => m.Account is not null).ToList());
@@ -604,20 +758,21 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<SnPublisherMember>> GetCurrentIdentity(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == accountId)
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
 
-        if (member is null) return NotFound();
+        if (member is null)
+            return NotFound();
         return Ok(await ps.LoadMemberAccount(member));
     }
 
@@ -625,23 +780,20 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Dictionary<string, bool>>> ListPublisherFeatures(string name)
     {
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var features = await db.PublisherFeatures
-            .Where(f => f.PublisherId == publisher.Id)
+        var features = await db
+            .PublisherFeatures.Where(f => f.PublisherId == publisher.Id)
             .ToListAsync();
 
-        var dict = PublisherFeatureFlag.AllFlags.ToDictionary(
-            flag => flag,
-            _ => false
-        );
+        var dict = PublisherFeatureFlag.AllFlags.ToDictionary(flag => flag, _ => false);
 
         foreach (
             var feature in features.Where(feature =>
-                feature.ExpiredAt == null || !(feature.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
+                feature.ExpiredAt == null
+                || !(feature.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
             )
         )
         {
@@ -653,17 +805,17 @@ public class PublisherController(
 
     [HttpGet("{name}/rewards")]
     [Authorize]
-    public async Task<ActionResult<PublisherService.PublisherRewardPreview>> GetPublisherExpectedReward(
-        string name
-    )
+    public async Task<
+        ActionResult<PublisherService.PublisherRewardPreview>
+    > GetPublisherExpectedReward(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
             return StatusCode(403, "You are not allowed to view stats data of this publisher.");
@@ -674,26 +826,28 @@ public class PublisherController(
 
     public class PublisherFeatureRequest
     {
-        [Required] public string Flag { get; set; } = null!;
+        [Required]
+        public string Flag { get; set; } = null!;
         public Instant? ExpiredAt { get; set; }
     }
 
     [HttpPost("{name}/features")]
     [Authorize]
     [RequiredPermission("maintenance", "publishers.features")]
-    public async Task<ActionResult<PublisherFeature>> AddPublisherFeature(string name,
-        [FromBody] PublisherFeatureRequest request)
+    public async Task<ActionResult<PublisherFeature>> AddPublisherFeature(
+        string name,
+        [FromBody] PublisherFeatureRequest request
+    )
     {
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
         var feature = new SnPublisherFeature
         {
             PublisherId = publisher.Id,
             Flag = request.Flag,
-            ExpiredAt = request.ExpiredAt
+            ExpiredAt = request.ExpiredAt,
         };
 
         db.PublisherFeatures.Add(feature);
@@ -707,16 +861,16 @@ public class PublisherController(
     [RequiredPermission("maintenance", "publishers.features")]
     public async Task<ActionResult> RemovePublisherFeature(string name, string flag)
     {
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
-            .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
 
-        var feature = await db.PublisherFeatures
-            .Where(f => f.PublisherId == publisher.Id)
+        var feature = await db
+            .PublisherFeatures.Where(f => f.PublisherId == publisher.Id)
             .Where(f => f.Flag == flag)
             .FirstOrDefaultAsync();
-        if (feature is null) return NotFound();
+        if (feature is null)
+            return NotFound();
 
         db.PublisherFeatures.Remove(feature);
         await db.SaveChangesAsync();
@@ -733,3 +887,4 @@ public class PublisherController(
         return Ok();
     }
 }
+
