@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -24,7 +25,8 @@ public class SiteManagerController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
-        var isMember = await remotePublisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+        var isMember =
+            await remotePublisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
         return !isMember ? Forbid() : null;
     }
 
@@ -85,7 +87,11 @@ public class SiteManagerController(
     [HttpPost("deploy")]
     [Authorize]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> Deploy(Guid siteId, IFormFile? zipFile)
+    public async Task<IActionResult> Deploy(
+        Guid siteId,
+        [FromForm(Name = "file")] IFormFile? zipFile,
+        [FromQuery] bool smart = true
+    )
     {
         var check = await CheckAccess(siteId);
         if (check != null) return check;
@@ -115,9 +121,67 @@ public class SiteManagerController(
             // This is a rough check. The actual uncompressed size might be much larger.
             // Consider adding a more sophisticated check if this is a concern.
             if (currentTotal + zipFile.Length * 3 > maxTotalSiteSizeAfterExtract) // Heuristic: assume 3x expansion
-                return BadRequest($"Deployment would exceed total site size limit of {maxTotalSiteSizeAfterExtract / (1024 * 1024)}MB.");
+                return BadRequest(
+                    $"Deployment would exceed total site size limit of {maxTotalSiteSizeAfterExtract / (1024 * 1024)}MB.");
 
-            await fileManager.DeployZip(siteId, zipFile);
+            var siteDir = fileManager.GetSiteDirectory(siteId);
+            Directory.CreateDirectory(siteDir); // Ensure site directory exists
+
+            if (smart)
+            {
+                // Smart mode: Extract to temp directory and flatten if single folder wrapper
+                var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                Directory.CreateDirectory(tempDir);
+                try
+                {
+                    await using (var archive = new ZipArchive(zipFile.OpenReadStream(), ZipArchiveMode.Read))
+                    {
+                        await archive.ExtractToDirectoryAsync(tempDir, true);
+                    }
+
+                    // Check if temp directory has exactly one subdirectory and no files at root
+                    var rootEntries = Directory.GetFileSystemEntries(tempDir);
+                    if (rootEntries.Length == 1 && Directory.Exists(rootEntries[0]))
+                    {
+                        var innerDir = rootEntries[0];
+                        // Flatten: move contents of innerDir to siteDir
+                        foreach (var file in Directory.GetFiles(innerDir, "*", SearchOption.AllDirectories))
+                        {
+                            string relPath = Path.GetRelativePath(innerDir, file);
+                            string destFile = Path.Combine(siteDir, relPath);
+                            string? destDir = Path.GetDirectoryName(destFile);
+                            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
+                                Directory.CreateDirectory(destDir);
+                            System.IO.File.Move(file, destFile, true);
+                        }
+
+                        // Also create empty directories
+                        foreach (var dir in Directory.GetDirectories(innerDir, "*", SearchOption.AllDirectories))
+                        {
+                            string relPath = Path.GetRelativePath(innerDir, dir);
+                            string destDirPath = Path.Combine(siteDir, relPath);
+                            Directory.CreateDirectory(destDirPath);
+                        }
+                    }
+                    else
+                    {
+                        // No smart flattening needed, extract directly to siteDir
+                        using (var archive = new ZipArchive(zipFile.OpenReadStream(), ZipArchiveMode.Read))
+                        {
+                            archive.ExtractToDirectory(siteDir, true);
+                        }
+                    }
+                }
+                finally
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+            else
+            {
+                await fileManager.DeployZip(siteId, zipFile);
+            }
+
             return Ok("Deployment successful.");
         }
         catch (Exception ex)

@@ -121,6 +121,11 @@ public class PublicationSiteManager(
         return GetFullPath(siteId, relativePath);
     }
 
+    public string GetSiteDirectory(Guid siteId)
+    {
+        return Path.Combine(_basePath, siteId.ToString());
+    }
+
     public async Task UpdateFile(Guid siteId, string relativePath, string newContent)
     {
         await EnsureSiteDirectory(siteId);
