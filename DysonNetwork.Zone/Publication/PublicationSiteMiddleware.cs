@@ -63,6 +63,17 @@ public class PublicationSiteMiddleware(RequestDelegate next)
                 return;
             }
 
+            if (Directory.Exists(hostedFilePath))
+            {
+                var indexPath = Path.Combine(hostedFilePath, "index.html");
+                if (File.Exists(indexPath))
+                {
+                    context.Response.ContentType = "text/html";
+                    await context.Response.SendFileAsync(indexPath);
+                    return;
+                }
+            }
+
             var hostedNotFoundPath = psm.GetValidatedFullPath(site.Id, "404.html");
             if (File.Exists(hostedNotFoundPath))
             {
