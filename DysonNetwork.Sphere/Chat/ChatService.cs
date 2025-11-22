@@ -29,18 +29,17 @@ public partial class ChatService(
     /// This method is designed to be called from a background task
     /// </summary>
     /// <param name="message">The message to process link previews for</param>
-    private async Task ProcessMessageLinkPreviewAsync(SnChatMessage message)
+    private async Task CreateLinkPreviewBackgroundAsync(SnChatMessage message)
     {
         try
         {
             // Create a new scope for database operations
             using var scope = scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-            var webReader = scope.ServiceProvider.GetRequiredService<WebReader.WebReaderService>();
-            var newChat = scope.ServiceProvider.GetRequiredService<ChatService>();
+            var webReader = scope.ServiceProvider.GetRequiredService<WebReaderService>();
 
             // Preview the links in the message
-            var updatedMessage = await PreviewMessageLinkAsync(message, webReader);
+            var updatedMessage = await CreateLinkPreviewAsync(message, webReader);
 
             // If embeds were added, update the message in the database
             if (updatedMessage.Meta != null &&
@@ -89,8 +88,6 @@ public partial class ChatService(
                     syncMessage.ChatRoom = dbMessage.ChatRoom;
 
                     using var syncScope = scopeFactory.CreateScope();
-                    var syncCrs = syncScope.ServiceProvider.GetRequiredService<ChatRoomService>();
-                    var syncMembers = await syncCrs.ListRoomMembers(dbMessage.ChatRoomId);
 
                     await DeliverMessageAsync(
                         syncMessage,
@@ -114,7 +111,7 @@ public partial class ChatService(
     /// <param name="message">The message to process</param>
     /// <param name="webReader">The web reader service</param>
     /// <returns>The message with link previews added to its meta data</returns>
-    public async Task<SnChatMessage> PreviewMessageLinkAsync(SnChatMessage message, WebReaderService? webReader = null)
+    public async Task<SnChatMessage> CreateLinkPreviewAsync(SnChatMessage message, WebReaderService? webReader = null)
     {
         if (string.IsNullOrEmpty(message.Content))
             return message;
@@ -205,6 +202,10 @@ public partial class ChatService(
 
         // Create file references if message has attachments
         await CreateFileReferencesForMessageAsync(message);
+        
+        // Copy the value to ensure the delivery is correct
+        message.Sender = sender;
+        message.ChatRoom = room;
 
         // Then start the delivery process
         var localMessage = message;
@@ -225,10 +226,8 @@ public partial class ChatService(
 
         // Process link preview in the background to avoid delaying message sending
         var localMessageForPreview = message;
-        _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(localMessageForPreview));
+        _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(localMessageForPreview));
 
-        message.Sender = sender;
-        message.ChatRoom = room;
         return message;
     }
 
@@ -251,9 +250,7 @@ public partial class ChatService(
         await DeliverWebSocketMessage(message, type, members, scope);
 
         if (notify)
-        {
             await SendPushNotificationsAsync(message, sender, room, type, members, scope);
-        }
     }
 
     private async Task SendPushNotificationsAsync(
@@ -608,7 +605,7 @@ public partial class ChatService(
         {
             Type = "call.ended",
             ChatRoomId = call.RoomId,
-            SenderId = call.SenderId,
+            SenderId = sender.Id,
             Meta = new Dictionary<string, object>
             {
                 { "call_id", call.Id },
@@ -740,7 +737,7 @@ public partial class ChatService(
 
         // Process link preview in the background if content was updated
         if (isContentChanged)
-            _ = Task.Run(async () => await ProcessMessageLinkPreviewAsync(message));
+            _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(message));
 
         if (message.Sender.Account is null)
             message.Sender = await crs.LoadMemberAccount(message.Sender);

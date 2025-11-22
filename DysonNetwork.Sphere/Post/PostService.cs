@@ -203,7 +203,7 @@ public partial class PostService(
         }
 
         // Process link preview in the background to avoid delaying post creation
-        _ = Task.Run(async () => await ProcessPostLinkPreviewAsync(post));
+        _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
         return post;
     }
@@ -280,7 +280,7 @@ public partial class PostService(
         await db.SaveChangesAsync();
 
         // Process link preview in the background to avoid delaying post update
-        _ = Task.Run(async () => await ProcessPostLinkPreviewAsync(post));
+        _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
         return post;
     }
@@ -348,7 +348,7 @@ public partial class PostService(
     /// This method is designed to be called from a background task
     /// </summary>
     /// <param name="post">The post to process link previews for</param>
-    private async Task ProcessPostLinkPreviewAsync(SnPost post)
+    private async Task CreateLinkPreviewAsync(SnPost post)
     {
         try
         {
