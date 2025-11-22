@@ -1,48 +1,44 @@
-
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Microsoft.AspNetCore.Mvc;
+using DysonNetwork.Shared.Registry;
+using DysonNetwork.Zone.Publication;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace DysonNetwork.Zone.Pages
+namespace DysonNetwork.Zone.Pages;
+
+public class PostsModel(PostService.PostServiceClient postClient, RemotePublisherService rps) : PageModel
 {
-    public class PostsModel : PageModel
+    public SnPublicationSite? Site { get; set; }
+    public SnPublisher? Publisher { get; set; }
+    public List<SnPost> Posts { get; set; } = [];
+    public int TotalCount { get; set; }
+    
+    public int CurrentPage { get; set; }
+    public int PageSize { get; set; } = 10;
+    public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
+
+    public async Task OnGetAsync(int currentPage = 1)
     {
-        private readonly PostService.PostServiceClient _postClient;
+        Site = HttpContext.Items[PublicationSiteMiddleware.SiteContextKey] as SnPublicationSite;
+        CurrentPage = currentPage;
+        
+        Publisher = await rps.GetPublisher(id: Site!.PublisherId.ToString());
 
-        public PostsModel(PostService.PostServiceClient postClient)
+        var request = new ListPostsRequest
         {
-            _postClient = postClient;
-        }
+            OrderBy = "date",
+            OrderDesc = true,
+            PageSize = PageSize,
+            PageToken = ((CurrentPage - 1) * PageSize).ToString(),
+            PublisherId = Site!.PublisherId.ToString()
+        };
 
-        public List<SnPost> Posts { get; set; } = new();
-        public int TotalCount { get; set; }
-        public int CurrentPage { get; set; }
-        public int PageSize { get; set; } = 10;
-        public int TotalPages => (int)System.Math.Ceiling(TotalCount / (double)PageSize);
+        var response = await postClient.ListPostsAsync(request);
 
-        public async Task OnGetAsync(int currentPage = 1)
+        if (response?.Posts != null)
         {
-            CurrentPage = currentPage;
-
-            var request = new ListPostsRequest
-            {
-                OrderBy = "date",
-                OrderDesc = true,
-                PageSize = PageSize,
-                PageToken = ((CurrentPage - 1) * PageSize).ToString()
-            };
-
-            var response = await _postClient.ListPostsAsync(request);
-
-            if (response?.Posts != null)
-            {
-                Posts = response.Posts.Select(SnPost.FromProtoValue).ToList();
-                TotalCount = response.TotalSize;
-            }
+            Posts = response.Posts.Select(SnPost.FromProtoValue).ToList();
+            TotalCount = response.TotalSize;
         }
     }
 }

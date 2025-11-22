@@ -1,0 +1,70 @@
+@page "/p/{slug}"
+@model DysonNetwork.Zone.Pages.Posts.DetailsModel
+@{
+    Layout = "_LayoutContained";
+    var defaultAvatar = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
+}
+
+<div class="container mx-auto px-8 pb-8">
+    @if (Model.Post != null)
+    {
+        <div class="card bg-base-100 border">
+            <div class="card-body">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="avatar">
+                        <div class="w-12 h-12 rounded-full">
+                            <img src="@(Model.Post.Publisher?.Picture != null ? $"/files/{Model.Post.Publisher.Picture.Id}" : defaultAvatar)" />
+                        </div>
+                    </div>
+                    <div>
+                        <div class="font-bold">@Model.Post.Publisher?.Name</div>
+                        <div class="text-sm text-base-content/60">@Model.Post.Publisher?.Nick</div>
+                    </div>
+                </div>
+
+                <h1 class="text-3xl font-bold mb-4">@Model.Post.Title</h1>
+
+                @if (Model.Post.Attachments.Any())
+                {
+                    <div class="mt-4">
+                        @foreach (var attachment in Model.Post.Attachments)
+                        {
+                            if (attachment.MimeType != null && attachment.MimeType.StartsWith("image"))
+                            {
+                                <img src="/files/@attachment.Id" alt="@attachment.Name" class="max-w-full h-auto rounded-lg mb-4"/>
+                            }
+                            else
+                            {
+                                <a href="/files/@attachment.Id" target="_blank" class="text-blue-500 hover:underline">@attachment.Name</a>
+                            }
+                        }
+                    </div>
+                }
+
+                <div class="prose max-w-none">
+                    @Model.Post.Content
+                </div>
+
+                @if (Model.Post.Categories.Any())
+                {
+                    <div class="mt-4">
+                        @foreach (var category in Model.Post.Categories)
+                        {
+                            <span class="badge badge-outline">@(!string.IsNullOrEmpty(category.Name) ? category.Name : category.Slug)</span>
+                        }
+                    </div>
+                }
+
+                <div class="text-sm text-base-content/60 mt-8">
+                    Posted on @Model.Post.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd")
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-16">
+            <p class="text-lg">Post not found.</p>
+        </div>
+    }
+</div>

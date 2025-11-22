@@ -10,10 +10,26 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
 {
     public override async Task<Shared.Proto.Post> GetPost(GetPostRequest request, ServerCallContext context)
     {
-        if (!Guid.TryParse(request.Id, out var id))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid post id"));
+        var postQuery = db.Posts.AsQueryable();
 
-        var post = await db.Posts
+        switch (request.IdentifierCase)
+        {
+            case GetPostRequest.IdentifierOneofCase.Id:
+                if (!Guid.TryParse(request.Id, out var id))
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid post id"));
+                postQuery = postQuery.Where(p => p.Id == id);
+                break;
+            case GetPostRequest.IdentifierOneofCase.Slug:
+                postQuery = postQuery.Where(p => p.Slug == request.Slug);
+                break;
+            default:
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid identifier case"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.PublisherId) && Guid.TryParse(request.PublisherId, out var pid))
+            postQuery = postQuery.Where(p => p.PublisherId == pid);
+
+        var post = await postQuery
             .Include(p => p.Publisher)
             .Include(p => p.Tags)
             .Include(p => p.Categories)
@@ -21,7 +37,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
             .Include(p => p.ForwardedPost)
             .Include(p => p.FeaturedRecords)
             .FilterWithVisibility(null, [], [])
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync();
 
         if (post == null) throw new RpcException(new Status(StatusCode.NotFound, "post not found"));
 

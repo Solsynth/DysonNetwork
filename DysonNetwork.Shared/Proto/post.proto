@@ -211,7 +211,11 @@ message PostAward {
 // ====================================
 
 message GetPostRequest {
-  string id = 1;
+  oneof identifier {
+      string id = 1;
+      string slug = 2;
+  }
+  google.protobuf.StringValue publisher_id = 3;
 }
 
 message GetPostBatchRequest {
