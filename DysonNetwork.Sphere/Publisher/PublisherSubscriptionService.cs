@@ -55,15 +55,25 @@ public class PublisherSubscriptionService(
             return 0;
         if (post.Visibility != Shared.Models.PostVisibility.Public)
             return 0;
-        
+
         // Create notification data
         var (title, message) = ps.ChopPostForNotification(post);
 
         // Data to include with the notification
+        var images = new List<string>();
+        if (post.Attachments.Any(p => p.MimeType?.StartsWith("image/") ?? false))
+            images.AddRange(
+                post.Attachments
+                    .Where(p => p.MimeType?.StartsWith("image/") ?? false)
+                    .Select(p => p.Id)
+            );
+        else if (post.Publisher.Picture is not null) images.Add(post.Publisher.Picture.Id);
+
         var data = new Dictionary<string, object>
         {
-            { "post_id", post.Id.ToString() },
-            { "publisher_id", post.Publisher.Id.ToString() }
+            ["post_id"] = post.Id,
+            ["publisher_id"] = post.Publisher.Id.ToString(),
+            ["images"] = images,
         };
 
         // Gather subscribers
@@ -83,6 +93,7 @@ public class PublisherSubscriptionService(
                 .ToListAsync();
             categorySubscribers.AddRange(subs);
         }
+
         if (post.Tags.Count > 0)
         {
             var tagIds = post.Tags.Select(x => x.Id).ToList();
@@ -110,7 +121,7 @@ public class PublisherSubscriptionService(
                 var notification = new PushNotification
                 {
                     Topic = "posts.new",
-                    Title = localizer["PostSubscriptionTitle", post.Publisher.Name, title],
+                    Title = localizer["PostSubscriptionTitle", post.Publisher.Nick, title],
                     Body = message,
                     Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
                     IsSavable = true,
