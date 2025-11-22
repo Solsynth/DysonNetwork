@@ -2,13 +2,14 @@ using System.ServiceModel.Syndication;
 using System.Xml;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Markdig;
+using DysonNetwork.Zone.Publication;
+// Add this using statement
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Zone.SEO;
 
 [ApiController]
-public class RssController(PostService.PostServiceClient postClient) : ControllerBase
+public class RssController(PostService.PostServiceClient postClient, MarkdownConverter markdownConverter) : ControllerBase
 {
     [HttpGet("rss")]
     [Produces("application/rss+xml")]
@@ -42,7 +43,7 @@ public class RssController(PostService.PostServiceClient postClient) : Controlle
 
                 var item = new SyndicationItem(
                     post.Title,
-                    post.Content is not null ? Markdown.ToHtml(post.Content!) : "No content", // Convert Markdown to HTML
+                    post.Content is not null ? markdownConverter.ToHtml(post.Content!) : "No content", // Convert Markdown to HTML
                     new Uri(postUrl),
                     post.Id.ToString(),
                     post.EditedAt?.ToDateTimeOffset() ??

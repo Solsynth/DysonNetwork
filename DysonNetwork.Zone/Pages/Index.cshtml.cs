@@ -2,7 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
-using Markdig;
+// Add this using statement
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NodaTime;
 
@@ -11,9 +11,11 @@ namespace DysonNetwork.Zone.Pages;
 public class IndexModel(
     PostService.PostServiceClient postClient,
     RemotePublisherService rps,
-    RemoteAccountService ras
+    RemoteAccountService ras,
+    MarkdownConverter markdownConverter // Inject MarkdownConverter
 ) : PageModel
 {
+    private readonly MarkdownConverter _markdownConverter = markdownConverter; // Store the injected service
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public Account? UserAccount { get; set; }
@@ -60,7 +62,7 @@ public class IndexModel(
                 foreach (
                     var post in FeaturedPosts.Where(post => !string.IsNullOrEmpty(post.Content))
                 )
-                    post.Content = Markdown.ToHtml(post.Content!);
+                    post.Content = _markdownConverter.ToHtml(post.Content!);
             }
         }
     }

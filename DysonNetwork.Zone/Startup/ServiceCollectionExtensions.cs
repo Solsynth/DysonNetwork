@@ -7,6 +7,8 @@ using DysonNetwork.Zone.Publication;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
+// Add this using statement
+
 namespace DysonNetwork.Zone.Startup;
 
 public static class ServiceCollectionExtensions
@@ -19,6 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
         services.AddSingleton<ICacheService, CacheServiceRedis>();
+        services.AddSingleton<MarkdownConverter>();
 
         services.AddHttpClient();
 

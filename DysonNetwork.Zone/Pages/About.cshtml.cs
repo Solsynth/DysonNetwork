@@ -2,14 +2,14 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
-using Markdig;
+// Add this using statement
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NodaTime;
 
 
 namespace DysonNetwork.Zone.Pages;
 
-public class AboutModel(RemoteAccountService ras) : PageModel
+public class AboutModel(RemoteAccountService ras, MarkdownConverter markdownConverter) : PageModel
 {
     public SnPublicationSite? Site { get; set; }
     public Account? UserAccount { get; set; }
@@ -32,8 +32,7 @@ public class AboutModel(RemoteAccountService ras) : PageModel
 
             if (UserAccount?.Profile?.Bio != null)
             {
-                var pipeline = new MarkdownPipelineBuilder().Build();
-                HtmlBio = Markdown.ToHtml(UserAccount.Profile.Bio, pipeline);
+                HtmlBio = markdownConverter.ToHtml(UserAccount.Profile.Bio);
             }
         }
     }

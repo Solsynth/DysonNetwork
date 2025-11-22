@@ -1,14 +1,20 @@
-using Markdig;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
+// Add this using statement
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using PostType = DysonNetwork.Shared.Models.PostType;
 
 namespace DysonNetwork.Zone.Pages;
 
-public class PostsModel(PostService.PostServiceClient postClient, RemotePublisherService rps) : PageModel
+public class PostsModel(
+    PostService.PostServiceClient postClient,
+    RemotePublisherService rps,
+    MarkdownConverter markdownConverter // Inject MarkdownConverter
+) : PageModel
 {
+    private readonly MarkdownConverter _markdownConverter = markdownConverter; // Store the injected service
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public List<SnPost> Posts { get; set; } = [];
@@ -43,7 +49,7 @@ public class PostsModel(PostService.PostServiceClient postClient, RemotePublishe
 
             // Convert the markdown content to HTML
             foreach (var post in Posts.Where(post => !string.IsNullOrEmpty(post.Content)))
-                post.Content = Markdown.ToHtml(post.Content!);
+                post.Content = _markdownConverter.ToHtml(post.Content!, softBreaks: post.Type != PostType.Article);
         }
     }
 }
