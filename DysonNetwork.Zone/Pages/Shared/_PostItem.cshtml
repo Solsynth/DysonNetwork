@@ -23,7 +23,7 @@
             <p>@Html.Raw(Model.Content)</p>
         </div>
 
-        @if (Model.Attachments.Any())
+        @if (Model.Attachments.Any() && Model.Type != PostType.Article)
         {
             <div class="flex flex-col gap-4">
                 @foreach (var attachment in Model.Attachments)
