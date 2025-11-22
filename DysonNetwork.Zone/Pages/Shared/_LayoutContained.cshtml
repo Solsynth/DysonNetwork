@@ -7,32 +7,43 @@
 }
 
 <div class="navbar backdrop-blur-md bg-white/1 shadow-xl px-5">
-  <div class="flex-1">
-    <a class="btn btn-ghost text-xl" asp-page="/Index">@siteDisplayName</a>
-  </div>
-  <div class="flex-none">
-    <ul class="menu menu-horizontal px-1">
-      <li><a asp-page="/Posts">Posts</a></li>
-      <li><a asp-page="/About">About</a></li>
-    </ul>
-  </div>
+    <div class="flex-1">
+        <a class="btn btn-ghost text-xl" asp-page="/Index">@siteDisplayName</a>
+    </div>
+    <div class="flex-none">
+        <ul class="menu menu-horizontal px-1">
+            <li><a asp-page="/Posts">Posts</a></li>
+            <li><a asp-page="/About">About</a></li>
+        </ul>
+    </div>
 </div>
 
 <main class="content-main">
     @RenderBody()
 </main>
 
-<style>
-    .navbar {
-        height: 64px;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1000;
-    }
-    .content-main {
-        height: calc(100vh - 64px);
-        margin-top: 64px;
-    }
-</style>
+@section Scripts
+{
+    @await RenderSectionAsync("Scripts", required: false)
+}
+
+@section Head
+{
+    @await RenderSectionAsync("Head", required: false)
+
+    <style>
+        .navbar {
+            height: 64px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .content-main {
+            height: calc(100vh - 64px);
+            margin-top: 64px;
+        }
+    </style>
+}

@@ -3,7 +3,49 @@
 @{
     Layout = "_LayoutContained";
     const string defaultAvatar = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp";
+
+    var pageTitle = "Posts";
+    var pageDescription = "A collection of posts.";
+    string? ogImageUrl = null;
+    var canonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}{Request.QueryString}";
+    var siteName = Model.Publisher?.Nick ?? Model.Publisher?.Name ?? "Solar Network";
+
+    if (Model.Publisher != null)
+    {
+        pageTitle = $"Posts by {Model.Publisher.Nick ?? Model.Publisher.Name}";
+        pageDescription = $"Browse posts written by {Model.Publisher.Nick ?? Model.Publisher.Name}.";
+        if (Model.Publisher.Background != null)
+        {
+            ogImageUrl = $"{Request.Scheme}://{Request.Host}/drive/files/{Model.Publisher.Background.Id}";
+        }
+    }
 }
+
+@section Head {
+    <title>@pageTitle - @siteName</title>
+    <meta name="description" content="@pageDescription" />
+    <link rel="canonical" href="@canonicalUrl" />
+
+    <meta property="og:title" content="@pageTitle" />
+    <meta property="og:description" content="@pageDescription" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="@canonicalUrl" />
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta property="og:image" content="@ogImageUrl" />
+    }
+    <meta property="og:site_name" content="@siteName" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@pageTitle" />
+    <meta name="twitter:description" content="@pageDescription" />
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta name="twitter:image" content="@ogImageUrl" />
+    }
+}
+
+
 
 <div class="container mx-auto px-8 py-8">
     <h1 class="text-3xl font-bold mb-8 px-5">

@@ -4,7 +4,74 @@
 
 @{
     Layout = "_LayoutContained";
+
+    var pageTitle = "About";
+    var pageDescription = "Information page.";
+    var ogType = "website";
+    string? ogImageUrl = null;
+    var canonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}{Request.QueryString}";
+    var siteName = Model.Site?.Name ?? "Solar Network";
+
+    if (Model.UserAccount != null)
+    {
+        pageTitle = $"About {Model.UserAccount.Nick ?? Model.UserAccount.Name}";
+        if (!string.IsNullOrWhiteSpace(Model.UserAccount.Profile?.Bio))
+        {
+            pageDescription = Model.UserAccount.Profile.Bio;
+        }
+        else
+        {
+            pageDescription = $"Profile of {Model.UserAccount.Nick ?? Model.UserAccount.Name} on {siteName}";
+        }
+        
+        ogType = "profile";
+        ogImageUrl = Model.UserPictureUrl;
+        if(!string.IsNullOrEmpty(ogImageUrl) && !ogImageUrl.StartsWith("http"))
+        {
+            ogImageUrl = $"{Request.Scheme}://{Request.Host}{ogImageUrl}";
+        }
+    }
+    else if (Model.Site != null)
+    {
+        pageTitle = $"About {Model.Site.Name}";
+        if(!string.IsNullOrWhiteSpace(Model.Site.Description))
+        {
+            pageDescription = Model.Site.Description;
+        }
+        ogType = "website";
+        ogImageUrl = null;
+    }
+
+    if (!string.IsNullOrWhiteSpace(pageDescription) && pageDescription.Length > 160)
+    {
+        pageDescription = pageDescription.Substring(0, 157) + "...";
+    }
 }
+
+@section Head {
+    <title>@pageTitle - @siteName</title>
+    <meta name="description" content="@pageDescription" />
+    <link rel="canonical" href="@canonicalUrl" />
+
+    <meta property="og:title" content="@pageTitle" />
+    <meta property="og:description" content="@pageDescription" />
+    <meta property="og:type" content="@ogType" />
+    <meta property="og:url" content="@canonicalUrl" />
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta property="og:image" content="@ogImageUrl" />
+    }
+    <meta property="og:site_name" content="@siteName" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="@pageTitle" />
+    <meta name="twitter:description" content="@pageDescription" />
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta name="twitter:image" content="@ogImageUrl" />
+    }
+}
+
 
 @if (Model.UserAccount != null)
 {

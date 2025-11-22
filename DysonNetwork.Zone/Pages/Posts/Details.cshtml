@@ -1,8 +1,75 @@
 @page "/p/{slug}"
+@using NodaTime
 @model DysonNetwork.Zone.Pages.Posts.DetailsModel
 @{
     Layout = "_LayoutContained";
+    
+    var post = Model.Post;
+    var pageTitle = post?.Title ?? "Post";
+    var pageDescription = post?.Description; 
+    string? ogImageUrl = null;
+    var canonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}{Request.QueryString}";
+
+    if (post != null)
+    {
+        if (string.IsNullOrWhiteSpace(pageDescription) && !string.IsNullOrWhiteSpace(post.Content))
+        {
+            var plainText = System.Text.RegularExpressions.Regex.Replace(post.Content, "<.*?>", string.Empty);
+            pageDescription = plainText.Length > 160 ? plainText.Substring(0, 157) + "..." : plainText;
+        }
+
+        var imageAttachment = post.Attachments.FirstOrDefault(a => a.MimeType != null && a.MimeType.StartsWith("image"));
+        if (imageAttachment != null)
+        {
+            ogImageUrl = $"{Request.Scheme}://{Request.Host}/drive/files/{imageAttachment.Id}";
+        }
+    }
 }
+
+@section Head {
+    <title>@pageTitle</title>
+    @if (!string.IsNullOrWhiteSpace(pageDescription))
+    {
+        <meta name="description" content="@pageDescription" />
+        <meta property="og:description" content="@pageDescription" />
+        <meta name="twitter:description" content="@pageDescription" />
+    }
+    <link rel="canonical" href="@canonicalUrl" />
+
+    <meta property="og:title" content="@pageTitle" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="@canonicalUrl" />
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta property="og:image" content="@ogImageUrl" />
+    }
+    
+    @if(post != null)
+    {
+        <meta property="article:published_time" content="@post.CreatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)" />
+        @if (post.EditedAt.HasValue)
+        {
+            <meta property="article:modified_time" content="@post.EditedAt.Value.ToString("o", System.Globalization.CultureInfo.InvariantCulture)" />
+        }
+
+        @foreach (var tag in post.Tags)
+        {
+            var tagName = !string.IsNullOrEmpty(tag.Name) ? tag.Name : tag.Slug;
+            if(!string.IsNullOrEmpty(tagName))
+            {
+                <meta property="article:tag" content="@tagName" />
+            }
+        }
+    }
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="@pageTitle" />
+    @if (!string.IsNullOrEmpty(ogImageUrl))
+    {
+        <meta name="twitter:image" content="@ogImageUrl" />
+    }
+}
+
 
 <div class="container max-w-4xl mx-auto px-8 py-8">
     <article>
