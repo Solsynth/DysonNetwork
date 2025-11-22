@@ -144,7 +144,7 @@
 
                         @if (Model.Post.Categories.Any() || (Model.Post.Tags.Any()))
                         {
-                            <div>
+                            <div class="flex flex-wrap gap-2">
                                 @foreach (var category in Model.Post.Categories)
                                 {
                                     <span class="badge badge-primary">

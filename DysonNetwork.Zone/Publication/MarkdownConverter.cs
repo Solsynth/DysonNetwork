@@ -18,6 +18,7 @@ public class MarkdownConverter
         var procMarkdown = markdown.Replace("solian://files/", "/drive/files");
         return string.IsNullOrEmpty(procMarkdown)
             ? string.Empty
-            : Markdown.ToHtml(markdown, softBreaks ? _pipelineSoftBreak : _pipeline);
+            : Markdown.ToHtml(procMarkdown, softBreaks ? _pipelineSoftBreak : _pipeline);
     }
 }
+

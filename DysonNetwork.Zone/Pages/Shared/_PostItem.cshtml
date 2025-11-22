@@ -58,7 +58,7 @@
 
         @if (Model.Categories.Any() || Model.Tags.Any())
         {
-            <div>
+            <div class="flex flex-wrap gap-2">
                 @foreach (var category in Model.Categories)
                 {
                     <span class="badge badge-primary">
