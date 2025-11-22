@@ -170,12 +170,12 @@ public class BroadcastEventHandler(
 
                 await nats.PublishAsync(
                     AccountStatusUpdatedEvent.Type,
-                    GrpcTypeHelper.ConvertObjectToByteString(new AccountStatusUpdatedEvent
+                    ByteString.CopyFromUtf8(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
                     {
                         AccountId = evt.AccountId,
                         Status = status,
                         UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                    }).ToByteArray()
+                    }, GrpcTypeHelper.SerializerOptionsWithIgnore)).ToByteArray()
                 );
 
                 logger.LogInformation("Broadcasted status update for user {AccountId}", evt.AccountId);
@@ -209,12 +209,12 @@ public class BroadcastEventHandler(
 
                 await nats.PublishAsync(
                     AccountStatusUpdatedEvent.Type,
-                    GrpcTypeHelper.ConvertObjectToByteString(new AccountStatusUpdatedEvent
+                    ByteString.CopyFromUtf8(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
                     {
                         AccountId = evt.AccountId,
                         Status = status,
                         UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                    }).ToByteArray()
+                    }, GrpcTypeHelper.SerializerOptionsWithIgnore)).ToByteArray()
                 );
 
                 logger.LogInformation("Broadcasted status update for user {AccountId}", evt.AccountId);
