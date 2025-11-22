@@ -5,6 +5,7 @@ using DysonNetwork.Zone.Publication;
 // Add this using statement
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NodaTime;
+using PostType = DysonNetwork.Shared.Proto.PostType;
 
 namespace DysonNetwork.Zone.Pages;
 
@@ -50,6 +51,8 @@ public class IndexModel(
                 PageSize = 5,
                 PublisherId = Site!.PublisherId.ToString(),
             };
+            
+            request.Types_.Add(PostType.Article);
 
             var response = await postClient.ListPostsAsync(request);
 
