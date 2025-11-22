@@ -8,21 +8,20 @@
     var pageDescription = "A collection of posts.";
     string? ogImageUrl = null;
     var canonicalUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}{Request.QueryString}";
-    var siteName = Model.Publisher?.Nick ?? Model.Publisher?.Name ?? "Solar Network";
+    var siteName = Model.Site?.Name ?? "Solar Network";
 
     if (Model.Publisher != null)
     {
-        pageTitle = $"Posts by {Model.Publisher.Nick ?? Model.Publisher.Name}";
-        pageDescription = $"Browse posts written by {Model.Publisher.Nick ?? Model.Publisher.Name}.";
+        pageTitle = $"Posts";
+        pageDescription = $"Browse posts written by {Model.Publisher.Nick}.";
         if (Model.Publisher.Background != null)
-        {
             ogImageUrl = $"{Request.Scheme}://{Request.Host}/drive/files/{Model.Publisher.Background.Id}";
-        }
     }
+    ViewData["Title"] = $"{pageTitle} - {siteName}";
 }
 
 @section Head {
-    <title>@pageTitle - @siteName</title>
+
     <meta name="description" content="@pageDescription" />
     <link rel="canonical" href="@canonicalUrl" />
 

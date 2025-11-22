@@ -24,10 +24,11 @@
             ogImageUrl = $"{Request.Scheme}://{Request.Host}/drive/files/{imageAttachment.Id}";
         }
     }
+    ViewData["Title"] = pageTitle;
 }
 
 @section Head {
-    <title>@pageTitle</title>
+
     @if (!string.IsNullOrWhiteSpace(pageDescription))
     {
         <meta name="description" content="@pageDescription" />
@@ -46,10 +47,10 @@
     
     @if(post != null)
     {
-        <meta property="article:published_time" content="@post.CreatedAt.ToString("o", System.Globalization.CultureInfo.InvariantCulture)" />
+        <meta property="article:published_time" content="@post.CreatedAt.ToString()" />
         @if (post.EditedAt.HasValue)
         {
-            <meta property="article:modified_time" content="@post.EditedAt.Value.ToString("o", System.Globalization.CultureInfo.InvariantCulture)" />
+            <meta property="article:modified_time" content="@post.EditedAt.Value.ToString()" />
         }
 
         @foreach (var tag in post.Tags)
