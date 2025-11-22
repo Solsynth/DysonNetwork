@@ -588,13 +588,22 @@ public class PaymentService(
         if (fund.RemainingAmount <= 0)
             return 0;
 
-        // For open mode funds: calculate amount per split
+        // For open mode funds: use split type calculation
         if (fund.IsOpen)
         {
-            // Calculate amount per split: TotalAmount / AmountOfSplits
-            var amountPerSplit = fund.TotalAmount / fund.AmountOfSplits;
-            return Math.Max(amountPerSplit, 0.01m); // Minimum 0.01 per claim
+            var remainingRecipients = fund.AmountOfSplits - fund.Recipients.Count(r => r.IsReceived);
+            if (remainingRecipients == 0)
+                return 0;
+
+            var amount = fund.SplitType switch
+            {
+                Shared.Models.FundSplitType.Even => SplitEvenly(fund.RemainingAmount, remainingRecipients)[0],
+                Shared.Models.FundSplitType.Random => SplitRandomly(fund.RemainingAmount, remainingRecipients)[0],
+                _ => throw new ArgumentException("Invalid split type")
+            };
+            return Math.Max(amount, 0.01m);
         }
+
         // For closed mode funds: use split type calculation
 
         var unclaimedRecipients = fund.Recipients.Count(r => !r.IsReceived);
@@ -652,7 +661,7 @@ public class PaymentService(
                 };
                 db.WalletFundRecipients.Add(recipient);
                 await db.SaveChangesAsync();
-                
+
                 fund.RemainingAmount -= amount;
             }
             else if (recipient is null)
