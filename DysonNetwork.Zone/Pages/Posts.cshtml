@@ -12,7 +12,7 @@
 
     if (Model.Publisher != null)
     {
-        pageTitle = $"Posts";
+        pageTitle = "Posts";
         pageDescription = $"Browse posts written by {Model.Publisher.Nick}.";
         if (Model.Publisher.Background != null)
             ogImageUrl = $"{Request.Scheme}://{Request.Host}/drive/files/{Model.Publisher.Background.Id}";
@@ -74,7 +74,7 @@
                 <div class="flex justify-center mt-8">
                     <div class="join">
                         @{
-                            var maxPagesToShow = 5; // e.g., 2 before, current, 2 after
+                            const int maxPagesToShow = 5; // e.g., 2 before, current, 2 after
                             var startPage = Math.Max(1, Model.CurrentPage - (maxPagesToShow / 2));
                             var endPage = Math.Min(Model.TotalPages, Model.CurrentPage + (maxPagesToShow / 2));
 

@@ -12,10 +12,9 @@ public class IndexModel(
     PostService.PostServiceClient postClient,
     RemotePublisherService rps,
     RemoteAccountService ras,
-    MarkdownConverter markdownConverter // Inject MarkdownConverter
+    MarkdownConverter markdownConverter
 ) : PageModel
 {
-    private readonly MarkdownConverter _markdownConverter = markdownConverter; // Store the injected service
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public Account? UserAccount { get; set; }
@@ -62,7 +61,7 @@ public class IndexModel(
                 foreach (
                     var post in FeaturedPosts.Where(post => !string.IsNullOrEmpty(post.Content))
                 )
-                    post.Content = _markdownConverter.ToHtml(post.Content!);
+                    post.Content = markdownConverter.ToHtml(post.Content!);
             }
         }
     }

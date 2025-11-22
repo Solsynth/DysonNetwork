@@ -4,21 +4,21 @@ using DysonNetwork.Zone.Publication;
 // Add this using statement
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using PostType = DysonNetwork.Shared.Proto.PostType;
 
 namespace DysonNetwork.Zone.Pages.Posts;
 
 public class DetailsModel(PostService.PostServiceClient postClient, MarkdownConverter markdownConverter) : PageModel
 {
-    private readonly MarkdownConverter _markdownConverter = markdownConverter;
     [FromRoute] public string Slug { get; set; } = null!;
-    
+
     public SnPublicationSite? Site { get; set; }
     public SnPost? Post { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
         Site = HttpContext.Items[PublicationSiteMiddleware.SiteContextKey] as SnPublicationSite;
-        
+
         if (string.IsNullOrEmpty(Slug))
             return NotFound();
 
@@ -33,10 +33,11 @@ public class DetailsModel(PostService.PostServiceClient postClient, MarkdownConv
         }
 
         Post = SnPost.FromProtoValue(response);
-        
-        // Convert markdown content to HTML
+
+        // Convert the markdown content to HTML
         if (Post != null && !string.IsNullOrEmpty(Post.Content))
-            Post.Content = _markdownConverter.ToHtml(Post.Content);
+            Post.Content = markdownConverter.ToHtml(Post.Content,
+                softBreaks: Post.Type != DysonNetwork.Shared.Models.PostType.Article);
 
         return Page();
     }

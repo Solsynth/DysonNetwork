@@ -11,10 +11,9 @@ namespace DysonNetwork.Zone.Pages;
 public class PostsModel(
     PostService.PostServiceClient postClient,
     RemotePublisherService rps,
-    MarkdownConverter markdownConverter // Inject MarkdownConverter
+    MarkdownConverter markdownConverter
 ) : PageModel
 {
-    private readonly MarkdownConverter _markdownConverter = markdownConverter; // Store the injected service
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public List<SnPost> Posts { get; set; } = [];
@@ -49,7 +48,7 @@ public class PostsModel(
 
             // Convert the markdown content to HTML
             foreach (var post in Posts.Where(post => !string.IsNullOrEmpty(post.Content)))
-                post.Content = _markdownConverter.ToHtml(post.Content!, softBreaks: post.Type != PostType.Article);
+                post.Content = markdownConverter.ToHtml(post.Content!, softBreaks: post.Type != PostType.Article);
         }
     }
 }
