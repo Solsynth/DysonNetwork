@@ -68,6 +68,20 @@ public partial class ChatController(
         return Ok(result);
     }
 
+    [HttpGet("unread")]
+    [Authorize]
+    public async Task<ActionResult<int>> GetTotalUnreadCount()
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
+
+        var totalUnreadCount = unreadMessages.Values.Sum();
+
+        return Ok(totalUnreadCount);
+    }
+
     public class SendMessageRequest
     {
         [MaxLength(4096)] public string? Content { get; set; }
