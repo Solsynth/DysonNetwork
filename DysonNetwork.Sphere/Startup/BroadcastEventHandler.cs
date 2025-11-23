@@ -217,7 +217,7 @@ public class BroadcastEventHandler(
             return;
         }
 
-        var requestData = packet.GetData<ChatController.MarkMessageReadRequest>();
+        var requestData = packet.GetData<Chat.ChatController.MarkMessageReadRequest>();
         if (requestData == null)
         {
             await SendErrorResponse(evt, "Invalid request data");
@@ -245,7 +245,7 @@ public class BroadcastEventHandler(
             return;
         }
 
-        var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
+        var requestData = packet.GetData<Chat.ChatController.ChatRoomWsUniversalRequest>();
         if (requestData == null)
         {
             await SendErrorResponse(evt, "Invalid request data");
@@ -299,7 +299,7 @@ public class BroadcastEventHandler(
             return;
         }
 
-        var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
+        var requestData = packet.GetData<Chat.ChatController.ChatRoomWsUniversalRequest>();
         if (requestData == null)
         {
             await SendErrorResponse(evt, "Invalid request data");
@@ -327,7 +327,7 @@ public class BroadcastEventHandler(
             return;
         }
 
-        var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
+        var requestData = packet.GetData<Chat.ChatController.ChatRoomWsUniversalRequest>();
         if (requestData == null)
         {
             await SendErrorResponse(evt, "Invalid request data");

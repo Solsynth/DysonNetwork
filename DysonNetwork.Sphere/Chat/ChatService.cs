@@ -624,16 +624,22 @@ public partial class ChatService(
             .FirstOrDefaultAsync();
     }
 
-    public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, long lastSyncTimestamp)
+    public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, long lastSyncTimestamp, int limit = 500)
     {
-        var timestamp = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
+        var lastSyncInstant = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
 
-        // Get all messages that have been modified since the last sync
+        // Count total newer messages
+        var totalCount = await db.ChatMessages
+            .Where(m => m.ChatRoomId == roomId && m.CreatedAt > lastSyncInstant)
+            .CountAsync();
+
+        // Get up to limit messages that have been created since the last sync
         var syncMessages = await db.ChatMessages
-            .IgnoreQueryFilters()
-            .Include(m => m.Sender)
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.UpdatedAt > timestamp || m.DeletedAt > timestamp)
+            .Where(m => m.CreatedAt > lastSyncInstant)
+            .OrderBy(m => m.CreatedAt)
+            .Take(limit)
+            .Include(m => m.Sender)
             .ToListAsync();
 
         // Load member accounts for messages that need them
@@ -658,13 +664,14 @@ public partial class ChatService(
         }
 
         var latestTimestamp = syncMessages.Count > 0
-            ? syncMessages.Max(m => m.UpdatedAt)
+            ? syncMessages.Last().CreatedAt
             : SystemClock.Instance.GetCurrentInstant();
 
         return new SyncResponse
         {
-            Messages = syncMessages.OrderBy(m => m.UpdatedAt).ToList(),
-            CurrentTimestamp = latestTimestamp
+            Messages = syncMessages,
+            CurrentTimestamp = latestTimestamp,
+            TotalCount = totalCount
         };
     }
 
@@ -816,4 +823,5 @@ public class SyncResponse
 {
     public List<SnChatMessage> Messages { get; set; } = [];
     public Instant CurrentTimestamp { get; set; }
+    public int TotalCount { get; set; } = 0;
 }
