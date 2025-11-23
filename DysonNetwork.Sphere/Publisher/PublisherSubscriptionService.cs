@@ -60,21 +60,18 @@ public class PublisherSubscriptionService(
         var (title, message) = ps.ChopPostForNotification(post);
 
         // Data to include with the notification
-        var images = new List<string>();
-        if (post.Attachments.Any(p => p.MimeType?.StartsWith("image/") ?? false))
-            images.AddRange(
-                post.Attachments
-                    .Where(p => p.MimeType?.StartsWith("image/") ?? false)
-                    .Select(p => p.Id)
-            );
-        else if (post.Publisher.Picture is not null) images.Add(post.Publisher.Picture.Id);
-
         var data = new Dictionary<string, object>
         {
             ["post_id"] = post.Id,
-            ["publisher_id"] = post.Publisher.Id.ToString(),
-            ["images"] = images,
+            ["publisher_id"] = post.Publisher.Id.ToString()
         };
+
+        if (post.Attachments.Any(p => p.MimeType?.StartsWith("image/") ?? false))
+            data["image"] =
+                post.Attachments
+                    .Where(p => p.MimeType?.StartsWith("image/") ?? false)
+                    .Select(p => p.Id).First();
+        if (post.Publisher.Picture is not null) data["pfp"] = post.Publisher.Picture.Id;
 
         // Gather subscribers
         var subscribers = await db.PublisherSubscriptions

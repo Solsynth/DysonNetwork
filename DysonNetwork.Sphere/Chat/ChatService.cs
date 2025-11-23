@@ -202,7 +202,7 @@ public partial class ChatService(
 
         // Create file references if message has attachments
         await CreateFileReferencesForMessageAsync(message);
-        
+
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
         message.ChatRoom = room;
@@ -287,6 +287,7 @@ public partial class ChatService(
             if (await scopedCrs.IsSubscribedChatRoom(member.ChatRoomId, member.Id))
                 subscribedMemberIds.Add(member.AccountId);
         }
+
         accountsToNotify = accountsToNotify.Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id))).ToList();
 
         logger.LogInformation("Trying to deliver message to {count} accounts...", accountsToNotify.Count);
@@ -301,7 +302,8 @@ public partial class ChatService(
         logger.LogInformation("Delivered message to {count} accounts.", accountsToNotify.Count);
     }
 
-    private PushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room, string roomSubject,
+    private PushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
+        string roomSubject,
         string type)
     {
         var metaDict = new Dictionary<string, object>
@@ -311,10 +313,13 @@ public partial class ChatService(
             ["sender_id"] = sender.Id,
             ["message_id"] = message.Id,
             ["room_id"] = room.Id,
-            ["images"] = message.Attachments
-                .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
-                .Select(a => a.Id).ToList(),
         };
+
+        var imageId = message.Attachments
+            .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
+            .Select(a => a.Id).FirstOrDefault();
+        if (imageId is not null)
+            metaDict["image"] = imageId;
 
         if (sender.Account!.Profile is not { Picture: null })
             metaDict["pfp"] = sender.Account!.Profile.Picture.Id;
@@ -365,7 +370,8 @@ public partial class ChatService(
         }
     }
 
-    private List<Account> FilterAccountsForNotification(List<SnChatMember> members, SnChatMessage message, SnChatMember sender)
+    private List<Account> FilterAccountsForNotification(List<SnChatMember> members, SnChatMessage message,
+        SnChatMember sender)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
