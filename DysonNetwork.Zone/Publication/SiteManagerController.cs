@@ -63,11 +63,7 @@ public class SiteManagerController(
         if (file == null || file.Length == 0)
             return BadRequest("No file provided");
 
-        const long maxFileSize = 1048576; // 1MB
         const long maxTotalSize = 26214400; // 25MB
-
-        if (file.Length > maxFileSize)
-            return BadRequest("File size exceeds 1MB limit");
 
         var currentTotal = await fileManager.GetTotalSiteSize(siteId);
         if (currentTotal + file.Length > maxTotalSize)
