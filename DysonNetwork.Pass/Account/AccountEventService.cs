@@ -357,7 +357,8 @@ public class AccountEventService(
             .FirstOrDefaultAsync();
 
         var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
-        if (accountBirthday.HasValue && accountBirthday.Value.InUtc().Date == now)
+        var birthdayDate = accountBirthday?.InUtc().Date;
+        if (birthdayDate.HasValue && birthdayDate.Value.Month == now.Month && birthdayDate.Value.Day == now.Day)
             checkInLevel = CheckInResultLevel.Special;
 
         var result = new SnCheckInResult
