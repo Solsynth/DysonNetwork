@@ -252,6 +252,6 @@
         <value>过生日</value>
     </data>
     <data name="FortuneTipSpecialContent_Birthday" xml:space="preserve">
-        <value>生日快乐，{}！</value>
+        <value>生日快乐，{0}！</value>
     </data>
 </root>

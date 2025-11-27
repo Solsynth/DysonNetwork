@@ -199,6 +199,6 @@
         <value>Have a Birthday Party</value>
     </data>
     <data name="FortuneTipSpecialContent_Birthday" xml:space="preserve">
-        <value>Happy Birthday, {}!</value>
+        <value>Happy Birthday, {0}!</value>
     </data>
 </root>

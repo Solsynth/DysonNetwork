@@ -313,14 +313,27 @@ public class AccountEventService(
         CultureInfo.CurrentCulture = cultureInfo;
         CultureInfo.CurrentUICulture = cultureInfo;
 
-        var accountBirthday = await db.AccountProfiles
+        var accountProfile = await db.AccountProfiles
             .Where(x => x.AccountId == user.Id)
-            .Select(x => x.Birthday)
+            .Select(x => new { x.Birthday, x.TimeZone })
             .FirstOrDefaultAsync();
+        
+        var accountBirthday = accountProfile?.Birthday;
 
-        var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
-        var birthdayDate = accountBirthday?.InUtc().Date;
-        var isBirthday = birthdayDate.HasValue && birthdayDate.Value.Month == now.Month && birthdayDate.Value.Day == now.Day;
+        var now = SystemClock.Instance.GetCurrentInstant();
+        
+        var userTimeZone = DateTimeZone.Utc;
+        if (!string.IsNullOrEmpty(accountProfile?.TimeZone))
+        {
+            userTimeZone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(accountProfile.TimeZone) ?? DateTimeZone.Utc;
+        }
+
+        var todayInUserTz = now.InZone(userTimeZone).Date;
+        var birthdayDate = accountBirthday?.InZone(userTimeZone).Date;
+        
+        var isBirthday = birthdayDate.HasValue && 
+                         birthdayDate.Value.Month == todayInUserTz.Month && 
+                         birthdayDate.Value.Day == todayInUserTz.Day;
 
         List<CheckInFortuneTip> tips;
         CheckInResultLevel checkInLevel;
