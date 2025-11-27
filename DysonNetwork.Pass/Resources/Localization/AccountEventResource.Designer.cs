@@ -57,18 +57,6 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
-        internal static string FortuneTipNegativeTitle_1 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_1", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeContent_1 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeContent_1", resourceCulture);
-            }
-        }
-        
         internal static string FortuneTipPositiveTitle_2 {
             get {
                 return ResourceManager.GetString("FortuneTipPositiveTitle_2", resourceCulture);
@@ -78,18 +66,6 @@ namespace DysonNetwork.Sphere.Resources {
         internal static string FortuneTipPositiveContent_2 {
             get {
                 return ResourceManager.GetString("FortuneTipPositiveContent_2", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeTitle_2 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_2", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeContent_2 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeContent_2", resourceCulture);
             }
         }
         
@@ -105,18 +81,6 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
-        internal static string FortuneTipNegativeTitle_3 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_3", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeContent_3 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeContent_3", resourceCulture);
-            }
-        }
-        
         internal static string FortuneTipPositiveTitle_4 {
             get {
                 return ResourceManager.GetString("FortuneTipPositiveTitle_4", resourceCulture);
@@ -126,18 +90,6 @@ namespace DysonNetwork.Sphere.Resources {
         internal static string FortuneTipPositiveContent_4 {
             get {
                 return ResourceManager.GetString("FortuneTipPositiveContent_4", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeTitle_4 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_4", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeContent_4 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeContent_4", resourceCulture);
             }
         }
         
@@ -153,18 +105,6 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
-        internal static string FortuneTipNegativeTitle_5 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_5", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeContent_5 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeContent_5", resourceCulture);
-            }
-        }
-        
         internal static string FortuneTipPositiveTitle_6 {
             get {
                 return ResourceManager.GetString("FortuneTipPositiveTitle_6", resourceCulture);
@@ -174,18 +114,6 @@ namespace DysonNetwork.Sphere.Resources {
         internal static string FortuneTipPositiveContent_6 {
             get {
                 return ResourceManager.GetString("FortuneTipPositiveContent_6", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeTitle_6 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_6", resourceCulture);
-            }
-        }
-        
-        internal static string FortuneTipNegativeContent_6 {
-            get {
-                return ResourceManager.GetString("FortuneTipNegativeContent_6", resourceCulture);
             }
         }
         
@@ -201,6 +129,162 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
+        internal static string FortuneTipPositiveTitle_8 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_8", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_8 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_8", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveTitle_9 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_9", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_9 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_9", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveTitle_10 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_10", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_10 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_10", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveTitle_11 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_11", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_11 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_11", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveTitle_12 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_12", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_12 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_12", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveTitle_13 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_13", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_13 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_13", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveTitle_14 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveTitle_14", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_14 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_14", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_1 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_1", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_1 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_1", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_2 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_2", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_2 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_2", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_3 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_3", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_3 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_3", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_4 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_4", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_4 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_4", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_5 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_5", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_5 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_5", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_6 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_6", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_6 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_6", resourceCulture);
+            }
+        }
+        
         internal static string FortuneTipNegativeTitle_7 {
             get {
                 return ResourceManager.GetString("FortuneTipNegativeTitle_7", resourceCulture);
@@ -213,15 +297,117 @@ namespace DysonNetwork.Sphere.Resources {
             }
         }
         
-        internal static string FortuneTipNegativeTitle_1_ {
+        internal static string FortuneTipNegativeTitle_8 {
             get {
-                return ResourceManager.GetString("FortuneTipNegativeTitle_1 ", resourceCulture);
+                return ResourceManager.GetString("FortuneTipNegativeTitle_8", resourceCulture);
             }
         }
         
-        internal static string FortuneTipPositiveContent_14 {
+        internal static string FortuneTipNegativeContent_8 {
             get {
-                return ResourceManager.GetString("FortuneTipPositiveContent_14", resourceCulture);
+                return ResourceManager.GetString("FortuneTipNegativeContent_8", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_9 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_9", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_9 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_9", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_10 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_10", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_10 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_10", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_11 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_11", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_11 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_11", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_12 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_12", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_12 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_12", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_13 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_13", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_13 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_13", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_14 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_14", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_14 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_14", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeTitle_15 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeTitle_15", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipPositiveContent_15 {
+            get {
+                return ResourceManager.GetString("FortuneTipPositiveContent_15", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipNegativeContent_15 {
+            get {
+                return ResourceManager.GetString("FortuneTipNegativeContent_15", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipSpecialTitle_Birthday {
+            get {
+                return ResourceManager.GetString("FortuneTipSpecialTitle_Birthday", resourceCulture);
+            }
+        }
+        
+        internal static string FortuneTipSpecialContent_Birthday {
+            get {
+                return ResourceManager.GetString("FortuneTipSpecialContent_Birthday", resourceCulture);
             }
         }
     }

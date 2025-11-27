@@ -248,4 +248,10 @@
     <value>“？暗盒里怎么还有！“</value>
     <comment/>
   </data>
+    <data name="FortuneTipSpecialTitle_Birthday" xml:space="preserve">
+        <value>过生日</value>
+    </data>
+    <data name="FortuneTipSpecialContent_Birthday" xml:space="preserve">
+        <value>生日快乐，{}！</value>
+    </data>
 </root>

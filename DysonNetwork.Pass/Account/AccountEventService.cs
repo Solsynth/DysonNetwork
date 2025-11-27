@@ -313,44 +313,6 @@ public class AccountEventService(
         CultureInfo.CurrentCulture = cultureInfo;
         CultureInfo.CurrentUICulture = cultureInfo;
 
-        // Generate 2 positive tips
-        var positiveIndices = Enumerable.Range(1, FortuneTipCount)
-            .OrderBy(_ => Random.Next())
-            .Take(2)
-            .ToList();
-        var tips = positiveIndices.Select(index => new CheckInFortuneTip
-        {
-            IsPositive = true,
-            Title = localizer[$"FortuneTipPositiveTitle_{index}"].Value,
-            Content = localizer[$"FortuneTipPositiveContent_{index}"].Value
-        }).ToList();
-
-        // Generate 2 negative tips
-        var negativeIndices = Enumerable.Range(1, FortuneTipCount)
-            .Except(positiveIndices)
-            .OrderBy(_ => Random.Next())
-            .Take(2)
-            .ToList();
-        tips.AddRange(negativeIndices.Select(index => new CheckInFortuneTip
-        {
-            IsPositive = false,
-            Title = localizer[$"FortuneTipNegativeTitle_{index}"].Value,
-            Content = localizer[$"FortuneTipNegativeContent_{index}"].Value
-        }));
-
-        // The 5 is specialized, keep it alone.
-        // Use weighted random distribution to make all levels reasonably achievable
-        // Weights: Worst: 10%, Worse: 20%, Normal: 40%, Better: 20%, Best: 10%
-        var randomValue = Random.Next(100);
-        var checkInLevel = randomValue switch
-        {
-            < 10 => CheckInResultLevel.Worst,    // 0-9: 10% chance
-            < 30 => CheckInResultLevel.Worse,    // 10-29: 20% chance  
-            < 70 => CheckInResultLevel.Normal,   // 30-69: 40% chance
-            < 90 => CheckInResultLevel.Better,   // 70-89: 20% chance
-            _ => CheckInResultLevel.Best         // 90-99: 10% chance
-        };
-
         var accountBirthday = await db.AccountProfiles
             .Where(x => x.AccountId == user.Id)
             .Select(x => x.Birthday)
@@ -358,8 +320,64 @@ public class AccountEventService(
 
         var now = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
         var birthdayDate = accountBirthday?.InUtc().Date;
-        if (birthdayDate.HasValue && birthdayDate.Value.Month == now.Month && birthdayDate.Value.Day == now.Day)
+        var isBirthday = birthdayDate.HasValue && birthdayDate.Value.Month == now.Month && birthdayDate.Value.Day == now.Day;
+
+        List<CheckInFortuneTip> tips;
+        CheckInResultLevel checkInLevel;
+
+        if (isBirthday)
+        {
+            // Skip random logic and tips generation for birthday
             checkInLevel = CheckInResultLevel.Special;
+            tips = [
+                new CheckInFortuneTip()
+                {
+                    IsPositive = true,
+                    Title = localizer["FortuneTipSpecialTitle_Birthday"].Value,
+                    Content = localizer["FortuneTipSpecialContent_Birthday", user.Nick].Value,
+                }
+            ];
+        }
+        else
+        {
+            // Generate 2 positive tips
+            var positiveIndices = Enumerable.Range(1, FortuneTipCount)
+                .OrderBy(_ => Random.Next())
+                .Take(2)
+                .ToList();
+            tips = positiveIndices.Select(index => new CheckInFortuneTip
+            {
+                IsPositive = true,
+                Title = localizer[$"FortuneTipPositiveTitle_{index}"].Value,
+                Content = localizer[$"FortuneTipPositiveContent_{index}"].Value
+            }).ToList();
+
+            // Generate 2 negative tips
+            var negativeIndices = Enumerable.Range(1, FortuneTipCount)
+                .Except(positiveIndices)
+                .OrderBy(_ => Random.Next())
+                .Take(2)
+                .ToList();
+            tips.AddRange(negativeIndices.Select(index => new CheckInFortuneTip
+            {
+                IsPositive = false,
+                Title = localizer[$"FortuneTipNegativeTitle_{index}"].Value,
+                Content = localizer[$"FortuneTipNegativeContent_{index}"].Value
+            }));
+
+            // The 5 is specialized, keep it alone.
+            // Use weighted random distribution to make all levels reasonably achievable
+            // Weights: Worst: 10%, Worse: 20%, Normal: 40%, Better: 20%, Best: 10%
+            var randomValue = Random.Next(100);
+            checkInLevel = randomValue switch
+            {
+                < 10 => CheckInResultLevel.Worst,    // 0-9: 10% chance
+                < 30 => CheckInResultLevel.Worse,    // 10-29: 20% chance
+                < 70 => CheckInResultLevel.Normal,   // 30-69: 40% chance
+                < 90 => CheckInResultLevel.Better,   // 70-89: 20% chance
+                _ => CheckInResultLevel.Best         // 90-99: 10% chance
+            };
+        }
 
         var result = new SnCheckInResult
         {

@@ -195,4 +195,10 @@
     <value>“？Why is there still something in the box！“</value>
     <comment/>
   </data>
+    <data name="FortuneTipSpecialTitle_Birthday" xml:space="preserve">
+        <value>Have a Birthday Party</value>
+    </data>
+    <data name="FortuneTipSpecialContent_Birthday" xml:space="preserve">
+        <value>Happy Birthday, {}!</value>
+    </data>
 </root>

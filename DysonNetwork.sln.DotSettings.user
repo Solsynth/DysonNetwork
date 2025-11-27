@@ -173,7 +173,7 @@
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=d3d47f4e_002D5d7b_002D4bb3_002D9fd2_002D0e52828cc908/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="All tests from Solution" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
   &lt;Solution /&gt;
 &lt;/SessionState&gt;</s:String>
-	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FAccountEventResource/@EntryIndexedValue">False</s:Boolean>
+	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FAccountEventResource/@EntryIndexedValue">True</s:Boolean>
 	
 	<s:Boolean x:Key="/Default/ResxEditorPersonal/CheckedGroups/=DysonNetwork_002EPass_002FResources_002FLocalization_002FEmailResource/@EntryIndexedValue">True</s:Boolean>
 	
