@@ -1,4 +1,3 @@
-using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Text;
@@ -250,15 +249,17 @@ public abstract class OidcService(
     }
 
     /// <summary>
-    /// Creates a challenge and session for an authenticated user
+    /// Creates a session for an authenticated user
     /// Also creates or updates the account connection
     /// </summary>
-    public async Task<SnAuthChallenge> CreateChallengeForUserAsync(
+    public async Task<SnAuthSession> CreateSessionForUserAsync(
         OidcUserInfo userInfo,
         SnAccount account,
         HttpContext request,
         string deviceId,
-        string? deviceName = null
+        string? deviceName = null,
+        ClientPlatform platform = ClientPlatform.Web,
+        SnAuthSession? parentSession = null
     )
     {
         // Create or update the account connection
@@ -282,28 +283,24 @@ public abstract class OidcService(
             await Db.AccountConnections.AddAsync(connection);
         }
 
-        // Create a challenge that's already completed
+        // Create a session directly
         var now = SystemClock.Instance.GetCurrentInstant();
-        var device = await auth.GetOrCreateDeviceAsync(account.Id, deviceId, deviceName, ClientPlatform.Ios);
-        var challenge = new SnAuthChallenge
-        {
-            ExpiredAt = now.Plus(Duration.FromHours(1)),
-            StepTotal = await auth.DetectChallengeRisk(request.Request, account),
-            Type = ChallengeType.Oidc,
-            Audiences = [ProviderName],
-            Scopes = ["*"],
-            AccountId = account.Id,
-            ClientId = device.Id,
-            IpAddress = request.Connection.RemoteIpAddress?.ToString() ?? null,
-            UserAgent = request.Request.Headers.UserAgent,
-        };
-        challenge.StepRemain--;
-        if (challenge.StepRemain < 0) challenge.StepRemain = 0;
+        var device = await auth.GetOrCreateDeviceAsync(account.Id, deviceId, deviceName, platform);
 
-        await Db.AuthChallenges.AddAsync(challenge);
+        var session = new SnAuthSession
+        {
+            AccountId = account.Id,
+            CreatedAt = now,
+            LastGrantedAt = now,
+            ParentSessionId = parentSession?.Id,
+            ClientId = device.Id,
+            ExpiredAt = now.Plus(Duration.FromDays(30))
+        };
+
+        await Db.AuthSessions.AddAsync(session);
         await Db.SaveChangesAsync();
 
-        return challenge;
+        return session;
     }
 }
 

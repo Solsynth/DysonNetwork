@@ -342,13 +342,19 @@ public class ConnectionController(
                 callbackData.State.Split('|').FirstOrDefault() :
                 string.Empty;
 
-            var challenge = await oidcService.CreateChallengeForUserAsync(
+            if (HttpContext.Items["CurrentSession"] is not SnAuthSession parentSession) parentSession = null;
+            
+            var session = await oidcService.CreateSessionForUserAsync(
                 userInfo,
                 connection.Account,
                 HttpContext,
-                deviceId ?? string.Empty);
+                deviceId ?? string.Empty,
+                null,
+                ClientPlatform.Web,
+                parentSession);
             
-            var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "challenge", challenge.Id.ToString());
+            var token = auth.CreateToken(session);
+            var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", token);
             logger.LogInformation("OIDC login successful for user {UserId}. Redirecting to {RedirectUrl}", connection.AccountId, redirectUrl);
             return Redirect(redirectUrl);
         }

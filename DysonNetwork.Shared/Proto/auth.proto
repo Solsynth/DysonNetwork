@@ -8,7 +8,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/struct.proto";
 
-import 'account.proto';
+import "account.proto";
 
 // Represents a user session
 message AuthSession {
@@ -20,6 +20,9 @@ message AuthSession {
   string challenge_id = 7;
   AuthChallenge challenge = 8;
   google.protobuf.StringValue app_id = 9;
+  optional string client_id = 10;
+  optional string parent_session_id = 11;
+  AuthClient client = 12;
 }
 
 // Represents an authentication challenge
@@ -39,6 +42,17 @@ message AuthChallenge {
   google.protobuf.StringValue nonce = 14;
   // Point location is omitted as there is no direct proto equivalent.
   string account_id = 15;
+  google.protobuf.StringValue device_name = 16;
+  ClientPlatform platform = 17;
+}
+
+message AuthClient {
+  string id = 1;
+  ClientPlatform platform = 2;
+  google.protobuf.StringValue device_name = 3;
+  google.protobuf.StringValue device_label = 4;
+  string device_id = 5;
+  string account_id = 6;
 }
 
 // Enum for challenge types
@@ -49,9 +63,9 @@ enum ChallengeType {
   OIDC = 3;
 }
 
-// Enum for challenge platforms
-enum ChallengePlatform {
-  CHALLENGE_PLATFORM_UNSPECIFIED = 0;
+// Enum for client platforms
+enum ClientPlatform {
+  CLIENT_PLATFORM_UNSPECIFIED = 0;
   UNIDENTIFIED = 1;
   WEB = 2;
   IOS = 3;
@@ -63,7 +77,7 @@ enum ChallengePlatform {
 
 service AuthService {
   rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
-  
+
   rpc ValidatePin(ValidatePinRequest) returns (ValidateResponse) {}
   rpc ValidateCaptcha(ValidateCaptchaRequest) returns (ValidateResponse) {}
 }
@@ -184,6 +198,7 @@ service PermissionService {
   rpc AddPermissionNode(AddPermissionNodeRequest) returns (AddPermissionNodeResponse) {}
   rpc AddPermissionNodeToGroup(AddPermissionNodeToGroupRequest) returns (AddPermissionNodeToGroupResponse) {}
   rpc RemovePermissionNode(RemovePermissionNodeRequest) returns (RemovePermissionNodeResponse) {}
-  rpc RemovePermissionNodeFromGroup(RemovePermissionNodeFromGroupRequest) returns (RemovePermissionNodeFromGroupResponse) {}
+  rpc RemovePermissionNodeFromGroup(RemovePermissionNodeFromGroupRequest)
+      returns (RemovePermissionNodeFromGroupResponse) {}
 }
 

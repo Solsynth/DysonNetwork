@@ -16,9 +16,17 @@ public class SnAuthSession : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
-    // When the challenge is null, indicates the session is for an API Key
+    // The challenge that created this session
     public Guid? ChallengeId { get; set; }
     public SnAuthChallenge? Challenge { get; set; } = null!;
+
+    // The client device for this session
+    public Guid? ClientId { get; set; }
+    public SnAuthClient? Client { get; set; } = null!;
+    
+    // For sub-sessions (e.g. OAuth)
+    public Guid? ParentSessionId { get; set; }
+    public SnAuthSession? ParentSession { get; set; }
 
     // Indicates the session is for an OIDC connection
     public Guid? AppId { get; set; }
@@ -32,6 +40,9 @@ public class SnAuthSession : ModelBase
         Account = Account.ToProtoValue(),
         ChallengeId = ChallengeId.ToString(),
         Challenge = Challenge?.ToProtoValue(),
+        ClientId = ClientId.ToString(),
+        Client = Client?.ToProtoValue(),
+        ParentSessionId = ParentSessionId.ToString(),
         AppId = AppId?.ToString()
     };
 }
@@ -67,13 +78,14 @@ public class SnAuthChallenge : ModelBase
     [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = new();
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
+    [MaxLength(512)] public string DeviceId { get; set; } = null!;
+    [MaxLength(1024)] public string? DeviceName { get; set; }
+    public ClientPlatform Platform { get; set; }
     [MaxLength(1024)] public string? Nonce { get; set; }
     [Column(TypeName = "jsonb")] public GeoPoint? Location { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
-    public Guid? ClientId { get; set; }
-    public SnAuthClient? Client { get; set; } = null!;
 
     public SnAuthChallenge Normalize()
     {
@@ -94,7 +106,7 @@ public class SnAuthChallenge : ModelBase
         Scopes = { Scopes },
         IpAddress = IpAddress,
         UserAgent = UserAgent,
-        DeviceId = Client!.DeviceId,
+        DeviceId = DeviceId,
         Nonce = Nonce,
         AccountId = AccountId.ToString()
     };
@@ -110,6 +122,16 @@ public class SnAuthClient : ModelBase
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    
+    public Proto.AuthClient ToProtoValue() => new()
+    {
+        Id = Id.ToString(),
+        Platform = (Proto.ClientPlatform)Platform,
+        DeviceName = DeviceName,
+        DeviceLabel = DeviceLabel,
+        DeviceId = DeviceId,
+        AccountId = AccountId.ToString()
+    };
 }
 
 public class SnAuthClientWithChallenge : SnAuthClient

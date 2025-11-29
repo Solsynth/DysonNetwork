@@ -88,7 +88,7 @@ public class TokenAuthService(
             session = await db.AuthSessions
                 .AsNoTracking()
                 .Include(e => e.Challenge)
-                .ThenInclude(e => e.Client)
+                .Include(e => e.Client)
                 .Include(e => e.Account)
                 .ThenInclude(e => e.Profile)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
@@ -110,7 +110,7 @@ public class TokenAuthService(
                 "AuthenticateTokenAsync: DB session loaded (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId}, appId={AppId}, scopes={ScopeCount}, ip={Ip}, uaLen={UaLen})",
                 sessionId,
                 session.AccountId,
-                session.Challenge?.ClientId,
+                session.ClientId,
                 session.AppId,
                 session.Challenge?.Scopes.Count,
                 session.Challenge?.IpAddress,
@@ -143,7 +143,7 @@ public class TokenAuthService(
                 "AuthenticateTokenAsync: success via DB (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId})",
                 sessionId,
                 session.AccountId,
-                session.Challenge?.ClientId
+                session.ClientId
             );
             return (true, session, null);
         }

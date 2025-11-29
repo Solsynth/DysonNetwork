@@ -571,14 +571,14 @@ public class AccountCurrentController(
             .ToListAsync();
 
         var challengeDevices = devices.Select(SnAuthClientWithChallenge.FromClient).ToList();
-        var deviceIds = challengeDevices.Select(x => x.Id).ToList();
+        var deviceIds = challengeDevices.Select(x => x.DeviceId).ToList();
 
         var authChallenges = await db.AuthChallenges
-            .Where(c => c.ClientId != null && deviceIds.Contains(c.ClientId.Value))
-            .GroupBy(c => c.ClientId)
-            .ToDictionaryAsync(c => c.Key!.Value, c => c.ToList());
+            .Where(c => deviceIds.Contains(c.DeviceId))
+            .GroupBy(c => c.DeviceId)
+            .ToDictionaryAsync(c => c.Key, c => c.ToList());
         foreach (var challengeDevice in challengeDevices)
-            if (authChallenges.TryGetValue(challengeDevice.Id, out var challenge))
+            if (authChallenges.TryGetValue(challengeDevice.DeviceId, out var challenge))
                 challengeDevice.Challenges = challenge;
 
         return Ok(challengeDevices);
@@ -688,7 +688,7 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
-        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.Challenge.ClientId);
+        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.ClientId);
         if (device is null) return NotFound();
 
         try

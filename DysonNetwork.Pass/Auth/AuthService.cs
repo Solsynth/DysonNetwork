@@ -157,7 +157,7 @@ public class AuthService(
         // 8) Device Trust Assessment
         var trustedDeviceIds = recentSessions
             .Where(s => s.CreatedAt > now.Minus(Duration.FromDays(30))) // Trust devices from last 30 days
-            .Select(s => s.Challenge?.ClientId)
+            .Select(s => s.ClientId)
             .Where(id => id.HasValue)
             .Distinct()
             .ToList();
@@ -182,7 +182,7 @@ public class AuthService(
     }
 
     public async Task<SnAuthSession> CreateSessionForOidcAsync(SnAccount account, Instant time,
-        Guid? customAppId = null)
+        Guid? customAppId = null, SnAuthSession? parentSession = null)
     {
         var challenge = new SnAuthChallenge
         {
@@ -191,7 +191,10 @@ public class AuthService(
             UserAgent = HttpContext.Request.Headers.UserAgent,
             StepRemain = 1,
             StepTotal = 1,
-            Type = customAppId is not null ? ChallengeType.OAuth : ChallengeType.Oidc
+            Type = customAppId is not null ? ChallengeType.OAuth : ChallengeType.Oidc,
+            DeviceId = Guid.NewGuid().ToString(),
+            DeviceName = "OIDC/OAuth",
+            Platform = ClientPlatform.Web,
         };
 
         var session = new SnAuthSession
@@ -200,7 +203,8 @@ public class AuthService(
             CreatedAt = time,
             LastGrantedAt = time,
             Challenge = challenge,
-            AppId = customAppId
+            AppId = customAppId,
+            ParentSessionId = parentSession?.Id
         };
 
         db.AuthChallenges.Add(challenge);
@@ -288,33 +292,73 @@ public class AuthService(
 
     /// <summary>
     /// Immediately revoke a session by setting expiry to now and clearing from cache
-    /// This provides immediate invalidation of tokens and sessions
+    /// This provides immediate invalidation of tokens and sessions, including all child sessions recursively.
     /// </summary>
     /// <param name="sessionId">Session ID to revoke</param>
     /// <returns>True if session was found and revoked, false otherwise</returns>
     public async Task<bool> RevokeSessionAsync(Guid sessionId)
     {
-        var session = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
-        if (session == null)
+        var sessionsToRevokeIds = new HashSet<Guid>();
+        await CollectSessionsToRevoke(sessionId, sessionsToRevokeIds);
+
+        if (sessionsToRevokeIds.Count == 0)
         {
             return false;
         }
 
-        // Set expiry to now (immediate invalidation)
         var now = SystemClock.Instance.GetCurrentInstant();
-        session.ExpiredAt = now;
-        db.AuthSessions.Update(session);
+        var accountIdsToClearCache = new HashSet<Guid>();
 
-        // Clear from cache immediately
-        var cacheKey = $"{AuthCachePrefix}{session.Id}";
-        await cache.RemoveAsync(cacheKey);
+        // Fetch all sessions to be revoked in one go
+        var sessions = await db.AuthSessions
+            .Where(s => sessionsToRevokeIds.Contains(s.Id))
+            .ToListAsync();
 
-        // Clear account-level cache groups that include this session
-        await cache.RemoveAsync($"{AuthCachePrefix}{session.AccountId}");
+        foreach (var session in sessions)
+        {
+            session.ExpiredAt = now;
+            accountIdsToClearCache.Add(session.AccountId);
 
+            // Clear from cache immediately for each session
+            await cache.RemoveAsync($"{AuthCachePrefix}{session.Id}");
+        }
+
+        db.AuthSessions.UpdateRange(sessions);
         await db.SaveChangesAsync();
 
+        // Clear account-level cache groups
+        foreach (var accountId in accountIdsToClearCache)
+        {
+            await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Recursively collects all session IDs that need to be revoked, starting from a given session.
+    /// </summary>
+    /// <param name="currentSessionId">The session ID to start collecting from.</param>
+    /// <param name="sessionsToRevoke">A HashSet to store the IDs of all sessions to be revoked.</param>
+    private async Task CollectSessionsToRevoke(Guid currentSessionId, HashSet<Guid> sessionsToRevoke)
+    {
+        if (sessionsToRevoke.Contains(currentSessionId))
+        {
+            return; // Already processed this session
+        }
+
+        sessionsToRevoke.Add(currentSessionId);
+
+        // Find direct children
+        var childSessions = await db.AuthSessions
+            .Where(s => s.ParentSessionId == currentSessionId)
+            .Select(s => s.Id)
+            .ToListAsync();
+
+        foreach (var childId in childSessions)
+        {
+            await CollectSessionsToRevoke(childId, sessionsToRevoke);
+        }
     }
 
     /// <summary>
@@ -380,13 +424,17 @@ public class AuthService(
         if (hasSession)
             throw new ArgumentException("Session already exists for this challenge.");
 
+        var device = await GetOrCreateDeviceAsync(challenge.AccountId, challenge.DeviceId, challenge.DeviceName,
+            challenge.Platform);
+        
         var now = SystemClock.Instance.GetCurrentInstant();
         var session = new SnAuthSession
         {
             LastGrantedAt = now,
             ExpiredAt = now.Plus(Duration.FromDays(7)),
             AccountId = challenge.AccountId,
-            ChallengeId = challenge.Id
+            ChallengeId = challenge.Id,
+            ClientId = device.Id,
         };
 
         db.AuthSessions.Add(session);
@@ -500,7 +548,7 @@ public class AuthService(
         return key;
     }
 
-    public async Task<SnApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null)
+    public async Task<SnApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null, SnAuthSession? parentSession = null)
     {
         var key = new SnApiKey
         {
@@ -509,7 +557,8 @@ public class AuthService(
             Session = new SnAuthSession
             {
                 AccountId = accountId,
-                ExpiredAt = expiredAt
+                ExpiredAt = expiredAt,
+                ParentSessionId = parentSession?.Id
             },
         };
 

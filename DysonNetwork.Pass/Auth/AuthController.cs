@@ -30,7 +30,7 @@ public class AuthController(
 
     public class ChallengeRequest
     {
-        [Required] public ClientPlatform Platform { get; set; }
+        [Required] public Shared.Models.ClientPlatform Platform { get; set; }
         [Required] [MaxLength(256)] public string Account { get; set; } = null!;
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
@@ -61,9 +61,6 @@ public class AuthController(
 
         request.DeviceName ??= userAgent;
 
-        var device =
-            await auth.GetOrCreateDeviceAsync(account.Id, request.DeviceId, request.DeviceName, request.Platform);
-
         // Trying to pick up challenges from the same IP address and user agent
         var existingChallenge = await db.AuthChallenges
             .Where(e => e.AccountId == account.Id)
@@ -72,7 +69,7 @@ public class AuthController(
             .Where(e => e.StepRemain > 0)
             .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
             .Where(e => e.Type == Shared.Models.ChallengeType.Login)
-            .Where(e => e.ClientId == device.Id)
+            .Where(e => e.DeviceId == request.DeviceId)
             .FirstOrDefaultAsync();
         if (existingChallenge is not null)
         {
@@ -90,7 +87,9 @@ public class AuthController(
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Location = geo.GetPointFromIp(ipAddress),
-            ClientId = device.Id,
+            DeviceId = request.DeviceId,
+            DeviceName = request.DeviceName,
+            Platform = request.Platform,
             AccountId = account.Id
         }.Normalize();
 
@@ -176,7 +175,6 @@ public class AuthController(
     {
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
-            .Include(authChallenge => authChallenge.Client)
             .FirstOrDefaultAsync(e => e.Id == id);
         if (challenge is null) return NotFound("Auth challenge was not found.");
 
@@ -246,7 +244,7 @@ public class AuthController(
                 {
                     Topic = "auth.login",
                     Title = localizer["NewLoginTitle"],
-                    Body = localizer["NewLoginBody", challenge.Client?.DeviceName ?? "unknown",
+                    Body = localizer["NewLoginBody", challenge.DeviceName ?? "unknown",
                         challenge.IpAddress ?? "unknown"],
                     IsSavable = true
                 },
