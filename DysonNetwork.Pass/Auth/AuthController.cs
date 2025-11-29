@@ -275,6 +275,14 @@ public class AuthController(
         public string Token { get; set; } = string.Empty;
     }
 
+    public class NewSessionRequest
+    {
+        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [MaxLength(1024)] public string? DeviceName { get; set; }
+        [Required] public DysonNetwork.Shared.Models.ClientPlatform Platform { get; set; }
+        public Instant? ExpiredAt { get; set; }
+    }
+
     [HttpPost("token")]
     public async Task<ActionResult<TokenExchangeResponse>> ExchangeToken([FromBody] TokenExchangeRequest request)
     {
@@ -324,5 +332,36 @@ public class AuthController(
             SameSite = SameSiteMode.Lax
         });
         return Ok();
+    }
+
+    [HttpPost("login/session")]
+    [Microsoft.AspNetCore.Authorization.Authorize] // Use full namespace to avoid ambiguity with DysonNetwork.Pass.Permission.Authorize
+    public async Task<ActionResult<TokenExchangeResponse>> LoginFromSession([FromBody] NewSessionRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not Shared.Models.SnAuthSession currentSession) return Unauthorized();
+
+        var newSession = await auth.CreateSessionFromParentAsync(
+            currentSession,
+            request.DeviceId,
+            request.DeviceName,
+            request.Platform,
+            request.ExpiredAt
+        );
+
+        var tk = auth.CreateToken(newSession);
+
+        // Set cookie using HttpContext, similar to CreateSessionAndIssueToken
+        var cookieDomain = _cookieDomain;
+        HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Domain = cookieDomain,
+            Expires = request.ExpiredAt?.ToDateTimeOffset() ?? DateTime.UtcNow.AddYears(20)
+        });
+
+        return Ok(new TokenExchangeResponse { Token = tk });
     }
 }

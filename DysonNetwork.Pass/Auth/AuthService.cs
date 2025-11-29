@@ -664,4 +664,40 @@ public class AuthService(
 
         return Convert.FromBase64String(padded);
     }
+
+    /// <summary>
+    /// Creates a new session derived from an existing parent session.
+    /// </summary>
+    /// <param name="parentSession">The existing session from which the new session is derived.</param>
+    /// <param name="deviceId">The ID of the device for the new session.</param>
+    /// <param name="deviceName">The name of the device for the new session.</param>
+    /// <param name="platform">The platform of the device for the new session.</param>
+    /// <param name="expiredAt">Optional: The expiration time for the new session.</param>
+    /// <returns>The newly created SnAuthSession.</returns>
+    public async Task<SnAuthSession> CreateSessionFromParentAsync(
+        SnAuthSession parentSession,
+        string deviceId,
+        string? deviceName,
+        ClientPlatform platform,
+        Instant? expiredAt = null
+    )
+    {
+        var device = await GetOrCreateDeviceAsync(parentSession.AccountId, deviceId, deviceName, platform);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var session = new SnAuthSession
+        {
+            AccountId = parentSession.AccountId,
+            CreatedAt = now,
+            LastGrantedAt = now,
+            ExpiredAt = expiredAt,
+            ParentSessionId = parentSession.Id,
+            ClientId = device.Id,
+        };
+
+        db.AuthSessions.Add(session);
+        await db.SaveChangesAsync();
+
+        return session;
+    }
 }
