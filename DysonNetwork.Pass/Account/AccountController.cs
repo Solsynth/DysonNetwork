@@ -315,4 +315,15 @@ public class AccountController(
         await socialCreditService.ValidateSocialCredits();
         return Ok();
     }
+
+    [HttpDelete("{name}")]
+    [Authorize]
+    [RequiredPermission("maintenance", "accounts.deletion")]
+    public async Task<IActionResult> AdminDeleteAccount(string name)
+    {
+        var account = await accounts.LookupAccount(name);
+        if (account is null) return NotFound();
+        await accounts.DeleteAccount(account);
+        return Ok();
+    }
 }
