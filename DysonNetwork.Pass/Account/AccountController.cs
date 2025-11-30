@@ -107,7 +107,6 @@ public class AccountController(
 
     public class AccountCreateValidateRequest
     {
-        [Required]
         [MinLength(2)]
         [MaxLength(256)]
         [RegularExpression(@"^[A-Za-z0-9_-]+$",
@@ -117,7 +116,6 @@ public class AccountController(
 
         [EmailAddress]
         [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
-        [Required]
         [MaxLength(1024)]
         public string? Email { get; set; }
     }
