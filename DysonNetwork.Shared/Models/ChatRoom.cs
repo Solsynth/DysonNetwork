@@ -53,8 +53,10 @@ public enum ChatTimeoutCauseType
 
 public class ChatTimeoutCause
 {
+    [MaxLength(4096)] public string? Reason { get; set; } = null;
     public ChatTimeoutCauseType Type { get; set; }
     public Guid? SenderId { get; set; }
+    public Instant? Since { get; set; }
 }
 
 public class SnChatMember : ModelBase

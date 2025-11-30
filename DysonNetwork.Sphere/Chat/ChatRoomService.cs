@@ -92,11 +92,10 @@ public class ChatRoomService(
             .ToList();
         if (directRoomsId.Count == 0) return rooms;
 
-        List<SnChatMember> members = directRoomsId.Count != 0
+        var members = directRoomsId.Count != 0
             ? await db.ChatMembers
                 .Where(m => directRoomsId.Contains(m.ChatRoomId))
                 .Where(m => m.AccountId != userId)
-                // Ignored the joined at condition here to keep showing userinfo when other didn't accept the invite of DM
                 .ToListAsync()
             : [];
         members = await LoadMemberAccounts(members);
@@ -122,7 +121,6 @@ public class ChatRoomService(
         if (room.Type != ChatRoomType.DirectMessage) return room;
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == room.Id && m.AccountId != userId)
-            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .ToListAsync();
 
         if (members.Count <= 0) return room;

@@ -538,8 +538,7 @@ public class ChatRoomController(
         {
             if (currentUser is null) return Unauthorized();
             var member = await db.ChatMembers
-                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null &&
-                            m.LeaveAt == null)
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
@@ -630,7 +629,8 @@ public class ChatRoomController(
         var operatorMember = await db.ChatMembers
             .Where(p => p.AccountId == accountId && p.ChatRoomId == chatRoom.Id)
             .FirstOrDefaultAsync();
-        if (operatorMember is null) return StatusCode(403, "You need to be a part of chat to invite member to the chat.");
+        if (operatorMember is null)
+            return StatusCode(403, "You need to be a part of chat to invite member to the chat.");
 
         // Handle realm-owned chat rooms
         if (chatRoom.RealmId is not null)
@@ -811,6 +811,128 @@ public class ChatRoomController(
         await crs.PurgeRoomMembersCache(roomId);
 
         return Ok(targetMember);
+    }
+
+    public class ChatTimeoutRequest
+    {
+        [MaxLength(4096)] public string? Reason { get; set; }
+        public Instant TimeoutUntil { get; set; }
+    }
+
+    [HttpPost("{roomId:guid}/members/{memberId:guid}/timeout")]
+    [Authorize]
+    public async Task<ActionResult> TimeoutChatMember(Guid roomId, Guid memberId, [FromBody] ChatTimeoutRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (now >= request.TimeoutUntil)
+            return BadRequest("Timeout can only until a time in the future.");
+
+        var chatRoom = await db.ChatRooms
+            .Where(r => r.Id == roomId)
+            .FirstOrDefaultAsync();
+        if (chatRoom is null) return NotFound();
+
+        var operatorMember = await db.ChatMembers
+            .FirstOrDefaultAsync(m => m.AccountId == accountId && m.ChatRoomId == chatRoom.Id);
+        if (operatorMember is null) return BadRequest("You have not joined this chat room.");
+
+        // Check if the chat room is owned by a realm
+        if (chatRoom.RealmId is not null)
+        {
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
+                return StatusCode(403, "You need at least be a realm moderator to timeout members.");
+        }
+        else if (chatRoom.Type == ChatRoomType.DirectMessage)
+            return BadRequest("You cannot timeout member in a direct message.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to timeout member in the chat.");
+
+        // Find the target member
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+        if (member is null) return NotFound();
+
+        member.TimeoutCause = new ChatTimeoutCause
+        {
+            Reason = request.Reason,
+            SenderId = operatorMember.Id,
+            Type = ChatTimeoutCauseType.ByModerator,
+            Since = now
+        };
+        member.TimeoutUntil = request.TimeoutUntil;
+        db.Update(member);
+        await db.SaveChangesAsync();
+        _ = crs.PurgeRoomMembersCache(roomId);
+
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "chatrooms.timeout",
+            Meta =
+            {
+                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        return NoContent();
+    }
+    
+    [HttpDelete("{roomId:guid}/members/{memberId:guid}/timeout")]
+    [Authorize]
+    public async Task<ActionResult> RemoveChatMemberTimeout(Guid roomId, Guid memberId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var chatRoom = await db.ChatRooms
+            .Where(r => r.Id == roomId)
+            .FirstOrDefaultAsync();
+        if (chatRoom is null) return NotFound();
+
+        // Check if the chat room is owned by a realm
+        if (chatRoom.RealmId is not null)
+        {
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
+                return StatusCode(403, "You need at least be a realm moderator to remove members.");
+        }
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+            return StatusCode(403, "You need be part of the DM to update the chat.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to update the chat.");
+
+        // Find the target member
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+        if (member is null) return NotFound();
+
+        member.TimeoutCause = null;
+        member.TimeoutUntil = null;
+        db.Update(member);
+        await db.SaveChangesAsync();
+        _ = crs.PurgeRoomMembersCache(roomId);
+
+        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        {
+            Action = "chatrooms.timeout.remove",
+            Meta =
+            {
+                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
+                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
+            },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        return NoContent();
     }
 
     [HttpDelete("{roomId:guid}/members/{memberId:guid}")]
