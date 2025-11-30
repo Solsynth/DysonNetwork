@@ -42,8 +42,8 @@ public class WebSocketController(
         var accountId = Guid.Parse(currentUser.Id!);
         var deviceId = currentSession.Challenge?.DeviceId ?? Guid.NewGuid().ToString();
 
-        if (string.IsNullOrEmpty(deviceId))
-            return BadRequest("Unable to get device ID from session.");
+        // TODO temporary fix due to the server update
+        if (string.IsNullOrEmpty(deviceId)) deviceId = Guid.NewGuid().ToString().Replace("-", "");
         if (deviceAlt is not null)
             deviceId = $"{deviceId}+{deviceAlt}";
 
@@ -101,9 +101,9 @@ public class WebSocketController(
         }
         catch (WebSocketException ex)
             when (ex.Message.Contains(
-                    "The remote party closed the WebSocket connection without completing the close handshake"
-                )
-            )
+                      "The remote party closed the WebSocket connection without completing the close handshake"
+                  )
+                 )
         {
             logger.LogDebug(
                 "WebSocket disconnected with user @{UserName}#{UserId} and device #{DeviceId} - client closed connection without proper handshake",
