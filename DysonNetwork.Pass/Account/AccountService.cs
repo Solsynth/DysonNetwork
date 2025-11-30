@@ -58,7 +58,9 @@ public class AccountService(
         if (account is not null) return account;
 
         var contact = await db.AccountContacts
-            .Where(c => c.Content == probe)
+            .Where(c => c.Type == Shared.Models.AccountContactType.Email ||
+                        c.Type == Shared.Models.AccountContactType.PhoneNumber)
+            .Where(c => EF.Functions.ILike(c.Content, probe))
             .Include(c => c.Account)
             .FirstOrDefaultAsync();
         return contact?.Account;
