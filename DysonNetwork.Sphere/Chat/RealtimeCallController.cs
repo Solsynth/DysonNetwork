@@ -4,6 +4,7 @@ using DysonNetwork.Sphere.Chat.Realtime;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Sphere.Chat;
@@ -81,8 +82,11 @@ public class RealtimeCallController(
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
+        var now = SystemClock.Instance.GetCurrentInstant();
         if (member == null)
             return StatusCode(403, "You need to be a member to join a call.");
+        if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
+            return StatusCode(403, "You has been timed out in this chat.");
 
         // Get ongoing call
         var ongoingCall = await cs.GetCallOngoingAsync(roomId);
@@ -150,12 +154,16 @@ public class RealtimeCallController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        
         var member = await db.ChatMembers
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
         if (member == null)
             return StatusCode(403, "You need to be a member to start a call.");
+        if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
+            return StatusCode(403, "You has been timed out in this chat.");
 
         var ongoingCall = await cs.GetCallOngoingAsync(roomId);
         if (ongoingCall is not null) return StatusCode(423, "There is already an ongoing call inside the chatroom.");

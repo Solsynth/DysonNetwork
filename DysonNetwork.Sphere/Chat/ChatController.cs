@@ -12,6 +12,7 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -246,6 +247,7 @@ public partial class ChatController(
     public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) &&
@@ -254,9 +256,12 @@ public partial class ChatController(
             !request.PollId.HasValue)
             return BadRequest("You cannot send an empty message.");
 
-        var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
             return StatusCode(403, "You need to be a member to send messages here.");
+        if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
+            return StatusCode(403, "You has been timed out in this chat.");
 
         // Validate fund if provided
         if (request.FundId.HasValue)
@@ -382,6 +387,7 @@ public partial class ChatController(
     public async Task<ActionResult> UpdateMessage([FromBody] SendMessageRequest request, Guid roomId, Guid messageId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         request.Content = TextSanitizer.Sanitize(request.Content);
 
@@ -392,32 +398,17 @@ public partial class ChatController(
 
         if (message == null) return NotFound();
 
-        var accountId = Guid.Parse(currentUser.Id);
+        var now = SystemClock.Instance.GetCurrentInstant();
         if (message.Sender.AccountId != accountId)
             return StatusCode(403, "You can only edit your own messages.");
+        if (message.Sender.TimeoutUntil.HasValue && message.Sender.TimeoutUntil.Value > now)
+            return StatusCode(403, "You has been timed out in this chat.");
 
         if (string.IsNullOrWhiteSpace(request.Content) &&
             (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
             !request.FundId.HasValue &&
             !request.PollId.HasValue)
             return BadRequest("You cannot send an empty message.");
-
-        // Validate reply and forward message IDs exist
-        if (request.RepliedMessageId.HasValue)
-        {
-            var repliedMessage = await db.ChatMessages
-                .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
-            if (repliedMessage == null)
-                return BadRequest("The message you're replying to does not exist.");
-        }
-
-        if (request.ForwardedMessageId.HasValue)
-        {
-            var forwardedMessage = await db.ChatMessages
-                .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
-            if (forwardedMessage == null)
-                return BadRequest("The message you're forwarding does not exist.");
-        }
 
         // Update mentions based on new content and references
         var updatedMentions = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,

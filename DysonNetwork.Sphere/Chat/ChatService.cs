@@ -707,14 +707,7 @@ public partial class ChatService(
         if (content is not null)
             message.Content = content;
 
-        if (meta is not null)
-            message.Meta = meta;
-
-        if (repliedMessageId.HasValue)
-            message.RepliedMessageId = repliedMessageId;
-
-        if (forwardedMessageId.HasValue)
-            message.ForwardedMessageId = forwardedMessageId;
+        // Update do not override meta, replies to and forwarded to
 
         if (attachmentsId is not null)
             await UpdateFileReferencesForMessageAsync(message, attachmentsId);
