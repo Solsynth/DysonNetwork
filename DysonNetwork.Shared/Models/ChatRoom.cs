@@ -8,27 +8,39 @@ namespace DysonNetwork.Shared.Models;
 public enum ChatRoomType
 {
     Group,
-    DirectMessage
+    DirectMessage,
 }
 
 public class SnChatRoom : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
-    [MaxLength(1024)] public string? Name { get; set; }
-    [MaxLength(4096)] public string? Description { get; set; }
+
+    [MaxLength(1024)]
+    public string? Name { get; set; }
+
+    [MaxLength(4096)]
+    public string? Description { get; set; }
     public ChatRoomType Type { get; set; }
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
 
-    [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Picture { get; set; }
-    [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Picture { get; set; }
 
-    [JsonIgnore] public ICollection<SnChatMember> Members { get; set; } = new List<SnChatMember>();
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Background { get; set; }
+
+    [JsonIgnore]
+    public ICollection<SnChatMember> Members { get; set; } = new List<SnChatMember>();
 
     public Guid? AccountId { get; set; }
-    [NotMapped] public SnAccount? Account { get; set; }
+
+    [NotMapped]
+    public SnAccount? Account { get; set; }
     public Guid? RealmId { get; set; }
-    [NotMapped] public SnRealm? Realm { get; set; }
+
+    [NotMapped]
+    public SnRealm? Realm { get; set; }
 
     [NotMapped]
     [JsonPropertyName("members")]
@@ -42,7 +54,7 @@ public enum ChatMemberNotify
 {
     All,
     Mentions,
-    None
+    None,
 }
 
 public enum ChatTimeoutCauseType
@@ -53,7 +65,8 @@ public enum ChatTimeoutCauseType
 
 public class ChatTimeoutCause
 {
-    [MaxLength(4096)] public string? Reason { get; set; } = null;
+    [MaxLength(4096)]
+    public string? Reason { get; set; } = null;
     public ChatTimeoutCauseType Type { get; set; }
     public Guid? SenderId { get; set; }
     public Instant? Since { get; set; }
@@ -65,36 +78,48 @@ public class SnChatMember : ModelBase
     public Guid ChatRoomId { get; set; }
     public SnChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
-    [NotMapped] public SnAccount? Account { get; set; }
-    [NotMapped] public SnAccountStatus? Status { get; set; }
 
-    [MaxLength(1024)] public string? Nick { get; set; }
+    [NotMapped]
+    public SnAccount? Account { get; set; }
+
+    [NotMapped]
+    public SnAccountStatus? Status { get; set; }
+
+    [MaxLength(1024)]
+    public string? Nick { get; set; }
 
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? LastReadAt { get; set; }
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
-    
+
     public Guid? InvitedById { get; set; }
     public SnChatMember? InvitedBy { get; set; }
 
     // Backwards support field
-    [NotMapped] public int Role = 0;
+    [NotMapped]
+    public int Role { get; } = 0;
+
+    [NotMapped]
+    public bool IsBot { get; } = false;
 
     /// <summary>
     /// The break time is the user doesn't receive any message from this member for a while.
     /// Expect mentioned him or her.
     /// </summary>
     public Instant? BreakUntil { get; set; }
+
     /// <summary>
     /// The timeout is the user can't send any message.
     /// Set by the moderator of the chat room.
     /// </summary>
     public Instant? TimeoutUntil { get; set; }
+
     /// <summary>
     /// The timeout cause is the reason why the user is timeout.
     /// </summary>
-    [Column(TypeName = "jsonb")] public ChatTimeoutCause? TimeoutCause { get; set; }
+    [Column(TypeName = "jsonb")]
+    public ChatTimeoutCause? TimeoutCause { get; set; }
 }
 
 public class ChatMemberTransmissionObject : ModelBase
@@ -102,23 +127,30 @@ public class ChatMemberTransmissionObject : ModelBase
     public Guid Id { get; set; }
     public Guid ChatRoomId { get; set; }
     public Guid AccountId { get; set; }
-    [NotMapped] public SnAccount Account { get; set; } = null!;
 
-    [MaxLength(1024)] public string? Nick { get; set; }
+    [NotMapped]
+    public SnAccount Account { get; set; } = null!;
+
+    [MaxLength(1024)]
+    public string? Nick { get; set; }
 
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
-    
+
     public Guid? InvitedById { get; set; }
     public SnChatMember? InvitedBy { get; set; }
 
     public Instant? BreakUntil { get; set; }
     public Instant? TimeoutUntil { get; set; }
     public ChatTimeoutCause? TimeoutCause { get; set; }
-    
+
     // Backwards support field
-    [NotMapped] public int Role = 0;
+    [NotMapped]
+    public int Role { get; } = 0;
+
+    [NotMapped]
+    public bool IsBot { get; } = false;
 
     public static ChatMemberTransmissionObject FromEntity(SnChatMember member)
     {
@@ -139,7 +171,7 @@ public class ChatMemberTransmissionObject : ModelBase
             InvitedBy = member.InvitedBy,
             CreatedAt = member.CreatedAt,
             UpdatedAt = member.UpdatedAt,
-            DeletedAt = member.DeletedAt
+            DeletedAt = member.DeletedAt,
         };
     }
 }
