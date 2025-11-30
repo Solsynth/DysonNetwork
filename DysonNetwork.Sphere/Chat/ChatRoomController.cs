@@ -182,8 +182,9 @@ public class ChatRoomController(
     [RequiredPermission("global", "chat.create")]
     public async Task<ActionResult<SnChatRoom>> CreateChatRoom(ChatRoomRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         if (request.Name is null) return BadRequest("You cannot create a chat room without a name.");
+        var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = new SnChatRoom
         {
@@ -192,13 +193,14 @@ public class ChatRoomController(
             IsCommunity = request.IsCommunity ?? false,
             IsPublic = request.IsPublic ?? false,
             Type = ChatRoomType.Group,
+            AccountId = accountId,
             Members = new List<SnChatMember>
             {
                 new()
                 {
                     Role = ChatMemberRole.Owner,
-                    AccountId = Guid.Parse(currentUser.Id),
-                    JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
+                    AccountId = accountId,
+                    JoinedAt = SystemClock.Instance.GetCurrentInstant()
                 }
             }
         };
@@ -294,7 +296,7 @@ public class ChatRoomController(
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<SnChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var chatRoom = await db.ChatRooms
             .Where(e => e.Id == id)

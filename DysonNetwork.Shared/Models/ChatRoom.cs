@@ -25,6 +25,8 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
 
     [JsonIgnore] public ICollection<SnChatMember> Members { get; set; } = new List<SnChatMember>();
 
+    public Guid? AccountId { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
     public Guid? RealmId { get; set; }
     [NotMapped] public SnRealm? Realm { get; set; }
 

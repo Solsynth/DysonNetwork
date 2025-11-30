@@ -247,6 +247,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
                     b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
