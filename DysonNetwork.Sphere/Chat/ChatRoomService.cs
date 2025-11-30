@@ -133,16 +133,11 @@ public class ChatRoomService(
         return room;
     }
 
-    public async Task<bool> IsMemberWithRole(Guid roomId, Guid accountId, params int[] requiredRoles)
+    public async Task<bool> IsChatMember(Guid roomId, Guid accountId)
     {
-        if (requiredRoles.Length == 0)
-            return false;
-
-        var maxRequiredRole = requiredRoles.Max();
-        var member = await db.ChatMembers
+        return await db.ChatMembers
             .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
-        return member?.Role >= maxRequiredRole;
+            .AnyAsync();
     }
 
     public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)

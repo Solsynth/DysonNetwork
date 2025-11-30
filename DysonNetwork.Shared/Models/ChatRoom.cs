@@ -38,13 +38,6 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
     public string ResourceIdentifier => $"chatroom:{Id}";
 }
 
-public abstract class ChatMemberRole
-{
-    public const int Owner = 100;
-    public const int Moderator = 50;
-    public const int Member = 0;
-}
-
 public enum ChatMemberNotify
 {
     All,
@@ -75,12 +68,16 @@ public class SnChatMember : ModelBase
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
-    public int Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? LastReadAt { get; set; }
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
-    public bool IsBot { get; set; } = false;
+    
+    public Guid? InvitedById { get; set; }
+    public SnChatMember? InvitedBy { get; set; }
+
+    // Backwards support field
+    [NotMapped] public int Role = 0;
 
     /// <summary>
     /// The break time is the user doesn't receive any message from this member for a while.
@@ -107,15 +104,19 @@ public class ChatMemberTransmissionObject : ModelBase
 
     [MaxLength(1024)] public string? Nick { get; set; }
 
-    public int Role { get; set; } = ChatMemberRole.Member;
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
-    public bool IsBot { get; set; } = false;
+    
+    public Guid? InvitedById { get; set; }
+    public SnChatMember? InvitedBy { get; set; }
 
     public Instant? BreakUntil { get; set; }
     public Instant? TimeoutUntil { get; set; }
     public ChatTimeoutCause? TimeoutCause { get; set; }
+    
+    // Backwards support field
+    [NotMapped] public int Role = 0;
 
     public static ChatMemberTransmissionObject FromEntity(SnChatMember member)
     {
@@ -126,14 +127,14 @@ public class ChatMemberTransmissionObject : ModelBase
             AccountId = member.AccountId,
             Account = member.Account!,
             Nick = member.Nick,
-            Role = member.Role,
             Notify = member.Notify,
             JoinedAt = member.JoinedAt,
             LeaveAt = member.LeaveAt,
-            IsBot = member.IsBot,
             BreakUntil = member.BreakUntil,
             TimeoutUntil = member.TimeoutUntil,
             TimeoutCause = member.TimeoutCause,
+            InvitedById = member.InvitedById,
+            InvitedBy = member.InvitedBy,
             CreatedAt = member.CreatedAt,
             UpdatedAt = member.UpdatedAt,
             DeletedAt = member.DeletedAt

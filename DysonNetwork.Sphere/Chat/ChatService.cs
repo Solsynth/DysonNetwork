@@ -580,7 +580,7 @@ public partial class ChatService(
     {
         var call = await GetCallOngoingAsync(roomId);
         if (call is null) throw new InvalidOperationException("No ongoing call was not found.");
-        if (sender.Role < ChatMemberRole.Moderator && call.SenderId != sender.Id)
+        if (sender.AccountId != call.Room.AccountId && call.SenderId != sender.Id)
             throw new InvalidOperationException("You are not the call initiator either the chat room moderator.");
 
         // End the realtime session if it exists

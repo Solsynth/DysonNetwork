@@ -112,7 +112,7 @@ public partial class ChatController(
                 .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null &&
                             m.LeaveAt == null)
                 .FirstOrDefaultAsync();
-            if (member == null || member.Role < ChatMemberRole.Member)
+            if (member == null)
                 return StatusCode(403, "You are not a member of this chat room.");
         }
 
@@ -155,7 +155,7 @@ public partial class ChatController(
                 .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null &&
                             m.LeaveAt == null)
                 .FirstOrDefaultAsync();
-            if (member == null || member.Role < ChatMemberRole.Member)
+            if (member == null)
                 return StatusCode(403, "You are not a member of this chat room.");
         }
 
@@ -255,8 +255,8 @@ public partial class ChatController(
             return BadRequest("You cannot send an empty message.");
 
         var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
-        if (member == null || member.Role < ChatMemberRole.Member)
-            return StatusCode(403, "You need to be a normal member to send messages here.");
+        if (member == null)
+            return StatusCode(403, "You need to be a member to send messages here.");
 
         // Validate fund if provided
         if (request.FundId.HasValue)

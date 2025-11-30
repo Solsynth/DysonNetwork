@@ -55,7 +55,7 @@ public class RealtimeCallController(
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
-        if (member == null || member.Role < ChatMemberRole.Member)
+        if (member == null)
             return StatusCode(403, "You need to be a member to view call status.");
 
         var ongoingCall = await db.ChatRealtimeCall
@@ -81,7 +81,7 @@ public class RealtimeCallController(
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
-        if (member == null || member.Role < ChatMemberRole.Member)
+        if (member == null)
             return StatusCode(403, "You need to be a member to join a call.");
 
         // Get ongoing call
@@ -93,7 +93,7 @@ public class RealtimeCallController(
         if (string.IsNullOrEmpty(ongoingCall.SessionId))
             return BadRequest("Call session is not properly configured.");
 
-        var isAdmin = member.Role >= ChatMemberRole.Moderator;
+        var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
         var userToken = realtime.GetUserToken(currentUser, ongoingCall.SessionId, isAdmin);
 
         // Get LiveKit endpoint from configuration
@@ -154,8 +154,8 @@ public class RealtimeCallController(
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
-        if (member == null || member.Role < ChatMemberRole.Member)
-            return StatusCode(403, "You need to be a normal member to start a call.");
+        if (member == null)
+            return StatusCode(403, "You need to be a member to start a call.");
 
         var ongoingCall = await cs.GetCallOngoingAsync(roomId);
         if (ongoingCall is not null) return StatusCode(423, "There is already an ongoing call inside the chatroom.");
@@ -173,8 +173,8 @@ public class RealtimeCallController(
         var member = await db.ChatMembers
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (member == null || member.Role < ChatMemberRole.Member)
-            return StatusCode(403, "You need to be a normal member to end a call.");
+        if (member == null)
+            return StatusCode(403, "You need to be a member to end a call.");
 
         try
         {

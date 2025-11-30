@@ -6,7 +6,6 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Localization;
-
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Localization;
@@ -80,6 +79,7 @@ public class ChatRoomController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var relatedUser = await accounts.GetAccountAsync(
             new GetAccountRequest { Id = request.RelatedUserId.ToString() }
@@ -112,18 +112,17 @@ public class ChatRoomController(
         {
             Type = ChatRoomType.DirectMessage,
             IsPublic = false,
+            AccountId = accountId,
             Members = new List<SnChatMember>
             {
                 new()
                 {
-                    AccountId = Guid.Parse(currentUser.Id),
-                    Role = ChatMemberRole.Owner,
-                    JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
+                    AccountId = accountId,
+                    JoinedAt = SystemClock.Instance.GetCurrentInstant()
                 },
                 new()
                 {
                     AccountId = request.RelatedUserId,
-                    Role = ChatMemberRole.Member,
                     JoinedAt = null, // Pending status
                 }
             }
@@ -154,11 +153,12 @@ public class ChatRoomController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
+        var currentId = Guid.Parse(currentUser.Id);
 
         var room = await db.ChatRooms
             .Include(c => c.Members)
             .Where(c => c.Type == ChatRoomType.DirectMessage && c.Members.Count == 2)
-            .Where(c => c.Members.Any(m => m.AccountId == Guid.Parse(currentUser.Id)))
+            .Where(c => c.Members.Any(m => m.AccountId == currentId))
             .Where(c => c.Members.Any(m => m.AccountId == accountId))
             .FirstOrDefaultAsync();
         if (room is null) return NotFound();
@@ -168,7 +168,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required][MaxLength(1024)] public string? Name { get; set; }
+        [Required] [MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -198,7 +198,6 @@ public class ChatRoomController(
             {
                 new()
                 {
-                    Role = ChatMemberRole.Owner,
                     AccountId = accountId,
                     JoinedAt = SystemClock.Instance.GetCurrentInstant()
                 }
@@ -297,6 +296,7 @@ public class ChatRoomController(
     public async Task<ActionResult<SnChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
             .Where(e => e.Id == id)
@@ -305,16 +305,18 @@ public class ChatRoomController(
 
         if (chatRoom.RealmId is not null)
         {
-            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, Guid.Parse(currentUser.Id),
-                    [RealmMemberRole.Moderator]))
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to update the chat.");
         }
-        else if (!await crs.IsMemberWithRole(chatRoom.Id, Guid.Parse(currentUser.Id), ChatMemberRole.Moderator))
-            return StatusCode(403, "You need at least be a moderator to update the chat.");
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+            return StatusCode(403, "You need be part of the DM to update the chat.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to update the chat.");
 
         if (request.RealmId is not null)
         {
-            if (!await rs.IsMemberWithRole(request.RealmId.Value, Guid.Parse(currentUser.Id), [RealmMemberRole.Moderator]))
+            if (!await rs.IsMemberWithRole(request.RealmId.Value, Guid.Parse(currentUser.Id),
+                    [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a moderator to transfer the chat linked to the realm.");
             chatRoom.RealmId = request.RealmId;
         }
@@ -406,7 +408,8 @@ public class ChatRoomController(
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult> DeleteChatRoom(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
             .Where(e => e.Id == id)
@@ -415,12 +418,13 @@ public class ChatRoomController(
 
         if (chatRoom.RealmId is not null)
         {
-            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, Guid.Parse(currentUser.Id),
-                    [RealmMemberRole.Moderator]))
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to delete the chat.");
         }
-        else if (!await crs.IsMemberWithRole(chatRoom.Id, Guid.Parse(currentUser.Id), ChatMemberRole.Owner))
-            return StatusCode(403, "You need at least be the owner to delete the chat.");
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+            return StatusCode(403, "You need be part of the DM to update the chat.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to update the chat.");
 
         var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
 
@@ -497,9 +501,11 @@ public class ChatRoomController(
         {
             if (currentUser is null) return Unauthorized();
             var member = await db.ChatMembers
-                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null && m.LeaveAt == null)
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null &&
+                            m.LeaveAt == null)
                 .FirstOrDefaultAsync();
-            if (member is null) return StatusCode(403, "You need to be a member to see online count of private chat room.");
+            if (member is null)
+                return StatusCode(403, "You need to be a member to see online count of private chat room.");
         }
 
         var members = await db.ChatMembers
@@ -532,7 +538,8 @@ public class ChatRoomController(
         {
             if (currentUser is null) return Unauthorized();
             var member = await db.ChatMembers
-                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null && m.LeaveAt == null)
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null &&
+                            m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
@@ -594,8 +601,7 @@ public class ChatRoomController(
 
     [HttpPost("invites/{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<SnChatMember>> InviteMember(Guid roomId,
-        [FromBody] ChatMemberRequest request)
+    public async Task<ActionResult<SnChatMember>> InviteMember(Guid roomId, [FromBody] ChatMemberRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -613,7 +619,7 @@ public class ChatRoomController(
             Status = -100
         });
 
-        if (relationship?.Relationship != null && relationship.Relationship.Status == -100)
+        if (relationship?.Relationship is { Status: -100 })
             return StatusCode(403, "You cannot invite a user that blocked you.");
 
         var chatRoom = await db.ChatRooms
@@ -621,26 +627,21 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
+        var operatorMember = await db.ChatMembers
+            .Where(p => p.AccountId == accountId && p.ChatRoomId == chatRoom.Id)
+            .FirstOrDefaultAsync();
+        if (operatorMember is null) return StatusCode(403, "You need to be a part of chat to invite member to the chat.");
+
         // Handle realm-owned chat rooms
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to invite members to this chat.");
         }
-        else
-        {
-            var chatMember = await db.ChatMembers
-                .Where(m => m.AccountId == accountId)
-                .Where(m => m.ChatRoomId == roomId)
-                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (chatMember is null) return StatusCode(403, "You are not even a member of the targeted chat room.");
-            if (chatMember.Role < ChatMemberRole.Moderator)
-                return StatusCode(403,
-                    "You need at least be a moderator to invite other members to this chat room.");
-            if (chatMember.Role < request.Role)
-                return StatusCode(403, "You cannot invite member with higher permission than yours.");
-        }
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+            return StatusCode(403, "You need be part of the DM to invite member to the chat.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to invite member to this chat.");
 
         var existingMember = await db.ChatMembers
             .Where(m => m.AccountId == request.RelatedUserId)
@@ -648,9 +649,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (existingMember != null)
         {
-            if (existingMember.LeaveAt == null)
-                return BadRequest("This user has been joined the chat cannot be invited again.");
-
+            existingMember.InvitedById = operatorMember.Id;
             existingMember.LeaveAt = null;
             existingMember.JoinedAt = null;
             db.ChatMembers.Update(existingMember);
@@ -661,10 +660,10 @@ public class ChatRoomController(
             {
                 Action = "chatrooms.invite",
                 Meta =
-            {
-                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
-            },
+                {
+                    { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
+                    { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
+                },
                 AccountId = currentUser.Id,
                 UserAgent = Request.Headers.UserAgent,
                 IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
@@ -675,9 +674,9 @@ public class ChatRoomController(
 
         var newMember = new SnChatMember
         {
+            InvitedById = operatorMember.Id,
             AccountId = Guid.Parse(relatedUser.Id),
             ChatRoomId = roomId,
-            Role = request.Role,
         };
 
         db.ChatMembers.Add(newMember);
@@ -770,7 +769,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
+        db.ChatMembers.Remove(member);
         await db.SaveChangesAsync();
 
         return NoContent();
@@ -814,74 +813,12 @@ public class ChatRoomController(
         return Ok(targetMember);
     }
 
-    [HttpPatch("{roomId:guid}/members/{memberId:guid}/role")]
-    [Authorize]
-    public async Task<ActionResult<SnChatMember>> UpdateChatMemberRole(Guid roomId, Guid memberId, [FromBody] int newRole)
-    {
-        if (newRole >= ChatMemberRole.Owner) return BadRequest("Unable to set chat member to owner or greater role.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-
-        var chatRoom = await db.ChatRooms
-            .Where(r => r.Id == roomId)
-            .FirstOrDefaultAsync();
-        if (chatRoom is null) return NotFound();
-
-        // Check if the chat room is owned by a realm
-        if (chatRoom.RealmId is not null)
-        {
-            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, Guid.Parse(currentUser.Id), [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to change member roles.");
-        }
-        else
-        {
-            var targetMember = await db.ChatMembers
-                .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (targetMember is null) return NotFound();
-
-            // Check if the current user has permission to change roles
-            if (
-                !await crs.IsMemberWithRole(
-                    chatRoom.Id,
-                    Guid.Parse(currentUser.Id),
-                    ChatMemberRole.Moderator,
-                    targetMember.Role,
-                    newRole
-                )
-            )
-                return StatusCode(403, "You don't have enough permission to edit the roles of members.");
-
-            targetMember.Role = newRole;
-            db.ChatMembers.Update(targetMember);
-            await db.SaveChangesAsync();
-
-            await crs.PurgeRoomMembersCache(roomId);
-
-            _ = als.CreateActionLogAsync(new CreateActionLogRequest
-            {
-                Action = "chatrooms.role.edit",
-                Meta =
-                {
-                    { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
-                    { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) },
-                    { "new_role", Google.Protobuf.WellKnownTypes.Value.ForNumber(newRole) }
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
-            });
-
-            return Ok(targetMember);
-        }
-
-        return BadRequest();
-    }
-
     [HttpDelete("{roomId:guid}/members/{memberId:guid}")]
     [Authorize]
     public async Task<ActionResult> RemoveChatMember(Guid roomId, Guid memberId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
             .Where(r => r.Id == roomId)
@@ -891,25 +828,19 @@ public class ChatRoomController(
         // Check if the chat room is owned by a realm
         if (chatRoom.RealmId is not null)
         {
-        if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, Guid.Parse(currentUser.Id),
-                [RealmMemberRole.Moderator]))
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to remove members.");
         }
-        else
-        {
-            if (!await crs.IsMemberWithRole(chatRoom.Id, Guid.Parse(currentUser.Id), [ChatMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a moderator to remove members.");
-        }
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+            return StatusCode(403, "You need be part of the DM to update the chat.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to update the chat.");
 
         // Find the target member
         var member = await db.ChatMembers
             .Where(m => m.AccountId == memberId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
-
-        // Check if the current user has sufficient permissions
-        if (!await crs.IsMemberWithRole(chatRoom.Id, memberId, member.Role))
-            return StatusCode(403, "You cannot remove members with equal or higher roles.");
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -964,8 +895,7 @@ public class ChatRoomController(
         {
             AccountId = Guid.Parse(currentUser.Id),
             ChatRoomId = roomId,
-            Role = ChatMemberRole.Member,
-            JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
+            JoinedAt = SystemClock.Instance.GetCurrentInstant()
         };
 
         db.ChatMembers.Add(newMember);
@@ -989,6 +919,12 @@ public class ChatRoomController(
     public async Task<ActionResult> LeaveChat(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var chat = await db.ChatRooms.FirstOrDefaultAsync(c => c.Id == roomId);
+        if (chat is null) return NotFound();
+        if (chat.AccountId == accountId)
+            return BadRequest("You cannot leave you own chat room");
 
         var member = await db.ChatMembers
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
@@ -997,20 +933,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (member.Role == ChatMemberRole.Owner)
-        {
-            // Check if this is the only owner
-            var otherOwners = await db.ChatMembers
-                .Where(m => m.ChatRoomId == roomId)
-                .Where(m => m.Role == ChatMemberRole.Owner)
-                .Where(m => m.AccountId != Guid.Parse(currentUser.Id))
-                .AnyAsync();
-
-            if (!otherOwners)
-                return BadRequest("The last owner cannot leave the chat. Transfer ownership first or delete the chat.");
-        }
-
-        member.LeaveAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(member);
         await db.SaveChangesAsync();
         await crs.PurgeRoomMembersCache(roomId);
