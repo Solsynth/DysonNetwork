@@ -34,7 +34,7 @@ public class AccountController(
             .Include(e => e.Badges)
             .Include(e => e.Profile)
             .Include(e => e.Contacts.Where(c => c.IsPublic))
-            .Where(a => a.Name == name)
+            .Where(a => EF.Functions.Like(a.Name, name))
             .FirstOrDefaultAsync();
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
 
@@ -103,6 +103,44 @@ public class AccountController(
         [MaxLength(32)] public string Language { get; set; } = "en-us";
 
         [Required] public string CaptchaToken { get; set; } = string.Empty;
+    }
+
+    public class AccountCreateValidateRequest
+    {
+        [Required]
+        [MinLength(2)]
+        [MaxLength(256)]
+        [RegularExpression(@"^[A-Za-z0-9_-]+$",
+            ErrorMessage = "Name can only contain letters, numbers, underscores, and hyphens.")
+        ]
+        public string? Name { get; set; }
+
+        [EmailAddress]
+        [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
+        [Required]
+        [MaxLength(1024)]
+        public string? Email { get; set; }
+    }
+
+    [HttpPost("validate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<string>> ValidateCreateAccountRequest(
+        [FromBody] AccountCreateValidateRequest request)
+    {
+        if (request.Name is not null)
+        {
+            if (await accounts.CheckAccountNameHasTaken(request.Name))
+                return BadRequest("Account name has already been taken.");
+        }
+
+        if (request.Email is not null)
+        {
+            if (await accounts.CheckEmailHasBeenUsed(request.Email))
+                return BadRequest("Email has already been used.");
+        }
+
+        return Ok("Everything seems good.");
     }
 
     [HttpPost]

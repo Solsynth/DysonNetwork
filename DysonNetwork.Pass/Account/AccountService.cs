@@ -54,7 +54,7 @@ public class AccountService(
 
     public async Task<SnAccount?> LookupAccount(string probe)
     {
-        var account = await db.Accounts.Where(a => a.Name == probe).FirstOrDefaultAsync();
+        var account = await db.Accounts.Where(a => EF.Functions.ILike(a.Name, probe)).FirstOrDefaultAsync();
         if (account is not null) return account;
 
         var contact = await db.AccountContacts
@@ -81,6 +81,17 @@ public class AccountService(
         return profile?.Level;
     }
 
+    public async Task<bool> CheckAccountNameHasTaken(string name)
+    {
+        return await db.Accounts.AnyAsync(a => EF.Functions.ILike(a.Name, name));
+    }
+
+    public async Task<bool> CheckEmailHasBeenUsed(string email)
+    {
+        return await db.AccountContacts.AnyAsync(c =>
+            c.Type == Shared.Models.AccountContactType.Email && EF.Functions.ILike(c.Content, email));
+    }
+
     public async Task<SnAccount> CreateAccount(
         string name,
         string nick,
@@ -92,8 +103,7 @@ public class AccountService(
         bool isActivated = false
     )
     {
-        var dupeNameCount = await db.Accounts.Where(a => a.Name == name).CountAsync();
-        if (dupeNameCount > 0)
+        if (await CheckAccountNameHasTaken(name))
             throw new InvalidOperationException("Account name has already been taken.");
 
         var dupeEmailCount = await db.AccountContacts
@@ -274,7 +284,8 @@ public class AccountService(
         return isExists;
     }
 
-    public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account, Shared.Models.AccountAuthFactorType type, string? secret)
+    public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account,
+        Shared.Models.AccountAuthFactorType type, string? secret)
     {
         SnAccountAuthFactor? factor = null;
         switch (type)
@@ -352,7 +363,8 @@ public class AccountService(
     public async Task<SnAccountAuthFactor> EnableAuthFactor(SnAccountAuthFactor factor, string? code)
     {
         if (factor.EnabledAt is not null) throw new ArgumentException("The factor has been enabled.");
-        if (factor.Type is Shared.Models.AccountAuthFactorType.Password or Shared.Models.AccountAuthFactorType.TimedCode)
+        if (factor.Type is Shared.Models.AccountAuthFactorType.Password
+            or Shared.Models.AccountAuthFactorType.TimedCode)
         {
             if (code is null || !factor.VerifyPassword(code))
                 throw new InvalidOperationException(
@@ -577,7 +589,8 @@ public class AccountService(
             await cache.RemoveAsync($"{AuthService.AuthCachePrefix}{item.Id}");
     }
 
-    public async Task<SnAccountContact> CreateContactMethod(SnAccount account, Shared.Models.AccountContactType type, string content)
+    public async Task<SnAccountContact> CreateContactMethod(SnAccount account, Shared.Models.AccountContactType type,
+        string content)
     {
         var isExists = await db.AccountContacts
             .Where(x => x.AccountId == account.Id && x.Type == type && x.Content == content)
@@ -639,7 +652,8 @@ public class AccountService(
         }
     }
 
-    public async Task<SnAccountContact> SetContactMethodPublic(SnAccount account, SnAccountContact contact, bool isPublic)
+    public async Task<SnAccountContact> SetContactMethodPublic(SnAccount account, SnAccountContact contact,
+        bool isPublic)
     {
         contact.IsPublic = isPublic;
         db.AccountContacts.Update(contact);
