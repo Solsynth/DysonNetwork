@@ -61,6 +61,9 @@ public class AppDatabase(
     public DbSet<SnLottery> Lotteries { get; set; } = null!;
     public DbSet<SnLotteryRecord> LotteryRecords { get; set; } = null!;
 
+    public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
+    public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

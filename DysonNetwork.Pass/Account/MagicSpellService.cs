@@ -26,6 +26,7 @@ public class MagicSpellService(
         Dictionary<string, object> meta,
         Instant? expiredAt = null,
         Instant? affectedAt = null,
+        string? code = null,
         bool preventRepeat = false
     )
     {
@@ -41,7 +42,7 @@ public class MagicSpellService(
                 return existingSpell;
         }
 
-        var spellWord = _GenerateRandomString(128);
+        var spellWord = code ?? _GenerateRandomString(128);
         var spell = new SnMagicSpell
         {
             Spell = spellWord,
