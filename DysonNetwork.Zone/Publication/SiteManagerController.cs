@@ -206,19 +206,30 @@ public class SiteManagerController(
 
     [HttpGet("content/{**relativePath}")]
     [Authorize]
-    public async Task<ActionResult<string>> GetFileContent(Guid siteId, string relativePath)
+    public async Task<IActionResult> GetFileContent(Guid siteId, string relativePath)
     {
         var check = await CheckAccess(siteId);
         if (check != null) return check;
 
+        string fullPath;
         try
         {
-            var content = await fileManager.ReadFileContent(siteId, relativePath);
-            return Ok(content);
+            fullPath = fileManager.GetValidatedFullPath(siteId, relativePath);
         }
-        catch (FileNotFoundException)
+        catch (ArgumentException)
         {
+            return BadRequest("Invalid path");
+        }
+
+        if (!System.IO.File.Exists(fullPath))
             return NotFound();
+
+        // Determine MIME type based on file extension
+        var mimeType = GetMimeType(relativePath);
+
+        try
+        {
+            return PhysicalFile(fullPath, mimeType);
         }
         catch (Exception ex)
         {
@@ -246,16 +257,16 @@ public class SiteManagerController(
         if (!System.IO.File.Exists(fullPath))
             return NotFound();
 
-        // Determine MIME type
-        var mimeType = "application/octet-stream"; // default
-        var ext = Path.GetExtension(relativePath).ToLowerInvariant();
-        if (ext == ".txt") mimeType = "text/plain";
-        else if (ext == ".html" || ext == ".htm") mimeType = "text/html";
-        else if (ext == ".css") mimeType = "text/css";
-        else if (ext == ".js") mimeType = "application/javascript";
-        else if (ext == ".json") mimeType = "application/json";
+        // Determine MIME type based on file extension
+        var mimeType = GetMimeType(relativePath);
 
         return PhysicalFile(fullPath, mimeType, Path.GetFileName(relativePath));
+    }
+
+    private static string GetMimeType(string fileName)
+    {
+        var ext = Path.GetExtension(fileName);
+        return MimeTypes.TryGetMimeType(ext, out var t) ? t : "application/octet-stream";
     }
 
     [HttpPut("edit/{**relativePath}")]
