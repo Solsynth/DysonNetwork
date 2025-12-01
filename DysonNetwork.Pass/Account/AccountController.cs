@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Permission;
@@ -22,6 +23,7 @@ public class AccountController(
     SubscriptionService subscriptions,
     AccountEventService events,
     SocialCreditService socialCreditService,
+    AffiliationSpellService ars,
     GeoIpService geo
 ) : ControllerBase
 {
@@ -103,6 +105,8 @@ public class AccountController(
         [MaxLength(32)] public string Language { get; set; } = "en-us";
 
         [Required] public string CaptchaToken { get; set; } = string.Empty;
+        
+        public string? AffiliationSpell { get; set; }
     }
 
     public class AccountCreateValidateRequest
@@ -118,6 +122,8 @@ public class AccountController(
         [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
         [MaxLength(1024)]
         public string? Email { get; set; }
+        
+        public string? AffiliationSpell { get; set; }
     }
 
     [HttpPost("validate")]
@@ -136,6 +142,12 @@ public class AccountController(
         {
             if (await accounts.CheckEmailHasBeenUsed(request.Email))
                 return BadRequest("Email has already been used.");
+        }
+
+        if (request.AffiliationSpell is not null)
+        {
+            if (!await ars.CheckAffiliationSpellHasTaken(request.AffiliationSpell))
+                return BadRequest("No affiliation spell has been found.");
         }
 
         return Ok("Everything seems good.");

@@ -9,26 +9,42 @@ public class AffiliationSpellService(AppDatabase db)
     public async Task<SnAffiliationSpell> CreateAffiliationSpell(Guid accountId, string? spellWord)
     {
         spellWord ??= _GenerateRandomString(8);
-        var hasTaken = await db.AffiliationSpells.AnyAsync(s => s.Spell == spellWord);
-        if (hasTaken) throw new InvalidOperationException("The spell has been taken.");
+        if (await CheckAffiliationSpellHasTaken(spellWord))
+            throw new InvalidOperationException("The spell has been taken.");
 
         var spell = new SnAffiliationSpell
         {
             AccountId = accountId,
             Spell = spellWord
         };
-        
+
         db.AffiliationSpells.Add(spell);
         await db.SaveChangesAsync();
         return spell;
     }
 
-    public async Task<SnAffiliationSpell?> GetAffiliationSpell(string spellWord)
+    public async Task<SnAffiliationResult> CreateAffiliationResult(string spellWord, string resourceId)
     {
-        var spell = await db.AffiliationSpells.FirstOrDefaultAsync(s => s.Spell == spellWord);
-        return spell;
+        var spell =
+            await db.AffiliationSpells.FirstOrDefaultAsync(a => a.Spell == spellWord);
+        if (spell is null) throw  new InvalidOperationException("The spell was not found.");
+
+        var result = new SnAffiliationResult
+        {
+            Spell = spell,
+            ResourceIdentifier = resourceId
+        };
+        db.AffiliationResults.Add(result);
+        await db.SaveChangesAsync();
+        
+        return result;
     }
-    
+
+    public async Task<bool> CheckAffiliationSpellHasTaken(string spellWord)
+    {
+        return await db.AffiliationSpells.AnyAsync(s => s.Spell == spellWord);
+    }
+
     private static string _GenerateRandomString(int length)
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -40,6 +56,7 @@ public class AffiliationSpellService(AppDatabase db)
             rng.GetBytes(bytes);
             result[i] = chars[bytes[0] % chars.Length];
         }
+
         return new string(result);
     }
 }

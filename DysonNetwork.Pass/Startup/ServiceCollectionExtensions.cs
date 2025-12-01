@@ -11,6 +11,7 @@ using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Pass.Account.Presences;
+using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
 using DysonNetwork.Pass.Credit;
@@ -159,6 +160,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
         services.AddScoped<LotteryService>();
+        services.AddScoped<AffiliationSpellService>();
         
         services.AddScoped<SpotifyPresenceService>();
         services.AddScoped<SteamPresenceService>();

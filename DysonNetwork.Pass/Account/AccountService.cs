@@ -1,4 +1,5 @@
 using System.Globalization;
+using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth.OpenId;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Mailer;
@@ -24,6 +25,7 @@ public class AccountService(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     AccountUsernameService uname,
+    AffiliationSpellService ars,
     EmailService mailer,
     RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
@@ -101,6 +103,7 @@ public class AccountService(
         string? password,
         string language = "en-US",
         string region = "en",
+        string? affiliationSpell = null,
         bool isEmailVerified = false,
         bool isActivated = false
     )
@@ -113,7 +116,7 @@ public class AccountService(
             ).CountAsync();
         if (dupeEmailCount > 0)
             throw new InvalidOperationException("Account email has already been used.");
-
+        
         var account = new SnAccount
         {
             Name = name,
@@ -122,7 +125,7 @@ public class AccountService(
             Region = region,
             Contacts =
             [
-                new()
+                new SnAccountContact
                 {
                     Type = Shared.Models.AccountContactType.Email,
                     Content = email,
@@ -143,6 +146,9 @@ public class AccountService(
                 : [],
             Profile = new SnAccountProfile()
         };
+
+        if (affiliationSpell is not null)
+            await ars.CreateAffiliationResult(affiliationSpell, $"account:{account.Id}");
 
         if (isActivated)
         {
@@ -193,10 +199,7 @@ public class AccountService(
             displayName,
             userInfo.Email,
             null,
-            "en-US",
-            "en",
-            userInfo.EmailVerified,
-            userInfo.EmailVerified
+            isEmailVerified: userInfo.EmailVerified
         );
     }
 

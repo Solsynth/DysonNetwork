@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,9 +8,31 @@ namespace DysonNetwork.Pass.Affiliation;
 
 [ApiController]
 [Route("/api/affiliations")]
-public class AffiliationSpellController(AppDatabase db) : ControllerBase
+public class AffiliationSpellController(AppDatabase db, AffiliationSpellService ars) : ControllerBase
 {
-    [HttpGet("me")]
+    public class CreateAffiliationSpellRequest
+    {
+        [MaxLength(1024)] public string? Spell { get; set; }
+    }
+
+    [HttpPost]
+    [Authorize]
+    public async Task<ActionResult<SnAffiliationSpell>> CreateSpell([FromBody] CreateAffiliationSpellRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var spell = await ars.CreateAffiliationSpell(currentUser.Id, request.Spell);
+            return Ok(spell);
+        }
+        catch (InvalidOperationException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+    
+    [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnAffiliationSpell>>> ListCreatedSpells(
         [FromQuery(Name = "order")] string orderBy = "date",
