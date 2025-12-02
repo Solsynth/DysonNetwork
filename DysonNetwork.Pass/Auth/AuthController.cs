@@ -34,8 +34,8 @@ public class AuthController(
         [Required] [MaxLength(256)] public string Account { get; set; } = null!;
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
-        public List<string> Audiences { get; set; } = new();
-        public List<string> Scopes { get; set; } = new();
+        public List<string> Audiences { get; set; } = [];
+        public List<string> Scopes { get; set; } = [];
     }
 
     [HttpPost("challenge")]
@@ -68,15 +68,9 @@ public class AuthController(
             .Where(e => e.UserAgent == userAgent)
             .Where(e => e.StepRemain > 0)
             .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
-            .Where(e => e.Type == Shared.Models.ChallengeType.Login)
             .Where(e => e.DeviceId == request.DeviceId)
             .FirstOrDefaultAsync();
-        if (existingChallenge is not null)
-        {
-            var existingSession = await db.AuthSessions.Where(e => e.ChallengeId == existingChallenge.Id)
-                .FirstOrDefaultAsync();
-            if (existingSession is null) return existingChallenge;
-        }
+        if (existingChallenge is not null) return existingChallenge;
 
         var challenge = new SnAuthChallenge
         {
@@ -111,14 +105,11 @@ public class AuthController(
             .ThenInclude(e => e.Profile)
             .FirstOrDefaultAsync(e => e.Id == id);
 
-        if (challenge is null)
-        {
-            logger.LogWarning("GetChallenge: challenge not found (challengeId={ChallengeId}, ip={IpAddress})",
-                id, HttpContext.Connection.RemoteIpAddress?.ToString());
-            return NotFound("Auth challenge was not found.");
-        }
+        if (challenge is not null) return challenge;
+        logger.LogWarning("GetChallenge: challenge not found (challengeId={ChallengeId}, ip={IpAddress})",
+            id, HttpContext.Connection.RemoteIpAddress?.ToString());
+        return NotFound("Auth challenge was not found.");
 
-        return challenge;
     }
 
     [HttpGet("challenge/{id:guid}/factors")]
@@ -216,7 +207,7 @@ public class AuthController(
                 throw new ArgumentException("Invalid password.");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             challenge.FailedAttempts++;
             db.Update(challenge);
@@ -229,8 +220,11 @@ public class AuthController(
             );
             await db.SaveChangesAsync();
 
-            logger.LogWarning("DoChallenge: authentication failure (challengeId={ChallengeId}, factorId={FactorId}, accountId={AccountId}, failedAttempts={FailedAttempts}, factorType={FactorType}, ip={IpAddress}, uaLength={UaLength})",
-                challenge.Id, factor.Id, challenge.AccountId, challenge.FailedAttempts, factor.Type, HttpContext.Connection.RemoteIpAddress?.ToString(), (HttpContext.Request.Headers.UserAgent.ToString() ?? "").Length);
+            logger.LogWarning(
+                "DoChallenge: authentication failure (challengeId={ChallengeId}, factorId={FactorId}, accountId={AccountId}, failedAttempts={FailedAttempts}, factorType={FactorType}, ip={IpAddress}, uaLength={UaLength})",
+                challenge.Id, factor.Id, challenge.AccountId, challenge.FailedAttempts, factor.Type,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                HttpContext.Request.Headers.UserAgent.ToString().Length);
 
             return BadRequest("Invalid password.");
         }
@@ -240,7 +234,7 @@ public class AuthController(
             AccountService.SetCultureInfo(challenge.Account);
             await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
             {
-                Notification = new PushNotification()
+                Notification = new PushNotification
                 {
                     Topic = "auth.login",
                     Title = localizer["NewLoginTitle"],
@@ -279,7 +273,7 @@ public class AuthController(
     {
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
-        [Required] public DysonNetwork.Shared.Models.ClientPlatform Platform { get; set; }
+        [Required] public Shared.Models.ClientPlatform Platform { get; set; }
         public Instant? ExpiredAt { get; set; }
     }
 
@@ -338,8 +332,9 @@ public class AuthController(
     [Microsoft.AspNetCore.Authorization.Authorize] // Use full namespace to avoid ambiguity with DysonNetwork.Pass.Permission.Authorize
     public async Task<ActionResult<TokenExchangeResponse>> LoginFromSession([FromBody] NewSessionRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not Shared.Models.SnAuthSession currentSession) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
 
         var newSession = await auth.CreateSessionFromParentAsync(
             currentSession,
@@ -352,13 +347,12 @@ public class AuthController(
         var tk = auth.CreateToken(newSession);
 
         // Set cookie using HttpContext, similar to CreateSessionAndIssueToken
-        var cookieDomain = _cookieDomain;
         HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Lax,
-            Domain = cookieDomain,
+            Domain = _cookieDomain,
             Expires = request.ExpiredAt?.ToDateTimeOffset() ?? DateTime.UtcNow.AddYears(20)
         });
 

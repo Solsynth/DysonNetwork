@@ -4,7 +4,6 @@ using DysonNetwork.Shared.Stream;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NATS.Client.Core;
-using NATS.Net;
 using Swashbuckle.AspNetCore.Annotations;
 using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
@@ -40,10 +39,10 @@ public class WebSocketController(
         }
 
         var accountId = Guid.Parse(currentUser.Id!);
-        var deviceId = currentSession.Challenge?.DeviceId ?? Guid.NewGuid().ToString();
+        var deviceId = currentSession.ClientId;
 
-        // TODO temporary fix due to the server update
-        if (string.IsNullOrEmpty(deviceId)) deviceId = Guid.NewGuid().ToString().Replace("-", "");
+        if (string.IsNullOrEmpty(deviceId))
+            return BadRequest("Unable to determine device id");
         if (deviceAlt is not null)
             deviceId = $"{deviceId}+{deviceAlt}";
 

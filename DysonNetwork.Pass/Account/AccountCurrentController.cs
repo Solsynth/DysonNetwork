@@ -597,7 +597,6 @@ public class AccountCurrentController(
 
         var query = db.AuthSessions
             .Include(session => session.Account)
-            .Include(session => session.Challenge)
             .Where(session => session.Account.Id == currentUser.Id);
 
         var total = await query.CountAsync();

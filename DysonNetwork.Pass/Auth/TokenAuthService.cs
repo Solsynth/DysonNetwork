@@ -77,7 +77,7 @@ public class TokenAuthService(
                     "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt})",
                     sessionId,
                     session.AccountId,
-                    session.Challenge?.Scopes.Count,
+                    session.Scopes.Count,
                     session.ExpiredAt
                 );
                 return (true, session, null);
@@ -87,7 +87,6 @@ public class TokenAuthService(
 
             session = await db.AuthSessions
                 .AsNoTracking()
-                .Include(e => e.Challenge)
                 .Include(e => e.Client)
                 .Include(e => e.Account)
                 .ThenInclude(e => e.Profile)
@@ -112,9 +111,9 @@ public class TokenAuthService(
                 session.AccountId,
                 session.ClientId,
                 session.AppId,
-                session.Challenge?.Scopes.Count,
-                session.Challenge?.IpAddress,
-                (session.Challenge?.UserAgent ?? string.Empty).Length
+                session.Scopes.Count,
+                session.IpAddress,
+                (session.UserAgent ?? string.Empty).Length
             );
 
             logger.LogDebug("AuthenticateTokenAsync: enriching account with subscription (accountId={AccountId})", session.AccountId);

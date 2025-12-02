@@ -306,7 +306,7 @@ public class OidcProviderController(
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         // Get requested scopes from the token
-        var scopes = currentSession.Challenge?.Scopes ?? [];
+        var scopes = currentSession.Scopes;
 
         var userInfo = new Dictionary<string, object>
         {

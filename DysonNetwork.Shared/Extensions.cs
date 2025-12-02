@@ -70,7 +70,7 @@ public static class Extensions
             return RedLockFactory.Create(new List<RedLockMultiplexer> { new(mux) });
         });
         builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
-        builder.Services.AddSingleton<ICacheSerializer, JsonCacheSerializer>();
+        builder.Services.AddSingleton<ICacheSerializer, MessagePackCacheSerializer>();
 
         return builder;
     }

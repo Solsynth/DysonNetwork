@@ -17,12 +17,15 @@ message AuthSession {
     optional google.protobuf.Timestamp expired_at = 4;
     string account_id = 5;
     Account account = 6;
-    string challenge_id = 7;
-    AuthChallenge challenge = 8;
     google.protobuf.StringValue app_id = 9;
     optional string client_id = 10;
     optional string parent_session_id = 11;
     AuthClient client = 12;
+    repeated string audiences = 13;
+    repeated string scopes = 14;
+    google.protobuf.StringValue ip_address = 15;
+    google.protobuf.StringValue user_agent = 16;
+    SessionType type = 17;
 }
 
 // Represents an authentication challenge
@@ -32,7 +35,6 @@ message AuthChallenge {
     int32 step_remain = 3;
     int32 step_total = 4;
     int32 failed_attempts = 5;
-    ChallengeType type = 7;
     repeated string blacklist_factors = 8;
     repeated string audiences = 9;
     repeated string scopes = 10;
@@ -56,7 +58,7 @@ message AuthClient {
 }
 
 // Enum for challenge types
-enum ChallengeType {
+enum SessionType {
     CHALLENGE_TYPE_UNSPECIFIED = 0;
     LOGIN = 1;
     OAUTH = 2;

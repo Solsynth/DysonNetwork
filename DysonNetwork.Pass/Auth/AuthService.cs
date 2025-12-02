@@ -31,7 +31,7 @@ public class AuthService(
     {
         // 1) Find out how many authentication factors the account has enabled.
         var enabledFactors = await db.AccountAuthFactors
-            .Where(f => f.AccountId == account.Id)
+            .Where(f => f.AccountId == account.Id && f.Type != AccountAuthFactorType.PinCode)
             .Where(f => f.EnabledAt != null)
             .ToListAsync();
         var maxSteps = enabledFactors.Count;
@@ -42,12 +42,14 @@ public class AuthService(
 
         // 2) Get login context from recent sessions
         var recentSessions = await db.AuthSessions
-            .Include(s => s.Challenge)
             .Where(s => s.AccountId == account.Id)
             .Where(s => s.LastGrantedAt != null)
             .OrderByDescending(s => s.LastGrantedAt)
             .Take(10)
             .ToListAsync();
+
+        var recentChallengeIds = recentSessions.Where(s => s.ChallengeId != null).Select(s => s.ChallengeId.Value).ToList();
+        var recentChallenges = await db.AuthChallenges.Where(c => recentChallengeIds.Contains(c.Id)).ToListAsync();
 
         var ipAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = request.Headers.UserAgent.ToString();
@@ -60,14 +62,14 @@ public class AuthService(
         else
         {
             // Check if IP has been used before
-            var ipPreviouslyUsed = recentSessions.Any(s => s.Challenge?.IpAddress == ipAddress);
+            var ipPreviouslyUsed = recentChallenges.Any(c => c.IpAddress == ipAddress);
             if (!ipPreviouslyUsed)
             {
                 riskScore += 8;
             }
 
             // Check geographical distance for last known location
-            var lastKnownIp = recentSessions.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s.Challenge?.IpAddress))?.Challenge?.IpAddress;
+            var lastKnownIp = recentChallenges.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.IpAddress))?.IpAddress;
             if (!string.IsNullOrWhiteSpace(lastKnownIp) && lastKnownIp != ipAddress)
             {
                 riskScore += 6;
@@ -81,9 +83,9 @@ public class AuthService(
         }
         else
         {
-            var uaPreviouslyUsed = recentSessions.Any(s =>
-                !string.IsNullOrWhiteSpace(s.Challenge?.UserAgent) &&
-                string.Equals(s.Challenge.UserAgent, userAgent, StringComparison.OrdinalIgnoreCase));
+            var uaPreviouslyUsed = recentChallenges.Any(c =>
+                !string.IsNullOrWhiteSpace(c.UserAgent) &&
+                string.Equals(c.UserAgent, userAgent, StringComparison.OrdinalIgnoreCase));
 
             if (!uaPreviouslyUsed)
             {
@@ -184,30 +186,18 @@ public class AuthService(
     public async Task<SnAuthSession> CreateSessionForOidcAsync(SnAccount account, Instant time,
         Guid? customAppId = null, SnAuthSession? parentSession = null)
     {
-        var challenge = new SnAuthChallenge
-        {
-            AccountId = account.Id,
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-            UserAgent = HttpContext.Request.Headers.UserAgent,
-            StepRemain = 1,
-            StepTotal = 1,
-            Type = customAppId is not null ? ChallengeType.OAuth : ChallengeType.Oidc,
-            DeviceId = Guid.NewGuid().ToString(),
-            DeviceName = "OIDC/OAuth",
-            Platform = ClientPlatform.Web,
-        };
-
         var session = new SnAuthSession
         {
             AccountId = account.Id,
             CreatedAt = time,
             LastGrantedAt = time,
-            Challenge = challenge,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            UserAgent =  HttpContext.Request.Headers.UserAgent,
             AppId = customAppId,
-            ParentSessionId = parentSession?.Id
+            ParentSessionId = parentSession?.Id,
+            Type = customAppId is not null ? SessionType.OAuth : SessionType.Oidc,
         };
 
-        db.AuthChallenges.Add(challenge);
         db.AuthSessions.Add(session);
         await db.SaveChangesAsync();
 
@@ -419,20 +409,19 @@ public class AuthService(
         if (challenge.StepRemain != 0)
             throw new ArgumentException("Challenge not yet completed.");
 
-        var hasSession = await db.AuthSessions
-            .AnyAsync(e => e.ChallengeId == challenge.Id);
-        if (hasSession)
-            throw new ArgumentException("Session already exists for this challenge.");
-
         var device = await GetOrCreateDeviceAsync(challenge.AccountId, challenge.DeviceId, challenge.DeviceName,
             challenge.Platform);
-        
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var session = new SnAuthSession
         {
             LastGrantedAt = now,
             ExpiredAt = now.Plus(Duration.FromDays(7)),
             AccountId = challenge.AccountId,
+            IpAddress = challenge.IpAddress,
+            UserAgent = challenge.UserAgent,
+            Scopes = challenge.Scopes,
+            Audiences =  challenge.Audiences,
             ChallengeId = challenge.Id,
             ClientId = device.Id,
         };
@@ -457,7 +446,7 @@ public class AuthService(
         return tk;
     }
 
-    private string CreateCompactToken(Guid sessionId, RSA rsa)
+    private static string CreateCompactToken(Guid sessionId, RSA rsa)
     {
         // Create the payload: just the session ID
         var payloadBytes = sessionId.ToByteArray();

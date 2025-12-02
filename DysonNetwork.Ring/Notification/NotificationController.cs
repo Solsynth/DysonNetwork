@@ -93,7 +93,7 @@ public class NotificationController(
 
         var result =
             await nty.SubscribeDevice(
-                currentSession.Challenge.DeviceId,
+                currentSession.ClientId,
                 request.DeviceToken,
                 request.Provider,
                 currentUser
@@ -117,7 +117,7 @@ public class NotificationController(
         var affectedRows = await db.PushSubscriptions
             .Where(s =>
                 s.AccountId == accountId &&
-                s.DeviceId == currentSession.Challenge.DeviceId
+                s.DeviceId == currentSession.ClientId
             ).ExecuteDeleteAsync();
         return Ok(affectedRows);
     }

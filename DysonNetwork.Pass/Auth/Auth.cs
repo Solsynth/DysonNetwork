@@ -70,7 +70,7 @@ public class DysonTokenAuthHandler(
             };
 
             // Add scopes as claims
-            session.Challenge?.Scopes.ForEach(scope => claims.Add(new Claim("scope", scope)));
+            session.Scopes.ForEach(scope => claims.Add(new Claim("scope", scope)));
 
             // Add superuser claim if applicable
             if (session.Account.IsSuperuser)
@@ -117,16 +117,17 @@ public class DysonTokenAuthHandler(
         {
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
-                var token = authHeader["Bearer ".Length..].Trim();
-                var parts = token.Split('.');
+                var tokenText = authHeader["Bearer ".Length..].Trim();
+                var parts = tokenText.Split('.');
 
                 return new TokenInfo
                 {
-                    Token = token,
+                    Token = tokenText,
                     Type = parts.Length == 3 ? TokenType.OidcKey : TokenType.AuthKey
                 };
             }
-            else if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
+
+            if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo
                 {
@@ -134,7 +135,8 @@ public class DysonTokenAuthHandler(
                     Type = TokenType.AuthKey
                 };
             }
-            else if (authHeader.StartsWith("AkField ", StringComparison.OrdinalIgnoreCase))
+
+            if (authHeader.StartsWith("AkField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo
                 {

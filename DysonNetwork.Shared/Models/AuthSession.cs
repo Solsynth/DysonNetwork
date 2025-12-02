@@ -2,23 +2,33 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
+public enum SessionType
+{
+    Login,
+    OAuth, // Trying to authorize other platforms
+    Oidc // Trying to connect other platforms
+}
+
 public class SnAuthSession : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public SessionType Type { get; set; } = SessionType.Login;
     public Instant? LastGrantedAt { get; set; }
     public Instant? ExpiredAt { get; set; }
+    
+    [Column(TypeName = "jsonb")] public List<string> Audiences { get; set; } = [];
+    [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = [];
+    [MaxLength(128)] public string? IpAddress { get; set; }
+    [MaxLength(512)] public string? UserAgent { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
-
-    // The challenge that created this session
-    public Guid? ChallengeId { get; set; }
-    public SnAuthChallenge? Challenge { get; set; } = null!;
 
     // The client device for this session
     public Guid? ClientId { get; set; }
@@ -28,30 +38,41 @@ public class SnAuthSession : ModelBase
     public Guid? ParentSessionId { get; set; }
     public SnAuthSession? ParentSession { get; set; }
 
+    // The origin challenge for this session
+    public Guid? ChallengeId { get; set; }
+
     // Indicates the session is for an OIDC connection
     public Guid? AppId { get; set; }
 
-    public Proto.AuthSession ToProtoValue() => new()
+    public AuthSession ToProtoValue()
     {
-        Id = Id.ToString(),
-        LastGrantedAt = LastGrantedAt?.ToTimestamp(),
-        ExpiredAt = ExpiredAt?.ToTimestamp(),
-        AccountId = AccountId.ToString(),
-        Account = Account.ToProtoValue(),
-        ChallengeId = ChallengeId.ToString(),
-        Challenge = Challenge?.ToProtoValue(),
-        ClientId = ClientId.ToString(),
-        Client = Client?.ToProtoValue(),
-        ParentSessionId = ParentSessionId.ToString(),
-        AppId = AppId?.ToString()
-    };
-}
+        var proto = new AuthSession
+        {
+            Id = Id.ToString(),
+            LastGrantedAt = LastGrantedAt?.ToTimestamp(),
+            Type = Type switch
+            {
+                SessionType.Login => Proto.SessionType.Login,
+                SessionType.OAuth => Proto.SessionType.Oauth,
+                SessionType.Oidc => Proto.SessionType.Oidc,
+                _ => Proto.SessionType.ChallengeTypeUnspecified
+            },
+            IpAddress = IpAddress,
+            UserAgent = UserAgent,
+            ExpiredAt = ExpiredAt?.ToTimestamp(),
+            AccountId = AccountId.ToString(),
+            Account = Account.ToProtoValue(),
+            ClientId = ClientId.ToString(),
+            Client = Client?.ToProtoValue(),
+            ParentSessionId = ParentSessionId.ToString(),
+            AppId = AppId?.ToString()
+        };
+        
+        proto.Audiences.AddRange(Audiences);
+        proto.Scopes.AddRange(Scopes);
 
-public enum ChallengeType
-{
-    Login,
-    OAuth, // Trying to authorize other platforms
-    Oidc // Trying to connect other platforms
+        return proto;
+    }
 }
 
 public enum ClientPlatform
@@ -72,10 +93,9 @@ public class SnAuthChallenge : ModelBase
     public int StepRemain { get; set; }
     public int StepTotal { get; set; }
     public int FailedAttempts { get; set; }
-    public ChallengeType Type { get; set; } = ChallengeType.Login;
-    [Column(TypeName = "jsonb")] public List<Guid> BlacklistFactors { get; set; } = new();
-    [Column(TypeName = "jsonb")] public List<string> Audiences { get; set; } = new();
-    [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = new();
+    [Column(TypeName = "jsonb")] public List<Guid> BlacklistFactors { get; set; } = [];
+    [Column(TypeName = "jsonb")] public List<string> Audiences { get; set; } = [];
+    [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = [];
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
     [MaxLength(512)] public string DeviceId { get; set; } = null!;
@@ -93,14 +113,13 @@ public class SnAuthChallenge : ModelBase
         return this;
     }
 
-    public Proto.AuthChallenge ToProtoValue() => new()
+    public AuthChallenge ToProtoValue() => new()
     {
         Id = Id.ToString(),
         ExpiredAt = ExpiredAt?.ToTimestamp(),
         StepRemain = StepRemain,
         StepTotal = StepTotal,
         FailedAttempts = FailedAttempts,
-        Type = (Proto.ChallengeType)Type,
         BlacklistFactors = { BlacklistFactors.Select(x => x.ToString()) },
         Audiences = { Audiences },
         Scopes = { Scopes },

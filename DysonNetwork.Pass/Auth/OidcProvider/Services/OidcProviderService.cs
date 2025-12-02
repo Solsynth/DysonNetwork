@@ -72,7 +72,6 @@ public class OidcProviderService(
         var now = SystemClock.Instance.GetCurrentInstant();
 
         var queryable = db.AuthSessions
-            .Include(s => s.Challenge)
             .AsQueryable();
         if (withAccount)
             queryable = queryable
@@ -85,8 +84,7 @@ public class OidcProviderService(
             .Where(s => s.AccountId == accountId &&
                         s.AppId == clientId &&
                         (s.ExpiredAt == null || s.ExpiredAt > now) &&
-                        s.Challenge != null &&
-                        s.Challenge.Type == Shared.Models.ChallengeType.OAuth)
+                        s.Type == Shared.Models.SessionType.OAuth)
             .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
     }
@@ -511,7 +509,6 @@ public class OidcProviderService(
     {
         return await db.AuthSessions
             .Include(s => s.Account)
-            .Include(s => s.Challenge)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
     }
 
