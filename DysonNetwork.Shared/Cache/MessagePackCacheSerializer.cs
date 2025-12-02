@@ -1,12 +1,15 @@
 using MessagePack;
+using MessagePack.Resolvers;
 
 namespace DysonNetwork.Shared.Cache;
 
 public class MessagePackCacheSerializer(MessagePackSerializerOptions? options = null) : ICacheSerializer
 {
     private readonly MessagePackSerializerOptions _options = options ?? MessagePackSerializerOptions.Standard
-        .WithResolver(MessagePack.Resolvers.ContractlessStandardResolver.Instance)
-        .WithCompression(MessagePackCompression.Lz4BlockArray);
+        .WithResolver(ContractlessStandardResolver.Instance)
+        .WithCompression(MessagePackCompression.Lz4BlockArray)
+        .WithSecurity(MessagePackSecurity.UntrustedData)
+        .WithOmitAssemblyVersion(true);
 
     public string Serialize<T>(T value)
     {

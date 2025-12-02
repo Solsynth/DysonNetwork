@@ -1,16 +1,31 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using DysonNetwork.Shared.Data;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace DysonNetwork.Shared.Cache;
 
-public class JsonCacheSerializer(JsonSerializerOptions? options = null) : ICacheSerializer
+public class JsonCacheSerializer : ICacheSerializer
 {
-    private readonly JsonSerializerOptions _options = options ?? new JsonSerializerOptions(JsonSerializerDefaults.Web)
-    {
-        // Customize as needed (NodaTime, camelCase, converters, etc.)
-        WriteIndented = false
-    };
+    private readonly JsonSerializerOptions _options;
 
-    // Customize as needed (NodaTime, camelCase, converters, etc.)
+    public JsonCacheSerializer()
+    {
+        _options = new JsonSerializerOptions
+        {
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver
+            {
+                Modifiers = { JsonExtensions.UnignoreAllProperties() },
+            },
+            ReferenceHandler = ReferenceHandler.Preserve,
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+            Converters = { new ByteStringConverter() }
+        };
+        _options.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+        _options.PropertyNameCaseInsensitive = true;
+    }
 
     public string Serialize<T>(T value)
         => JsonSerializer.Serialize(value, _options);
