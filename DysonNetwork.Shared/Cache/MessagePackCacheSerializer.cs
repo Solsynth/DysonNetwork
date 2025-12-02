@@ -5,6 +5,7 @@ namespace DysonNetwork.Shared.Cache;
 public class MessagePackCacheSerializer(MessagePackSerializerOptions? options = null) : ICacheSerializer
 {
     private readonly MessagePackSerializerOptions _options = options ?? MessagePackSerializerOptions.Standard
+        .WithResolver(MessagePack.Resolvers.ContractlessStandardResolver.Instance)
         .WithCompression(MessagePackCompression.Lz4BlockArray);
 
     public string Serialize<T>(T value)
