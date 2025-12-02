@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using MessagePack;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -26,13 +27,13 @@ public class SnAccount : ModelBase
     public ICollection<SnAccountContact> Contacts { get; set; } = [];
     public ICollection<SnAccountBadge> Badges { get; set; } = [];
 
-    [JsonIgnore] public ICollection<SnAccountAuthFactor> AuthFactors { get; set; } = [];
-    [JsonIgnore] public ICollection<SnAccountConnection> Connections { get; set; } = [];
-    [JsonIgnore] public ICollection<SnAuthSession> Sessions { get; set; } = [];
-    [JsonIgnore] public ICollection<SnAuthChallenge> Challenges { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountAuthFactor> AuthFactors { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountConnection> Connections { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnAuthSession> Sessions { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnAuthChallenge> Challenges { get; set; } = [];
 
-    [JsonIgnore] public ICollection<SnAccountRelationship> OutgoingRelationships { get; set; } = [];
-    [JsonIgnore] public ICollection<SnAccountRelationship> IncomingRelationships { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountRelationship> OutgoingRelationships { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountRelationship> IncomingRelationships { get; set; } = [];
 
     [NotMapped] public SnSubscriptionReferenceObject? PerkSubscription { get; set; }
 
@@ -217,7 +218,7 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
 
     public Guid AccountId { get; set; }
-    [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
     public Proto.AccountProfile ToProtoValue()
     {
@@ -331,7 +332,7 @@ public class SnAccountContact : ModelBase
     [MaxLength(1024)] public string Content { get; set; } = string.Empty;
 
     public Guid AccountId { get; set; }
-    [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
     public Proto.AccountContact ToProtoValue()
     {

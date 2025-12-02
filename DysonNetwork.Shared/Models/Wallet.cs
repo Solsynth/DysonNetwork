@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Text.Json.Serialization;
+using MessagePack;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -46,7 +47,7 @@ public class SnWalletPocket : ModelBase
     public decimal Amount { get; set; }
 
     public Guid WalletId { get; set; }
-    [JsonIgnore] public SnWallet Wallet { get; set; } = null!;
+    [IgnoreMember] [JsonIgnore] public SnWallet Wallet { get; set; } = null!;
 
     public Proto.WalletPocket ToProtoValue() => new()
     {

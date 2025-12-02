@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using MessagePack;
 using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
@@ -30,6 +31,7 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")]
     public SnCloudFileReferenceObject? Background { get; set; }
 
+    [IgnoreMember]
     [JsonIgnore]
     public ICollection<SnChatMember> Members { get; set; } = new List<SnChatMember>();
 

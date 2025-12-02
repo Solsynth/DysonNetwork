@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
+using MessagePack;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Extensions;
@@ -29,11 +31,11 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
 
-    [JsonIgnore] public ICollection<SnPost> Posts { get; set; } = [];
-    [JsonIgnore] public ICollection<SnPoll> Polls { get; set; } = [];
-    [JsonIgnore] public ICollection<SnPostCollection> Collections { get; set; } = [];
-    [JsonIgnore] public ICollection<SnPublisherMember> Members { get; set; } = [];
-    [JsonIgnore] public ICollection<SnPublisherFeature> Features { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnPost> Posts { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnPoll> Polls { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnPostCollection> Collections { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnPublisherMember> Members { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public ICollection<SnPublisherFeature> Features { get; set; } = [];
 
     [JsonIgnore]
     public ICollection<SnPublisherSubscription> Subscriptions { get; set; } = [];
@@ -45,7 +47,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
     public string ResourceIdentifier => $"publisher:{Id}";
 
-    public static SnPublisher FromProtoValue(Proto.Publisher proto)
+    public static SnPublisher FromProtoValue(Publisher proto)
     {
         var publisher = new SnPublisher
         {
@@ -87,25 +89,25 @@ public class SnPublisher : ModelBase, IIdentifiedResource
         return publisher;
     }
 
-    public Proto.Publisher ToProtoValue()
+    public Publisher ToProtoValue()
     {
-        var p = new Proto.Publisher()
+        var p = new Publisher
         {
             Id = Id.ToString(),
             Type = Type == PublisherType.Individual
-                ? Shared.Proto.PublisherType.PubIndividual
-                : Shared.Proto.PublisherType.PubOrganizational,
+                ? Proto.PublisherType.PubIndividual
+                : Proto.PublisherType.PubOrganizational,
             Name = Name,
             Nick = Nick,
             Bio = Bio,
             AccountId = AccountId?.ToString() ?? string.Empty,
             RealmId = RealmId?.ToString() ?? string.Empty,
-            CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
-            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
+            CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
         };
         if (Picture is not null)
         {
-            p.Picture = new Proto.CloudFile
+            p.Picture = new CloudFile
             {
                 Id = Picture.Id,
                 Name = Picture.Name,
@@ -117,7 +119,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
         if (Background is not null)
         {
-            p.Background = new Proto.CloudFile
+            p.Background = new CloudFile
             {
                 Id = Background.Id,
                 Name = Background.Name,

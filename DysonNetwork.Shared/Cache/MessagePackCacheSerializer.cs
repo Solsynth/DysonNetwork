@@ -1,4 +1,5 @@
 using MessagePack;
+using MessagePack.NodaTime;
 using MessagePack.Resolvers;
 
 namespace DysonNetwork.Shared.Cache;
@@ -6,7 +7,13 @@ namespace DysonNetwork.Shared.Cache;
 public class MessagePackCacheSerializer(MessagePackSerializerOptions? options = null) : ICacheSerializer
 {
     private readonly MessagePackSerializerOptions _options = options ?? MessagePackSerializerOptions.Standard
-        .WithResolver(ContractlessStandardResolver.Instance)
+        .WithResolver(CompositeResolver.Create(
+            BuiltinResolver.Instance,
+            AttributeFormatterResolver.Instance,
+            NodatimeResolver.Instance,
+            DynamicEnumAsStringResolver.Instance,
+            ContractlessStandardResolver.Instance
+        ))
         .WithCompression(MessagePackCompression.Lz4BlockArray)
         .WithSecurity(MessagePackSecurity.UntrustedData)
         .WithOmitAssemblyVersion(true);

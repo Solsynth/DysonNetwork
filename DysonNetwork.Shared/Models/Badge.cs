@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
+using MessagePack;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -18,7 +19,7 @@ public class SnAccountBadge : ModelBase
     public Instant? ExpiredAt { get; set; }
 
     public Guid AccountId { get; set; }
-    [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
     public SnAccountBadgeRef ToReference()
     {

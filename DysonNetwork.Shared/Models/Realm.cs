@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
+using MessagePack;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -23,7 +24,7 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
 
-    [JsonIgnore] public ICollection<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
+    [IgnoreMember] [JsonIgnore] public ICollection<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
 
     public Guid AccountId { get; set; }
 
