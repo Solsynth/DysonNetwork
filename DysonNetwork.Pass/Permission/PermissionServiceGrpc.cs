@@ -9,31 +9,33 @@ using NodaTime.Serialization.Protobuf;
 namespace DysonNetwork.Pass.Permission;
 
 public class PermissionServiceGrpc(
-    PermissionService permissionService,
+    PermissionService psv,
     AppDatabase db,
     ILogger<PermissionServiceGrpc> logger
 ) : DysonNetwork.Shared.Proto.PermissionService.PermissionServiceBase
 {
     public override async Task<HasPermissionResponse> HasPermission(HasPermissionRequest request, ServerCallContext context)
     {
+        var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
-            var hasPermission = await permissionService.HasPermissionAsync(request.Actor, request.Area, request.Key);
+            var hasPermission = await psv.HasPermissionAsync(request.Actor, request.Key, type);
             return new HasPermissionResponse { HasPermission = hasPermission };
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error checking permission for actor {Actor}, area {Area}, key {Key}",
-                request.Actor, request.Area, request.Key);
+            logger.LogError(ex, "Error checking permission for {Type}:{Area}:{Key}",
+                type, request.Actor, request.Key);
             throw new RpcException(new Status(StatusCode.Internal, "Permission check failed"));
         }
     }
 
     public override async Task<GetPermissionResponse> GetPermission(GetPermissionRequest request, ServerCallContext context)
     {
+        var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
-            var permissionValue = await permissionService.GetPermissionAsync<JsonDocument>(request.Actor, request.Area, request.Key);
+            var permissionValue = await psv.GetPermissionAsync<JsonDocument>(request.Actor, request.Key, type);
             return new GetPermissionResponse
             {
                 Value = permissionValue != null ? Value.Parser.ParseJson(permissionValue.RootElement.GetRawText()) : null
@@ -41,14 +43,15 @@ public class PermissionServiceGrpc(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error getting permission for actor {Actor}, area {Area}, key {Key}",
-                request.Actor, request.Area, request.Key);
+            logger.LogError(ex, "Error getting permission for {Type}:{Area}:{Key}",
+                type, request.Actor, request.Key);
             throw new RpcException(new Status(StatusCode.Internal, "Failed to retrieve permission"));
         }
     }
 
     public override async Task<AddPermissionNodeResponse> AddPermissionNode(AddPermissionNodeRequest request, ServerCallContext context)
     {
+        var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
             JsonDocument jsonValue;
@@ -58,18 +61,18 @@ public class PermissionServiceGrpc(
             }
             catch (JsonException ex)
             {
-                logger.LogWarning(ex, "Invalid JSON in permission value for actor {Actor}, area {Area}, key {Key}",
-                    request.Actor, request.Area, request.Key);
+                logger.LogError(ex, "Invalid JSON in permission value for {Type}:{Area}:{Key}",
+                    type, request.Actor, request.Key);
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid permission value format"));
             }
 
-            var node = await permissionService.AddPermissionNode(
+            var node = await psv.AddPermissionNode(
                 request.Actor,
-                request.Area,
                 request.Key,
                 jsonValue,
                 request.ExpiredAt?.ToInstant(),
-                request.AffectedAt?.ToInstant()
+                request.AffectedAt?.ToInstant(),
+                type
             );
             return new AddPermissionNodeResponse { Node = node.ToProtoValue() };
         }
@@ -79,14 +82,15 @@ public class PermissionServiceGrpc(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error adding permission node for actor {Actor}, area {Area}, key {Key}",
-                request.Actor, request.Area, request.Key);
+            logger.LogError(ex, "Error adding permission for {Type}:{Area}:{Key}",
+                type, request.Actor, request.Key);
             throw new RpcException(new Status(StatusCode.Internal, "Failed to add permission node"));
         }
     }
 
     public override async Task<AddPermissionNodeToGroupResponse> AddPermissionNodeToGroup(AddPermissionNodeToGroupRequest request, ServerCallContext context)
     {
+        var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
             var group = await FindPermissionGroupAsync(request.Group.Id);
@@ -102,19 +106,19 @@ public class PermissionServiceGrpc(
             }
             catch (JsonException ex)
             {
-                logger.LogWarning(ex, "Invalid JSON in permission value for group {GroupId}, actor {Actor}, area {Area}, key {Key}",
-                    request.Group.Id, request.Actor, request.Area, request.Key);
+                logger.LogError(ex, "Invalid JSON in permission value for {Type}:{Area}:{Key}",
+                    type, request.Actor, request.Key);
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid permission value format"));
             }
 
-            var node = await permissionService.AddPermissionNodeToGroup(
+            var node = await psv.AddPermissionNodeToGroup(
                 group,
                 request.Actor,
-                request.Area,
                 request.Key,
                 jsonValue,
                 request.ExpiredAt?.ToInstant(),
-                request.AffectedAt?.ToInstant()
+                request.AffectedAt?.ToInstant(),
+                type
             );
             return new AddPermissionNodeToGroupResponse { Node = node.ToProtoValue() };
         }
@@ -124,23 +128,24 @@ public class PermissionServiceGrpc(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error adding permission node to group {GroupId} for actor {Actor}, area {Area}, key {Key}",
-                request.Group.Id, request.Actor, request.Area, request.Key);
+            logger.LogError(ex, "Error adding permission for {Type}:{Area}:{Key}",
+                type, request.Actor, request.Key);
             throw new RpcException(new Status(StatusCode.Internal, "Failed to add permission node to group"));
         }
     }
 
     public override async Task<RemovePermissionNodeResponse> RemovePermissionNode(RemovePermissionNodeRequest request, ServerCallContext context)
     {
+        var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
-            await permissionService.RemovePermissionNode(request.Actor, request.Area, request.Key);
+            await psv.RemovePermissionNode(request.Actor, request.Key, type);
             return new RemovePermissionNodeResponse { Success = true };
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error removing permission node for actor {Actor}, area {Area}, key {Key}",
-                request.Actor, request.Area, request.Key);
+            logger.LogError(ex, "Error removing permission for {Type}:{Area}:{Key}",
+                type, request.Actor, request.Key);
             throw new RpcException(new Status(StatusCode.Internal, "Failed to remove permission node"));
         }
     }
@@ -155,7 +160,7 @@ public class PermissionServiceGrpc(
                 throw new RpcException(new Status(StatusCode.NotFound, "Permission group not found"));
             }
 
-            await permissionService.RemovePermissionNodeFromGroup<JsonDocument>(group, request.Actor, request.Area, request.Key);
+            await psv.RemovePermissionNodeFromGroup<JsonDocument>(group, request.Actor, request.Key);
             return new RemovePermissionNodeFromGroupResponse { Success = true };
         }
         catch (RpcException)
@@ -164,20 +169,18 @@ public class PermissionServiceGrpc(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error removing permission node from group {GroupId} for actor {Actor}, area {Area}, key {Key}",
-                request.Group.Id, request.Actor, request.Area, request.Key);
+            logger.LogError(ex, "Error removing permission from group for {Area}:{Key}",
+                request.Actor, request.Key);
             throw new RpcException(new Status(StatusCode.Internal, "Failed to remove permission node from group"));
         }
     }
 
     private async Task<SnPermissionGroup?> FindPermissionGroupAsync(string groupId)
     {
-        if (!Guid.TryParse(groupId, out var guid))
-        {
-            logger.LogWarning("Invalid GUID format for group ID: {GroupId}", groupId);
-            return null;
-        }
+        if (Guid.TryParse(groupId, out var guid))
+            return await db.PermissionGroups.FirstOrDefaultAsync(g => g.Id == guid);
+        logger.LogWarning("Invalid GUID format for group ID: {GroupId}", groupId);
+        return null;
 
-        return await db.PermissionGroups.FirstOrDefaultAsync(g => g.Id == guid);
     }
 }

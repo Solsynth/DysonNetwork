@@ -341,7 +341,7 @@ public class PublisherController(
 
     [HttpPost("individual")]
     [Authorize]
-    [RequiredPermission("global", "publishers.create")]
+    [AskPermission("publishers.create")]
     public async Task<ActionResult<SnPublisher>> CreatePublisherIndividual(
         [FromBody] PublisherRequest request
     )
@@ -426,7 +426,7 @@ public class PublisherController(
 
     [HttpPost("organization/{realmSlug}")]
     [Authorize]
-    [RequiredPermission("global", "publishers.create")]
+    [AskPermission("publishers.create")]
     public async Task<ActionResult<SnPublisher>> CreatePublisherOrganization(
         string realmSlug,
         [FromBody] PublisherRequest request
@@ -833,7 +833,7 @@ public class PublisherController(
 
     [HttpPost("{name}/features")]
     [Authorize]
-    [RequiredPermission("maintenance", "publishers.features")]
+    [AskPermission("publishers.features")]
     public async Task<ActionResult<PublisherFeature>> AddPublisherFeature(
         string name,
         [FromBody] PublisherFeatureRequest request
@@ -858,7 +858,7 @@ public class PublisherController(
 
     [HttpDelete("{name}/features/{flag}")]
     [Authorize]
-    [RequiredPermission("maintenance", "publishers.features")]
+    [AskPermission("publishers.features")]
     public async Task<ActionResult> RemovePublisherFeature(string name, string flag)
     {
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
@@ -880,7 +880,7 @@ public class PublisherController(
 
     [HttpPost("rewards/settle")]
     [Authorize]
-    [RequiredPermission("maintenance", "publishers.reward.settle")]
+    [AskPermission("publishers.reward.settle")]
     public async Task<IActionResult> PerformLotteryDraw()
     {
         await ps.SettlePublisherRewards();

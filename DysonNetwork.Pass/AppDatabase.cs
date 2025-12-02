@@ -103,7 +103,7 @@ public class AppDatabase(
                             "stickers.packs.create",
                             "stickers.create"
                         }.Select(permission =>
-                            PermissionService.NewPermissionNode("group:default", "global", permission, true))
+                            PermissionService.NewPermissionNode("group:default", permission, true))
                         .ToList()
                 });
                 await context.SaveChangesAsync(cancellationToken);

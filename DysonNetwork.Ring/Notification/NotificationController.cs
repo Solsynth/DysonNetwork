@@ -139,7 +139,7 @@ public class NotificationController(
 
     [HttpPost("send")]
     [Authorize]
-    [RequiredPermission("global", "notifications.send")]
+    [AskPermission("notifications.send")]
     public async Task<ActionResult> SendNotification(
         [FromBody] NotificationWithAimRequest request,
         [FromQuery] bool save = false

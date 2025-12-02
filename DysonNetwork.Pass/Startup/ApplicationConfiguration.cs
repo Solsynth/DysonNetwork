@@ -22,7 +22,7 @@ public static class ApplicationConfiguration
         app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<PermissionMiddleware>();
+        app.UseMiddleware<LocalPermissionMiddleware>();
 
         app.MapControllers().RequireRateLimiting("fixed");
 

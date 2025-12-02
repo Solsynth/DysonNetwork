@@ -113,7 +113,7 @@ public class FileUploadController(
         if (currentUser.IsSuperuser) return null;
 
         var allowed = await permission.HasPermissionAsync(new HasPermissionRequest
-            { Actor = $"user:{currentUser.Id}", Area = "global", Key = "files.create" });
+            { Actor = currentUser.Id, Key = "files.create" });
 
         return allowed.HasPermission
             ? null

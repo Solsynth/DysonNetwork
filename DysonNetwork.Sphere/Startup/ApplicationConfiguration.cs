@@ -16,7 +16,7 @@ public static class ApplicationConfiguration
         app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<PermissionMiddleware>();
+        app.UseMiddleware<RemotePermissionMiddleware>();
 
         app.MapControllers();
 

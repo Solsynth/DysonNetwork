@@ -243,7 +243,7 @@ public partial class ChatController(
 
     [HttpPost("{roomId:guid}/messages")]
     [Authorize]
-    [RequiredPermission("global", "chat.messages.create")]
+    [AskPermission("chat.messages.create")]
     public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();

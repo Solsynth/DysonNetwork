@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -196,7 +197,7 @@ public class WalletController(
 
     [HttpPost("balance")]
     [Authorize]
-    [RequiredPermission("maintenance", "wallets.balance.modify")]
+    [AskPermission("wallets.balance.modify")]
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
     {
         var wallet = await ws.GetWalletAsync(request.AccountId);

@@ -59,7 +59,7 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
     /// </summary>
     [HttpDelete("link/cache")]
     [Authorize]
-    [RequiredPermission("maintenance", "cache.scrap")]
+    [AskPermission("cache.scrap")]
     public async Task<IActionResult> InvalidateCache([FromQuery] string url)
     {
         if (string.IsNullOrEmpty(url))
@@ -76,7 +76,7 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
     /// </summary>
     [HttpDelete("cache/all")]
     [Authorize]
-    [RequiredPermission("maintenance", "cache.scrap")]
+    [AskPermission("cache.scrap")]
     public async Task<IActionResult> InvalidateAllCache()
     {
         await reader.InvalidateAllCachedPreviewsAsync();

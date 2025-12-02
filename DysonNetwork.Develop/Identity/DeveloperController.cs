@@ -69,7 +69,7 @@ public class DeveloperController(
 
     [HttpPost("{name}/enroll")]
     [Authorize]
-    [RequiredPermission("global", "developers.create")]
+    [AskPermission("developers.create")]
     public async Task<ActionResult<SnDeveloper>> EnrollDeveloperProgram(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();

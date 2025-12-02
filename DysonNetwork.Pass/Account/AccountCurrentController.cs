@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -194,7 +195,7 @@ public class AccountCurrentController(
     }
 
     [HttpPatch("statuses")]
-    [RequiredPermission("global", "accounts.statuses.update")]
+    [AskPermission("accounts.statuses.update")]
     public async Task<ActionResult<SnAccountStatus>> UpdateStatus([FromBody] AccountController.StatusRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -228,7 +229,7 @@ public class AccountCurrentController(
     }
 
     [HttpPost("statuses")]
-    [RequiredPermission("global", "accounts.statuses.create")]
+    [AskPermission("accounts.statuses.create")]
     public async Task<ActionResult<SnAccountStatus>> CreateStatus([FromBody] AccountController.StatusRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

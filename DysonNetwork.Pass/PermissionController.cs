@@ -5,6 +5,7 @@ using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Pass;
 
@@ -19,16 +20,20 @@ public class PermissionController(
     /// <summary>
     /// Check if an actor has a specific permission
     /// </summary>
-    [HttpGet("check/{actor}/{area}/{key}")]
-    [RequiredPermission("maintenance", "permissions.check")]
+    [HttpGet("check/{actor}/{key}")]
+    [AskPermission("permissions.check")]
     [ProducesResponseType<bool>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> CheckPermission(string actor, string area, string key)
+    public async Task<IActionResult> CheckPermission(
+        [FromRoute] string actor,
+        [FromRoute] string key,
+        [FromQuery] PermissionNodeActorType type = PermissionNodeActorType.Account
+    )
     {
         try
         {
-            var hasPermission = await permissionService.HasPermissionAsync(actor, area, key);
+            var hasPermission = await permissionService.HasPermissionAsync(actor, key, type);
             return Ok(hasPermission);
         }
         catch (ArgumentException ex)
@@ -45,7 +50,7 @@ public class PermissionController(
     /// Get all effective permissions for an actor (including group permissions)
     /// </summary>
     [HttpGet("actors/{actor}/permissions/effective")]
-    [RequiredPermission("maintenance", "permissions.check")]
+    [AskPermission("permissions.check")]
     [ProducesResponseType<List<SnPermissionNode>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -70,7 +75,7 @@ public class PermissionController(
     /// Get all direct permissions for an actor (excluding group permissions)
     /// </summary>
     [HttpGet("actors/{actor}/permissions/direct")]
-    [RequiredPermission("maintenance", "permissions.check")]
+    [AskPermission("permissions.check")]
     [ProducesResponseType<List<SnPermissionNode>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -94,28 +99,27 @@ public class PermissionController(
     /// <summary>
     /// Give a permission to an actor
     /// </summary>
-    [HttpPost("actors/{actor}/permissions/{area}/{key}")]
-    [RequiredPermission("maintenance", "permissions.manage")]
+    [HttpPost("actors/{actor}/permissions/{key}")]
+    [AskPermission("permissions.manage")]
     [ProducesResponseType<SnPermissionNode>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GivePermission(
         string actor,
-        string area,
         string key,
-        [FromBody] PermissionRequest request)
+        [FromBody] PermissionRequest request
+    )
     {
         try
         {
             var permission = await permissionService.AddPermissionNode(
                 actor,
-                area,
                 key,
                 JsonDocument.Parse(JsonSerializer.Serialize(request.Value)),
                 request.ExpiredAt,
                 request.AffectedAt
             );
-            return Created($"/api/permissions/actors/{actor}/permissions/{area}/{key}", permission);
+            return Created($"/api/permissions/actors/{actor}/permissions/{key}", permission);
         }
         catch (ArgumentException ex)
         {
@@ -130,16 +134,20 @@ public class PermissionController(
     /// <summary>
     /// Remove a permission from an actor
     /// </summary>
-    [HttpDelete("actors/{actor}/permissions/{area}/{key}")]
-    [RequiredPermission("maintenance", "permissions.manage")]
+    [HttpDelete("actors/{actor}/permissions/{key}")]
+    [AskPermission("permissions.manage")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> RemovePermission(string actor, string area, string key)
+    public async Task<IActionResult> RemovePermission(
+        string actor,
+        string key,
+        [FromQuery] PermissionNodeActorType type = PermissionNodeActorType.Account
+    )
     {
         try
         {
-            await permissionService.RemovePermissionNode(actor, area, key);
+            await permissionService.RemovePermissionNode(actor, key, type);
             return NoContent();
         }
         catch (ArgumentException ex)
@@ -156,7 +164,7 @@ public class PermissionController(
     /// Get all groups for an actor
     /// </summary>
     [HttpGet("actors/{actor}/groups")]
-    [RequiredPermission("maintenance", "permissions.groups.check")]
+    [AskPermission("permissions.groups.check")]
     [ProducesResponseType<List<SnPermissionGroupMember>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -183,8 +191,8 @@ public class PermissionController(
     /// <summary>
     /// Add an actor to a permission group
     /// </summary>
-    [HttpPost("actors/{actor}/groups/{groupId}")]
-    [RequiredPermission("maintenance", "permissions.groups.manage")]
+    [HttpPost("actors/{actor}/groups/{groupId:guid}")]
+    [AskPermission("permissions.groups.manage")]
     [ProducesResponseType<SnPermissionGroupMember>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -192,7 +200,8 @@ public class PermissionController(
     public async Task<IActionResult> AddActorToGroup(
         string actor,
         Guid groupId,
-        [FromBody] GroupMembershipRequest? request = null)
+        [FromBody] GroupMembershipRequest? request = null
+    )
     {
         try
         {
@@ -238,7 +247,7 @@ public class PermissionController(
     /// Remove an actor from a permission group
     /// </summary>
     [HttpDelete("actors/{actor}/groups/{groupId}")]
-    [RequiredPermission("maintenance", "permissions.groups.manage")]
+    [AskPermission("permissions.groups.manage")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -272,7 +281,7 @@ public class PermissionController(
     /// Clear permission cache for an actor
     /// </summary>
     [HttpPost("actors/{actor}/cache/clear")]
-    [RequiredPermission("maintenance", "permissions.cache.manage")]
+    [AskPermission("permissions.cache.manage")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -297,7 +306,7 @@ public class PermissionController(
     /// Validate a permission pattern
     /// </summary>
     [HttpPost("validate-pattern")]
-    [RequiredPermission("maintenance", "permissions.check")]
+    [AskPermission("permissions.check")]
     [ProducesResponseType<PatternValidationResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult ValidatePattern([FromBody] PatternValidationRequest request)
@@ -322,14 +331,14 @@ public class PermissionController(
 public class PermissionRequest
 {
     public object? Value { get; set; }
-    public NodaTime.Instant? ExpiredAt { get; set; }
-    public NodaTime.Instant? AffectedAt { get; set; }
+    public Instant? ExpiredAt { get; set; }
+    public Instant? AffectedAt { get; set; }
 }
 
 public class GroupMembershipRequest
 {
-    public NodaTime.Instant? ExpiredAt { get; set; }
-    public NodaTime.Instant? AffectedAt { get; set; }
+    public Instant? ExpiredAt { get; set; }
+    public Instant? AffectedAt { get; set; }
 }
 
 public class PatternValidationRequest

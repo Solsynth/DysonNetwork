@@ -120,7 +120,7 @@ public class StickerController(
     }
 
     [HttpPost]
-    [RequiredPermission("global", "stickers.packs.create")]
+    [AskPermission("stickers.packs.create")]
     public async Task<ActionResult<StickerPack>> CreateStickerPack(
         [FromBody] StickerPackRequest request,
         [FromQuery(Name = "pub")] string publisherName
@@ -334,7 +334,7 @@ public class StickerController(
     public const int MaxStickersPerPack = 24;
 
     [HttpPost("{packId:guid}/content")]
-    [RequiredPermission("global", "stickers.create")]
+    [AskPermission("stickers.create")]
     public async Task<IActionResult> CreateSticker(Guid packId, [FromBody] StickerRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)

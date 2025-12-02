@@ -525,7 +525,7 @@ public class PostController(
     }
 
     [HttpPost]
-    [RequiredPermission("global", "posts.create")]
+    [AskPermission("posts.create")]
     public async Task<ActionResult<SnPost>> CreatePost(
         [FromBody] PostRequest request,
         [FromQuery(Name = "pub")] string? pubName
@@ -725,7 +725,7 @@ public class PostController(
 
     [HttpPost("{id:guid}/reactions")]
     [Authorize]
-    [RequiredPermission("global", "posts.react")]
+    [AskPermission("posts.react")]
     public async Task<ActionResult<SnPostReaction>> ReactPost(
         Guid id,
         [FromBody] PostReactionRequest request

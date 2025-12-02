@@ -158,7 +158,7 @@ public class AccountService(
             {
                 db.PermissionGroupMembers.Add(new SnPermissionGroupMember
                 {
-                    Actor = $"user:{account.Id}",
+                    Actor = account.Id.ToString(),
                     Group = defaultGroup
                 });
             }

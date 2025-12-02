@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -51,7 +52,7 @@ public class SnAbuseReportController(
 
     [HttpGet("")]
     [Authorize]
-    [RequiredPermission("safety", "reports.view")]
+    [AskPermission("reports.view")]
     [ProducesResponseType<List<SnAbuseReport>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SnAbuseReport>>> GetReports(
         [FromQuery] int offset = 0,
@@ -85,7 +86,7 @@ public class SnAbuseReportController(
 
     [HttpGet("{id}")]
     [Authorize]
-    [RequiredPermission("safety", "reports.view")]
+    [AskPermission("reports.view")]
     [ProducesResponseType<SnAbuseReport>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SnAbuseReport>> GetReportById(Guid id)
@@ -122,7 +123,7 @@ public class SnAbuseReportController(
 
     [HttpPost("{id}/resolve")]
     [Authorize]
-    [RequiredPermission("safety", "reports.resolve")]
+    [AskPermission("reports.resolve")]
     [ProducesResponseType<SnAbuseReport>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SnAbuseReport>> ResolveReport(Guid id, [FromBody] ResolveReportRequest request)
@@ -144,7 +145,7 @@ public class SnAbuseReportController(
 
     [HttpGet("count")]
     [Authorize]
-    [RequiredPermission("safety", "reports.view")]
+    [AskPermission("reports.view")]
     [ProducesResponseType<object>(StatusCodes.Status200OK)]
     public async Task<ActionResult<object>> GetReportsCount()
     {

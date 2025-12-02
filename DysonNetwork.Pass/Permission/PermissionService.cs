@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using NodaTime;
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Permission;
@@ -28,8 +29,8 @@ public class PermissionService(
     private const string PermissionGroupCacheKeyPrefix = "perm-cg:";
     private const string PermissionGroupPrefix = "perm-g:";
 
-    private static string GetPermissionCacheKey(string actor, string area, string key) =>
-        PermissionCacheKeyPrefix + actor + ":" + area + ":" + key;
+    private static string GetPermissionCacheKey(string actor, string key) =>
+        PermissionCacheKeyPrefix + actor + ":" + key;
 
     private static string GetGroupsCacheKey(string actor) =>
         PermissionGroupCacheKeyPrefix + actor;
@@ -37,50 +38,56 @@ public class PermissionService(
     private static string GetPermissionGroupKey(string actor) =>
         PermissionGroupPrefix + actor;
 
-    public async Task<bool> HasPermissionAsync(string actor, string area, string key)
+    public async Task<bool> HasPermissionAsync(
+        string actor,
+        string key,
+        PermissionNodeActorType type = PermissionNodeActorType.Account
+    )
     {
-        var value = await GetPermissionAsync<bool>(actor, area, key);
+        var value = await GetPermissionAsync<bool>(actor, key, type);
         return value;
     }
 
-    public async Task<T?> GetPermissionAsync<T>(string actor, string area, string key)
+    public async Task<T?> GetPermissionAsync<T>(
+        string actor,
+        string key,
+        PermissionNodeActorType type = PermissionNodeActorType.Account
+    )
     {
         // Input validation
         if (string.IsNullOrWhiteSpace(actor))
             throw new ArgumentException("Actor cannot be null or empty", nameof(actor));
-        if (string.IsNullOrWhiteSpace(area))
-            throw new ArgumentException("Area cannot be null or empty", nameof(area));
         if (string.IsNullOrWhiteSpace(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
-        var cacheKey = GetPermissionCacheKey(actor, area, key);
+        var cacheKey = GetPermissionCacheKey(actor, key);
 
         try
         {
             var (hit, cachedValue) = await cache.GetAsyncWithStatus<T>(cacheKey);
             if (hit)
             {
-                logger.LogDebug("Permission cache hit for {Actor}:{Area}:{Key}", actor, area, key);
+                logger.LogDebug("Permission cache hit for {Type}:{Actor}:{Key}", type, actor, key);
                 return cachedValue;
             }
 
             var now = SystemClock.Instance.GetCurrentInstant();
             var groupsId = await GetOrCacheUserGroupsAsync(actor, now);
 
-            var permission = await FindPermissionNodeAsync(actor, area, key, groupsId, now);
+            var permission = await FindPermissionNodeAsync(type, actor, key, groupsId);
             var result = permission != null ? DeserializePermissionValue<T>(permission.Value) : default;
 
             await cache.SetWithGroupsAsync(cacheKey, result,
                 [GetPermissionGroupKey(actor)],
                 _options.CacheExpiration);
 
-            logger.LogDebug("Permission resolved for {Actor}:{Area}:{Key} = {Result}",
-                actor, area, key, result != null);
+            logger.LogDebug("Permission resolved for {Type}:{Actor}:{Key} = {Result}", type, actor, key,
+                result != null);
             return result;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error retrieving permission for {Actor}:{Area}:{Key}", actor, area, key);
+            logger.LogError(ex, "Error retrieving permission for {Type}:{Actor}:{Key}", type, actor, key);
             throw;
         }
     }
@@ -109,33 +116,34 @@ public class PermissionService(
         return groupsId;
     }
 
-    private async Task<SnPermissionNode?> FindPermissionNodeAsync(string actor, string area, string key,
-        List<Guid> groupsId, Instant now)
+    private async Task<SnPermissionNode?> FindPermissionNodeAsync(
+        PermissionNodeActorType type,
+        string actor,
+        string key,
+        List<Guid> groupsId
+    )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         // First try exact match (highest priority)
         var exactMatch = await db.PermissionNodes
-            .Where(n => (n.GroupId == null && n.Actor == actor) ||
+            .Where(n => (n.GroupId == null && n.Actor == actor && n.Type == type) ||
                         (n.GroupId != null && groupsId.Contains(n.GroupId.Value)))
-            .Where(n => n.Key == key && n.Area == area)
+            .Where(n => n.Key == key)
             .Where(n => n.ExpiredAt == null || n.ExpiredAt > now)
             .Where(n => n.AffectedAt == null || n.AffectedAt <= now)
             .FirstOrDefaultAsync();
 
         if (exactMatch != null)
-        {
             return exactMatch;
-        }
 
         // If no exact match and wildcards are enabled, try wildcard matches
         if (!_options.EnableWildcardMatching)
-        {
             return null;
-        }
 
         var wildcardMatches = await db.PermissionNodes
-            .Where(n => (n.GroupId == null && n.Actor == actor) ||
+            .Where(n => (n.GroupId == null && n.Actor == actor && n.Type == type) ||
                         (n.GroupId != null && groupsId.Contains(n.GroupId.Value)))
-            .Where(n => (n.Key.Contains("*") || n.Area.Contains("*")))
+            .Where(n => EF.Functions.Like(n.Key, "%*%"))
             .Where(n => n.ExpiredAt == null || n.ExpiredAt > now)
             .Where(n => n.AffectedAt == null || n.AffectedAt <= now)
             .Take(_options.MaxWildcardMatches)
@@ -147,36 +155,21 @@ public class PermissionService(
 
         foreach (var node in wildcardMatches)
         {
-            var score = CalculateWildcardMatchScore(node.Area, node.Key, area, key);
-            if (score > bestMatchScore)
-            {
-                bestMatch = node;
-                bestMatchScore = score;
-            }
+            var score = CalculateWildcardMatchScore(node.Key, key);
+            if (score <= bestMatchScore) continue;
+            bestMatch = node;
+            bestMatchScore = score;
         }
 
         if (bestMatch != null)
-        {
-            logger.LogDebug("Found wildcard permission match: {NodeArea}:{NodeKey} for {Area}:{Key}",
-                bestMatch.Area, bestMatch.Key, area, key);
-        }
+            logger.LogDebug("Found wildcard permission match: {NodeKey} for {Key}", bestMatch.Key, key);
 
         return bestMatch;
     }
 
-    private static int CalculateWildcardMatchScore(string nodeArea, string nodeKey, string targetArea, string targetKey)
+    private static int CalculateWildcardMatchScore(string nodeKey, string targetKey)
     {
-        // Calculate how well the wildcard pattern matches
-        // Higher score = better match
-        var areaScore = CalculatePatternMatchScore(nodeArea, targetArea);
-        var keyScore = CalculatePatternMatchScore(nodeKey, targetKey);
-
-        // Perfect match gets highest score
-        if (areaScore == int.MaxValue && keyScore == int.MaxValue)
-            return int.MaxValue;
-
-        // Prefer area matches over key matches, more specific patterns over general ones
-        return (areaScore * 1000) + keyScore;
+        return CalculatePatternMatchScore(nodeKey, targetKey);
     }
 
     private static int CalculatePatternMatchScore(string pattern, string target)
@@ -184,31 +177,30 @@ public class PermissionService(
         if (pattern == target)
             return int.MaxValue; // Exact match
 
-        if (!pattern.Contains("*"))
+        if (!pattern.Contains('*'))
             return -1; // No wildcard, not a match
 
         // Simple wildcard matching: * matches any sequence of characters
         var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
-        var regex = new System.Text.RegularExpressions.Regex(regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var regex = new System.Text.RegularExpressions.Regex(regexPattern,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-        if (regex.IsMatch(target))
-        {
-            // Score based on specificity (shorter patterns are less specific)
-            var wildcardCount = pattern.Count(c => c == '*');
-            var length = pattern.Length;
-            return Math.Max(1, 1000 - (wildcardCount * 100) - length);
-        }
+        if (!regex.IsMatch(target)) return -1; // No match
 
-        return -1; // No match
+        // Score based on specificity (shorter patterns are less specific)
+        var wildcardCount = pattern.Count(c => c == '*');
+        var length = pattern.Length;
+
+        return Math.Max(1, 1000 - wildcardCount * 100 - length);
     }
 
     public async Task<SnPermissionNode> AddPermissionNode<T>(
         string actor,
-        string area,
         string key,
         T value,
         Instant? expiredAt = null,
-        Instant? affectedAt = null
+        Instant? affectedAt = null,
+        PermissionNodeActorType type = PermissionNodeActorType.Account
     )
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
@@ -216,8 +208,8 @@ public class PermissionService(
         var node = new SnPermissionNode
         {
             Actor = actor,
+            Type = type,
             Key = key,
-            Area = area,
             Value = SerializePermissionValue(value),
             ExpiredAt = expiredAt,
             AffectedAt = affectedAt
@@ -227,7 +219,7 @@ public class PermissionService(
         await db.SaveChangesAsync();
 
         // Invalidate related caches
-        await InvalidatePermissionCacheAsync(actor, area, key);
+        await InvalidatePermissionCacheAsync(actor, key);
 
         return node;
     }
@@ -235,11 +227,11 @@ public class PermissionService(
     public async Task<SnPermissionNode> AddPermissionNodeToGroup<T>(
         SnPermissionGroup group,
         string actor,
-        string area,
         string key,
         T value,
         Instant? expiredAt = null,
-        Instant? affectedAt = null
+        Instant? affectedAt = null,
+        PermissionNodeActorType type = PermissionNodeActorType.Account
     )
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
@@ -247,8 +239,8 @@ public class PermissionService(
         var node = new SnPermissionNode
         {
             Actor = actor,
+            Type = type,
             Key = key,
-            Area = area,
             Value = SerializePermissionValue(value),
             ExpiredAt = expiredAt,
             AffectedAt = affectedAt,
@@ -260,44 +252,45 @@ public class PermissionService(
         await db.SaveChangesAsync();
 
         // Invalidate related caches
-        await InvalidatePermissionCacheAsync(actor, area, key);
+        await InvalidatePermissionCacheAsync(actor, key);
         await cache.RemoveAsync(GetGroupsCacheKey(actor));
         await cache.RemoveGroupAsync(GetPermissionGroupKey(actor));
 
         return node;
     }
 
-    public async Task RemovePermissionNode(string actor, string area, string key)
+    public async Task RemovePermissionNode(string actor, string key, PermissionNodeActorType? type)
     {
         var node = await db.PermissionNodes
-            .Where(n => n.Actor == actor && n.Area == area && n.Key == key)
+            .Where(n => n.Actor == actor && n.Key == key)
+            .If(type is not null, q => q.Where(n => n.Type == type))
             .FirstOrDefaultAsync();
         if (node is not null) db.PermissionNodes.Remove(node);
         await db.SaveChangesAsync();
 
         // Invalidate cache
-        await InvalidatePermissionCacheAsync(actor, area, key);
+        await InvalidatePermissionCacheAsync(actor, key);
     }
 
-    public async Task RemovePermissionNodeFromGroup<T>(SnPermissionGroup group, string actor, string area, string key)
+    public async Task RemovePermissionNodeFromGroup<T>(SnPermissionGroup group, string actor, string key)
     {
         var node = await db.PermissionNodes
             .Where(n => n.GroupId == group.Id)
-            .Where(n => n.Actor == actor && n.Area == area && n.Key == key)
+            .Where(n => n.Actor == actor && n.Key == key && n.Type == PermissionNodeActorType.Group)
             .FirstOrDefaultAsync();
         if (node is null) return;
         db.PermissionNodes.Remove(node);
         await db.SaveChangesAsync();
 
         // Invalidate caches
-        await InvalidatePermissionCacheAsync(actor, area, key);
+        await InvalidatePermissionCacheAsync(actor, key);
         await cache.RemoveAsync(GetGroupsCacheKey(actor));
         await cache.RemoveGroupAsync(GetPermissionGroupKey(actor));
     }
 
-    private async Task InvalidatePermissionCacheAsync(string actor, string area, string key)
+    private async Task InvalidatePermissionCacheAsync(string actor, string key)
     {
-        var cacheKey = GetPermissionCacheKey(actor, area, key);
+        var cacheKey = GetPermissionCacheKey(actor, key);
         await cache.RemoveAsync(cacheKey);
     }
 
@@ -312,12 +305,11 @@ public class PermissionService(
         return JsonDocument.Parse(str);
     }
 
-    public static SnPermissionNode NewPermissionNode<T>(string actor, string area, string key, T value)
+    public static SnPermissionNode NewPermissionNode<T>(string actor, string key, T value)
     {
         return new SnPermissionNode
         {
             Actor = actor,
-            Area = area,
             Key = key,
             Value = SerializePermissionValue(value),
         };
@@ -341,8 +333,7 @@ public class PermissionService(
                             (n.GroupId != null && groupsId.Contains(n.GroupId.Value)))
                 .Where(n => n.ExpiredAt == null || n.ExpiredAt > now)
                 .Where(n => n.AffectedAt == null || n.AffectedAt <= now)
-                .OrderBy(n => n.Area)
-                .ThenBy(n => n.Key)
+                .OrderBy(n => n.Key)
                 .ToListAsync();
 
             logger.LogDebug("Listed {Count} effective permissions for actor {Actor}", permissions.Count, actor);
@@ -370,8 +361,7 @@ public class PermissionService(
                 .Where(n => n.GroupId == null && n.Actor == actor)
                 .Where(n => n.ExpiredAt == null || n.ExpiredAt > now)
                 .Where(n => n.AffectedAt == null || n.AffectedAt <= now)
-                .OrderBy(n => n.Area)
-                .ThenBy(n => n.Key)
+                .OrderBy(n => n.Key)
                 .ToListAsync();
 
             logger.LogDebug("Listed {Count} direct permissions for actor {Actor}", permissions.Count, actor);

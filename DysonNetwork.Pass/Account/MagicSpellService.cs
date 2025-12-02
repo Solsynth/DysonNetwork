@@ -194,7 +194,7 @@ public class MagicSpellService(
                 {
                     db.PermissionGroupMembers.Add(new SnPermissionGroupMember
                     {
-                        Actor = $"user:{account.Id}",
+                        Actor = account.Id.ToString(),
                         Group = defaultGroup
                     });
                 }

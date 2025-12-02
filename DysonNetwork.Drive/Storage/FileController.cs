@@ -381,7 +381,7 @@ public class FileController(
 
     [Authorize]
     [HttpDelete("recycle")]
-    [RequiredPermission("maintenance", "files.delete.recycle")]
+    [AskPermission("files.delete.recycle")]
     public async Task<ActionResult> DeleteAllRecycledFiles()
     {
         var count = await fs.DeleteAllRecycledFilesAsync();

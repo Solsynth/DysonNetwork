@@ -8,6 +8,12 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
+public enum PermissionNodeActorType
+{
+    Account,
+    Group
+}
+
 /// The permission node model provides the infrastructure of permission control in Dyson Network.
 /// It based on the ABAC permission model.
 /// 
@@ -19,12 +25,12 @@ namespace DysonNetwork.Shared.Models;
 /// And the actor shows who owns the permission, in most cases, the user:&lt;userId&gt;
 /// and when the permission node has a GroupId, the actor will be set to the group, but it won't work on checking
 /// expect the member of that permission group inherent the permission from the group.
-[Index(nameof(Key), nameof(Area), nameof(Actor))]
+[Index(nameof(Key), nameof(Actor))]
 public class SnPermissionNode : ModelBase, IDisposable
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public PermissionNodeActorType Type { get; set; } = PermissionNodeActorType.Account;
     [MaxLength(1024)] public string Actor { get; set; } = null!;
-    [MaxLength(1024)] public string Area { get; set; } = null!;
     [MaxLength(1024)] public string Key { get; set; } = null!;
     [Column(TypeName = "jsonb")] public JsonDocument Value { get; set; } = null!;
     public Instant? ExpiredAt { get; set; } = null;
@@ -39,12 +45,27 @@ public class SnPermissionNode : ModelBase, IDisposable
         {
             Id = Id.ToString(),
             Actor = Actor,
-            Area = Area,
+            Type = Type switch
+            {
+                PermissionNodeActorType.Account => Proto.PermissionNodeActorType.Account,
+                PermissionNodeActorType.Group => Proto.PermissionNodeActorType.Group,
+                _ => throw new ArgumentOutOfRangeException()
+            },
             Key = Key,
             Value = Google.Protobuf.WellKnownTypes.Value.Parser.ParseJson(Value.RootElement.GetRawText()),
             ExpiredAt = ExpiredAt?.ToTimestamp(),
             AffectedAt = AffectedAt?.ToTimestamp(),
             GroupId = GroupId?.ToString() ?? string.Empty
+        };
+    }
+
+    public static PermissionNodeActorType ConvertProtoActorType(Proto.PermissionNodeActorType? val)
+    {
+        return val switch
+        {
+            Proto.PermissionNodeActorType.Account => PermissionNodeActorType.Account,
+            Proto.PermissionNodeActorType.Group => PermissionNodeActorType.Group,
+            _ => PermissionNodeActorType.Account
         };
     }
 

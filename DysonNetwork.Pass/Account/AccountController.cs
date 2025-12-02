@@ -4,6 +4,7 @@ using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Models;
@@ -319,7 +320,7 @@ public class AccountController(
 
     [HttpPost("credits/validate")]
     [Authorize]
-    [RequiredPermission("maintenance", "credits.validate.perform")]
+    [AskPermission("credits.validate.perform")]
     public async Task<IActionResult> PerformSocialCreditValidation()
     {
         await socialCreditService.ValidateSocialCredits();
@@ -328,7 +329,7 @@ public class AccountController(
 
     [HttpDelete("{name}")]
     [Authorize]
-    [RequiredPermission("maintenance", "accounts.deletion")]
+    [AskPermission("accounts.deletion")]
     public async Task<IActionResult> AdminDeleteAccount(string name)
     {
         var account = await accounts.LookupAccount(name);

@@ -179,7 +179,7 @@ public class ChatRoomController(
 
     [HttpPost]
     [Authorize]
-    [RequiredPermission("global", "chat.create")]
+    [AskPermission("chat.create")]
     public async Task<ActionResult<SnChatRoom>> CreateChatRoom(ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();

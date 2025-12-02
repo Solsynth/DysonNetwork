@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Pass.Permission;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -81,7 +82,7 @@ public class LotteryController(AppDatabase db, LotteryService lotteryService) : 
 
     [HttpPost("draw")]
     [Authorize]
-    [RequiredPermission("maintenance", "lotteries.draw.perform")]
+    [AskPermission("lotteries.draw.perform")]
     public async Task<IActionResult> PerformLotteryDraw()
     {
         await lotteryService.DrawLotteries();
