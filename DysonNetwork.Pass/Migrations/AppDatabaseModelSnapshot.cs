@@ -1433,12 +1433,6 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("affected_at");
 
-                    b.Property<string>("Area")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("area");
-
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1461,6 +1455,10 @@ namespace DysonNetwork.Pass.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("key");
 
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1476,8 +1474,8 @@ namespace DysonNetwork.Pass.Migrations
                     b.HasIndex("GroupId")
                         .HasDatabaseName("ix_permission_nodes_group_id");
 
-                    b.HasIndex("Key", "Area", "Actor")
-                        .HasDatabaseName("ix_permission_nodes_key_area_actor");
+                    b.HasIndex("Key", "Actor")
+                        .HasDatabaseName("ix_permission_nodes_key_actor");
 
                     b.ToTable("permission_nodes", (string)null);
                 });
