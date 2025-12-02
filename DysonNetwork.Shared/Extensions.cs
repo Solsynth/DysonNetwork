@@ -64,7 +64,7 @@ public static class Extensions
             options.Configuration = builder.Configuration.GetConnectionString("cache");
             options.InstanceName = "dyson:";
         });
-        builder.Services.AddSingleton<RedLockFactory>(sp =>
+        builder.Services.AddSingleton<IDistributedLockFactory, RedLockFactory>(sp =>
         {
             var mux = sp.GetRequiredService<IConnectionMultiplexer>();
             return RedLockFactory.Create(new List<RedLockMultiplexer> { new(mux) });
