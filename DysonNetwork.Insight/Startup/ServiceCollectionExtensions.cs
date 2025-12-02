@@ -14,9 +14,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
         services.AddDbContext<AppDatabase>();
-        services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
-        services.AddSingleton<ICacheService, CacheServiceRedis>();
 
         services.AddHttpClient();
 

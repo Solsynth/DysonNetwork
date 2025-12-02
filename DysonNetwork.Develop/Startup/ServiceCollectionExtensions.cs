@@ -16,9 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddLocalization();
 
         services.AddDbContext<AppDatabase>();
-        services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
-        services.AddSingleton<ICacheService, CacheServiceRedis>();
 
         services.AddHttpClient();
 

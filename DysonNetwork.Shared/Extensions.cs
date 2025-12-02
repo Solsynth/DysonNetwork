@@ -1,11 +1,18 @@
+using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using NodaTime;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using RedLockNet;
+using RedLockNet.SERedis;
+using RedLockNet.SERedis.Configuration;
+using StackExchange.Redis;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -43,11 +50,28 @@ public static class Extensions
         //     options.AllowedSchemes = ["https"];
         // });
 
+        builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+
         builder.AddNatsClient("queue");
         builder.AddRedisClient("cache", configureOptions: opts =>
         {
             opts.AbortOnConnectFail = false;
         });
+        
+        // Setup cache service
+        builder.Services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = builder.Configuration.GetConnectionString("cache");
+            options.InstanceName = "dyson:";
+        });
+        builder.Services.AddSingleton<RedLockFactory>(sp =>
+        {
+            var mux = sp.GetRequiredService<IConnectionMultiplexer>();
+            return RedLockFactory.Create(new List<RedLockMultiplexer> { new(mux) });
+        });
+        builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
+        // Using message pack for now
+        builder.Services.AddSingleton<ICacheSerializer, MessagePackCacheSerializer>();
 
         return builder;
     }

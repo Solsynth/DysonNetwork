@@ -35,9 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddLocalization(options => options.ResourcesPath = "Resources");
 
         services.AddDbContext<AppDatabase>();
-        services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
-        services.AddSingleton<ICacheService, CacheServiceRedis>();
 
         services.AddHttpClient();
 

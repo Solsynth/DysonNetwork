@@ -12,9 +12,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<AppDatabase>(); // Assuming you'll have an AppDatabase
-        services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddHttpContextAccessor();
-        services.AddSingleton<ICacheService, CacheServiceRedis>(); // Uncomment if you have CacheServiceRedis
 
         services.AddHttpClient();
 
