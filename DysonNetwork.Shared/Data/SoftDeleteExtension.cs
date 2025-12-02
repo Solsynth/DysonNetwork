@@ -26,7 +26,7 @@ public static class SoftDeleteExtension
             var method = typeof(SoftDeleteExtension)
                 .GetMethod(nameof(SetSoftDeleteFilter), BindingFlags.NonPublic | BindingFlags.Static)!
                 .MakeGenericMethod(entityType.ClrType);
-            method.Invoke(null, new object[] { modelBuilder });
+            method.Invoke(null, [modelBuilder]);
         }
     }
 

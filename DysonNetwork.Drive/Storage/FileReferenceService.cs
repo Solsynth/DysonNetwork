@@ -58,12 +58,15 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
         Duration? duration = null
     )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         var data = fileId.Select(id => new SnCloudFileReference
         {
             FileId = id,
             Usage = usage,
             ResourceId = resourceId,
-            ExpiredAt = expiredAt ?? SystemClock.Instance.GetCurrentInstant() + duration
+            ExpiredAt = expiredAt ?? now + duration,
+            CreatedAt = now,
+            UpdatedAt = now
         }).ToList();
         await db.BulkInsertAsync(data);
         return data;

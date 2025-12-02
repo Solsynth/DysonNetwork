@@ -13,9 +13,10 @@ public class ActionLogFlushHandler(IServiceProvider serviceProvider) : IFlushHan
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
+        var now = SystemClock.Instance.GetCurrentInstant();
         await db.BulkInsertAsync(items.Select(x =>
         {
-            x.CreatedAt = SystemClock.Instance.GetCurrentInstant();
+            x.CreatedAt = now;
             x.UpdatedAt = x.CreatedAt;
             return x;
         }), config => config.ConflictOption = ConflictOption.Ignore);

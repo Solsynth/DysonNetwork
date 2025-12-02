@@ -129,7 +129,7 @@ public class SnCloudFileReference : ModelBase
     /// <returns>The protobuf message representation of this object</returns>
     public CloudFileReference ToProtoValue()
     {
-        return new Proto.CloudFileReference
+        return new CloudFileReference
         {
             Id = Id.ToString(),
             FileId = FileId,
