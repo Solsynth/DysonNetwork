@@ -571,12 +571,12 @@ public class AccountCurrentController(
             .Where(device => device.AccountId == currentUser.Id)
             .ToListAsync();
 
-        var sessionDevices = devices.Select(SnAuthClientWithSessions.FromClient).ToList();
+        var sessionDevices = devices.ConvertAll(SnAuthClientWithSessions.FromClient).ToList();
         var clientIds = sessionDevices.Select(x => x.Id).ToList();
 
         var authSessions = await db.AuthSessions
-            .Where(c => clientIds.Contains(c.Id))
-            .GroupBy(c => c.Id)
+            .Where(c => c.ClientId != null && clientIds.Contains(c.ClientId.Value))
+            .GroupBy(c => c.ClientId!.Value)
             .ToDictionaryAsync(c => c.Key, c => c.ToList());
         foreach (var dev in sessionDevices)
             if (authSessions.TryGetValue(dev.Id, out var challenge))
