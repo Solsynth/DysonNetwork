@@ -153,13 +153,13 @@ public class SnAuthClient : ModelBase
     };
 }
 
-public class SnAuthClientWithChallenge : SnAuthClient
+public class SnAuthClientWithSessions : SnAuthClient
 {
-    public List<SnAuthChallenge> Challenges { get; set; } = [];
+    public List<SnAuthSession> Sessions { get; set; } = [];
 
-    public static SnAuthClientWithChallenge FromClient(SnAuthClient client)
+    public static SnAuthClientWithSessions FromClient(SnAuthClient client)
     {
-        return new SnAuthClientWithChallenge
+        return new SnAuthClientWithSessions
         {
             Id = client.Id,
             Platform = client.Platform,

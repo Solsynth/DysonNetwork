@@ -560,7 +560,7 @@ public class AccountCurrentController(
 
     [HttpGet("devices")]
     [Authorize]
-    public async Task<ActionResult<List<SnAuthClientWithChallenge>>> GetDevices()
+    public async Task<ActionResult<List<SnAuthClientWithSessions>>> GetDevices()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
@@ -571,18 +571,41 @@ public class AccountCurrentController(
             .Where(device => device.AccountId == currentUser.Id)
             .ToListAsync();
 
-        var challengeDevices = devices.Select(SnAuthClientWithChallenge.FromClient).ToList();
-        var deviceIds = challengeDevices.Select(x => x.DeviceId).ToList();
+        var sessionDevices = devices.Select(SnAuthClientWithSessions.FromClient).ToList();
+        var clientIds = sessionDevices.Select(x => x.Id).ToList();
 
-        var authChallenges = await db.AuthChallenges
-            .Where(c => deviceIds.Contains(c.DeviceId))
-            .GroupBy(c => c.DeviceId)
+        var authSessions = await db.AuthSessions
+            .Where(c => clientIds.Contains(c.Id))
+            .GroupBy(c => c.Id)
             .ToDictionaryAsync(c => c.Key, c => c.ToList());
-        foreach (var challengeDevice in challengeDevices)
-            if (authChallenges.TryGetValue(challengeDevice.DeviceId, out var challenge))
-                challengeDevice.Challenges = challenge;
+        foreach (var dev in sessionDevices)
+            if (authSessions.TryGetValue(dev.Id, out var challenge))
+                dev.Sessions = challenge;
 
-        return Ok(challengeDevices);
+        return Ok(sessionDevices);
+    }
+
+    [HttpGet("challenges")]
+    [Authorize]
+    public async Task<ActionResult<List<SnAuthChallenge>>> GetChallenges(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var query = db.AuthChallenges
+            .Where(challenge => challenge.AccountId == currentUser.Id)
+            .OrderByDescending(c => c.CreatedAt);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var challenges = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+        return Ok(challenges);
     }
 
     [HttpGet("sessions")]
@@ -596,6 +619,7 @@ public class AccountCurrentController(
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         var query = db.AuthSessions
+            .OrderByDescending(x => x.LastGrantedAt)
             .Include(session => session.Account)
             .Where(session => session.Account.Id == currentUser.Id);
 
@@ -604,7 +628,6 @@ public class AccountCurrentController(
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
         var sessions = await query
-            .OrderByDescending(x => x.LastGrantedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();

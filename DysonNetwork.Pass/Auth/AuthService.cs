@@ -48,7 +48,8 @@ public class AuthService(
             .Take(10)
             .ToListAsync();
 
-        var recentChallengeIds = recentSessions.Where(s => s.ChallengeId != null).Select(s => s.ChallengeId.Value).ToList();
+        var recentChallengeIds =
+            recentSessions.Where(s => s.ChallengeId != null).Select(s => s.ChallengeId.Value).ToList();
         var recentChallenges = await db.AuthChallenges.Where(c => recentChallengeIds.Contains(c.Id)).ToListAsync();
 
         var ipAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -192,7 +193,7 @@ public class AuthService(
             CreatedAt = time,
             LastGrantedAt = time,
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-            UserAgent =  HttpContext.Request.Headers.UserAgent,
+            UserAgent = HttpContext.Request.Headers.UserAgent,
             AppId = customAppId,
             ParentSessionId = parentSession?.Id,
             Type = customAppId is not null ? SessionType.OAuth : SessionType.Oidc,
@@ -409,8 +410,12 @@ public class AuthService(
         if (challenge.StepRemain != 0)
             throw new ArgumentException("Challenge not yet completed.");
 
-        var device = await GetOrCreateDeviceAsync(challenge.AccountId, challenge.DeviceId, challenge.DeviceName,
-            challenge.Platform);
+        var device = await GetOrCreateDeviceAsync(
+            challenge.AccountId,
+            challenge.DeviceId,
+            challenge.DeviceName,
+            challenge.Platform
+        );
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var session = new SnAuthSession
@@ -421,7 +426,7 @@ public class AuthService(
             IpAddress = challenge.IpAddress,
             UserAgent = challenge.UserAgent,
             Scopes = challenge.Scopes,
-            Audiences =  challenge.Audiences,
+            Audiences = challenge.Audiences,
             ChallengeId = challenge.Id,
             ClientId = device.Id,
         };
@@ -537,7 +542,8 @@ public class AuthService(
         return key;
     }
 
-    public async Task<SnApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null, SnAuthSession? parentSession = null)
+    public async Task<SnApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null,
+        SnAuthSession? parentSession = null)
     {
         var key = new SnApiKey
         {
