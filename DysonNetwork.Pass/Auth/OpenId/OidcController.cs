@@ -23,11 +23,6 @@ public class OidcController(
     private const string StateCachePrefix = "oidc-state:";
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
 
-    public class TokenExchangeResponse
-    {
-        public string Token { get; set; } = string.Empty;
-    }
-    
     [HttpGet("{provider}")]
     public async Task<ActionResult> OidcLogin(
         [FromRoute] string provider,
@@ -81,7 +76,7 @@ public class OidcController(
     /// Handles Apple authentication directly from mobile apps
     /// </summary>
     [HttpPost("apple/mobile")]
-    public async Task<ActionResult<TokenExchangeResponse>> AppleMobileLogin(
+    public async Task<ActionResult<AuthController.TokenExchangeResponse>> AppleMobileLogin(
         [FromBody] AppleMobileSignInRequest request
     )
     {
@@ -118,7 +113,7 @@ public class OidcController(
             );
             
             var token = auth.CreateToken(session);
-            return Ok(new TokenExchangeResponse { Token = token });
+            return Ok(new AuthController.TokenExchangeResponse { Token = token });
         }
         catch (SecurityTokenValidationException ex)
         {
