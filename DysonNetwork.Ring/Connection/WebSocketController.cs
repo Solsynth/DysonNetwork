@@ -42,7 +42,7 @@ public class WebSocketController(
         var deviceId = currentSession.ClientId;
 
         if (string.IsNullOrEmpty(deviceId))
-            return BadRequest("Unable to determine device id");
+            deviceId = Guid.NewGuid().ToString();
         if (deviceAlt is not null)
             deviceId = $"{deviceId}+{deviceAlt}";
 
