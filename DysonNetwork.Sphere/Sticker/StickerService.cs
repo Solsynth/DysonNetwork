@@ -12,6 +12,7 @@ public class StickerService(
 )
 {
     public const string StickerFileUsageIdentifier = "sticker";
+    public const string StickerPackUsageIdentifier = "sticker.pack";
 
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
@@ -36,7 +37,8 @@ public class StickerService(
     {
         if (newImage is not null)
         {
-            await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest { ResourceId = sticker.ResourceIdentifier });
+            await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+                { ResourceId = sticker.ResourceIdentifier });
 
             sticker.Image = newImage;
 
@@ -63,7 +65,8 @@ public class StickerService(
         var stickerResourceId = $"sticker:{sticker.Id}";
 
         // Delete all file references for this sticker
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest { ResourceId = stickerResourceId });
+        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+            { ResourceId = stickerResourceId });
 
         db.Stickers.Remove(sticker);
         await db.SaveChangesAsync();
@@ -82,11 +85,12 @@ public class StickerService(
 
         // Delete all file references for each sticker in the pack
         foreach (var stickerResourceId in stickers.Select(sticker => $"sticker:{sticker.Id}"))
-            await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest { ResourceId = stickerResourceId });
+            await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+                { ResourceId = stickerResourceId });
 
         // Delete any references for the pack itself
-        var packResourceId = $"stickerpack:{pack.Id}";
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest { ResourceId = packResourceId });
+        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+            { ResourceId = pack.ResourceIdentifier });
 
         db.Stickers.RemoveRange(stickers);
         db.StickerPacks.Remove(pack);
@@ -119,7 +123,8 @@ public class StickerService(
         {
             var packPart = identifierParts[0];
             var stickerPart = identifierParts[1];
-            query = query.Where(e => EF.Functions.ILike(e.Pack.Prefix, packPart) && EF.Functions.ILike(e.Slug, stickerPart));
+            query = query.Where(e =>
+                EF.Functions.ILike(e.Pack.Prefix, packPart) && EF.Functions.ILike(e.Slug, stickerPart));
         }
         else
         {

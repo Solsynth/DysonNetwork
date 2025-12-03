@@ -1147,13 +1147,9 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<SnCloudFileReferenceObject>("Image")
+                        .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("image");
-
-                    b.Property<string>("ImageId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("image_id");
 
                     b.Property<Guid>("PackId")
                         .HasColumnType("uuid")
@@ -1201,6 +1197,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
+
+                    b.Property<SnCloudFileReferenceObject>("Icon")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("icon");
 
                     b.Property<string>("Name")
                         .IsRequired()

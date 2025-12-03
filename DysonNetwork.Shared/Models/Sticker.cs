@@ -11,47 +11,33 @@ public class SnSticker : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [MaxLength(128)]
-    public string Slug { get; set; } = null!;
-
-    // Outdated fields, for backward compability
-    [MaxLength(32)]
-    public string? ImageId { get; set; }
-
-    [Column(TypeName = "jsonb")]
-    public SnCloudFileReferenceObject? Image { get; set; } = null!;
+    [MaxLength(128)] public string Slug { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject Image { get; set; } = null!;
 
     public Guid PackId { get; set; }
+    [IgnoreMember] [JsonIgnore] public StickerPack Pack { get; set; } = null!;
 
-    [JsonIgnore]
-    public StickerPack Pack { get; set; } = null!;
-
-    public string ResourceIdentifier => $"sticker/{Id}";
+    public string ResourceIdentifier => $"sticker:{Id}";
 }
 
 [Index(nameof(Prefix), IsUnique = true)]
-public class StickerPack : ModelBase
+public class StickerPack : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [MaxLength(1024)]
-    public string Name { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Icon { get; set; }
+    [MaxLength(1024)] public string Name { get; set; } = null!;
+    [MaxLength(4096)] public string Description { get; set; } = string.Empty;
+    [MaxLength(128)] public string Prefix { get; set; } = null!;
 
-    [MaxLength(4096)]
-    public string Description { get; set; } = string.Empty;
-
-    [MaxLength(128)]
-    public string Prefix { get; set; } = null!;
-
-    [IgnoreMember]
     public List<SnSticker> Stickers { get; set; } = [];
 
-    [IgnoreMember]
-    [JsonIgnore]
-    public List<StickerPackOwnership> Ownerships { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<StickerPackOwnership> Ownerships { get; set; } = [];
 
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
+    
+    public string ResourceIdentifier => $"sticker.pack:{Id}";
 }
 
 public class StickerPackOwnership : ModelBase
@@ -62,6 +48,5 @@ public class StickerPackOwnership : ModelBase
     public StickerPack Pack { get; set; } = null!;
     public Guid AccountId { get; set; }
 
-    [NotMapped]
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 }

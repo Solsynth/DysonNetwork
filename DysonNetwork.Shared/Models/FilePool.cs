@@ -50,5 +50,5 @@ public class FilePool : ModelBase, IIdentifiedResource
 
     public Guid? AccountId { get; set; }
 
-    public string ResourceIdentifier => $"file-pool/{Id}";
+    public string ResourceIdentifier => $"file.pool:{Id}";
 }

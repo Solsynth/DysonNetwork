@@ -15,7 +15,8 @@ public class StickerController(
     AppDatabase db,
     StickerService st,
     Publisher.PublisherService ps,
-    FileService.FileServiceClient files
+    FileService.FileServiceClient files,
+    FileReferenceService.FileReferenceServiceClient fileRefs
 ) : ControllerBase
 {
     private async Task<IActionResult> _CheckStickerPackPermissions(
@@ -114,6 +115,7 @@ public class StickerController(
 
     public class StickerPackRequest
     {
+        public string? IconId { get; set; }
         [MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(128)] public string? Prefix { get; set; }
@@ -147,8 +149,28 @@ public class StickerController(
             PublisherId = publisher.Id
         };
 
+        if (request.IconId is not null)
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.IconId });
+            if (file is null)
+                return BadRequest("Icon not found.");
+
+            pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+
         db.StickerPacks.Add(pack);
         await db.SaveChangesAsync();
+
+        if (pack.Icon is not null)
+        {
+            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
+            {
+                FileId = pack.Icon.Id,
+                Usage = StickerService.StickerPackUsageIdentifier,
+                ResourceId = pack.ResourceIdentifier
+            });
+        }
+
         return Ok(pack);
     }
 
@@ -178,6 +200,32 @@ public class StickerController(
             pack.Description = request.Description;
         if (request.Prefix is not null)
             pack.Prefix = request.Prefix;
+
+        if (request.IconId is not null)
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.IconId });
+            if (file is null)
+                return BadRequest("Icon not found.");
+
+            if (file.Id != pack.Icon?.Id)
+            {
+                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
+                    { ResourceId = pack.ResourceIdentifier, Usage = StickerService.StickerPackUsageIdentifier });
+
+                pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+                await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
+                {
+                    FileId = pack.Icon.Id,
+                    Usage = StickerService.StickerPackUsageIdentifier,
+                    ResourceId = pack.ResourceIdentifier
+                });
+            }
+            else
+            {
+                // Still update the column in case user want to sync the changes of the file meta               
+                pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+        }
 
         db.StickerPacks.Update(pack);
         await db.SaveChangesAsync();
@@ -239,7 +287,11 @@ public class StickerController(
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult<List<SnSticker>>> SearchSticker([FromQuery] string query, [FromQuery] int take = 10, [FromQuery] int offset = 0)
+    public async Task<ActionResult<List<SnSticker>>> SearchSticker(
+        [FromQuery] string query,
+        [FromQuery] int take = 10,
+        [FromQuery] int offset = 0
+    )
     {
         var queryable = db.Stickers
             .Include(s => s.Pack)
@@ -300,7 +352,6 @@ public class StickerController(
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.ImageId });
             if (file is null)
                 return BadRequest("Image not found");
-            sticker.ImageId = request.ImageId;
             sticker.Image = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
@@ -367,7 +418,6 @@ public class StickerController(
         var sticker = new SnSticker
         {
             Slug = request.Slug,
-            ImageId = file.Id,
             Image = SnCloudFileReferenceObject.FromProtoValue(file),
             Pack = pack
         };

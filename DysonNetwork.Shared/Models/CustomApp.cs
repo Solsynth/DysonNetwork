@@ -38,7 +38,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
     [NotMapped]
     public SnDeveloper Developer => Project.Developer;
 
-    [NotMapped] public string ResourceIdentifier => "custom-app:" + Id;
+    [NotMapped] public string ResourceIdentifier => "developer.app:" + Id;
 
     public Proto.CustomApp ToProto()
     {
