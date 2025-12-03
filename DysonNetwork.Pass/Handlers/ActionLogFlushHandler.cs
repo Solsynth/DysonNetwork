@@ -6,11 +6,11 @@ using Quartz;
 
 namespace DysonNetwork.Pass.Handlers;
 
-public class ActionLogFlushHandler(IServiceProvider serviceProvider) : IFlushHandler<SnActionLog>
+public class ActionLogFlushHandler(IServiceProvider sp) : IFlushHandler<SnActionLog>
 {
     public async Task FlushAsync(IReadOnlyList<SnActionLog> items)
     {
-        using var scope = serviceProvider.CreateScope();
+        using var scope = sp.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
         var now = SystemClock.Instance.GetCurrentInstant();

@@ -1,4 +1,4 @@
-using DysonNetwork.Ring.Notification;
+using DysonNetwork.Ring.Services;
 using Quartz;
 
 namespace DysonNetwork.Ring.Startup;
@@ -15,6 +15,15 @@ public static class ScheduledJobsConfiguration
                 .ForJob(appDatabaseRecyclingJob)
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
+            
+            q.AddJob<PushSubFlushJob>(opts => opts.WithIdentity("PushSubFlush"));
+            q.AddTrigger(opts => opts
+                .ForJob("PushSubFlush")
+                .WithIdentity("PushSubFlushTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(5)
+                    .RepeatForever())
+            ); 
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

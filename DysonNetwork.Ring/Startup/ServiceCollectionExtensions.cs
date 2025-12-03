@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
+        services.AddScoped<PushSubFlushHandler>();
 
         return services;
     }

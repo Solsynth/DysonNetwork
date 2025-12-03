@@ -2,6 +2,7 @@ using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Services;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
@@ -17,12 +18,14 @@ public class PushService
     private readonly ILogger<PushService> _logger;
     private readonly FirebaseSender? _fcm;
     private readonly ApnSender? _apns;
+    private readonly FlushBufferService _fbs;
     private readonly string? _apnsTopic;
 
     public PushService(
         IConfiguration config,
         AppDatabase db,
         QueueService queueService,
+        FlushBufferService fbs,
         IHttpClientFactory httpFactory,
         ILogger<PushService> logger
     )
@@ -52,6 +55,7 @@ public class PushService
         }
 
         _db = db;
+        _fbs = fbs;
         _queueService = queueService;
         _logger = logger;
     }
@@ -144,14 +148,15 @@ public class PushService
             _ = _queueService.EnqueuePushNotification(notification, Guid.Parse(accountId), save);
     }
 
-    public async Task DeliverPushNotification(SnNotification notification, CancellationToken cancellationToken = default)
+    public async Task DeliverPushNotification(SnNotification notification,
+        CancellationToken cancellationToken = default)
     {
         WebSocketService.SendPacketToAccount(notification.AccountId, new WebSocketPacket()
         {
             Type = "notifications.new",
             Data = notification,
         });
-        
+
         try
         {
             _logger.LogInformation(
@@ -260,7 +265,8 @@ public class PushService
         await DeliverPushNotification(notification);
     }
 
-    private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription, SnNotification notification)
+    private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription,
+        SnNotification notification)
     {
         try
         {
@@ -302,7 +308,9 @@ public class PushService
                         }
                     });
 
-                    if (fcmResult.Error != null)
+                    if (fcmResult.StatusCode is 404 or 410)
+                        _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                    else if (fcmResult.Error != null)
                         throw new Exception($"Notification pushed failed ({fcmResult.StatusCode}) {fcmResult.Error}");
                     break;
 
@@ -338,7 +346,10 @@ public class PushService
                         apnsPriority: notification.Priority,
                         apnPushType: ApnPushType.Alert
                     );
-                    if (apnResult.Error != null)
+                    
+                    if (apnResult.StatusCode is 404 or 410)
+                        _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                    else if (apnResult.Error != null)
                         throw new Exception($"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}");
 
                     break;
