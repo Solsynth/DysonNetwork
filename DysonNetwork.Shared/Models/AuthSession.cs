@@ -26,6 +26,7 @@ public class SnAuthSession : ModelBase
     [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = [];
     [MaxLength(128)] public string? IpAddress { get; set; }
     [MaxLength(512)] public string? UserAgent { get; set; }
+    [Column(TypeName = "jsonb")] public GeoPoint? Location { get; set; }
 
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;

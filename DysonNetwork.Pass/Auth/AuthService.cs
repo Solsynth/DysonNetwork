@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -14,7 +15,8 @@ public class AuthService(
     IConfiguration config,
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
-    ICacheService cache
+    ICacheService cache,
+    GeoIpService geo
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
@@ -49,7 +51,9 @@ public class AuthService(
             .ToListAsync();
 
         var recentChallengeIds =
-            recentSessions.Where(s => s.ChallengeId != null).Select(s => s.ChallengeId.Value).ToList();
+            recentSessions
+                .Where(s => s.ChallengeId != null)
+                .Select(s => s.ChallengeId!.Value).ToList();
         var recentChallenges = await db.AuthChallenges.Where(c => recentChallengeIds.Contains(c.Id)).ToListAsync();
 
         var ipAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -184,16 +188,23 @@ public class AuthService(
         return totalRequiredSteps;
     }
 
-    public async Task<SnAuthSession> CreateSessionForOidcAsync(SnAccount account, Instant time,
-        Guid? customAppId = null, SnAuthSession? parentSession = null)
+    public async Task<SnAuthSession> CreateSessionForOidcAsync(
+        SnAccount account,
+        Instant time,
+        Guid? customAppId = null,
+        SnAuthSession? parentSession = null
+    )
     {
+        var ipAddr = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var geoLocation = ipAddr is not null ? geo.GetPointFromIp(ipAddr) : null;
         var session = new SnAuthSession
         {
             AccountId = account.Id,
             CreatedAt = time,
             LastGrantedAt = time,
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            IpAddress = ipAddr,
             UserAgent = HttpContext.Request.Headers.UserAgent,
+            Location = geoLocation,
             AppId = customAppId,
             ParentSessionId = parentSession?.Id,
             Type = customAppId is not null ? SessionType.OAuth : SessionType.Oidc,
@@ -212,7 +223,8 @@ public class AuthService(
         ClientPlatform platform = ClientPlatform.Unidentified
     )
     {
-        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+        var device = await db.AuthClients
+            .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
         if (device is not null) return device;
         device = new SnAuthClient
         {
@@ -333,12 +345,8 @@ public class AuthService(
     /// <param name="sessionsToRevoke">A HashSet to store the IDs of all sessions to be revoked.</param>
     private async Task CollectSessionsToRevoke(Guid currentSessionId, HashSet<Guid> sessionsToRevoke)
     {
-        if (sessionsToRevoke.Contains(currentSessionId))
-        {
+        if (!sessionsToRevoke.Add(currentSessionId))
             return; // Already processed this session
-        }
-
-        sessionsToRevoke.Add(currentSessionId);
 
         // Find direct children
         var childSessions = await db.AuthSessions
@@ -425,6 +433,7 @@ public class AuthService(
             AccountId = challenge.AccountId,
             IpAddress = challenge.IpAddress,
             UserAgent = challenge.UserAgent,
+            Location = challenge.Location,
             Scopes = challenge.Scopes,
             Audiences = challenge.Audiences,
             ChallengeId = challenge.Id,
@@ -679,9 +688,16 @@ public class AuthService(
     {
         var device = await GetOrCreateDeviceAsync(parentSession.AccountId, deviceId, deviceName, platform);
 
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+        var geoLocation = ipAddress is not null ? geo.GetPointFromIp(ipAddress) : null;
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var session = new SnAuthSession
         {
+            IpAddress = ipAddress,
+            UserAgent = userAgent,
+            Location = geoLocation,
             AccountId = parentSession.AccountId,
             CreatedAt = now,
             LastGrantedAt = now,
