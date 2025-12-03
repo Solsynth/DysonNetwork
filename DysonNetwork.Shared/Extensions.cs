@@ -53,11 +53,8 @@ public static class Extensions
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 
         builder.AddNatsClient("queue");
-        builder.AddRedisClient("cache", configureOptions: opts =>
-        {
-            opts.AbortOnConnectFail = false;
-        });
-        
+        builder.AddRedisClient("cache", configureOptions: opts => { opts.AbortOnConnectFail = false; });
+
         // Setup cache service
         builder.Services.AddStackExchangeRedisCache(options =>
         {
@@ -70,7 +67,10 @@ public static class Extensions
             return RedLockFactory.Create(new List<RedLockMultiplexer> { new(mux) });
         });
         builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
-        builder.Services.AddSingleton<ICacheSerializer, JsonCacheSerializer>();
+        if (builder.Configuration.GetSection("Cache")["Serializer"] == "MessagePack")
+            builder.Services.AddSingleton<ICacheSerializer, MessagePackCacheSerializer>();
+        else
+            builder.Services.AddSingleton<ICacheSerializer, JsonCacheSerializer>();
 
         return builder;
     }
