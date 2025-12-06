@@ -25,8 +25,7 @@ public class ActivityController(TimelineService acts) : ControllerBase
     public async Task<ActionResult<List<SnTimelineEvent>>> ListEvents(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
-        [FromQuery] int take = 20,
-        [FromQuery] string? debugInclude = null
+        [FromQuery] int take = 20
     )
     {
         Instant? cursorTimestamp = null;
@@ -42,13 +41,9 @@ public class ActivityController(TimelineService acts) : ControllerBase
             }
         }
 
-        var debugIncludeSet = debugInclude?.Split(',').ToHashSet() ?? new HashSet<string>();
-
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not Account currentUser
-            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, debugIncludeSet))
-            : Ok(
-                await acts.ListEvents(take, cursorTimestamp, currentUser, filter, debugIncludeSet)
-            );
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp))
+            : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, filter));
     }
 }

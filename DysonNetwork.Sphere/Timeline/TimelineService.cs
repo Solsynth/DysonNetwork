@@ -32,14 +32,9 @@ public class TimelineService(
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
 
-    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(
-        int take,
-        Instant? cursor,
-        HashSet<string>? debugInclude = null
-    )
+    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(int take, Instant? cursor)
     {
         var activities = new List<SnTimelineEvent>();
-        debugInclude ??= new HashSet<string>();
 
         // Get and process posts
         var publicRealms = await rs.GetPublicRealms();
@@ -60,7 +55,7 @@ public class TimelineService(
             // Randomly insert a discovery activity before some posts
             if (random.NextDouble() < 0.15)
             {
-                var discovery = await MaybeGetDiscoveryActivity(debugInclude, cursor: cursor);
+                var discovery = await MaybeGetDiscoveryActivity(cursor: cursor);
                 if (discovery != null)
                     interleaved.Add(discovery);
             }
@@ -80,12 +75,10 @@ public class TimelineService(
         int take,
         Instant? cursor,
         Account currentUser,
-        string? filter = null,
-        HashSet<string>? debugInclude = null
+        string? filter = null
     )
     {
         var activities = new List<SnTimelineEvent>();
-        debugInclude ??= new HashSet<string>();
 
         // Get user's friends and publishers
         var friendsResponse = await accounts.ListFriendsAsync(
@@ -126,7 +119,7 @@ public class TimelineService(
         {
             if (random.NextDouble() < 0.15)
             {
-                var discovery = await MaybeGetDiscoveryActivity(debugInclude, cursor: cursor);
+                var discovery = await MaybeGetDiscoveryActivity(cursor: cursor);
                 if (discovery != null)
                     interleaved.Add(discovery);
             }
@@ -142,21 +135,16 @@ public class TimelineService(
         return activities;
     }
 
-    private async Task<SnTimelineEvent?> MaybeGetDiscoveryActivity(
-        HashSet<string> debugInclude,
-        Instant? cursor
-    )
+    private async Task<SnTimelineEvent?> MaybeGetDiscoveryActivity(Instant? cursor)
     {
-        if (cursor != null)
-            return null;
         var options = new List<Func<Task<SnTimelineEvent?>>>();
-        if (debugInclude.Contains("realms") || Random.Shared.NextDouble() < 0.2)
+        if (Random.Shared.NextDouble() < 0.5)
             options.Add(() => GetRealmDiscoveryActivity());
-        if (debugInclude.Contains("publishers") || Random.Shared.NextDouble() < 0.2)
+        if (Random.Shared.NextDouble() < 0.5)
             options.Add(() => GetPublisherDiscoveryActivity());
-        if (debugInclude.Contains("articles") || Random.Shared.NextDouble() < 0.2)
+        if (Random.Shared.NextDouble() < 0.5)
             options.Add(() => GetArticleDiscoveryActivity());
-        if (debugInclude.Contains("shuffledPosts") || Random.Shared.NextDouble() < 0.2)
+        if (Random.Shared.NextDouble() < 0.5)
             options.Add(() => GetShuffledPostsActivity());
         if (options.Count == 0)
             return null;
