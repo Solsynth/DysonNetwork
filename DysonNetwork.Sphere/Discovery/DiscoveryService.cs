@@ -24,7 +24,7 @@ public class DiscoveryService(RemoteRealmService remoteRealmService)
         // Since we don't have CreatedAt in the proto model, we'll just apply randomizer if requested
         var orderedRealms = randomizer
             ? communityRealms.OrderBy(_ => Random.Shared.Next())
-            : communityRealms;
+            : communityRealms.OrderByDescending(q => q.Members.Count);
 
         return orderedRealms.Skip(offset).Take(take).ToList();
     }
