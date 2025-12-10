@@ -35,7 +35,8 @@ public class RealmServiceGrpc(
             : realm.ToProtoValue();
     }
 
-    public override async Task<GetRealmBatchResponse> GetRealmBatch(GetRealmBatchRequest request, ServerCallContext context)
+    public override async Task<GetRealmBatchResponse> GetRealmBatch(GetRealmBatchRequest request,
+        ServerCallContext context)
     {
         var ids = request.Ids.Select(Guid.Parse).ToList();
         var realms = await db.Realms.Where(r => ids.Contains(r.Id)).ToListAsync();
@@ -67,19 +68,33 @@ public class RealmServiceGrpc(
         return new GetUserRealmsResponse { RealmIds = { realms.Select(g => g.ToString()) } };
     }
 
-    public override async Task<GetPublicRealmsResponse> GetPublicRealms(Empty request, ServerCallContext context)
+    public override Task<GetPublicRealmsResponse> GetPublicRealms(
+        GetPublicRealmsRequest request,
+        ServerCallContext context
+    )
     {
-        var realms = await db.Realms.Where(r => r.IsPublic).ToListAsync();
+        var realmsQueryable = db.Realms.Where(r => r.IsPublic).AsQueryable();
+
+        realmsQueryable = request.OrderBy switch
+        {
+            "random" => realmsQueryable.OrderBy(_ => EF.Functions.Random()),
+            "name" => realmsQueryable.OrderBy(r => r.Name),
+            "popularity" => realmsQueryable.OrderByDescending(r => r.Members.Count),
+            _ => realmsQueryable.OrderByDescending(r => r.CreatedAt)
+        };
+
         var response = new GetPublicRealmsResponse();
-        response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
-        return response;
+        response.Realms.AddRange(realmsQueryable.Select(r => r.ToProtoValue()));
+        return Task.FromResult(response);
     }
 
-    public override async Task<GetPublicRealmsResponse> SearchRealms(SearchRealmsRequest request, ServerCallContext context)
+    public override async Task<GetPublicRealmsResponse> SearchRealms(SearchRealmsRequest request,
+        ServerCallContext context)
     {
         var realms = await db.Realms
             .Where(r => r.IsPublic)
-            .Where(r => EF.Functions.Like(r.Slug, $"{request.Query}%") || EF.Functions.Like(r.Name, $"{request.Query}%"))
+            .Where(r => EF.Functions.Like(r.Slug, $"{request.Query}%") ||
+                        EF.Functions.Like(r.Name, $"{request.Query}%"))
             .Take(request.Limit)
             .ToListAsync();
         var response = new GetPublicRealmsResponse();
@@ -94,9 +109,9 @@ public class RealmServiceGrpc(
             .AsNoTracking()
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(member.AccountId));
-        
+
         if (account == null) throw new RpcException(new Status(StatusCode.NotFound, "Account not found"));
-        
+
         CultureService.SetCultureInfo(account.Language);
 
         await pusher.SendPushNotificationToUserAsync(
@@ -138,7 +153,7 @@ public class RealmServiceGrpc(
             .AsNoTracking()
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(member.AccountId));
-        
+
         var response = new RealmMember(member) { Account = account?.ToProtoValue() };
         return response;
     }

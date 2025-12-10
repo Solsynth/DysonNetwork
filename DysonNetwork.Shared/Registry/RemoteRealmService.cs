@@ -27,9 +27,12 @@ public class RemoteRealmService(RealmService.RealmServiceClient realms)
         return response.RealmIds.Select(Guid.Parse).ToList();
     }
 
-    public async Task<List<SnRealm>> GetPublicRealms()
+    public async Task<List<SnRealm>> GetPublicRealms(string orderBy = "date")
     {
-        var response = await realms.GetPublicRealmsAsync(new Empty());
+        var response = await realms.GetPublicRealmsAsync(new GetPublicRealmsRequest
+        {
+            OrderBy = orderBy
+        });
         return response.Realms.Select(SnRealm.FromProtoValue).ToList();
     }
 

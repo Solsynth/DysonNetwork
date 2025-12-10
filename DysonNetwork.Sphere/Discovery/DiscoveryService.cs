@@ -8,24 +8,10 @@ public class DiscoveryService(RemoteRealmService remoteRealmService)
         string? query,
         int take = 10,
         int offset = 0,
-        bool randomizer = false
+        bool random = false
     )
     {
-        var allRealms = await remoteRealmService.GetPublicRealms();
-        var communityRealms = allRealms.Where(r => r.IsCommunity);
-
-        if (!string.IsNullOrEmpty(query))
-        {
-            communityRealms = communityRealms.Where(r =>
-                r.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-            );
-        }
-
-        // Since we don't have CreatedAt in the proto model, we'll just apply randomizer if requested
-        var orderedRealms = randomizer
-            ? communityRealms.OrderBy(_ => Random.Shared.Next())
-            : communityRealms.OrderByDescending(q => q.Members.Count());
-
-        return orderedRealms.Skip(offset).Take(take).ToList();
+        var allRealms = await remoteRealmService.GetPublicRealms(random ? "random" : "popularity");
+        return allRealms.Where(r => r.IsCommunity).Skip(offset).Take(take).ToList();
     }
 }

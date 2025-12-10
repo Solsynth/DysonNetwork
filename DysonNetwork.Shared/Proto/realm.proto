@@ -46,7 +46,7 @@ service RealmService {
     // Get realms for a user
     rpc GetUserRealms(GetUserRealmsRequest) returns (GetUserRealmsResponse) {}
     // Get public realms
-    rpc GetPublicRealms(google.protobuf.Empty) returns (GetPublicRealmsResponse) {}
+    rpc GetPublicRealms(GetPublicRealmsRequest) returns (GetPublicRealmsResponse) {}
     // Search public realms
     rpc SearchRealms(SearchRealmsRequest) returns (GetPublicRealmsResponse) {}
     // Send invitation notification
@@ -82,6 +82,10 @@ message GetRealmBatchResponse {
 
 message GetUserRealmsResponse {
     repeated string realm_ids = 1;
+}
+
+message GetPublicRealmsRequest {
+    optional string order_by = 1;
 }
 
 message GetPublicRealmsResponse {
