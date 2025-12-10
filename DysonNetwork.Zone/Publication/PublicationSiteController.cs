@@ -59,7 +59,8 @@ public class PublicationSiteController(
 
     [HttpPost("{pubName}")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationSite>> CreateSite([FromRoute] string pubName, [FromBody] PublicationSiteRequest request)
+    public async Task<ActionResult<SnPublicationSite>> CreateSite([FromRoute] string pubName,
+        [FromBody] PublicationSiteRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
@@ -75,6 +76,7 @@ public class PublicationSiteController(
             Name = request.Name,
             Description = request.Description,
             PublisherId = publisher.Id,
+            Config = request.Config ?? new PublicationSiteConfig(),
             AccountId = accountId
         };
 
@@ -96,7 +98,8 @@ public class PublicationSiteController(
 
     [HttpPatch("{pubName}/{slug}")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationSite>> UpdateSite([FromRoute] string pubName, string slug, [FromBody] PublicationSiteRequest request)
+    public async Task<ActionResult<SnPublicationSite>> UpdateSite([FromRoute] string pubName, string slug,
+        [FromBody] PublicationSiteRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
@@ -113,6 +116,7 @@ public class PublicationSiteController(
         site.Slug = request.Slug;
         site.Name = request.Name;
         site.Description = request.Description ?? site.Description;
+        site.Config = request.Config ?? site.Config;
 
         try
         {
@@ -153,18 +157,10 @@ public class PublicationSiteController(
         return NoContent();
     }
 
-    [HttpGet("site/{slug}/page")]
-    public async Task<ActionResult<SnPublicationPage>> RenderPage(string slug, [FromQuery] string path = "/")
-    {
-        var page = await publicationService.RenderPage(slug, path);
-        if (page == null)
-            return NotFound();
-        return Ok(page);
-    }
-
     [HttpGet("{pubName}/{siteSlug}/pages")]
     [Authorize]
-    public async Task<ActionResult<List<SnPublicationPage>>> ListPagesForSite([FromRoute] string pubName, [FromRoute] string siteSlug)
+    public async Task<ActionResult<List<SnPublicationPage>>> ListPagesForSite([FromRoute] string pubName,
+        [FromRoute] string siteSlug)
     {
         var site = await publicationService.GetSiteBySlug(siteSlug);
         if (site == null) return NotFound();
@@ -187,7 +183,8 @@ public class PublicationSiteController(
 
     [HttpPost("{pubName}/{siteSlug}/pages")]
     [Authorize]
-    public async Task<ActionResult<SnPublicationPage>> CreatePage([FromRoute] string pubName, [FromRoute] string siteSlug, [FromBody] PublicationPageRequest request)
+    public async Task<ActionResult<SnPublicationPage>> CreatePage([FromRoute] string pubName,
+        [FromRoute] string siteSlug, [FromBody] PublicationPageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
             return Unauthorized();
@@ -280,6 +277,7 @@ public class PublicationSiteController(
         [MaxLength(4096)] public string Slug { get; set; } = null!;
         [MaxLength(4096)] public string Name { get; set; } = null!;
         [MaxLength(8192)] public string? Description { get; set; }
+        public PublicationSiteConfig? Config { get; set; }
     }
 
     public class PublicationPageRequest

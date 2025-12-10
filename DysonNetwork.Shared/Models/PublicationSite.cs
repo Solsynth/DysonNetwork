@@ -20,6 +20,19 @@ public enum PublicationSiteMode
     SelfManaged
 }
 
+public class PublicationSiteConfig
+{
+    public string? StyleOverride { get; set; }
+    public List<PublicationSiteNavItem>? NavItems { get; set; } = [];
+}
+
+public class PublicationSiteNavItem
+{
+    [MaxLength(1024)] public string Label { get; set; } = null!;
+    [MaxLength(8192)] public string Href { get; set; } = null!;
+    Dictionary<string, object> Attributes { get; set; } = new();
+}
+
 public class SnPublicationSite : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -29,6 +42,7 @@ public class SnPublicationSite : ModelBase
 
     public PublicationSiteMode Mode { get; set; } = PublicationSiteMode.FullyManaged;
     public List<SnPublicationPage> Pages { get; set; } = [];
+    [Column(TypeName = "jsonb")] public PublicationSiteConfig Config { get; set; } = new();
 
     public Guid PublisherId { get; set; }
     [NotMapped] public SnPublisher Publisher { get; set; } = null!;

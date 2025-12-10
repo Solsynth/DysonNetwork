@@ -40,26 +40,6 @@ public class PostController(
         return Ok(posts);
     }
 
-    /// <summary>
-    /// Retrieves a paginated list of posts with optional filtering and sorting.
-    /// </summary>
-    /// <param name="includeReplies">Whether to include reply posts in the results. If false, only root posts are returned.</param>
-    /// <param name="offset">The number of posts to skip for pagination.</param>
-    /// <param name="take">The maximum number of posts to return (default: 20).</param>
-    /// <param name="pubName">Filter posts by publisher name.</param>
-    /// <param name="realmName">Filter posts by realm slug.</param>
-    /// <param name="type">Filter posts by post type (as integer).</param>
-    /// <param name="categories">Filter posts by category slugs.</param>
-    /// <param name="tags">Filter posts by tag slugs.</param>
-    /// <param name="queryTerm">Search term to filter posts by title, description, or content.</param>
-    /// <param name="onlyMedia">If true, only returns posts that have attachments.</param>
-    /// <param name="shuffle">If true, returns posts in random order. If false, orders by published/created date (newest first).</param>
-    /// <param name="pinned">If true, returns posts that pinned. If false, returns posts that are not pinned. If null, returns all posts.</param>
-    /// <returns>
-    /// Returns an ActionResult containing a list of Post objects that match the specified criteria.
-    /// Includes an X-Total header with the total count of matching posts before pagination.
-    /// </returns>
-    /// <response code="200">Returns the list of posts matching the criteria.</response>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<SnPost>))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
