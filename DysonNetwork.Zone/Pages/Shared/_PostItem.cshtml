@@ -80,8 +80,7 @@
             <div class="text-sm text-base-content/60">
                 Posted on @Model.CreatedAt.ToDateTimeOffset().ToString("yyyy-MM-dd")
             </div>
-            <a asp-page="/Posts/Details" asp-route-slug="@(Model.Slug ?? Model.Id.ToString())"
-               class="btn btn-sm btn-ghost btn-circle">
+            <a href="/p/@(Model.Slug ?? Model.Id.ToString())"class="btn btn-sm btn-ghost btn-circle">
                 <span class="mdi mdi-arrow-right text-lg"></span>
             </a>
         </div>

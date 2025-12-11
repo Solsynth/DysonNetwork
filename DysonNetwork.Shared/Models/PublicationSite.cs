@@ -59,7 +59,11 @@ public enum PublicationPageType
     /// The redirect mode allows user to create a shortcut for their own link.
     /// such as example.solian.page/rickroll -- DyZ 301 -> youtube.com/...
     /// </summary>
-    Redirect
+    Redirect,
+    /// <summary>
+    /// The Post Page type allows user render a list of posts based on the preconfigured filter.
+    /// </summary>
+    PostPage
 }
 
 public class SnPublicationPage : ModelBase

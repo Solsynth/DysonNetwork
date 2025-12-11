@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Zone.Customization;
 using DysonNetwork.Zone.Publication;
 using Microsoft.AspNetCore.Mvc;
 // Add this using statement
@@ -15,34 +16,54 @@ public class PostsModel(
     MarkdownConverter markdownConverter
 ) : PageModel
 {
-    [FromQuery] public bool ShowAll { get; set; } = false;
-
     public SnPublicationSite? Site { get; set; }
     public SnPublisher? Publisher { get; set; }
     public List<SnPost> Posts { get; set; } = [];
     public int TotalCount { get; set; }
 
-    public int CurrentPage { get; set; }
+    public int Index { get; set; }
     public int PageSize { get; set; } = 10;
     public int TotalPages => (int)Math.Ceiling(TotalCount / (double)PageSize);
 
-    public async Task OnGetAsync(int currentPage = 1)
-    {
-        Site = HttpContext.Items[PublicationSiteMiddleware.SiteContextKey] as SnPublicationSite;
-        CurrentPage = currentPage;
+    public PostPageFilterConfig? FilterConfig { get; set; }
+    public PostPageLayoutConfig? LayoutConfig { get; set; }
 
-        Publisher = await rps.GetPublisher(id: Site!.PublisherId.ToString());
+    public async Task OnGetAsync(int index = 1)
+    {
+        FilterConfig = HttpContext.Items["PostPage_FilterConfig"] as PostPageFilterConfig;
+        LayoutConfig = HttpContext.Items["PostPage_LayoutConfig"] as PostPageLayoutConfig;
+        Site = HttpContext.Items[PublicationSiteMiddleware.SiteContextKey] as SnPublicationSite;
+        Index = index;
+
+        Publisher = FilterConfig?.PubName is not null
+            ? await rps.GetPublisher(FilterConfig.PubName)
+            : await rps.GetPublisher(id: Site!.PublisherId.ToString());
 
         var request = new ListPostsRequest
         {
-            OrderBy = "date",
-            OrderDesc = true,
+            OrderBy = FilterConfig?.OrderBy,
+            OrderDesc = FilterConfig?.OrderDesc ?? true,
             PageSize = PageSize,
-            PageToken = ((CurrentPage - 1) * PageSize).ToString(),
-            PublisherId = Site!.PublisherId.ToString()
+            PageToken = ((Index - 1) * PageSize).ToString(),
+            PublisherId = Publisher!.Id.ToString()
         };
 
-        if (!ShowAll) request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+        if (FilterConfig?.Types is not null)
+        {
+            foreach (var type in FilterConfig.Types)
+            {
+                request.Types_.Add(type switch
+                {
+                    0 => DysonNetwork.Shared.Proto.PostType.Moment,
+                    1 => DysonNetwork.Shared.Proto.PostType.Article,
+                    _ => DysonNetwork.Shared.Proto.PostType.Unspecified,
+                });
+            }
+        }
+        else
+        {
+            request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+        }
 
         var response = await postClient.ListPostsAsync(request);
 
