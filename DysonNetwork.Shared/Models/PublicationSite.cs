@@ -30,7 +30,6 @@ public class PublicationSiteNavItem
 {
     [MaxLength(1024)] public string Label { get; set; } = null!;
     [MaxLength(8192)] public string Href { get; set; } = null!;
-    Dictionary<string, object> Attributes { get; set; } = new();
 }
 
 public class SnPublicationSite : ModelBase

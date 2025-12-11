@@ -1,5 +1,6 @@
 @using DysonNetwork.Zone.Publication
 @using DysonNetwork.Shared.Models
+@using Microsoft.IdentityModel.Tokens
 @{
     Layout = "_Layout";
     var site = Context.Items[PublicationSiteMiddleware.SiteContextKey] as SnPublicationSite;
@@ -8,13 +9,26 @@
 
 <div class="navbar backdrop-blur-md bg-white/1 shadow-xl px-5">
     <div class="flex-1">
-        <a class="btn btn-ghost text-xl" asp-page="/Index">@siteDisplayName</a>
+        <a class="btn btn-ghost text-xl" href="/">@siteDisplayName</a>
     </div>
     <div class="flex-none">
-        <ul class="menu menu-horizontal px-1">
-            <li><a asp-page="/Posts">Posts</a></li>
-            <li><a asp-page="/About">About</a></li>
-        </ul>
+        @if (site?.Config.NavItems is null || site.Config.NavItems.IsNullOrEmpty())
+        {
+            @*Use preset navs*@
+            <ul class="menu menu-horizontal px-1">
+                <li><a href="/posts">Posts</a></li>
+                <li><a href="/about">About</a></li>
+            </ul>
+        }
+        else
+        {
+            <ul class="menu menu-horizontal px-1">
+                @foreach (var item in site.Config.NavItems)
+                {
+                    <li><a href="@item.Href">@item.Label</a></li>
+                }
+            </ul>
+        }
     </div>
 </div>
 
@@ -30,6 +44,11 @@
 @section Head
 {
     @await RenderSectionAsync("Head", required: false)
+    
+    @if (site?.Config.StyleOverride is not null)
+    {
+        <style>@(site.Config.StyleOverride)</style>
+    }
 
     <style>
         .navbar {

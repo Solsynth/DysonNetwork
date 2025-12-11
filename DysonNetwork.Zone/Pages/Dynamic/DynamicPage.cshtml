@@ -1,0 +1,8 @@
+@model DynamicPage
+@{
+    Layout = "_LayoutContained";
+}
+
+<div class="dynamic-content">
+    @Html.Raw(Model.Html)
+</div>
