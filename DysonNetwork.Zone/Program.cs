@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "zone"; });
+
 builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddRazorPages();

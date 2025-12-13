@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "develop"; });
+
 builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices(builder.Configuration);

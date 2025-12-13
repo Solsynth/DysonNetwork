@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "insight"; });
+
 builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration);

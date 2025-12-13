@@ -8,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "pass"; });
+
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration);
 

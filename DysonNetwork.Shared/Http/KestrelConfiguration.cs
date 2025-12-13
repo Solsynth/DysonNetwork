@@ -23,7 +23,7 @@ public static class KestrelConfiguration
             if (enableGrpc)
             {
                 // gRPC
-                var grpcPort = int.Parse(configuration.GetValue("GRPC_PORT", "5001"));
+                var grpcPort = int.Parse(configuration.GetValue("GRPC_PORT", "5000"));
                 options.ListenAnyIP(grpcPort, listenOptions =>
                 {
                     listenOptions.Protocols = HttpProtocols.Http2;

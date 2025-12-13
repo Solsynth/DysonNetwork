@@ -9,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "drive"; });
+
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxValue);
 
