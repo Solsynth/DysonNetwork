@@ -1,14 +1,14 @@
 using MaxMind.GeoIP2;
 using Microsoft.Extensions.Options;
 
-namespace DysonNetwork.Shared.GeoIp;
+namespace DysonNetwork.Shared.Geometry;
 
-public class GeoIpOptions
+public class GeoOptions
 {
     public string DatabasePath { get; set; } = null!;
 }
 
-public class GeoIpService(IOptions<GeoIpOptions> options)
+public class GeoService(IOptions<GeoOptions> options)
 {
     private readonly string _databasePath = options.Value.DatabasePath;
     

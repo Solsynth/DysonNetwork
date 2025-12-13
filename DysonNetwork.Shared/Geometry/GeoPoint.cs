@@ -1,4 +1,4 @@
-namespace DysonNetwork.Shared.GeoIp;
+namespace DysonNetwork.Shared.Geometry;
 
 public class GeoPoint
 {

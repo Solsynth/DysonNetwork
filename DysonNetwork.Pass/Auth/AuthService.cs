@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -16,7 +16,7 @@ public class AuthService(
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
     ICacheService cache,
-    GeoIpService geo
+    GeoService geo
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
