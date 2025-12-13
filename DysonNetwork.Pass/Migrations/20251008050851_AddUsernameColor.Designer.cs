@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Pass;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;

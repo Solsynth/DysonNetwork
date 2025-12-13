@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Pass.Localization;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Localization;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
@@ -18,7 +18,7 @@ public class AuthController(
     AppDatabase db,
     AccountService accounts,
     AuthService auth,
-    GeoIpService geo,
+    GeoService geo,
     ActionLogService als,
     RingService.RingServiceClient pusher,
     IConfiguration configuration,

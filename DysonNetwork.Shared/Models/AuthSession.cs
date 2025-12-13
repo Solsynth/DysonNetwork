@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;

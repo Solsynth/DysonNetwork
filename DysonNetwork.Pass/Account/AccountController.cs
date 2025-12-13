@@ -5,7 +5,7 @@ using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -25,7 +25,7 @@ public class AccountController(
     AccountEventService events,
     SocialCreditService socialCreditService,
     AffiliationSpellService ars,
-    GeoIpService geo
+    GeoService geo
 ) : ControllerBase
 {
     [HttpGet("{name}")]

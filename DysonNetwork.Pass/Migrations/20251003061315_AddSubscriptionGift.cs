@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using DysonNetwork.Shared.GeoIp;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;

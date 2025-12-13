@@ -17,8 +17,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Drive", "Dyson
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Develop", "DysonNetwork.Develop\DysonNetwork.Develop.csproj", "{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Control", "DysonNetwork.Control\DysonNetwork.Control.csproj", "{7FFED190-51C7-4302-A8B5-96C839463458}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Gateway", "DysonNetwork.Gateway\DysonNetwork.Gateway.csproj", "{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Insight", "DysonNetwork.Insight\DysonNetwork.Insight.csproj", "{E603CDF2-8BA0-49AE-A1F9-BD2DA5CB983D}"
@@ -107,18 +105,6 @@ Global
 		{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}.Release|x64.Build.0 = Release|Any CPU
 		{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}.Release|x86.ActiveCfg = Release|Any CPU
 		{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}.Release|x86.Build.0 = Release|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Debug|x64.Build.0 = Debug|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Debug|x86.Build.0 = Debug|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Release|x64.ActiveCfg = Release|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Release|x64.Build.0 = Release|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Release|x86.ActiveCfg = Release|Any CPU
-		{7FFED190-51C7-4302-A8B5-96C839463458}.Release|x86.Build.0 = Release|Any CPU
 		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AA4D244C-6C3A-4CD0-9DA4-5CAFFBB55085}.Debug|x64.ActiveCfg = Debug|Any CPU

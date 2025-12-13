@@ -23,7 +23,7 @@ using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Pass.Startup;
@@ -136,7 +136,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<RazorViewRenderer>();
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
-        services.AddScoped<GeoIpService>();
+        services.AddScoped<GeoService>();
         services.AddScoped<EmailService>();
         services.AddScoped<PermissionService>();
         services.AddScoped<ActionLogService>();

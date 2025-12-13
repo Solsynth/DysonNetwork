@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Chat.Realtime;
@@ -88,7 +88,7 @@ public static class ServiceCollectionExtensions
     )
     {
         services.Configure<GeoIpOptions>(configuration.GetSection("GeoIP"));
-        services.AddScoped<GeoIpService>();
+        services.AddScoped<GeoService>();
         services.AddScoped<PublisherService>();
         services.AddScoped<PublisherSubscriptionService>();
         services.AddScoped<TimelineService>();

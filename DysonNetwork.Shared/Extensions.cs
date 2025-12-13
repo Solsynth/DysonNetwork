@@ -1,4 +1,6 @@
+using dotnet_etcd;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
@@ -51,9 +53,12 @@ public static class Extensions
         // });
 
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+        builder.Services.AddSingleton(new EtcdClient(builder.Configuration.GetConnectionString("Registrar")));
+        builder.Services.AddSingleton<ServiceRegistrar>();
+        builder.Services.AddHostedService<ServiceRegistrarHostedService>();
 
-        builder.AddNatsClient("queue");
-        builder.AddRedisClient("cache", configureOptions: opts => { opts.AbortOnConnectFail = false; });
+        builder.AddNatsClient("Queue");
+        builder.AddRedisClient("Cache", configureOptions: opts => { opts.AbortOnConnectFail = false; });
 
         // Setup cache service
         builder.Services.AddStackExchangeRedisCache(options =>

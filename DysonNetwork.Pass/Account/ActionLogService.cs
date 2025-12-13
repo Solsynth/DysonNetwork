@@ -1,10 +1,10 @@
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.GeoIp;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Pass.Account;
 
-public class ActionLogService(GeoIpService geo, FlushBufferService fbs)
+public class ActionLogService(GeoService geo, FlushBufferService fbs)
 {
     public void CreateActionLog(Guid accountId, string action, Dictionary<string, object> meta)
     {

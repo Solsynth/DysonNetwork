@@ -1,4 +1,4 @@
-﻿using DysonNetwork.Shared.GeoIp;
+﻿using DysonNetwork.Shared.Geometry;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
