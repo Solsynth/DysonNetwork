@@ -1,6 +1,6 @@
 # The Dyson Network
 
-The Dyson Network is the backend of the Solar Network.
+The Dyson Network is the server-side of the Solar Network.
 We’ve open-sourced it here to ensure full transparency and accessibility for everyone.
 
 However, it is not designed for self-hosted due to several limitations:
