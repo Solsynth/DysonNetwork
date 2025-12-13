@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults("develop");
 
 builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "develop"; });
 

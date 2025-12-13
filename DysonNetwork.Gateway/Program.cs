@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults("gateway");
 
 builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxValue, enableGrpc: false);
 

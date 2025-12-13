@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -27,7 +28,8 @@ public static class Extensions
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
 
-    public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
+    public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder, string serviceName)
+        where TBuilder : IHostApplicationBuilder
     {
         // Allow unencrypted grpc
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -37,6 +39,7 @@ public static class Extensions
         builder.AddDefaultHealthChecks();
 
         builder.Services.AddServiceDiscovery();
+        builder.Services.AddServiceDiscoveryCore();
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
@@ -54,18 +57,24 @@ public static class Extensions
         // });
 
         var etcdClient = new EtcdClient(builder.Configuration.GetConnectionString("Registrar"));
-        var registrar = new ServiceRegistrar(etcdClient);
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
         builder.Services.AddSingleton(etcdClient);
-        builder.Services.AddSingleton(registrar);
+        builder.Services.AddSingleton<ServiceRegistrar>();
         builder.Services.AddHostedService<ServiceRegistrarHostedService>();
+        builder.Services.AddSingleton<IServiceEndpointProviderFactory, RegistrarServiceEndpointFactory>();
 
-        builder.Services.AddRingService(registrar);
-        builder.Services.AddAuthService(registrar);
-        builder.Services.AddAccountService(registrar);
-        builder.Services.AddSphereService(registrar);
-        builder.Services.AddDriveService(registrar);
-        builder.Services.AddDevelopService(registrar);
+        if (serviceName != "ring")
+            builder.Services.AddRingService();
+        if (serviceName != "pass")
+            builder.Services.AddAuthService();
+        if (serviceName != "pass")
+            builder.Services.AddAccountService();
+        if (serviceName != "sphere")
+            builder.Services.AddSphereService();
+        if (serviceName != "drive")
+            builder.Services.AddDriveService();
+        if (serviceName != "develop")
+            builder.Services.AddDevelopService();
 
         builder.AddNatsClient("Queue");
         builder.AddRedisClient("Cache", configureOptions: opts => { opts.AbortOnConnectFail = false; });

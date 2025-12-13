@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults("ring");
 
 builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "ring"; });
 

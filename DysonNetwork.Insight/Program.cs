@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "insight"; });
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults("insight");
 
 builder.ConfigureAppKestrel(builder.Configuration);
 

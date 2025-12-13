@@ -27,7 +27,6 @@ public class ThoughtProvider
     private readonly PostService.PostServiceClient _postClient;
     private readonly AccountService.AccountServiceClient _accountClient;
     private readonly IConfiguration _configuration;
-    private readonly ServiceRegistrar _registrar;
 
     private readonly Dictionary<string, Kernel> _kernels = new();
     private readonly Dictionary<string, string> _serviceProviders = new();
@@ -38,11 +37,9 @@ public class ThoughtProvider
     public ThoughtProvider(
         IConfiguration configuration,
         PostService.PostServiceClient postServiceClient,
-        AccountService.AccountServiceClient accountServiceClient,
-        ServiceRegistrar registrar
+        AccountService.AccountServiceClient accountServiceClient
     )
     {
-        _registrar = registrar;
         _postClient = postServiceClient;
         _accountClient = accountServiceClient;
         _configuration = configuration;
@@ -105,8 +102,8 @@ public class ThoughtProvider
         // Add gRPC clients for Thought Plugins
         builder.Services.AddServiceDiscoveryCore();
         builder.Services.AddServiceDiscovery();
-        builder.Services.AddAccountService(_registrar);
-        builder.Services.AddSphereService(_registrar);
+        builder.Services.AddAccountService();
+        builder.Services.AddSphereService();
 
         builder.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
         builder.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient));

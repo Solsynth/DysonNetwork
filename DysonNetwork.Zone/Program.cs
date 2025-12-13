@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults("zone");
 
 builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "zone"; });
 

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddServiceDefaults();
+builder.AddServiceDefaults("pass");
 
 builder.Services.Configure<ServiceRegistrationOptions>(opts => { opts.Name = "pass"; });
 
