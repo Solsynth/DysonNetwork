@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.ServiceDiscovery;
 using NodaTime;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -52,10 +53,19 @@ public static class Extensions
         //     options.AllowedSchemes = ["https"];
         // });
 
+        var etcdClient = new EtcdClient(builder.Configuration.GetConnectionString("Registrar"));
+        var registrar = new ServiceRegistrar(etcdClient);
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
-        builder.Services.AddSingleton(new EtcdClient(builder.Configuration.GetConnectionString("Registrar")));
-        builder.Services.AddSingleton<ServiceRegistrar>();
+        builder.Services.AddSingleton(etcdClient);
+        builder.Services.AddSingleton(registrar);
         builder.Services.AddHostedService<ServiceRegistrarHostedService>();
+
+        builder.Services.AddRingService(registrar);
+        builder.Services.AddAuthService(registrar);
+        builder.Services.AddAccountService(registrar);
+        builder.Services.AddSphereService(registrar);
+        builder.Services.AddDriveService(registrar);
+        builder.Services.AddDevelopService(registrar);
 
         builder.AddNatsClient("Queue");
         builder.AddRedisClient("Cache", configureOptions: opts => { opts.AbortOnConnectFail = false; });

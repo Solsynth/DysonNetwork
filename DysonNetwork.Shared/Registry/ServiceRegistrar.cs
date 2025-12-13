@@ -85,14 +85,15 @@ public class ServiceRegistrar(EtcdClient etcd)
     public async Task<List<string>> GetServiceInstancesAsync(string serviceName, string servicePart)
     {
         var prefix = $"/services/{serviceName}/{servicePart}/";
-        var request = new RangeRequest
+        while (true)
         {
-            Key = ByteString.CopyFromUtf8(prefix),
-            RangeEnd = ByteString.CopyFromUtf8(prefix + "\0")
-        };
-        var response = await etcd.GetAsync(request);
-        var instances = response.Kvs.Select(kv => kv.Value.ToStringUtf8()).ToList();
-        return instances;
+            var response = await etcd.GetRangeAsync(prefix);
+            var instances = response.Kvs.Select(kv => kv.Value.ToStringUtf8()).ToList();
+            if (instances.Count > 0)
+                return instances;
+            Console.WriteLine($"No instances found for service '{serviceName}/{servicePart}', retrying...");
+            await Task.Delay(1000);
+        }
     }
 
     /// <summary>
@@ -104,8 +105,7 @@ public class ServiceRegistrar(EtcdClient etcd)
         if (instances.Count == 0)
             throw new InvalidOperationException($"No instances found for service '{serviceName}' part '{servicePart}'");
         var key = $"{serviceName}/{servicePart}";
-        if (!_roundRobinCounters.ContainsKey(key))
-            _roundRobinCounters[key] = 0;
+        _roundRobinCounters.TryAdd(key, 0);
         var instance = instances[_roundRobinCounters[key] % instances.Count];
         _roundRobinCounters[key] = (_roundRobinCounters[key] + 1) % int.MaxValue;
         return instance;

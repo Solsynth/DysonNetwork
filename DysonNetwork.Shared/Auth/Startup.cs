@@ -9,8 +9,6 @@ public static class DysonAuthStartup
         this IServiceCollection services
     )
     {
-        services.AddAuthService();
-
         services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = AuthConstants.SchemeName;

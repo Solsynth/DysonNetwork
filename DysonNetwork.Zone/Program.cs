@@ -24,9 +24,6 @@ builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs();
 
 builder.Services.AddDysonAuth();
-builder.Services.AddRingService();
-builder.Services.AddAccountService();
-builder.Services.AddSphereService();
 
 builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });
 
