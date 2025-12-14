@@ -132,4 +132,8 @@
       <AdditionalFiles Include="Resources\Emails\PasswordResetEmail.razor" />
       <AdditionalFiles Include="Resources\Emails\RegistrationConfirmEmail.razor" />
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Migrations\" />
+    </ItemGroup>
 </Project>

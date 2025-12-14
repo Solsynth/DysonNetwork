@@ -17,8 +17,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Pass.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20251202160759_SimplifiedAuthSession")]
-    partial class SimplifiedAuthSession
+    [Migration("20251214092550_InitialMigration")]
+    partial class InitialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1055,6 +1055,10 @@ namespace DysonNetwork.Pass.Migrations
                     b.Property<Instant?>("LastGrantedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_granted_at");
+
+                    b.Property<GeoPoint>("Location")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("location");
 
                     b.Property<Guid?>("ParentSessionId")
                         .HasColumnType("uuid")
