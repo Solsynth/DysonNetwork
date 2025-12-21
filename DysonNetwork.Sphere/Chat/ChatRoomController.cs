@@ -42,6 +42,8 @@ public class ChatRoomController(
 
         if (chatRoom.Type != ChatRoomType.DirectMessage) return Ok(chatRoom);
 
+        chatRoom = await crs.LoadChatRealms(chatRoom);
+        
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
             chatRoom = await crs.LoadDirectMessageMembers(chatRoom, Guid.Parse(currentUser.Id));
 
@@ -62,6 +64,7 @@ public class ChatRoomController(
             .Include(m => m.ChatRoom)
             .Select(m => m.ChatRoom)
             .ToListAsync();
+        chatRooms = await crs.LoadChatRealms(chatRooms);
         chatRooms = await crs.LoadDirectMessageMembers(chatRooms, accountId);
         chatRooms = await crs.SortChatRoomByLastMessage(chatRooms);
 
@@ -715,8 +718,10 @@ public class ChatRoomController(
             .ToListAsync();
 
         var chatRooms = members.Select(m => m.ChatRoom).ToList();
+        chatRooms = await crs.LoadDirectMessageMembers(chatRooms, accountId);
+        chatRooms = await crs.LoadChatRealms(chatRooms);
         var directMembers =
-            (await crs.LoadDirectMessageMembers(chatRooms, accountId)).ToDictionary(c => c.Id, c => c.Members);
+            chatRooms.ToDictionary(c => c.Id, c => c.Members);
 
         foreach (var member in members.Where(member => member.ChatRoom.Type == ChatRoomType.DirectMessage))
             member.ChatRoom.Members = directMembers[member.ChatRoom.Id];

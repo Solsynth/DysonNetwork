@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.Chat;
 
 [ApiController]
 [Route("/api/realms/{slug}")]
-public class RealmChatController(AppDatabase db, RemoteRealmService rs) : ControllerBase
+public class RealmChatController(AppDatabase db, ChatRoomService crs, RemoteRealmService rs) : ControllerBase
 {
     [HttpGet("chat")]
     [Authorize]
@@ -28,6 +28,8 @@ public class RealmChatController(AppDatabase db, RemoteRealmService rs) : Contro
         var chatRooms = await db.ChatRooms
             .Where(c => c.RealmId == realm.Id)
             .ToListAsync();
+        
+        chatRooms = await crs.LoadChatRealms(chatRooms);
 
         return Ok(chatRooms);
     }

@@ -9,7 +9,8 @@ namespace DysonNetwork.Sphere.Chat;
 public class ChatRoomService(
     AppDatabase db,
     ICacheService cache,
-    RemoteAccountService remoteAccountsHelper
+    RemoteAccountService remoteAccounts,
+    RemoteRealmService remoteRealms
 )
 {
     private const string ChatRoomGroupPrefix = "chatroom:";
@@ -84,6 +85,26 @@ public class ChatRoomService(
         return sortedRooms;
     }
 
+    public async Task<List<SnChatRoom>> LoadChatRealms(List<SnChatRoom> rooms)
+    {
+        var realmIds = rooms.Where(r => r.RealmId.HasValue).Select(r => r.RealmId!.Value.ToString()).Distinct().ToList();
+
+        var realms = await remoteRealms.GetRealmBatch(realmIds);
+        var realmDict = realms.ToDictionary(r => r.Id, r => r);
+
+        foreach (var room in rooms)
+            if (room.RealmId.HasValue && realmDict.TryGetValue(room.RealmId.Value, out var realm))
+                room.Realm = realm;
+
+        return rooms;
+    }
+
+    public async Task<SnChatRoom> LoadChatRealms(SnChatRoom room)
+    {
+        var result = await LoadChatRealms(new List<SnChatRoom> { room });
+        return result[0];
+    }
+
     public async Task<List<SnChatRoom>> LoadDirectMessageMembers(List<SnChatRoom> rooms, Guid userId)
     {
         var directRoomsId = rooms
@@ -140,7 +161,7 @@ public class ChatRoomService(
 
     public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)
     {
-        var account = await remoteAccountsHelper.GetAccount(member.AccountId);
+        var account = await remoteAccounts.GetAccount(member.AccountId);
         member.Account = SnAccount.FromProtoValue(account);
         return member;
     }
@@ -148,7 +169,7 @@ public class ChatRoomService(
     public async Task<List<SnChatMember>> LoadMemberAccounts(ICollection<SnChatMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = (await remoteAccountsHelper.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
         return
         [
