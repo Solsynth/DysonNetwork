@@ -48,9 +48,9 @@ public static class Extensions
 
         builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 
-        builder.AddNatsClient("queue");
+        builder.AddNatsClient("Queue");
         builder.AddRedisClient(
-            "cache",
+            "Cache",
             configureOptions: opts =>
             {
                 opts.AbortOnConnectFail = false;
@@ -60,7 +60,7 @@ public static class Extensions
         // Setup cache service
         builder.Services.AddStackExchangeRedisCache(options =>
         {
-            options.Configuration = builder.Configuration.GetConnectionString("cache");
+            options.Configuration = builder.Configuration.GetConnectionString("Cache");
             options.InstanceName = "dyson:";
         });
         builder.Services.AddSingleton<IDistributedLockFactory, RedLockFactory>(sp =>

@@ -4,8 +4,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var isDev = builder.Environment.IsDevelopment();
 
-var cache = builder.AddRedis("cache");
-var queue = builder.AddNats("queue").WithJetStream();
+var cache = builder.AddRedis("Cache");
+var queue = builder.AddNats("Queue").WithJetStream();
 
 var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring");
 var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
