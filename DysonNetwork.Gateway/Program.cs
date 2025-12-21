@@ -131,7 +131,7 @@ var clusters = serviceNames.Select(serviceName => new ClusterConfig
             Timeout = TimeSpan.FromSeconds(5),
             Path = "/health"
         },
-        Passive = new()
+        Passive = new PassiveHealthCheckConfig
         {
             Enabled = true
         }
