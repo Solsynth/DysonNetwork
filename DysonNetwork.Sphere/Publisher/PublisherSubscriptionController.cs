@@ -15,13 +15,6 @@ public class PublisherSubscriptionController(
 )
     : ControllerBase
 {
-    public class SubscriptionStatusResponse
-    {
-        public bool IsSubscribed { get; set; }
-        public Guid PublisherId { get; set; }
-        public string PublisherName { get; set; } = string.Empty;
-    }
-
     public class SubscribeRequest
     {
         public int? Tier { get; set; }
@@ -29,23 +22,18 @@ public class PublisherSubscriptionController(
 
     [HttpGet("{name}/subscription")]
     [Authorize]
-    public async Task<ActionResult<SubscriptionStatusResponse>> CheckSubscriptionStatus(string name)
+    public async Task<ActionResult<SnPublisherSubscription>> CheckSubscriptionStatus(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-    
+
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
-    
-        var isSubscribed = await subs.SubscriptionExistsAsync(Guid.Parse(currentUser.Id), publisher.Id);
-    
-        return new SubscriptionStatusResponse
-        {
-            IsSubscribed = isSubscribed,
-            PublisherId = publisher.Id,
-            PublisherName = publisher.Name
-        };
+
+        var subscription = await subs.GetSubscriptionAsync(Guid.Parse(currentUser.Id), publisher.Id);
+        if (subscription is null) return NotFound("Subscription not found");
+        return subscription;
     }
 
     [HttpPost("{name}/subscribe")]
@@ -55,12 +43,12 @@ public class PublisherSubscriptionController(
         [FromBody] SubscribeRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
-    
+
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
-    
+
         try
         {
             var subscription = await subs.CreateSubscriptionAsync(
@@ -68,7 +56,7 @@ public class PublisherSubscriptionController(
                 publisher.Id,
                 request.Tier ?? 0
             );
-    
+
             return subscription;
         }
         catch (Exception ex)
