@@ -202,7 +202,7 @@ public class SnPublisherSubscription : ModelBase
     public Guid Id { get; set; }
 
     public Guid PublisherId { get; set; }
-    [JsonIgnore] public SnPublisher Publisher { get; set; } = null!;
+    public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
 
     public PublisherSubscriptionStatus Status { get; set; } = PublisherSubscriptionStatus.Active;
