@@ -91,11 +91,60 @@ public class PublisherSubscriptionController(
     /// <returns>List of active subscriptions</returns>
     [HttpGet("subscriptions")]
     [Authorize]
-    public async Task<ActionResult<List<SnPublisherSubscription>>> GetCurrentSubscriptions()
+    public async Task<ActionResult<List<SnPublisherSubscription>>> GetCurrentSubscriptions(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
 
-        var subscriptions = await subs.GetAccountSubscriptionsAsync(Guid.Parse(currentUser.Id));
-        return subscriptions;
+        var pubQuery = db.PublisherSubscriptions
+            .Include(ps => ps.Publisher)
+            .Where(ps => ps.AccountId == accountId && ps.Status == PublisherSubscriptionStatus.Active)
+            .OrderByDescending(ps => ps.CreatedAt)
+            .AsQueryable();
+
+        var totalCount = await pubQuery.CountAsync();
+        var subscriptions = await pubQuery
+            .Take(take)
+            .Skip(offset)
+            .ToListAsync();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        return Ok(subscriptions);
+    }
+
+    /// <summary>
+    /// Get all subscriptions of categories and tags for the current user
+    /// </summary>
+    /// <returns>List of active subscription</returns>
+    [HttpGet("subscriptions/categories")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPostCategorySubscription>>> ListCategoriesSubscription(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var pubQuery = db.PostCategorySubscriptions
+            .Include(ps => ps.Tag)
+            .Include(ps => ps.Category)
+            .Where(ps => ps.AccountId == accountId)
+            .OrderByDescending(ps => ps.CreatedAt)
+            .AsQueryable();
+
+        var totalCount = await pubQuery.CountAsync();
+        var subscriptions = await pubQuery
+            .Take(take)
+            .Skip(offset)
+            .ToListAsync();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        return Ok(subscriptions);
     }
 }
