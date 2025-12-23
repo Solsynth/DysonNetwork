@@ -35,8 +35,9 @@ public class RelationshipController(AppDatabase db, RelationshipService rels) : 
             .Where(r => r.AccountId == userId)
             .ToDictionaryAsync(r => r.RelatedId);
         foreach (var relationship in relationships)
-            if (statuses.TryGetValue(relationship.RelatedId, out var status))
-                relationship.Status = status.Status;
+            relationship.Status = statuses.TryGetValue(relationship.AccountId, out var status)
+                ? status.Status
+                : RelationshipStatus.Pending;
 
         Response.Headers["X-Total"] = totalCount.ToString();
 

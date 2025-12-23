@@ -224,20 +224,27 @@ public class RelationshipService(
         var cacheKey = $"{cachePrefix}{accountId}";
         var relationships = await cache.GetAsync<List<Guid>>(cacheKey);
 
-        if (relationships == null)
-        {
-            var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-            relationships = await db.AccountRelationships
-                .Where(r => r.RelatedId == accountId)
-                .Where(r => r.Status == status)
-                .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
-                .Select(r => r.AccountId)
-                .ToListAsync();
+        if (relationships != null) return relationships;
+        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var query = db.AccountRelationships
+            .Where(r => r.RelatedId == accountId)
+            .Where(r => r.Status == status)
+            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
+            .Select(r => r.AccountId);
 
-            await cache.SetAsync(cacheKey, relationships, CacheExpiration);
+        if (status == RelationshipStatus.Friends)
+        {
+            var usersBlockedByMe = db.AccountRelationships
+                .Where(r => r.AccountId == accountId && r.Status == RelationshipStatus.Blocked)
+                .Select(r => r.RelatedId);
+            query = query.Except(usersBlockedByMe);
         }
 
-        return relationships ?? new List<Guid>();
+        relationships = await query.ToListAsync();
+
+        await cache.SetAsync(cacheKey, relationships, CacheExpiration);
+
+        return relationships;
     }
 
     private async Task PurgeRelationshipCache(Guid accountId, Guid relatedId, params RelationshipStatus[] statuses)
