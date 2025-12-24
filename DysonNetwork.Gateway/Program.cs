@@ -1,7 +1,12 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using DysonNetwork.Gateway.Health;
 using DysonNetwork.Shared.Http;
 using Yarp.ReverseProxy.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,17 +14,19 @@ builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxValue, enableGrpc: false);
 
+builder.Services.AddSingleton<GatewayReadinessStore>();
+builder.Services.AddHostedService<GatewayHealthAggregator>();
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(
-        policy =>
-        {
-            policy.SetIsOriginAllowed(origin => true)
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials()
-                .WithExposedHeaders("X-Total");
-        });
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true)
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials()
+            .WithExposedHeaders("X-Total");
+    });
 });
 
 builder.Services.AddRateLimiter(options =>
@@ -40,23 +47,22 @@ builder.Services.AddRateLimiter(options =>
     });
 
     options.OnRejected = async (context, token) =>
-        {
-            // Log the rejected IP
-            var logger = context.HttpContext.RequestServices
-                .GetRequiredService<ILoggerFactory>()
-                .CreateLogger("RateLimiter");
+    {
+        // Log the rejected IP
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("RateLimiter");
 
-            var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            logger.LogWarning("Rate limit exceeded for IP: {IP}", ip);
+        var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        logger.LogWarning("Rate limit exceeded for IP: {IP}", ip);
 
-            // Respond to the client
-            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-            await context.HttpContext.Response.WriteAsync(
-                "Rate limit exceeded. Try again later.", token);
-        };
+        // Respond to the client
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync(
+            "Rate limit exceeded. Try again later.", token);
+    };
 });
 
-var serviceNames = new[] { "ring", "pass", "drive", "sphere", "develop", "insight", "zone" };
 
 var specialRoutes = new[]
 {
@@ -86,7 +92,7 @@ var specialRoutes = new[]
     }
 };
 
-var apiRoutes = serviceNames.Select(serviceName =>
+var apiRoutes = GatewayConstant.ServiceNames.Select(serviceName =>
 {
     var apiPath = serviceName switch
     {
@@ -105,7 +111,7 @@ var apiRoutes = serviceNames.Select(serviceName =>
     };
 });
 
-var swaggerRoutes = serviceNames.Select(serviceName => new RouteConfig
+var swaggerRoutes = GatewayConstant.ServiceNames.Select(serviceName => new RouteConfig
 {
     RouteId = $"{serviceName}-swagger",
     ClusterId = serviceName,
@@ -119,7 +125,7 @@ var swaggerRoutes = serviceNames.Select(serviceName => new RouteConfig
 
 var routes = specialRoutes.Concat(apiRoutes).Concat(swaggerRoutes).ToArray();
 
-var clusters = serviceNames.Select(serviceName => new ClusterConfig
+var clusters = GatewayConstant.ServiceNames.Select(serviceName => new ClusterConfig
 {
     ClusterId = serviceName,
     HealthCheck = new HealthCheckConfig
@@ -147,7 +153,14 @@ builder.Services
     .LoadFromMemory(routes, clusters)
     .AddServiceDiscoveryDestinationResolver();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
+    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+    options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
+
+    options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+});
 
 var app = builder.Build();
 
@@ -155,11 +168,13 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.All
 };
-forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownIPNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseCors();
+
+app.UseMiddleware<GatewayReadinessMiddleware>();
 
 app.MapReverseProxy().RequireRateLimiting("fixed");
 
