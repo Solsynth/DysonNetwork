@@ -311,7 +311,7 @@ public class ChatRoomController(
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to update the chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
             return StatusCode(403, "You need be part of the DM to update the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to update the chat.");
@@ -424,7 +424,7 @@ public class ChatRoomController(
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to delete the chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
             return StatusCode(403, "You need be part of the DM to update the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to update the chat.");
@@ -641,7 +641,7 @@ public class ChatRoomController(
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to invite members to this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
             return StatusCode(403, "You need be part of the DM to invite member to the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to invite member to this chat.");
@@ -907,7 +907,7 @@ public class ChatRoomController(
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to remove members.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
             return StatusCode(403, "You need be part of the DM to update the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to update the chat.");
@@ -958,7 +958,7 @@ public class ChatRoomController(
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to remove members.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && await crs.IsChatMember(chatRoom.Id, accountId))
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
             return StatusCode(403, "You need be part of the DM to update the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to update the chat.");
