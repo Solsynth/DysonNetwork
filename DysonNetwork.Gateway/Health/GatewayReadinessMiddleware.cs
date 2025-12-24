@@ -25,7 +25,7 @@ public sealed class GatewayReadinessMiddleware(RequestDelegate next)
         {
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             var unavailableServices = string.Join(", ", notReadyCoreServices);
-            context.Response.Headers["X-NotReady-Services"] = unavailableServices;
+            context.Response.Headers["X-NotReady"] = unavailableServices;
             await context.Response.WriteAsync("Solar Network is warming up. Try again later please.");
             return;
         }

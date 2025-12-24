@@ -25,7 +25,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()
-            .WithExposedHeaders("X-Total");
+            .WithExposedHeaders("X-Total", "X-NotReady");
     });
 });
 
