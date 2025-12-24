@@ -525,13 +525,15 @@ public class ChatRoomController(
     }
 
     [HttpGet("{roomId:guid}/members")]
-    public async Task<ActionResult<List<SnChatMember>>> ListMembers(Guid roomId,
+    public async Task<ActionResult<List<SnChatMember>>> ListMembers(
+        Guid roomId,
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
         [FromQuery] bool withStatus = false
     )
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        Guid? accountId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
 
         var room = await db.ChatRooms
             .FirstOrDefaultAsync(r => r.Id == roomId);
@@ -539,16 +541,17 @@ public class ChatRoomController(
 
         if (!room.IsPublic)
         {
-            if (currentUser is null) return Unauthorized();
+            if (accountId is null) return Unauthorized();
             var member = await db.ChatMembers
-                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.LeaveAt == null)
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
 
+        // The query should include the unjoined ones, to show the invites.
         var query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.JoinedAt != null && m.LeaveAt == null);
+            .Where(m => m.LeaveAt == null);
 
         if (withStatus)
         {

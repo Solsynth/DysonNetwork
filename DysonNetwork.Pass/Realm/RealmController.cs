@@ -242,9 +242,10 @@ public class RealmController(
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
+        // The query should include the unjoined ones, to show the invites.
         var query = db.RealmMembers
             .Where(m => m.RealmId == realm.Id)
-            .Where(m => m.JoinedAt != null && m.LeaveAt == null);
+            .Where(m => m.LeaveAt == null);
 
         if (withStatus)
         {
