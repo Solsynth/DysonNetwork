@@ -77,4 +77,52 @@ public class NotableDaysController(NotableDaysService days) : ControllerBase
         }
         return Ok(result);
     }
+
+    [HttpGet("{regionCode}/current")]
+    public async Task<ActionResult<NotableDay?>> GetCurrentHoliday(string regionCode)
+    {
+        var result = await days.GetCurrentHoliday(regionCode);
+        if (result == null)
+        {
+            return NotFound("No holiday today");
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("me/current")]
+    [Authorize]
+    public async Task<ActionResult<NotableDay?>> GetAccountCurrentHoliday()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var region = currentUser.Region;
+        if (string.IsNullOrWhiteSpace(region)) region = "us";
+
+        var result = await days.GetCurrentHoliday(region);
+        if (result == null)
+        {
+            return NotFound("No holiday today");
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("{regionCode}/recent")]
+    public async Task<ActionResult<List<NotableDay>>> GetRecentNotableDay(string regionCode)
+    {
+        var result = await days.GetCurrentAndNextHoliday(regionCode);
+        return Ok(result);
+    }
+
+    [HttpGet("me/recent")]
+    [Authorize]
+    public async Task<ActionResult<List<NotableDay>>> GetAccountRecentNotableDay()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var region = currentUser.Region;
+        if (string.IsNullOrWhiteSpace(region)) region = "us";
+
+        var result = await days.GetCurrentAndNextHoliday(region);
+        return Ok(result);
+    }
 }

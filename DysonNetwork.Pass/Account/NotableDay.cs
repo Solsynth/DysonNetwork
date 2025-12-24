@@ -28,6 +28,7 @@ public class NotableDay
     public Instant Date { get; set; }
     public string? LocalName { get; set; }
     public string? GlobalName { get; set; }
+    public string? LocalizableKey { get; set; }
     public string? CountryCode { get; set; }
     public NotableHolidayType[] Holidays { get; set; } = [];
 
