@@ -34,7 +34,7 @@ public class SphereRewindServiceGrpc(
                 .Select(g => new { PublisherId = g.Key, ReactionCount = g.Count() })
                 .FirstOrDefaultAsync();
         var mostLovedPublisher = mostLovedPublisherClue is not null
-            ? ps.GetPublisherLoaded(mostLovedPublisherClue.PublisherId)
+            ? await ps.GetPublisherLoaded(mostLovedPublisherClue.PublisherId)
             : null;
 
         // Creator data
