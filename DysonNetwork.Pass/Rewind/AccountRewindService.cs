@@ -25,7 +25,7 @@ public class AccountRewindService(
         var httpClient = httpClientFactory.CreateClient(
             $"{nameof(AccountRewindService)}+{CapitalizeFirstLetter(serviceId)}"
         );
-        var channel = GrpcChannel.ForAddress($"http://{serviceId}", new GrpcChannelOptions { HttpClient = httpClient });
+        var channel = GrpcChannel.ForAddress($"https://_grpc.{serviceId}", new GrpcChannelOptions { HttpClient = httpClient });
         return new RewindService.RewindServiceClient(channel);
     }
 
