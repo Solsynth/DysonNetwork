@@ -34,7 +34,7 @@ public class AccountRewindService(
 
     private async Task<SnRewindPoint> CreateRewindPoint(Guid accountId)
     {
-        var currentYear = DateTime.UtcNow.Year;
+        const int currentYear = 2025;
         var rewindRequest = new RequestRewindEvent { AccountId = accountId.ToString(), Year = currentYear};
 
         var rewindEventTasks = new List<Task<RewindEvent>>

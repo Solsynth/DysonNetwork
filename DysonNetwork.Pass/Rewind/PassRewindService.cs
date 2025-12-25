@@ -23,19 +23,51 @@ public class PassRewindService(AppDatabase db)
             .OrderBy(d => d)
             .ToListAsync();
 
-        var maxCheckInStrike = 0;
+        var maxCheckInStreak = 0;
         if (checkInDates.Count != 0)
         {
-            maxCheckInStrike = checkInDates
+            maxCheckInStreak = checkInDates
                 .Select((d, i) => new { Date = d, Index = i })
                 .GroupBy(x => x.Date.Subtract(new TimeSpan(x.Index, 0, 0, 0)))
                 .Select(g => g.Count())
                 .Max();
         }
 
+        var checkInCompleteness = checkInDates.Count / 365.0;
+
+        var actionDates = await db.ActionLogs
+            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+            .Where(a => a.AccountId == accountId)
+            .Select(a => a.CreatedAt.ToDateTimeUtc().Date)
+            .ToListAsync();
+
+        var mostActiveDay = actionDates
+            .GroupBy(d => d)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .OrderByDescending(g => g.Count)
+            .FirstOrDefault();
+
+        var mostActiveWeekday = actionDates
+            .GroupBy(d => d.DayOfWeek)
+            .Select(g => new { Day = g.Key, Count = g.Count() })
+            .OrderByDescending(g => g.Count)
+            .FirstOrDefault();
+
+        var actionTimes = await db.ActionLogs
+            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+            .Where(a => a.AccountId == accountId)
+            .Select(a => a.CreatedAt.ToDateTimeUtc())
+            .ToListAsync();
+
+        TimeSpan? latestActiveTime = actionTimes.Any() ? actionTimes.Max(dt => dt.TimeOfDay) : null;
+
         var data = new Dictionary<string, object?>
         {
-            ["max_check_in_strike"] = maxCheckInStrike,
+            ["max_check_in_streak"] = maxCheckInStreak,
+            ["check_in_completeness"] = checkInCompleteness,
+            ["most_active_day"] = mostActiveDay?.Date.ToString("yyyy-MM-dd"),
+            ["most_active_weekday"] = mostActiveWeekday?.Day.ToString(),
+            ["latest_active_time"] = latestActiveTime?.ToString(@"hh\:mm"),
         };
         
         return new RewindEvent

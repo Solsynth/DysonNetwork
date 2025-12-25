@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using System.Globalization;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Chat;
@@ -79,7 +79,7 @@ public class SphereRewindServiceGrpc(
             .Where(m => m.Sender.AccountId == accountId)
             .AsQueryable();
         var mostMessagedChat = await messagesQuery
-            .Where(m => m.ChatRoom.Type != Shared.Models.ChatRoomType.Group)
+            .Where(m => m.ChatRoom.Type == Shared.Models.ChatRoomType.Group)
             .GroupBy(m => m.ChatRoomId)
             .OrderByDescending(g => g.Count())
             .Select(g => g.First().ChatRoom)
@@ -102,16 +102,17 @@ public class SphereRewindServiceGrpc(
             .Where(c => c.Sender.AccountId == accountId)
             .AsQueryable();
 
+        var now = SystemClock.Instance.GetCurrentInstant();
         var mostCalledRoom = await callQuery
+            .Where(c => c.Room.Type == Shared.Models.ChatRoomType.Group)
             .GroupBy(c => c.RoomId)
-            .OrderByDescending(g => g.Count())
+            .OrderByDescending(g => g.Sum(c => c.CreatedAt.Minus(c.EndedAt ?? now).Seconds))
             .Select(g => g.First().Room)
             .FirstOrDefaultAsync();
 
-        if (mostCalledRoom != null && mostCalledRoom.Type == Shared.Models.ChatRoomType.DirectMessage)
-        {
-            mostCalledRoom = await crs.LoadDirectMessageMembers(mostCalledRoom, accountId);
-        }
+        List<SnAccount>? mostCalledChatTopMembers = null;
+        if (mostCalledRoom != null)
+            mostCalledChatTopMembers = await crs.GetTopActiveMembers(mostCalledRoom.Id, startDate, endDate);
 
         var mostCalledDirectRooms = await callQuery
             .Where(c => c.Room.Type == Shared.Models.ChatRoomType.DirectMessage)
@@ -129,9 +130,8 @@ public class SphereRewindServiceGrpc(
             if (otherMember != null)
                 accountIds.Add(otherMember.AccountId);
         }
-
         var mostCalledAccounts = await remoteAccounts.GetAccountBatch(accountIds);
-        
+
 
         var data = new Dictionary<string, object?>
         {
@@ -161,6 +161,7 @@ public class SphereRewindServiceGrpc(
             ["most_messaged_chat"] = mostMessagedChat,
             ["most_messaged_direct_chat"] = mostMessagedDirectChat,
             ["most_called_chat"] = mostCalledRoom,
+            ["most_called_chat_top_members"] = mostCalledChatTopMembers,
             ["most_called_accounts"] = mostCalledAccounts,
         };
 
