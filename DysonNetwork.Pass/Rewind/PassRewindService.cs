@@ -1,4 +1,3 @@
-using System.Linq;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -13,8 +12,8 @@ public class PassRewindService(AppDatabase db)
 {
     public async Task<RewindEvent> CreateRewindEvent(Guid accountId, int year)
     {
-        var startDate = Instant.FromDateTimeUtc(new DateTime(year - 1, 12, 26));
-        var endDate = Instant.FromDateTimeUtc(new DateTime(year, 12, 26));
+        var startDate = new LocalDate(year - 1, 12, 26).AtMidnight().InUtc().ToInstant();
+        var endDate = new LocalDate(year, 12, 26).AtMidnight().InUtc().ToInstant();
 
         var checkInDates = await db.AccountCheckInResults
             .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)

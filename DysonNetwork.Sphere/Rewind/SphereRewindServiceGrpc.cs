@@ -21,8 +21,8 @@ public class SphereRewindServiceGrpc(
         var accountId = Guid.Parse(request.AccountId);
         var year = request.Year;
 
-        var startDate = Instant.FromDateTimeUtc(new DateTime(year - 1, 12, 26));
-        var endDate = Instant.FromDateTimeUtc(new DateTime(year, 12, 26));
+        var startDate = new LocalDate(year - 1, 12, 26).AtMidnight().InUtc().ToInstant();
+        var endDate = new LocalDate(year, 12, 26).AtMidnight().InUtc().ToInstant();
 
         // Audience data
         var mostLovedPublisherClue =
