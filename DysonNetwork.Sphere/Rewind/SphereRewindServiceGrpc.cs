@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Globalization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.Chat;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -10,6 +12,7 @@ namespace DysonNetwork.Sphere.Rewind;
 public class SphereRewindServiceGrpc(
     AppDatabase db,
     RemoteAccountService remoteAccounts,
+    ChatRoomService crs,
     Publisher.PublisherService ps
 ) : RewindService.RewindServiceBase
 {
@@ -68,6 +71,68 @@ public class SphereRewindServiceGrpc(
             .Select(g => new { Date = g.Key, PostCount = g.Count() })
             .FirstOrDefault();
 
+        // Chat data
+        var messagesQuery = db.ChatMessages
+            .Include(m => m.Sender)
+            .Include(m => m.ChatRoom)
+            .Where(m => m.CreatedAt >= startDate && m.CreatedAt < endDate)
+            .Where(m => m.Sender.AccountId == accountId)
+            .AsQueryable();
+        var mostMessagedChat = await messagesQuery
+            .Where(m => m.ChatRoom.Type != Shared.Models.ChatRoomType.Group)
+            .GroupBy(m => m.ChatRoomId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.First().ChatRoom)
+            .FirstOrDefaultAsync();
+        var mostMessagedDirectChat = await messagesQuery
+            .Where(m => m.ChatRoom.Type == Shared.Models.ChatRoomType.DirectMessage)
+            .GroupBy(m => m.ChatRoomId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.First().ChatRoom)
+            .FirstOrDefaultAsync();
+        mostMessagedDirectChat = mostMessagedDirectChat is not null
+            ? await crs.LoadDirectMessageMembers(mostMessagedDirectChat, accountId)
+            : null;
+
+        // Call data
+        var callQuery = db.ChatRealtimeCall
+            .Include(c => c.Sender)
+            .Include(c => c.Room)
+            .Where(c => c.CreatedAt >= startDate && c.CreatedAt < endDate)
+            .Where(c => c.Sender.AccountId == accountId)
+            .AsQueryable();
+
+        var mostCalledRoom = await callQuery
+            .GroupBy(c => c.RoomId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.First().Room)
+            .FirstOrDefaultAsync();
+
+        if (mostCalledRoom != null && mostCalledRoom.Type == Shared.Models.ChatRoomType.DirectMessage)
+        {
+            mostCalledRoom = await crs.LoadDirectMessageMembers(mostCalledRoom, accountId);
+        }
+
+        var mostCalledDirectRooms = await callQuery
+            .Where(c => c.Room.Type == Shared.Models.ChatRoomType.DirectMessage)
+            .GroupBy(c => c.RoomId)
+            .Select(g => new { ChatRoom = g.First().Room, CallCount = g.Count() })
+            .OrderByDescending(g => g.CallCount)
+            .Take(3)
+            .ToListAsync();
+
+        var accountIds = new List<Guid>();
+        foreach (var item in mostCalledDirectRooms)
+        {
+            var room = await crs.LoadDirectMessageMembers(item.ChatRoom, accountId);
+            var otherMember = room.DirectMembers.FirstOrDefault(m => m.AccountId != accountId);
+            if (otherMember != null)
+                accountIds.Add(otherMember.AccountId);
+        }
+
+        var mostCalledAccounts = await remoteAccounts.GetAccountBatch(accountIds);
+        
+
         var data = new Dictionary<string, object?>
         {
             ["total_count"] = postTotalCount,
@@ -93,6 +158,10 @@ public class SphereRewindServiceGrpc(
                     ["upvote_counts"] = mostLovedAudienceClue.ReactionCount,
                 }
                 : null,
+            ["most_messaged_chat"] = mostMessagedChat,
+            ["most_messaged_direct_chat"] = mostMessagedDirectChat,
+            ["most_called_chat"] = mostCalledRoom,
+            ["most_called_accounts"] = mostCalledAccounts,
         };
 
         return new RewindEvent
