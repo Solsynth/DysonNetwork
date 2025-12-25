@@ -103,12 +103,16 @@ public class SphereRewindServiceGrpc(
             .AsQueryable();
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var mostCalledRoom = await callQuery
+        var callDurations = await callQuery
             .Where(c => c.Room.Type == Shared.Models.ChatRoomType.Group)
+            .Select(c => new { RoomId = c.RoomId, Duration = c.CreatedAt.Minus(c.EndedAt ?? now).Seconds })
+            .ToListAsync();
+        var mostCalledRoomId = callDurations
             .GroupBy(c => c.RoomId)
-            .OrderByDescending(g => g.Sum(c => c.CreatedAt.Minus(c.EndedAt ?? now).Seconds))
-            .Select(g => g.First().Room)
-            .FirstOrDefaultAsync();
+            .OrderByDescending(g => g.Sum(c => c.Duration))
+            .Select(g => g.Key)
+            .FirstOrDefault();
+        var mostCalledRoom = mostCalledRoomId != Guid.Empty ? await db.ChatRooms.FindAsync(mostCalledRoomId) : null;
 
         List<SnAccount>? mostCalledChatTopMembers = null;
         if (mostCalledRoom != null)
