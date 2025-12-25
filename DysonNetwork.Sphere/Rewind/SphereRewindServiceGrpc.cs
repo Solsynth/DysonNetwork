@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Rewind;
 
@@ -15,10 +16,15 @@ public class SphereRewindServiceGrpc(
     public override async Task<RewindEvent> GetRewindEvent(RequestRewindEvent request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
+        var year = request.Year;
+
+        var startDate = Instant.FromDateTimeUtc(new DateTime(year - 1, 12, 26));
+        var endDate = Instant.FromDateTimeUtc(new DateTime(year, 12, 26));
 
         // Audience data
         var mostLovedPublisherClue =
             await db.PostReactions
+                .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
                 .Where(p => p.AccountId == accountId && p.Attitude == Shared.Models.PostReactionAttitude.Positive)
                 .GroupBy(p => p.Post.PublisherId)
                 .OrderByDescending(g => g.Count())
@@ -36,6 +42,7 @@ public class SphereRewindServiceGrpc(
 
         var mostLovedAudienceClue =
             await db.PostReactions
+                .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
                 .Where(pr =>
                     pr.Attitude == Shared.Models.PostReactionAttitude.Positive &&
                     publishers.Contains(pr.Post.PublisherId))
@@ -47,14 +54,15 @@ public class SphereRewindServiceGrpc(
             ? await remoteAccounts.GetAccount(mostLovedAudienceClue.AccountId)
             : null;
 
-        var posts = await db.Posts
+        var posts = db.Posts
+            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
             .Where(p => publishers.Contains(p.PublisherId))
-            .ToListAsync();
-        var postTotalCount = posts.Count;
-        var mostPopularPost = posts
+            .AsQueryable();
+        var postTotalCount = await posts.CountAsync();
+        var mostPopularPost = await posts
             .OrderByDescending(p => p.Upvotes - p.Downvotes)
-            .FirstOrDefault();
-        var mostProductiveDay = posts
+            .FirstOrDefaultAsync();
+        var mostProductiveDay = (await posts.Select(p => new { p.CreatedAt }).ToListAsync())
             .GroupBy(p => p.CreatedAt.ToDateTimeUtc().Date)
             .OrderByDescending(g => g.Count())
             .Select(g => new { Date = g.Key, PostCount = g.Count() })

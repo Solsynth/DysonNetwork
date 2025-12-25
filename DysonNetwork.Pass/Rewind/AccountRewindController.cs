@@ -1,4 +1,4 @@
-namespace DysonNetwork.Pass.Account.Rewind;
+namespace DysonNetwork.Pass.Rewind;
 
 public class AccountRewindController
 {

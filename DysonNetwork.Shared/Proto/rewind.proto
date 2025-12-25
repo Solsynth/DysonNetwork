@@ -12,6 +12,7 @@ message RewindEvent {
 
 message RequestRewindEvent {
     string account_id = 1;
+    int32 year = 2;
 }
 
 service RewindService {

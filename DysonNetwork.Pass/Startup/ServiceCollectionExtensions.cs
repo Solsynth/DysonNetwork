@@ -20,6 +20,7 @@ using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Lotteries;
 using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Realm;
+using DysonNetwork.Pass.Rewind;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Pass.Wallet.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
@@ -167,6 +168,9 @@ public static class ServiceCollectionExtensions
         
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
+
+        services.AddScoped<PassRewindService>();
+        services.AddScoped<AccountRewindService>();
         
         services.AddHostedService<BroadcastEventHandler>();
 
