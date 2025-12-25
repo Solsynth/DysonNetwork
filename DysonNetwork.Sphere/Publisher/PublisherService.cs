@@ -20,6 +20,14 @@ public class PublisherService(
     RemoteAccountService remoteAccounts
 )
 {
+    public async Task<SnPublisher?> GetPublisherLoaded(Guid id)
+    {
+        var publisher = await db.Publishers
+            .Where(p => p.Id == id)
+            .FirstOrDefaultAsync();
+        return publisher is null ? null : (await LoadIndividualPublisherAccounts([publisher])).First();
+    }
+
     public async Task<SnPublisher?> GetPublisherByName(string name)
     {
         return await db.Publishers
@@ -453,7 +461,7 @@ public class PublisherService(
     public async Task<List<SnPublisher>> LoadIndividualPublisherAccounts(ICollection<SnPublisher> publishers)
     {
         var accountIds = publishers
-            .Where(p => p.AccountId.HasValue && p.Type == PublisherType.Individual)
+            .Where(p => p is { AccountId: not null, Type: PublisherType.Individual })
             .Select(p => p.AccountId!.Value)
             .ToList();
         if (accountIds.Count == 0) return publishers.ToList();
@@ -638,7 +646,7 @@ public class PublisherService(
 
             if (!publisherAccounts.TryGetValue(publisherId, out var receivers) || receivers.Count == 0)
                 continue;
-            
+
             var publisherName = publishers.TryGetValue(publisherId, out var pub) ? pub.Name : "unknown";
 
             // Set social credit for receivers, expired before next settle

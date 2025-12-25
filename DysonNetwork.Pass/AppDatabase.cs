@@ -63,6 +63,8 @@ public class AppDatabase(
 
     public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
     public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
+    
+    public DbSet<SnRewindPoint> RewindPoints { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
