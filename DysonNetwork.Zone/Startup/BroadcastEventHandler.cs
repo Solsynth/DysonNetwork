@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Stream;
+using DysonNetwork.Shared.Queue;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;
 using NATS.Net;

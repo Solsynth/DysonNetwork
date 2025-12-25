@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
-namespace DysonNetwork.Shared.Stream;
+namespace DysonNetwork.Shared.Queue;
 
 public class AccountDeletedEvent
 {

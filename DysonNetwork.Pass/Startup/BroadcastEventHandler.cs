@@ -3,7 +3,7 @@ using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Stream;
+using DysonNetwork.Shared.Queue;
 using Google.Protobuf;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;

@@ -1,4 +1,4 @@
-namespace DysonNetwork.Shared.Stream;
+namespace DysonNetwork.Shared.Queue;
 
 public class PaymentOrderEvent : PaymentOrderEventBase
 {

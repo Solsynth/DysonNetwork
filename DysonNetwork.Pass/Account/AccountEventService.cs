@@ -3,7 +3,7 @@ using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Stream;
+using DysonNetwork.Shared.Queue;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;

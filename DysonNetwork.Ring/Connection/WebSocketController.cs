@@ -1,6 +1,6 @@
 using System.Net.WebSockets;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Stream;
+using DysonNetwork.Shared.Queue;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NATS.Client.Core;

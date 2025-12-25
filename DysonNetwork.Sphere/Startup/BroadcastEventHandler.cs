@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Stream;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Post;
 using Google.Protobuf;
