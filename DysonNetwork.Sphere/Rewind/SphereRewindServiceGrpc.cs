@@ -6,6 +6,7 @@ using DysonNetwork.Sphere.Chat;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PostReactionAttitude = DysonNetwork.Shared.Models.PostReactionAttitude;
 
 namespace DysonNetwork.Sphere.Rewind;
 
@@ -28,7 +29,7 @@ public class SphereRewindServiceGrpc(
         var mostLovedPublisherClue =
             await db.PostReactions
                 .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-                .Where(p => p.AccountId == accountId && p.Attitude == Shared.Models.PostReactionAttitude.Positive)
+                .Where(p => p.AccountId == accountId && p.Attitude == PostReactionAttitude.Positive)
                 .GroupBy(p => p.Post.PublisherId)
                 .OrderByDescending(g => g.Count())
                 .Select(g => new { PublisherId = g.Key, ReactionCount = g.Count() })
@@ -47,7 +48,7 @@ public class SphereRewindServiceGrpc(
             await db.PostReactions
                 .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
                 .Where(pr =>
-                    pr.Attitude == Shared.Models.PostReactionAttitude.Positive &&
+                    pr.Attitude == PostReactionAttitude.Positive &&
                     publishers.Contains(pr.Post.PublisherId))
                 .GroupBy(pr => pr.AccountId)
                 .OrderByDescending(g => g.Count())
@@ -62,6 +63,11 @@ public class SphereRewindServiceGrpc(
             .Where(p => publishers.Contains(p.PublisherId))
             .AsQueryable();
         var postTotalCount = await posts.CountAsync();
+        var postTotalUpvotes = await db.PostReactions
+            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+            .Where(p => publishers.Contains(p.Post.PublisherId))
+            .Where(r => r.Attitude == PostReactionAttitude.Positive)
+            .CountAsync();
         var mostPopularPost = await posts
             .OrderByDescending(p => p.Upvotes - p.Downvotes)
             .FirstOrDefaultAsync();
@@ -78,20 +84,21 @@ public class SphereRewindServiceGrpc(
             .Where(m => m.CreatedAt >= startDate && m.CreatedAt < endDate)
             .Where(m => m.Sender.AccountId == accountId)
             .AsQueryable();
-        var mostMessagedChat = await messagesQuery
-            .Where(m => m.ChatRoom.Type == Shared.Models.ChatRoomType.Group)
+        var mostMessagedChatInfo = await messagesQuery
+            .Where(m => m.ChatRoom.Type == ChatRoomType.Group)
             .GroupBy(m => m.ChatRoomId)
             .OrderByDescending(g => g.Count())
-            .Select(g => g.First().ChatRoom)
+            .Select(g => new { ChatRoom = g.First().ChatRoom, MessageCount = g.Count() })
             .FirstOrDefaultAsync();
-        var mostMessagedDirectChat = await messagesQuery
-            .Where(m => m.ChatRoom.Type == Shared.Models.ChatRoomType.DirectMessage)
+        var mostMessagedChat = mostMessagedChatInfo?.ChatRoom;
+        var mostMessagedDirectChatInfo = await messagesQuery
+            .Where(m => m.ChatRoom.Type == ChatRoomType.DirectMessage)
             .GroupBy(m => m.ChatRoomId)
             .OrderByDescending(g => g.Count())
-            .Select(g => g.First().ChatRoom)
+            .Select(g => new { ChatRoom = g.First().ChatRoom, MessageCount = g.Count() })
             .FirstOrDefaultAsync();
-        mostMessagedDirectChat = mostMessagedDirectChat is not null
-            ? await crs.LoadDirectMessageMembers(mostMessagedDirectChat, accountId)
+        var mostMessagedDirectChat = mostMessagedDirectChatInfo is not null
+            ? await crs.LoadDirectMessageMembers(mostMessagedDirectChatInfo.ChatRoom, accountId)
             : null;
 
         // Call data
@@ -104,25 +111,28 @@ public class SphereRewindServiceGrpc(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var callDurations = await callQuery
-            .Where(c => c.Room.Type == Shared.Models.ChatRoomType.Group)
-            .Select(c => new { RoomId = c.RoomId, Duration = c.CreatedAt.Minus(c.EndedAt ?? now).Seconds })
+            .Where(c => c.Room.Type == ChatRoomType.Group)
+            .Select(c => new { c.RoomId, Duration = c.CreatedAt.Minus(c.EndedAt ?? now).Seconds })
             .ToListAsync();
-        var mostCalledRoomId = callDurations
+        var mostCalledRoomInfo = callDurations
             .GroupBy(c => c.RoomId)
-            .OrderByDescending(g => g.Sum(c => c.Duration))
-            .Select(g => g.Key)
+            .Select(g => new { RoomId = g.Key, TotalDuration = g.Sum(c => c.Duration) })
+            .OrderByDescending(g => g.TotalDuration)
             .FirstOrDefault();
-        var mostCalledRoom = mostCalledRoomId != Guid.Empty ? await db.ChatRooms.FindAsync(mostCalledRoomId) : null;
+        var mostCalledRoom = mostCalledRoomInfo != null && mostCalledRoomInfo.RoomId != Guid.Empty
+            ? await db.ChatRooms.FindAsync(mostCalledRoomInfo.RoomId)
+            : null;
 
         List<SnAccount>? mostCalledChatTopMembers = null;
         if (mostCalledRoom != null)
             mostCalledChatTopMembers = await crs.GetTopActiveMembers(mostCalledRoom.Id, startDate, endDate);
 
         var mostCalledDirectRooms = await callQuery
-            .Where(c => c.Room.Type == Shared.Models.ChatRoomType.DirectMessage)
+            .Where(c => c.Room.Type == ChatRoomType.DirectMessage)
             .GroupBy(c => c.RoomId)
-            .Select(g => new { ChatRoom = g.First().Room, CallCount = g.Count() })
-            .OrderByDescending(g => g.CallCount)
+            .Select(g => new
+                { ChatRoom = g.First().Room, TotalDuration = g.Sum(c => c.CreatedAt.Minus(c.EndedAt ?? now).Seconds) })
+            .OrderByDescending(g => g.TotalDuration)
             .Take(3)
             .ToListAsync();
 
@@ -134,12 +144,19 @@ public class SphereRewindServiceGrpc(
             if (otherMember != null)
                 accountIds.Add(otherMember.AccountId);
         }
-        var mostCalledAccounts = await remoteAccounts.GetAccountBatch(accountIds);
+
+        var accounts = await remoteAccounts.GetAccountBatch(accountIds);
+        var mostCalledAccounts = accounts.Zip(mostCalledDirectRooms,
+                (account, room) => new Dictionary<string, object?>
+                    { ["account"] = account, ["duration"] = room.TotalDuration }
+            )
+            .ToList();
 
 
         var data = new Dictionary<string, object?>
         {
-            ["total_count"] = postTotalCount,
+            ["total_post_count"] = postTotalCount,
+            ["total_upvote_count"] = postTotalUpvotes,
             ["most_popular_post"] = mostPopularPost,
             ["most_productive_day"] = mostProductiveDay is not null
                 ? new Dictionary<string, object?>
@@ -162,9 +179,25 @@ public class SphereRewindServiceGrpc(
                     ["upvote_counts"] = mostLovedAudienceClue.ReactionCount,
                 }
                 : null,
-            ["most_messaged_chat"] = mostMessagedChat,
-            ["most_messaged_direct_chat"] = mostMessagedDirectChat,
-            ["most_called_chat"] = mostCalledRoom,
+            ["most_messaged_chat"] = mostMessagedChatInfo is not null
+                ? new Dictionary<string, object?>
+                {
+                    ["chat"] = mostMessagedChat,
+                    ["message_counts"] = mostMessagedChatInfo.MessageCount,
+                }
+                : null,
+            ["most_messaged_direct_chat"] = mostMessagedDirectChatInfo is not null
+                ? new Dictionary<string, object?>
+                {
+                    ["chat"] = mostMessagedDirectChat,
+                    ["message_counts"] = mostMessagedDirectChatInfo.MessageCount
+                }
+                : null,
+            ["most_called_chat"] = new Dictionary<string, object?>
+            {
+                ["chat"] = mostCalledRoom,
+                ["duration"] = mostCalledRoomInfo?.TotalDuration
+            },
             ["most_called_chat_top_members"] = mostCalledChatTopMembers,
             ["most_called_accounts"] = mostCalledAccounts,
         };

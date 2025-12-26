@@ -310,17 +310,19 @@ public class PublisherService(
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
         if (publisher is null) return null;
 
-        var postsCount = await db.Posts.Where(e => e.Publisher.Id == publisher.Id).CountAsync();
+        var postsCount = await db.Posts.Where(e => e.PublisherId == publisher.Id).CountAsync();
         var postsUpvotes = await db.PostReactions
-            .Where(r => r.Post.Publisher.Id == publisher.Id &&
+            .Where(r => r.Post.PublisherId == publisher.Id &&
                         r.Attitude == Shared.Models.PostReactionAttitude.Positive)
             .CountAsync();
         var postsDownvotes = await db.PostReactions
-            .Where(r => r.Post.Publisher.Id == publisher.Id &&
+            .Where(r => r.Post.PublisherId == publisher.Id &&
                         r.Attitude == Shared.Models.PostReactionAttitude.Negative)
             .CountAsync();
 
-        var stickerPacksId = await db.StickerPacks.Where(e => e.Publisher.Id == publisher.Id).Select(e => e.Id)
+        var stickerPacksId = await db.StickerPacks
+            .Where(e => e.PublisherId == publisher.Id)
+            .Select(e => e.Id)
             .ToListAsync();
         var stickerPacksCount = stickerPacksId.Count;
 

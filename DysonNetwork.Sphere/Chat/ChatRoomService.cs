@@ -226,13 +226,13 @@ public class ChatRoomService(
     {
         var topMembers = await db.ChatMessages
             .Where(m => m.ChatRoomId == roomId && m.CreatedAt >= startDate && m.CreatedAt < endDate)
-            .GroupBy(m => m.SenderId)
-            .Select(g => new { SenderId = g.Key, MessageCount = g.Count() })
+            .GroupBy(m => m.Sender.AccountId)
+            .Select(g => new { AccountId = g.Key, MessageCount = g.Count() })
             .OrderByDescending(g => g.MessageCount)
             .Take(3)
             .ToListAsync();
 
-        var accountIds = topMembers.Select(t => t.SenderId).ToList();
+        var accountIds = topMembers.Select(t => t.AccountId).ToList();
         var accounts = await remoteAccounts.GetAccountBatch(accountIds);
         return accounts.Select(SnAccount.FromProtoValue).ToList();
     }
