@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Chat;
 using Grpc.Core;
+using JiebaNet.Segmenter;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using PostReactionAttitude = DysonNetwork.Shared.Models.PostReactionAttitude;
@@ -76,6 +77,22 @@ public class SphereRewindServiceGrpc(
             .OrderByDescending(g => g.Count())
             .Select(g => new { Date = g.Key, PostCount = g.Count() })
             .FirstOrDefault();
+        // Contents to create word cloud
+        var postContents = await posts
+            .Where(p => p.Content != null)
+            .Select(p => p.Content)
+            .OrderByDescending(p => p!.Length)
+            .Take(1000)
+            .ToListAsync();
+        var segmenter = new JiebaSegmenter();
+        var words = segmenter.CutForSearchInParallel(postContents);
+        var allWords = words.SelectMany(w => w);
+        var topWords = allWords
+            .GroupBy(w => w)
+            .Select(g => new { Word = g.Key, Count = g.Count() })
+            .OrderByDescending(wc => wc.Count)
+            .Take(100)
+            .ToList();
 
         // Chat data
         var messagesQuery = db.ChatMessages
@@ -157,6 +174,8 @@ public class SphereRewindServiceGrpc(
         {
             ["total_post_count"] = postTotalCount,
             ["total_upvote_count"] = postTotalUpvotes,
+            ["top_words"] = topWords.Select(wc => new Dictionary<string, object?>
+                { ["word"] = wc.Word, ["count"] = wc.Count }).ToList(),
             ["most_popular_post"] = mostPopularPost,
             ["most_productive_day"] = mostProductiveDay is not null
                 ? new Dictionary<string, object?>
