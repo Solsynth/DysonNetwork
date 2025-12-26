@@ -78,6 +78,7 @@ public class SphereRewindServiceGrpc(
             .Select(g => new { Date = g.Key, PostCount = g.Count() })
             .FirstOrDefault();
         // Contents to create word cloud
+        ConfigManager.ConfigFileBaseDir = @"/app/Resources/cndicts";
         var postContents = await posts
             .Where(p => p.Content != null)
             .Select(p => p.Content)
