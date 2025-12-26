@@ -128,10 +128,11 @@ public class SphereRewindServiceGrpc(
             .AsQueryable();
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var callDurations = await callQuery
+        var groupCallRecords = await callQuery
             .Where(c => c.Room.Type == ChatRoomType.Group)
-            .Select(c => new { c.RoomId, Duration = c.CreatedAt.Minus(c.EndedAt ?? now).Seconds })
+            .Select(c => new { c.RoomId, c.CreatedAt, c.EndedAt })
             .ToListAsync();
+        var callDurations = groupCallRecords.Select(c => new { c.RoomId, Duration = (c.EndedAt ?? now).Minus(c.CreatedAt).Seconds }).ToList();
         var mostCalledRoomInfo = callDurations
             .GroupBy(c => c.RoomId)
             .Select(g => new { RoomId = g.Key, TotalDuration = g.Sum(c => c.Duration) })
@@ -145,14 +146,17 @@ public class SphereRewindServiceGrpc(
         if (mostCalledRoom != null)
             mostCalledChatTopMembers = await crs.GetTopActiveMembers(mostCalledRoom.Id, startDate, endDate);
 
-        var mostCalledDirectRooms = await callQuery
+        var directCallRecords = await callQuery
             .Where(c => c.Room.Type == ChatRoomType.DirectMessage)
+            .Select(c => new { c.RoomId, c.CreatedAt, c.EndedAt, c.Room })
+            .ToListAsync();
+        var directCallDurations = directCallRecords.Select(c => new { c.RoomId, c.Room, Duration = (c.EndedAt ?? now).Minus(c.CreatedAt).Seconds }).ToList();
+        var mostCalledDirectRooms = directCallDurations
             .GroupBy(c => c.RoomId)
-            .Select(g => new
-                { ChatRoom = g.First().Room, TotalDuration = g.Sum(c => c.CreatedAt.Minus(c.EndedAt ?? now).Seconds) })
+            .Select(g => new { ChatRoom = g.First().Room, TotalDuration = g.Sum(c => c.Duration) })
             .OrderByDescending(g => g.TotalDuration)
             .Take(3)
-            .ToListAsync();
+            .ToList();
 
         var accountIds = new List<Guid>();
         foreach (var item in mostCalledDirectRooms)
