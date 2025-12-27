@@ -54,6 +54,14 @@ public class AccountService(
         await cache.RemoveGroupAsync($"{AccountCachePrefix}{account.Id}");
     }
 
+    public async Task<SnAccount?> GetAccount(Guid id)
+    {
+        return await db.Accounts
+            .Where(a => a.Id == id)
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<SnAccount?> LookupAccount(string probe)
     {
         var account = await db.Accounts.Where(a => EF.Functions.ILike(a.Name, probe)).FirstOrDefaultAsync();

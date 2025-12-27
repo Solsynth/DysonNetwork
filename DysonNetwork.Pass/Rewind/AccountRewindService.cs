@@ -9,6 +9,7 @@ namespace DysonNetwork.Pass.Rewind;
 public class AccountRewindService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
+    Account.AccountService accounts,
     PassRewindService passRewindSrv
 )
 {
@@ -36,7 +37,7 @@ public class AccountRewindService(
     private async Task<SnRewindPoint> CreateRewindPoint(Guid accountId)
     {
         const int currentYear = 2025;
-        var rewindRequest = new RequestRewindEvent { AccountId = accountId.ToString(), Year = currentYear};
+        var rewindRequest = new RequestRewindEvent { AccountId = accountId.ToString(), Year = currentYear };
 
         var rewindEventTasks = new List<Task<RewindEvent>>
         {
@@ -61,6 +62,10 @@ public class AccountRewindService(
         db.RewindPoints.Add(point);
         await db.SaveChangesAsync();
 
+        var account = await accounts.GetAccount(accountId);
+        if (account is not null)
+            point.Account = account; // Fill the data
+
         return point;
     }
 
@@ -78,7 +83,7 @@ public class AccountRewindService(
 
         return await CreateRewindPoint(accountId);
     }
-    
+
     public async Task<SnRewindPoint?> GetPublicRewindPoint(string code)
     {
         var point = await db.RewindPoints
@@ -121,7 +126,7 @@ public class AccountRewindService(
 
         return point;
     }
-    
+
     private static string _GenerateRandomString(int length)
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -133,6 +138,7 @@ public class AccountRewindService(
             rng.GetBytes(bytes);
             result[i] = chars[bytes[0] % chars.Length];
         }
+
         return new string(result);
     }
 }
