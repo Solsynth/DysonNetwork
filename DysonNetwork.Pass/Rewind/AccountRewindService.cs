@@ -70,6 +70,8 @@ public class AccountRewindService(
 
         var existingRewind = await db.RewindPoints
             .Where(p => p.AccountId == accountId && p.Year == currentYear)
+            .Include(p => p.Account)
+            .ThenInclude(p => p.Profile)
             .OrderBy(p => p.CreatedAt)
             .FirstOrDefaultAsync();
         if (existingRewind is not null) return existingRewind;
@@ -81,6 +83,8 @@ public class AccountRewindService(
     {
         var point = await db.RewindPoints
             .Where(p => p.SharableCode == code)
+            .Include(p => p.Account)
+            .ThenInclude(p => p.Profile)
             .OrderBy(p => p.CreatedAt)
             .FirstOrDefaultAsync();
         return point;
@@ -90,6 +94,8 @@ public class AccountRewindService(
     {
         var point = await db.RewindPoints
             .Where(p => p.AccountId == accountId && p.Year == year)
+            .Include(p => p.Account)
+            .ThenInclude(p => p.Profile)
             .OrderBy(p => p.CreatedAt)
             .FirstOrDefaultAsync();
         if (point is null) throw new InvalidOperationException("No rewind point was found.");
@@ -104,6 +110,8 @@ public class AccountRewindService(
     {
         var point = await db.RewindPoints
             .Where(p => p.AccountId == accountId && p.Year == year)
+            .Include(p => p.Account)
+            .ThenInclude(p => p.Profile)
             .OrderBy(p => p.CreatedAt)
             .FirstOrDefaultAsync();
         if (point is null) throw new InvalidOperationException("No rewind point was found.");
