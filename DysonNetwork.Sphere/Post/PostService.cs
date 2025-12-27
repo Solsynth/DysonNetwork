@@ -9,6 +9,7 @@ using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
+using Markdig;
 using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Sphere.Post;
@@ -37,23 +38,27 @@ public partial class PostService(
         {
             if (item.Content?.Length > maxLength)
             {
-                item.Content = item.Content[..maxLength];
+                var plainText = Markdown.ToPlainText(item.Content);
+                item.Content = plainText.Length > maxLength ? plainText[..maxLength] : plainText;
                 item.IsTruncated = true;
             }
 
             // Truncate replied post content with shorter embed length
-            if (item.RepliedPost?.Content?.Length > embedMaxLength)
+            if (item.RepliedPost?.Content != null)
             {
-                item.RepliedPost.Content = item.RepliedPost.Content[..embedMaxLength];
-                item.RepliedPost.IsTruncated = true;
+                var plainText = Markdown.ToPlainText(item.RepliedPost.Content);
+                if (plainText.Length > embedMaxLength)
+                {
+                    item.RepliedPost.Content = plainText[..embedMaxLength];
+                    item.RepliedPost.IsTruncated = true;
+                }
             }
 
             // Truncate forwarded post content with shorter embed length
-            if (item.ForwardedPost?.Content?.Length > embedMaxLength)
-            {
-                item.ForwardedPost.Content = item.ForwardedPost.Content[..embedMaxLength];
-                item.ForwardedPost.IsTruncated = true;
-            }
+            if (item.ForwardedPost?.Content == null || Markdown.ToPlainText(item.ForwardedPost.Content).Length <= embedMaxLength) continue;
+            var forwardedPlainText = Markdown.ToPlainText(item.ForwardedPost.Content);
+            item.ForwardedPost.Content = forwardedPlainText[..embedMaxLength];
+            item.ForwardedPost.IsTruncated = true;
         }
 
         return input;
