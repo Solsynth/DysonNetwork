@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Sphere.Chat;
 
@@ -564,6 +565,7 @@ public partial class ChatController(
     }
 
 
+    [SwaggerIgnore]
     public async Task<ActionResult<List<Shared.Models.Autocompletion>>> ChatAutoComplete(
         [FromBody] AutocompletionRequest request, Guid roomId)
     {
