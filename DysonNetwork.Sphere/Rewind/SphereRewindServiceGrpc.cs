@@ -88,7 +88,7 @@ public class SphereRewindServiceGrpc(
             .Take(1000)
             .ToListAsync();
         var segmenter = new JiebaSegmenter();
-        var words = segmenter.CutInParallel(postContents, cutAll: false, hmm: false);
+        var words = segmenter.CutInParallel(postContents);
         var allWords = words.SelectMany(w => w);
         var topWords = allWords
             .GroupBy(w => w)
