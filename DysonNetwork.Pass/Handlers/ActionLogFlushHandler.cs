@@ -1,6 +1,5 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
-using EFCore.BulkExtensions;
 using NodaTime;
 using Quartz;
 
@@ -14,12 +13,13 @@ public class ActionLogFlushHandler(IServiceProvider sp) : IFlushHandler<SnAction
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        await db.BulkInsertAsync(items.Select(x =>
+        foreach (var item in items)
         {
-            x.CreatedAt = now;
-            x.UpdatedAt = x.CreatedAt;
-            return x;
-        }), config => config.ConflictOption = ConflictOption.Ignore);
+            item.CreatedAt = now;
+            item.UpdatedAt = now;
+        }
+        db.ActionLogs.AddRange(items);
+        await db.SaveChangesAsync();
     }
 }
 

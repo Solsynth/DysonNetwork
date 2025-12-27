@@ -10,7 +10,6 @@
 
     <ItemGroup>
         <PackageReference Include="CorePush" Version="4.4.0" />
-        <PackageReference Include="EFCore.BulkExtensions.PostgreSql" Version="10.0.0-rc.2" />
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.76.0" />
         <PackageReference Include="MailKit" Version="4.14.1" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />

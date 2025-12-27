@@ -1,7 +1,6 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -59,16 +58,25 @@ public class FileReferenceService(AppDatabase db, FileService fileService, ICach
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var data = fileId.Select(id => new SnCloudFileReference
+        var finalExpiredAt = expiredAt;
+        if (finalExpiredAt == null && duration.HasValue)
         {
-            FileId = id,
-            Usage = usage,
-            ResourceId = resourceId,
-            ExpiredAt = expiredAt ?? now + duration,
-            CreatedAt = now,
-            UpdatedAt = now
-        }).ToList();
-        await db.BulkInsertAsync(data);
+            finalExpiredAt = now + duration.Value;
+        }
+
+        var data = fileId.Select(id => new SnCloudFileReference
+            {
+                FileId = id,
+                Usage = usage,
+                ResourceId = resourceId,
+                ExpiredAt = finalExpiredAt,
+                CreatedAt = now,
+                UpdatedAt = now
+            })
+            .ToList();
+
+        db.FileReferences.AddRange(data);
+        await db.SaveChangesAsync();
         return data;
     }
 
