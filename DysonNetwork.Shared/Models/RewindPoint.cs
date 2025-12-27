@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DysonNetwork.Shared.Models;
@@ -13,6 +14,7 @@ public class SnRewindPoint : ModelBase
     /// this field provide the clues for the client to parsing the data correctly.
     /// </summary>
     public int SchemaVersion { get; set; } = 1;
+    [MaxLength(4096)] public string? SharableCode { get; set; }
 
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Data { get; set; } = new();
     

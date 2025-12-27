@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Net.Client;
@@ -74,5 +75,56 @@ public class AccountRewindService(
         if (existingRewind is not null) return existingRewind;
 
         return await CreateRewindPoint(accountId);
+    }
+    
+    public async Task<SnRewindPoint?> GetPublicRewindPoint(string code)
+    {
+        var point = await db.RewindPoints
+            .Where(p => p.SharableCode == code)
+            .OrderBy(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
+        return point;
+    }
+
+    public async Task<SnRewindPoint> SetRewindPointPublic(Guid accountId, int year)
+    {
+        var point = await db.RewindPoints
+            .Where(p => p.AccountId == accountId && p.Year == year)
+            .OrderBy(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (point is null) throw new InvalidOperationException("No rewind point was found.");
+        point.SharableCode = _GenerateRandomString(16);
+        db.RewindPoints.Update(point);
+        await db.SaveChangesAsync();
+
+        return point;
+    }
+
+    public async Task<SnRewindPoint> SetRewindPointPrivate(Guid accountId, int year)
+    {
+        var point = await db.RewindPoints
+            .Where(p => p.AccountId == accountId && p.Year == year)
+            .OrderBy(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
+        if (point is null) throw new InvalidOperationException("No rewind point was found.");
+        point.SharableCode = null;
+        db.RewindPoints.Update(point);
+        await db.SaveChangesAsync();
+
+        return point;
+    }
+    
+    private static string _GenerateRandomString(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var result = new char[length];
+        using var rng = RandomNumberGenerator.Create();
+        for (var i = 0; i < length; i++)
+        {
+            var bytes = new byte[1];
+            rng.GetBytes(bytes);
+            result[i] = chars[bytes[0] % chars.Length];
+        }
+        return new string(result);
     }
 }
