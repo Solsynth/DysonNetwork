@@ -8,9 +8,9 @@ using System.Text.Json.Serialization;
 using System.Web;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using NodaTime;
 using DysonNetwork.Shared.Models;
+using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Pass.Auth.OidcProvider.Controllers;
 

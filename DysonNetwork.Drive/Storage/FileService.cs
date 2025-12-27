@@ -793,7 +793,7 @@ file class UpdatableCloudFile(SnCloudFile file)
     public Dictionary<string, object?>? UserMeta { get; set; } = file.UserMeta;
     public bool IsMarkedRecycle { get; set; } = file.IsMarkedRecycle;
 
-    public Expression<Func<SetPropertyCalls<SnCloudFile>, SetPropertyCalls<SnCloudFile>>> ToSetPropertyCalls()
+    public Action<UpdateSettersBuilder<SnCloudFile>> ToSetPropertyCalls()
     {
         var userMeta = UserMeta ?? [];
         return setter => setter

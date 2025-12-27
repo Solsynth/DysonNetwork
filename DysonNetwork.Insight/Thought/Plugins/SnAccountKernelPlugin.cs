@@ -1,6 +1,5 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.Thought.Plugins;
@@ -24,6 +23,6 @@ public class SnAccountKernelPlugin(
         var request = new LookupAccountBatchRequest();
         request.Names.Add(username);
         var response = await accountClient.LookupAccountBatchAsync(request);
-        return response.Accounts.IsNullOrEmpty() ? null : SnAccount.FromProtoValue(response.Accounts[0]);
+        return response.Accounts.Count == 0 ? null : SnAccount.FromProtoValue(response.Accounts[0]);
     }
 }

@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NodaTime;
 using AccountContactType = DysonNetwork.Shared.Models.AccountContactType;
+using JwtRegisteredClaimNames = Microsoft.IdentityModel.JsonWebTokens.JwtRegisteredClaimNames;
 
 namespace DysonNetwork.Pass.Auth.OidcProvider.Services;
 

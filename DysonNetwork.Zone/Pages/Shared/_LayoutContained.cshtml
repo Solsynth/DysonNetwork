@@ -12,7 +12,7 @@
         <a class="btn btn-ghost text-xl" href="/">@siteDisplayName</a>
     </div>
     <div class="flex-none">
-        @if (site?.Config.NavItems is null || site.Config.NavItems.IsNullOrEmpty())
+        @if (site?.Config.NavItems is null || site.Config.NavItems.Count == 0)
         {
             @*Use preset navs*@
             <ul class="menu menu-horizontal px-1">
