@@ -747,12 +747,9 @@ public class SubscriptionService(
                 throw;
             }
 
-            await NotifyGiftRedeemed(gift, sameTypeSubscription, redeemer);
-            if (gift.GifterId != redeemer.Id)
-            {
-                var gifter = await db.Accounts.FirstOrDefaultAsync(a => a.Id == gift.GifterId);
-                if (gifter != null) await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gifter, redeemer);
-            }
+            if (gift.GifterId == redeemer.Id) return (gift, sameTypeSubscription);
+            var gifter = await db.Accounts.FirstOrDefaultAsync(a => a.Id == gift.GifterId);
+            if (gifter != null) await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gifter, redeemer);
 
             return (gift, sameTypeSubscription);
         }
@@ -816,11 +813,8 @@ public class SubscriptionService(
             throw;
         }
 
-        // Send notification to redeemer
-        await NotifyGiftRedeemed(gift, subscription, redeemer);
-
         // Send notification to gifter if different from redeemer
-        if (gift.GifterId != redeemer.Id)
+        if (gift.GifterId == redeemer.Id) return (gift, subscription);
         {
             var gifter = await db.Accounts.FirstOrDefaultAsync(a => a.Id == gift.GifterId);
             if (gifter != null)
@@ -937,37 +931,6 @@ public class SubscriptionService(
             result[i] = chars[Random.Shared.Next(chars.Length)];
         }
         return new string(result);
-    }
-
-    private async Task NotifyGiftRedeemed(SnWalletGift gift, SnWalletSubscription subscription, SnAccount redeemer)
-    {
-        Account.AccountService.SetCultureInfo(redeemer);
-
-        var humanReadableName =
-            SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
-                ? humanReadable
-                : subscription.Identifier;
-
-        var notification = new PushNotification
-        {
-            Topic = "gifts.redeemed",
-            Title = localizer["GiftRedeemedTitle"],
-            Body = localizer["GiftRedeemedBody", humanReadableName],
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
-            {
-                ["gift_id"] = gift.Id.ToString(),
-                ["subscription_id"] = subscription.Id.ToString()
-            }),
-            IsSavable = true
-        };
-
-        await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
-            {
-                UserId = redeemer.Id.ToString(),
-                Notification = notification
-            }
-        );
     }
 
     private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, SnAccount gifter, SnAccount redeemer)
