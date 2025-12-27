@@ -1,19 +1,11 @@
-using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
-using AngleSharp.Common;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Localization;
-using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Publisher;
-using Markdig;
-using Markdig.Extensions.Mathematics;
-using Markdig.Syntax;
-using Markdig.Syntax.Inlines;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
@@ -41,425 +33,30 @@ public partial class PostService(
     {
         const int maxLength = 256;
         const int embedMaxLength = 80;
-        var pipeline = new MarkdownPipelineBuilder()
-            .UseAdvancedExtensions()
-            .Build();
-
         foreach (var item in input)
         {
             if (item.Content?.Length > maxLength)
             {
-                item.Content = TruncateMarkdownSafely(item.Content, maxLength, pipeline);
+                item.Content = item.Content[..maxLength];
                 item.IsTruncated = true;
             }
 
             // Truncate replied post content with shorter embed length
             if (item.RepliedPost?.Content?.Length > embedMaxLength)
             {
-                item.RepliedPost.Content = TruncateMarkdownSafely(item.RepliedPost.Content, embedMaxLength, pipeline);
+                item.RepliedPost.Content = item.RepliedPost.Content[..embedMaxLength];
                 item.RepliedPost.IsTruncated = true;
             }
 
             // Truncate forwarded post content with shorter embed length
             if (item.ForwardedPost?.Content?.Length > embedMaxLength)
             {
-                item.ForwardedPost.Content = TruncateMarkdownSafely(item.ForwardedPost.Content, embedMaxLength, pipeline);
+                item.ForwardedPost.Content = item.ForwardedPost.Content[..embedMaxLength];
                 item.ForwardedPost.IsTruncated = true;
             }
         }
 
         return input;
-    }
-
-    /// <summary>
-    /// Truncates markdown content safely by cutting at safe inline boundaries
-    /// </summary>
-    private static string TruncateMarkdownSafely(string markdown, int maxLength, MarkdownPipeline pipeline)
-    {
-        if (string.IsNullOrEmpty(markdown) || markdown.Length <= maxLength)
-            return markdown;
-
-        var document = Markdown.Parse(markdown, pipeline);
-        var resultBuilder = new StringBuilder();
-        var currentLength = 0;
-        var truncated = false;
-        var previousWasBlock = false;
-
-        foreach (var block in document)
-        {
-            if (truncated)
-                break;
-
-            if (block is ParagraphBlock paragraph)
-            {
-                var (truncatedPara, paraLength, wasTruncated) =
-                    TruncateParagraph(paragraph, markdown, maxLength - currentLength);
-
-                if (truncatedPara.Length > 0)
-                {
-                    if (previousWasBlock)
-                    {
-                        resultBuilder.AppendLine();
-                    }
-                    resultBuilder.Append(truncatedPara);
-                    currentLength += paraLength;
-                    previousWasBlock = true;
-                }
-
-                if (wasTruncated)
-                {
-                    truncated = true;
-                    break;
-                }
-            }
-            else
-            {
-                var blockText = GetBlockText(block, markdown);
-                var blockLength = blockText.Length;
-
-                if (currentLength + blockLength > maxLength)
-                {
-                    truncated = true;
-                    break;
-                }
-
-                if (previousWasBlock)
-                {
-                    resultBuilder.AppendLine();
-                }
-
-                resultBuilder.Append(blockText);
-                currentLength += blockLength;
-                previousWasBlock = true;
-            }
-        }
-
-        var result = CollapseNewlines(resultBuilder.ToString().TrimEnd());
-
-        if (truncated)
-        {
-            result += "...";
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Truncates a paragraph at safe inline boundaries
-    /// </summary>
-    private static (string markdown, int length, bool truncated) TruncateParagraph(
-        ParagraphBlock paragraph, string originalMarkdown, int remainingLength)
-    {
-        if (paragraph.Inline == null || remainingLength <= 0)
-            return ("", 0, false);
-
-        var resultBuilder = new StringBuilder();
-        var currentLength = 0;
-        var truncated = false;
-
-        foreach (var inline in paragraph.Inline)
-        {
-            var inlineText = GetInlineText(inline, originalMarkdown);
-
-            if (currentLength + inlineText.Length > remainingLength)
-            {
-                var availableChars = remainingLength - currentLength;
-                if (availableChars > 3)
-                {
-                    var truncatedText = inlineText[..availableChars];
-                    var lastSpace = truncatedText.LastIndexOf(' ');
-                    if (lastSpace > 0)
-                    {
-                        truncatedText = truncatedText[..lastSpace];
-                    }
-                    resultBuilder.Append(truncatedText);
-                    currentLength += truncatedText.Length;
-                }
-                truncated = true;
-                break;
-            }
-
-            resultBuilder.Append(inlineText);
-            currentLength += inlineText.Length;
-        }
-
-        return (resultBuilder.ToString(), currentLength, truncated);
-    }
-
-    /// <summary>
-    /// Gets the markdown text representation of a block
-    /// </summary>
-    private static string GetBlockText(Block block, string originalMarkdown = "")
-    {
-        return block switch
-        {
-            ParagraphBlock paragraph => GetParagraphText(paragraph, originalMarkdown),
-            HeadingBlock heading => GetHeadingText(heading, originalMarkdown),
-            MathBlock math => GetMathBlockText(math),
-            FencedCodeBlock code => GetFencedCodeText(code),
-            CodeBlock code => GetIndentedCodeText(code),
-            ListBlock list => GetListText(list),
-            QuoteBlock quote => GetQuoteText(quote),
-            ThematicBreakBlock => "---",
-            _ => ""
-        };
-    }
-
-    /// <summary>
-    /// Gets markdown text for a paragraph block
-    /// </summary>
-    private static string GetParagraphText(ParagraphBlock paragraph, string originalMarkdown = "")
-    {
-        if (paragraph.Inline == null) return "";
-        return GetInlinesText(paragraph.Inline, originalMarkdown);
-    }
-
-    /// <summary>
-    /// Gets markdown text for a heading block
-    /// </summary>
-    private static string GetHeadingText(HeadingBlock heading, string originalMarkdown = "")
-    {
-        var prefix = new string('#', heading.Level);
-        var text = heading.Inline != null ? GetInlinesText(heading.Inline, originalMarkdown) : "";
-        return $"{prefix} {text}";
-    }
-
-    /// <summary>
-    /// Gets markdown text for a fenced code block
-    /// </summary>
-    private static string GetFencedCodeText(FencedCodeBlock code)
-    {
-        var lines = code.Lines;
-        var sb = new StringBuilder();
-        var fenceChar = code.FencedChar;
-        var fenceLength = code.OpeningFencedCharCount;
-
-        if (fenceLength > 0)
-        {
-            sb.Append(new string(fenceChar, fenceLength));
-            if (!string.IsNullOrEmpty(code.Info))
-            {
-                sb.Append(code.Info);
-            }
-            sb.AppendLine();
-        }
-
-        foreach (var line in lines)
-        {
-            sb.AppendLine(line.ToString());
-        }
-
-        if (fenceLength > 0)
-        {
-            sb.Append(new string(fenceChar, fenceLength));
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Gets markdown text for a math block (LaTeX)
-    /// </summary>
-    private static string GetMathBlockText(MathBlock math)
-    {
-        var lines = math.CodeBlockLines;
-        var sb = new StringBuilder();
-        var fenceChar = math.FencedChar;
-        var fenceLength = math.OpeningFencedCharCount;
-
-        if (fenceLength > 0)
-        {
-            sb.Append(new string(fenceChar, fenceLength));
-            if (!math.UnescapedInfo.IsEmpty)
-            {
-                sb.Append(math.UnescapedInfo.ToString());
-            }
-            sb.AppendLine();
-        }
-
-        foreach (var line in lines)
-        {
-            sb.AppendLine(line.ToString());
-        }
-
-        if (fenceLength > 0)
-        {
-            sb.Append(new string(fenceChar, fenceLength));
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Gets markdown text for an indented code block
-    /// </summary>
-    private static string GetIndentedCodeText(CodeBlock code)
-    {
-        var lines = code.Lines;
-        var sb = new StringBuilder();
-
-        foreach (var line in lines)
-        {
-            sb.Append("    ");
-            sb.AppendLine(line.ToString());
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Gets markdown text for a list block
-    /// </summary>
-    private static string GetListText(ListBlock list)
-    {
-        var sb = new StringBuilder();
-        var index = 0;
-
-        foreach (var item in list)
-        {
-            if (item is ListItemBlock listItem)
-            {
-                if (list.IsOrdered)
-                {
-                    index++;
-                    sb.Append($"{index}. ");
-                }
-                else
-                {
-                    sb.Append(list.BulletType != '\0' ? list.BulletType.ToString() : "-");
-                    sb.Append(" ");
-                }
-
-                foreach (var child in listItem)
-                {
-                    sb.AppendLine(GetBlockText(child));
-                }
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Gets markdown text for a quote block
-    /// </summary>
-    private static string GetQuoteText(QuoteBlock quote)
-    {
-        var sb = new StringBuilder();
-
-        foreach (var block in quote)
-        {
-            var blockText = GetBlockText(block);
-            var lines = blockText.Split('\n');
-            foreach (var line in lines)
-            {
-                sb.Append("> ");
-                sb.AppendLine(line.TrimEnd());
-            }
-        }
-
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Truncates a paragraph at safe inline boundaries
-    /// </summary>
-    private static (string markdown, int length, bool truncated) TruncateParagraph(
-        ParagraphBlock paragraph, int remainingLength, MarkdownPipeline pipeline)
-    {
-        if (paragraph.Inline == null || remainingLength <= 0)
-            return ("", 0, false);
-
-        var resultBuilder = new StringBuilder();
-        var currentLength = 0;
-        var truncated = false;
-
-        foreach (var inline in paragraph.Inline)
-        {
-            var inlineText = GetInlineText(inline);
-
-            if (currentLength + inlineText.Length > remainingLength)
-            {
-                var availableChars = remainingLength - currentLength;
-                if (availableChars > 3)
-                {
-                    var truncatedText = inlineText[..availableChars];
-                    var lastSpace = truncatedText.LastIndexOf(' ');
-                    if (lastSpace > 0)
-                    {
-                        truncatedText = truncatedText[..lastSpace];
-                    }
-                    resultBuilder.Append(truncatedText);
-                    currentLength += truncatedText.Length;
-                }
-                truncated = true;
-                break;
-            }
-
-            resultBuilder.Append(inlineText);
-            currentLength += inlineText.Length;
-        }
-
-        return (resultBuilder.ToString(), currentLength, truncated);
-    }
-
-    /// <summary>
-    /// Gets text representation of an inline element
-    /// </summary>
-    private static string GetInlineText(Inline inline, string originalMarkdown = "")
-    {
-        return inline switch
-        {
-            LiteralInline literal => literal.Content.ToString(),
-            CodeInline code => $"`{code.Content}`",
-            EmphasisInline emph => emph.DelimiterCount == 2 ? $"**{GetInlinesText(emph, originalMarkdown)}**" : $"*{GetInlinesText(emph, originalMarkdown)}*",
-            LinkInline link => $"[{GetInlinesText(link, originalMarkdown)}]({link.Url})",
-            MathInline math => GetMathInlineText(math, originalMarkdown),
-            LineBreakInline => "\n",
-            ContainerInline container => GetInlinesText(container, originalMarkdown),
-            _ => ""
-        };
-    }
-
-    /// <summary>
-    /// Gets markdown text for a math inline (LaTeX)
-    /// </summary>
-    private static string GetMathInlineText(MathInline math, string originalMarkdown)
-    {
-        var delimiter = math.Delimiter;
-        var count = math.DelimiterCount;
-        var fence = new string(delimiter, count);
-        
-        // Extract content from original markdown using span
-        if (!string.IsNullOrEmpty(originalMarkdown) && math.Span.End - math.Span.Start > count * 2)
-        {
-            var fullContent = originalMarkdown.Substring(math.Span.Start, math.Span.End - math.Span.Start);
-            return fullContent;
-        }
-        
-        // Fallback: use delimiter + empty content
-        return $"{fence}{fence}";
-    }
-
-    /// <summary>
-    /// Gets combined text from container inline elements
-    /// </summary>
-    private static string GetInlinesText(ContainerInline container, string originalMarkdown = "")
-    {
-        var sb = new StringBuilder();
-        foreach (var child in container)
-        {
-            sb.Append(GetInlineText(child, originalMarkdown));
-        }
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Collapses multiple consecutive newlines to max 2
-    /// </summary>
-    private static string CollapseNewlines(string markdown)
-    {
-        return Regex.Replace(markdown, @"\n{3,}", "\n\n");
     }
 
     public (string title, string content) ChopPostForNotification(SnPost post)
@@ -1107,7 +704,8 @@ public partial class PostService(
         List<Guid> userFriends = [];
         if (currentUser is not null)
         {
-            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest { AccountId = currentUser.Id });
+            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
+                { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
             publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
         }
@@ -1171,7 +769,8 @@ public partial class PostService(
         if (currentUser is null)
         {
             // Anonymous user can only view public posts that are published
-            return post.PublishedAt != null && now >= post.PublishedAt && post.Visibility == Shared.Models.PostVisibility.Public;
+            return post.PublishedAt != null && now >= post.PublishedAt &&
+                   post.Visibility == Shared.Models.PostVisibility.Public;
         }
 
         // Check publication status - either published or user is member
@@ -1202,7 +801,7 @@ public partial class PostService(
                 g => g.Count()
             );
     }
-    
+
     public async Task<List<SnPost>> LoadPostInfo(
         List<SnPost> posts,
         Account? currentUser = null,
