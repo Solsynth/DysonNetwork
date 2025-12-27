@@ -145,9 +145,7 @@ public class FileController(
     private ActionResult? TryProxyRedirect(SnCloudFile file, RemoteStorageConfig dest, string fileName)
     {
         if (dest.ImageProxy is not null && (file.MimeType?.StartsWith("image/") ?? false))
-        {
             return Redirect(BuildProxyUrl(dest.ImageProxy, fileName));
-        }
 
         return dest.AccessProxy is not null ? Redirect(BuildProxyUrl(dest.AccessProxy, fileName)) : null;
     }
@@ -181,6 +179,9 @@ public class FileController(
                 .WithExpiry(3600)
                 .WithHeaders(headers)
         );
+
+        if (dest.AccessEndpoint is not null)
+            openUrl = openUrl.Replace($"{dest.Endpoint}/{dest.Bucket}", dest.AccessEndpoint);
 
         return Redirect(openUrl);
     }
