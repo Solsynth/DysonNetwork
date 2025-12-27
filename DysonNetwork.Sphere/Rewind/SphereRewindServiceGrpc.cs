@@ -18,7 +18,10 @@ public class SphereRewindServiceGrpc(
     Publisher.PublisherService ps
 ) : RewindService.RewindServiceBase
 {
-    public override async Task<RewindEvent> GetRewindEvent(RequestRewindEvent request, ServerCallContext context)
+    public override async Task<RewindEvent> GetRewindEvent(
+        RequestRewindEvent request,
+        ServerCallContext context
+    )
     {
         var accountId = Guid.Parse(request.AccountId);
         var year = request.Year;
@@ -27,45 +30,44 @@ public class SphereRewindServiceGrpc(
         var endDate = new LocalDate(year, 12, 26).AtMidnight().InUtc().ToInstant();
 
         // Audience data
-        var mostLovedPublisherClue =
-            await db.PostReactions
-                .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-                .Where(p => p.AccountId == accountId && p.Attitude == PostReactionAttitude.Positive)
-                .GroupBy(p => p.Post.PublisherId)
-                .OrderByDescending(g => g.Count())
-                .Select(g => new { PublisherId = g.Key, ReactionCount = g.Count() })
-                .FirstOrDefaultAsync();
+        var mostLovedPublisherClue = await db
+            .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+            .Where(p => p.AccountId == accountId && p.Attitude == PostReactionAttitude.Positive)
+            .GroupBy(p => p.Post.PublisherId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => new { PublisherId = g.Key, ReactionCount = g.Count() })
+            .FirstOrDefaultAsync();
         var mostLovedPublisher = mostLovedPublisherClue is not null
             ? await ps.GetPublisherLoaded(mostLovedPublisherClue.PublisherId)
             : null;
 
         // Creator data
-        var publishers = await db.PublisherMembers
-            .Where(pm => pm.AccountId == accountId)
+        var publishers = await db
+            .PublisherMembers.Where(pm => pm.AccountId == accountId)
             .Select(pm => pm.PublisherId)
             .ToListAsync();
 
-        var mostLovedAudienceClue =
-            await db.PostReactions
-                .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-                .Where(pr =>
-                    pr.Attitude == PostReactionAttitude.Positive &&
-                    publishers.Contains(pr.Post.PublisherId))
-                .GroupBy(pr => pr.AccountId)
-                .OrderByDescending(g => g.Count())
-                .Select(g => new { AccountId = g.Key, ReactionCount = g.Count() })
-                .FirstOrDefaultAsync();
+        var mostLovedAudienceClue = await db
+            .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+            .Where(pr =>
+                pr.Attitude == PostReactionAttitude.Positive
+                && publishers.Contains(pr.Post.PublisherId)
+            )
+            .GroupBy(pr => pr.AccountId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => new { AccountId = g.Key, ReactionCount = g.Count() })
+            .FirstOrDefaultAsync();
         var mostLovedAudience = mostLovedAudienceClue is not null
             ? await remoteAccounts.GetAccount(mostLovedAudienceClue.AccountId)
             : null;
 
-        var posts = db.Posts
-            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+        var posts = db
+            .Posts.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
             .Where(p => publishers.Contains(p.PublisherId))
             .AsQueryable();
         var postTotalCount = await posts.CountAsync();
-        var postTotalUpvotes = await db.PostReactions
-            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
+        var postTotalUpvotes = await db
+            .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
             .Where(p => publishers.Contains(p.Post.PublisherId))
             .Where(r => r.Attitude == PostReactionAttitude.Positive)
             .CountAsync();
@@ -86,7 +88,7 @@ public class SphereRewindServiceGrpc(
             .Take(1000)
             .ToListAsync();
         var segmenter = new JiebaSegmenter();
-        var words = segmenter.CutInParallel(postContents, cutAll: true, hmm: false);
+        var words = segmenter.CutInParallel(postContents, cutAll: false, hmm: false);
         var allWords = words.SelectMany(w => w);
         var topWords = allWords
             .GroupBy(w => w)
@@ -96,8 +98,8 @@ public class SphereRewindServiceGrpc(
             .ToList();
 
         // Chat data
-        var messagesQuery = db.ChatMessages
-            .Include(m => m.Sender)
+        var messagesQuery = db
+            .ChatMessages.Include(m => m.Sender)
             .Include(m => m.ChatRoom)
             .Where(m => m.CreatedAt >= startDate && m.CreatedAt < endDate)
             .Where(m => m.Sender.AccountId == accountId)
@@ -120,8 +122,8 @@ public class SphereRewindServiceGrpc(
             : null;
 
         // Call data
-        var callQuery = db.ChatRealtimeCall
-            .Include(c => c.Sender)
+        var callQuery = db
+            .ChatRealtimeCall.Include(c => c.Sender)
             .Include(c => c.Room)
             .Where(c => c.CreatedAt >= startDate && c.CreatedAt < endDate)
             .Where(c => c.Sender.AccountId == accountId)
@@ -130,29 +132,52 @@ public class SphereRewindServiceGrpc(
         var now = SystemClock.Instance.GetCurrentInstant();
         var groupCallRecords = await callQuery
             .Where(c => c.Room.Type == ChatRoomType.Group)
-            .Select(c => new { c.RoomId, c.CreatedAt, c.EndedAt })
+            .Select(c => new
+            {
+                c.RoomId,
+                c.CreatedAt,
+                c.EndedAt,
+            })
             .ToListAsync();
         var callDurations = groupCallRecords
-            .Select(c => new { c.RoomId, Duration = (c.EndedAt ?? now).Minus(c.CreatedAt).Seconds }).ToList();
+            .Select(c => new { c.RoomId, Duration = (c.EndedAt ?? now).Minus(c.CreatedAt).Seconds })
+            .ToList();
         var mostCalledRoomInfo = callDurations
             .GroupBy(c => c.RoomId)
             .Select(g => new { RoomId = g.Key, TotalDuration = g.Sum(c => c.Duration) })
             .OrderByDescending(g => g.TotalDuration)
             .FirstOrDefault();
-        var mostCalledRoom = mostCalledRoomInfo != null && mostCalledRoomInfo.RoomId != Guid.Empty
-            ? await db.ChatRooms.FindAsync(mostCalledRoomInfo.RoomId)
-            : null;
+        var mostCalledRoom =
+            mostCalledRoomInfo != null && mostCalledRoomInfo.RoomId != Guid.Empty
+                ? await db.ChatRooms.FindAsync(mostCalledRoomInfo.RoomId)
+                : null;
 
         List<SnAccount>? mostCalledChatTopMembers = null;
         if (mostCalledRoom != null)
-            mostCalledChatTopMembers = await crs.GetTopActiveMembers(mostCalledRoom.Id, startDate, endDate);
+            mostCalledChatTopMembers = await crs.GetTopActiveMembers(
+                mostCalledRoom.Id,
+                startDate,
+                endDate
+            );
 
         var directCallRecords = await callQuery
             .Where(c => c.Room.Type == ChatRoomType.DirectMessage)
-            .Select(c => new { c.RoomId, c.CreatedAt, c.EndedAt, c.Room })
+            .Select(c => new
+            {
+                c.RoomId,
+                c.CreatedAt,
+                c.EndedAt,
+                c.Room,
+            })
             .ToListAsync();
         var directCallDurations = directCallRecords
-            .Select(c => new { c.RoomId, c.Room, Duration = (c.EndedAt ?? now).Minus(c.CreatedAt).Seconds }).ToList();
+            .Select(c => new
+            {
+                c.RoomId,
+                c.Room,
+                Duration = (c.EndedAt ?? now).Minus(c.CreatedAt).Seconds,
+            })
+            .ToList();
         var mostCalledDirectRooms = directCallDurations
             .GroupBy(c => c.RoomId)
             .Select(g => new { ChatRoom = g.First().Room, TotalDuration = g.Sum(c => c.Duration) })
@@ -170,19 +195,29 @@ public class SphereRewindServiceGrpc(
         }
 
         var accounts = await remoteAccounts.GetAccountBatch(accountIds);
-        var mostCalledAccounts = accounts.Zip(mostCalledDirectRooms,
-                (account, room) => new Dictionary<string, object?>
-                    { ["account"] = account, ["duration"] = room.TotalDuration }
+        var mostCalledAccounts = accounts
+            .Zip(
+                mostCalledDirectRooms,
+                (account, room) =>
+                    new Dictionary<string, object?>
+                    {
+                        ["account"] = account,
+                        ["duration"] = room.TotalDuration,
+                    }
             )
             .ToList();
-
 
         var data = new Dictionary<string, object?>
         {
             ["total_post_count"] = postTotalCount,
             ["total_upvote_count"] = postTotalUpvotes,
-            ["top_words"] = topWords.Select(wc => new Dictionary<string, object?>
-                { ["word"] = wc.Word, ["count"] = wc.Count }).ToList(),
+            ["top_words"] = topWords
+                .Select(wc => new Dictionary<string, object?>
+                {
+                    ["word"] = wc.Word,
+                    ["count"] = wc.Count,
+                })
+                .ToList(),
             ["most_popular_post"] = mostPopularPost,
             ["most_productive_day"] = mostProductiveDay is not null
                 ? new Dictionary<string, object?>
@@ -216,13 +251,13 @@ public class SphereRewindServiceGrpc(
                 ? new Dictionary<string, object?>
                 {
                     ["chat"] = mostMessagedDirectChat,
-                    ["message_counts"] = mostMessagedDirectChatInfo.MessageCount
+                    ["message_counts"] = mostMessagedDirectChatInfo.MessageCount,
                 }
                 : null,
             ["most_called_chat"] = new Dictionary<string, object?>
             {
                 ["chat"] = mostCalledRoom,
-                ["duration"] = mostCalledRoomInfo?.TotalDuration
+                ["duration"] = mostCalledRoomInfo?.TotalDuration,
             },
             ["most_called_chat_top_members"] = mostCalledChatTopMembers,
             ["most_called_accounts"] = mostCalledAccounts,
@@ -232,7 +267,8 @@ public class SphereRewindServiceGrpc(
         {
             ServiceId = "sphere",
             AccountId = request.AccountId,
-            Data = GrpcTypeHelper.ConvertObjectToByteString(data)
+            Data = GrpcTypeHelper.ConvertObjectToByteString(data),
         };
     }
 }
+
