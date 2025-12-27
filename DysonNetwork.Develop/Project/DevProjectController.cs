@@ -8,7 +8,7 @@ namespace DysonNetwork.Develop.Project;
 
 [ApiController]
 [Route("/api/developers/{pubName}/projects")]
-public class DevProjectController(DevProjectService projectService, DeveloperService developerService) : ControllerBase
+public class DevProjectController(DevProjectService ps, DeveloperService ds) : ControllerBase
 {
     public record DevProjectRequest(
         [MaxLength(1024)] string? Slug,
@@ -19,20 +19,20 @@ public class DevProjectController(DevProjectService projectService, DeveloperSer
     [HttpGet]
     public async Task<IActionResult> ListProjects([FromRoute] string pubName)
     {
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null) return NotFound();
         
-        var projects = await projectService.GetProjectsByDeveloperAsync(developer.Id);
+        var projects = await ps.GetProjectsByDeveloperAsync(developer.Id);
         return Ok(projects);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetProject([FromRoute] string pubName, Guid id)
     {
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null) return NotFound();
 
-        var project = await projectService.GetProjectAsync(id, developer.Id);
+        var project = await ps.GetProjectAsync(id, developer.Id);
         if (project is null) return NotFound();
 
         return Ok(project);
@@ -45,17 +45,17 @@ public class DevProjectController(DevProjectService projectService, DeveloperSer
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) 
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
             
-        if (!await developerService.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the developer to create a project");
 
         if (string.IsNullOrWhiteSpace(request.Slug) || string.IsNullOrWhiteSpace(request.Name))
             return BadRequest("Slug and Name are required");
 
-        var project = await projectService.CreateProjectAsync(developer, request);
+        var project = await ps.CreateProjectAsync(developer, request);
         return CreatedAtAction(
             nameof(GetProject), 
             new { pubName, id = project.Id },
@@ -74,12 +74,15 @@ public class DevProjectController(DevProjectService projectService, DeveloperSer
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) 
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         var accountId = Guid.Parse(currentUser.Id);
-        if (developer is null || developer.Id != accountId)
+        
+        if (developer is null)
             return Forbid();
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, PublisherMemberRole.Manager))
+            return StatusCode(403, "You must be an manager of the developer to update a project");
 
-        var project = await projectService.UpdateProjectAsync(id, developer.Id, request);
+        var project = await ps.UpdateProjectAsync(id, developer.Id, request);
         if (project is null)
             return NotFound();
 
@@ -93,12 +96,14 @@ public class DevProjectController(DevProjectService projectService, DeveloperSer
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) 
             return Unauthorized();
 
-        var developer = await developerService.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(pubName);
         var accountId = Guid.Parse(currentUser.Id);
-        if (developer is null || developer.Id != accountId)
+        if (developer is null)
             return Forbid();
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, PublisherMemberRole.Manager))
+            return StatusCode(403, "You must be an manager of the developer to delete a project");
 
-        var success = await projectService.DeleteProjectAsync(id, developer.Id);
+        var success = await ps.DeleteProjectAsync(id, developer.Id);
         if (!success)
             return NotFound();
 
