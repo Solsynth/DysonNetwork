@@ -268,7 +268,7 @@ public class SphereRewindServiceGrpc(
         {
             ServiceId = "sphere",
             AccountId = request.AccountId,
-            Data = GrpcTypeHelper.ConvertObjectToByteString(data),
+            Data = GrpcTypeHelper.ConvertObjectToByteString(data, withoutIgnore: true),
         };
     }
 }

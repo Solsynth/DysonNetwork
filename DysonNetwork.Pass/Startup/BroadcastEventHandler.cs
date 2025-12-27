@@ -175,7 +175,7 @@ public class BroadcastEventHandler(
                         AccountId = evt.AccountId,
                         Status = status,
                         UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                    }, GrpcTypeHelper.SerializerOptionsWithIgnore)).ToByteArray()
+                    }, GrpcTypeHelper.SerializerOptionsWithoutIgnore)).ToByteArray()
                 );
 
                 logger.LogInformation("Broadcasted status update for user {AccountId}", evt.AccountId);
@@ -214,7 +214,7 @@ public class BroadcastEventHandler(
                         AccountId = evt.AccountId,
                         Status = status,
                         UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                    }, GrpcTypeHelper.SerializerOptionsWithIgnore)).ToByteArray()
+                    }, GrpcTypeHelper.SerializerOptionsWithoutIgnore)).ToByteArray()
                 );
 
                 logger.LogInformation("Broadcasted status update for user {AccountId}", evt.AccountId);

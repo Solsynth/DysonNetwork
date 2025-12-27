@@ -727,13 +727,13 @@ public class SubscriptionService(
             }
 
             // Update gift status and link
-            gift.Status = DysonNetwork.Shared.Models.GiftStatus.Redeemed;
+            gift.Status = Shared.Models.GiftStatus.Redeemed;
             gift.RedeemedAt = now;
             gift.RedeemerId = redeemer.Id;
             gift.SubscriptionId = sameTypeSubscription.Id;
             gift.UpdatedAt = now;
 
-            using var transaction = await db.Database.BeginTransactionAsync();
+            await using var transaction = await db.Database.BeginTransactionAsync();
             try
             {
                 db.WalletSubscriptions.Update(sameTypeSubscription);

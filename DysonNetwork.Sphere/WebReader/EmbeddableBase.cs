@@ -31,11 +31,11 @@ public abstract class EmbeddableBase
     {
         var jsonRaw = JsonSerializer.Serialize(
             input,
-            GrpcTypeHelper.SerializerOptionsWithIgnore
+            GrpcTypeHelper.SerializerOptionsWithoutIgnore
         );
         return JsonSerializer.Deserialize<Dictionary<string, object>>(
             jsonRaw,
-            GrpcTypeHelper.SerializerOptionsWithIgnore
+            GrpcTypeHelper.SerializerOptionsWithoutIgnore
         );
     }
 }

@@ -14,7 +14,7 @@ namespace DysonNetwork.Shared.Proto;
 
 public abstract class GrpcTypeHelper
 {
-    public static readonly JsonSerializerOptions? SerializerOptionsWithIgnore = new JsonSerializerOptions()
+    public static readonly JsonSerializerOptions? SerializerOptionsWithoutIgnore = new JsonSerializerOptions()
     {
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -161,10 +161,10 @@ public abstract class GrpcTypeHelper
         };
     }
 
-    public static ByteString ConvertObjectToByteString(object? obj)
+    public static ByteString ConvertObjectToByteString(object? obj, bool withoutIgnore = true)
     {
         return ByteString.CopyFromUtf8(
-            JsonSerializer.Serialize(obj, SerializerOptions)
+            JsonSerializer.Serialize(obj, withoutIgnore ? SerializerOptionsWithoutIgnore : SerializerOptions)
         );
     }
 
