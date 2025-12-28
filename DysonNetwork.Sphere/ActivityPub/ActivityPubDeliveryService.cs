@@ -245,7 +245,6 @@ public class ActivityPubDeliveryService(
             
             request.Headers.Add("Signature", signatureString);
             request.Headers.Add("Host", new Uri(inboxUrl).Host);
-            request.Headers.Add("Content-Type", "application/activity+json");
             
             var response = await HttpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
