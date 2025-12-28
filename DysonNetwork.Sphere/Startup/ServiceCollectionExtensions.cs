@@ -107,6 +107,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActivityPubSignatureService>();
         services.AddScoped<ActivityPubActivityProcessor>();
         services.AddScoped<ActivityPubDeliveryService>();
+        services.AddScoped<ActivityPubFollowController>();
+        services.AddScoped<ActivityPubController>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();
         switch (translationProvider)
