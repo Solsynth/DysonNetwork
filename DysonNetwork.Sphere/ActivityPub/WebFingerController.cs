@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -68,13 +69,21 @@ public class WebFingerController(
 
 public class WebFingerResponse
 {
+    [JsonPropertyName("subject")]
     public string Subject { get; set; } = null!;
+
+    [JsonPropertyName("links")]
     public List<WebFingerLink> Links { get; set; } = [];
 }
 
 public class WebFingerLink
 {
+    [JsonPropertyName("rel")]
     public string Rel { get; set; } = null!;
+
+    [JsonPropertyName("type")]
     public string Type { get; set; } = null!;
+
+    [JsonPropertyName("href")]
     public string Href { get; set; } = null!;
 }

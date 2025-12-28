@@ -12,7 +12,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubFollowController(
     AppDatabase db,
     ActivityPubDeliveryService deliveryService,
-    ActivityPubDiscoveryService discoveryService,
+    ActivityPubDiscoveryService discSrv,
     IConfiguration configuration,
     ILogger<ActivityPubFollowController> logger
 ) : ControllerBase
@@ -34,7 +34,7 @@ public class ActivityPubFollowController(
         if (publisher == null)
             return BadRequest(new { error = "User doesn't have a publisher" });
 
-        logger.LogInformation("User {UserId} wants to follow {TargetActor}", 
+        logger.LogInformation("User {UserId} wants to follow {TargetActor}",
             currentUser, request.TargetActorUri);
 
         var success = await deliveryService.SendFollowActivityAsync(
@@ -107,8 +107,8 @@ public class ActivityPubFollowController(
 
         var actors = await db.FediverseRelationships
             .Include(r => r.TargetActor)
-            .Where(r => 
-                r.IsLocalActor && 
+            .Where(r =>
+                r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&
                 r.IsFollowing &&
                 r.State == RelationshipState.Accepted)
@@ -139,8 +139,8 @@ public class ActivityPubFollowController(
 
         var actors = await db.FediverseRelationships
             .Include(r => r.Actor)
-            .Where(r => 
-                !r.IsLocalActor && 
+            .Where(r =>
+                !r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&
                 r.IsFollowedBy &&
                 r.State == RelationshipState.Accepted)
@@ -161,7 +161,7 @@ public class ActivityPubFollowController(
         if (string.IsNullOrWhiteSpace(query))
             return BadRequest(new { error = "Query is required" });
 
-        var actors = await discoveryService.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
+        var actors = await discSrv.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
 
         return Ok(actors);
     }
@@ -184,22 +184,22 @@ public class ActivityPubFollowController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
         var followingCount = await db.FediverseRelationships
-            .CountAsync(r => 
-                r.IsLocalActor && 
+            .CountAsync(r =>
+                r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&
                 r.IsFollowing &&
                 r.State == RelationshipState.Accepted);
 
         var followersCount = await db.FediverseRelationships
-            .CountAsync(r => 
-                !r.IsLocalActor && 
+            .CountAsync(r =>
+                !r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&
                 r.IsFollowedBy &&
                 r.State == RelationshipState.Accepted);
 
         var pendingCount = await db.FediverseRelationships
-            .CountAsync(r => 
-                r.IsLocalActor && 
+            .CountAsync(r =>
+                r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&
                 r.State == RelationshipState.Pending);
 

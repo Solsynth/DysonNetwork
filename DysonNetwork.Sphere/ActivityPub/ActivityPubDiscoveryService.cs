@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class ActivityPubDiscoveryService(
+public partial class ActivityPubDiscoveryService(
     AppDatabase db,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
@@ -15,7 +15,7 @@ public class ActivityPubDiscoveryService(
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
     private HttpClient HttpClient => httpClientFactory.CreateClient();
 
-    private static readonly Regex HandlePattern = new(@"^@?(\w+)@([\w.-]+)$", RegexOptions.Compiled);
+    private static readonly Regex HandlePattern = HandleRegex();
 
     public async Task<SnFediverseActor?> DiscoverActorAsync(string query)
     {
@@ -48,30 +48,21 @@ public class ActivityPubDiscoveryService(
             return localResults;
 
         var (username, domain) = ParseHandle(query);
-        if (username != null && domain != null)
+        if (username == null || domain == null) return localResults;
         {
             var actorUri = await GetActorUriFromWebfingerAsync(username, domain);
-            if (actorUri != null)
-            {
-                var remoteActor = await FetchAndStoreActorAsync(actorUri);
-                if (remoteActor != null && !localResults.Any(a => a.Uri == actorUri))
-                {
-                    var combined = new List<SnFediverseActor>(localResults) { remoteActor };
-                    return combined.Take(limit).ToList();
-                }
-            }
+            if (actorUri == null) return localResults;
+            var remoteActor = await FetchAndStoreActorAsync(actorUri);
+            if (remoteActor == null || localResults.Any(a => a.Uri == actorUri)) return localResults;
+            var combined = new List<SnFediverseActor>(localResults) { remoteActor };
+            return combined.Take(limit).ToList();
         }
-
-        return localResults;
     }
 
     private (string? username, string? domain) ParseHandle(string query)
     {
         var match = HandlePattern.Match(query.Trim());
-        if (!match.Success)
-            return (null, null);
-
-        return (match.Groups[1].Value, match.Groups[2].Value);
+        return !match.Success ? (null, null) : (match.Groups[1].Value, match.Groups[2].Value);
     }
 
     private async Task<string?> GetActorUriFromWebfingerAsync(string username, string domain)
@@ -92,6 +83,8 @@ public class ActivityPubDiscoveryService(
             }
 
             var json = await response.Content.ReadAsStringAsync();
+            logger.LogDebug("Webfinger response from {Url}: {Json}", webfingerUrl, json);
+
             var webfingerData = JsonSerializer.Deserialize<WebFingerResponse>(json);
 
             if (webfingerData?.Links == null)
@@ -100,9 +93,14 @@ public class ActivityPubDiscoveryService(
                 return null;
             }
 
+            logger.LogDebug("Found {LinkCount} links in Webfinger response", webfingerData.Links.Count);
+            foreach (var link in webfingerData.Links)
+            {
+                logger.LogDebug("Link: rel={Rel}, type={Type}, href={Href}", link.Rel, link.Type, link.Href);
+            }
+
             var selfLink = webfingerData.Links.FirstOrDefault(l =>
-                l.Rel == "self" &&
-                l.Type == "application/activity+json");
+                l is { Rel: "self", Type: "application/activity+json" });
 
             if (selfLink == null)
             {
@@ -203,21 +201,15 @@ public class ActivityPubDiscoveryService(
         return actorUri.Split('/').Last();
     }
 
-    private string? ExtractAvatarUrl(object? iconData)
+    private static string? ExtractAvatarUrl(object? iconData)
     {
-        if (iconData == null)
-            return null;
-
-        if (iconData is JsonElement element)
+        return iconData switch
         {
-            if (element.ValueKind == JsonValueKind.String)
-                return element.GetString();
-
-            if (element.TryGetProperty("url", out var urlElement))
-                return urlElement.GetString();
-        }
-
-        return iconData.ToString();
+            null => null,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            JsonElement element when element.TryGetProperty("url", out var urlElement) => urlElement.GetString(),
+            _ => iconData.ToString()
+        };
     }
 
     private string? ExtractImageUrl(object? imageData)
@@ -225,31 +217,30 @@ public class ActivityPubDiscoveryService(
         return ExtractAvatarUrl(imageData);
     }
 
-    private string? ExtractPublicKeyId(object? publicKeyData)
+    private static string? ExtractPublicKeyId(object? publicKeyData)
     {
-        if (publicKeyData == null)
-            return null;
-
-        if (publicKeyData is JsonElement element && element.TryGetProperty("id", out var idElement))
-            return idElement.GetString();
-
-        if (publicKeyData is Dictionary<string, object> dict && dict.TryGetValue("id", out var idValue))
-            return idValue?.ToString();
-
-        return null;
+        return publicKeyData switch
+        {
+            null => null,
+            JsonElement element when element.TryGetProperty("id", out var idElement) => idElement.GetString(),
+            Dictionary<string, object> dict when dict.TryGetValue("id", out var idValue) => idValue.ToString(),
+            _ => null
+        };
     }
 
-    private string? ExtractPublicKeyPem(object? publicKeyData)
+    private static string? ExtractPublicKeyPem(object? publicKeyData)
     {
-        if (publicKeyData == null)
-            return null;
-
-        if (publicKeyData is JsonElement element && element.TryGetProperty("publicKeyPem", out var pemElement))
-            return pemElement.GetString();
-
-        if (publicKeyData is Dictionary<string, object> dict && dict.TryGetValue("publicKeyPem", out var pemValue))
-            return pemValue?.ToString();
-
-        return null;
+        return publicKeyData switch
+        {
+            null => null,
+            JsonElement element when element.TryGetProperty("publicKeyPem", out var pemElement) =>
+                pemElement.GetString(),
+            Dictionary<string, object> dict when dict.TryGetValue("publicKeyPem", out var pemValue) => pemValue
+                .ToString(),
+            _ => null
+        };
     }
+
+    [GeneratedRegex(@"^@?(\w+)@([\w.-]+)$", RegexOptions.Compiled)]
+    private static partial Regex HandleRegex();
 }
