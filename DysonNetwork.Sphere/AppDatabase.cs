@@ -48,6 +48,13 @@ public class AppDatabase(
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;
     public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; } = null!;
 
+    public DbSet<SnFediverseInstance> FediverseInstances { get; set; } = null!;
+    public DbSet<SnFediverseActor> FediverseActors { get; set; } = null!;
+    public DbSet<SnFediverseContent> FediverseContents { get; set; } = null!;
+    public DbSet<SnFediverseActivity> FediverseActivities { get; set; } = null!;
+    public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
+    public DbSet<SnFediverseReaction> FediverseReactions { get; set; } = null!;
+
     public DbSet<WebArticle> WebArticles { get; set; } = null!;
     public DbSet<WebFeed> WebFeeds { get; set; } = null!;
     public DbSet<WebFeedSubscription> WebFeedSubscriptions { get; set; } = null!;
@@ -141,6 +148,56 @@ public class AppDatabase(
         modelBuilder.Entity<WebArticle>()
             .HasIndex(a => a.Url)
             .IsUnique();
+
+        modelBuilder.Entity<SnFediverseActor>()
+            .HasOne(a => a.Instance)
+            .WithMany(i => i.Actors)
+            .HasForeignKey(a => a.InstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnFediverseContent>()
+            .HasOne(c => c.Actor)
+            .WithMany(a => a.Contents)
+            .HasForeignKey(c => c.ActorId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnFediverseContent>()
+            .HasOne(c => c.Instance)
+            .WithMany(i => i.Contents)
+            .HasForeignKey(c => c.InstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnFediverseActivity>()
+            .HasOne(a => a.Actor)
+            .WithMany(actor => actor.Activities)
+            .HasForeignKey(a => a.ActorId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnFediverseActivity>()
+            .HasOne(a => a.Content)
+            .WithMany(c => c.Activities)
+            .HasForeignKey(a => a.ContentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnFediverseRelationship>()
+            .HasOne(r => r.Actor)
+            .WithMany(a => a.FollowingRelationships)
+            .HasForeignKey(r => r.ActorId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnFediverseRelationship>()
+            .HasOne(r => r.TargetActor)
+            .WithMany(a => a.FollowerRelationships)
+            .HasForeignKey(r => r.TargetActorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnFediverseReaction>()
+            .HasOne(r => r.Content)
+            .WithMany(c => c.Reactions)
+            .HasForeignKey(r => r.ContentId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnFediverseReaction>()
+            .HasOne(r => r.Actor)
+            .WithMany()
+            .HasForeignKey(r => r.ActorId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

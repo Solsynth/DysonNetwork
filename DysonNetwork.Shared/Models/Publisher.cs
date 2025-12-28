@@ -30,6 +30,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
 
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
 
     [IgnoreMember] [JsonIgnore] public ICollection<SnPost> Posts { get; set; } = [];
     [IgnoreMember] [JsonIgnore] public ICollection<SnPoll> Polls { get; set; } = [];

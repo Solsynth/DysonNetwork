@@ -1,0 +1,224 @@
+using System.Net.Mime;
+using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.ActivityPub;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
+using Swashbuckle.AspNetCore.Annotations;
+
+namespace DysonNetwork.Sphere.ActivityPub;
+
+[ApiController]
+[Route("activitypub")]
+public class ActivityPubController(
+    AppDatabase db,
+    IConfiguration configuration,
+    ILogger<ActivityPubController> logger,
+    ActivityPubSignatureService signatureService,
+    ActivityPubActivityProcessor activityProcessor,
+    ActivityPubKeyService keyService
+) : ControllerBase
+{
+    private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+
+    [HttpGet("actors/{username}")]
+    [Produces("application/activity+json")]
+    [ProducesResponseType(typeof(ActivityPubActor), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Get ActivityPub actor",
+        Description = "Returns the ActivityPub actor (user) profile in JSON-LD format",
+        OperationId = "GetActivityPubActor"
+    )]
+    public async Task<ActionResult<ActivityPubActor>> GetActor(string username)
+    {
+        var publisher = await db.Publishers
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Name == username);
+
+        if (publisher == null)
+            return NotFound();
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
+        var inboxUrl = $"{actorUrl}/inbox";
+        var outboxUrl = $"{actorUrl}/outbox";
+        var followersUrl = $"{actorUrl}/followers";
+        var followingUrl = $"{actorUrl}/following";
+
+        var actor = new ActivityPubActor
+        {
+            Context = ["https://www.w3.org/ns/activitystreams"],
+            Id = actorUrl,
+            Type = "Person",
+            Name = publisher.Nick,
+            PreferredUsername = publisher.Name,
+            Summary = publisher.Bio,
+            Inbox = inboxUrl,
+            Outbox = outboxUrl,
+            Followers = followersUrl,
+            Following = followingUrl,
+            Published = publisher.CreatedAt,
+            Url = $"https://{Domain}/users/{publisher.Name}",
+            PublicKeys =
+            [
+                new ActivityPubPublicKey
+                {
+                    Id = $"{actorUrl}#main-key",
+                    Owner = actorUrl,
+                    PublicKeyPem = GetPublicKey(publisher, keyService)
+                }
+            ]
+        };
+
+        return Ok(actor);
+    }
+
+    [HttpGet("actors/{username}/inbox")]
+    [Consumes("application/activity+json")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [SwaggerOperation(
+        Summary = "Receive ActivityPub activities",
+        Description = "Endpoint for receiving ActivityPub activities (Create, Follow, Like, etc.) from remote servers",
+        OperationId = "ReceiveActivity"
+    )]
+    public async Task<IActionResult> PostInbox(string username, [FromBody] Dictionary<string, object> activity)
+    {
+        if (!signatureService.VerifyIncomingRequest(HttpContext, out var actorUri))
+        {
+            logger.LogWarning("Failed to verify signature for incoming activity");
+            return Unauthorized(new { error = "Invalid signature" });
+        }
+
+        var success = await activityProcessor.ProcessIncomingActivityAsync(HttpContext, username, activity);
+
+        if (!success)
+        {
+            logger.LogWarning("Failed to process activity for actor {Username}", username);
+            return BadRequest(new { error = "Failed to process activity" });
+        }
+
+        logger.LogInformation("Successfully processed activity for actor {Username}: {Type}", username,
+            activity.GetValueOrDefault("type")?.ToString());
+
+        return Accepted();
+    }
+
+    [HttpGet("actors/{username}/outbox")]
+    [Produces("application/activity+json")]
+    [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Get ActivityPub outbox",
+        Description = "Returns the actor's outbox collection containing their public activities",
+        OperationId = "GetActorOutbox"
+    )]
+    public async Task<ActionResult<ActivityPubCollection>> GetOutbox(string username)
+    {
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Name == username);
+
+        if (publisher == null)
+            return NotFound();
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
+        var outboxUrl = $"{actorUrl}/outbox";
+
+        var posts = await db.Posts
+            .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public)
+            .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+
+        var items = posts.Select(post => new
+        {
+            id = $"https://{Domain}/activitypub/objects/{post.Id}",
+            type = post.Type == PostType.Article ? "Article" : "Note",
+            published = post.PublishedAt ?? post.CreatedAt,
+            attributedTo = actorUrl,
+            content = post.Content,
+            url = $"https://{Domain}/posts/{post.Id}"
+        }).ToList<object>();
+
+        var collection = new ActivityPubCollection
+        {
+            Context = ["https://www.w3.org/ns/activitystreams"],
+            Id = outboxUrl,
+            Type = "OrderedCollection",
+            TotalItems = items.Count,
+            First = $"{outboxUrl}?page=1"
+        };
+
+        return Ok(collection);
+    }
+
+    private string GetPublicKey(SnPublisher publisher, ActivityPubKeyService keyService)
+    {
+        var publicKeyPem = GetPublisherKey(publisher, "public_key");
+        
+        if (string.IsNullOrEmpty(publicKeyPem))
+        {
+            var (newPrivate, newPublic) = keyService.GenerateKeyPair();
+            SavePublisherKey(publisher, "private_key", newPrivate);
+            SavePublisherKey(publisher, "public_key", newPublic);
+            return newPublic;
+        }
+        
+        return publicKeyPem;
+    }
+
+    private string? GetPublisherKey(SnPublisher publisher, string keyName)
+    {
+        if (publisher.Meta == null)
+            return null;
+        
+        var metadata = publisher.Meta as Dictionary<string, object>;
+        return metadata?.GetValueOrDefault(keyName)?.ToString();
+    }
+
+    private void SavePublisherKey(SnPublisher publisher, string keyName, string keyValue)
+    {
+        publisher.Meta ??= new Dictionary<string, object>();
+        var metadata = publisher.Meta as Dictionary<string, object>;
+        if (metadata != null)
+        {
+            metadata[keyName] = keyValue;
+        }
+    }
+}
+
+public class ActivityPubActor
+{
+    [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
+    [JsonPropertyName("id")] public string? Id { get; set; }
+    [JsonPropertyName("type")] public string? Type { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
+    [JsonPropertyName("preferredUsername")] public string? PreferredUsername { get; set; }
+    [JsonPropertyName("summary")] public string? Summary { get; set; }
+    [JsonPropertyName("inbox")] public string? Inbox { get; set; }
+    [JsonPropertyName("outbox")] public string? Outbox { get; set; }
+    [JsonPropertyName("followers")] public string? Followers { get; set; }
+    [JsonPropertyName("following")] public string? Following { get; set; }
+    [JsonPropertyName("published")] public Instant? Published { get; set; }
+    [JsonPropertyName("url")] public string? Url { get; set; }
+    [JsonPropertyName("publicKey")] public List<ActivityPubPublicKey>? PublicKeys { get; set; }
+}
+
+public class ActivityPubPublicKey
+{
+    [JsonPropertyName("id")] public string? Id { get; set; }
+    [JsonPropertyName("owner")] public string? Owner { get; set; }
+    [JsonPropertyName("publicKeyPem")] public string? PublicKeyPem { get; set; }
+}
+
+public class ActivityPubCollection
+{
+    [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
+    [JsonPropertyName("id")] public string? Id { get; set; }
+    [JsonPropertyName("type")] public string? Type { get; set; }
+    [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
+    [JsonPropertyName("first")] public string? First { get; set; }
+    [JsonPropertyName("items")] public List<object>? Items { get; set; }
+}

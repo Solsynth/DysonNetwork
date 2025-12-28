@@ -1,0 +1,543 @@
+using DysonNetwork.Shared.Models;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
+using System.Text.Json;
+
+namespace DysonNetwork.Sphere.ActivityPub;
+
+public class ActivityPubActivityProcessor(
+    AppDatabase db,
+    ActivityPubSignatureService signatureService,
+    ActivityPubDeliveryService deliveryService,
+    ILogger<ActivityPubActivityProcessor> logger
+)
+{
+    public async Task<bool> ProcessIncomingActivityAsync(
+        HttpContext context,
+        string username,
+        Dictionary<string, object> activity
+    )
+    {
+        if (!signatureService.VerifyIncomingRequest(context, out var actorUri))
+        {
+            logger.LogWarning("Failed to verify signature for incoming activity");
+            return false;
+        }
+        
+        if (string.IsNullOrEmpty(actorUri))
+            return false;
+        
+        var activityType = activity.GetValueOrDefault("type")?.ToString();
+        logger.LogInformation("Processing activity type: {Type} from actor: {Actor}", activityType, actorUri);
+        
+        switch (activityType)
+        {
+            case "Follow":
+                return await ProcessFollowAsync(actorUri, activity);
+            case "Accept":
+                return await ProcessAcceptAsync(actorUri, activity);
+            case "Reject":
+                return await ProcessRejectAsync(actorUri, activity);
+            case "Undo":
+                return await ProcessUndoAsync(actorUri, activity);
+            case "Create":
+                return await ProcessCreateAsync(actorUri, activity);
+            case "Like":
+                return await ProcessLikeAsync(actorUri, activity);
+            case "Announce":
+                return await ProcessAnnounceAsync(actorUri, activity);
+            case "Delete":
+                return await ProcessDeleteAsync(actorUri, activity);
+            case "Update":
+                return await ProcessUpdateAsync(actorUri, activity);
+            default:
+                logger.LogWarning("Unsupported activity type: {Type}", activityType);
+                return false;
+        }
+    }
+
+    private async Task<bool> ProcessFollowAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var targetPublisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Name == ExtractUsernameFromUri(objectUri));
+        
+        if (targetPublisher == null)
+        {
+            logger.LogWarning("Target publisher not found: {Uri}", objectUri);
+            return false;
+        }
+        
+        var existingRelationship = await db.FediverseRelationships
+            .FirstOrDefaultAsync(r => 
+                r.ActorId == actor.Id && 
+                r.TargetActorId == actor.Id && 
+                r.IsLocalActor);
+        
+        if (existingRelationship != null && existingRelationship.State == RelationshipState.Accepted)
+        {
+            logger.LogInformation("Follow relationship already exists");
+            return true;
+        }
+        
+        if (existingRelationship == null)
+        {
+            existingRelationship = new SnFediverseRelationship
+            {
+                ActorId = actor.Id,
+                TargetActorId = actor.Id,
+                IsLocalActor = true,
+                LocalPublisherId = targetPublisher.Id,
+                State = RelationshipState.Pending,
+                IsFollowing = false,
+                IsFollowedBy = true
+            };
+            db.FediverseRelationships.Add(existingRelationship);
+        }
+        
+        await db.SaveChangesAsync();
+        
+        await deliveryService.SendAcceptActivityAsync(
+            targetPublisher.Id,
+            actorUri,
+            activity.GetValueOrDefault("id")?.ToString() ?? ""
+        );
+        
+        logger.LogInformation("Processed follow from {Actor} to {Target}", actorUri, objectUri);
+        return true;
+    }
+
+    private async Task<bool> ProcessAcceptAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        
+        var relationship = await db.FediverseRelationships
+            .Include(r => r.Actor)
+            .Include(r => r.TargetActor)
+            .FirstOrDefaultAsync(r => 
+                r.IsLocalActor && 
+                r.TargetActorId == actor.Id && 
+                r.State == RelationshipState.Pending);
+        
+        if (relationship == null)
+        {
+            logger.LogWarning("No pending relationship found for accept");
+            return false;
+        }
+        
+        relationship.State = RelationshipState.Accepted;
+        relationship.IsFollowing = true;
+        relationship.FollowedAt = SystemClock.Instance.GetCurrentInstant();
+        
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Processed accept from {Actor}", actorUri);
+        return true;
+    }
+
+    private async Task<bool> ProcessRejectAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        
+        var relationship = await db.FediverseRelationships
+            .FirstOrDefaultAsync(r => 
+                r.IsLocalActor && 
+                r.TargetActorId == actor.Id);
+        
+        if (relationship == null)
+        {
+            logger.LogWarning("No relationship found for reject");
+            return false;
+        }
+        
+        relationship.State = RelationshipState.Rejected;
+        relationship.IsFollowing = false;
+        relationship.RejectReason = "Remote rejected follow";
+        
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Processed reject from {Actor}", actorUri);
+        return true;
+    }
+
+    private async Task<bool> ProcessUndoAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectValue = activity.GetValueOrDefault("object");
+        if (objectValue == null)
+            return false;
+        
+        var objectDict = objectValue as Dictionary<string, object>;
+        if (objectDict != null)
+        {
+            var objectType = objectDict.GetValueOrDefault("type")?.ToString();
+            switch (objectType)
+            {
+                case "Follow":
+                    return await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
+                case "Like":
+                    return await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
+                case "Announce":
+                    return await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
+                default:
+                    return false;
+            }
+        }
+        
+        return false;
+    }
+
+    private async Task<bool> ProcessCreateAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectValue = activity.GetValueOrDefault("object");
+        if (objectValue == null || !(objectValue is Dictionary<string, object> objectDict))
+            return false;
+        
+        var objectType = objectDict.GetValueOrDefault("type")?.ToString();
+        if (objectType != "Note" && objectType != "Article")
+        {
+            logger.LogInformation("Skipping non-note content type: {Type}", objectType);
+            return true;
+        }
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var instance = await GetOrCreateInstanceAsync(actorUri);
+        
+        var contentUri = objectDict.GetValueOrDefault("id")?.ToString();
+        if (string.IsNullOrEmpty(contentUri))
+            return false;
+        
+        var existingContent = await db.FediverseContents
+            .FirstOrDefaultAsync(c => c.Uri == contentUri);
+        
+        if (existingContent != null)
+        {
+            logger.LogInformation("Content already exists: {Uri}", contentUri);
+            return true;
+        }
+        
+        var content = new SnFediverseContent
+        {
+            Uri = contentUri,
+            Type = objectType == "Article" ? FediverseContentType.Article : FediverseContentType.Note,
+            Title = objectDict.GetValueOrDefault("name")?.ToString(),
+            Summary = objectDict.GetValueOrDefault("summary")?.ToString(),
+            Content = objectDict.GetValueOrDefault("content")?.ToString(),
+            ContentHtml = objectDict.GetValueOrDefault("contentMap")?.ToString(),
+            PublishedAt = ParseInstant(objectDict.GetValueOrDefault("published")),
+            EditedAt = ParseInstant(objectDict.GetValueOrDefault("updated")),
+            IsSensitive = bool.TryParse(objectDict.GetValueOrDefault("sensitive")?.ToString(), out var sensitive) && sensitive,
+            ActorId = actor.Id,
+            InstanceId = instance.Id,
+            Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")),
+            Mentions = ParseMentions(objectDict.GetValueOrDefault("tag")),
+            Tags = ParseTags(objectDict.GetValueOrDefault("tag")),
+            InReplyTo = objectDict.GetValueOrDefault("inReplyTo")?.ToString()
+        };
+        
+        db.FediverseContents.Add(content);
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Created federated content: {Uri}", contentUri);
+        return true;
+    }
+
+    private async Task<bool> ProcessLikeAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var content = await db.FediverseContents
+            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        
+        if (content == null)
+        {
+            logger.LogWarning("Content not found for like: {Uri}", objectUri);
+            return false;
+        }
+        
+        var existingReaction = await db.FediverseReactions
+            .FirstOrDefaultAsync(r => 
+                r.ActorId == actor.Id && 
+                r.ContentId == content.Id &&
+                r.Type == FediverseReactionType.Like);
+        
+        if (existingReaction != null)
+        {
+            logger.LogInformation("Like already exists");
+            return true;
+        }
+        
+        var reaction = new SnFediverseReaction
+        {
+            Uri = activity.GetValueOrDefault("id")?.ToString() ?? Guid.NewGuid().ToString(),
+            Type = FediverseReactionType.Like,
+            IsLocal = false,
+            ContentId = content.Id,
+            ActorId = actor.Id
+        };
+        
+        db.FediverseReactions.Add(reaction);
+        content.LikeCount++;
+        
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Processed like from {Actor}", actorUri);
+        return true;
+    }
+
+    private async Task<bool> ProcessAnnounceAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var content = await db.FediverseContents
+            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        
+        if (content != null)
+        {
+            content.BoostCount++;
+            await db.SaveChangesAsync();
+        }
+        
+        logger.LogInformation("Processed announce from {Actor}", actorUri);
+        return true;
+    }
+
+    private async Task<bool> ProcessDeleteAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var content = await db.FediverseContents
+            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        
+        if (content != null)
+        {
+            content.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+            await db.SaveChangesAsync();
+            logger.LogInformation("Deleted federated content: {Uri}", objectUri);
+        }
+        
+        return true;
+    }
+
+    private async Task<bool> ProcessUpdateAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var content = await db.FediverseContents
+            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        
+        if (content != null)
+        {
+            content.EditedAt = SystemClock.Instance.GetCurrentInstant();
+            content.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+            await db.SaveChangesAsync();
+            logger.LogInformation("Updated federated content: {Uri}", objectUri);
+        }
+        
+        return true;
+    }
+
+    private async Task<bool> UndoFollowAsync(string actorUri, string? activityId)
+    {
+        var actor = await GetOrCreateActorAsync(actorUri);
+        
+        var relationship = await db.FediverseRelationships
+            .FirstOrDefaultAsync(r => 
+                r.ActorId == actor.Id || 
+                r.TargetActorId == actor.Id);
+        
+        if (relationship != null)
+        {
+            relationship.IsFollowing = false;
+            relationship.IsFollowedBy = false;
+            await db.SaveChangesAsync();
+            logger.LogInformation("Undid follow relationship");
+        }
+        
+        return true;
+    }
+
+    private async Task<bool> UndoLikeAsync(string actorUri, string? activityId)
+    {
+        var actor = await GetOrCreateActorAsync(actorUri);
+        
+        var reactions = await db.FediverseReactions
+            .Where(r => r.ActorId == actor.Id && r.Type == FediverseReactionType.Like)
+            .ToListAsync();
+        
+        foreach (var reaction in reactions)
+        {
+            var content = await db.FediverseContents.FindAsync(reaction.ContentId);
+            if (content != null)
+            {
+                content.LikeCount--;
+            }
+            db.FediverseReactions.Remove(reaction);
+        }
+        
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    private async Task<bool> UndoAnnounceAsync(string actorUri, string? activityId)
+    {
+        var content = await db.FediverseContents
+            .FirstOrDefaultAsync(c => c.Uri == activityId);
+        
+        if (content != null)
+        {
+            content.BoostCount = Math.Max(0, content.BoostCount - 1);
+            await db.SaveChangesAsync();
+        }
+        
+        return true;
+    }
+
+    private async Task<SnFediverseActor> GetOrCreateActorAsync(string actorUri)
+    {
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.Uri == actorUri);
+        
+        if (actor == null)
+        {
+            var instance = await GetOrCreateInstanceAsync(actorUri);
+            actor = new SnFediverseActor
+            {
+                Uri = actorUri,
+                Username = ExtractUsernameFromUri(actorUri),
+                DisplayName = ExtractUsernameFromUri(actorUri),
+                InstanceId = instance.Id
+            };
+            db.FediverseActors.Add(actor);
+            await db.SaveChangesAsync();
+        }
+        
+        return actor;
+    }
+
+    private async Task<SnFediverseInstance> GetOrCreateInstanceAsync(string actorUri)
+    {
+        var domain = ExtractDomainFromUri(actorUri);
+        var instance = await db.FediverseInstances
+            .FirstOrDefaultAsync(i => i.Domain == domain);
+        
+        if (instance == null)
+        {
+            instance = new SnFediverseInstance
+            {
+                Domain = domain,
+                Name = domain
+            };
+            db.FediverseInstances.Add(instance);
+            await db.SaveChangesAsync();
+        }
+        
+        return instance;
+    }
+
+    private string ExtractUsernameFromUri(string uri)
+    {
+        return uri.Split('/').Last();
+    }
+
+    private string ExtractDomainFromUri(string uri)
+    {
+        var uriObj = new Uri(uri);
+        return uriObj.Host;
+    }
+
+    private Instant? ParseInstant(object? value)
+    {
+        if (value == null)
+            return null;
+        
+        if (value is Instant instant)
+            return instant;
+        
+        if (DateTimeOffset.TryParse(value.ToString(), out var dateTimeOffset))
+            return Instant.FromDateTimeOffset(dateTimeOffset);
+        
+        return null;
+    }
+
+    private List<ContentAttachment>? ParseAttachments(object? value)
+    {
+        if (value == null)
+            return null;
+        
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray()
+                .Select(attachment => new ContentAttachment
+                {
+                    Url = attachment.GetProperty("url").GetString(),
+                    MediaType = attachment.GetProperty("mediaType").GetString(),
+                    Name = attachment.GetProperty("name").GetString()
+                })
+                .ToList();
+        }
+        
+        return null;
+    }
+
+    private List<ContentMention>? ParseMentions(object? value)
+    {
+        if (value == null)
+            return null;
+        
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray()
+                .Where(e => e.GetProperty("type").GetString() == "Mention")
+                .Select(mention => new ContentMention
+                {
+                    Username = mention.GetProperty("name").GetString(),
+                    ActorUri = mention.GetProperty("href").GetString()
+                })
+                .ToList();
+        }
+        
+        return null;
+    }
+
+    private List<ContentTag>? ParseTags(object? value)
+    {
+        if (value == null)
+            return null;
+        
+        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        {
+            return element.EnumerateArray()
+                .Where(e => e.GetProperty("type").GetString() == "Hashtag")
+                .Select(tag => new ContentTag
+                {
+                    Name = tag.GetProperty("name").GetString(),
+                    Url = tag.GetProperty("href").GetString()
+                })
+                .ToList();
+        }
+        
+        return null;
+    }
+}

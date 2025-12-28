@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.Chat;
 using DysonNetwork.Sphere.Chat.Realtime;
@@ -102,6 +103,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DiscoveryService>();
         services.AddScoped<PollService>();
         services.AddScoped<AutocompletionService>();
+        services.AddScoped<ActivityPubKeyService>();
+        services.AddScoped<ActivityPubSignatureService>();
+        services.AddScoped<ActivityPubActivityProcessor>();
+        services.AddScoped<ActivityPubDeliveryService>();
 
         var translationProvider = configuration["Translation:Provider"]?.ToLower();
         switch (translationProvider)
