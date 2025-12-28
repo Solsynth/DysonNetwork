@@ -8,6 +8,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubDeliveryService(
     AppDatabase db,
     ActivityPubSignatureService signatureService,
+    ActivityPubDiscoveryService discoveryService,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger
@@ -310,6 +311,7 @@ public class ActivityPubDeliveryService(
                 };
                 db.FediverseInstances.Add(instance);
                 await db.SaveChangesAsync();
+                await discoveryService.FetchInstanceMetadataAsync(instance);
             }
             
             actor = new SnFediverseActor

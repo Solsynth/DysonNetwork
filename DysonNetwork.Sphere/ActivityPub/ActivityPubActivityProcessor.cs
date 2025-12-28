@@ -9,6 +9,7 @@ public class ActivityPubActivityProcessor(
     AppDatabase db,
     ActivityPubSignatureService signatureService,
     ActivityPubDeliveryService deliveryService,
+    ActivityPubDiscoveryService discoveryService,
     ILogger<ActivityPubActivityProcessor> logger
 )
 {
@@ -451,6 +452,7 @@ public class ActivityPubActivityProcessor(
             };
             db.FediverseInstances.Add(instance);
             await db.SaveChangesAsync();
+            await discoveryService.FetchInstanceMetadataAsync(instance);
         }
         
         return instance;

@@ -6,6 +6,54 @@ using System.Xml.Linq;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
+public class MastodonInstanceV2Response
+{
+    public string Domain { get; set; } = null!;
+    public string Title { get; set; } = null!;
+    public string Version { get; set; } = null!;
+    public string? SourceUrl { get; set; }
+    public string? Description { get; set; }
+    public MastodonUsage? Usage { get; set; }
+    public MastodonThumbnail? Thumbnail { get; set; }
+    public List<MastodonIcon>? Icon { get; set; }
+    public List<string>? Languages { get; set; }
+    public MastodonContact? Contact { get; set; }
+    public Dictionary<string, object>? Registrations { get; set; }
+    public Dictionary<string, object>? Configuration { get; set; }
+}
+
+public class MastodonUsage
+{
+    public MastodonUserUsage? Users { get; set; }
+}
+
+public class MastodonUserUsage
+{
+    public int ActiveMonth { get; set; }
+}
+
+public class MastodonThumbnail
+{
+    public string? Url { get; set; }
+}
+
+public class MastodonIcon
+{
+    public string? Src { get; set; }
+    public string? Size { get; set; }
+}
+
+public class MastodonContact
+{
+    public string? Email { get; set; }
+    public MastodonContactAccount? Account { get; set; }
+}
+
+public class MastodonContactAccount
+{
+    public string? Username { get; set; }
+}
+
 public partial class ActivityPubDiscoveryService(
     AppDatabase db,
     IHttpClientFactory httpClientFactory,
@@ -210,6 +258,105 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
+    public async Task FetchInstanceMetadataAsync(SnFediverseInstance instance)
+    {
+        if (instance.MetadataFetchedAt != null)
+            return;
+
+        try
+        {
+            logger.LogInformation("Fetching instance metadata from Mastodon API: {Domain}", instance.Domain);
+
+            var apiUrl = $"https://{instance.Domain}/api/v2/instance";
+            var response = await HttpClient.GetAsync(apiUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogDebug("Mastodon API not available for {Domain} (Status: {StatusCode}), skipping metadata fetch",
+                    instance.Domain, response.StatusCode);
+                return;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var apiResponse = JsonSerializer.Deserialize<MastodonInstanceV2Response>(content);
+
+            if (apiResponse == null)
+            {
+                logger.LogWarning("Failed to parse Mastodon API response for {Domain}", instance.Domain);
+                return;
+            }
+
+            instance.Name = apiResponse.Title;
+            instance.Description = apiResponse.Description;
+            instance.Software = "Mastodon";
+            instance.Version = apiResponse.Version;
+            instance.ThumbnailUrl = apiResponse.Thumbnail?.Url;
+
+            if (apiResponse.Icon != null && apiResponse.Icon.Count > 0)
+            {
+                var largestIcon = apiResponse.Icon
+                    .Where(i => i.Src != null)
+                    .OrderByDescending(i => GetIconSizePixels(i.Size))
+                    .FirstOrDefault();
+                instance.IconUrl = largestIcon?.Src;
+            }
+
+            instance.ContactEmail = apiResponse.Contact?.Email;
+            instance.ContactAccountUsername = apiResponse.Contact?.Account?.Username;
+            instance.ActiveUsers = apiResponse.Usage?.Users?.ActiveMonth;
+
+            var metadata = new Dictionary<string, object>();
+
+            if (apiResponse.Languages != null && apiResponse.Languages.Count > 0)
+                metadata["languages"] = apiResponse.Languages;
+
+            if (apiResponse.SourceUrl != null)
+                metadata["source_url"] = apiResponse.SourceUrl;
+
+            if (apiResponse.Registrations != null)
+                metadata["registrations"] = apiResponse.Registrations;
+
+            if (apiResponse.Configuration != null)
+            {
+                var filteredConfig = new Dictionary<string, object>();
+                if (apiResponse.Configuration.TryGetValue("media_attachments", out var mediaConfig))
+                    filteredConfig["media_attachments"] = mediaConfig;
+                if (apiResponse.Configuration.TryGetValue("polls", out var pollConfig))
+                    filteredConfig["polls"] = pollConfig;
+                if (apiResponse.Configuration.TryGetValue("translation", out var translationConfig))
+                    filteredConfig["translation"] = translationConfig;
+                metadata["configuration"] = filteredConfig;
+            }
+
+            if (metadata.Count > 0)
+                instance.Metadata = metadata;
+
+            instance.MetadataFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+            await db.SaveChangesAsync();
+
+            logger.LogInformation("Successfully fetched instance metadata for {Domain}", instance.Domain);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch instance metadata for {Domain}", instance.Domain);
+        }
+    }
+
+    private static int GetIconSizePixels(string? size)
+    {
+        if (string.IsNullOrEmpty(size))
+            return 0;
+
+        var parts = size.Split('x');
+        if (parts.Length != 2)
+            return 0;
+
+        if (int.TryParse(parts[0], out var width) && int.TryParse(parts[1], out var height))
+            return width * height;
+
+        return 0;
+    }
+
     private async Task<SnFediverseActor?> StoreActorAsync(
         string actorUri,
         string username,
@@ -255,8 +402,9 @@ public partial class ActivityPubDiscoveryService(
             await db.SaveChangesAsync();
 
             logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
-            
+
             await FetchActorDataAsync(actor);
+            await FetchInstanceMetadataAsync(instance);
 
             actor.Instance = instance;
             return actor;
@@ -311,7 +459,6 @@ public partial class ActivityPubDiscoveryService(
             actor.IsLocked = actorData.GetValueOrDefault("manuallyApprovesFollowers")?.ToString() == "true";
             actor.IsDiscoverable = actorData.GetValueOrDefault("discoverable")?.ToString() != "false";
 
-            // Store additional fields in Metadata
             var excludedKeys = new HashSet<string>
             {
                 "id", "name", "summary", "preferredUsername", "inbox", "outbox", "followers", "following", "featured",

@@ -304,6 +304,7 @@ public class ActivityPubFollowController(
                 };
                 db.FediverseInstances.Add(instance);
                 await db.SaveChangesAsync();
+                await discSrv.FetchInstanceMetadataAsync(instance);
             }
 
             var actor = new SnFediverseActor

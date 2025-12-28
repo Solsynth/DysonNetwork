@@ -671,10 +671,24 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int?>("ActiveUsers")
+                        .HasColumnType("integer")
+                        .HasColumnName("active_users");
+
                     b.Property<string>("BlockReason")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("block_reason");
+
+                    b.Property<string>("ContactAccountUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("contact_account_username");
+
+                    b.Property<string>("ContactEmail")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("contact_email");
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -694,6 +708,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("domain");
+
+                    b.Property<string>("IconUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("icon_url");
 
                     b.Property<bool>("IsBlocked")
                         .HasColumnType("boolean")
@@ -715,6 +734,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("metadata");
 
+                    b.Property<Instant?>("MetadataFetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("metadata_fetched_at");
+
                     b.Property<string>("Name")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
@@ -724,6 +747,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("software");
+
+                    b.Property<string>("ThumbnailUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("thumbnail_url");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

@@ -16,6 +16,11 @@ public class SnFediverseInstance : ModelBase
     [MaxLength(4096)] public string? Description { get; set; }
     [MaxLength(2048)] public string? Software { get; set; }
     [MaxLength(2048)] public string? Version { get; set; }
+    [MaxLength(2048)] public string? IconUrl { get; set; }
+    [MaxLength(2048)] public string? ThumbnailUrl { get; set; }
+    [MaxLength(512)] public string? ContactEmail { get; set; }
+    [MaxLength(256)] public string? ContactAccountUsername { get; set; }
+    public int? ActiveUsers { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Metadata { get; set; }
     
     public bool IsBlocked { get; set; } = false;
@@ -27,4 +32,5 @@ public class SnFediverseInstance : ModelBase
     
     public Instant? LastFetchedAt { get; set; }
     public Instant? LastActivityAt { get; set; }
+    public Instant? MetadataFetchedAt { get; set; }
 }
