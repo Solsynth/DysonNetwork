@@ -86,6 +86,18 @@ var specialRoutes = new[]
     },
     new RouteConfig
     {
+        RouteId = "sphere-webfinger",
+        ClusterId = "sphere",
+        Match = new RouteMatch { Path = "/.well-known/webfinger" }
+    },
+    new RouteConfig
+    {
+        RouteId = "sphere-activitypub",
+        ClusterId = "sphere",
+        Match = new RouteMatch { Path = "activitypub" }
+    },
+    new RouteConfig
+    {
         RouteId = "drive-tus",
         ClusterId = "drive",
         Match = new RouteMatch { Path = "/api/tus" }

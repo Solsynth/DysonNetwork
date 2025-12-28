@@ -1,9 +1,5 @@
-using System.Net.Mime;
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -11,8 +7,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 [Route(".well-known")]
 public class WebFingerController(
     AppDatabase db,
-    IConfiguration configuration,
-    ILogger<WebFingerController> logger
+    IConfiguration configuration
 ) : ControllerBase
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
