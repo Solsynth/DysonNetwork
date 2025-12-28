@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -82,18 +83,57 @@ public partial class ActivityPubDiscoveryService(
                 return null;
             }
 
-            var json = await response.Content.ReadAsStringAsync();
-            logger.LogDebug("Webfinger response from {Url}: {Json}", webfingerUrl, json);
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+            logger.LogDebug("Webfinger response Content-Type: {ContentType}", contentType);
 
+            var content = await response.Content.ReadAsStringAsync();
+            logger.LogDebug("Webfinger response from {Url}: {Content}", webfingerUrl, content);
+
+            string? actorUri;
+
+            if (contentType?.Contains("json") == true)
+            {
+                actorUri = ParseJsonWebfingerResponse(content, webfingerUrl);
+            }
+            else if (contentType?.Contains("xml") == true || content.TrimStart().StartsWith("<?xml"))
+            {
+                actorUri = ParseXmlWebfingerResponse(content, webfingerUrl);
+            }
+            else
+            {
+                logger.LogWarning("Unknown Content-Type from {Url}: {ContentType}, trying JSON parsing", webfingerUrl, contentType);
+                actorUri = ParseJsonWebfingerResponse(content, webfingerUrl);
+            }
+
+            if (actorUri == null)
+            {
+                logger.LogWarning("Failed to extract actor URI from Webfinger response from {Url}", webfingerUrl);
+                return null;
+            }
+
+            logger.LogInformation("Found actor URI via Webfinger: {ActorUri}", actorUri);
+            return actorUri;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error querying Webfinger for {Username}@{Domain}", username, domain);
+            return null;
+        }
+    }
+
+    private string? ParseJsonWebfingerResponse(string json, string sourceUrl)
+    {
+        try
+        {
             var webfingerData = JsonSerializer.Deserialize<WebFingerResponse>(json);
 
             if (webfingerData?.Links == null)
             {
-                logger.LogWarning("Invalid Webfinger response from {Url}", webfingerUrl);
+                logger.LogWarning("Invalid JSON Webfinger response from {Url}", sourceUrl);
                 return null;
             }
 
-            logger.LogDebug("Found {LinkCount} links in Webfinger response", webfingerData.Links.Count);
+            logger.LogDebug("Found {LinkCount} links in JSON Webfinger response", webfingerData.Links.Count);
             foreach (var link in webfingerData.Links)
             {
                 logger.LogDebug("Link: rel={Rel}, type={Type}, href={Href}", link.Rel, link.Type, link.Href);
@@ -104,16 +144,48 @@ public partial class ActivityPubDiscoveryService(
 
             if (selfLink == null)
             {
-                logger.LogWarning("No self link found in Webfinger response from {Url}", webfingerUrl);
+                logger.LogWarning("No self link found in JSON Webfinger response from {Url}", sourceUrl);
                 return null;
             }
 
-            logger.LogInformation("Found actor URI via Webfinger: {ActorUri}", selfLink.Href);
             return selfLink.Href;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error querying Webfinger for {Username}@{Domain}", username, domain);
+            logger.LogError(ex, "Error parsing JSON Webfinger response from {Url}", sourceUrl);
+            return null;
+        }
+    }
+
+    private string? ParseXmlWebfingerResponse(string xml, string sourceUrl)
+    {
+        try
+        {
+            var xDoc = XDocument.Parse(xml);
+            var xNamespace = XNamespace.Get("http://docs.oasis-open.org/ns/xri/xrd-1.0");
+
+            var links = xDoc.Descendants(xNamespace + "Link").ToList();
+            logger.LogDebug("Found {LinkCount} links in XML Webfinger response", links.Count);
+
+            foreach (var link in links)
+            {
+                var rel = link.Attribute("rel")?.Value;
+                var type = link.Attribute("type")?.Value;
+                var href = link.Attribute("href")?.Value;
+                logger.LogDebug("XML Link: rel={Rel}, type={Type}, href={Href}", rel, type, href);
+
+                if (rel == "self" && type == "application/activity+json" && href != null)
+                {
+                    return href;
+                }
+            }
+
+            logger.LogWarning("No self link found in XML Webfinger response from {Url}", sourceUrl);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error parsing XML Webfinger response from {Url}", sourceUrl);
             return null;
         }
     }
