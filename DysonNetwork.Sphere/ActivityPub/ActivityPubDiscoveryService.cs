@@ -54,6 +54,23 @@ public class MastodonContactAccount
     public string? Username { get; set; }
 }
 
+public class MisskeyMetaResponse
+{
+    public string? Name { get; set; }
+    public string? Description { get; set; }
+    public string? Version { get; set; }
+    public string? Uri { get; set; }
+    public List<string>? Langs { get; set; }
+    public string? MaintainerName { get; set; }
+    public string? MaintainerEmail { get; set; }
+    public string? IconUrl { get; set; }
+    public string? BannerUrl { get; set; }
+    public string? RepositoryUrl { get; set; }
+    public string? PrivacyPolicyUrl { get; set; }
+    public string? TosUrl { get; set; }
+    public int? MaxNoteTextLength { get; set; }
+}
+
 public partial class ActivityPubDiscoveryService(
     AppDatabase db,
     IHttpClientFactory httpClientFactory,
@@ -265,16 +282,46 @@ public partial class ActivityPubDiscoveryService(
 
         try
         {
-            logger.LogInformation("Fetching instance metadata from Mastodon API: {Domain}", instance.Domain);
+            logger.LogInformation("Fetching instance metadata for {Domain}", instance.Domain);
 
+            var mastodonSuccess = await FetchMastodonMetadataAsync(instance);
+
+            if (!mastodonSuccess)
+            {
+                logger.LogInformation("Mastodon API not available for {Domain}, trying Misskey API", instance.Domain);
+                var misskeySuccess = await FetchMisskeyMetadataAsync(instance);
+
+                if (!misskeySuccess)
+                {
+                    logger.LogInformation("No compatible API found for {Domain}", instance.Domain);
+                    return;
+                }
+            }
+
+            instance.MetadataFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+            await db.SaveChangesAsync();
+
+            logger.LogInformation("Successfully fetched instance metadata for {Domain} (Software: {Software})",
+                instance.Domain, instance.Software);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch instance metadata for {Domain}", instance.Domain);
+        }
+    }
+
+    private async Task<bool> FetchMastodonMetadataAsync(SnFediverseInstance instance)
+    {
+        try
+        {
             var apiUrl = $"https://{instance.Domain}/api/v2/instance";
             var response = await HttpClient.GetAsync(apiUrl);
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogDebug("Mastodon API not available for {Domain} (Status: {StatusCode}), skipping metadata fetch",
+                logger.LogDebug("Mastodon API not available for {Domain} (Status: {StatusCode})",
                     instance.Domain, response.StatusCode);
-                return;
+                return false;
             }
 
             var content = await response.Content.ReadAsStringAsync();
@@ -283,7 +330,7 @@ public partial class ActivityPubDiscoveryService(
             if (apiResponse == null)
             {
                 logger.LogWarning("Failed to parse Mastodon API response for {Domain}", instance.Domain);
-                return;
+                return false;
             }
 
             instance.Name = apiResponse.Title;
@@ -331,14 +378,76 @@ public partial class ActivityPubDiscoveryService(
             if (metadata.Count > 0)
                 instance.Metadata = metadata;
 
-            instance.MetadataFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
-            await db.SaveChangesAsync();
-
-            logger.LogInformation("Successfully fetched instance metadata for {Domain}", instance.Domain);
+            return true;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to fetch instance metadata for {Domain}", instance.Domain);
+            logger.LogDebug(ex, "Failed to fetch Mastodon metadata for {Domain}", instance.Domain);
+            return false;
+        }
+    }
+
+    private async Task<bool> FetchMisskeyMetadataAsync(SnFediverseInstance instance)
+    {
+        try
+        {
+            var apiUrl = $"https://{instance.Domain}/api/meta";
+            var response = await HttpClient.PostAsync(apiUrl, null);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogDebug("Misskey API not available for {Domain} (Status: {StatusCode})",
+                    instance.Domain, response.StatusCode);
+                return false;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var apiResponse = JsonSerializer.Deserialize<MisskeyMetaResponse>(content);
+
+            if (apiResponse == null)
+            {
+                logger.LogWarning("Failed to parse Misskey API response for {Domain}", instance.Domain);
+                return false;
+            }
+
+            instance.Name = apiResponse.Name;
+            instance.Description = apiResponse.Description;
+            instance.Software = "Misskey";
+            instance.Version = apiResponse.Version;
+            instance.IconUrl = apiResponse.IconUrl;
+            instance.ThumbnailUrl = apiResponse.BannerUrl;
+            instance.ContactEmail = apiResponse.MaintainerEmail;
+            instance.ContactAccountUsername = apiResponse.MaintainerName;
+
+            var metadata = new Dictionary<string, object>();
+
+            if (apiResponse.Langs != null && apiResponse.Langs.Count > 0)
+                metadata["languages"] = apiResponse.Langs;
+
+            if (apiResponse.RepositoryUrl != null)
+                metadata["source_url"] = apiResponse.RepositoryUrl;
+
+            if (apiResponse.PrivacyPolicyUrl != null)
+                metadata["privacy_policy_url"] = apiResponse.PrivacyPolicyUrl;
+
+            if (apiResponse.TosUrl != null)
+                metadata["terms_of_service_url"] = apiResponse.TosUrl;
+
+            if (apiResponse.MaxNoteTextLength.HasValue)
+                metadata["max_note_text_length"] = apiResponse.MaxNoteTextLength.Value;
+
+            if (apiResponse.Uri != null)
+                metadata["uri"] = apiResponse.Uri;
+
+            if (metadata.Count > 0)
+                instance.Metadata = metadata;
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to fetch Misskey metadata for {Domain}", instance.Domain);
+            return false;
         }
     }
 
