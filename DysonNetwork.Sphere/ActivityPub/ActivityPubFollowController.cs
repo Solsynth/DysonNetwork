@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -348,7 +349,8 @@ public class ActivityPubFollowController(
     private Guid? GetCurrentUser()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUser);
-        return currentUser as Guid?;
+        if (currentUser is not Account user) return null;
+        return Guid.Parse(user.Id);
     }
 
     private string ExtractDomain(string actorUri)
