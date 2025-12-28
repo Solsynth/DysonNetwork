@@ -17,7 +17,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20251228172554_EnrichFediverseInstance")]
+    [Migration("20251228173217_EnrichFediverseInstance")]
     partial class EnrichFediverseInstance
     {
         /// <inheritdoc />
