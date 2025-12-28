@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -66,7 +67,8 @@ public partial class ActivityPubDiscoveryService(
         return !match.Success ? (null, null) : (match.Groups[1].Value, match.Groups[2].Value);
     }
 
-    private async Task<(string? actorUri, string? avatarUrl)> GetActorUriFromWebfingerAsync(string username, string domain)
+    private async Task<(string? actorUri, string? avatarUrl)> GetActorUriFromWebfingerAsync(string username,
+        string domain)
     {
         if (domain == Domain)
             return (null, null);
@@ -101,7 +103,8 @@ public partial class ActivityPubDiscoveryService(
             }
             else
             {
-                logger.LogWarning("Unknown Content-Type from {Url}: {ContentType}, trying JSON parsing", webfingerUrl, contentType);
+                logger.LogWarning("Unknown Content-Type from {Url}: {ContentType}, trying JSON parsing", webfingerUrl,
+                    contentType);
                 result = ParseJsonWebfingerResponse(content, webfingerUrl);
             }
 
@@ -111,7 +114,8 @@ public partial class ActivityPubDiscoveryService(
                 return (null, null);
             }
 
-            logger.LogInformation("Found actor URI via Webfinger: {ActorUri}, Avatar: {AvatarUrl}", result.actorUri, result.avatarUrl);
+            logger.LogInformation("Found actor URI via Webfinger: {ActorUri}, Avatar: {AvatarUrl}", result.actorUri,
+                result.avatarUrl);
             return result;
         }
         catch (Exception ex)
@@ -206,7 +210,8 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    private async Task<SnFediverseActor?> StoreActorAsync(string actorUri, string username, string domain, string? webfingerAvatarUrl)
+    private async Task<SnFediverseActor?> StoreActorAsync(string actorUri, string username, string domain,
+        string? webfingerAvatarUrl)
     {
         var existingActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
@@ -246,7 +251,7 @@ public partial class ActivityPubDiscoveryService(
 
             logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
 
-            await FetchAdditionalActorDataAsync(actor);
+            await FetchActorDataAsync(actor);
 
             return actor;
         }
@@ -257,19 +262,21 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    private async Task FetchAdditionalActorDataAsync(SnFediverseActor actor)
+    private async Task FetchActorDataAsync(SnFediverseActor actor)
     {
         try
         {
             logger.LogInformation("Attempting to fetch additional actor data from: {ActorUri}", actor.Uri);
 
             var request = new HttpRequestMessage(HttpMethod.Get, actor.Uri);
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/activity+json"));
+            request.Headers.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/activity+json"));
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Failed to fetch actor data: {Url} - {StatusCode}, using Webfinger data only", actor.Uri, response.StatusCode);
+                logger.LogWarning("Failed to fetch actor data: {Url} - {StatusCode}, using Webfinger data only",
+                    actor.Uri, response.StatusCode);
                 return;
             }
 
@@ -282,6 +289,7 @@ public partial class ActivityPubDiscoveryService(
                 return;
             }
 
+            actor.Type = actorData.GetValueOrDefault("type")?.ToString();
             actor.DisplayName = actorData.GetValueOrDefault("name")?.ToString();
             actor.Bio = actorData.GetValueOrDefault("summary")?.ToString();
             actor.InboxUri = actorData.GetValueOrDefault("inbox")?.ToString();
@@ -297,13 +305,23 @@ public partial class ActivityPubDiscoveryService(
             actor.IsLocked = actorData.GetValueOrDefault("manuallyApprovesFollowers")?.ToString() == "true";
             actor.IsDiscoverable = actorData.GetValueOrDefault("discoverable")?.ToString() != "false";
 
+            // Store additional fields in Metadata
+            var excludedKeys = new HashSet<string>
+            {
+                "id", "name", "summary", "preferredUsername", "inbox", "outbox", "followers", "following", "featured",
+                "icon", "image", "publicKey", "type", "manuallyApprovesFollowers", "discoverable", "@context"
+            };
+            actor.Metadata = actorData.Where(kvp => !excludedKeys.Contains(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
             await db.SaveChangesAsync();
 
             logger.LogInformation("Successfully fetched additional actor data for: {Username}", actor.Username);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to fetch additional actor data for {Uri}, using Webfinger data only", actor.Uri);
+            logger.LogWarning(ex, "Failed to fetch additional actor data for {Uri}, using Webfinger data only",
+                actor.Uri);
         }
     }
 
