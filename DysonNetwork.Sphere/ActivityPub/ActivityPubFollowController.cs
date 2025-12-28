@@ -7,11 +7,12 @@ using NodaTime;
 namespace DysonNetwork.Sphere.ActivityPub;
 
 [ApiController]
-[Route("api/activitypub")]
+[Route("/api/activitypub")]
 [Authorize]
 public class ActivityPubFollowController(
     AppDatabase db,
     ActivityPubDeliveryService deliveryService,
+    ActivityPubDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<ActivityPubFollowController> logger
 ) : ControllerBase
@@ -160,13 +161,7 @@ public class ActivityPubFollowController(
         if (string.IsNullOrWhiteSpace(query))
             return BadRequest(new { error = "Query is required" });
 
-        var actors = await db.FediverseActors
-            .Where(a => 
-                a.Username.Contains(query) || 
-                a.DisplayName != null && a.DisplayName.Contains(query))
-            .OrderByDescending(a => a.LastActivityAt ?? a.CreatedAt)
-            .Take(limit)
-            .ToListAsync();
+        var actors = await discoveryService.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
 
         return Ok(actors);
     }
