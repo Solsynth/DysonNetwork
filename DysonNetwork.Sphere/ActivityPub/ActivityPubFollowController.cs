@@ -108,6 +108,7 @@ public class ActivityPubFollowController(
 
         var actors = await db.FediverseRelationships
             .Include(r => r.TargetActor)
+            .ThenInclude(a => a.Instance)
             .Where(r =>
                 r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&
@@ -140,6 +141,7 @@ public class ActivityPubFollowController(
 
         var actors = await db.FediverseRelationships
             .Include(r => r.Actor)
+            .ThenInclude(a => a.Instance)
             .Where(r =>
                 !r.IsLocalActor &&
                 r.LocalPublisherId == publisher.Id &&

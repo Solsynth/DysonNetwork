@@ -1,6 +1,5 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -39,6 +38,7 @@ public partial class ActivityPubDiscoveryService(
     )
     {
         var localResults = await db.FediverseActors
+            .Include(a => a.Instance)
             .Where(a =>
                 a.Username.Contains(query) ||
                 a.DisplayName != null && a.DisplayName.Contains(query))
@@ -210,10 +210,15 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    private async Task<SnFediverseActor?> StoreActorAsync(string actorUri, string username, string domain,
-        string? webfingerAvatarUrl)
+    private async Task<SnFediverseActor?> StoreActorAsync(
+        string actorUri,
+        string username,
+        string domain,
+        string? webfingerAvatarUrl
+    )
     {
         var existingActor = await db.FediverseActors
+            .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (existingActor != null)
@@ -250,9 +255,10 @@ public partial class ActivityPubDiscoveryService(
             await db.SaveChangesAsync();
 
             logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
-
+            
             await FetchActorDataAsync(actor);
 
+            actor.Instance = instance;
             return actor;
         }
         catch (Exception ex)
@@ -289,7 +295,7 @@ public partial class ActivityPubDiscoveryService(
                 return;
             }
 
-            actor.Type = actorData.GetValueOrDefault("type")?.ToString();
+            actor.Type = actorData.GetValueOrDefault("type")?.ToString() ?? "Person";
             actor.DisplayName = actorData.GetValueOrDefault("name")?.ToString();
             actor.Bio = actorData.GetValueOrDefault("summary")?.ToString();
             actor.InboxUri = actorData.GetValueOrDefault("inbox")?.ToString();
