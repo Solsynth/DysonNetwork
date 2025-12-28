@@ -24,11 +24,11 @@ public partial class ActivityPubDiscoveryService(
         if (username == null || domain == null)
             return null;
 
-        var actorUri = await GetActorUriFromWebfingerAsync(username, domain);
+        var (actorUri, avatarUrl) = await GetActorUriFromWebfingerAsync(username, domain);
         if (actorUri == null)
             return null;
 
-        return await FetchAndStoreActorAsync(actorUri);
+        return await StoreActorAsync(actorUri, username, domain, avatarUrl);
     }
 
     public async Task<List<SnFediverseActor>> SearchActorsAsync(
@@ -51,9 +51,9 @@ public partial class ActivityPubDiscoveryService(
         var (username, domain) = ParseHandle(query);
         if (username == null || domain == null) return localResults;
         {
-            var actorUri = await GetActorUriFromWebfingerAsync(username, domain);
+            var (actorUri, avatarUrl) = await GetActorUriFromWebfingerAsync(username, domain);
             if (actorUri == null) return localResults;
-            var remoteActor = await FetchAndStoreActorAsync(actorUri);
+            var remoteActor = await StoreActorAsync(actorUri, username, domain, avatarUrl);
             if (remoteActor == null || localResults.Any(a => a.Uri == actorUri)) return localResults;
             var combined = new List<SnFediverseActor>(localResults) { remoteActor };
             return combined.Take(limit).ToList();
@@ -66,10 +66,10 @@ public partial class ActivityPubDiscoveryService(
         return !match.Success ? (null, null) : (match.Groups[1].Value, match.Groups[2].Value);
     }
 
-    private async Task<string?> GetActorUriFromWebfingerAsync(string username, string domain)
+    private async Task<(string? actorUri, string? avatarUrl)> GetActorUriFromWebfingerAsync(string username, string domain)
     {
         if (domain == Domain)
-            return null;
+            return (null, null);
 
         try
         {
@@ -80,7 +80,7 @@ public partial class ActivityPubDiscoveryService(
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Webfinger request failed: {Url} - {StatusCode}", webfingerUrl, response.StatusCode);
-                return null;
+                return (null, null);
             }
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
@@ -89,39 +89,39 @@ public partial class ActivityPubDiscoveryService(
             var content = await response.Content.ReadAsStringAsync();
             logger.LogDebug("Webfinger response from {Url}: {Content}", webfingerUrl, content);
 
-            string? actorUri;
+            (string? actorUri, string? avatarUrl) result;
 
             if (contentType?.Contains("json") == true)
             {
-                actorUri = ParseJsonWebfingerResponse(content, webfingerUrl);
+                result = ParseJsonWebfingerResponse(content, webfingerUrl);
             }
             else if (contentType?.Contains("xml") == true || content.TrimStart().StartsWith("<?xml"))
             {
-                actorUri = ParseXmlWebfingerResponse(content, webfingerUrl);
+                result = ParseXmlWebfingerResponse(content, webfingerUrl);
             }
             else
             {
                 logger.LogWarning("Unknown Content-Type from {Url}: {ContentType}, trying JSON parsing", webfingerUrl, contentType);
-                actorUri = ParseJsonWebfingerResponse(content, webfingerUrl);
+                result = ParseJsonWebfingerResponse(content, webfingerUrl);
             }
 
-            if (actorUri == null)
+            if (result.actorUri == null)
             {
                 logger.LogWarning("Failed to extract actor URI from Webfinger response from {Url}", webfingerUrl);
-                return null;
+                return (null, null);
             }
 
-            logger.LogInformation("Found actor URI via Webfinger: {ActorUri}", actorUri);
-            return actorUri;
+            logger.LogInformation("Found actor URI via Webfinger: {ActorUri}, Avatar: {AvatarUrl}", result.actorUri, result.avatarUrl);
+            return result;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error querying Webfinger for {Username}@{Domain}", username, domain);
-            return null;
+            return (null, null);
         }
     }
 
-    private string? ParseJsonWebfingerResponse(string json, string sourceUrl)
+    private (string? actorUri, string? avatarUrl) ParseJsonWebfingerResponse(string json, string sourceUrl)
     {
         try
         {
@@ -130,7 +130,7 @@ public partial class ActivityPubDiscoveryService(
             if (webfingerData?.Links == null)
             {
                 logger.LogWarning("Invalid JSON Webfinger response from {Url}", sourceUrl);
-                return null;
+                return (null, null);
             }
 
             logger.LogDebug("Found {LinkCount} links in JSON Webfinger response", webfingerData.Links.Count);
@@ -145,19 +145,22 @@ public partial class ActivityPubDiscoveryService(
             if (selfLink == null)
             {
                 logger.LogWarning("No self link found in JSON Webfinger response from {Url}", sourceUrl);
-                return null;
+                return (null, null);
             }
 
-            return selfLink.Href;
+            var avatarLink = webfingerData.Links.FirstOrDefault(l =>
+                l.Rel == "http://webfinger.net/rel/avatar");
+
+            return (selfLink.Href, avatarLink?.Href);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error parsing JSON Webfinger response from {Url}", sourceUrl);
-            return null;
+            return (null, null);
         }
     }
 
-    private string? ParseXmlWebfingerResponse(string xml, string sourceUrl)
+    private (string? actorUri, string? avatarUrl) ParseXmlWebfingerResponse(string xml, string sourceUrl)
     {
         try
         {
@@ -166,6 +169,9 @@ public partial class ActivityPubDiscoveryService(
 
             var links = xDoc.Descendants(xNamespace + "Link").ToList();
             logger.LogDebug("Found {LinkCount} links in XML Webfinger response", links.Count);
+
+            string? actorUri = null;
+            string? avatarUrl = null;
 
             foreach (var link in links)
             {
@@ -176,21 +182,31 @@ public partial class ActivityPubDiscoveryService(
 
                 if (rel == "self" && type == "application/activity+json" && href != null)
                 {
-                    return href;
+                    actorUri = href;
+                }
+
+                if (rel == "http://webfinger.net/rel/avatar" && href != null)
+                {
+                    avatarUrl = href;
                 }
             }
 
-            logger.LogWarning("No self link found in XML Webfinger response from {Url}", sourceUrl);
-            return null;
+            if (actorUri == null)
+            {
+                logger.LogWarning("No self link found in XML Webfinger response from {Url}", sourceUrl);
+                return (null, null);
+            }
+
+            return (actorUri, avatarUrl);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error parsing XML Webfinger response from {Url}", sourceUrl);
-            return null;
+            return (null, null);
         }
     }
 
-    private async Task<SnFediverseActor?> FetchAndStoreActorAsync(string actorUri)
+    private async Task<SnFediverseActor?> StoreActorAsync(string actorUri, string username, string domain, string? webfingerAvatarUrl)
     {
         var existingActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
@@ -200,25 +216,8 @@ public partial class ActivityPubDiscoveryService(
 
         try
         {
-            logger.LogInformation("Fetching actor: {ActorUri}", actorUri);
+            logger.LogInformation("Storing actor from Webfinger: {ActorUri}", actorUri);
 
-            var response = await HttpClient.GetAsync(actorUri);
-            if (!response.IsSuccessStatusCode)
-            {
-                logger.LogWarning("Failed to fetch actor: {Url} - {StatusCode}", actorUri, response.StatusCode);
-                return null;
-            }
-
-            var json = await response.Content.ReadAsStringAsync();
-            var actorData = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-
-            if (actorData == null)
-            {
-                logger.LogWarning("Invalid actor response from {Url}", actorUri);
-                return null;
-            }
-
-            var domain = new Uri(actorUri).Host;
             var instance = await db.FediverseInstances
                 .FirstOrDefaultAsync(i => i.Domain == domain);
 
@@ -236,21 +235,8 @@ public partial class ActivityPubDiscoveryService(
             var actor = new SnFediverseActor
             {
                 Uri = actorUri,
-                Username = actorData.GetValueOrDefault("preferredUsername")?.ToString() ?? ExtractUsername(actorUri),
-                DisplayName = actorData.GetValueOrDefault("name")?.ToString(),
-                Bio = actorData.GetValueOrDefault("summary")?.ToString(),
-                InboxUri = actorData.GetValueOrDefault("inbox")?.ToString(),
-                OutboxUri = actorData.GetValueOrDefault("outbox")?.ToString(),
-                FollowersUri = actorData.GetValueOrDefault("followers")?.ToString(),
-                FollowingUri = actorData.GetValueOrDefault("following")?.ToString(),
-                FeaturedUri = actorData.GetValueOrDefault("featured")?.ToString(),
-                AvatarUrl = ExtractAvatarUrl(actorData.GetValueOrDefault("icon")),
-                HeaderUrl = ExtractImageUrl(actorData.GetValueOrDefault("image")),
-                PublicKeyId = ExtractPublicKeyId(actorData.GetValueOrDefault("publicKey")),
-                PublicKey = ExtractPublicKeyPem(actorData.GetValueOrDefault("publicKey")),
-                IsBot = actorData.GetValueOrDefault("type")?.ToString() == "Service",
-                IsLocked = actorData.GetValueOrDefault("manuallyApprovesFollowers")?.ToString() == "true",
-                IsDiscoverable = actorData.GetValueOrDefault("discoverable")?.ToString() != "false",
+                Username = username,
+                AvatarUrl = webfingerAvatarUrl,
                 InstanceId = instance.Id,
                 LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
             };
@@ -258,19 +244,67 @@ public partial class ActivityPubDiscoveryService(
             db.FediverseActors.Add(actor);
             await db.SaveChangesAsync();
 
-            logger.LogInformation("Successfully fetched and stored actor: {Username}@{Domain}", actor.Username, domain);
+            logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
+
+            await FetchAdditionalActorDataAsync(actor);
+
             return actor;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error fetching actor: {Uri}", actorUri);
+            logger.LogError(ex, "Error storing actor: {Uri}", actorUri);
             return null;
         }
     }
 
-    private string ExtractUsername(string actorUri)
+    private async Task FetchAdditionalActorDataAsync(SnFediverseActor actor)
     {
-        return actorUri.Split('/').Last();
+        try
+        {
+            logger.LogInformation("Attempting to fetch additional actor data from: {ActorUri}", actor.Uri);
+
+            var request = new HttpRequestMessage(HttpMethod.Get, actor.Uri);
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/activity+json"));
+
+            var response = await HttpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Failed to fetch actor data: {Url} - {StatusCode}, using Webfinger data only", actor.Uri, response.StatusCode);
+                return;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var actorData = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+
+            if (actorData == null)
+            {
+                logger.LogWarning("Invalid actor response from {Url}, using Webfinger data only", actor.Uri);
+                return;
+            }
+
+            actor.DisplayName = actorData.GetValueOrDefault("name")?.ToString();
+            actor.Bio = actorData.GetValueOrDefault("summary")?.ToString();
+            actor.InboxUri = actorData.GetValueOrDefault("inbox")?.ToString();
+            actor.OutboxUri = actorData.GetValueOrDefault("outbox")?.ToString();
+            actor.FollowersUri = actorData.GetValueOrDefault("followers")?.ToString();
+            actor.FollowingUri = actorData.GetValueOrDefault("following")?.ToString();
+            actor.FeaturedUri = actorData.GetValueOrDefault("featured")?.ToString();
+            actor.AvatarUrl = ExtractAvatarUrl(actorData.GetValueOrDefault("icon")) ?? actor.AvatarUrl;
+            actor.HeaderUrl = ExtractImageUrl(actorData.GetValueOrDefault("image"));
+            actor.PublicKeyId = ExtractPublicKeyId(actorData.GetValueOrDefault("publicKey"));
+            actor.PublicKey = ExtractPublicKeyPem(actorData.GetValueOrDefault("publicKey"));
+            actor.IsBot = actorData.GetValueOrDefault("type")?.ToString() == "Service";
+            actor.IsLocked = actorData.GetValueOrDefault("manuallyApprovesFollowers")?.ToString() == "true";
+            actor.IsDiscoverable = actorData.GetValueOrDefault("discoverable")?.ToString() != "false";
+
+            await db.SaveChangesAsync();
+
+            logger.LogInformation("Successfully fetched additional actor data for: {Username}", actor.Username);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch additional actor data for {Uri}, using Webfinger data only", actor.Uri);
+        }
     }
 
     private static string? ExtractAvatarUrl(object? iconData)
