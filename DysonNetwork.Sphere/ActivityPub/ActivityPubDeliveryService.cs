@@ -60,8 +60,9 @@ public class ActivityPubDeliveryService(
         
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
         var targetActor = await GetOrFetchActorAsync(targetActorUri);
+        var localActor = await GetOrCreateLocalActorAsync(publisher);
         
-        if (targetActor?.InboxUri == null)
+        if (targetActor?.InboxUri == null || localActor == null)
         {
             logger.LogWarning("Target actor or inbox not found: {Uri}", targetActorUri);
             return false;
@@ -80,7 +81,7 @@ public class ActivityPubDeliveryService(
         {
             IsLocalActor = true,
             LocalPublisherId = publisher.Id,
-            ActorId = Guid.NewGuid(),
+            ActorId = localActor.Id,
             TargetActorId = targetActor.Id,
             State = RelationshipState.Pending,
             IsFollowing = true,
@@ -276,6 +277,50 @@ public class ActivityPubDeliveryService(
                 r.IsLocalActor)
             .Select(r => r.TargetActor)
             .ToListAsync();
+    }
+
+    private async Task<SnFediverseActor?> GetOrCreateLocalActorAsync(SnPublisher publisher)
+    {
+        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        
+        var localActor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.Uri == actorUrl);
+        
+        if (localActor != null)
+            return localActor;
+        
+        var instance = await db.FediverseInstances
+            .FirstOrDefaultAsync(i => i.Domain == Domain);
+        
+        if (instance == null)
+        {
+            instance = new SnFediverseInstance
+            {
+                Domain = Domain,
+                Name = Domain
+            };
+            db.FediverseInstances.Add(instance);
+            await db.SaveChangesAsync();
+        }
+        
+        localActor = new SnFediverseActor
+        {
+            Uri = actorUrl,
+            Username = publisher.Name,
+            DisplayName = publisher.Name,
+            Bio = null,
+            InboxUri = $"{actorUrl}/inbox",
+            OutboxUri = $"{actorUrl}/outbox",
+            FollowersUri = $"{actorUrl}/followers",
+            FollowingUri = $"{actorUrl}/following",
+            AvatarUrl = null,
+            InstanceId = instance.Id
+        };
+        
+        db.FediverseActors.Add(localActor);
+        await db.SaveChangesAsync();
+        
+        return localActor;
     }
 
     private async Task<SnFediverseActor?> GetOrFetchActorAsync(string actorUri)

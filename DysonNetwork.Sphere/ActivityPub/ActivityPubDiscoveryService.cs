@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -8,67 +9,67 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 public class MastodonInstanceV2Response
 {
-    public string Domain { get; set; } = null!;
-    public string Title { get; set; } = null!;
-    public string Version { get; set; } = null!;
-    public string? SourceUrl { get; set; }
-    public string? Description { get; set; }
-    public MastodonUsage? Usage { get; set; }
-    public MastodonThumbnail? Thumbnail { get; set; }
-    public List<MastodonIcon>? Icon { get; set; }
-    public List<string>? Languages { get; set; }
-    public MastodonContact? Contact { get; set; }
-    public Dictionary<string, object>? Registrations { get; set; }
-    public Dictionary<string, object>? Configuration { get; set; }
+    [JsonPropertyName("domain")] public string Domain { get; init; } = null!;
+    [JsonPropertyName("title")] public string Title { get; init; } = null!;
+    [JsonPropertyName("version")] public string Version { get; init; } = null!;
+    [JsonPropertyName("source_url")] public string? SourceUrl { get; init; }
+    [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("usage")] public MastodonUsage? Usage { get; init; }
+    [JsonPropertyName("thumbnail")] public MastodonThumbnail? Thumbnail { get; init; }
+    [JsonPropertyName("icon")] public List<MastodonIcon>? Icon { get; init; }
+    [JsonPropertyName("languages")] public List<string>? Languages { get; init; }
+    [JsonPropertyName("contact")] public MastodonContact? Contact { get; init; }
+    [JsonPropertyName("registrations")] public Dictionary<string, object>? Registrations { get; init; }
+    [JsonPropertyName("configuration")] public Dictionary<string, object>? Configuration { get; init; }
 }
 
 public class MastodonUsage
 {
-    public MastodonUserUsage? Users { get; set; }
+    [JsonPropertyName("users")] public MastodonUserUsage? Users { get; init; }
 }
 
 public class MastodonUserUsage
 {
-    public int ActiveMonth { get; set; }
+    [JsonPropertyName("active_month")] public int ActiveMonth { get; init; }
 }
 
 public class MastodonThumbnail
 {
-    public string? Url { get; set; }
+    [JsonPropertyName("url")] public string? Url { get; init; }
 }
 
 public class MastodonIcon
 {
-    public string? Src { get; set; }
-    public string? Size { get; set; }
+    [JsonPropertyName("src")] public string? Src { get; init; }
+    [JsonPropertyName("size")] public string? Size { get; init; }
 }
 
 public class MastodonContact
 {
-    public string? Email { get; set; }
-    public MastodonContactAccount? Account { get; set; }
+    [JsonPropertyName("email")] public string? Email { get; init; }
+    [JsonPropertyName("account")] public MastodonContactAccount? Account { get; init; }
 }
 
 public class MastodonContactAccount
 {
-    public string? Username { get; set; }
+    [JsonPropertyName("username")] public string? Username { get; init; }
 }
 
 public class MisskeyMetaResponse
 {
-    public string? Name { get; set; }
-    public string? Description { get; set; }
-    public string? Version { get; set; }
-    public string? Uri { get; set; }
-    public List<string>? Langs { get; set; }
-    public string? MaintainerName { get; set; }
-    public string? MaintainerEmail { get; set; }
-    public string? IconUrl { get; set; }
-    public string? BannerUrl { get; set; }
-    public string? RepositoryUrl { get; set; }
-    public string? PrivacyPolicyUrl { get; set; }
-    public string? TosUrl { get; set; }
-    public int? MaxNoteTextLength { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; init; }
+    [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("version")] public string? Version { get; init; }
+    [JsonPropertyName("uri")] public string? Uri { get; init; }
+    [JsonPropertyName("langs")] public List<string>? Langs { get; init; }
+    [JsonPropertyName("maintainerName")] public string? MaintainerName { get; init; }
+    [JsonPropertyName("maintainerEmail")] public string? MaintainerEmail { get; init; }
+    [JsonPropertyName("iconUrl")] public string? IconUrl { get; init; }
+    [JsonPropertyName("bannerUrl")] public string? BannerUrl { get; init; }
+    [JsonPropertyName("repositoryUrl")] public string? RepositoryUrl { get; init; }
+    [JsonPropertyName("privacyPolicyUrl")] public string? PrivacyPolicyUrl { get; init; }
+    [JsonPropertyName("tosUrl")] public string? TosUrl { get; init; }
+    [JsonPropertyName("maxNoteTextLength")] public int? MaxNoteTextLength { get; init; }
 }
 
 public partial class ActivityPubDiscoveryService(
