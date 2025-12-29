@@ -82,7 +82,7 @@ public class ActivityPubSignatureService(
         var keyPair = GetOrGenerateKeyPair(publisher);
         var keyId = $"{actorUri}#main-key";
         
-        var headersToSign = new[] { "(request-target)", "host", "date" };
+        var headersToSign = new[] { "(request-target)", "host", "date", "digest" };
         var signingString = BuildSigningStringForRequest(request, headersToSign);
         var signature = keyService.Sign(keyPair.privateKeyPem, signingString);
         
@@ -221,6 +221,13 @@ public class ActivityPubSignatureService(
                 if (request.Headers.Contains("Date"))
                 {
                     sb.Append(request.Headers.GetValues("Date").First());
+                }
+            }
+            else if (header == "digest")
+            {
+                if (request.Headers.Contains("Digest"))
+                {
+                    sb.Append(request.Headers.GetValues("Digest").First());
                 }
             }
         }

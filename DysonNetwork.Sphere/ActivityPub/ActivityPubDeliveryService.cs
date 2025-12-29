@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -234,6 +235,12 @@ public class ActivityPubDeliveryService(
             
             request.Content = new StringContent(json, Encoding.UTF8, "application/activity+json");
             request.Headers.Date = DateTimeOffset.UtcNow;
+            
+            var bodyBytes = Encoding.UTF8.GetBytes(json);
+            using var sha256 = SHA256.Create();
+            var hash = sha256.ComputeHash(bodyBytes);
+            var digest = $"SHA-256={Convert.ToBase64String(hash)}";
+            request.Headers.Add("Digest", digest);
             
             var signatureHeaders = await signatureService.SignOutgoingRequest(request, actorUri);
             var signature = signatureHeaders;
