@@ -104,7 +104,7 @@ public class ActivityPubSignatureService(
         logger.LogInformation("Signing outgoing request. ActorUri: {ActorUri}, PublisherId: {PublisherId}", 
             actorUri, publisher.Id);
         
-        var headersToSign = new[] { "(request-target)", "host", "date", "digest", "content-type" };
+        var headersToSign = new[] { "(request-target)", "host", "date", "digest" };
         var signingString = BuildSigningStringForRequest(request, headersToSign);
         
         logger.LogInformation("Signing string for outgoing request: {SigningString}", signingString);
@@ -292,19 +292,6 @@ public class ActivityPubSignatureService(
                 else
                 {
                     logger.LogWarning("Digest header not found in request");
-                }
-            }
-            else if (header == "content-type")
-            {
-                if (request.Content?.Headers.Contains("Content-Type") == true)
-                {
-                    var value = request.Content.Headers.GetValues("Content-Type").First();
-                    sb.Append(value);
-                    logger.LogInformation("  content-type: {Value}", value);
-                }
-                else
-                {
-                    logger.LogWarning("Content-Type header not found in request");
                 }
             }
         }
