@@ -1,8 +1,5 @@
-using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.ActivityPub;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -105,7 +102,7 @@ public class ActivityPubSignatureService(
         logger.LogInformation("Signing outgoing request. ActorUri: {ActorUri}, PublisherId: {PublisherId}", 
             actorUri, publisher.Id);
         
-        var headersToSign = new[] { "(request-target)", "host", "date", "digest" };
+        var headersToSign = new[] { RequestTarget, "host", "date", "digest" };
         var signingString = BuildSigningStringForRequest(request, headersToSign);
         
         logger.LogInformation("Signing string for outgoing request: {SigningString}", signingString);
@@ -215,7 +212,7 @@ public class ActivityPubSignatureService(
             sb.Append(header.ToLower());
             sb.Append(": ");
             
-            if (header == "(request-target)")
+            if (header == RequestTarget)
             {
                 var method = context.Request.Method.ToLower();
                 var path = context.Request.Path.Value ?? "";
@@ -244,56 +241,51 @@ public class ActivityPubSignatureService(
         foreach (var header in headers)
         {
             if (sb.Length > 0)
-                sb.Append("\n");
+                sb.Append('\n');
             
             sb.Append(header.ToLower());
             sb.Append(": ");
             
-            if (header == "(request-target)")
+            switch (header)
             {
-                var method = request.Method.Method.ToLower();
-                var path = request.RequestUri?.PathAndQuery ?? "/";
-                sb.Append($"{method} {path}");
-                logger.LogInformation("  (request-target): {Value}", $"{method} {path}");
-            }
-            else if (header == "host")
-            {
-                if (request.Headers.Contains("Host"))
+                case RequestTarget:
+                {
+                    var method = request.Method.Method.ToLower();
+                    var path = request.RequestUri?.PathAndQuery ?? "/";
+                    sb.Append($"{method} {path}");
+                    logger.LogInformation("  {Key}: {Value}", RequestTarget, $"{method} {path}");
+                    break;
+                }
+                case "host" when request.Headers.Contains("Host"):
                 {
                     var value = request.Headers.GetValues("Host").First();
                     sb.Append(value);
                     logger.LogInformation("  host: {Value}", value);
+                    break;
                 }
-                else
-                {
+                case "host":
                     logger.LogWarning("Host header not found in request");
-                }
-            }
-            else if (header == "date")
-            {
-                if (request.Headers.Contains("Date"))
+                    break;
+                case "date" when request.Headers.Contains("Date"):
                 {
                     var value = request.Headers.GetValues("Date").First();
                     sb.Append(value);
                     logger.LogInformation("  date: {Value}", value);
+                    break;
                 }
-                else
-                {
+                case "date":
                     logger.LogWarning("Date header not found in request");
-                }
-            }
-            else if (header == "digest")
-            {
-                if (request.Headers.Contains("Digest"))
+                    break;
+                case "digest" when request.Headers.Contains("Digest"):
                 {
                     var value = request.Headers.GetValues("Digest").First();
                     sb.Append(value);
                     logger.LogInformation("  digest: {Value}", value);
+                    break;
                 }
-                else
-                {
+                case "digest":
                     logger.LogWarning("Digest header not found in request");
-                }
+                    break;
             }
         }
         
