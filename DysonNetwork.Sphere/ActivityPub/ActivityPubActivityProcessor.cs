@@ -19,17 +19,28 @@ public class ActivityPubActivityProcessor(
         Dictionary<string, object> activity
     )
     {
+        logger.LogInformation("Incoming activity request. Username: {Username}, Path: {Path}", 
+            username, context.Request.Path);
+        
+        var activityType = activity.GetValueOrDefault("type")?.ToString();
+        var activityId = activity.GetValueOrDefault("id")?.ToString();
+        var actor = activity.GetValueOrDefault("actor")?.ToString();
+        
+        logger.LogInformation("Activity details - Type: {Type}, ID: {Id}, Actor: {Actor}", 
+            activityType, activityId, actor);
+        
         if (!signatureService.VerifyIncomingRequest(context, out var actorUri))
         {
-            logger.LogWarning("Failed to verify signature for incoming activity");
+            logger.LogWarning("Failed to verify signature for incoming activity. Type: {Type}, From: {Actor}", 
+                activityType, actor);
             return false;
         }
         
         if (string.IsNullOrEmpty(actorUri))
             return false;
         
-        var activityType = activity.GetValueOrDefault("type")?.ToString();
-        logger.LogInformation("Processing activity type: {Type} from actor: {Actor}", activityType, actorUri);
+        logger.LogInformation("Signature verified successfully. Processing {Type} from {ActorUri}", 
+            activityType, actorUri);
         
         switch (activityType)
         {
@@ -52,7 +63,8 @@ public class ActivityPubActivityProcessor(
             case "Update":
                 return await ProcessUpdateAsync(actorUri, activity);
             default:
-                logger.LogWarning("Unsupported activity type: {Type}", activityType);
+                logger.LogWarning("Unsupported activity type: {Type}. Full activity: {Activity}", 
+                    activityType, JsonSerializer.Serialize(activity));
                 return false;
         }
     }
@@ -60,18 +72,31 @@ public class ActivityPubActivityProcessor(
     private async Task<bool> ProcessFollowAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
+        var activityId = activity.GetValueOrDefault("id")?.ToString();
+        
+        logger.LogInformation("Processing Follow. Actor: {ActorUri}, Target: {ObjectUri}, ActivityId: {Id}", 
+            actorUri, objectUri, activityId);
+        
         if (string.IsNullOrEmpty(objectUri))
+        {
+            logger.LogWarning("Follow activity missing object field");
             return false;
+        }
         
         var actor = await GetOrCreateActorAsync(actorUri);
+        var targetUsername = ExtractUsernameFromUri(objectUri);
         var targetPublisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == ExtractUsernameFromUri(objectUri));
+            .FirstOrDefaultAsync(p => p.Name == targetUsername);
         
         if (targetPublisher == null)
         {
-            logger.LogWarning("Target publisher not found: {Uri}", objectUri);
+            logger.LogWarning("Target publisher not found: {Uri}, ExtractedUsername: {Username}", 
+                objectUri, targetUsername);
             return false;
         }
+        
+        logger.LogInformation("Target publisher found: {PublisherName} (ID: {Id})", 
+            targetPublisher.Name, targetPublisher.Id);
         
         var existingRelationship = await db.FediverseRelationships
             .FirstOrDefaultAsync(r => 
@@ -81,7 +106,8 @@ public class ActivityPubActivityProcessor(
         
         if (existingRelationship != null && existingRelationship.State == RelationshipState.Accepted)
         {
-            logger.LogInformation("Follow relationship already exists");
+            logger.LogInformation("Follow relationship already exists and is accepted. ActorId: {ActorId}, PublisherId: {PublisherId}", 
+                actor.Id, targetPublisher.Id);
             return true;
         }
         
@@ -98,6 +124,13 @@ public class ActivityPubActivityProcessor(
                 IsFollowedBy = true
             };
             db.FediverseRelationships.Add(existingRelationship);
+            logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}", 
+                actor.Id, actor.Id);
+        }
+        else
+        {
+            logger.LogInformation("Updating existing relationship. CurrentState: {State}, NewState: Pending", 
+                existingRelationship.State);
         }
         
         await db.SaveChangesAsync();
@@ -105,10 +138,11 @@ public class ActivityPubActivityProcessor(
         await deliveryService.SendAcceptActivityAsync(
             targetPublisher.Id,
             actorUri,
-            activity.GetValueOrDefault("id")?.ToString() ?? ""
+            activityId ?? ""
         );
         
-        logger.LogInformation("Processed follow from {Actor} to {Target}", actorUri, objectUri);
+        logger.LogInformation("Processed follow from {Actor} to {Target}. RelationshipState: Pending", 
+            actorUri, objectUri);
         return true;
     }
 

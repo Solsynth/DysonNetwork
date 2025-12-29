@@ -43,11 +43,11 @@ public class ActivityPubController(
         var outboxUrl = $"{actorUrl}/outbox";
         var followersUrl = $"{actorUrl}/followers";
         var followingUrl = $"{actorUrl}/following";
-        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
+        var assetsBaseUrl = configuration["AssetsServerBaseUrl"] ?? $"https://{Domain}/files";
 
         var actor = new ActivityPubActor
         {
-            Context = ["https://www.w3.org/ns/activitystreams"],
+            Context = ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
             Id = actorUrl,
             Type = "Person",
             Name = publisher.Nick,
@@ -75,15 +75,12 @@ public class ActivityPubController(
                     Url = $"{assetsBaseUrl}/{publisher.Background.Id}"
                 }
                 : null,
-            PublicKeys =
-            [
-                new ActivityPubPublicKey
-                {
-                    Id = $"{actorUrl}#main-key",
-                    Owner = actorUrl,
-                    PublicKeyPem = GetPublicKey(publisher)
-                }
-            ]
+            PublicKey = new ActivityPubPublicKey
+            {
+                Id = $"{actorUrl}#main-key",
+                Owner = actorUrl,
+                PublicKeyPem = GetPublicKey(publisher)
+            }
         };
 
         return Ok(actor);
@@ -345,7 +342,7 @@ public class ActivityPubActor
     [JsonPropertyName("url")] public string? Url { get; set; }
     [JsonPropertyName("icon")] public ActivityPubImage? Icon { get; set; }
     [JsonPropertyName("image")] public ActivityPubImage? Image { get; set; }
-    [JsonPropertyName("publicKey")] public List<ActivityPubPublicKey>? PublicKeys { get; set; }
+    [JsonPropertyName("publicKey")] public ActivityPubPublicKey? PublicKey { get; set; }
 }
 
 public class ActivityPubPublicKey

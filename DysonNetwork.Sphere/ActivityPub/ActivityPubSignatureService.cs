@@ -22,23 +22,32 @@ public class ActivityPubSignatureService(
         actorUri = null;
         
         if (!context.Request.Headers.ContainsKey("Signature"))
+        {
+            logger.LogWarning("Request missing Signature header. Path: {Path}", context.Request.Path);
             return false;
+        }
         
         var signatureHeader = context.Request.Headers["Signature"].ToString();
+        logger.LogInformation("Incoming request with signature. Path: {Path}, SignatureHeader: {Signature}", 
+            context.Request.Path, signatureHeader);
+        
         var signatureParts = ParseSignatureHeader(signatureHeader);
         
         if (signatureParts == null)
         {
-            logger.LogWarning("Invalid signature header format");
+            logger.LogWarning("Invalid signature header format. SignatureHeader: {Signature}", signatureHeader);
             return false;
         }
         
         actorUri = signatureParts.GetValueOrDefault("keyId");
         if (string.IsNullOrEmpty(actorUri))
         {
-            logger.LogWarning("No keyId in signature");
+            logger.LogWarning("No keyId in signature. SignatureParts: {Parts}", 
+                string.Join(", ", signatureParts.Select(kvp => $"{kvp.Key}={kvp.Value}")));
             return false;
         }
+        
+        logger.LogInformation("Verifying signature for actor: {ActorUri}", actorUri);
         
         var actor = GetActorByKeyId(actorUri);
         if (actor == null)
@@ -49,12 +58,15 @@ public class ActivityPubSignatureService(
         
         if (string.IsNullOrEmpty(actor.PublicKey))
         {
-            logger.LogWarning("Actor has no public key: {ActorId}", actor.Id);
+            logger.LogWarning("Actor has no public key. ActorId: {ActorId}, Uri: {Uri}", actor.Id, actor.Uri);
             return false;
         }
         
         var signingString = BuildSigningString(context, signatureParts);
         var signature = signatureParts.GetValueOrDefault("signature");
+        
+        logger.LogInformation("Built signing string for verification. SigningString: {SigningString}, Signature: {Signature}", 
+            signingString, signature?.Substring(0, Math.Min(50, signature?.Length ?? 0)) + "...");
         
         if (string.IsNullOrEmpty(signingString) || string.IsNullOrEmpty(signature))
         {
@@ -65,7 +77,14 @@ public class ActivityPubSignatureService(
         var isValid = keyService.Verify(actor.PublicKey, signingString, signature);
         
         if (!isValid)
-            logger.LogWarning("Signature verification failed for actor: {ActorUri}", actorUri);
+        {
+            logger.LogError("Signature verification failed for actor: {ActorUri}. SigningString: {SigningString}", 
+                actorUri, signingString);
+        }
+        else
+        {
+            logger.LogInformation("Signature verified successfully for actor: {ActorUri}", actorUri);
+        }
         
         return isValid;
     }
@@ -82,9 +101,17 @@ public class ActivityPubSignatureService(
         var keyPair = GetOrGenerateKeyPair(publisher);
         var keyId = $"{actorUri}#main-key";
         
-        var headersToSign = new[] { "(request-target)", "host", "date", "digest" };
+        logger.LogInformation("Signing outgoing request. ActorUri: {ActorUri}, PublisherId: {PublisherId}", 
+            actorUri, publisher.Id);
+        
+        var headersToSign = new[] { "(request-target)", "host", "date", "digest", "content-type" };
         var signingString = BuildSigningStringForRequest(request, headersToSign);
+        
+        logger.LogInformation("Signing string for outgoing request: {SigningString}", signingString);
+        
         var signature = keyService.Sign(keyPair.privateKeyPem, signingString);
+        
+        logger.LogInformation("Generated signature: {Signature}", signature.Substring(0, Math.Min(50, signature.Length)) + "...");
         
         return new Dictionary<string, string>
         {
@@ -197,6 +224,10 @@ public class ActivityPubSignatureService(
     private string BuildSigningStringForRequest(HttpRequestMessage request, string[] headers)
     {
         var sb = new StringBuilder();
+        logger.LogInformation("Building signing string for request. Headers to sign: {Headers}", 
+            string.Join(", ", headers));
+        logger.LogInformation("Request details: Method={Method}, Uri={Uri}", 
+            request.Method, request.RequestUri);
         
         foreach (var header in headers)
         {
@@ -211,23 +242,58 @@ public class ActivityPubSignatureService(
                 var method = request.Method.Method.ToLower();
                 var path = request.RequestUri?.PathAndQuery ?? "/";
                 sb.Append($"{method} {path}");
+                logger.LogInformation("  (request-target): {Value}", $"{method} {path}");
             }
             else if (header == "host")
             {
-                sb.Append(request.RequestUri?.Host);
+                if (request.Headers.Contains("Host"))
+                {
+                    var value = request.Headers.GetValues("Host").First();
+                    sb.Append(value);
+                    logger.LogInformation("  host: {Value}", value);
+                }
+                else
+                {
+                    logger.LogWarning("Host header not found in request");
+                }
             }
             else if (header == "date")
             {
                 if (request.Headers.Contains("Date"))
                 {
-                    sb.Append(request.Headers.GetValues("Date").First());
+                    var value = request.Headers.GetValues("Date").First();
+                    sb.Append(value);
+                    logger.LogInformation("  date: {Value}", value);
+                }
+                else
+                {
+                    logger.LogWarning("Date header not found in request");
                 }
             }
             else if (header == "digest")
             {
                 if (request.Headers.Contains("Digest"))
                 {
-                    sb.Append(request.Headers.GetValues("Digest").First());
+                    var value = request.Headers.GetValues("Digest").First();
+                    sb.Append(value);
+                    logger.LogInformation("  digest: {Value}", value);
+                }
+                else
+                {
+                    logger.LogWarning("Digest header not found in request");
+                }
+            }
+            else if (header == "content-type")
+            {
+                if (request.Content?.Headers.Contains("Content-Type") == true)
+                {
+                    var value = request.Content.Headers.GetValues("Content-Type").First();
+                    sb.Append(value);
+                    logger.LogInformation("  content-type: {Value}", value);
+                }
+                else
+                {
+                    logger.LogWarning("Content-Type header not found in request");
                 }
             }
         }

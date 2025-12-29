@@ -241,6 +241,12 @@ public class ActivityPubDeliveryService(
             var hash = sha256.ComputeHash(bodyBytes);
             var digest = $"SHA-256={Convert.ToBase64String(hash)}";
             request.Headers.Add("Digest", digest);
+            request.Headers.Add("Host", new Uri(inboxUrl).Host);
+            
+            logger.LogInformation("Preparing request to {Inbox}", inboxUrl);
+            logger.LogInformation("Request body (truncated): {Body}", json.Substring(0, Math.Min(200, json.Length)) + "...");
+            logger.LogInformation("Request headers before signing: Date={Date}, Digest={Digest}, Host={Host}", 
+                request.Headers.Date, digest, request.Headers.Host);
             
             var signatureHeaders = await signatureService.SignOutgoingRequest(request, actorUri);
             var signature = signatureHeaders;
@@ -251,15 +257,30 @@ public class ActivityPubDeliveryService(
                                $"signature=\"{signature["signature"]}\"";
             
             request.Headers.Add("Signature", signatureString);
-            request.Headers.Add("Host", new Uri(inboxUrl).Host);
+            
+            logger.LogInformation("Full signature header: {Signature}", signatureString);
+            logger.LogInformation("Request headers after signing:");
+            foreach (var header in request.Headers)
+            {
+                var value = header.Value.Any() ? header.Value.First() : string.Empty;
+                if (header.Key == "signature")
+                {
+                    value = value.Substring(0, Math.Min(100, value.Length)) + "...";
+                }
+                logger.LogInformation("  {Key}: {Value}", header.Key, value);
+            }
             
             var response = await HttpClient.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
             
+            logger.LogInformation("Response from {Inbox}. Status: {Status}", inboxUrl, response.StatusCode);
+            
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Failed to send activity to {Inbox}. Status: {Status}, Response: {Response}",
+                logger.LogError("Failed to send activity to {Inbox}. Status: {Status}, Response: {Response}",
                     inboxUrl, response.StatusCode, responseContent);
+                logger.LogError("Full request details: Method={Method}, Uri={Uri}, ContentType={ContentType}",
+                    request.Method, request.RequestUri, request.Content?.Headers.ContentType);
                 return false;
             }
             
@@ -268,7 +289,7 @@ public class ActivityPubDeliveryService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error sending activity to {Inbox}", inboxUrl);
+            logger.LogError(ex, "Error sending activity to {Inbox}. Exception: {Message}", inboxUrl, ex.Message);
             return false;
         }
     }
