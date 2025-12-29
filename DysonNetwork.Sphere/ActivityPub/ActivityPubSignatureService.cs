@@ -161,20 +161,24 @@ public class ActivityPubSignatureService(
 
     private string? GetPublisherKey(SnPublisher publisher, string keyName)
     {
-        if (publisher.Meta == null)
-            return null;
-        
-        var metadata = publisher.Meta as Dictionary<string, object>;
-        return metadata?.GetValueOrDefault(keyName)?.ToString();
+        return keyName switch
+        {
+            "private_key" => publisher.PrivateKeyPem,
+            "public_key" => publisher.PublicKeyPem,
+            _ => null
+        };
     }
 
     private void SavePublisherKey(SnPublisher publisher, string keyName, string keyValue)
     {
-        publisher.Meta ??= new Dictionary<string, object>();
-        var metadata = publisher.Meta as Dictionary<string, object>;
-        if (metadata != null)
+        switch (keyName)
         {
-            metadata[keyName] = keyValue;
+            case "private_key":
+                publisher.PrivateKeyPem = keyValue;
+                break;
+            case "public_key":
+                publisher.PublicKeyPem = keyValue;
+                break;
         }
     }
 

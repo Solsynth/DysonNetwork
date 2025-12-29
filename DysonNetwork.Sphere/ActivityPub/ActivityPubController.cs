@@ -327,14 +327,25 @@ public class ActivityPubController(
 
     private static string? GetPublisherKey(SnPublisher publisher, string keyName)
     {
-        var metadata = publisher.Meta;
-        return metadata?.GetValueOrDefault(keyName)?.ToString();
+        return keyName switch
+        {
+            "private_key" => publisher.PrivateKeyPem,
+            "public_key" => publisher.PublicKeyPem,
+            _ => null
+        };
     }
 
     private static void SavePublisherKey(SnPublisher publisher, string keyName, string keyValue)
     {
-        publisher.Meta ??= new Dictionary<string, object>();
-        publisher.Meta[keyName] = keyValue;
+        switch (keyName)
+        {
+            case "private_key":
+                publisher.PrivateKeyPem = keyValue;
+                break;
+            case "public_key":
+                publisher.PublicKeyPem = keyValue;
+                break;
+        }
     }
 }
 
