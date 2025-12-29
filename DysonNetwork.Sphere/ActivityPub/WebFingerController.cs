@@ -58,7 +58,7 @@ public class WebFingerController(
                 {
                     Rel = "http://webfinger.net/rel/profile-page",
                     Type = "text/html",
-                    Href = $"https://{Domain}/users/{username}"
+                    Href = $"https://{Domain}/publishers/{username}"
                 }
             ]
         };

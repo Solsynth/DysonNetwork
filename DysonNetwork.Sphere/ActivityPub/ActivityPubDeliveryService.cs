@@ -369,6 +369,7 @@ public class ActivityPubDeliveryService(
     private async Task<SnFediverseActor?> GetOrFetchActorAsync(string actorUri)
     {
         var actor = await db.FediverseActors
+            .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (actor != null)
@@ -376,16 +377,6 @@ public class ActivityPubDeliveryService(
 
         try
         {
-            var response = await HttpClient.GetAsync(actorUri);
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            var json = await response.Content.ReadAsStringAsync();
-            var actorData = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-
-            if (actorData == null)
-                return null;
-
             var domain = new Uri(actorUri).Host;
             var instance = await db.FediverseInstances
                 .FirstOrDefaultAsync(i => i.Domain == domain);
@@ -399,26 +390,23 @@ public class ActivityPubDeliveryService(
                 };
                 db.FediverseInstances.Add(instance);
                 await db.SaveChangesAsync();
-                await discoveryService.FetchInstanceMetadataAsync(instance);
             }
 
             actor = new SnFediverseActor
             {
                 Uri = actorUri,
                 Username = ExtractUsername(actorUri),
-                DisplayName = actorData.GetValueOrDefault("name")?.ToString(),
-                Bio = actorData.GetValueOrDefault("summary")?.ToString(),
-                InboxUri = actorData.GetValueOrDefault("inbox")?.ToString(),
-                OutboxUri = actorData.GetValueOrDefault("outbox")?.ToString(),
-                FollowersUri = actorData.GetValueOrDefault("followers")?.ToString(),
-                FollowingUri = actorData.GetValueOrDefault("following")?.ToString(),
-                AvatarUrl = actorData.GetValueOrDefault("icon")?.ToString(),
-                InstanceId = instance.Id
+                InstanceId = instance.Id,
+                LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
             };
 
             db.FediverseActors.Add(actor);
             await db.SaveChangesAsync();
 
+            await discoveryService.FetchActorDataAsync(actor);
+            await discoveryService.FetchInstanceMetadataAsync(instance);
+
+            actor.Instance = instance;
             return actor;
         }
         catch (Exception ex)

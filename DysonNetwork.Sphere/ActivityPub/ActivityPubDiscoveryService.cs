@@ -69,7 +69,9 @@ public class MisskeyMetaResponse
     [JsonPropertyName("repositoryUrl")] public string? RepositoryUrl { get; init; }
     [JsonPropertyName("privacyPolicyUrl")] public string? PrivacyPolicyUrl { get; init; }
     [JsonPropertyName("tosUrl")] public string? TosUrl { get; init; }
-    [JsonPropertyName("maxNoteTextLength")] public int? MaxNoteTextLength { get; init; }
+
+    [JsonPropertyName("maxNoteTextLength")]
+    public int? MaxNoteTextLength { get; init; }
 }
 
 public partial class ActivityPubDiscoveryService(
@@ -527,7 +529,7 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    private async Task FetchActorDataAsync(SnFediverseActor actor)
+    public async Task FetchActorDataAsync(SnFediverseActor actor)
     {
         try
         {
@@ -535,7 +537,8 @@ public partial class ActivityPubDiscoveryService(
 
             var request = new HttpRequestMessage(HttpMethod.Get, actor.Uri);
             request.Headers.Accept.Add(
-                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/activity+json"));
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/activity+json")
+            );
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
