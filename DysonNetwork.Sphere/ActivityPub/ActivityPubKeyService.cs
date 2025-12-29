@@ -21,7 +21,7 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
         return (privateKeyPem, publicKeyPem);
     }
 
-    public string Sign(string privateKeyPem, string dataToSign)
+    public static string Sign(string privateKeyPem, string dataToSign)
     {
         using var rsa = CreateRsaFromPrivateKeyPem(privateKeyPem);
         var signature = rsa.SignData(

@@ -107,7 +107,7 @@ public class ActivityPubSignatureService(
         
         logger.LogInformation("Signing string for outgoing request: {SigningString}", signingString);
         
-        var signature = keyService.Sign(keyPair.privateKeyPem, signingString);
+        var signature = ActivityPubKeyService.Sign(keyPair.privateKeyPem, signingString);
         
         logger.LogInformation("Generated signature: {Signature}", signature.Substring(0, Math.Min(50, signature.Length)) + "...");
         

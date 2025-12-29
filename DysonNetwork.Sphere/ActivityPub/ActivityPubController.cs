@@ -317,7 +317,6 @@ public class ActivityPubController(
         SavePublisherKey(publisher, "private_key", newPrivate);
         SavePublisherKey(publisher, "public_key", newPublic);
         
-        publisher.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(publisher);
         await db.SaveChangesAsync();
         
