@@ -45,6 +45,8 @@ public class ActivityPubController(
         var followingUrl = $"{actorUrl}/following";
         var assetsBaseUrl = configuration["AssetsServerBaseUrl"] ?? $"https://{Domain}/files";
 
+        var publicKeyPem = await GetPublicKeyAsync(publisher);
+
         var actor = new ActivityPubActor
         {
             Context = ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
@@ -79,7 +81,7 @@ public class ActivityPubController(
             {
                 Id = $"{actorUrl}#main-key",
                 Owner = actorUrl,
-                PublicKeyPem = GetPublicKey(publisher)
+                PublicKeyPem = publicKeyPem
             }
         };
 
@@ -298,16 +300,30 @@ public class ActivityPubController(
         }
     }
 
-    private string GetPublicKey(SnPublisher publisher)
+    private async Task<string> GetPublicKeyAsync(SnPublisher publisher)
     {
         var publicKeyPem = GetPublisherKey(publisher, "public_key");
 
-        if (!string.IsNullOrEmpty(publicKeyPem)) return publicKeyPem;
+        if (!string.IsNullOrEmpty(publicKeyPem))
+        {
+            logger.LogInformation("Using existing public key for publisher: {PublisherId}", publisher.Id);
+            return publicKeyPem;
+        }
+        
+        logger.LogInformation("Generating new key pair for publisher: {PublisherId} ({Name})", 
+            publisher.Id, publisher.Name);
+        
         var (newPrivate, newPublic) = keyService.GenerateKeyPair();
         SavePublisherKey(publisher, "private_key", newPrivate);
         SavePublisherKey(publisher, "public_key", newPublic);
+        
+        publisher.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        db.Update(publisher);
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Saved new key pair to database for publisher: {PublisherId}", publisher.Id);
+        
         return newPublic;
-
     }
 
     private static string? GetPublisherKey(SnPublisher publisher, string keyName)

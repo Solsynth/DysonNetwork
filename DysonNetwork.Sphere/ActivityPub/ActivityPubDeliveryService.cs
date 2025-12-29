@@ -249,12 +249,11 @@ public class ActivityPubDeliveryService(
                 request.Headers.Date, digest, request.Headers.Host);
             
             var signatureHeaders = await signatureService.SignOutgoingRequest(request, actorUri);
-            var signature = signatureHeaders;
-            
-            var signatureString = $"keyId=\"{signature["keyId"]}\"," +
-                               $"algorithm=\"{signature["algorithm"]}\"," +
-                               $"headers=\"{signature["headers"]}\"," +
-                               $"signature=\"{signature["signature"]}\"";
+
+            var signatureString = $"keyId=\"{signatureHeaders["keyId"]}\"," +
+                                  $"algorithm=\"{signatureHeaders["algorithm"]}\"," +
+                                  $"headers=\"{signatureHeaders["headers"]}\"," +
+                                  $"signature=\"{signatureHeaders["signature"]}\"";
             
             request.Headers.Add("Signature", signatureString);
             

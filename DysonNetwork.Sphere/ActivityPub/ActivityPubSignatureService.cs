@@ -98,7 +98,7 @@ public class ActivityPubSignatureService(
         if (publisher == null)
             throw new InvalidOperationException("Publisher not found");
         
-        var keyPair = GetOrGenerateKeyPair(publisher);
+        var keyPair = await GetOrGenerateKeyPairAsync(publisher);
         var keyId = $"{actorUri}#main-key";
         
         logger.LogInformation("Signing outgoing request. ActorUri: {ActorUri}, PublisherId: {PublisherId}", 
@@ -134,19 +134,30 @@ public class ActivityPubSignatureService(
         return await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
     }
 
-    private (string? privateKeyPem, string? publicKeyPem) GetOrGenerateKeyPair(SnPublisher publisher)
+    private async Task<(string privateKeyPem, string publicKeyPem)> GetOrGenerateKeyPairAsync(SnPublisher publisher)
     {
         var privateKeyPem = GetPublisherKey(publisher, "private_key");
         var publicKeyPem = GetPublisherKey(publisher, "public_key");
         
         if (string.IsNullOrEmpty(privateKeyPem) || string.IsNullOrEmpty(publicKeyPem))
         {
+            logger.LogInformation("Generating new key pair for publisher: {PublisherId} ({Name})", 
+                publisher.Id, publisher.Name);
+            
             var (newPrivate, newPublic) = keyService.GenerateKeyPair();
             SavePublisherKey(publisher, "private_key", newPrivate);
             SavePublisherKey(publisher, "public_key", newPublic);
+            
+            publisher.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+            db.Update(publisher);
+            await db.SaveChangesAsync();
+            
+            logger.LogInformation("Saved new key pair to database for publisher: {PublisherId}", publisher.Id);
+            
             return (newPrivate, newPublic);
         }
         
+        logger.LogInformation("Using existing key pair for publisher: {PublisherId}", publisher.Id);
         return (privateKeyPem, publicKeyPem);
     }
 
