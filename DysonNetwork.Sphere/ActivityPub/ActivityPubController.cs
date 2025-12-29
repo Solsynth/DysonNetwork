@@ -1,7 +1,5 @@
-using System.Net.Mime;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -45,6 +43,7 @@ public class ActivityPubController(
         var outboxUrl = $"{actorUrl}/outbox";
         var followersUrl = $"{actorUrl}/followers";
         var followingUrl = $"{actorUrl}/following";
+        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
         var actor = new ActivityPubActor
         {
@@ -60,13 +59,29 @@ public class ActivityPubController(
             Following = followingUrl,
             Published = publisher.CreatedAt,
             Url = $"https://{Domain}/users/{publisher.Name}",
+            Icon = publisher.Picture != null
+                ? new ActivityPubImage
+                {
+                    Type = "Image",
+                    MediaType = publisher.Picture.MimeType,
+                    Url = $"{assetsBaseUrl}/{publisher.Picture.Id}"
+                }
+                : null,
+            Image = publisher.Background != null
+                ? new ActivityPubImage
+                {
+                    Type = "Image",
+                    MediaType = publisher.Background.MimeType,
+                    Url = $"{assetsBaseUrl}/{publisher.Background.Id}"
+                }
+                : null,
             PublicKeys =
             [
                 new ActivityPubPublicKey
                 {
                     Id = $"{actorUrl}#main-key",
                     Owner = actorUrl,
-                    PublicKeyPem = GetPublicKey(publisher, keyService)
+                    PublicKeyPem = GetPublicKey(publisher)
                 }
             ]
         };
@@ -154,38 +169,160 @@ public class ActivityPubController(
         return Ok(collection);
     }
 
-    private string GetPublicKey(SnPublisher publisher, ActivityPubKeyService keyService)
+    [HttpGet("actors/{username}/followers")]
+    [Produces("application/activity+json")]
+    [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Get ActivityPub followers",
+        Description = "Returns the actor's followers collection with pagination support",
+        OperationId = "GetActorFollowers"
+    )]
+    public async Task<IActionResult> GetFollowers(string username, [FromQuery] int? page)
     {
-        var publicKeyPem = GetPublisherKey(publisher, "public_key");
-        
-        if (string.IsNullOrEmpty(publicKeyPem))
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Name == username);
+
+        if (publisher == null)
+            return NotFound();
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
+        var followersUrl = $"{actorUrl}/followers";
+
+        var relationshipsQuery = db.FediverseRelationships
+            .Include(r => r.Actor)
+            .Where(r => r.LocalPublisherId == publisher.Id && r.IsFollowedBy);
+
+        var totalItems = await relationshipsQuery.CountAsync();
+
+        if (page.HasValue)
         {
-            var (newPrivate, newPublic) = keyService.GenerateKeyPair();
-            SavePublisherKey(publisher, "private_key", newPrivate);
-            SavePublisherKey(publisher, "public_key", newPublic);
-            return newPublic;
+            const int pageSize = 40;
+            var skip = (page.Value - 1) * pageSize;
+
+            var actorUris = await relationshipsQuery
+                .OrderByDescending(r => r.FollowedAt)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(r => r.Actor.Uri)
+                .ToListAsync();
+
+            var collectionPage = new ActivityPubCollectionPage
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = $"{followersUrl}?page={page.Value}",
+                Type = "OrderedCollectionPage",
+                TotalItems = totalItems,
+                PartOf = followersUrl,
+                OrderedItems = actorUris
+            };
+
+            return Ok(collectionPage);
         }
-        
-        return publicKeyPem;
+        else
+        {
+            var collection = new ActivityPubCollection
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = followersUrl,
+                Type = "OrderedCollection",
+                TotalItems = totalItems,
+                First = $"{followersUrl}?page=1"
+            };
+
+            return Ok(collection);
+        }
     }
 
-    private string? GetPublisherKey(SnPublisher publisher, string keyName)
+    [HttpGet("actors/{username}/following")]
+    [Produces("application/activity+json")]
+    [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Get ActivityPub following",
+        Description = "Returns the actors that this actor follows with pagination support",
+        OperationId = "GetActorFollowing"
+    )]
+    public async Task<IActionResult> GetFollowing(string username, [FromQuery] int? page)
     {
-        if (publisher.Meta == null)
-            return null;
-        
-        var metadata = publisher.Meta as Dictionary<string, object>;
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Name == username);
+
+        if (publisher == null)
+            return NotFound();
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
+        var followingUrl = $"{actorUrl}/following";
+
+        var relationshipsQuery = db.FediverseRelationships
+            .Include(r => r.TargetActor)
+            .Where(r => r.LocalPublisherId == publisher.Id && r.IsFollowing);
+
+        var totalItems = await relationshipsQuery.CountAsync();
+
+        if (page.HasValue)
+        {
+            const int pageSize = 40;
+            var skip = (page.Value - 1) * pageSize;
+
+            var actorUris = await relationshipsQuery
+                .OrderByDescending(r => r.FollowedAt)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(r => r.TargetActor.Uri)
+                .ToListAsync();
+
+            var collectionPage = new ActivityPubCollectionPage
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = $"{followingUrl}?page={page.Value}",
+                Type = "OrderedCollectionPage",
+                TotalItems = totalItems,
+                PartOf = followingUrl,
+                OrderedItems = actorUris
+            };
+
+            return Ok(collectionPage);
+        }
+        else
+        {
+            var collection = new ActivityPubCollection
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = followingUrl,
+                Type = "OrderedCollection",
+                TotalItems = totalItems,
+                First = $"{followingUrl}?page=1"
+            };
+
+            return Ok(collection);
+        }
+    }
+
+    private string GetPublicKey(SnPublisher publisher)
+    {
+        var publicKeyPem = GetPublisherKey(publisher, "public_key");
+
+        if (!string.IsNullOrEmpty(publicKeyPem)) return publicKeyPem;
+        var (newPrivate, newPublic) = keyService.GenerateKeyPair();
+        SavePublisherKey(publisher, "private_key", newPrivate);
+        SavePublisherKey(publisher, "public_key", newPublic);
+        return newPublic;
+
+    }
+
+    private static string? GetPublisherKey(SnPublisher publisher, string keyName)
+    {
+        var metadata = publisher.Meta;
         return metadata?.GetValueOrDefault(keyName)?.ToString();
     }
 
-    private void SavePublisherKey(SnPublisher publisher, string keyName, string keyValue)
+    private static void SavePublisherKey(SnPublisher publisher, string keyName, string keyValue)
     {
         publisher.Meta ??= new Dictionary<string, object>();
-        var metadata = publisher.Meta as Dictionary<string, object>;
-        if (metadata != null)
-        {
-            metadata[keyName] = keyValue;
-        }
+        publisher.Meta[keyName] = keyValue;
     }
 }
 
@@ -195,7 +332,10 @@ public class ActivityPubActor
     [JsonPropertyName("id")] public string? Id { get; set; }
     [JsonPropertyName("type")] public string? Type { get; set; }
     [JsonPropertyName("name")] public string? Name { get; set; }
-    [JsonPropertyName("preferredUsername")] public string? PreferredUsername { get; set; }
+
+    [JsonPropertyName("preferredUsername")]
+    public string? PreferredUsername { get; set; }
+
     [JsonPropertyName("summary")] public string? Summary { get; set; }
     [JsonPropertyName("inbox")] public string? Inbox { get; set; }
     [JsonPropertyName("outbox")] public string? Outbox { get; set; }
@@ -203,6 +343,8 @@ public class ActivityPubActor
     [JsonPropertyName("following")] public string? Following { get; set; }
     [JsonPropertyName("published")] public Instant? Published { get; set; }
     [JsonPropertyName("url")] public string? Url { get; set; }
+    [JsonPropertyName("icon")] public ActivityPubImage? Icon { get; set; }
+    [JsonPropertyName("image")] public ActivityPubImage? Image { get; set; }
     [JsonPropertyName("publicKey")] public List<ActivityPubPublicKey>? PublicKeys { get; set; }
 }
 
@@ -213,6 +355,13 @@ public class ActivityPubPublicKey
     [JsonPropertyName("publicKeyPem")] public string? PublicKeyPem { get; set; }
 }
 
+public class ActivityPubImage
+{
+    [JsonPropertyName("type")] public string? Type { get; set; }
+    [JsonPropertyName("mediaType")] public string? MediaType { get; set; }
+    [JsonPropertyName("url")] public string? Url { get; set; }
+}
+
 public class ActivityPubCollection
 {
     [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
@@ -221,4 +370,14 @@ public class ActivityPubCollection
     [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
     [JsonPropertyName("first")] public string? First { get; set; }
     [JsonPropertyName("items")] public List<object>? Items { get; set; }
+}
+
+public class ActivityPubCollectionPage
+{
+    [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
+    [JsonPropertyName("id")] public string? Id { get; set; }
+    [JsonPropertyName("type")] public string? Type { get; set; }
+    [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
+    [JsonPropertyName("partOf")] public string? PartOf { get; set; }
+    [JsonPropertyName("orderedItems")] public List<string>? OrderedItems { get; set; }
 }

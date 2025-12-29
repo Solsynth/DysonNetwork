@@ -308,18 +308,21 @@ public class ActivityPubDeliveryService(
             db.FediverseInstances.Add(instance);
             await db.SaveChangesAsync();
         }
+
+        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
         
         localActor = new SnFediverseActor
         {
             Uri = actorUrl,
             Username = publisher.Name,
             DisplayName = publisher.Name,
-            Bio = null,
+            Bio = publisher.Bio,
             InboxUri = $"{actorUrl}/inbox",
             OutboxUri = $"{actorUrl}/outbox",
             FollowersUri = $"{actorUrl}/followers",
             FollowingUri = $"{actorUrl}/following",
-            AvatarUrl = null,
+            AvatarUrl = publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null,
+            HeaderUrl = publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null,
             InstanceId = instance.Id
         };
         
