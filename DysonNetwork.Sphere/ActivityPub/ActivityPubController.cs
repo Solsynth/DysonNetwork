@@ -88,7 +88,7 @@ public class ActivityPubController(
         return Ok(actor);
     }
 
-    [HttpGet("actors/{username}/inbox")]
+    [HttpPost("actors/{username}/inbox")]
     [Consumes("application/activity+json")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
