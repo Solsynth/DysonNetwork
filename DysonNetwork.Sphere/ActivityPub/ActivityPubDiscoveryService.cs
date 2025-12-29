@@ -105,6 +105,7 @@ public partial class ActivityPubDiscoveryService(
     {
         var localResults = await db.FediverseActors
             .Include(a => a.Instance)
+            .Where(a => a.Instance.Domain != Domain) // Exclude localhost
             .Where(a =>
                 a.Username.Contains(query) ||
                 a.DisplayName != null && a.DisplayName.Contains(query))
