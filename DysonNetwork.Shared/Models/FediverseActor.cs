@@ -41,4 +41,6 @@ public class SnFediverseActor : ModelBase
     
     public Instant? LastFetchedAt { get; set; }
     public Instant? LastActivityAt { get; set; }
+    
+    public Guid? PublisherId { get; set; }
 }

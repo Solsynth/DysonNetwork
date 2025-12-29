@@ -110,8 +110,7 @@ public class ActivityPubFollowController(
             .Include(r => r.TargetActor)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                r.IsLocalActor &&
-                r.LocalPublisherId == publisher.Id &&
+                r.Actor.PublisherId == publisher.Id &&
                 r.IsFollowing &&
                 r.State == RelationshipState.Accepted)
             .OrderByDescending(r => r.FollowedAt)
@@ -143,8 +142,7 @@ public class ActivityPubFollowController(
             .Include(r => r.Actor)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                !r.IsLocalActor &&
-                r.LocalPublisherId == publisher.Id &&
+                r.Actor.PublisherId == publisher.Id &&
                 r.IsFollowedBy &&
                 r.State == RelationshipState.Accepted)
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
@@ -188,27 +186,24 @@ public class ActivityPubFollowController(
 
         var followingCount = await db.FediverseRelationships
             .CountAsync(r =>
-                r.IsLocalActor &&
-                r.LocalPublisherId == publisher.Id &&
+                r.Actor.PublisherId == publisher.Id &&
                 r.IsFollowing &&
                 r.State == RelationshipState.Accepted);
 
         var followersCount = await db.FediverseRelationships
             .CountAsync(r =>
-                !r.IsLocalActor &&
-                r.LocalPublisherId == publisher.Id &&
+                r.Actor.PublisherId == publisher.Id &&
                 r.IsFollowedBy &&
                 r.State == RelationshipState.Accepted);
 
         var pendingCount = await db.FediverseRelationships
             .CountAsync(r =>
-                r.IsLocalActor &&
-                r.LocalPublisherId == publisher.Id &&
+                r.Actor.PublisherId == publisher.Id &&
                 r.State == RelationshipState.Pending);
 
         var relationships = await db.FediverseRelationships
             .Include(r => r.TargetActor)
-            .Where(r => r.IsLocalActor && r.LocalPublisherId == publisher.Id)
+            .Where(r => r.Actor.PublisherId == publisher.Id)
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
             .Take(20)
             .ToListAsync();

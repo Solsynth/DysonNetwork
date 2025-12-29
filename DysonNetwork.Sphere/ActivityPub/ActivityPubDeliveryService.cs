@@ -87,16 +87,28 @@ public class ActivityPubDeliveryService(
             ["object"] = targetActorUri
         };
 
-        await db.FediverseRelationships.AddAsync(new SnFediverseRelationship
+        var existingRelationship = await db.FediverseRelationships
+            .FirstOrDefaultAsync(r =>
+                r.ActorId == localActor.Id &&
+                r.TargetActorId == targetActor.Id);
+
+        if (existingRelationship == null)
         {
-            IsLocalActor = true,
-            LocalPublisherId = publisher.Id,
-            ActorId = localActor.Id,
-            TargetActorId = targetActor.Id,
-            State = RelationshipState.Pending,
-            IsFollowing = true,
-            IsFollowedBy = false
-        });
+            existingRelationship = new SnFediverseRelationship
+            {
+                ActorId = localActor.Id,
+                TargetActorId = targetActor.Id,
+                State = RelationshipState.Pending,
+                IsFollowing = true,
+                IsFollowedBy = false
+            };
+            db.FediverseRelationships.Add(existingRelationship);
+        }
+        else
+        {
+            existingRelationship.IsFollowing = true;
+            existingRelationship.State = RelationshipState.Pending;
+        }
 
         await db.SaveChangesAsync();
 
@@ -139,7 +151,7 @@ public class ActivityPubDeliveryService(
             }
         };
 
-        var followers = await GetRemoteFollowersAsync(publisher.Id);
+        var followers = await GetRemoteFollowersAsync();
         var successCount = 0;
 
         foreach (var follower in followers)
@@ -200,7 +212,7 @@ public class ActivityPubDeliveryService(
             return false;
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
-        var followers = await GetRemoteFollowersAsync(publisher.Id);
+        var followers = await GetRemoteFollowersAsync();
 
         var activity = new Dictionary<string, object>
         {
@@ -297,19 +309,16 @@ public class ActivityPubDeliveryService(
         }
     }
 
-    private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync(Guid publisherId)
+    private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync()
     {
         return await db.FediverseRelationships
             .Include(r => r.TargetActor)
-            .Where(r =>
-                r.LocalPublisherId == publisherId &&
-                r.IsFollowedBy &&
-                r.IsLocalActor)
+            .Where(r => r.IsFollowedBy)
             .Select(r => r.TargetActor)
             .ToListAsync();
     }
 
-    private async Task<SnFediverseActor?> GetOrCreateLocalActorAsync(SnPublisher publisher)
+    public async Task<SnFediverseActor?> GetOrCreateLocalActorAsync(SnPublisher publisher)
     {
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
@@ -347,7 +356,8 @@ public class ActivityPubDeliveryService(
             FollowingUri = $"{actorUrl}/following",
             AvatarUrl = publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null,
             HeaderUrl = publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null,
-            InstanceId = instance.Id
+            InstanceId = instance.Id,
+            PublisherId = publisher.Id,
         };
 
         db.FediverseActors.Add(localActor);

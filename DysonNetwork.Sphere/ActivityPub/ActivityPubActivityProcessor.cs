@@ -94,6 +94,13 @@ public class ActivityPubActivityProcessor(
                 objectUri, targetUsername);
             return false;
         }
+
+        var localActor = await deliveryService.GetOrCreateLocalActorAsync(targetPublisher);
+        if (localActor == null)
+        {
+            logger.LogWarning("Target publisher has no actor...");
+            return false;
+        }
         
         logger.LogInformation("Target publisher found: {PublisherName} (ID: {Id})", 
             targetPublisher.Name, targetPublisher.Id);
@@ -101,10 +108,9 @@ public class ActivityPubActivityProcessor(
         var existingRelationship = await db.FediverseRelationships
             .FirstOrDefaultAsync(r => 
                 r.ActorId == actor.Id && 
-                r.TargetActorId == actor.Id && 
-                r.IsLocalActor);
+                r.TargetActorId == actor.Id);
         
-        if (existingRelationship != null && existingRelationship.State == RelationshipState.Accepted)
+        if (existingRelationship is { State: RelationshipState.Accepted })
         {
             logger.LogInformation("Follow relationship already exists and is accepted. ActorId: {ActorId}, PublisherId: {PublisherId}", 
                 actor.Id, targetPublisher.Id);
@@ -116,9 +122,7 @@ public class ActivityPubActivityProcessor(
             existingRelationship = new SnFediverseRelationship
             {
                 ActorId = actor.Id,
-                TargetActorId = actor.Id,
-                IsLocalActor = true,
-                LocalPublisherId = targetPublisher.Id,
+                TargetActorId = localActor.Id,
                 State = RelationshipState.Pending,
                 IsFollowing = false,
                 IsFollowedBy = true
@@ -158,7 +162,6 @@ public class ActivityPubActivityProcessor(
             .Include(r => r.Actor)
             .Include(r => r.TargetActor)
             .FirstOrDefaultAsync(r => 
-                r.IsLocalActor && 
                 r.TargetActorId == actor.Id && 
                 r.State == RelationshipState.Pending);
         
@@ -188,7 +191,6 @@ public class ActivityPubActivityProcessor(
         
         var relationship = await db.FediverseRelationships
             .FirstOrDefaultAsync(r => 
-                r.IsLocalActor && 
                 r.TargetActorId == actor.Id);
         
         if (relationship == null)
@@ -212,24 +214,21 @@ public class ActivityPubActivityProcessor(
         var objectValue = activity.GetValueOrDefault("object");
         if (objectValue == null)
             return false;
-        
-        var objectDict = objectValue as Dictionary<string, object>;
-        if (objectDict != null)
+
+        if (objectValue is not Dictionary<string, object> objectDict) return false;
+        var objectType = objectDict.GetValueOrDefault("type")?.ToString();
+        switch (objectType)
         {
-            var objectType = objectDict.GetValueOrDefault("type")?.ToString();
-            switch (objectType)
-            {
-                case "Follow":
-                    return await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
-                case "Like":
-                    return await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
-                case "Announce":
-                    return await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
-                default:
-                    return false;
-            }
+            case "Follow":
+                return await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
+            case "Like":
+                return await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
+            case "Announce":
+                return await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
+            default:
+                return false;
         }
-        
+
         return false;
     }
 
