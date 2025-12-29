@@ -94,14 +94,8 @@ var specialRoutes = new[]
     {
         RouteId = "sphere-activitypub",
         ClusterId = "sphere",
-        Match = new RouteMatch { Path = "activitypub" }
+        Match = new RouteMatch { Path = "/activitypub/{**catch-all}" }
     },
-    new RouteConfig
-    {
-        RouteId = "drive-tus",
-        ClusterId = "drive",
-        Match = new RouteMatch { Path = "/api/tus" }
-    }
 };
 
 var apiRoutes = GatewayConstant.ServiceNames.Select(serviceName =>
