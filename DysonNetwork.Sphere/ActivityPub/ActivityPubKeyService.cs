@@ -11,7 +11,7 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
         using var rsa = RSA.Create(2048);
         
         var privateKey = rsa.ExportRSAPrivateKey();
-        var publicKey = rsa.ExportRSAPublicKey();
+        var publicKey = rsa.ExportSubjectPublicKeyInfo();
         
         var privateKeyPem = ConvertToPem(privateKey, "RSA PRIVATE KEY");
         var publicKeyPem = ConvertToPem(publicKey, "PUBLIC KEY");
