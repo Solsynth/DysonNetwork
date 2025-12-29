@@ -15,6 +15,7 @@ public class ActivityPubSignatureService(
     IConfiguration configuration
 )
 {
+    private const string RequestTarget = "(request-target)";
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
     public bool VerifyIncomingRequest(HttpContext context, out string? actorUri)
@@ -209,7 +210,7 @@ public class ActivityPubSignatureService(
         foreach (var header in headers)
         {
             if (sb.Length > 0)
-                sb.AppendLine();
+                sb.Append("\n");
             
             sb.Append(header.ToLower());
             sb.Append(": ");
@@ -243,7 +244,7 @@ public class ActivityPubSignatureService(
         foreach (var header in headers)
         {
             if (sb.Length > 0)
-                sb.AppendLine();
+                sb.Append("\n");
             
             sb.Append(header.ToLower());
             sb.Append(": ");

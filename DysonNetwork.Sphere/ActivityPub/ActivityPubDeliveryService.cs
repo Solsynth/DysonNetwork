@@ -234,7 +234,7 @@ public class ActivityPubDeliveryService(
             var request = new HttpRequestMessage(HttpMethod.Post, inboxUrl);
             
             request.Content = new StringContent(json, Encoding.UTF8, "application/activity+json");
-            request.Headers.Date = DateTimeOffset.UtcNow;
+            request.Headers.Date = DateTimeOffset.UtcNow.ToString("r");
             
             var bodyBytes = Encoding.UTF8.GetBytes(json);
             using var sha256 = SHA256.Create();

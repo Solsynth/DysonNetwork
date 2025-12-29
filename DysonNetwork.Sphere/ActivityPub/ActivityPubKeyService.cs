@@ -55,9 +55,9 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
     private static string ConvertToPem(byte[] keyData, string keyType)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"-----BEGIN {keyType}-----");
-        sb.AppendLine(Convert.ToBase64String(keyData));
-        sb.AppendLine($"-----END {keyType}-----");
+        sb.Append($"-----BEGIN {keyType}-----\n");
+        sb.Append(Convert.ToBase64String(keyData) + "\n");
+        sb.Append($"-----END {keyType}-----");
         return sb.ToString();
     }
 
