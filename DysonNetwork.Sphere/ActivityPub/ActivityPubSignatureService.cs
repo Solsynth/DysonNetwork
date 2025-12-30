@@ -1,5 +1,4 @@
 using System.Text;
-using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -10,13 +9,11 @@ public class ActivityPubSignatureService(
     AppDatabase db,
     ActivityPubKeyService keyService,
     ActivityPubDiscoveryService discoveryService,
-    ICacheService cache,
     ILogger<ActivityPubSignatureService> logger,
     IConfiguration configuration
 )
 {
     private const string RequestTarget = "(request-target)";
-    private const string PublicKeyCachePrefix = "ap:publickey:";
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
     public bool VerifyIncomingRequest(HttpContext context, out string? actorUri)
@@ -62,7 +59,7 @@ public class ActivityPubSignatureService(
         var signature = signatureParts.GetValueOrDefault("signature");
         
         logger.LogInformation("Built signing string for verification. SigningString: {SigningString}, Signature: {Signature}", 
-            signingString, signature?.Substring(0, Math.Min(50, signature?.Length ?? 0)) + "...");
+            signingString, signature?[..Math.Min(50, signature?.Length ?? 0)] + "...");
         
         if (string.IsNullOrEmpty(signingString) || string.IsNullOrEmpty(signature))
         {
@@ -120,16 +117,13 @@ public class ActivityPubSignatureService(
 
     private async Task<string?> GetOrFetchPublicKeyAsync(string keyId)
     {
+        var pkActor = db.FediverseActors
+            .Where(a => a.PublicKeyId == keyId)
+            .Select(a => a.PublicKey)
+            .FirstOrDefault();
+        if (pkActor is not null) return pkActor;
+        
         var actorUri = keyId.Split('#')[0];
-        var cacheKey = $"{PublicKeyCachePrefix}{actorUri}";
-        
-        var cachedKey = await cache.GetAsync<string>(cacheKey);
-        if (!string.IsNullOrEmpty(cachedKey))
-        {
-            logger.LogInformation("Using cached public key for actor: {ActorUri}", actorUri);
-            return cachedKey;
-        }
-        
         var actor = db.FediverseActors.FirstOrDefault(a => a.Uri == actorUri);
         
         if (actor == null)
@@ -162,17 +156,11 @@ public class ActivityPubSignatureService(
         {
             await discoveryService.FetchActorDataAsync(actor);
         }
-        
-        if (string.IsNullOrEmpty(actor.PublicKey))
-        {
-            logger.LogWarning("Still no public key after fetch for actor: {ActorUri}", actorUri);
-            return null;
-        }
-        
-        await cache.SetAsync(cacheKey, actor.PublicKey, TimeSpan.FromHours(24));
-        logger.LogInformation("Cached public key for actor: {ActorUri}", actorUri);
-        
-        return actor.PublicKey;
+
+        if (!string.IsNullOrEmpty(actor.PublicKey)) return actor.PublicKey;
+        logger.LogWarning("Still no public key after fetch for actor: {ActorUri}", actorUri);
+        return null;
+
     }
 
     private async Task<SnPublisher?> GetPublisherByActorUri(string actorUri)
@@ -260,9 +248,6 @@ public class ActivityPubSignatureService(
         
         foreach (var header in headers)
         {
-            if (header == "content-type")
-                continue;
-            
             if (!first)
                 sb.Append('\n');
             

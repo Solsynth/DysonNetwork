@@ -40,7 +40,7 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
             var signature = Convert.FromBase64String(signatureBase64);
             
             logger.LogDebug("Attempting signature verification. Key starts with: {KeyStart}", 
-                publicKeyPem.Substring(0, Math.Min(50, publicKeyPem.Length)));
+                publicKeyPem[..Math.Min(50, publicKeyPem.Length)]);
             
             var result = rsa.VerifyData(
                 Encoding.UTF8.GetBytes(data),
