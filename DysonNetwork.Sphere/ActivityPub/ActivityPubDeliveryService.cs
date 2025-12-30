@@ -194,7 +194,7 @@ public class ActivityPubDeliveryService(
                 {
                     ["type"] = "Document",
                     ["mediaType"] = "image/jpeg",
-                    ["url"] = $"https://{Domain}/api/files/{a.Id}"
+                    ["url"] = $"{AssetsBaseUrl}/{a.Id}"
                 }).ToList<object>()
             }
         };
@@ -248,7 +248,7 @@ public class ActivityPubDeliveryService(
                 {
                     ["type"] = "Document",
                     ["mediaType"] = "image/jpeg",
-                    ["url"] = $"https://{Domain}/api/files/{a.Id}"
+                    ["url"] = $"{AssetsBaseUrl}/{a.Id}"
                 }).ToList<object>()
             }
         };
