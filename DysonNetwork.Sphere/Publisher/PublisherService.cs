@@ -698,8 +698,6 @@ public class PublisherService(
             throw new InvalidOperationException("Fediverse actor already exists for this publisher");
 
         var publisher = await db.Publishers
-            .Include(p => p.Picture)
-            .Include(p => p.Background)
             .FirstOrDefaultAsync(p => p.Id == publisherId);
 
         if (publisher == null)

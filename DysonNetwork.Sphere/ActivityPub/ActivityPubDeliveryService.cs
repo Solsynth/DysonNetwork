@@ -314,8 +314,6 @@ public class ActivityPubDeliveryService(
     public async Task<bool> SendUpdateActorActivityAsync(SnFediverseActor actor)
     {
         var publisher = await db.Publishers
-            .Include(p => p.Picture)
-            .Include(p => p.Background)
             .FirstOrDefaultAsync(p => p.Id == actor.PublisherId);
 
         if (publisher == null)
