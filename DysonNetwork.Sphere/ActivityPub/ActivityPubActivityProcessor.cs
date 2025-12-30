@@ -112,9 +112,9 @@ public class ActivityPubActivityProcessor(
             targetPublisher.Name, targetPublisher.Id);
         
         var existingRelationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => 
-                r.ActorId == actor.Id && 
-                r.TargetActorId == actor.Id);
+            .FirstOrDefaultAsync(r =>
+                r.ActorId == actor.Id &&
+                r.TargetActorId == localActor.Id);
         
         if (existingRelationship is { State: RelationshipState.Accepted })
         {
@@ -167,20 +167,36 @@ public class ActivityPubActivityProcessor(
         var relationship = await db.FediverseRelationships
             .Include(r => r.Actor)
             .Include(r => r.TargetActor)
-            .FirstOrDefaultAsync(r => 
-                r.TargetActorId == actor.Id && 
-                r.State == RelationshipState.Pending);
-        
+            .FirstOrDefaultAsync(r =>
+                r.TargetActorId == actor.Id);
+
         if (relationship == null)
         {
-            logger.LogWarning("No pending relationship found for accept");
-            return false;
+            // Assume objectUri is the local actor URI that was followed
+            var localActor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == objectUri);
+            if (localActor == null)
+            {
+                logger.LogWarning("Local actor not found for accept object: {ObjectUri}", objectUri);
+                return false;
+            }
+            relationship = new SnFediverseRelationship
+            {
+                ActorId = localActor.Id,
+                TargetActorId = actor.Id,
+                State = RelationshipState.Accepted,
+                IsFollowing = true,
+                IsFollowedBy = false,
+                FollowedAt = SystemClock.Instance.GetCurrentInstant()
+            };
+            db.FediverseRelationships.Add(relationship);
         }
-        
-        relationship.State = RelationshipState.Accepted;
-        relationship.IsFollowing = true;
-        relationship.FollowedAt = SystemClock.Instance.GetCurrentInstant();
-        
+        else
+        {
+            relationship.State = RelationshipState.Accepted;
+            relationship.IsFollowing = true;
+            relationship.FollowedAt = SystemClock.Instance.GetCurrentInstant();
+        }
+
         await db.SaveChangesAsync();
         
         logger.LogInformation("Processed accept from {Actor}", actorUri);

@@ -115,7 +115,7 @@ public class ActivityPubDeliveryService(
 
         return await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
     }
-    
+
     public async Task<bool> SendUnfollowActivityAsync(
         Guid publisherId,
         string targetActorUri
@@ -124,11 +124,11 @@ public class ActivityPubDeliveryService(
         var publisher = await db.Publishers.FindAsync(publisherId);
         if (publisher == null)
             return false;
-        
+
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
         var targetActor = await GetOrFetchActorAsync(targetActorUri);
         var localActor = await GetLocalActorAsync(publisher.Id);
-        
+
         if (targetActor?.InboxUri == null || localActor == null)
         {
             logger.LogWarning("Target actor or inbox not found: {Uri}", targetActorUri);
@@ -148,8 +148,19 @@ public class ActivityPubDeliveryService(
             }
         };
 
+        var relationship = await db.FediverseRelationships
+            .FirstOrDefaultAsync(r =>
+                r.ActorId == localActor.Id &&
+                r.TargetActorId == targetActor.Id);
+        if (relationship == null) return false;
+
+        var success = await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
+        if (!success) return success;
         
-        return await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
+        db.Remove(relationship);
+        await db.SaveChangesAsync();
+
+        return success;
     }
 
     public async Task<bool> SendCreateActivityAsync(SnPost post)
