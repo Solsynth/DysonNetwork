@@ -23,13 +23,13 @@ public class ActivityPubSignatureService(
     {
         actorUri = null;
         
-        if (!context.Request.Headers.ContainsKey("Signature"))
+        if (!context.Request.Headers.TryGetValue("Signature", out var value))
         {
             logger.LogWarning("Request missing Signature header. Path: {Path}", context.Request.Path);
             return false;
         }
         
-        var signatureHeader = context.Request.Headers["Signature"].ToString();
+        var signatureHeader = value.ToString();
         logger.LogInformation("Incoming request with signature. Path: {Path}, SignatureHeader: {Signature}", 
             context.Request.Path, signatureHeader);
         
@@ -259,31 +259,35 @@ public class ActivityPubSignatureService(
         
         foreach (var header in headers)
         {
+            if (header == "content-type")
+                continue;
+            
             if (sb.Length > 0)
                 sb.Append('\n');
             
             sb.Append(header.ToLower());
             sb.Append(": ");
             
-            if (header == RequestTarget)
+            switch (header)
             {
-                var method = context.Request.Method.ToLower();
-                var path = context.Request.Path.Value ?? "";
-                sb.Append($"{method} {path}");
-            }
-            else if (header == "host")
-            {
-                sb.Append(Domain);
-            }
-            else if (header == "content-type")
-            {
-                continue;
-            }
-            else
-            {
-                if (context.Request.Headers.TryGetValue(header, out var values))
+                case RequestTarget:
                 {
-                    sb.Append(values.ToString());
+                    var method = context.Request.Method.ToLower();
+                    var path = context.Request.Path.Value ?? "";
+                    sb.Append($"{method} {path}");
+                    break;
+                }
+                case "host":
+                    sb.Append(Domain);
+                    break;
+                default:
+                {
+                    if (context.Request.Headers.TryGetValue(header, out var values))
+                    {
+                        sb.Append(values.ToString());
+                    }
+
+                    break;
                 }
             }
         }
