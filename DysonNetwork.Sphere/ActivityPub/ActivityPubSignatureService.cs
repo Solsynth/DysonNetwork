@@ -60,7 +60,7 @@ public class ActivityPubSignatureService(
             return false;
         }
         
-        var signingString = BuildSigningString(context, signatureParts);
+        var signingString = BuildIncomingSigningString(context, signatureParts);
         var signature = signatureParts.GetValueOrDefault("signature");
         
         logger.LogInformation("Built signing string for verification. SigningString: {SigningString}, Signature: {Signature}", 
@@ -103,7 +103,7 @@ public class ActivityPubSignatureService(
             actorUri, publisher.Id);
         
         var headersToSign = new[] { RequestTarget, "host", "date", "digest" };
-        var signingString = BuildSigningStringForRequest(request, headersToSign);
+        var signingString = BuildOutgoingSigningString(request, headersToSign);
         
         logger.LogInformation("Signing string for outgoing request: {SigningString}", signingString);
         
@@ -182,7 +182,7 @@ public class ActivityPubSignatureService(
         }
     }
 
-    private Dictionary<string, string>? ParseSignatureHeader(string signatureHeader)
+    private static Dictionary<string, string>? ParseSignatureHeader(string signatureHeader)
     {
         var parts = new Dictionary<string, string>();
         
@@ -200,7 +200,7 @@ public class ActivityPubSignatureService(
         return parts;
     }
 
-    private string BuildSigningString(HttpContext context, Dictionary<string, string> signatureParts)
+    private string BuildIncomingSigningString(HttpContext context, Dictionary<string, string> signatureParts)
     {
         var headers = signatureParts.GetValueOrDefault("headers")?.Split(' ');
         if (headers == null || headers.Length == 0)
@@ -211,7 +211,7 @@ public class ActivityPubSignatureService(
         foreach (var header in headers)
         {
             if (sb.Length > 0)
-                sb.Append("\n");
+                sb.Append('\n');
             
             sb.Append(header.ToLower());
             sb.Append(": ");
@@ -221,6 +221,10 @@ public class ActivityPubSignatureService(
                 var method = context.Request.Method.ToLower();
                 var path = context.Request.Path.Value ?? "";
                 sb.Append($"{method} {path}");
+            }
+            else if (header == "host")
+            {
+                sb.Append(Domain);
             }
             else
             {
@@ -234,7 +238,7 @@ public class ActivityPubSignatureService(
         return sb.ToString();
     }
 
-    private string BuildSigningStringForRequest(HttpRequestMessage request, string[] headers)
+    private string BuildOutgoingSigningString(HttpRequestMessage request, string[] headers)
     {
         var sb = new StringBuilder();
         logger.LogInformation("Building signing string for request. Headers to sign: {Headers}", 
