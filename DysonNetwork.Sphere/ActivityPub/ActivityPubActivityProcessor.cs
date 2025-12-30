@@ -465,6 +465,8 @@ public class ActivityPubActivityProcessor(
             };
             db.FediverseActors.Add(actor);
             await db.SaveChangesAsync();
+            
+            await discoveryService.FetchActorDataAsync(actor);
         }
         
         return actor;

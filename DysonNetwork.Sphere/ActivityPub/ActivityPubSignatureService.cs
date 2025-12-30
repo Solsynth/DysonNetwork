@@ -1,4 +1,5 @@
 using System.Text;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -8,11 +9,14 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubSignatureService(
     AppDatabase db,
     ActivityPubKeyService keyService,
+    ActivityPubDiscoveryService discoveryService,
+    ICacheService cache,
     ILogger<ActivityPubSignatureService> logger,
     IConfiguration configuration
 )
 {
     private const string RequestTarget = "(request-target)";
+    private const string PublicKeyCachePrefix = "ap:publickey:";
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
     public bool VerifyIncomingRequest(HttpContext context, out string? actorUri)
@@ -47,16 +51,10 @@ public class ActivityPubSignatureService(
         
         logger.LogInformation("Verifying signature for actor: {ActorUri}", actorUri);
         
-        var actor = GetActorByKeyId(actorUri);
-        if (actor == null)
+        var publicKey = GetOrFetchPublicKeyAsync(actorUri).GetAwaiter().GetResult();
+        if (string.IsNullOrEmpty(publicKey))
         {
-            logger.LogWarning("Actor not found for keyId: {KeyId}", actorUri);
-            return false;
-        }
-        
-        if (string.IsNullOrEmpty(actor.PublicKey))
-        {
-            logger.LogWarning("Actor has no public key. ActorId: {ActorId}, Uri: {Uri}", actor.Id, actor.Uri);
+            logger.LogWarning("Could not fetch public key for actor: {ActorUri}", actorUri);
             return false;
         }
         
@@ -72,7 +70,7 @@ public class ActivityPubSignatureService(
             return false;
         }
         
-        var isValid = keyService.Verify(actor.PublicKey, signingString, signature);
+        var isValid = keyService.Verify(publicKey, signingString, signature);
         
         if (!isValid)
         {
@@ -120,10 +118,61 @@ public class ActivityPubSignatureService(
         };
     }
 
-    private SnFediverseActor? GetActorByKeyId(string keyId)
+    private async Task<string?> GetOrFetchPublicKeyAsync(string keyId)
     {
         var actorUri = keyId.Split('#')[0];
-        return db.FediverseActors.FirstOrDefault(a => a.Uri == actorUri);
+        var cacheKey = $"{PublicKeyCachePrefix}{actorUri}";
+        
+        var cachedKey = await cache.GetAsync<string>(cacheKey);
+        if (!string.IsNullOrEmpty(cachedKey))
+        {
+            logger.LogInformation("Using cached public key for actor: {ActorUri}", actorUri);
+            return cachedKey;
+        }
+        
+        var actor = db.FediverseActors.FirstOrDefault(a => a.Uri == actorUri);
+        
+        if (actor == null)
+        {
+            var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == new Uri(actorUri).Host);
+            if (instance == null)
+            {
+                instance = new SnFediverseInstance
+                {
+                    Domain = new Uri(actorUri).Host,
+                    Name = new Uri(actorUri).Host
+                };
+                db.FediverseInstances.Add(instance);
+                await db.SaveChangesAsync();
+            }
+            
+            actor = new SnFediverseActor
+            {
+                Uri = actorUri,
+                Username = actorUri.Split('/').Last(),
+                DisplayName = actorUri.Split('/').Last(),
+                InstanceId = instance.Id
+            };
+            db.FediverseActors.Add(actor);
+            await db.SaveChangesAsync();
+            
+            await discoveryService.FetchActorDataAsync(actor);
+        }
+        else if (string.IsNullOrEmpty(actor.PublicKey))
+        {
+            await discoveryService.FetchActorDataAsync(actor);
+        }
+        
+        if (string.IsNullOrEmpty(actor.PublicKey))
+        {
+            logger.LogWarning("Still no public key after fetch for actor: {ActorUri}", actorUri);
+            return null;
+        }
+        
+        await cache.SetAsync(cacheKey, actor.PublicKey, TimeSpan.FromHours(24));
+        logger.LogInformation("Cached public key for actor: {ActorUri}", actorUri);
+        
+        return actor.PublicKey;
     }
 
     private async Task<SnPublisher?> GetPublisherByActorUri(string actorUri)

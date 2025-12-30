@@ -38,16 +38,24 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
         {
             using var rsa = CreateRsaFromPublicKeyPem(publicKeyPem);
             var signature = Convert.FromBase64String(signatureBase64);
-            return rsa.VerifyData(
+            
+            logger.LogDebug("Attempting signature verification. Key starts with: {KeyStart}", 
+                publicKeyPem.Substring(0, Math.Min(50, publicKeyPem.Length)));
+            
+            var result = rsa.VerifyData(
                 Encoding.UTF8.GetBytes(data),
                 signature,
                 HashAlgorithmName.SHA256,
                 RSASignaturePadding.Pkcs1
             );
+            
+            logger.LogDebug("Signature verification result: {Result}", result);
+            return result;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to verify signature");
+            logger.LogError(ex, "Failed to verify signature. KeyLength: {KeyLength}, DataLength: {DataLength}, SignatureLength: {SigLength}", 
+                publicKeyPem.Length, data.Length, signatureBase64.Length);
             return false;
         }
     }
@@ -84,7 +92,17 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
             .ToArray();
         
         var keyBytes = Convert.FromBase64String(string.Join("", lines));
-        rsa.ImportRSAPublicKey(keyBytes, out _);
+        
+        var isRsaPublicKey = publicKeyPem.Contains("-----BEGIN RSA PUBLIC KEY-----");
+        
+        if (isRsaPublicKey)
+        {
+            rsa.ImportRSAPublicKey(keyBytes, out _);
+        }
+        else
+        {
+            rsa.ImportSubjectPublicKeyInfo(keyBytes, out _);
+        }
         
         return rsa;
     }
