@@ -228,7 +228,7 @@ public class ActivityPubDeliveryService(
                 ["id"] = postUrl,
                 ["type"] = post.Type == PostType.Article ? "Article" : "Note",
                 ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-                ["updated"] = post.EditedAt?.ToDateTimeOffset(),
+                ["updated"] = post.EditedAt?.ToDateTimeOffset() ?? new DateTimeOffset(),
                 ["attributedTo"] = actorUrl,
                 ["content"] = post.Content ?? "",
                 ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
@@ -312,7 +312,7 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = actor.Uri;
 
-        var actorObject = new Dictionary<string, object>
+        var actorObject = new Dictionary<string, object?>
         {
             ["id"] = actorUrl,
             ["type"] = actor.Type,
@@ -325,7 +325,7 @@ public class ActivityPubDeliveryService(
             ["outbox"] = actor.OutboxUri,
             ["followers"] = actor.FollowersUri,
             ["following"] = actor.FollowingUri,
-            ["publicKey"] = new Dictionary<string, object>
+            ["publicKey"] = new Dictionary<string, object?>
             {
                 ["id"] = actor.PublicKeyId,
                 ["owner"] = actorUrl,
@@ -335,7 +335,7 @@ public class ActivityPubDeliveryService(
 
         if (publisher.Picture != null)
         {
-            actorObject["icon"] = new Dictionary<string, object>
+            actorObject["icon"] = new Dictionary<string, object?>
             {
                 ["type"] = "Image",
                 ["mediaType"] = publisher.Picture.MimeType,
@@ -345,7 +345,7 @@ public class ActivityPubDeliveryService(
 
         if (publisher.Background != null)
         {
-            actorObject["image"] = new Dictionary<string, object>
+            actorObject["image"] = new Dictionary<string, object?>
             {
                 ["type"] = "Image",
                 ["mediaType"] = publisher.Background.MimeType,
@@ -364,7 +364,7 @@ public class ActivityPubDeliveryService(
             ["type"] = "Update",
             ["actor"] = actorUrl,
             ["published"] = DateTimeOffset.UtcNow,
-            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["to"] = Array.Empty<object>(),
             ["cc"] = new[] { $"{actorUrl}/followers" },
             ["object"] = actorObject
         };
