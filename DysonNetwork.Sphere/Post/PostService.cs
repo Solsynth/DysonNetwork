@@ -26,7 +26,8 @@ public partial class PostService(
     FileReferenceService.FileReferenceServiceClient fileRefs,
     Publisher.PublisherService ps,
     WebReaderService reader,
-    AccountService.AccountServiceClient accounts
+    AccountService.AccountServiceClient accounts,
+    ActivityPub.ActivityPubDeliveryService activityPubDeliveryService
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -581,6 +582,66 @@ public partial class PostService(
         }
 
         await db.SaveChangesAsync();
+
+        // Send ActivityPub Like/Undo activities if post's publisher has actor
+        if (post.PublisherId.HasValue && reaction.AccountId.HasValue)
+        {
+            var publisherActor = await activityPubDeliveryService.GetLocalActorAsync(post.PublisherId.Value);
+
+            if (publisherActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
+            {
+                var likerActor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.PublisherId.HasValue && a.PublisherId.Value == reaction.AccountId.Value);
+
+                if (likerActor != null)
+                {
+                    if (!isRemoving)
+                    {
+                        // Sending Like - deliver to publisher's remote followers
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using var scope = factory.CreateScope();
+                                var deliveryService = scope.ServiceProvider
+                                    .GetRequiredService<ActivityPubDeliveryService>();
+                                await deliveryService.SendLikeActivityToLocalPostAsync(
+                                    post.PublisherId.Value,
+                                    post.Id,
+                                    likerActor.Id
+                                );
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError($"Error sending ActivityPub Like: {ex.Message}");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // Sending Undo Like - deliver to publisher's remote followers
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using var scope = factory.CreateScope();
+                                var deliveryService = scope.ServiceProvider
+                                    .GetRequiredService<ActivityPubDeliveryService>();
+                                await deliveryService.SendUndoLikeActivityAsync(
+                                    post.PublisherId.Value,
+                                    post.Id,
+                                    string.Empty
+                                );
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError($"Error sending ActivityPub Undo Like: {ex.Message}");
+                            }
+                        });
+                    }
+                }
+            }
+        }
 
         if (!isSelfReact)
             _ = Task.Run(async () =>

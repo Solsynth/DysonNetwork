@@ -355,6 +355,122 @@ public class ActivityPubDeliveryService(
         return successCount > 0;
     }
 
+    public async Task<bool> SendLikeActivityToLocalPostAsync(
+        Guid publisherId,
+        Guid postId,
+        Guid actorId
+    )
+    {
+        var publisher = await db.Publishers
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher == null)
+            return false;
+
+        var publisherActor = await GetLocalActorAsync(publisherId);
+        if (publisherActor == null)
+            return false;
+
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.Id == actorId);
+
+        if (actor == null)
+            return false;
+
+        var actorUrl = publisherActor.Uri;
+        var postUrl = $"https://{Domain}/posts/{postId}";
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = $"{actorUrl}/likes/{Guid.NewGuid()}",
+            ["type"] = "Like",
+            ["actor"] = actor.Uri,
+            ["object"] = postUrl,
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers" }
+        };
+
+        var followers = await db.FediverseRelationships
+            .Include(r => r.TargetActor)
+            .Where(r => r.ActorId == publisherActor.Id && r.IsFollowedBy)
+            .Select(r => r.TargetActor)
+            .ToListAsync();
+
+        var successCount = 0;
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
+            if (success)
+                successCount++;
+        }
+
+        logger.LogInformation("Sent Like activity for post {PostId} to {Count}/{Total} followers",
+            postId, successCount, followers.Count);
+
+        return successCount > 0;
+    }
+
+    public async Task<bool> SendUndoLikeActivityAsync(
+        Guid publisherId,
+        Guid postId,
+        string likeActivityId
+    )
+    {
+        var publisher = await db.Publishers
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher == null)
+            return false;
+
+        var publisherActor = await GetLocalActorAsync(publisherId);
+        if (publisherActor == null)
+            return false;
+
+        var actorUrl = publisherActor.Uri;
+        var postUrl = $"https://{Domain}/posts/{postId}";
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = $"{actorUrl}/undo/{Guid.NewGuid()}",
+            ["type"] = "Undo",
+            ["actor"] = actorUrl,
+            ["object"] = new Dictionary<string, object>
+            {
+                ["type"] = "Like",
+                ["object"] = postUrl
+            },
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers" }
+        };
+
+        var followers = await db.FediverseRelationships
+            .Include(r => r.TargetActor)
+            .Where(r => r.ActorId == publisherActor.Id && r.IsFollowedBy)
+            .Select(r => r.TargetActor)
+            .ToListAsync();
+
+        var successCount = 0;
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
+            if (success)
+                successCount++;
+        }
+
+        logger.LogInformation("Sent Undo Like activity for post {PostId} to {Count}/{Total} followers",
+            postId, successCount, followers.Count);
+
+        return successCount > 0;
+    }
+
     public async Task<bool> SendLikeActivityAsync(
         Guid postId,
         Guid accountId,
