@@ -45,6 +45,7 @@ public class ActivityPubSignatureService(
                 string.Join(", ", signatureParts.Select(kvp => $"{kvp.Key}={kvp.Value}")));
             return false;
         }
+        actorUri = actorUri.Split('#')[0];
         
         logger.LogInformation("Verifying signature for actor: {ActorUri}", actorUri);
         
