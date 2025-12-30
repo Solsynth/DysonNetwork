@@ -646,7 +646,7 @@ public class ActivityPubDeliveryService(
     private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync()
     {
         return await db.FediverseRelationships
-            .Include(r => r.ActorId)
+            .Include(r => r.Actor)
             .Where(r => r.IsFollowedBy)
             .Select(r => r.Actor)
             .ToListAsync();
@@ -655,7 +655,7 @@ public class ActivityPubDeliveryService(
     private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync(Guid actorId)
     {
         return await db.FediverseRelationships
-            .Include(r => r.ActorId)
+            .Include(r => r.Actor)
             .Where(r => r.TargetActorId == actorId && r.IsFollowedBy)
             .Select(r => r.Actor)
             .ToListAsync();
