@@ -7,6 +7,43 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
+public class FediverseActorWithFollowStatus : SnFediverseActor
+{
+    public bool IsFollowing { get; set; }
+
+    public static FediverseActorWithFollowStatus FromActor(SnFediverseActor actor, bool isFollowing = false)
+    {
+        return new FediverseActorWithFollowStatus
+        {
+            Id = actor.Id,
+            Type = actor.Type,
+            Uri = actor.Uri,
+            Username = actor.Username,
+            DisplayName = actor.DisplayName,
+            Bio = actor.Bio,
+            InboxUri = actor.InboxUri,
+            OutboxUri = actor.OutboxUri,
+            FollowersUri = actor.FollowersUri,
+            FollowingUri = actor.FollowingUri,
+            FeaturedUri = actor.FeaturedUri,
+            PublicKeyId = actor.PublicKeyId,
+            PublicKey = actor.PublicKey,
+            Metadata = actor.Metadata,
+            AvatarUrl = actor.AvatarUrl,
+            HeaderUrl = actor.HeaderUrl,
+            IsBot = actor.IsBot,
+            IsLocked = actor.IsLocked,
+            IsDiscoverable = actor.IsDiscoverable,
+            InstanceId = actor.InstanceId,
+            Instance = actor.Instance,
+            LastFetchedAt = actor.LastFetchedAt,
+            LastActivityAt = actor.LastActivityAt,
+            PublisherId = actor.PublisherId,
+            IsFollowing = isFollowing
+        };
+    }
+}
+
 [ApiController]
 [Route("/api/activitypub")]
 [Authorize]
@@ -90,8 +127,9 @@ public class ActivityPubFollowController(
     }
 
     [HttpGet("following")]
-    public async Task<ActionResult<List<SnFediverseActor>>> GetFollowing(
-        [FromQuery] int limit = 50
+    public async Task<ActionResult<List<FediverseActorWithFollowStatus>>> GetFollowing(
+        [FromQuery] int take = 50,
+        [FromQuery] int offset = 0
     )
     {
         var currentUser = GetCurrentUser();
@@ -104,7 +142,16 @@ public class ActivityPubFollowController(
             .FirstOrDefaultAsync();
 
         if (publisher == null)
-            return Ok(new List<SnFediverseActor>());
+        {
+            Response.Headers.Append("X-Total", "0");
+            return Ok(new List<FediverseActorWithFollowStatus>());
+        }
+
+        var totalCount = await db.FediverseRelationships
+            .CountAsync(r =>
+                r.Actor.PublisherId == publisher.Id &&
+                r.IsFollowing &&
+                r.State == RelationshipState.Accepted);
 
         var actors = await db.FediverseRelationships
             .Include(r => r.TargetActor)
@@ -114,16 +161,21 @@ public class ActivityPubFollowController(
                 r.IsFollowing &&
                 r.State == RelationshipState.Accepted)
             .OrderByDescending(r => r.FollowedAt)
+            .Skip(offset)
+            .Take(take)
             .Select(r => r.TargetActor)
-            .Take(limit)
             .ToListAsync();
 
-        return Ok(actors);
+        var result = actors.Select(a => FediverseActorWithFollowStatus.FromActor(a, true)).ToList();
+
+        Response.Headers.Append("X-Total", totalCount.ToString());
+        return Ok(result);
     }
 
     [HttpGet("followers")]
-    public async Task<ActionResult<List<SnFediverseActor>>> GetFollowers(
-        [FromQuery] int limit = 50
+    public async Task<ActionResult<List<FediverseActorWithFollowStatus>>> GetFollowers(
+        [FromQuery] int take = 50,
+        [FromQuery] int offset = 0
     )
     {
         var currentUser = GetCurrentUser();
@@ -136,7 +188,16 @@ public class ActivityPubFollowController(
             .FirstOrDefaultAsync();
 
         if (publisher == null)
-            return Ok(new List<SnFediverseActor>());
+        {
+            Response.Headers.Append("X-Total", "0");
+            return Ok(new List<FediverseActorWithFollowStatus>());
+        }
+
+        var totalCount = await db.FediverseRelationships
+            .CountAsync(r =>
+                r.Actor.PublisherId == publisher.Id &&
+                r.IsFollowedBy &&
+                r.State == RelationshipState.Accepted);
 
         var actors = await db.FediverseRelationships
             .Include(r => r.Actor)
@@ -146,15 +207,19 @@ public class ActivityPubFollowController(
                 r.IsFollowedBy &&
                 r.State == RelationshipState.Accepted)
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
+            .Skip(offset)
+            .Take(take)
             .Select(r => r.Actor)
-            .Take(limit)
             .ToListAsync();
 
-        return Ok(actors);
+        var result = await GetActorsWithFollowStatusAsync(actors, publisher.Id);
+
+        Response.Headers.Append("X-Total", totalCount.ToString());
+        return Ok(result);
     }
 
     [HttpGet("search")]
-    public async Task<ActionResult<List<SnFediverseActor>>> SearchRemoteUsers(
+    public async Task<ActionResult<List<FediverseActorWithFollowStatus>>> SearchRemoteUsers(
         [FromQuery] string query,
         [FromQuery] int limit = 20
     )
@@ -164,7 +229,21 @@ public class ActivityPubFollowController(
 
         var actors = await discSrv.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
 
-        return Ok(actors);
+        var currentUser = GetCurrentUser();
+        if (currentUser == null)
+            return Ok(actors.Select(a => FediverseActorWithFollowStatus.FromActor(a)).ToList());
+
+        var publisher = await db.Publishers
+            .Include(p => p.Members)
+            .Where(p => p.Members.Any(m => m.AccountId == currentUser))
+            .FirstOrDefaultAsync();
+
+        if (publisher == null)
+            return Ok(actors.Select(a => FediverseActorWithFollowStatus.FromActor(a)).ToList());
+
+        var result = await GetActorsWithFollowStatusAsync(actors, publisher.Id);
+
+        return Ok(result);
     }
 
     [HttpGet("relationships")]
@@ -342,6 +421,41 @@ public class ActivityPubFollowController(
                 Error = ex.Message
             });
         }
+    }
+
+    private async Task<List<FediverseActorWithFollowStatus>> GetActorsWithFollowStatusAsync(
+        List<SnFediverseActor> actors,
+        Guid publisherId
+    )
+    {
+        if (actors.Count == 0)
+            return new List<FediverseActorWithFollowStatus>();
+
+        var actorIds = actors.Select(a => a.Id).ToList();
+
+        var userActor = await db.FediverseActors
+            .Where(a => a.PublisherId == publisherId)
+            .FirstOrDefaultAsync();
+
+        if (userActor == null)
+            return actors.Select(a => FediverseActorWithFollowStatus.FromActor(a, false)).ToList();
+
+        var followingActorIds = await db.FediverseRelationships
+            .Where(r =>
+                r.ActorId == userActor.Id &&
+                actorIds.Contains(r.TargetActorId) &&
+                r.IsFollowing &&
+                r.State == RelationshipState.Accepted)
+            .Select(r => r.TargetActorId)
+            .ToListAsync();
+
+        var result = actors.Select(actor =>
+        {
+            var isFollowing = followingActorIds.Contains(actor.Id);
+            return FediverseActorWithFollowStatus.FromActor(actor, isFollowing);
+        }).ToList();
+
+        return result;
     }
 
     private Guid? GetCurrentUser()
