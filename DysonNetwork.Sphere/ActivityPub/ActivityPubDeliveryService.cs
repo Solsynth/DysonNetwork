@@ -378,11 +378,7 @@ public class ActivityPubDeliveryService(
             ["object"] = actorObject
         };
 
-        var followers = await db.FediverseRelationships
-            .Include(r => r.TargetActor)
-            .Where(r => r.ActorId == actor.Id && r.IsFollowedBy)
-            .Select(r => r.TargetActor)
-            .ToListAsync();
+        var followers = await GetRemoteFollowersAsync(actor.Id);
 
         var successCount = 0;
 
@@ -437,11 +433,7 @@ public class ActivityPubDeliveryService(
             ["cc"] = new[] { $"{actorUrl}/followers" }
         };
 
-        var followers = await db.FediverseRelationships
-            .Include(r => r.TargetActor)
-            .Where(r => r.ActorId == publisherActor.Id && r.IsFollowedBy)
-            .Select(r => r.TargetActor)
-            .ToListAsync();
+        var followers = await GetRemoteFollowersAsync(actor.Id);
 
         var successCount = 0;
 
@@ -472,11 +464,11 @@ public class ActivityPubDeliveryService(
         if (publisher == null)
             return false;
 
-        var publisherActor = await GetLocalActorAsync(publisherId);
-        if (publisherActor == null)
+        var localActor = await GetLocalActorAsync(publisherId);
+        if (localActor == null)
             return false;
 
-        var actorUrl = publisherActor.Uri;
+        var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{postId}";
 
         var activity = new Dictionary<string, object>
@@ -494,11 +486,7 @@ public class ActivityPubDeliveryService(
             ["cc"] = new[] { $"{actorUrl}/followers" }
         };
 
-        var followers = await db.FediverseRelationships
-            .Include(r => r.TargetActor)
-            .Where(r => r.ActorId == publisherActor.Id && r.IsFollowedBy)
-            .Select(r => r.TargetActor)
-            .ToListAsync();
+        var followers = await GetRemoteFollowersAsync(localActor.Id);
 
         var successCount = 0;
 
@@ -658,9 +646,18 @@ public class ActivityPubDeliveryService(
     private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync()
     {
         return await db.FediverseRelationships
-            .Include(r => r.TargetActor)
+            .Include(r => r.ActorId)
             .Where(r => r.IsFollowedBy)
-            .Select(r => r.TargetActor)
+            .Select(r => r.Actor)
+            .ToListAsync();
+    }
+    
+    private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync(Guid actorId)
+    {
+        return await db.FediverseRelationships
+            .Include(r => r.ActorId)
+            .Where(r => r.TargetActorId == actorId && r.IsFollowedBy)
+            .Select(r => r.Actor)
             .ToListAsync();
     }
 
