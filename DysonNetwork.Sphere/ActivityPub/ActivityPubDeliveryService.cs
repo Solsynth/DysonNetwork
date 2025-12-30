@@ -16,6 +16,7 @@ public class ActivityPubDeliveryService(
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+    private string AssetsBaseUrl => configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
     private HttpClient HttpClient
     {
@@ -70,7 +71,7 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
         var targetActor = await GetOrFetchActorAsync(targetActorUri);
-        var localActor = await GetOrCreateLocalActorAsync(publisher);
+        var localActor = await GetLocalActorAsync(publisher.Id);
 
         if (targetActor?.InboxUri == null || localActor == null)
         {
@@ -163,6 +164,192 @@ public class ActivityPubDeliveryService(
         }
 
         logger.LogInformation("Sent Create activity to {Count}/{Total} followers",
+            successCount, followers.Count);
+
+        return successCount > 0;
+    }
+
+    public async Task<bool> SendUpdateActivityAsync(SnPost post)
+    {
+        var publisher = await db.Publishers.FindAsync(post.PublisherId);
+        if (publisher == null)
+            return false;
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var postUrl = $"https://{Domain}/posts/{post.Id}";
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = $"{postUrl}/activity/{Guid.NewGuid()}",
+            ["type"] = "Update",
+            ["actor"] = actorUrl,
+            ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers" },
+            ["object"] = new Dictionary<string, object>
+            {
+                ["id"] = postUrl,
+                ["type"] = post.Type == PostType.Article ? "Article" : "Note",
+                ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
+                ["updated"] = post.EditedAt?.ToDateTimeOffset(),
+                ["attributedTo"] = actorUrl,
+                ["content"] = post.Content ?? "",
+                ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+                ["cc"] = new[] { $"{actorUrl}/followers" },
+                ["attachment"] = post.Attachments.Select(a => new Dictionary<string, object>
+                {
+                    ["type"] = "Document",
+                    ["mediaType"] = "image/jpeg",
+                    ["url"] = $"https://{Domain}/api/files/{a.Id}"
+                }).ToList<object>()
+            }
+        };
+
+        var followers = await GetRemoteFollowersAsync();
+        var successCount = 0;
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
+            if (success)
+                successCount++;
+        }
+
+        logger.LogInformation("Sent Update activity to {Count}/{Total} followers",
+            successCount, followers.Count);
+
+        return successCount > 0;
+    }
+
+    public async Task<bool> SendDeleteActivityAsync(SnPost post)
+    {
+        var publisher = await db.Publishers.FindAsync(post.PublisherId);
+        if (publisher == null)
+            return false;
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var postUrl = $"https://{Domain}/posts/{post.Id}";
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = $"{postUrl}/delete/{Guid.NewGuid()}",
+            ["type"] = "Delete",
+            ["actor"] = actorUrl,
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers" },
+            ["object"] = new Dictionary<string, object>
+            {
+                ["id"] = postUrl,
+                ["type"] = "Tombstone"
+            }
+        };
+
+        var followers = await GetRemoteFollowersAsync();
+        var successCount = 0;
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
+            if (success)
+                successCount++;
+        }
+
+        logger.LogInformation("Sent Delete activity to {Count}/{Total} followers",
+            successCount, followers.Count);
+
+        return successCount > 0;
+    }
+
+    public async Task<bool> SendUpdateActorActivityAsync(SnFediverseActor actor)
+    {
+        var publisher = await db.Publishers
+            .Include(p => p.Picture)
+            .Include(p => p.Background)
+            .FirstOrDefaultAsync(p => p.Id == actor.PublisherId);
+
+        if (publisher == null)
+            return false;
+
+        var actorUrl = actor.Uri;
+
+        var actorObject = new Dictionary<string, object>
+        {
+            ["id"] = actorUrl,
+            ["type"] = actor.Type,
+            ["name"] = publisher.Nick,
+            ["preferredUsername"] = publisher.Name,
+            ["summary"] = publisher.Bio ?? "",
+            ["published"] = publisher.CreatedAt.ToDateTimeOffset(),
+            ["updated"] = publisher.UpdatedAt.ToDateTimeOffset(),
+            ["inbox"] = actor.InboxUri,
+            ["outbox"] = actor.OutboxUri,
+            ["followers"] = actor.FollowersUri,
+            ["following"] = actor.FollowingUri,
+            ["publicKey"] = new Dictionary<string, object>
+            {
+                ["id"] = actor.PublicKeyId,
+                ["owner"] = actorUrl,
+                ["publicKeyPem"] = actor.PublicKey
+            }
+        };
+
+        if (publisher.Picture != null)
+        {
+            actorObject["icon"] = new Dictionary<string, object>
+            {
+                ["type"] = "Image",
+                ["mediaType"] = publisher.Picture.MimeType,
+                ["url"] = $"{AssetsBaseUrl}/{publisher.Picture.Id}"
+            };
+        }
+
+        if (publisher.Background != null)
+        {
+            actorObject["image"] = new Dictionary<string, object>
+            {
+                ["type"] = "Image",
+                ["mediaType"] = publisher.Background.MimeType,
+                ["url"] = $"{AssetsBaseUrl}/{publisher.Background.Id}"
+            };
+        }
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = new List<object>
+            {
+                "https://www.w3.org/ns/activitystreams",
+                "https://w3id.org/security/v1"
+            },
+            ["id"] = $"{actorUrl}#update-{Guid.NewGuid()}",
+            ["type"] = "Update",
+            ["actor"] = actorUrl,
+            ["published"] = DateTimeOffset.UtcNow,
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers" },
+            ["object"] = actorObject
+        };
+
+        var followers = await db.FediverseRelationships
+            .Include(r => r.TargetActor)
+            .Where(r => r.ActorId == actor.Id && r.IsFollowedBy)
+            .Select(r => r.TargetActor)
+            .ToListAsync();
+
+        var successCount = 0;
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
+            if (success)
+                successCount++;
+        }
+
+        logger.LogInformation("Sent Update actor activity to {Count}/{Total} followers",
             successCount, followers.Count);
 
         return successCount > 0;
@@ -316,6 +503,13 @@ public class ActivityPubDeliveryService(
             .Where(r => r.IsFollowedBy)
             .Select(r => r.TargetActor)
             .ToListAsync();
+    }
+
+    public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
+    {
+        return await db.FediverseActors
+            .Include(a => a.Instance)
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
     }
 
     public async Task<SnFediverseActor?> GetOrCreateLocalActorAsync(SnPublisher publisher)

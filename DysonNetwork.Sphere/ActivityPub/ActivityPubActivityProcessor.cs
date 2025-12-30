@@ -96,15 +96,15 @@ public class ActivityPubActivityProcessor(
         
         if (targetPublisher == null)
         {
-            logger.LogWarning("Target publisher not found: {Uri}, ExtractedUsername: {Username}", 
+            logger.LogWarning("Target publisher not found: {Uri}, ExtractedUsername: {Username}",
                 objectUri, targetUsername);
             return false;
         }
 
-        var localActor = await deliveryService.GetOrCreateLocalActorAsync(targetPublisher);
+        var localActor = await deliveryService.GetLocalActorAsync(targetPublisher.Id);
         if (localActor == null)
         {
-            logger.LogWarning("Target publisher has no actor...");
+            logger.LogWarning("Target publisher has no enabled fediverse actor");
             return false;
         }
         

@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,8 @@ public class PublisherController(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
-    RemoteRealmService remoteRealmService
+    RemoteRealmService remoteRealmService,
+    IServiceScopeFactory factory
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -668,6 +670,27 @@ public class PublisherController(
             }
         );
 
+        // Send ActivityPub Update activity if actor exists
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+
+        if (actor != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = factory.CreateScope();
+                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    await deliveryService.SendUpdateActorActivityAsync(actor);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error sending ActivityPub Update actor activity for publisher {publisher.Id}: {ex.Message}");
+                }
+            });
+        }
+
         return Ok(publisher);
     }
 
@@ -885,6 +908,88 @@ public class PublisherController(
     {
         await ps.SettlePublisherRewards();
         return Ok();
+    }
+
+    [HttpGet("{name}/fediverse")]
+    [Authorize]
+    public async Task<ActionResult<FediverseStatus>> GetFediverseStatus(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var status = await ps.GetFediverseStatusAsync(publisher.Id, Guid.Parse(currentUser.Id));
+        return Ok(status);
+    }
+
+    [HttpPost("{name}/fediverse")]
+    [Authorize]
+    public async Task<ActionResult<FediverseStatus>> EnableFediverse(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
+            .Where(m => m.PublisherId == publisher.Id)
+            .FirstOrDefaultAsync();
+        if (member is null)
+            return StatusCode(403, "You are not even a member of targeted publisher.");
+        if (member.Role < Shared.Models.PublisherMemberRole.Manager)
+            return StatusCode(403, "You need at least be manager to enable fediverse for this publisher.");
+
+        try
+        {
+            var actor = await ps.EnableFediverseAsync(publisher.Id, accountId);
+            var status = await ps.GetFediverseStatusAsync(publisher.Id);
+            return Ok(status);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{name}/fediverse")]
+    [Authorize]
+    public async Task<ActionResult> DisableFediverse(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
+            .Where(m => m.PublisherId == publisher.Id)
+            .FirstOrDefaultAsync();
+        if (member is null)
+            return StatusCode(403, "You are not even a member of targeted publisher.");
+        if (member.Role < Shared.Models.PublisherMemberRole.Manager)
+            return StatusCode(403, "You need at least be manager to disable fediverse for this publisher.");
+
+        try
+        {
+            await ps.DisableFediverseAsync(publisher.Id, accountId);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, ex.Message);
+        }
     }
 }
 

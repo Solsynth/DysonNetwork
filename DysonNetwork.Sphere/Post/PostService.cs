@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.WebReader;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
@@ -207,6 +208,25 @@ public partial class PostService(
         // Process link preview in the background to avoid delaying post creation
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
+        // Send ActivityPub Create activity in background for public posts
+        if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow &&
+            post.Visibility == Shared.Models.PostVisibility.Public)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = factory.CreateScope();
+                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    await deliveryService.SendCreateActivityAsync(post);
+                }
+                catch (Exception err)
+                {
+                    logger.LogError($"Error when sending ActivityPub Create activity: {err.Message}");
+                }
+            });
+        }
+
         return post;
     }
 
@@ -283,6 +303,24 @@ public partial class PostService(
 
         // Process link preview in the background to avoid delaying post update
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+
+        // Send ActivityPub Update activity in background for public posts
+        if (post.Visibility == Shared.Models.PostVisibility.Public)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = factory.CreateScope();
+                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    await deliveryService.SendUpdateActivityAsync(post);
+                }
+                catch (Exception err)
+                {
+                    logger.LogError($"Error when sending ActivityPub Update activity: {err.Message}");
+                }
+            });
+        }
 
         return post;
     }
@@ -413,6 +451,24 @@ public partial class PostService(
         {
             await transaction.RollbackAsync();
             throw;
+        }
+
+        // Send ActivityPub Delete activity in background for public posts
+        if (post.Visibility == Shared.Models.PostVisibility.Public)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = factory.CreateScope();
+                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    await deliveryService.SendDeleteActivityAsync(post);
+                }
+                catch (Exception err)
+                {
+                    logger.LogError($"Error when sending ActivityPub Delete activity: {err.Message}");
+                }
+            });
         }
     }
 

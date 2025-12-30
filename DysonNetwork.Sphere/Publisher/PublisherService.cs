@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -11,13 +12,23 @@ using PublisherType = DysonNetwork.Shared.Models.PublisherType;
 
 namespace DysonNetwork.Sphere.Publisher;
 
+public class FediverseStatus
+{
+    public bool Enabled { get; set; }
+    public SnFediverseActor? Actor { get; set; }
+    public int FollowerCount { get; set; }
+    public string? ActorUri { get; set; }
+}
+
 public class PublisherService(
     AppDatabase db,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     SocialCreditService.SocialCreditServiceClient socialCredits,
     ExperienceService.ExperienceServiceClient experiences,
     ICacheService cache,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    ActivityPubKeyService keyService,
+    IConfiguration configuration
 )
 {
     public async Task<SnPublisher?> GetPublisherLoaded(Guid id)
@@ -667,5 +678,143 @@ public class PublisherService(
                 });
             }
         }
+    }
+
+    private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+
+    public async Task<SnFediverseActor?> EnableFediverseAsync(Guid publisherId, Guid requesterAccountId)
+    {
+        var member = await db.PublisherMembers
+            .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
+            .FirstOrDefaultAsync();
+
+        if (member == null || member.Role < PublisherMemberRole.Manager)
+            throw new UnauthorizedAccessException("You need at least Manager role to enable fediverse for this publisher");
+
+        var existingActor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+
+        if (existingActor != null)
+            throw new InvalidOperationException("Fediverse actor already exists for this publisher");
+
+        var publisher = await db.Publishers
+            .Include(p => p.Picture)
+            .Include(p => p.Background)
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher == null)
+            throw new InvalidOperationException("Publisher not found");
+
+        var instance = await db.FediverseInstances
+            .FirstOrDefaultAsync(i => i.Domain == Domain);
+
+        if (instance == null)
+        {
+            instance = new SnFediverseInstance
+            {
+                Domain = Domain,
+                Name = Domain
+            };
+            db.FediverseInstances.Add(instance);
+            await db.SaveChangesAsync();
+        }
+
+        var (privateKey, publicKey) = keyService.GenerateKeyPair();
+        publisher.PrivateKeyPem = privateKey;
+        publisher.PublicKeyPem = publicKey;
+
+        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+
+        var actor = new SnFediverseActor
+        {
+            Uri = actorUrl,
+            Username = publisher.Name,
+            DisplayName = publisher.Nick,
+            Bio = publisher.Bio,
+            Type = "Person",
+            InboxUri = $"{actorUrl}/inbox",
+            OutboxUri = $"{actorUrl}/outbox",
+            FollowersUri = $"{actorUrl}/followers",
+            FollowingUri = $"{actorUrl}/following",
+            PublicKeyId = $"{actorUrl}#main-key",
+            PublicKey = publicKey,
+            AvatarUrl = publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null,
+            HeaderUrl = publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null,
+            InstanceId = instance.Id,
+            PublisherId = publisher.Id
+        };
+
+        db.FediverseActors.Add(actor);
+        db.Update(publisher);
+        await db.SaveChangesAsync();
+
+        return actor;
+    }
+
+    public async Task<bool> DisableFediverseAsync(Guid publisherId, Guid requesterAccountId)
+    {
+        var member = await db.PublisherMembers
+            .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
+            .FirstOrDefaultAsync();
+
+        if (member == null || member.Role < PublisherMemberRole.Manager)
+            throw new UnauthorizedAccessException("You need at least Manager role to disable fediverse for this publisher");
+
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+
+        if (actor == null)
+            return true;
+
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher != null)
+        {
+            publisher.PrivateKeyPem = null;
+            publisher.PublicKeyPem = null;
+            db.Update(publisher);
+        }
+
+        db.FediverseActors.Remove(actor);
+        await db.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<FediverseStatus?> GetFediverseStatusAsync(Guid publisherId, Guid? requesterAccountId = null)
+    {
+        var actor = await db.FediverseActors
+            .Include(a => a.Instance)
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+
+        var followerCount = await db.FediverseRelationships
+            .Where(r => r.Actor.PublisherId == publisherId && r.IsFollowedBy)
+            .CountAsync();
+
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher == null)
+            return null;
+
+        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
+
+        return new FediverseStatus
+        {
+            Enabled = actor != null,
+            Actor = actor,
+            FollowerCount = followerCount,
+            ActorUri = actor != null ? actor.Uri : null
+        };
+    }
+
+    public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
+    {
+        return await db.FediverseActors
+            .Include(a => a.Instance)
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
     }
 }
