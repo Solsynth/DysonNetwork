@@ -115,6 +115,42 @@ public class ActivityPubDeliveryService(
 
         return await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
     }
+    
+    public async Task<bool> SendUnfollowActivityAsync(
+        Guid publisherId,
+        string targetActorUri
+    )
+    {
+        var publisher = await db.Publishers.FindAsync(publisherId);
+        if (publisher == null)
+            return false;
+        
+        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var targetActor = await GetOrFetchActorAsync(targetActorUri);
+        var localActor = await GetLocalActorAsync(publisher.Id);
+        
+        if (targetActor?.InboxUri == null || localActor == null)
+        {
+            logger.LogWarning("Target actor or inbox not found: {Uri}", targetActorUri);
+            return false;
+        }
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = $"{actorUrl}/undo/{Guid.NewGuid()}",
+            ["type"] = "Undo",
+            ["actor"] = actorUrl,
+            ["object"] = new Dictionary<string, object>
+            {
+                ["type"] = "Follow",
+                ["object"] = targetActor.InboxUri
+            }
+        };
+
+        
+        return await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
+    }
 
     public async Task<bool> SendCreateActivityAsync(SnPost post)
     {
@@ -533,12 +569,10 @@ public class ActivityPubDeliveryService(
         var successCount = 0;
         foreach (var follower in followers)
         {
-            if (follower.InboxUri != null)
-            {
-                var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-                if (success)
-                    successCount++;
-            }
+            if (follower.InboxUri == null) continue;
+            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
+            if (success)
+                successCount++;
         }
 
         return successCount > 0;

@@ -108,10 +108,9 @@ public class ActivityPubFollowController(
         if (publisher == null)
             return BadRequest(new { error = "User doesn't have a publisher" });
 
-        var success = await deliveryService.SendUndoActivityAsync(
-            "Follow",
-            request.TargetActorUri,
-            publisher.Id
+        var success = await deliveryService.SendUnfollowActivityAsync(
+            publisher.Id,
+            request.TargetActorUri
         );
 
         if (success)
