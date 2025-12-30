@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
@@ -22,6 +23,7 @@ public enum ContentSensitiveMark
 /// <summary>
 /// The class that used in jsonb columns which referenced the cloud file.
 /// The aim of this class is to store some properties that won't change to a file to reduce the database load.
+/// Supports both local cloud files (with Id) and external/fediverse files (with Url).
 /// </summary>
 public class SnCloudFileReferenceObject : ModelBase, ICloudFile
 {
@@ -34,6 +36,11 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
     public string? Hash { get; set; }
     public long Size { get; set; }
     public bool HasCompression { get; set; } = false;
+    
+    [MaxLength(2048)] public string? Url { get; set; }
+    public int? Width { get; set; }
+    public int? Height { get; set; }
+    [MaxLength(64)] public string? Blurhash { get; set; }
 
     public static SnCloudFileReferenceObject FromProtoValue(Proto.CloudFile proto)
     {
@@ -49,7 +56,11 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             MimeType = proto.MimeType,
             Hash = proto.Hash,
             Size = proto.Size,
-            HasCompression = proto.HasCompression
+            HasCompression = proto.HasCompression,
+            Url = string.IsNullOrEmpty(proto.Url) ? null : proto.Url,
+            Width = proto.HasWidth ? proto.Width : null,
+            Height = proto.HasHeight ? proto.Height : null,
+            Blurhash = proto.HasBlurhash ? proto.Blurhash : null
         };
     }
 
@@ -67,10 +78,11 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Size = Size,
             HasCompression = HasCompression,
             ContentType = MimeType ?? string.Empty,
-            Url = string.Empty,
-            // Convert file metadata
+            Url = Url ?? string.Empty,
+            Width = Width ?? 0,
+            Height = Height ?? 0,
+            Blurhash = Blurhash ?? string.Empty,
             FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta),
-            // Convert user metadata
             UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta),
             SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks)
         };

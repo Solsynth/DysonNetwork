@@ -170,7 +170,7 @@ public partial class PostService(
                 var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
-                    var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId);
+                    var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId!.Value);
                     var queryRequest = new GetAccountBatchRequest();
                     queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                     var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
@@ -301,15 +301,10 @@ public partial class PostService(
             return item;
 
         // Initialize meta dictionary if null
-        item.Meta ??= new Dictionary<string, object>();
-
-        // Initialize the embeds' array if it doesn't exist
-        if (!item.Meta.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<EmbeddableBase>)
-        {
-            item.Meta["embeds"] = new List<Dictionary<string, object>>();
-        }
-
-        var embeds = (List<Dictionary<string, object>>)item.Meta["embeds"];
+        item.Metadata ??= new Dictionary<string, object>();
+        if (!item.Metadata.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<EmbeddableBase>)
+            item.Metadata["embeds"] = new List<Dictionary<string, object>>();
+        var embeds = (List<Dictionary<string, object>>)item.Metadata["embeds"];
 
         // Process up to 3 links to avoid excessive processing
         const int maxLinks = 3;
@@ -340,13 +335,12 @@ public partial class PostService(
             }
         }
 
-        item.Meta["embeds"] = embeds;
-
+        item.Metadata["embeds"] = embeds;
         return item;
     }
 
     /// <summary>
-    /// Process link previews for a post in the background
+    /// Process link previews for a post in background
     /// This method is designed to be called from a background task
     /// </summary>
     /// <param name="post">The post to process link previews for</param>
@@ -362,17 +356,17 @@ public partial class PostService(
             var updatedPost = await PreviewPostLinkAsync(post);
 
             // If embeds were added, update the post in the database
-            if (updatedPost.Meta != null &&
-                updatedPost.Meta.TryGetValue("embeds", out var embeds) &&
+            if (updatedPost.Metadata != null &&
+                updatedPost.Metadata.TryGetValue("embeds", out var embeds) &&
                 embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList)
             {
                 // Get a fresh copy of the post from the database
                 var dbPost = await dbContext.Posts.FindAsync(post.Id);
                 if (dbPost != null)
                 {
-                    // Update the meta field with the new embeds
-                    dbPost.Meta ??= new Dictionary<string, object>();
-                    dbPost.Meta["embeds"] = embedsList;
+                    // Update the metadata field with the new embeds
+                    dbPost.Metadata ??= new Dictionary<string, object>();
+                    dbPost.Metadata["embeds"] = embedsList;
 
                     // Save changes to the database
                     dbContext.Update(dbPost);
@@ -431,7 +425,7 @@ public partial class PostService(
                 throw new InvalidOperationException("Replies can only be pinned in the reply page.");
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
-            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId,
+            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId!.Value, accountId,
                     Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors of original post can pin replies.");
 
@@ -439,7 +433,7 @@ public partial class PostService(
         }
         else
         {
-            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors can pin replies.");
 
             post.PinMode = pinMode;
@@ -458,13 +452,13 @@ public partial class PostService(
         {
             if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
 
-            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId, accountId,
+            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId!.Value, accountId,
                     Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors of original post can unpin replies.");
         }
         else
         {
-            if (!await ps.IsMemberWithRole(post.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors can unpin posts.");
         }
 
@@ -493,12 +487,14 @@ public partial class PostService(
         bool isSelfReact
     )
     {
-        var isExistingReaction = await db.Set<SnPostReaction>()
-            .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId);
+        var isExistingReaction = reaction.AccountId.HasValue &&
+            await db.Set<SnPostReaction>()
+                .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId.Value);
 
         if (isRemoving)
             await db.PostReactions
-                .Where(r => r.PostId == post.Id && r.Symbol == reaction.Symbol && r.AccountId == reaction.AccountId)
+                .Where(r => r.PostId == post.Id && r.Symbol == reaction.Symbol &&
+                    reaction.AccountId.HasValue && r.AccountId == reaction.AccountId.Value)
                 .ExecuteDeleteAsync();
         else
             db.PostReactions.Add(reaction);
@@ -539,7 +535,8 @@ public partial class PostService(
                 var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
-                    var members = await pub.GetPublisherMembers(post.PublisherId);
+                    if (post.PublisherId == null) return;
+                    var members = await pub.GetPublisherMembers(post.PublisherId.Value);
                     var queryRequest = new GetAccountBatchRequest();
                     queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                     var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
@@ -675,15 +672,15 @@ public partial class PostService(
 
         foreach (var post in posts)
         {
-            if (publishers.TryGetValue(post.PublisherId, out var publisher))
+            if (post.PublisherId.HasValue && publishers.TryGetValue(post.PublisherId.Value, out var publisher))
                 post.Publisher = publisher;
 
             if (post.RepliedPost?.PublisherId != null &&
-                publishers.TryGetValue(post.RepliedPost.PublisherId, out var repliedPublisher))
+                publishers.TryGetValue(post.RepliedPost.PublisherId.Value, out var repliedPublisher))
                 post.RepliedPost.Publisher = repliedPublisher;
 
             if (post.ForwardedPost?.PublisherId != null &&
-                publishers.TryGetValue(post.ForwardedPost.PublisherId, out var forwardedPublisher))
+                publishers.TryGetValue(post.ForwardedPost.PublisherId.Value, out var forwardedPublisher))
                 post.ForwardedPost.Publisher = forwardedPublisher;
         }
 
@@ -780,7 +777,7 @@ public partial class PostService(
 
         // Check publication status - either published or user is member
         var isPublished = post.PublishedAt != null && now >= post.PublishedAt;
-        var isMember = publishersId.Contains(post.PublisherId);
+        var isMember = post.PublisherId.HasValue && publishersId.Contains(post.PublisherId.Value);
         if (!isPublished && !isMember)
             return false;
 
@@ -967,7 +964,8 @@ public partial class PostService(
             {
                 var sender = await accountsHelper.GetAccount(accountId);
 
-                var members = await pub.GetPublisherMembers(post.PublisherId);
+                if (post.PublisherId == null) return;
+                var members = await pub.GetPublisherMembers(post.PublisherId.Value);
                 var queryRequest = new GetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
@@ -1021,7 +1019,7 @@ public static class PostQueryExtensions
         source = isListing switch
         {
             true when currentUser is not null => source.Where(e =>
-                e.Visibility != Shared.Models.PostVisibility.Unlisted || publishersId.Contains(e.PublisherId)),
+                e.Visibility != Shared.Models.PostVisibility.Unlisted || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))),
             true => source.Where(e => e.Visibility != Shared.Models.PostVisibility.Unlisted),
             _ => source
         };
@@ -1032,10 +1030,10 @@ public static class PostQueryExtensions
                 .Where(e => e.Visibility == Shared.Models.PostVisibility.Public);
 
         return source
-            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || publishersId.Contains(e.PublisherId))
-            .Where(e => e.Visibility != Shared.Models.PostVisibility.Private || publishersId.Contains(e.PublisherId))
+            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value)))
+            .Where(e => e.Visibility != Shared.Models.PostVisibility.Private || publishersId.Contains(e.PublisherId.Value))
             .Where(e => e.Visibility != Shared.Models.PostVisibility.Friends ||
                         (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
-                        publishersId.Contains(e.PublisherId));
+                        publishersId.Contains(e.PublisherId.Value));
     }
 }

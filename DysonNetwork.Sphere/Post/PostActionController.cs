@@ -113,7 +113,7 @@ public class PostActionController(
             Visibility = request.Visibility ?? Shared.Models.PostVisibility.Public,
             PublishedAt = request.PublishedAt,
             Type = request.Type ?? Shared.Models.PostType.Moment,
-            Meta = request.Meta,
+            Metadata = request.Meta,
             EmbedView = request.EmbedView,
             Publisher = publisher,
         };
@@ -161,15 +161,15 @@ public class PostActionController(
             try
             {
                 var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
-                post.Meta ??= new Dictionary<string, object>();
+                post.Metadata ??= new Dictionary<string, object>();
                 if (
-                    !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
                     || existingEmbeds is not List<EmbeddableBase>
                 )
-                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
-                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                    post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
                 embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
-                post.Meta["embeds"] = embeds;
+                post.Metadata["embeds"] = embeds;
             }
             catch (Exception ex)
             {
@@ -191,15 +191,15 @@ public class PostActionController(
                     return BadRequest("You can only share funds that you created.");
 
                 var fundEmbed = new FundEmbed { Id = request.FundId.Value };
-                post.Meta ??= new Dictionary<string, object>();
+                post.Metadata ??= new Dictionary<string, object>();
                 if (
-                    !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
                     || existingEmbeds is not List<EmbeddableBase>
                 )
-                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
-                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                    post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
                 embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
-                post.Meta["embeds"] = embeds;
+                post.Metadata["embeds"] = embeds;
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -213,8 +213,8 @@ public class PostActionController(
 
         if (request.ThumbnailId is not null)
         {
-            post.Meta ??= new Dictionary<string, object>();
-            post.Meta["thumbnail"] = request.ThumbnailId;
+            post.Metadata ??= new Dictionary<string, object>();
+            post.Metadata["thumbnail"] = request.ThumbnailId;
         }
 
         try
@@ -454,7 +454,7 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
+        if (post.PublisherId == null || !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
@@ -518,7 +518,7 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
+        if (post.PublisherId == null || !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
@@ -622,7 +622,7 @@ public class PostActionController(
         if (request.Type is not null)
             post.Type = request.Type.Value;
         if (request.Meta is not null)
-            post.Meta = request.Meta;
+            post.Metadata = request.Meta;
 
         // The same, this field can be null, so update it anyway.
         post.EmbedView = request.EmbedView;
@@ -634,19 +634,19 @@ public class PostActionController(
             try
             {
                 var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
-                post.Meta ??= new Dictionary<string, object>();
+                post.Metadata ??= new Dictionary<string, object>();
                 if (
-                    !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
                     || existingEmbeds is not List<EmbeddableBase>
                 )
-                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
-                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                    post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
                 // Remove all old poll embeds
                 embeds.RemoveAll(e =>
                     e.TryGetValue("type", out var type) && type.ToString() == "poll"
                 );
                 embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
-                post.Meta["embeds"] = embeds;
+                post.Metadata["embeds"] = embeds;
             }
             catch (Exception ex)
             {
@@ -655,13 +655,13 @@ public class PostActionController(
         }
         else
         {
-            post.Meta ??= new Dictionary<string, object>();
+            post.Metadata ??= new Dictionary<string, object>();
             if (
-                !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
                 || existingEmbeds is not List<EmbeddableBase>
             )
-                post.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old poll embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
         }
@@ -681,19 +681,19 @@ public class PostActionController(
                     return BadRequest("You can only share funds that you created.");
 
                 var fundEmbed = new FundEmbed { Id = request.FundId.Value };
-                post.Meta ??= new Dictionary<string, object>();
+                post.Metadata ??= new Dictionary<string, object>();
                 if (
-                    !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                    !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
                     || existingEmbeds is not List<EmbeddableBase>
                 )
-                    post.Meta["embeds"] = new List<Dictionary<string, object>>();
-                var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                    post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
                 // Remove all old fund embeds
                 embeds.RemoveAll(e =>
                     e.TryGetValue("type", out var type) && type.ToString() == "fund"
                 );
                 embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
-                post.Meta["embeds"] = embeds;
+                post.Metadata["embeds"] = embeds;
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -706,26 +706,26 @@ public class PostActionController(
         }
         else
         {
-            post.Meta ??= new Dictionary<string, object>();
+            post.Metadata ??= new Dictionary<string, object>();
             if (
-                !post.Meta.TryGetValue("embeds", out var existingEmbeds)
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
                 || existingEmbeds is not List<EmbeddableBase>
             )
-                post.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)post.Meta["embeds"];
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old fund embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "fund");
         }
 
         if (request.ThumbnailId is not null)
         {
-            post.Meta ??= new Dictionary<string, object>();
-            post.Meta["thumbnail"] = request.ThumbnailId;
+            post.Metadata ??= new Dictionary<string, object>();
+            post.Metadata["thumbnail"] = request.ThumbnailId;
         }
         else
         {
-            post.Meta ??= new Dictionary<string, object>();
-            post.Meta.Remove("thumbnail");
+            post.Metadata ??= new Dictionary<string, object>();
+            post.Metadata.Remove("thumbnail");
         }
 
         // The realm is the same as well as the poll

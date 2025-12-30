@@ -61,7 +61,32 @@ enum PostEmbedViewRenderer {
   WEBVIEW = 1;
 }
 
+enum PostContentType {
+  POST_CONTENT_TYPE_UNSPECIFIED = 0;
+  MARKDOWN = 1;
+  HTML = 2;
+}
+
+enum FediverseContentType {
+  FEDIVERSE_CONTENT_TYPE_UNSPECIFIED = 0;
+  FEDIVERSE_NOTE = 1;
+  FEDIVERSE_ARTICLE = 2;
+  FEDIVERSE_IMAGE = 3;
+  FEDIVERSE_VIDEO = 4;
+  FEDIVERSE_AUDIO = 5;
+  FEDIVERSE_PAGE = 6;
+  FEDIVERSE_QUESTION = 7;
+  FEDIVERSE_EVENT = 8;
+  FEDIVERSE_DOCUMENT = 9;
+}
+
 // Messages
+
+message ContentMention {
+  optional string username = 1;
+  optional string url = 2;
+  optional string actor_uri = 3;
+}
 
 message PostEmbedView {
   string uri = 1;
@@ -110,7 +135,16 @@ message Post {
   repeated CloudFile attachments = 30; // List<SnCloudFileReferenceObject>
 
   string publisher_id = 31;
-  Publisher publisher = 32;
+  optional Publisher publisher = 32;
+
+  optional string fediverse_uri = 41;
+  optional FediverseContentType fediverse_type = 42;
+  optional string language = 43;
+  optional PostContentType content_type = 44;
+  repeated ContentMention mentions = 48;
+  int32 boost_count = 50;
+  int32 like_count = 51;
+  optional string actor_id = 53;
 
   repeated PostAward awards = 33;
   repeated PostReaction reactions = 34;
@@ -188,6 +222,10 @@ message PostReaction {
   string post_id = 4;
   string account_id = 5;
   optional Account account = 6; // optional full account
+
+  optional string fediverse_uri = 9;
+  optional string actor_id = 11;
+  bool is_local = 10;
 
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;

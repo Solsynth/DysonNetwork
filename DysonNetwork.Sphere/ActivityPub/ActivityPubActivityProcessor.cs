@@ -2,6 +2,12 @@ using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.Text.Json;
+using DysonNetwork.Shared.Proto;
+using ContentMention = DysonNetwork.Shared.Models.ContentMention;
+using PostContentType = DysonNetwork.Shared.Models.PostContentType;
+using PostReactionAttitude = DysonNetwork.Shared.Models.PostReactionAttitude;
+using PostType = DysonNetwork.Shared.Models.PostType;
+using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -246,14 +252,13 @@ public class ActivityPubActivityProcessor(
         }
         
         var actor = await GetOrCreateActorAsync(actorUri);
-        var instance = await GetOrCreateInstanceAsync(actorUri);
         
         var contentUri = objectDict.GetValueOrDefault("id")?.ToString();
         if (string.IsNullOrEmpty(contentUri))
             return false;
         
-        var existingContent = await db.FediverseContents
-            .FirstOrDefaultAsync(c => c.Uri == contentUri);
+        var existingContent = await db.Posts
+            .FirstOrDefaultAsync(c => c.FediverseUri == contentUri);
         
         if (existingContent != null)
         {
@@ -261,26 +266,28 @@ public class ActivityPubActivityProcessor(
             return true;
         }
         
-        var content = new SnFediverseContent
+        var content = new SnPost
         {
-            Uri = contentUri,
-            Type = objectType == "Article" ? FediverseContentType.Article : FediverseContentType.Note,
+            FediverseUri = contentUri,
+            FediverseType = objectType == "Article" ? FediverseContentType.FediverseArticle : FediverseContentType.FediverseNote,
             Title = objectDict.GetValueOrDefault("name")?.ToString(),
-            Summary = objectDict.GetValueOrDefault("summary")?.ToString(),
+            Description = objectDict.GetValueOrDefault("summary")?.ToString(),
             Content = objectDict.GetValueOrDefault("content")?.ToString(),
-            ContentHtml = objectDict.GetValueOrDefault("contentMap")?.ToString(),
+            ContentType = objectDict.GetValueOrDefault("contentMap") != null ? PostContentType.Html : PostContentType.Markdown,
             PublishedAt = ParseInstant(objectDict.GetValueOrDefault("published")),
             EditedAt = ParseInstant(objectDict.GetValueOrDefault("updated")),
-            IsSensitive = bool.TryParse(objectDict.GetValueOrDefault("sensitive")?.ToString(), out var sensitive) && sensitive,
             ActorId = actor.Id,
-            InstanceId = instance.Id,
-            Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")),
+            Language = objectDict.GetValueOrDefault("language")?.ToString(),
             Mentions = ParseMentions(objectDict.GetValueOrDefault("tag")),
-            Tags = ParseTags(objectDict.GetValueOrDefault("tag")),
-            InReplyTo = objectDict.GetValueOrDefault("inReplyTo")?.ToString()
+            Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")) ?? [],
+            Type = objectType == "Article" ? PostType.Article : PostType.Moment,
+            Visibility = PostVisibility.Public,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
+            Metadata = BuildMetadataFromActivity(objectDict)
         };
         
-        db.FediverseContents.Add(content);
+        db.Posts.Add(content);
         await db.SaveChangesAsync();
         
         logger.LogInformation("Created federated content: {Uri}", contentUri);
@@ -294,8 +301,8 @@ public class ActivityPubActivityProcessor(
             return false;
         
         var actor = await GetOrCreateActorAsync(actorUri);
-        var content = await db.FediverseContents
-            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        var content = await db.Posts
+            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
         
         if (content == null)
         {
@@ -303,11 +310,11 @@ public class ActivityPubActivityProcessor(
             return false;
         }
         
-        var existingReaction = await db.FediverseReactions
-            .FirstOrDefaultAsync(r => 
-                r.ActorId == actor.Id && 
-                r.ContentId == content.Id &&
-                r.Type == FediverseReactionType.Like);
+        var existingReaction = await db.PostReactions
+            .FirstOrDefaultAsync(r =>
+                r.ActorId == actor.Id &&
+                r.PostId == content.Id &&
+                r.Symbol == "❤️");
         
         if (existingReaction != null)
         {
@@ -315,16 +322,20 @@ public class ActivityPubActivityProcessor(
             return true;
         }
         
-        var reaction = new SnFediverseReaction
+        var reaction = new SnPostReaction
         {
-            Uri = activity.GetValueOrDefault("id")?.ToString() ?? Guid.NewGuid().ToString(),
-            Type = FediverseReactionType.Like,
+            FediverseUri = activity.GetValueOrDefault("id")?.ToString() ?? Guid.NewGuid().ToString(),
+            Symbol = "❤️",
+            Attitude = PostReactionAttitude.Positive,
             IsLocal = false,
-            ContentId = content.Id,
-            ActorId = actor.Id
+            PostId = content.Id,
+            ActorId = actor.Id,
+            Actor = actor,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
         };
         
-        db.FediverseReactions.Add(reaction);
+        db.PostReactions.Add(reaction);
         content.LikeCount++;
         
         await db.SaveChangesAsync();
@@ -340,8 +351,8 @@ public class ActivityPubActivityProcessor(
             return false;
         
         var actor = await GetOrCreateActorAsync(actorUri);
-        var content = await db.FediverseContents
-            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        var content = await db.Posts
+            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
         
         if (content != null)
         {
@@ -359,8 +370,8 @@ public class ActivityPubActivityProcessor(
         if (string.IsNullOrEmpty(objectUri))
             return false;
         
-        var content = await db.FediverseContents
-            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        var content = await db.Posts
+            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
         
         if (content != null)
         {
@@ -378,8 +389,8 @@ public class ActivityPubActivityProcessor(
         if (string.IsNullOrEmpty(objectUri))
             return false;
         
-        var content = await db.FediverseContents
-            .FirstOrDefaultAsync(c => c.Uri == objectUri);
+        var content = await db.Posts
+            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
         
         if (content != null)
         {
@@ -416,18 +427,18 @@ public class ActivityPubActivityProcessor(
     {
         var actor = await GetOrCreateActorAsync(actorUri);
         
-        var reactions = await db.FediverseReactions
-            .Where(r => r.ActorId == actor.Id && r.Type == FediverseReactionType.Like)
+        var reactions = await db.PostReactions
+            .Where(r => r.ActorId == actor.Id && r.Symbol == "❤️")
             .ToListAsync();
         
         foreach (var reaction in reactions)
         {
-            var content = await db.FediverseContents.FindAsync(reaction.ContentId);
+            var content = await db.Posts.FindAsync(reaction.PostId);
             if (content != null)
             {
                 content.LikeCount--;
             }
-            db.FediverseReactions.Remove(reaction);
+            db.PostReactions.Remove(reaction);
         }
         
         await db.SaveChangesAsync();
@@ -436,8 +447,8 @@ public class ActivityPubActivityProcessor(
 
     private async Task<bool> UndoAnnounceAsync(string actorUri, string? activityId)
     {
-        var content = await db.FediverseContents
-            .FirstOrDefaultAsync(c => c.Uri == activityId);
+        var content = await db.Posts
+            .FirstOrDefaultAsync(c => c.FediverseUri == activityId);
         
         if (content != null)
         {
@@ -518,32 +529,35 @@ public class ActivityPubActivityProcessor(
         return null;
     }
 
-    private List<ContentAttachment>? ParseAttachments(object? value)
+    private static List<SnCloudFileReferenceObject>? ParseAttachments(object? value)
     {
-        if (value == null)
-            return null;
-        
-        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        if (value is JsonElement { ValueKind: JsonValueKind.Array } element)
         {
             return element.EnumerateArray()
-                .Select(attachment => new ContentAttachment
+                .Select(attachment => new SnCloudFileReferenceObject
                 {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = attachment.GetProperty("name").GetString() ?? string.Empty,
                     Url = attachment.GetProperty("url").GetString(),
-                    MediaType = attachment.GetProperty("mediaType").GetString(),
-                    Name = attachment.GetProperty("name").GetString()
+                    MimeType = attachment.GetProperty("mediaType").GetString(),
+                    Width = attachment.GetProperty("width").GetInt32(),
+                    Height = attachment.GetProperty("height").GetInt32(),
+                    Blurhash = attachment.GetProperty("blurhash").GetString(),
+                    FileMeta = new Dictionary<string, object?>(),
+                    UserMeta = new Dictionary<string, object?>(),
+                    Size = 0,
+                    CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                    UpdatedAt = SystemClock.Instance.GetCurrentInstant()
                 })
                 .ToList();
         }
-        
+
         return null;
     }
 
-    private List<ContentMention>? ParseMentions(object? value)
+    private static List<ContentMention>? ParseMentions(object? value)
     {
-        if (value == null)
-            return null;
-        
-        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        if (value is JsonElement { ValueKind: JsonValueKind.Array } element)
         {
             return element.EnumerateArray()
                 .Where(e => e.GetProperty("type").GetString() == "Mention")
@@ -554,27 +568,46 @@ public class ActivityPubActivityProcessor(
                 })
                 .ToList();
         }
-        
+
         return null;
     }
 
-    private List<ContentTag>? ParseTags(object? value)
+    private static Dictionary<string, object> BuildMetadataFromActivity(Dictionary<string, object> objectDict)
     {
-        if (value == null)
-            return null;
-        
-        if (value is JsonElement element && element.ValueKind == JsonValueKind.Array)
+        var metadata = new Dictionary<string, object>();
+
+        var tagsValue = objectDict.GetValueOrDefault("tag");
+        if (tagsValue is JsonElement { ValueKind: JsonValueKind.Array } tagsElement)
         {
-            return element.EnumerateArray()
+            var fediverseTags = tagsElement.EnumerateArray()
                 .Where(e => e.GetProperty("type").GetString() == "Hashtag")
-                .Select(tag => new ContentTag
+                .Select(e => e.GetProperty("name").GetString())
+                .ToList();
+
+            if (fediverseTags.Count > 0)
+            {
+                metadata["fediverseTags"] = fediverseTags;
+            }
+        }
+
+        var emojiValue = objectDict.GetValueOrDefault("emoji");
+        if (emojiValue is not JsonElement { ValueKind: JsonValueKind.Array } emojiElement) return metadata;
+        {
+            var emojis = emojiElement.EnumerateArray()
+                .Select(e => new
                 {
-                    Name = tag.GetProperty("name").GetString(),
-                    Url = tag.GetProperty("href").GetString()
+                    Shortcode = e.GetProperty("shortcode").GetString(),
+                    StaticUrl = e.GetProperty("static_url").GetString(),
+                    Url = e.GetProperty("url").GetString()
                 })
                 .ToList();
+
+            if (emojis.Count > 0)
+            {
+                metadata["fediverseEmojis"] = emojis;
+            }
         }
-        
-        return null;
+
+        return metadata;
     }
 }

@@ -33,7 +33,8 @@ public class SphereRewindServiceGrpc(
         var mostLovedPublisherClue = await db
             .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
             .Where(p => p.AccountId == accountId && p.Attitude == PostReactionAttitude.Positive)
-            .GroupBy(p => p.Post.PublisherId)
+            .Where(p => p.Post.PublisherId.HasValue)
+            .GroupBy(p => p.Post.PublisherId!.Value)
             .OrderByDescending(g => g.Count())
             .Select(g => new { PublisherId = g.Key, ReactionCount = g.Count() })
             .FirstOrDefaultAsync();
@@ -51,9 +52,11 @@ public class SphereRewindServiceGrpc(
             .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
             .Where(pr =>
                 pr.Attitude == PostReactionAttitude.Positive
-                && publishers.Contains(pr.Post.PublisherId)
+                && pr.AccountId.HasValue
+                && pr.Post.PublisherId.HasValue
+                && publishers.Contains(pr.Post.PublisherId.Value)
             )
-            .GroupBy(pr => pr.AccountId)
+            .GroupBy(pr => pr.AccountId!.Value)
             .OrderByDescending(g => g.Count())
             .Select(g => new { AccountId = g.Key, ReactionCount = g.Count() })
             .FirstOrDefaultAsync();
@@ -63,12 +66,12 @@ public class SphereRewindServiceGrpc(
 
         var posts = db
             .Posts.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-            .Where(p => publishers.Contains(p.PublisherId))
+            .Where(p => p.PublisherId.HasValue && publishers.Contains(p.PublisherId.Value))
             .AsQueryable();
         var postTotalCount = await posts.CountAsync();
         var postTotalUpvotes = await db
             .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-            .Where(p => publishers.Contains(p.Post.PublisherId))
+            .Where(p => p.Post.PublisherId.HasValue && publishers.Contains(p.Post.PublisherId.Value))
             .Where(r => r.Attitude == PostReactionAttitude.Positive)
             .CountAsync();
         var mostPopularPost = await posts

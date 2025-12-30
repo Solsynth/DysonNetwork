@@ -45,6 +45,15 @@ message CloudFile {
 
   // When the file was uploaded
   google.protobuf.Timestamp uploaded_at = 11;
+
+  // Image/Video width (optional, for media files)
+  optional int32 width = 13;
+
+  // Image/Video height (optional, for media files)
+  optional int32 height = 14;
+
+  // Blurhash for placeholder (optional, for images)
+  optional string blurhash = 15;
 }
 
 // Service for file operations

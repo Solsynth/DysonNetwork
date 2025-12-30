@@ -21,11 +21,50 @@ public enum PostVisibility
     Private,
 }
 
+public enum PostContentType
+{
+    Markdown,
+    Html,
+}
+
 public enum PostPinMode
 {
     PublisherPage,
     RealmPage,
     ReplyPage,
+}
+
+public class ContentMention
+{
+    [MaxLength(256)]
+    public string? Username { get; set; }
+
+    [MaxLength(2048)]
+    public string? Url { get; set; }
+
+    [MaxLength(2048)]
+    public string? ActorUri { get; set; }
+}
+
+public class ContentTag
+{
+    [MaxLength(256)]
+    public string? Name { get; set; }
+
+    [MaxLength(2048)]
+    public string? Url { get; set; }
+}
+
+public class ContentEmoji
+{
+    [MaxLength(64)]
+    public string? Shortcode { get; set; }
+
+    [MaxLength(2048)]
+    public string? StaticUrl { get; set; }
+
+    [MaxLength(2048)]
+    public string? Url { get; set; }
 }
 
 public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
@@ -47,11 +86,13 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     // ReSharper disable once EntityFramework.ModelValidation.UnlimitedStringLength
     public string? Content { get; set; }
 
+    public PostContentType ContentType { get; set; } = PostContentType.Markdown;
+
     public PostType Type { get; set; }
     public PostPinMode? PinMode { get; set; }
 
     [Column(TypeName = "jsonb")]
-    public Dictionary<string, object>? Meta { get; set; }
+    public Dictionary<string, object>? Metadata { get; set; }
 
     [Column(TypeName = "jsonb")]
     public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
@@ -59,17 +100,28 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     [Column(TypeName = "jsonb")]
     public PostEmbedView? EmbedView { get; set; }
 
+    [MaxLength(8192)] public string? FediverseUri { get; set; }
+    public FediverseContentType? FediverseType { get; set; }
+    [MaxLength(2048)] public string? Language { get; set; }
+    [Column(TypeName = "jsonb")]
+    public List<ContentMention>? Mentions { get; set; }
+
+    public int BoostCount { get; set; }
+    public int LikeCount { get; set; }
+
+    public Guid? ActorId { get; set; }
+    public SnFediverseActor? Actor { get; set; }
+
     public int ViewsUnique { get; set; }
     public int ViewsTotal { get; set; }
     public int Upvotes { get; set; }
     public int Downvotes { get; set; }
     public decimal AwardedScore { get; set; }
 
-    [NotMapped]
-    public Dictionary<string, int> ReactionsCount { get; set; } = new();
+    public int RepliesCount { get; set; }
 
     [NotMapped]
-    public int RepliesCount { get; set; }
+    public Dictionary<string, int> ReactionsCount { get; set; } = new();
 
     [NotMapped]
     public Dictionary<string, bool>? ReactionsMade { get; set; }
@@ -90,8 +142,8 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     [Column(TypeName = "jsonb")]
     public List<SnCloudFileReferenceObject> Attachments { get; set; } = [];
 
-    public Guid PublisherId { get; set; }
-    public SnPublisher Publisher { get; set; } = null!;
+    public Guid? PublisherId { get; set; }
+    public SnPublisher? Publisher { get; set; }
 
     public List<SnPostAward> Awards { get; set; } = [];
 
@@ -133,7 +185,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             RepliedGone = RepliedGone,
             ForwardedGone = ForwardedGone,
             PublisherId = PublisherId.ToString(),
-            Publisher = Publisher.ToProtoValue(),
+            Publisher = Publisher?.ToProtoValue(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
@@ -147,17 +199,43 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
         if (Content != null)
             proto.Content = Content;
 
+        proto.ContentType = (Proto.PostContentType)((int)ContentType + 1);
+
         if (PinMode.HasValue)
             proto.PinMode = (Proto.PostPinMode)((int)PinMode.Value + 1);
 
-        if (Meta != null)
-            proto.Meta = GrpcTypeHelper.ConvertObjectToByteString(Meta);
+        if (Metadata != null)
+            proto.Meta = GrpcTypeHelper.ConvertObjectToByteString(Metadata);
 
         if (SensitiveMarks != null)
             proto.SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks);
 
         if (EmbedView != null)
             proto.EmbedView = EmbedView.ToProtoValue();
+
+        if (!string.IsNullOrEmpty(FediverseUri))
+            proto.FediverseUri = FediverseUri;
+
+        if (FediverseType.HasValue)
+            proto.FediverseType = (Proto.FediverseContentType)((int)FediverseType.Value + 1);
+
+        if (!string.IsNullOrEmpty(Language))
+            proto.Language = Language;
+
+        if (Mentions != null)
+            proto.Mentions.AddRange(Mentions.Select(m => new Proto.ContentMention
+            {
+                Username = m.Username,
+                Url = m.Url,
+                ActorUri = m.ActorUri
+            }));
+
+        proto.RepliesCount = RepliesCount;
+        proto.BoostCount = BoostCount;
+        proto.LikeCount = LikeCount;
+
+        if (ActorId.HasValue)
+            proto.ActorId = ActorId.Value.ToString();
 
         if (RepliedPostId.HasValue)
         {
@@ -220,7 +298,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             RepliedGone = proto.RepliedGone,
             ForwardedGone = proto.ForwardedGone,
             PublisherId = Guid.Parse(proto.PublisherId),
-            Publisher = SnPublisher.FromProtoValue(proto.Publisher),
+            Publisher = proto.Publisher != null ? SnPublisher.FromProtoValue(proto.Publisher) : null,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };
@@ -234,11 +312,13 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
         if (!string.IsNullOrEmpty(proto.Content))
             post.Content = proto.Content;
 
+        post.ContentType = (PostContentType)((int)proto.ContentType - 1);
+
         if (proto is { HasPinMode: true, PinMode: > 0 })
             post.PinMode = (PostPinMode)(proto.PinMode - 1);
 
         if (proto.Meta != null)
-            post.Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(
+            post.Metadata = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(
                 proto.Meta
             );
 
@@ -249,6 +329,30 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
         if (proto.EmbedView is not null)
             post.EmbedView = PostEmbedView.FromProtoValue(proto.EmbedView);
+
+        if (!string.IsNullOrEmpty(proto.FediverseUri))
+            post.FediverseUri = proto.FediverseUri;
+
+        if (proto.HasFediverseType && proto.FediverseType > 0)
+            post.FediverseType = (FediverseContentType)((int)proto.FediverseType - 1);
+
+        if (!string.IsNullOrEmpty(proto.Language))
+            post.Language = proto.Language;
+
+        if (proto.Mentions != null && proto.Mentions.Count > 0)
+            post.Mentions = proto.Mentions.Select(m => new ContentMention
+            {
+                Username = m.Username,
+                Url = m.Url,
+                ActorUri = m.ActorUri
+            }).ToList();
+
+        post.RepliesCount = proto.RepliesCount;
+        post.BoostCount = proto.BoostCount;
+        post.LikeCount = proto.LikeCount;
+
+        if (!string.IsNullOrEmpty(proto.ActorId))
+            post.ActorId = Guid.Parse(proto.ActorId);
 
         if (!string.IsNullOrEmpty(proto.RepliedPostId))
         {
@@ -487,13 +591,17 @@ public class SnPostReaction : ModelBase
     public PostReactionAttitude Attitude { get; set; }
 
     public Guid PostId { get; set; }
+    [JsonIgnore] public SnPost Post { get; set; } = null!;
+    
+    public Guid? AccountId { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 
-    [JsonIgnore]
-    public SnPost Post { get; set; } = null!;
-    public Guid AccountId { get; set; }
+    [MaxLength(2048)] public string? FediverseUri { get; set; }
 
-    [NotMapped]
-    public SnAccount? Account { get; set; }
+    public Guid? ActorId { get; set; }
+    public SnFediverseActor? Actor { get; set; }
+
+    public bool IsLocal { get; set; } = true;
 
     public PostReaction ToProtoValue()
     {
@@ -503,7 +611,10 @@ public class SnPostReaction : ModelBase
             Symbol = Symbol,
             Attitude = (Proto.PostReactionAttitude)((int)Attitude + 1),
             PostId = PostId.ToString(),
-            AccountId = AccountId.ToString(),
+            AccountId = AccountId?.ToString() ?? string.Empty,
+            FediverseUri = FediverseUri ?? string.Empty,
+            IsLocal = IsLocal,
+            ActorId = ActorId?.ToString() ?? string.Empty,
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
@@ -515,7 +626,7 @@ public class SnPostReaction : ModelBase
         return proto;
     }
 
-    public static SnPostReaction FromProtoValue(Proto.PostReaction proto)
+    public static SnPostReaction FromProtoValue(PostReaction proto)
     {
         return new SnPostReaction
         {
@@ -523,8 +634,11 @@ public class SnPostReaction : ModelBase
             Symbol = proto.Symbol,
             Attitude = (PostReactionAttitude)((int)proto.Attitude - 1),
             PostId = Guid.Parse(proto.PostId),
-            AccountId = Guid.Parse(proto.AccountId),
+            AccountId = !string.IsNullOrEmpty(proto.AccountId) ? Guid.Parse(proto.AccountId) : null,
             Account = proto.Account != null ? SnAccount.FromProtoValue(proto.Account) : null,
+            FediverseUri = !string.IsNullOrEmpty(proto.FediverseUri) ? proto.FediverseUri : null,
+            ActorId = !string.IsNullOrEmpty(proto.ActorId) ? Guid.Parse(proto.ActorId) : null,
+            IsLocal = proto.IsLocal,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };

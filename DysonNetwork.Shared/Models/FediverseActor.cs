@@ -34,8 +34,6 @@ public class SnFediverseActor : ModelBase
     public Guid InstanceId { get; set; }
     public SnFediverseInstance Instance { get; set; } = null!;
     
-    [JsonIgnore] public ICollection<SnFediverseContent> Contents { get; set; } = [];
-    [JsonIgnore] public ICollection<SnFediverseActivity> Activities { get; set; } = [];
     [JsonIgnore] public ICollection<SnFediverseRelationship> FollowingRelationships { get; set; } = [];
     [JsonIgnore] public ICollection<SnFediverseRelationship> FollowerRelationships { get; set; } = [];
     

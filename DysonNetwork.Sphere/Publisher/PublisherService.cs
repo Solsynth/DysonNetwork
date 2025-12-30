@@ -556,9 +556,12 @@ public class PublisherService(
             .ToListAsync();
 
         // Group stats by publisher id
-        var postIdToPublisher = postsInPeriod.ToDictionary(p => p.Id, p => p.PublisherId);
+        var postIdToPublisher = postsInPeriod
+            .Where(p => p.PublisherId.HasValue)
+            .ToDictionary(p => p.Id, p => p.PublisherId!.Value);
         var publisherStats = postsInPeriod
-            .GroupBy(p => p.PublisherId)
+            .Where(p => p.PublisherId.HasValue)
+            .GroupBy(p => p.PublisherId!.Value)
             .ToDictionary(g => g.Key,
                 g => new
                 {

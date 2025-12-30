@@ -336,7 +336,7 @@ public class PostController(
             .ToListAsync();
 
         var accountsProto = await remoteAccountsHelper.GetAccountBatch(
-            reactions.Select(r => r.AccountId).ToList()
+            reactions.Where(r => r.AccountId.HasValue).Select(r => r.AccountId!.Value).ToList()
         );
         var accounts = accountsProto.ToDictionary(
             a => Guid.Parse(a.Id),
@@ -344,7 +344,7 @@ public class PostController(
         );
 
         foreach (var reaction in reactions)
-            if (accounts.TryGetValue(reaction.AccountId, out var account))
+            if (reaction.AccountId.HasValue && accounts.TryGetValue(reaction.AccountId.Value, out var account))
                 reaction.Account = account;
 
         return Ok(reactions);

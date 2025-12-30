@@ -28,7 +28,6 @@ public class SnFediverseInstance : ModelBase
     
     [MaxLength(2048)] public string? BlockReason { get; set; }
     [JsonIgnore] public ICollection<SnFediverseActor> Actors { get; set; } = [];
-    [JsonIgnore] public ICollection<SnFediverseContent> Contents { get; set; } = [];
     
     public Instant? LastFetchedAt { get; set; }
     public Instant? LastActivityAt { get; set; }

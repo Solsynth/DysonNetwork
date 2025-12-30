@@ -543,9 +543,9 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("announced_content_uri");
 
-                    b.Property<List<ContentAttachment>>("Attachments")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("attachments");
+                    // b.Property<List<ContentAttachment>>("Attachments")
+                    //     .HasColumnType("jsonb")
+                    //     .HasColumnName("attachments");
 
                     b.Property<int>("BoostCount")
                         .HasColumnType("integer")
@@ -571,9 +571,9 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("edited_at");
 
-                    b.Property<List<ContentEmoji>>("Emojis")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("emojis");
+                    // b.Property<List<ContentEmoji>>("Emojis")
+                    //     .HasColumnType("jsonb")
+                    //     .HasColumnName("emojis");
 
                     b.Property<string>("InReplyTo")
                         .HasMaxLength(2048)
@@ -601,9 +601,9 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("local_post_id");
 
-                    b.Property<List<ContentMention>>("Mentions")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("mentions");
+                    // b.Property<List<ContentMention>>("Mentions")
+                    //     .HasColumnType("jsonb")
+                    //     .HasColumnName("mentions");
 
                     b.Property<Dictionary<string, object>>("Metadata")
                         .HasColumnType("jsonb")
@@ -622,9 +622,9 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("summary");
 
-                    b.Property<List<ContentTag>>("Tags")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("tags");
+                    // b.Property<List<ContentTag>>("Tags")
+                    //     .HasColumnType("jsonb")
+                    //     .HasColumnName("tags");
 
                     b.Property<string>("Title")
                         .HasMaxLength(1024)

@@ -318,7 +318,7 @@ public class TimelineService(
             .AsQueryable();
 
         if (filteredPublishersId != null && filteredPublishersId.Count != 0)
-            query = query.Where(p => filteredPublishersId.Contains(p.PublisherId));
+            query = query.Where(p => p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value));
         if (userRealms == null)
         {
             // For anonymous users, only show public realm posts or posts without realm
