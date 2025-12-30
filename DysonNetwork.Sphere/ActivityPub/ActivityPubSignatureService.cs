@@ -226,6 +226,10 @@ public class ActivityPubSignatureService(
             {
                 sb.Append(Domain);
             }
+            else if (header == "content-type")
+            {
+                continue;
+            }
             else
             {
                 if (context.Request.Headers.TryGetValue(header, out var values))
