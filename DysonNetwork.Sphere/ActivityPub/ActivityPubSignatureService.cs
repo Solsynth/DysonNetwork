@@ -256,14 +256,17 @@ public class ActivityPubSignatureService(
             return string.Empty;
         
         var sb = new StringBuilder();
+        var first = true;
         
         foreach (var header in headers)
         {
             if (header == "content-type")
                 continue;
             
-            if (sb.Length > 0)
+            if (!first)
                 sb.Append('\n');
+            
+            first = false;
             
             sb.Append(header.ToLower());
             sb.Append(": ");
