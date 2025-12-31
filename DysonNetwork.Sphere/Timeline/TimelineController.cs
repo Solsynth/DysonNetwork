@@ -25,7 +25,8 @@ public class ActivityController(TimelineService acts) : ControllerBase
     public async Task<ActionResult<List<SnTimelineEvent>>> ListEvents(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] bool showFediverse = false
     )
     {
         Instant? cursorTimestamp = null;
@@ -43,7 +44,7 @@ public class ActivityController(TimelineService acts) : ControllerBase
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not Account currentUser
-            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp))
-            : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, filter));
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, showFediverse))
+            : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, filter, showFediverse));
     }
 }

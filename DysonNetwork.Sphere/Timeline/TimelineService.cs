@@ -32,7 +32,7 @@ public class TimelineService(
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
 
-    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(int take, Instant? cursor)
+    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(int take, Instant? cursor, bool showFediverse = false)
     {
         var activities = new List<SnTimelineEvent>();
 
@@ -43,6 +43,8 @@ public class TimelineService(
         var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds)
             .FilterWithVisibility(null, [], [], isListing: true)
             .Take(take * 5);
+        if (!showFediverse)
+            postsQuery = postsQuery.Where(p => p.FediverseUri == null);
 
         var posts = await GetAndProcessPosts(postsQuery);
         await LoadPostsRealmsAsync(posts, rs);
@@ -55,7 +57,7 @@ public class TimelineService(
             // Randomly insert a discovery activity before some posts
             if (random.NextDouble() < 0.15)
             {
-                var discovery = await MaybeGetDiscoveryActivity(cursor: cursor);
+                var discovery = await MaybeGetDiscoveryActivity();
                 if (discovery != null)
                     interleaved.Add(discovery);
             }
@@ -75,7 +77,8 @@ public class TimelineService(
         int take,
         Instant? cursor,
         Account currentUser,
-        string? filter = null
+        string? filter = null,
+        bool showFediverse = false
     )
     {
         var activities = new List<SnTimelineEvent>();
@@ -95,6 +98,8 @@ public class TimelineService(
 
         // Build and execute the post query
         var postsQuery = BuildPostsQuery(cursor, filteredPublishersId, userRealms);
+        if (!showFediverse)
+            postsQuery = postsQuery.Where(p => p.FediverseUri == null);
 
         // Apply visibility filtering and execute
         postsQuery = postsQuery
@@ -119,7 +124,7 @@ public class TimelineService(
         {
             if (random.NextDouble() < 0.15)
             {
-                var discovery = await MaybeGetDiscoveryActivity(cursor: cursor);
+                var discovery = await MaybeGetDiscoveryActivity();
                 if (discovery != null)
                     interleaved.Add(discovery);
             }
@@ -135,7 +140,7 @@ public class TimelineService(
         return activities;
     }
 
-    private async Task<SnTimelineEvent?> MaybeGetDiscoveryActivity(Instant? cursor)
+    private async Task<SnTimelineEvent?> MaybeGetDiscoveryActivity()
     {
         var options = new List<Func<Task<SnTimelineEvent?>>>();
         if (Random.Shared.NextDouble() < 0.5)
@@ -165,7 +170,7 @@ public class TimelineService(
         // return posts.Take(take).ToList();
     }
 
-    private async Task<List<Shared.Models.SnPublisher>> GetPopularPublishers(int take)
+    private async Task<List<SnPublisher>> GetPopularPublishers(int take)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var recent = now.Minus(Duration.FromDays(7));
@@ -331,7 +336,7 @@ public class TimelineService(
         return query;
     }
 
-    private async Task<List<Shared.Models.SnPublisher>?> GetFilteredPublishers(
+    private async Task<List<SnPublisher>?> GetFilteredPublishers(
         string? filter,
         Account currentUser,
         List<Guid> userFriends
