@@ -65,6 +65,7 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddHostedService<BroadcastEventHandler>();
+        services.AddHostedService<ActivityPubDeliveryWorker>();
 
         return services;
     }
@@ -89,6 +90,7 @@ public static class ServiceCollectionExtensions
     )
     {
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
+        services.Configure<ActivityPubDeliveryOptions>(configuration.GetSection("ActivityPubDelivery"));
         services.AddScoped<GeoService>();
         services.AddScoped<PublisherService>();
         services.AddScoped<PublisherSubscriptionService>();
@@ -108,6 +110,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActivityPubActivityHandler>();
         services.AddScoped<ActivityPubDeliveryService>();
         services.AddScoped<ActivityPubDiscoveryService>();
+        services.AddSingleton<ActivityPubQueueService>();
         services.AddScoped<ActivityPubFollowController>();
         services.AddScoped<ActivityPubController>();
 

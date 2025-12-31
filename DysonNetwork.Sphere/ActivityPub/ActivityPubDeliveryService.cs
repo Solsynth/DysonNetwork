@@ -1,32 +1,20 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
 public class ActivityPubDeliveryService(
     AppDatabase db,
-    ActivityPubSignatureService signatureService,
     ActivityPubDiscoveryService discoveryService,
-    IHttpClientFactory httpClientFactory,
+    ActivityPubQueueService queueService,
     IConfiguration configuration,
-    ILogger<ActivityPubDeliveryService> logger
+    ILogger<ActivityPubDeliveryService> logger,
+    IClock clock
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
     private string AssetsBaseUrl => configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
-
-    private HttpClient HttpClient
-    {
-        get
-        {
-            var client = httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Clear();
-            return client;
-        }
-    }
 
     public async Task<bool> SendAcceptActivityAsync(
         SnFediverseActor actor,
@@ -53,7 +41,7 @@ public class ActivityPubDeliveryService(
             ["object"] = followActivityId
         };
 
-        return await SendActivityToInboxAsync(activity, followerActor.InboxUri, actorUrl);
+        return await EnqueueActivityDeliveryAsync("Accept", activity, actorUrl, followerActor.InboxUri);
     }
 
     public async Task<bool> SendFollowActivityAsync(
@@ -74,10 +62,11 @@ public class ActivityPubDeliveryService(
             return false;
         }
 
+        var activityId = $"{actorUrl}/follows/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/follows/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Follow",
             ["actor"] = actorUrl,
             ["object"] = targetActorUri
@@ -105,7 +94,7 @@ public class ActivityPubDeliveryService(
 
         await db.SaveChangesAsync();
 
-        return await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
+        return await EnqueueActivityDeliveryAsync("Follow", activity, actorUrl, targetActor.InboxUri, activityId);
     }
 
     public async Task<bool> SendUnfollowActivityAsync(
@@ -126,10 +115,11 @@ public class ActivityPubDeliveryService(
             return false;
         }
 
+        var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/undo/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Undo",
             ["actor"] = actorUrl,
             ["object"] = new Dictionary<string, object>
@@ -145,8 +135,7 @@ public class ActivityPubDeliveryService(
                 r.TargetActorId == targetActor.Id);
         if (relationship == null) return false;
 
-        var success = await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
-        if (!success) return success;
+        var success = await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, targetActor.InboxUri, activityId);
         
         db.Remove(relationship);
         await db.SaveChangesAsync();
@@ -164,11 +153,12 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
+        var activityId = $"{postUrl}/activity";
 
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{postUrl}/activity",
+            ["id"] = activityId,
             ["type"] = "Create",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
@@ -193,20 +183,15 @@ public class ActivityPubDeliveryService(
         };
 
         var followers = await GetRemoteFollowersAsync();
-        var successCount = 0;
+        logger.LogInformation("Enqueuing Create activity for {Count} followers", followers.Count);
 
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Create", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        logger.LogInformation("Sent Create activity to {Count}/{Total} followers",
-            successCount, followers.Count);
-
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
     public async Task<bool> SendUpdateActivityAsync(SnPost post)
@@ -219,11 +204,12 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
+        var activityId = $"{postUrl}/activity/{Guid.NewGuid()}";
 
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{postUrl}/activity/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Update",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
@@ -249,20 +235,15 @@ public class ActivityPubDeliveryService(
         };
 
         var followers = await GetRemoteFollowersAsync();
-        var successCount = 0;
+        logger.LogInformation("Enqueuing Update activity for {Count} followers", followers.Count);
 
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Update", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        logger.LogInformation("Sent Update activity to {Count}/{Total} followers",
-            successCount, followers.Count);
-
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
     public async Task<bool> SendDeleteActivityAsync(SnPost post)
@@ -275,11 +256,12 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
+        var activityId = $"{postUrl}/delete/{Guid.NewGuid()}";
 
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{postUrl}/delete/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Delete",
             ["actor"] = actorUrl,
             ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
@@ -292,20 +274,15 @@ public class ActivityPubDeliveryService(
         };
 
         var followers = await GetRemoteFollowersAsync();
-        var successCount = 0;
+        logger.LogInformation("Enqueuing Delete activity for {Count} followers", followers.Count);
 
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Delete", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        logger.LogInformation("Sent Delete activity to {Count}/{Total} followers",
-            successCount, followers.Count);
-
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
     public async Task<bool> SendUpdateActorActivityAsync(SnFediverseActor actor)
@@ -359,6 +336,7 @@ public class ActivityPubDeliveryService(
             };
         }
 
+        var activityId = $"{actorUrl}#update-{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
             ["@context"] = new List<object>
@@ -366,7 +344,7 @@ public class ActivityPubDeliveryService(
                 "https://www.w3.org/ns/activitystreams",
                 "https://w3id.org/security/v1"
             },
-            ["id"] = $"{actorUrl}#update-{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Update",
             ["actor"] = actorUrl,
             ["published"] = DateTimeOffset.UtcNow,
@@ -376,21 +354,15 @@ public class ActivityPubDeliveryService(
         };
 
         var followers = await GetRemoteFollowersAsync(actor.Id);
-
-        var successCount = 0;
+        logger.LogInformation("Enqueuing Update actor activity for {Count} followers", followers.Count);
 
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Update", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        logger.LogInformation("Sent Update actor activity to {Count}/{Total} followers",
-            successCount, followers.Count);
-
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
     public async Task<bool> SendLikeActivityToLocalPostAsync(
@@ -418,11 +390,12 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = publisherActor.Uri;
         var postUrl = $"https://{Domain}/posts/{postId}";
+        var activityId = $"{actorUrl}/likes/{Guid.NewGuid()}";
 
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/likes/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Like",
             ["actor"] = actor.Uri,
             ["object"] = postUrl,
@@ -432,20 +405,13 @@ public class ActivityPubDeliveryService(
 
         var followers = await GetRemoteFollowersAsync(actor.Id);
 
-        var successCount = 0;
-
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Like", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        logger.LogInformation("Sent Like activity for post {PostId} to {Count}/{Total} followers",
-            postId, successCount, followers.Count);
-
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
     public async Task<bool> SendUndoLikeActivityAsync(
@@ -467,11 +433,12 @@ public class ActivityPubDeliveryService(
 
         var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{postId}";
+        var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
 
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/undo/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Undo",
             ["actor"] = actorUrl,
             ["object"] = new Dictionary<string, object>
@@ -485,20 +452,13 @@ public class ActivityPubDeliveryService(
 
         var followers = await GetRemoteFollowersAsync(localActor.Id);
 
-        var successCount = 0;
-
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        logger.LogInformation("Sent Undo Like activity for post {PostId} to {Count}/{Total} followers",
-            postId, successCount, followers.Count);
-
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
     public async Task<bool> SendLikeActivityAsync(
@@ -522,16 +482,17 @@ public class ActivityPubDeliveryService(
         if (targetActor?.InboxUri == null)
             return false;
 
+        var activityId = $"{actorUrl}/likes/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/likes/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Like",
             ["actor"] = actorUrl,
             ["object"] = postUrl
         };
 
-        return await SendActivityToInboxAsync(activity, targetActor.InboxUri, actorUrl);
+        return await EnqueueActivityDeliveryAsync("Like", activity, actorUrl, targetActor.InboxUri, activityId);
     }
 
     public async Task<bool> SendUndoActivityAsync(
@@ -547,10 +508,11 @@ public class ActivityPubDeliveryService(
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
         var followers = await GetRemoteFollowersAsync();
 
+        var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/undo/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Undo",
             ["actor"] = actorUrl,
             ["object"] = new Dictionary<string, object>
@@ -560,82 +522,92 @@ public class ActivityPubDeliveryService(
             }
         };
 
-        var successCount = 0;
         foreach (var follower in followers)
         {
             if (follower.InboxUri == null) continue;
-            var success = await SendActivityToInboxAsync(activity, follower.InboxUri, actorUrl);
-            if (success)
-                successCount++;
+            await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, follower.InboxUri, activityId);
         }
 
-        return successCount > 0;
+        return followers.Count > 0;
     }
 
-    private async Task<bool> SendActivityToInboxAsync(
+    public async Task<List<SnActivityPubDelivery>> GetDeliveriesByActivityIdAsync(string activityId)
+    {
+        return await db.ActivityPubDeliveries
+            .Where(d => d.ActivityId == activityId)
+            .OrderBy(d => d.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<DeliveryStats> GetDeliveryStatsAsync(DateTimeOffset from, DateTimeOffset to)
+    {
+        var fromInstant = Instant.FromDateTimeOffset(from);
+        var toInstant = Instant.FromDateTimeOffset(to);
+
+        var stats = new DeliveryStats
+        {
+            From = from,
+            To = to
+        };
+
+        var deliveries = await db.ActivityPubDeliveries
+            .Where(d => d.CreatedAt >= fromInstant && d.CreatedAt <= toInstant)
+            .ToListAsync();
+
+        stats.TotalDeliveries = deliveries.Count;
+        stats.SentDeliveries = deliveries.Count(d => d.Status == DeliveryStatus.Sent);
+        stats.FailedDeliveries = deliveries.Count(d => d.Status == DeliveryStatus.Failed || d.Status == DeliveryStatus.ExhaustedRetries);
+        stats.PendingDeliveries = deliveries.Count(d => d.Status == DeliveryStatus.Pending || d.Status == DeliveryStatus.Processing);
+
+        return stats;
+    }
+
+    private async Task<bool> EnqueueActivityDeliveryAsync(
+        string activityType,
         Dictionary<string, object> activity,
-        string inboxUrl,
-        string actorUri
+        string actorUri,
+        string inboxUri,
+        string? activityId = null
     )
     {
         try
         {
-            var json = JsonSerializer.Serialize(activity);
-            var request = new HttpRequestMessage(HttpMethod.Post, inboxUrl);
+            activityId ??= activity.ContainsKey("id") ? activity["id"].ToString() : Guid.NewGuid().ToString();
 
-            request.Content = new StringContent(json, Encoding.UTF8, "application/activity+json");
-            request.Headers.Date = DateTimeOffset.UtcNow;
-
-            var bodyBytes = Encoding.UTF8.GetBytes(json);
-            var hash = SHA256.HashData(bodyBytes);
-            var digest = $"SHA-256={Convert.ToBase64String(hash)}";
-            request.Headers.Add("Digest", digest);
-            request.Headers.Host = new Uri(inboxUrl).Host;
-
-            logger.LogInformation("Preparing request to {Inbox}", inboxUrl);
-            logger.LogInformation("Request body (truncated): {Body}", json[..Math.Min(200, json.Length)] + "...");
-            logger.LogInformation("Request headers before signing: Date={Date}, Digest={Digest}, Host={Host}",
-                request.Headers.Date, digest, request.Headers.Host);
-
-            var signatureHeaders = await signatureService.SignOutgoingRequest(request, actorUri);
-
-            var signatureString = $"keyId=\"{signatureHeaders["keyId"]}\"," +
-                                  $"algorithm=\"{signatureHeaders["algorithm"]}\"," +
-                                  $"headers=\"{signatureHeaders["headers"]}\"," +
-                                  $"signature=\"{signatureHeaders["signature"]}\"";
-
-            request.Headers.Add("Signature", signatureString);
-
-            logger.LogInformation("Full signature header: {Signature}", signatureString);
-            logger.LogInformation("Request headers after signing:");
-            foreach (var header in request.Headers)
+            var delivery = new SnActivityPubDelivery
             {
-                var value = header.Value.Any() ? header.Value.First() : string.Empty;
-                if (header.Key == "signature")
-                    value = value[..Math.Min(100, value.Length)] + "...";
-                logger.LogInformation("  {Key}: {Value}", header.Key, value);
-            }
+                ActivityId = activityId,
+                ActivityType = activityType,
+                InboxUri = inboxUri,
+                ActorUri = actorUri,
+                Status = DeliveryStatus.Pending,
+                RetryCount = 0
+            };
 
-            var response = await HttpClient.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
+            db.ActivityPubDeliveries.Add(delivery);
+            await db.SaveChangesAsync();
 
-            logger.LogInformation("Response from {Inbox}. Status: {Status}", inboxUrl, response.StatusCode);
-
-            if (!response.IsSuccessStatusCode)
+            var message = new ActivityPubDeliveryMessage
             {
-                logger.LogError("Failed to send activity to {Inbox}. Status: {Status}, Response: {Response}",
-                    inboxUrl, response.StatusCode, responseContent);
-                logger.LogError("Full request details: Method={Method}, Uri={Uri}, ContentType={ContentType}",
-                    request.Method, request.RequestUri, request.Content?.Headers.ContentType);
-                return false;
-            }
+                DeliveryId = delivery.Id,
+                ActivityId = activityId,
+                ActivityType = activityType,
+                Activity = activity,
+                ActorUri = actorUri,
+                InboxUri = inboxUri,
+                CurrentRetry = 0
+            };
 
-            logger.LogInformation("Successfully sent activity to {Inbox}", inboxUrl);
+            await queueService.EnqueueDeliveryAsync(message);
+
+            logger.LogDebug("Enqueued delivery {DeliveryId} of type {ActivityType} to {Inbox}",
+                delivery.Id, activityType, inboxUri);
+
             return true;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error sending activity to {Inbox}. Exception: {Message}", inboxUrl, ex.Message);
+            logger.LogError(ex, "Failed to enqueue delivery to {Inbox}", inboxUri);
             return false;
         }
     }
@@ -749,7 +721,7 @@ public class ActivityPubDeliveryService(
                 Uri = actorUri,
                 Username = ExtractUsername(actorUri),
                 InstanceId = instance.Id,
-                LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+                LastFetchedAt = clock.GetCurrentInstant()
             };
 
             db.FediverseActors.Add(actor);
@@ -772,4 +744,14 @@ public class ActivityPubDeliveryService(
     {
         return actorUri.Split('/').Last();
     }
+}
+
+public class DeliveryStats
+{
+    public DateTimeOffset From { get; set; }
+    public DateTimeOffset To { get; set; }
+    public int TotalDeliveries { get; set; }
+    public int SentDeliveries { get; set; }
+    public int FailedDeliveries { get; set; }
+    public int PendingDeliveries { get; set; }
 }

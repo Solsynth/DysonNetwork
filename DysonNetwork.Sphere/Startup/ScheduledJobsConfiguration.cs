@@ -1,3 +1,4 @@
+using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.WebReader;
@@ -38,6 +39,22 @@ public static class ScheduledJobsConfiguration
                 .ForJob("PublisherSettlement")
                 .WithIdentity("PublisherSettlementTrigger")
                 .WithCronSchedule("0 0 0 * * ?")
+            );
+
+            q.AddJob<ActivityPubDeliveryRetryJob>(opts => opts.WithIdentity("ActivityPubDeliveryRetry"));
+            q.AddTrigger(opts => opts
+                .ForJob("ActivityPubDeliveryRetry")
+                .WithIdentity("ActivityPubDeliveryRetryTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
+
+            q.AddJob<ActivityPubDeliveryCleanupJob>(opts => opts.WithIdentity("ActivityPubDeliveryCleanup"));
+            q.AddTrigger(opts => opts
+                .ForJob("ActivityPubDeliveryCleanup")
+                .WithIdentity("ActivityPubDeliveryCleanupTrigger")
+                .WithCronSchedule("0 0 3 * * ?")
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

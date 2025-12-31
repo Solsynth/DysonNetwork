@@ -197,7 +197,7 @@ public class ActivityPubSignatureService(
         return (privateKeyPem, publicKeyPem);
     }
 
-    private string? GetPublisherKey(SnPublisher publisher, string keyName)
+    private static string? GetPublisherKey(SnPublisher publisher, string keyName)
     {
         return keyName switch
         {
