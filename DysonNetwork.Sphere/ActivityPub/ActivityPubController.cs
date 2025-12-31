@@ -123,13 +123,14 @@ public class ActivityPubController(
     [HttpGet("actors/{username}/outbox")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [SwaggerOperation(
         Summary = "Get ActivityPub outbox",
         Description = "Returns the actor's outbox collection containing their public activities",
         OperationId = "GetActorOutbox"
     )]
-    public async Task<ActionResult<ActivityPubCollection>> GetOutbox(string username)
+    public async Task<IActionResult> GetOutbox(string username, [FromQuery] int? page)
     {
         var publisher = await db.Publishers
             .FirstOrDefaultAsync(p => p.Name == username);
@@ -140,32 +141,77 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var outboxUrl = $"{actorUrl}/outbox";
 
-        var posts = await db.Posts
-            .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public)
-            .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
-            .Take(20)
-            .ToListAsync();
+        var postsQuery = db.Posts
+            .Include(p => p.Attachments)
+            .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public);
 
-        var items = posts.Select(post => new
+        var totalItems = await postsQuery.CountAsync();
+
+        if (page.HasValue)
         {
-            id = $"https://{Domain}/activitypub/objects/{post.Id}",
-            type = post.Type == PostType.Article ? "Article" : "Note",
-            published = post.PublishedAt ?? post.CreatedAt,
-            attributedTo = actorUrl,
-            content = post.Content,
-            url = $"https://{Domain}/posts/{post.Id}"
-        }).ToList<object>();
+            const int pageSize = 20;
+            var skip = (page.Value - 1) * pageSize;
 
-        var collection = new ActivityPubCollection
+            var posts = await postsQuery
+                .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var items = posts.Select(post => new
+            {
+                id = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
+                type = "Create",
+                actor = actorUrl,
+                published = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
+                to = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+                cc = new[] { $"{actorUrl}/followers" },
+                @object = new
+                {
+                    id = $"https://{Domain}/activitypub/objects/{post.Id}",
+                    type = post.Type == PostType.Article ? "Article" : "Note",
+                    published = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
+                    attributedTo = actorUrl,
+                    content = post.Content ?? "",
+                    url = $"https://{Domain}/posts/{post.Id}",
+                    to = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+                    cc = new[] { $"{actorUrl}/followers" },
+                    attachment = post.Attachments.Select(a => new
+                    {
+                        type = "Document",
+                        mediaType = a.MimeType,
+                        url = $"{configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files"}/{a.Id}"
+                    })
+                }
+            }).ToList<object>();
+
+            var collectionPage = new ActivityPubCollectionPage
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = $"{outboxUrl}?page={page.Value}",
+                Type = "OrderedCollectionPage",
+                TotalItems = totalItems,
+                PartOf = outboxUrl,
+                OrderedItems = items,
+                Next = skip + pageSize < totalItems ? $"{outboxUrl}?page={page.Value + 1}" : null,
+                Prev = page.Value > 1 ? $"{outboxUrl}?page={page.Value - 1}" : null
+            };
+
+            return Ok(collectionPage);
+        }
+        else
         {
-            Context = ["https://www.w3.org/ns/activitystreams"],
-            Id = outboxUrl,
-            Type = "OrderedCollection",
-            TotalItems = items.Count,
-            First = $"{outboxUrl}?page=1"
-        };
+            var collection = new ActivityPubCollection
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = outboxUrl,
+                Type = "OrderedCollection",
+                TotalItems = totalItems,
+                First = $"{outboxUrl}?page=1"
+            };
 
-        return Ok(collection);
+            return Ok(collection);
+        }
     }
 
     [HttpGet("actors/{username}/followers")]
@@ -214,7 +260,7 @@ public class ActivityPubController(
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = followersUrl,
-                OrderedItems = actorUris
+                OrderedItems = actorUris.Cast<object>().ToList()
             };
 
             return Ok(collectionPage);
@@ -280,7 +326,7 @@ public class ActivityPubController(
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = followingUrl,
-                OrderedItems = actorUris
+                OrderedItems = actorUris.Cast<object>().ToList()
             };
 
             return Ok(collectionPage);
@@ -402,5 +448,7 @@ public class ActivityPubCollectionPage
     [JsonPropertyName("type")] public string? Type { get; set; }
     [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
     [JsonPropertyName("partOf")] public string? PartOf { get; set; }
-    [JsonPropertyName("orderedItems")] public List<string>? OrderedItems { get; set; }
+    [JsonPropertyName("orderedItems")] public List<object>? OrderedItems { get; set; }
+    [JsonPropertyName("next")] public string? Next { get; set; }
+    [JsonPropertyName("prev")] public string? Prev { get; set; }
 }
