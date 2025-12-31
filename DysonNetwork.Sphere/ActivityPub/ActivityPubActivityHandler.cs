@@ -257,7 +257,7 @@ public class ActivityPubActivityHandler(
 
         var objectType = GetStringValue(objectDict, "type");
         var objectUri = GetStringValue(objectDict, "object");
-        
+
         return objectType switch
         {
             "Follow" => await UndoFollowAsync(actorUri, objectUri),
@@ -564,6 +564,23 @@ public class ActivityPubActivityHandler(
         };
     }
 
+    private static int? TryGetIntValue(Dictionary<string, object> dict, string key)
+    {
+        var value = dict.GetValueOrDefault(key);
+        if (value == null)
+            return null;
+
+        return value switch
+        {
+            int i => i,
+            long l => (int)l,
+            JsonElement { ValueKind: JsonValueKind.Number } element => element.TryGetInt32(out var result)
+                ? result
+                : (int?)element.GetDouble(),
+            _ => null
+        };
+    }
+
     private static Dictionary<string, object>? ConvertToDictionary(object? value)
     {
         if (value == null)
@@ -579,6 +596,7 @@ public class ActivityPubActivityHandler(
             {
                 result[property.Name] = ConvertJsonElementToObject(property.Value);
             }
+
             return result;
         }
 
@@ -616,45 +634,57 @@ public class ActivityPubActivityHandler(
 
     private static List<SnCloudFileReferenceObject>? ParseAttachments(object? value)
     {
-        if (value is JsonElement { ValueKind: JsonValueKind.Array } element)
-        {
-            return element.EnumerateArray()
-                .Select(attachment => new SnCloudFileReferenceObject
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    Name = attachment.GetProperty("name").GetString() ?? string.Empty,
-                    Url = attachment.GetProperty("url").GetString(),
-                    MimeType = attachment.GetProperty("mediaType").GetString(),
-                    Width = attachment.GetProperty("width").GetInt32(),
-                    Height = attachment.GetProperty("height").GetInt32(),
-                    Blurhash = attachment.GetProperty("blurhash").GetString(),
-                    FileMeta = new Dictionary<string, object?>(),
-                    UserMeta = new Dictionary<string, object?>(),
-                    Size = 0,
-                    CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-                    UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                })
-                .ToList();
-        }
+        if (value == null)
+            return null;
 
-        return null;
+        var attachments = value switch
+        {
+            JsonElement { ValueKind: JsonValueKind.Array } element
+                => element.EnumerateArray().Select(ConvertJsonElementToObject).ToList(),
+            List<object> list => list,
+            _ => null
+        };
+
+        return attachments?.OfType<Dictionary<string, object>>()
+            .Select(dict => new SnCloudFileReferenceObject
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = GetStringValue(dict, "name") ?? string.Empty,
+                Url = GetStringValue(dict, "url"),
+                MimeType = GetStringValue(dict, "mediaType"),
+                Width = TryGetIntValue(dict, "width"),
+                Height = TryGetIntValue(dict, "height"),
+                Blurhash = GetStringValue(dict, "blurhash"),
+                FileMeta = new Dictionary<string, object?>(),
+                UserMeta = new Dictionary<string, object?>(),
+                Size = 0,
+                CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+            })
+            .ToList();
     }
 
     private static List<ContentMention>? ParseMentions(object? value)
     {
-        if (value is JsonElement { ValueKind: JsonValueKind.Array } element)
-        {
-            return element.EnumerateArray()
-                .Where(e => e.GetProperty("type").GetString() == "Mention")
-                .Select(mention => new ContentMention
-                {
-                    Username = mention.GetProperty("name").GetString(),
-                    ActorUri = mention.GetProperty("href").GetString()
-                })
-                .ToList();
-        }
+        if (value == null)
+            return null;
 
-        return null;
+        var tags = value switch
+        {
+            JsonElement { ValueKind: JsonValueKind.Array } element
+                => element.EnumerateArray().Select(ConvertJsonElementToObject).ToList(),
+            List<object> list => list,
+            _ => null
+        };
+
+        return tags?.Where(tag => tag is Dictionary<string, object> dict && GetStringValue(dict, "type") == "Mention")
+            .Select(tag => (Dictionary<string, object>)tag)
+            .Select(dict => new ContentMention
+            {
+                Username = GetStringValue(dict, "name"),
+                ActorUri = GetStringValue(dict, "href")
+            })
+            .ToList();
     }
 
     private static Dictionary<string, object> BuildMetadataFromActivity(Dictionary<string, object> objectDict)
