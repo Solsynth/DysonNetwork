@@ -70,31 +70,40 @@ public class ActivityPubActivityHandler(
         
         logger.LogInformation("Signature verified successfully. Handling {Type} from {ActorUri}", 
             activityType, actorUri);
-        
-        switch (activityType)
+
+        try
         {
-            case "Follow":
-                return await HandleFollowAsync(actorUri, activity);
-            case "Accept":
-                return await HandleAcceptAsync(actorUri, activity);
-            case "Reject":
-                return await HandleRejectAsync(actorUri, activity);
-            case "Undo":
-                return await HandleUndoAsync(actorUri, activity);
-            case "Create":
-                return await HandleCreateAsync(actorUri, activity);
-            case "Like":
-                return await HandleLikeAsync(actorUri, activity);
-            case "Announce":
-                return await HandleAnnounceAsync(actorUri, activity);
-            case "Delete":
-                return await HandleDeleteAsync(actorUri, activity);
-            case "Update":
-                return await HandleUpdateAsync(actorUri, activity);
-            default:
-                logger.LogWarning("Unsupported activity type: {Type}. Full activity: {Activity}", 
-                    activityType, JsonSerializer.Serialize(activity));
-                return false;
+            switch (activityType)
+            {
+                case "Follow":
+                    return await HandleFollowAsync(actorUri, activity);
+                case "Accept":
+                    return await HandleAcceptAsync(actorUri, activity);
+                case "Reject":
+                    return await HandleRejectAsync(actorUri, activity);
+                case "Undo":
+                    return await HandleUndoAsync(actorUri, activity);
+                case "Create":
+                    return await HandleCreateAsync(actorUri, activity);
+                case "Like":
+                    return await HandleLikeAsync(actorUri, activity);
+                case "Announce":
+                    return await HandleAnnounceAsync(actorUri, activity);
+                case "Delete":
+                    return await HandleDeleteAsync(actorUri, activity);
+                case "Update":
+                    return await HandleUpdateAsync(actorUri, activity);
+                default:
+                    logger.LogWarning("Unsupported activity type: {Type}. Full activity: {Activity}",
+                        activityType, JsonSerializer.Serialize(activity));
+                    return false;
+            }
+        }
+        catch (InvalidOperationException err)
+        {
+            logger.LogError("Failed to handle activity: {Type}, due to {Message}. Full activity: {Activity}",
+                activityType, err.Message, JsonSerializer.Serialize(activity));
+            return false;
         }
     }
 
@@ -252,8 +261,6 @@ public class ActivityPubActivityHandler(
     private async Task<bool> HandleUndoAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectValue = activity.GetValueOrDefault("object");
-        if (objectValue == null)
-            return false;
 
         if (objectValue is not Dictionary<string, object> objectDict) return false;
         var objectType = objectDict.GetValueOrDefault("type")?.ToString();
@@ -262,7 +269,7 @@ public class ActivityPubActivityHandler(
             "Follow" => await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
             "Like" => await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
             "Announce" => await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
-            _ => false
+            _ => throw new InvalidOperationException($"Unhandled undo operation for {objectType}")
         };
     }
 
