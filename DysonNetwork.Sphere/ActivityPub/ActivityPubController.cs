@@ -142,7 +142,6 @@ public class ActivityPubController(
         var outboxUrl = $"{actorUrl}/outbox";
 
         var postsQuery = db.Posts
-            .Include(p => p.Attachments)
             .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public);
 
         var totalItems = await postsQuery.CountAsync();
