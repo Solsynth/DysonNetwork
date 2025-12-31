@@ -56,8 +56,8 @@ public class ActivityPubActivityHandler(
         var activityId = activity.GetValueOrDefault("id")?.ToString();
         var actor = activity.GetValueOrDefault("actor")?.ToString();
 
-        logger.LogInformation("Activity details - Type: {Type}, ID: {Id}, Actor: {Actor}",
-            activityType, activityId, actor);
+        logger.LogDebug("Activity {ActivityType} details: {ActivityContent}",
+            activityType, JsonSerializer.Serialize(activity));
 
         if (!signatureService.VerifyIncomingRequest(context, out var actorUri))
         {
@@ -102,8 +102,8 @@ public class ActivityPubActivityHandler(
         }
         catch (InvalidOperationException err)
         {
-            logger.LogError("Failed to handle activity: {Type}, due to {Message}. Full activity: {Activity}",
-                activityType, err.Message, JsonSerializer.Serialize(activity));
+            logger.LogError("Failed to handle activity: {Type}, due to {Message}.",
+                activityType, err.Message);
             return false;
         }
     }
