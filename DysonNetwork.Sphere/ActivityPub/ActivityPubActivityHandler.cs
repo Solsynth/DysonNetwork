@@ -248,7 +248,12 @@ public class ActivityPubActivityHandler(
     {
         var objectValue = activity.GetValueOrDefault("object");
 
-        if (objectValue is not Dictionary<string, object> objectDict) return false;
+        if (objectValue is not Dictionary<string, object> objectDict)
+        {
+            logger.LogWarning("Unable undo operation, no object found... {Object}", JsonSerializer.Serialize(activity));
+            return false;
+        }
+        
         var objectType = objectDict.GetValueOrDefault("type")?.ToString();
         return objectType switch
         {
