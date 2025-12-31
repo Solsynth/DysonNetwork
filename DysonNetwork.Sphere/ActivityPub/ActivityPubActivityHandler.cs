@@ -11,15 +11,15 @@ using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class ActivityPubActivityProcessor(
+public class ActivityPubActivityHandler(
     AppDatabase db,
     ActivityPubSignatureService signatureService,
     ActivityPubDeliveryService deliveryService,
     ActivityPubDiscoveryService discoveryService,
-    ILogger<ActivityPubActivityProcessor> logger
+    ILogger<ActivityPubActivityHandler> logger
 )
 {
-    public async Task<bool> ProcessIncomingActivityAsync(
+    public async Task<bool> HandleIncomingActivityAsync(
         HttpContext context,
         string username,
         Dictionary<string, object> activity
@@ -45,29 +45,29 @@ public class ActivityPubActivityProcessor(
         if (string.IsNullOrEmpty(actorUri))
             return false;
         
-        logger.LogInformation("Signature verified successfully. Processing {Type} from {ActorUri}", 
+        logger.LogInformation("Signature verified successfully. Handling {Type} from {ActorUri}", 
             activityType, actorUri);
         
         switch (activityType)
         {
             case "Follow":
-                return await ProcessFollowAsync(actorUri, activity);
+                return await HandleFollowAsync(actorUri, activity);
             case "Accept":
-                return await ProcessAcceptAsync(actorUri, activity);
+                return await HandleAcceptAsync(actorUri, activity);
             case "Reject":
-                return await ProcessRejectAsync(actorUri, activity);
+                return await HandleRejectAsync(actorUri, activity);
             case "Undo":
-                return await ProcessUndoAsync(actorUri, activity);
+                return await HandleUndoAsync(actorUri, activity);
             case "Create":
-                return await ProcessCreateAsync(actorUri, activity);
+                return await HandleCreateAsync(actorUri, activity);
             case "Like":
-                return await ProcessLikeAsync(actorUri, activity);
+                return await HandleLikeAsync(actorUri, activity);
             case "Announce":
-                return await ProcessAnnounceAsync(actorUri, activity);
+                return await HandleAnnounceAsync(actorUri, activity);
             case "Delete":
-                return await ProcessDeleteAsync(actorUri, activity);
+                return await HandleDeleteAsync(actorUri, activity);
             case "Update":
-                return await ProcessUpdateAsync(actorUri, activity);
+                return await HandleUpdateAsync(actorUri, activity);
             default:
                 logger.LogWarning("Unsupported activity type: {Type}. Full activity: {Activity}", 
                     activityType, JsonSerializer.Serialize(activity));
@@ -75,12 +75,12 @@ public class ActivityPubActivityProcessor(
         }
     }
 
-    private async Task<bool> ProcessFollowAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleFollowAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         var activityId = activity.GetValueOrDefault("id")?.ToString();
         
-        logger.LogInformation("Processing Follow. Actor: {ActorUri}, Target: {ObjectUri}, ActivityId: {Id}", 
+        logger.LogInformation("Handling Follow. Actor: {ActorUri}, Target: {ObjectUri}, ActivityId: {Id}", 
             actorUri, objectUri, activityId);
         
         if (string.IsNullOrEmpty(objectUri))
@@ -116,32 +116,30 @@ public class ActivityPubActivityProcessor(
                 r.ActorId == actor.Id &&
                 r.TargetActorId == localActor.Id);
         
-        if (existingRelationship is { State: RelationshipState.Accepted })
+        switch (existingRelationship)
         {
-            logger.LogInformation("Follow relationship already exists and is accepted. ActorId: {ActorId}, PublisherId: {PublisherId}", 
-                actor.Id, targetPublisher.Id);
-            return true;
-        }
-        
-        if (existingRelationship == null)
-        {
-            existingRelationship = new SnFediverseRelationship
-            {
-                ActorId = actor.Id,
-                TargetActorId = localActor.Id,
-                State = RelationshipState.Accepted,
-                FollowedBackAt = SystemClock.Instance.GetCurrentInstant()
-            };
-            db.FediverseRelationships.Add(existingRelationship);
-            logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}",
-                actor.Id, localActor.Id);
-        }
-        else
-        {
-            existingRelationship.State = RelationshipState.Accepted;
-            existingRelationship.FollowedBackAt = SystemClock.Instance.GetCurrentInstant();
-            logger.LogInformation("Updating existing relationship. CurrentState: {State}, NewState: Accepted",
-                existingRelationship.State);
+            case { State: RelationshipState.Accepted }:
+                logger.LogInformation("Follow relationship already exists and is accepted. ActorId: {ActorId}, PublisherId: {PublisherId}", 
+                    actor.Id, targetPublisher.Id);
+                return true;
+            case null:
+                existingRelationship = new SnFediverseRelationship
+                {
+                    ActorId = actor.Id,
+                    TargetActorId = localActor.Id,
+                    State = RelationshipState.Accepted,
+                    FollowedBackAt = SystemClock.Instance.GetCurrentInstant()
+                };
+                db.FediverseRelationships.Add(existingRelationship);
+                logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}",
+                    actor.Id, localActor.Id);
+                break;
+            default:
+                existingRelationship.State = RelationshipState.Accepted;
+                existingRelationship.FollowedBackAt = SystemClock.Instance.GetCurrentInstant();
+                logger.LogInformation("Updating existing relationship. CurrentState: {State}, NewState: Accepted",
+                    existingRelationship.State);
+                break;
         }
 
         await db.SaveChangesAsync();
@@ -152,12 +150,12 @@ public class ActivityPubActivityProcessor(
             activityId ?? ""
         );
 
-        logger.LogInformation("Processed follow from {Actor} to {Target}. RelationshipState: Accepted",
+        logger.LogInformation("Handleed follow from {Actor} to {Target}. RelationshipState: Accepted",
             actorUri, objectUri);
         return true;
     }
 
-    private async Task<bool> ProcessAcceptAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleAcceptAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
@@ -197,11 +195,11 @@ public class ActivityPubActivityProcessor(
 
         await db.SaveChangesAsync();
         
-        logger.LogInformation("Processed accept from {Actor}", actorUri);
+        logger.LogInformation("Handleed accept from {Actor}", actorUri);
         return true;
     }
 
-    private async Task<bool> ProcessRejectAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleRejectAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
@@ -224,11 +222,11 @@ public class ActivityPubActivityProcessor(
         
         await db.SaveChangesAsync();
         
-        logger.LogInformation("Processed reject from {Actor}", actorUri);
+        logger.LogInformation("Handleed reject from {Actor}", actorUri);
         return true;
     }
 
-    private async Task<bool> ProcessUndoAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleUndoAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectValue = activity.GetValueOrDefault("object");
         if (objectValue == null)
@@ -245,7 +243,7 @@ public class ActivityPubActivityProcessor(
         };
     }
 
-    private async Task<bool> ProcessCreateAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleCreateAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectValue = activity.GetValueOrDefault("object");
         if (objectValue is not Dictionary<string, object> objectDict)
@@ -301,7 +299,7 @@ public class ActivityPubActivityProcessor(
         return true;
     }
 
-    private async Task<bool> ProcessLikeAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleLikeAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
@@ -347,11 +345,11 @@ public class ActivityPubActivityProcessor(
         
         await db.SaveChangesAsync();
         
-        logger.LogInformation("Processed like from {Actor}", actorUri);
+        logger.LogInformation("Handleed like from {Actor}", actorUri);
         return true;
     }
 
-    private async Task<bool> ProcessAnnounceAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleAnnounceAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
@@ -367,11 +365,11 @@ public class ActivityPubActivityProcessor(
             await db.SaveChangesAsync();
         }
         
-        logger.LogInformation("Processed announce from {Actor}", actorUri);
+        logger.LogInformation("Handleed announce from {Actor}", actorUri);
         return true;
     }
 
-    private async Task<bool> ProcessDeleteAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleDeleteAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
@@ -390,7 +388,7 @@ public class ActivityPubActivityProcessor(
         return true;
     }
 
-    private async Task<bool> ProcessUpdateAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleUpdateAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))

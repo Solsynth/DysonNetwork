@@ -105,7 +105,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AutocompletionService>();
         services.AddScoped<ActivityPubKeyService>();
         services.AddScoped<ActivityPubSignatureService>();
-        services.AddScoped<ActivityPubActivityProcessor>();
+        services.AddScoped<ActivityPubActivityHandler>();
         services.AddScoped<ActivityPubDeliveryService>();
         services.AddScoped<ActivityPubDiscoveryService>();
         services.AddScoped<ActivityPubFollowController>();

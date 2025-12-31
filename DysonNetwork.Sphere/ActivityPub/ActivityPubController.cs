@@ -14,7 +14,7 @@ public class ActivityPubController(
     IConfiguration configuration,
     ILogger<ActivityPubController> logger,
     ActivityPubSignatureService signatureService,
-    ActivityPubActivityProcessor activityProcessor,
+    ActivityPubActivityHandler activityHandler,
     ActivityPubKeyService keyService
 ) : ControllerBase
 {
@@ -106,7 +106,7 @@ public class ActivityPubController(
             return Unauthorized(new { error = "Invalid signature" });
         }
 
-        var success = await activityProcessor.ProcessIncomingActivityAsync(HttpContext, username, activity);
+        var success = await activityHandler.HandleIncomingActivityAsync(HttpContext, username, activity);
 
         if (!success)
         {
