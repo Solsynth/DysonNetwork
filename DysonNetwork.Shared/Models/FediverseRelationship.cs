@@ -16,10 +16,7 @@ public class SnFediverseRelationship : ModelBase
     public SnFediverseActor TargetActor { get; set; } = null!;
     
     public RelationshipState State { get; set; } = RelationshipState.Pending;
-    
-    public bool IsFollowing { get; set; } = false;
-    public bool IsFollowedBy { get; set; } = false;
-    
+
     public bool IsMuting { get; set; } = false;
     public bool IsBlocking { get; set; } = false;
     

@@ -129,13 +129,11 @@ public class ActivityPubActivityProcessor(
             {
                 ActorId = actor.Id,
                 TargetActorId = localActor.Id,
-                State = RelationshipState.Pending,
-                IsFollowing = false,
-                IsFollowedBy = true
+                State = RelationshipState.Pending
             };
             db.FediverseRelationships.Add(existingRelationship);
-            logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}", 
-                actor.Id, actor.Id);
+            logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}",
+                actor.Id, localActor.Id);
         }
         else
         {
@@ -184,8 +182,6 @@ public class ActivityPubActivityProcessor(
                 ActorId = localActor.Id,
                 TargetActorId = actor.Id,
                 State = RelationshipState.Accepted,
-                IsFollowing = true,
-                IsFollowedBy = false,
                 FollowedAt = SystemClock.Instance.GetCurrentInstant()
             };
             db.FediverseRelationships.Add(relationship);
@@ -193,7 +189,6 @@ public class ActivityPubActivityProcessor(
         else
         {
             relationship.State = RelationshipState.Accepted;
-            relationship.IsFollowing = true;
             relationship.FollowedAt = SystemClock.Instance.GetCurrentInstant();
         }
 
@@ -222,7 +217,6 @@ public class ActivityPubActivityProcessor(
         }
         
         relationship.State = RelationshipState.Rejected;
-        relationship.IsFollowing = false;
         relationship.RejectReason = "Remote rejected follow";
         
         await db.SaveChangesAsync();

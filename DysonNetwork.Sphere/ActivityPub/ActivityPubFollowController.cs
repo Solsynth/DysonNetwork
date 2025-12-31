@@ -149,7 +149,6 @@ public class ActivityPubFollowController(
         var totalCount = await db.FediverseRelationships
             .CountAsync(r =>
                 r.Actor.PublisherId == publisher.Id &&
-                r.IsFollowing &&
                 r.State == RelationshipState.Accepted);
 
         var actors = await db.FediverseRelationships
@@ -157,7 +156,6 @@ public class ActivityPubFollowController(
             .ThenInclude(a => a.Instance)
             .Where(r =>
                 r.Actor.PublisherId == publisher.Id &&
-                r.IsFollowing &&
                 r.State == RelationshipState.Accepted)
             .OrderByDescending(r => r.FollowedAt)
             .Skip(offset)
@@ -194,16 +192,14 @@ public class ActivityPubFollowController(
 
         var totalCount = await db.FediverseRelationships
             .CountAsync(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.IsFollowedBy &&
+                r.TargetActor.PublisherId == publisher.Id &&
                 r.State == RelationshipState.Accepted);
 
         var actors = await db.FediverseRelationships
             .Include(r => r.Actor)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.IsFollowedBy &&
+                r.TargetActor.PublisherId == publisher.Id &&
                 r.State == RelationshipState.Accepted)
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
             .Skip(offset)
@@ -265,13 +261,11 @@ public class ActivityPubFollowController(
         var followingCount = await db.FediverseRelationships
             .CountAsync(r =>
                 r.Actor.PublisherId == publisher.Id &&
-                r.IsFollowing &&
                 r.State == RelationshipState.Accepted);
 
         var followersCount = await db.FediverseRelationships
             .CountAsync(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.IsFollowedBy &&
+                r.TargetActor.PublisherId == publisher.Id &&
                 r.State == RelationshipState.Accepted);
 
         var pendingCount = await db.FediverseRelationships
@@ -296,7 +290,7 @@ public class ActivityPubFollowController(
             {
                 Actor = r.TargetActor,
                 State = r.State,
-                IsFollowing = r.IsFollowing,
+                IsFollowing = true,
                 FollowedAt = r.FollowedAt,
                 TargetActorUri = r.TargetActor.Uri,
                 Username = r.TargetActor.Username,
@@ -443,7 +437,6 @@ public class ActivityPubFollowController(
             .Where(r =>
                 r.ActorId == userActor.Id &&
                 actorIds.Contains(r.TargetActorId) &&
-                r.IsFollowing &&
                 r.State == RelationshipState.Accepted)
             .Select(r => r.TargetActorId)
             .ToListAsync();

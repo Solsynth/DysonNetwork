@@ -99,15 +99,12 @@ public class ActivityPubDeliveryService(
             {
                 ActorId = localActor.Id,
                 TargetActorId = targetActor.Id,
-                State = RelationshipState.Pending,
-                IsFollowing = true,
-                IsFollowedBy = false
+                State = RelationshipState.Pending
             };
             db.FediverseRelationships.Add(existingRelationship);
         }
         else
         {
-            existingRelationship.IsFollowing = true;
             existingRelationship.State = RelationshipState.Pending;
         }
 
@@ -645,18 +642,23 @@ public class ActivityPubDeliveryService(
 
     private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync()
     {
+        var localActorIds = await db.FediverseActors
+            .Where(a => a.PublisherId != null)
+            .Select(a => a.Id)
+            .ToListAsync();
+
         return await db.FediverseRelationships
             .Include(r => r.Actor)
-            .Where(r => r.IsFollowedBy)
+            .Where(r => r.State == RelationshipState.Accepted && localActorIds.Contains(r.TargetActorId))
             .Select(r => r.Actor)
             .ToListAsync();
     }
-    
+
     private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync(Guid actorId)
     {
         return await db.FediverseRelationships
             .Include(r => r.Actor)
-            .Where(r => r.TargetActorId == actorId && r.IsFollowedBy)
+            .Where(r => r.TargetActorId == actorId && r.State == RelationshipState.Accepted)
             .Select(r => r.Actor)
             .ToListAsync();
     }

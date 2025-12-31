@@ -191,7 +191,7 @@ public class ActivityPubController(
 
         var relationshipsQuery = db.FediverseRelationships
             .Include(r => r.Actor)
-            .Where(r => r.Actor.PublisherId == publisher.Id && r.IsFollowedBy);
+            .Where(r => r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted);
 
         var totalItems = await relationshipsQuery.CountAsync();
 
@@ -257,7 +257,7 @@ public class ActivityPubController(
 
         var relationshipsQuery = db.FediverseRelationships
             .Include(r => r.TargetActor)
-            .Where(r => r.Actor.PublisherId == publisher.Id && r.IsFollowing);
+            .Where(r => r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted);
 
         var totalItems = await relationshipsQuery.CountAsync();
 

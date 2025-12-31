@@ -789,7 +789,7 @@ public class PublisherService(
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
 
         var followerCount = await db.FediverseRelationships
-            .Where(r => r.Actor.PublisherId == publisherId && r.IsFollowedBy)
+            .Where(r => r.TargetActor.PublisherId == publisherId && r.State == RelationshipState.Accepted)
             .CountAsync();
 
         var publisher = await db.Publishers
