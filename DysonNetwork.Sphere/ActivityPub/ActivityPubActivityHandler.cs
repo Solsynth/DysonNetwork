@@ -24,7 +24,9 @@ public class ActivityPubActivityHandler(
 
     private async Task<SnPost?> GetPostByUriAsync(string objectUri)
     {
-        var uri = new Uri(objectUri);
+        if (!Uri.TryCreate(objectUri, UriKind.Absolute, out var uri))
+            return await db.Posts.FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
+        
         var domain = uri.Host;
 
         // Remote post
@@ -91,7 +93,7 @@ public class ActivityPubActivityHandler(
                 case "Announce":
                     return await HandleAnnounceAsync(actorUri, activity);
                 case "Delete":
-                    return await HandleDeleteAsync(actorUri, activity);
+                    return await HandleDeleteAsync(activity);
                 case "Update":
                     return await HandleUpdateAsync(actorUri, activity);
                 default:
@@ -381,7 +383,6 @@ public class ActivityPubActivityHandler(
         if (string.IsNullOrEmpty(objectUri))
             return false;
 
-        var actor = await GetOrCreateActorAsync(actorUri);
         var content = await GetPostByUriAsync(objectUri);
 
         if (content != null)
@@ -394,38 +395,68 @@ public class ActivityPubActivityHandler(
         return true;
     }
 
-    private async Task<bool> HandleDeleteAsync(string actorUri, Dictionary<string, object> activity)
+    private async Task<bool> HandleDeleteAsync(Dictionary<string, object> activity)
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
 
         var content = await GetPostByUriAsync(objectUri);
-
         if (content == null) return true;
-        content.DeletedAt = SystemClock.Instance.GetCurrentInstant();
-        await db.SaveChangesAsync();
-        logger.LogInformation("Deleted federated content: {Uri}", objectUri);
 
+        db.Remove(content);
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Handled federated Delete (tombstoned): {Uri}", objectUri);
         return true;
     }
 
     private async Task<bool> HandleUpdateAsync(string actorUri, Dictionary<string, object> activity)
     {
-        var objectUri = activity.GetValueOrDefault("object")?.ToString();
-        if (string.IsNullOrEmpty(objectUri))
+        var objectValue = activity.GetValueOrDefault("object");
+        var objectDict = ConvertToDictionary(objectValue);
+
+        if (objectDict == null)
             return false;
 
-        var content = await GetPostByUriAsync(objectUri);
+        var objectUri = GetStringValue(objectDict, "id");
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+        
+        var actor = await GetOrCreateActorAsync(actorUri);
 
-        if (content != null)
+        var content = await GetPostByUriAsync(objectUri);
+        if (content == null)
         {
-            content.EditedAt = SystemClock.Instance.GetCurrentInstant();
-            content.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
-            await db.SaveChangesAsync();
-            logger.LogInformation("Updated federated content: {Uri}", objectUri);
+            content = new SnPost
+            {
+                FediverseUri = objectUri,
+                FediverseType = FediverseContentType.FediverseNote,
+                Type = PostType.Moment,
+                Visibility = PostVisibility.Public,
+                ActorId = actor.Id
+            };
+            db.Posts.Add(content);
         }
 
+        content.Title = GetStringValue(objectDict, "name");
+        content.Description = GetStringValue(objectDict, "summary");
+        content.Content = GetStringValue(objectDict, "content");
+        content.ContentType = PostContentType.Html;
+
+        content.PublishedAt = ParseInstant(objectDict.GetValueOrDefault("published")) ?? content.PublishedAt;
+        content.EditedAt = ParseInstant(objectDict.GetValueOrDefault("updated")) ??
+                           SystemClock.Instance.GetCurrentInstant();
+
+        content.Mentions = ParseMentions(objectDict.GetValueOrDefault("tag")) ??
+                           new List<Shared.Models.ContentMention>();
+        content.Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")) ??
+                              new List<Shared.Models.SnCloudFileReferenceObject>();
+        content.Metadata = BuildMetadataFromActivity(objectDict);
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Handled federated Update: {Uri}", objectUri);
         return true;
     }
 
