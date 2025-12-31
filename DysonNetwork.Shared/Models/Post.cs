@@ -107,7 +107,6 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public List<ContentMention>? Mentions { get; set; }
 
     public int BoostCount { get; set; }
-    public int LikeCount { get; set; }
 
     public Guid? ActorId { get; set; }
     public SnFediverseActor? Actor { get; set; }
@@ -232,7 +231,6 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
         proto.RepliesCount = RepliesCount;
         proto.BoostCount = BoostCount;
-        proto.LikeCount = LikeCount;
 
         if (ActorId.HasValue)
             proto.ActorId = ActorId.Value.ToString();
@@ -349,7 +347,6 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
         post.RepliesCount = proto.RepliesCount;
         post.BoostCount = proto.BoostCount;
-        post.LikeCount = proto.LikeCount;
 
         if (!string.IsNullOrEmpty(proto.ActorId))
             post.ActorId = Guid.Parse(proto.ActorId);

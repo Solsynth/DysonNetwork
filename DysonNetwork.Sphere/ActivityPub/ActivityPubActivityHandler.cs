@@ -16,9 +16,32 @@ public class ActivityPubActivityHandler(
     ActivityPubSignatureService signatureService,
     ActivityPubDeliveryService deliveryService,
     ActivityPubDiscoveryService discoveryService,
-    ILogger<ActivityPubActivityHandler> logger
+    ILogger<ActivityPubActivityHandler> logger,
+    IConfiguration configuration
 )
 {
+    private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+
+    private async Task<SnPost?> GetPostByUriAsync(string objectUri)
+    {
+        var uri = new Uri(objectUri);
+        var domain = uri.Host;
+        
+        // Remote post
+        if (domain != Domain) return await db.Posts.FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
+        
+        // Local post, extract ID from path like /posts/{guid}
+        var path = uri.AbsolutePath.Trim('/');
+        var segments = path.Split('/');
+        if (segments is not [.., "posts", _]) return null;
+        var idStr = segments[^1];
+        if (Guid.TryParse(idStr, out var id))
+        {
+            return await db.Posts.FirstOrDefaultAsync(p => p.Id == id);
+        }
+        return null;
+    }
+    
     public async Task<bool> HandleIncomingActivityAsync(
         HttpContext context,
         string username,
@@ -237,8 +260,8 @@ public class ActivityPubActivityHandler(
         return objectType switch
         {
             "Follow" => await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
-            "Like" => await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString()),
-            "Announce" => await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString()),
+            "Like" => await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
+            "Announce" => await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
             _ => false
         };
     }
@@ -287,8 +310,6 @@ public class ActivityPubActivityHandler(
             Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")) ?? [],
             Type = objectType == "Article" ? PostType.Article : PostType.Moment,
             Visibility = PostVisibility.Public,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
             Metadata = BuildMetadataFromActivity(objectDict)
         };
         
@@ -304,11 +325,10 @@ public class ActivityPubActivityHandler(
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
-        var content = await db.Posts
-            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
-        
+        var content = await GetPostByUriAsync(objectUri);
+
         if (content == null)
         {
             logger.LogWarning("Content not found for like: {Uri}", objectUri);
@@ -319,7 +339,7 @@ public class ActivityPubActivityHandler(
             .FirstOrDefaultAsync(r =>
                 r.ActorId == actor.Id &&
                 r.PostId == content.Id &&
-                r.Symbol == "❤️");
+                r.Symbol == "thumb_up");
         
         if (existingReaction != null)
         {
@@ -330,7 +350,7 @@ public class ActivityPubActivityHandler(
         var reaction = new SnPostReaction
         {
             FediverseUri = activity.GetValueOrDefault("id")?.ToString() ?? Guid.NewGuid().ToString(),
-            Symbol = "❤️",
+            Symbol = "thumb_up",
             Attitude = PostReactionAttitude.Positive,
             IsLocal = false,
             PostId = content.Id,
@@ -341,7 +361,7 @@ public class ActivityPubActivityHandler(
         };
         
         db.PostReactions.Add(reaction);
-        content.LikeCount++;
+        content.Upvotes++;
         
         await db.SaveChangesAsync();
         
@@ -354,17 +374,16 @@ public class ActivityPubActivityHandler(
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
-        var content = await db.Posts
-            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
-        
+        var content = await GetPostByUriAsync(objectUri);
+
         if (content != null)
         {
             content.BoostCount++;
             await db.SaveChangesAsync();
         }
-        
+
         logger.LogInformation("Handled announce from {Actor}", actorUri);
         return true;
     }
@@ -374,17 +393,14 @@ public class ActivityPubActivityHandler(
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
-        var content = await db.Posts
-            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
-        
-        if (content != null)
-        {
-            content.DeletedAt = SystemClock.Instance.GetCurrentInstant();
-            await db.SaveChangesAsync();
-            logger.LogInformation("Deleted federated content: {Uri}", objectUri);
-        }
-        
+
+        var content = await GetPostByUriAsync(objectUri);
+
+        if (content == null) return true;
+        content.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        logger.LogInformation("Deleted federated content: {Uri}", objectUri);
+
         return true;
     }
 
@@ -393,10 +409,9 @@ public class ActivityPubActivityHandler(
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
-        var content = await db.Posts
-            .FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
-        
+
+        var content = await GetPostByUriAsync(objectUri);
+
         if (content != null)
         {
             content.EditedAt = SystemClock.Instance.GetCurrentInstant();
@@ -404,7 +419,7 @@ public class ActivityPubActivityHandler(
             await db.SaveChangesAsync();
             logger.LogInformation("Updated federated content: {Uri}", objectUri);
         }
-        
+
         return true;
     }
 
@@ -430,39 +445,46 @@ public class ActivityPubActivityHandler(
         return true;
     }
 
-    private async Task<bool> UndoLikeAsync(string actorUri, string? activityId)
+    private async Task<bool> UndoLikeAsync(string actorUri, string? objectUri)
     {
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+
         var actor = await GetOrCreateActorAsync(actorUri);
-        
-        var reactions = await db.PostReactions
-            .Where(r => r.ActorId == actor.Id && r.Symbol == "❤️")
-            .ToListAsync();
-        
-        foreach (var reaction in reactions)
+        var content = await GetPostByUriAsync(objectUri);
+
+        if (content == null)
+            return false;
+
+        var reaction = await db.PostReactions
+            .FirstOrDefaultAsync(r =>
+                r.ActorId == actor.Id &&
+                r.PostId == content.Id &&
+                r.Symbol == "thumb_up");
+
+        if (reaction != null)
         {
-            var content = await db.Posts.FindAsync(reaction.PostId);
-            if (content != null)
-            {
-                content.LikeCount--;
-            }
             db.PostReactions.Remove(reaction);
+            content.Upvotes--;
+            await db.SaveChangesAsync();
         }
-        
-        await db.SaveChangesAsync();
+
         return true;
     }
 
-    private async Task<bool> UndoAnnounceAsync(string actorUri, string? activityId)
+    private async Task<bool> UndoAnnounceAsync(string actorUri, string? objectUri)
     {
-        var content = await db.Posts
-            .FirstOrDefaultAsync(c => c.FediverseUri == activityId);
-        
+        if (string.IsNullOrEmpty(objectUri))
+            return false;
+
+        var content = await GetPostByUriAsync(objectUri);
+
         if (content != null)
         {
             content.BoostCount = Math.Max(0, content.BoostCount - 1);
             await db.SaveChangesAsync();
         }
-        
+
         return true;
     }
 

@@ -143,7 +143,6 @@ message Post {
   optional PostContentType content_type = 44;
   repeated ContentMention mentions = 48;
   int32 boost_count = 50;
-  int32 like_count = 51;
   optional string actor_id = 53;
 
   repeated PostAward awards = 33;
