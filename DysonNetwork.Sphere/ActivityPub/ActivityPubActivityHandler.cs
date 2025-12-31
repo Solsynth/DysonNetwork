@@ -150,7 +150,7 @@ public class ActivityPubActivityHandler(
             activityId ?? ""
         );
 
-        logger.LogInformation("Handleed follow from {Actor} to {Target}. RelationshipState: Accepted",
+        logger.LogInformation("Handled follow from {Actor} to {Target}. RelationshipState: Accepted",
             actorUri, objectUri);
         return true;
     }
@@ -195,7 +195,7 @@ public class ActivityPubActivityHandler(
 
         await db.SaveChangesAsync();
         
-        logger.LogInformation("Handleed accept from {Actor}", actorUri);
+        logger.LogInformation("Handled accept from {Actor}", actorUri);
         return true;
     }
 
@@ -222,7 +222,7 @@ public class ActivityPubActivityHandler(
         
         await db.SaveChangesAsync();
         
-        logger.LogInformation("Handleed reject from {Actor}", actorUri);
+        logger.LogInformation("Handled reject from {Actor}", actorUri);
         return true;
     }
 
@@ -345,7 +345,7 @@ public class ActivityPubActivityHandler(
         
         await db.SaveChangesAsync();
         
-        logger.LogInformation("Handleed like from {Actor}", actorUri);
+        logger.LogInformation("Handled like from {Actor}", actorUri);
         return true;
     }
 
@@ -365,7 +365,7 @@ public class ActivityPubActivityHandler(
             await db.SaveChangesAsync();
         }
         
-        logger.LogInformation("Handleed announce from {Actor}", actorUri);
+        logger.LogInformation("Handled announce from {Actor}", actorUri);
         return true;
     }
 

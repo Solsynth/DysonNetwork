@@ -41,6 +41,12 @@ public class WebFingerController(
         if (publisher == null)
             return NotFound();
 
+        var hasActor = await db.FediverseActors
+            .AnyAsync(a => a.PublisherId == publisher.Id);
+
+        if (!hasActor)
+            return NotFound();
+
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
 
         var response = new WebFingerResponse
