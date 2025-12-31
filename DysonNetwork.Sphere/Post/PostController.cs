@@ -1,20 +1,10 @@
-using System.ComponentModel.DataAnnotations;
-using System.Globalization;
-using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Poll;
-using DysonNetwork.Sphere.Wallet;
-using DysonNetwork.Sphere.WebReader;
-using Grpc.Core;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
-using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Post;
@@ -72,7 +62,8 @@ public class PostController(
         [FromQuery(Name = "order")] string? order = null,
         [FromQuery(Name = "orderDesc")] bool orderDesc = true,
         [FromQuery(Name = "periodStart")] int? periodStartTime = null,
-        [FromQuery(Name = "periodEnd")] int? periodEndTime = null
+        [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
+        [FromQuery] bool showFediverse = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -124,6 +115,8 @@ public class PostController(
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
+        if (!showFediverse)
+            query = query.Where(p => p.FediverseUri == null);
 
         if (realm != null)
             query = query.Where(p => p.RealmId == realm.Id);
@@ -255,9 +248,9 @@ public class PostController(
             ? []
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
-        var post = await db
-            .Posts.Include(e => e.Publisher)
-            .Where(e => e.Slug == slug && e.Publisher.Name == publisherName)
+        var post = await db.Posts
+            .Include(e => e.Publisher)
+            .Where(e => e.Slug == slug && e.Publisher != null && e.Publisher.Name == publisherName)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
