@@ -247,19 +247,22 @@ public class ActivityPubActivityHandler(
     private async Task<bool> HandleUndoAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectValue = activity.GetValueOrDefault("object");
+        var objectDict = ConvertToDictionary(objectValue);
 
-        if (objectValue is not Dictionary<string, object> objectDict)
+        if (objectDict == null)
         {
             logger.LogWarning("Unable undo operation, no object found... {Object}", JsonSerializer.Serialize(activity));
             return false;
         }
+
+        var objectType = GetStringValue(objectDict, "type");
+        var objectUri = GetStringValue(objectDict, "object");
         
-        var objectType = objectDict.GetValueOrDefault("type")?.ToString();
         return objectType switch
         {
-            "Follow" => await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
-            "Like" => await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
-            "Announce" => await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
+            "Follow" => await UndoFollowAsync(actorUri, objectUri),
+            "Like" => await UndoLikeAsync(actorUri, objectUri),
+            "Announce" => await UndoAnnounceAsync(actorUri, objectUri),
             _ => throw new InvalidOperationException($"Unhandled undo operation for {objectType}")
         };
     }
@@ -267,10 +270,12 @@ public class ActivityPubActivityHandler(
     private async Task<bool> HandleCreateAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectValue = activity.GetValueOrDefault("object");
-        if (objectValue is not Dictionary<string, object> objectDict)
+        var objectDict = ConvertToDictionary(objectValue);
+
+        if (objectDict == null)
             return false;
 
-        var objectType = objectDict.GetValueOrDefault("type")?.ToString();
+        var objectType = GetStringValue(objectDict, "type");
         if (objectType != "Note" && objectType != "Article")
         {
             logger.LogInformation("Skipping non-note content type: {Type}", objectType);
@@ -279,7 +284,7 @@ public class ActivityPubActivityHandler(
 
         var actor = await GetOrCreateActorAsync(actorUri);
 
-        var contentUri = objectDict.GetValueOrDefault("id")?.ToString();
+        var contentUri = GetStringValue(objectDict, "id");
         if (string.IsNullOrEmpty(contentUri))
             return false;
 
@@ -298,16 +303,16 @@ public class ActivityPubActivityHandler(
             FediverseType = objectType == "Article"
                 ? FediverseContentType.FediverseArticle
                 : FediverseContentType.FediverseNote,
-            Title = objectDict.GetValueOrDefault("name")?.ToString(),
-            Description = objectDict.GetValueOrDefault("summary")?.ToString(),
-            Content = objectDict.GetValueOrDefault("content")?.ToString(),
+            Title = GetStringValue(objectDict, "name"),
+            Description = GetStringValue(objectDict, "summary"),
+            Content = GetStringValue(objectDict, "content"),
             ContentType = objectDict.GetValueOrDefault("contentMap") != null
                 ? PostContentType.Html
                 : PostContentType.Markdown,
             PublishedAt = ParseInstant(objectDict.GetValueOrDefault("published")),
             EditedAt = ParseInstant(objectDict.GetValueOrDefault("updated")),
             ActorId = actor.Id,
-            Language = objectDict.GetValueOrDefault("language")?.ToString(),
+            Language = GetStringValue(objectDict, "language"),
             Mentions = ParseMentions(objectDict.GetValueOrDefault("tag")),
             Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")) ?? [],
             Type = objectType == "Article" ? PostType.Article : PostType.Moment,
@@ -543,6 +548,56 @@ public class ActivityPubActivityHandler(
     {
         var uriObj = new Uri(uri);
         return uriObj.Host;
+    }
+
+    private static string? GetStringValue(Dictionary<string, object> dict, string key)
+    {
+        var value = dict.GetValueOrDefault(key);
+        if (value == null)
+            return null;
+
+        return value switch
+        {
+            string str => str,
+            JsonElement element => element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString(),
+            _ => value.ToString()
+        };
+    }
+
+    private static Dictionary<string, object>? ConvertToDictionary(object? value)
+    {
+        if (value == null)
+            return null;
+
+        if (value is Dictionary<string, object> dict)
+            return dict;
+
+        if (value is JsonElement { ValueKind: JsonValueKind.Object } element)
+        {
+            var result = new Dictionary<string, object>();
+            foreach (var property in element.EnumerateObject())
+            {
+                result[property.Name] = ConvertJsonElementToObject(property.Value);
+            }
+            return result;
+        }
+
+        return null;
+    }
+
+    private static object ConvertJsonElementToObject(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? string.Empty,
+            JsonValueKind.Number => element.TryGetInt64(out var longValue) ? longValue : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null!,
+            JsonValueKind.Object => ConvertToDictionary(element) ?? new Dictionary<string, object>(),
+            JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElementToObject).ToList(),
+            _ => element.ToString()
+        };
     }
 
     private Instant? ParseInstant(object? value)
