@@ -769,7 +769,7 @@ public partial class PostService(
         });
     }
 
-    private async Task<List<SnPost>> LoadPublishersAndActors(List<SnPost> posts)
+    private async Task<List<SnPost>> LoadPubsAndActors(List<SnPost> posts)
     {
         var publisherIds = posts
             .SelectMany<SnPost, Guid?>(e =>
@@ -798,6 +798,7 @@ public partial class PostService(
             .ToDictionaryAsync(e => e.Id);
 
         var actors = await db.FediverseActors
+            .Include(e => e.Instance)
             .Where(e => actorIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
@@ -952,7 +953,7 @@ public partial class PostService(
     {
         if (posts.Count == 0) return posts;
 
-        posts = await LoadPublishersAndActors(posts);
+        posts = await LoadPubsAndActors(posts);
         posts = await LoadInteractive(posts, currentUser);
 
         if (truncate)
