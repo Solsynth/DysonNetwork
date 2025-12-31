@@ -61,15 +61,14 @@ public class ActivityPubDeliveryService(
         string targetActorUri
     )
     {
-        var publisher = await db.Publishers.FindAsync(publisherId);
-        if (publisher == null)
+        var localActor = await GetLocalActorAsync(publisherId);
+        if (localActor == null)
             return false;
 
-        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var actorUrl = localActor.Uri;
         var targetActor = await GetOrFetchActorAsync(targetActorUri);
-        var localActor = await GetLocalActorAsync(publisher.Id);
 
-        if (targetActor?.InboxUri == null || localActor == null)
+        if (targetActor?.InboxUri == null)
         {
             logger.LogWarning("Target actor or inbox not found: {Uri}", targetActorUri);
             return false;
@@ -114,15 +113,14 @@ public class ActivityPubDeliveryService(
         string targetActorUri
     )
     {
-        var publisher = await db.Publishers.FindAsync(publisherId);
-        if (publisher == null)
+        var localActor = await GetLocalActorAsync(publisherId);
+        if (localActor == null)
             return false;
 
-        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var actorUrl = localActor.Uri;
         var targetActor = await GetOrFetchActorAsync(targetActorUri);
-        var localActor = await GetLocalActorAsync(publisher.Id);
 
-        if (targetActor?.InboxUri == null || localActor == null)
+        if (targetActor?.InboxUri == null)
         {
             logger.LogWarning("Target actor or inbox not found: {Uri}", targetActorUri);
             return false;
@@ -158,11 +156,13 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendCreateActivityAsync(SnPost post)
     {
-        var publisher = await db.Publishers.FindAsync(post.PublisherId);
-        if (publisher == null)
+        if (post.PublisherId == null)
+            return false;
+        var localActor = await GetLocalActorAsync(post.PublisherId.Value);
+        if (localActor == null)
             return false;
 
-        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
 
         var activity = new Dictionary<string, object>
@@ -211,11 +211,13 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendUpdateActivityAsync(SnPost post)
     {
-        var publisher = await db.Publishers.FindAsync(post.PublisherId);
-        if (publisher == null)
+        if (post.PublisherId == null)
+            return false;
+        var localActor = await GetLocalActorAsync(post.PublisherId.Value);
+        if (localActor == null)
             return false;
 
-        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
 
         var activity = new Dictionary<string, object>
@@ -265,11 +267,13 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendDeleteActivityAsync(SnPost post)
     {
-        var publisher = await db.Publishers.FindAsync(post.PublisherId);
-        if (publisher == null)
+        if (post.PublisherId == null)
+            return false;
+        var localActor = await GetLocalActorAsync(post.PublisherId.Value);
+        if (localActor == null)
             return false;
 
-        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var actorUrl = localActor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
 
         var activity = new Dictionary<string, object>

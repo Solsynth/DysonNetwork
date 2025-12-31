@@ -27,7 +27,7 @@ public partial class PostService(
     Publisher.PublisherService ps,
     WebReaderService reader,
     AccountService.AccountServiceClient accounts,
-    ActivityPub.ActivityPubDeliveryService activityPubDeliveryService
+    ActivityPubDeliveryService apDelivery
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -187,7 +187,7 @@ public partial class PostService(
                                 Notification = new PushNotification
                                 {
                                     Topic = "post.replies",
-                                    Title = localizer["PostReplyTitle", sender.Nick],
+                                    Title = localizer["PostReplyTitle", sender!.Nick],
                                     Body = string.IsNullOrWhiteSpace(post.Title)
                                         ? localizer["PostReplyBody", sender.Nick, ChopPostForNotification(post).content]
                                         : localizer["PostReplyContentBody", sender.Nick, post.Title,
@@ -329,7 +329,7 @@ public partial class PostService(
     [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
-    public async Task<SnPost> PreviewPostLinkAsync(SnPost item)
+    private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
         if (item.Type != Shared.Models.PostType.Moment || string.IsNullOrEmpty(item.Content)) return item;
 
@@ -586,7 +586,7 @@ public partial class PostService(
         // Send ActivityPub Like/Undo activities if post's publisher has actor
         if (post.PublisherId.HasValue && reaction.AccountId.HasValue)
         {
-            var publisherActor = await activityPubDeliveryService.GetLocalActorAsync(post.PublisherId.Value);
+            var publisherActor = await apDelivery.GetLocalActorAsync(post.PublisherId.Value);
 
             if (publisherActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
             {
@@ -716,7 +716,7 @@ public partial class PostService(
             );
     }
 
-    public async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds,
+    private async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds,
         Guid accountId)
     {
         var reactions = await db.Set<SnPostReaction>()
@@ -769,7 +769,7 @@ public partial class PostService(
         });
     }
 
-    public async Task<List<SnPost>> LoadPublishers(List<SnPost> posts)
+    private async Task<List<SnPost>> LoadPublishersAndActors(List<SnPost> posts)
     {
         var publisherIds = posts
             .SelectMany<SnPost, Guid?>(e =>
@@ -781,10 +781,24 @@ public partial class PostService(
             .Where(e => e != null)
             .Distinct()
             .ToList();
-        if (publisherIds.Count == 0) return posts;
+        var actorIds = posts
+            .SelectMany<SnPost, Guid?>(e =>
+            [
+                e.ActorId,
+                e.RepliedPost?.ActorId,
+                e.ForwardedPost?.ActorId
+            ])
+            .Where(e => e != null)
+            .Distinct()
+            .ToList();
+        if (publisherIds.Count == 0 && actorIds.Count == 0) return posts;
 
         var publishers = await db.Publishers
             .Where(e => publisherIds.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id);
+
+        var actors = await db.FediverseActors
+            .Where(e => actorIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
         foreach (var post in posts)
@@ -792,13 +806,24 @@ public partial class PostService(
             if (post.PublisherId.HasValue && publishers.TryGetValue(post.PublisherId.Value, out var publisher))
                 post.Publisher = publisher;
 
+            if (post.ActorId.HasValue && actors.TryGetValue(post.ActorId.Value, out var actor))
+                post.Actor = actor;
+
             if (post.RepliedPost?.PublisherId != null &&
                 publishers.TryGetValue(post.RepliedPost.PublisherId.Value, out var repliedPublisher))
                 post.RepliedPost.Publisher = repliedPublisher;
 
+            if (post.RepliedPost?.ActorId != null &&
+                actors.TryGetValue(post.RepliedPost.ActorId.Value, out var repliedActor))
+                post.RepliedPost.Actor = repliedActor;
+
             if (post.ForwardedPost?.PublisherId != null &&
                 publishers.TryGetValue(post.ForwardedPost.PublisherId.Value, out var forwardedPublisher))
                 post.ForwardedPost.Publisher = forwardedPublisher;
+
+            if (post.ForwardedPost?.ActorId != null &&
+                actors.TryGetValue(post.ForwardedPost.ActorId.Value, out var forwardedActor))
+                post.ForwardedPost.Actor = forwardedActor;
         }
 
         await ps.LoadIndividualPublisherAccounts(publishers.Values);
@@ -806,7 +831,7 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<List<SnPost>> LoadInteractive(List<SnPost> posts, Account? currentUser = null)
+    private async Task<List<SnPost>> LoadInteractive(List<SnPost> posts, Account? currentUser = null)
     {
         if (posts.Count == 0) return posts;
 
@@ -842,9 +867,7 @@ public partial class PostService(
                 : [];
 
             // Set reply count
-            post.RepliesCount = repliesCountMap.TryGetValue(post.Id, out var repliesCount)
-                ? repliesCount
-                : 0;
+            post.RepliesCount = repliesCountMap.GetValueOrDefault(post.Id, 0);
 
             // Check visibility for replied post
             if (post.RepliedPost != null)
@@ -929,7 +952,7 @@ public partial class PostService(
     {
         if (posts.Count == 0) return posts;
 
-        posts = await LoadPublishers(posts);
+        posts = await LoadPublishersAndActors(posts);
         posts = await LoadInteractive(posts, currentUser);
 
         if (truncate)
@@ -954,7 +977,7 @@ public partial class PostService(
 
         if (featuredIds is null)
         {
-            // The previous day highest rated posts
+            // The previous day the highest rated posts
             var today = SystemClock.Instance.GetCurrentInstant();
             var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant()
                 .Minus(Duration.FromDays(1));
@@ -994,8 +1017,8 @@ public partial class PostService(
                 {
                     PostId = postId,
                     Count =
-                        (reactionScores.TryGetValue(postId, out var rScore) ? rScore : 0)
-                        + (repliesCounts.TryGetValue(postId, out var repCount) ? repCount : 0)
+                        (reactionScores.GetValueOrDefault(postId, 0))
+                        + (repliesCounts.GetValueOrDefault(postId, 0))
                         + (awardsScores.TryGetValue(postId, out var awardScore) ? (int)(awardScore / 10) : 0)
                 })
                 .OrderByDescending(e => e.Count)
