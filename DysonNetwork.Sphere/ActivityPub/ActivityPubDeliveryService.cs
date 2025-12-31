@@ -18,8 +18,7 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendAcceptActivityAsync(
         SnFediverseActor actor,
-        string followerActorUri,
-        string followActivityId
+        string followerActorUri
     )
     {
         var actorUrl = actor.Uri;
@@ -38,7 +37,12 @@ public class ActivityPubDeliveryService(
             ["id"] = $"{actorUrl}/accepts/{Guid.NewGuid()}",
             ["type"] = "Accept",
             ["actor"] = actorUrl,
-            ["object"] = followActivityId
+            ["object"] = new Dictionary<string, object>
+            {
+                ["type"] = "Follow",
+                ["actor"] = followerActorUri,
+                ["object"] = actorUrl
+            }
         };
 
         return await EnqueueActivityDeliveryAsync("Accept", activity, actorUrl, followerActor.InboxUri);

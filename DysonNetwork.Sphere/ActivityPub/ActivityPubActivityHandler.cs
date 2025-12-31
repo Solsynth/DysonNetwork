@@ -163,8 +163,7 @@ public class ActivityPubActivityHandler(
 
         await deliveryService.SendAcceptActivityAsync(
             targetActor,
-            actorUri,
-            activityId ?? ""
+            actorUri
         );
 
         logger.LogInformation("Handled follow from {Actor} to {Target}. RelationshipState: Accepted",
