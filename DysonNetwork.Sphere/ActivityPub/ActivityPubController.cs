@@ -43,7 +43,7 @@ public class ActivityPubController(
         var outboxUrl = $"{actorUrl}/outbox";
         var followersUrl = $"{actorUrl}/followers";
         var followingUrl = $"{actorUrl}/following";
-        var assetsBaseUrl = configuration["AssetsServerBaseUrl"] ?? $"https://{Domain}/files";
+        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
         var publicKeyPem = await GetPublicKeyAsync(publisher);
 
