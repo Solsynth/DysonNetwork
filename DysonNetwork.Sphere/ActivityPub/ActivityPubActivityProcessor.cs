@@ -239,25 +239,19 @@ public class ActivityPubActivityProcessor(
 
         if (objectValue is not Dictionary<string, object> objectDict) return false;
         var objectType = objectDict.GetValueOrDefault("type")?.ToString();
-        switch (objectType)
+        return objectType switch
         {
-            case "Follow":
-                return await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
-            case "Like":
-                return await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
-            case "Announce":
-                return await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString());
-            default:
-                return false;
-        }
-
-        return false;
+            "Follow" => await UndoFollowAsync(actorUri, objectDict.GetValueOrDefault("object")?.ToString()),
+            "Like" => await UndoLikeAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString()),
+            "Announce" => await UndoAnnounceAsync(actorUri, objectDict.GetValueOrDefault("id")?.ToString()),
+            _ => false
+        };
     }
 
     private async Task<bool> ProcessCreateAsync(string actorUri, Dictionary<string, object> activity)
     {
         var objectValue = activity.GetValueOrDefault("object");
-        if (objectValue == null || !(objectValue is Dictionary<string, object> objectDict))
+        if (objectValue is not Dictionary<string, object> objectDict)
             return false;
         
         var objectType = objectDict.GetValueOrDefault("type")?.ToString();
@@ -419,23 +413,25 @@ public class ActivityPubActivityProcessor(
         return true;
     }
 
-    private async Task<bool> UndoFollowAsync(string actorUri, string? activityId)
+    private async Task<bool> UndoFollowAsync(string actorUri, string? targetActorUri)
     {
-        var actor = await GetOrCreateActorAsync(actorUri);
-        
-        var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => 
-                r.ActorId == actor.Id || 
-                r.TargetActorId == actor.Id);
-        
-        if (relationship != null)
+        if (string.IsNullOrEmpty(targetActorUri))
         {
-            relationship.IsFollowing = false;
-            relationship.IsFollowedBy = false;
-            await db.SaveChangesAsync();
-            logger.LogInformation("Undid follow relationship");
+            logger.LogInformation("Undid follow relationship failed, no target actor uri provided.");
+            return false;
         }
         
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var targetActor = await GetOrCreateActorAsync(targetActorUri);
+        
+        var relationship = await db.FediverseRelationships
+            .FirstOrDefaultAsync(r => r.ActorId == actor.Id && r.TargetActorId == targetActor.Id);
+
+        if (relationship == null) return true;
+        db.Remove(relationship);
+        await db.SaveChangesAsync();
+        logger.LogInformation("Undid follow relationship");
+
         return true;
     }
 
