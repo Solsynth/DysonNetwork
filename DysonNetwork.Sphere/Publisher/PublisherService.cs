@@ -798,14 +798,12 @@ public class PublisherService(
         if (publisher == null)
             return null;
 
-        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
-
         return new FediverseStatus
         {
             Enabled = actor != null,
             Actor = actor,
             FollowerCount = followerCount,
-            ActorUri = actor != null ? actor.Uri : null
+            ActorUri = actor?.Uri
         };
     }
 

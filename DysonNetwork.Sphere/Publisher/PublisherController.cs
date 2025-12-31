@@ -938,13 +938,13 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        var member = await db
-            .PublisherMembers.Where(m => m.AccountId == accountId)
+        var member = await db.PublisherMembers
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null)
             return StatusCode(403, "You are not even a member of targeted publisher.");
-        if (member.Role < Shared.Models.PublisherMemberRole.Manager)
+        if (member.Role < PublisherMemberRole.Manager)
             return StatusCode(403, "You need at least be manager to enable fediverse for this publisher.");
 
         try
@@ -972,13 +972,13 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        var member = await db
-            .PublisherMembers.Where(m => m.AccountId == accountId)
+        var member = await db.PublisherMembers
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null)
             return StatusCode(403, "You are not even a member of targeted publisher.");
-        if (member.Role < Shared.Models.PublisherMemberRole.Manager)
+        if (member.Role < PublisherMemberRole.Manager)
             return StatusCode(403, "You need at least be manager to disable fediverse for this publisher.");
 
         try
