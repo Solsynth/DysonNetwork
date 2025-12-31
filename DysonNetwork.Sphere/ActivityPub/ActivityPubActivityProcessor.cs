@@ -129,7 +129,8 @@ public class ActivityPubActivityProcessor(
             {
                 ActorId = actor.Id,
                 TargetActorId = localActor.Id,
-                State = RelationshipState.Pending
+                State = RelationshipState.Accepted,
+                FollowedBackAt = SystemClock.Instance.GetCurrentInstant()
             };
             db.FediverseRelationships.Add(existingRelationship);
             logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}",
@@ -137,19 +138,21 @@ public class ActivityPubActivityProcessor(
         }
         else
         {
-            logger.LogInformation("Updating existing relationship. CurrentState: {State}, NewState: Pending", 
+            existingRelationship.State = RelationshipState.Accepted;
+            existingRelationship.FollowedBackAt = SystemClock.Instance.GetCurrentInstant();
+            logger.LogInformation("Updating existing relationship. CurrentState: {State}, NewState: Accepted",
                 existingRelationship.State);
         }
-        
+
         await db.SaveChangesAsync();
-        
+
         await deliveryService.SendAcceptActivityAsync(
             targetPublisher.Id,
             actorUri,
             activityId ?? ""
         );
-        
-        logger.LogInformation("Processed follow from {Actor} to {Target}. RelationshipState: Pending", 
+
+        logger.LogInformation("Processed follow from {Actor} to {Target}. RelationshipState: Accepted",
             actorUri, objectUri);
         return true;
     }
