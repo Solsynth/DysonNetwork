@@ -323,6 +323,7 @@ public class PostController(
 
         var reactions = await query
             .Include(r => r.Actor)
+            .ThenInclude(r => r.Instance)
             .OrderBy(r => r.Symbol)
             .ThenByDescending(r => r.CreatedAt)
             .Take(take)
