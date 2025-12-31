@@ -322,6 +322,7 @@ public class PostController(
         Response.Headers.Append("X-Total", totalCount.ToString());
 
         var reactions = await query
+            .Include(r => r.Actor)
             .OrderBy(r => r.Symbol)
             .ThenByDescending(r => r.CreatedAt)
             .Take(take)
@@ -331,13 +332,13 @@ public class PostController(
         var accountsProto = await remoteAccountsHelper.GetAccountBatch(
             reactions.Where(r => r.AccountId.HasValue).Select(r => r.AccountId!.Value).ToList()
         );
-        var accounts = accountsProto.ToDictionary(
+        var accountsData = accountsProto.ToDictionary(
             a => Guid.Parse(a.Id),
-            a => SnAccount.FromProtoValue(a)
+            SnAccount.FromProtoValue
         );
 
         foreach (var reaction in reactions)
-            if (reaction.AccountId.HasValue && accounts.TryGetValue(reaction.AccountId.Value, out var account))
+            if (reaction.AccountId.HasValue && accountsData.TryGetValue(reaction.AccountId.Value, out var account))
                 reaction.Account = account;
 
         return Ok(reactions);
