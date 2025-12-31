@@ -26,10 +26,10 @@ public class ActivityPubActivityHandler(
     {
         var uri = new Uri(objectUri);
         var domain = uri.Host;
-        
+
         // Remote post
         if (domain != Domain) return await db.Posts.FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
-        
+
         // Local post, extract ID from path like /posts/{guid}
         var path = uri.AbsolutePath.Trim('/');
         var segments = path.Split('/');
@@ -39,36 +39,37 @@ public class ActivityPubActivityHandler(
         {
             return await db.Posts.FirstOrDefaultAsync(p => p.Id == id);
         }
+
         return null;
     }
-    
+
     public async Task<bool> HandleIncomingActivityAsync(
         HttpContext context,
         string username,
         Dictionary<string, object> activity
     )
     {
-        logger.LogInformation("Incoming activity request. Username: {Username}, Path: {Path}", 
+        logger.LogInformation("Incoming activity request. Username: {Username}, Path: {Path}",
             username, context.Request.Path);
-        
+
         var activityType = activity.GetValueOrDefault("type")?.ToString();
         var activityId = activity.GetValueOrDefault("id")?.ToString();
         var actor = activity.GetValueOrDefault("actor")?.ToString();
-        
-        logger.LogInformation("Activity details - Type: {Type}, ID: {Id}, Actor: {Actor}", 
+
+        logger.LogInformation("Activity details - Type: {Type}, ID: {Id}, Actor: {Actor}",
             activityType, activityId, actor);
-        
+
         if (!signatureService.VerifyIncomingRequest(context, out var actorUri))
         {
-            logger.LogWarning("Failed to verify signature for incoming activity. Type: {Type}, From: {Actor}", 
+            logger.LogWarning("Failed to verify signature for incoming activity. Type: {Type}, From: {Actor}",
                 activityType, actor);
             return false;
         }
-        
+
         if (string.IsNullOrEmpty(actorUri))
             return false;
-        
-        logger.LogInformation("Signature verified successfully. Handling {Type} from {ActorUri}", 
+
+        logger.LogInformation("Signature verified successfully. Handling {Type} from {ActorUri}",
             activityType, actorUri);
 
         try
@@ -111,60 +112,44 @@ public class ActivityPubActivityHandler(
     {
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         var activityId = activity.GetValueOrDefault("id")?.ToString();
-        
-        logger.LogInformation("Handling Follow. Actor: {ActorUri}, Target: {ObjectUri}, ActivityId: {Id}", 
+
+        logger.LogInformation("Handling Follow. Actor: {ActorUri}, Target: {ObjectUri}, ActivityId: {Id}",
             actorUri, objectUri, activityId);
-        
+
         if (string.IsNullOrEmpty(objectUri))
         {
             logger.LogWarning("Follow activity missing object field");
             return false;
         }
-        
-        var actor = await GetOrCreateActorAsync(actorUri);
-        var targetUsername = ExtractUsernameFromUri(objectUri);
-        var targetPublisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == targetUsername);
-        
-        if (targetPublisher == null)
-        {
-            logger.LogWarning("Target publisher not found: {Uri}, ExtractedUsername: {Username}",
-                objectUri, targetUsername);
-            return false;
-        }
 
-        var localActor = await deliveryService.GetLocalActorAsync(targetPublisher.Id);
-        if (localActor == null)
-        {
-            logger.LogWarning("Target publisher has no enabled fediverse actor");
-            return false;
-        }
-        
-        logger.LogInformation("Target publisher found: {PublisherName} (ID: {Id})", 
-            targetPublisher.Name, targetPublisher.Id);
-        
+        var actor = await GetOrCreateActorAsync(actorUri);
+        // This might be fail, but we assume it works great.
+        var targetActor = await GetOrCreateActorAsync(objectUri);
+
         var existingRelationship = await db.FediverseRelationships
             .FirstOrDefaultAsync(r =>
                 r.ActorId == actor.Id &&
-                r.TargetActorId == localActor.Id);
-        
+                r.TargetActorId == targetActor.Id);
+
         switch (existingRelationship)
         {
             case { State: RelationshipState.Accepted }:
-                logger.LogInformation("Follow relationship already exists and is accepted. ActorId: {ActorId}, PublisherId: {PublisherId}", 
-                    actor.Id, targetPublisher.Id);
+                logger.LogInformation(
+                    "Follow relationship already exists and is accepted. ActorId: {ActorId}, TargetId: {TargetId}",
+                    actor.Id, targetActor.Id);
                 return true;
             case null:
                 existingRelationship = new SnFediverseRelationship
                 {
                     ActorId = actor.Id,
-                    TargetActorId = localActor.Id,
+                    TargetActorId = targetActor.Id,
                     State = RelationshipState.Accepted,
                     FollowedBackAt = SystemClock.Instance.GetCurrentInstant()
                 };
                 db.FediverseRelationships.Add(existingRelationship);
-                logger.LogInformation("Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetActorId}",
-                    actor.Id, localActor.Id);
+                logger.LogInformation(
+                    "Created new follow relationship. ActorId: {ActorId}, TargetActorId: {TargetId}",
+                    actor.Id, targetActor.Id);
                 break;
             default:
                 existingRelationship.State = RelationshipState.Accepted;
@@ -177,7 +162,7 @@ public class ActivityPubActivityHandler(
         await db.SaveChangesAsync();
 
         await deliveryService.SendAcceptActivityAsync(
-            targetPublisher.Id,
+            targetActor,
             actorUri,
             activityId ?? ""
         );
@@ -192,9 +177,9 @@ public class ActivityPubActivityHandler(
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
-        
+
         var relationship = await db.FediverseRelationships
             .Include(r => r.Actor)
             .Include(r => r.TargetActor)
@@ -210,6 +195,7 @@ public class ActivityPubActivityHandler(
                 logger.LogWarning("Local actor not found for accept object: {ObjectUri}", objectUri);
                 return false;
             }
+
             relationship = new SnFediverseRelationship
             {
                 ActorId = localActor.Id,
@@ -226,7 +212,7 @@ public class ActivityPubActivityHandler(
         }
 
         await db.SaveChangesAsync();
-        
+
         logger.LogInformation("Handled accept from {Actor}", actorUri);
         return true;
     }
@@ -236,24 +222,24 @@ public class ActivityPubActivityHandler(
         var objectUri = activity.GetValueOrDefault("object")?.ToString();
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
-        
+
         var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => 
+            .FirstOrDefaultAsync(r =>
                 r.TargetActorId == actor.Id);
-        
+
         if (relationship == null)
         {
             logger.LogWarning("No relationship found for reject");
             return false;
         }
-        
+
         relationship.State = RelationshipState.Rejected;
         relationship.RejectReason = "Remote rejected follow";
-        
+
         await db.SaveChangesAsync();
-        
+
         logger.LogInformation("Handled reject from {Actor}", actorUri);
         return true;
     }
@@ -278,37 +264,41 @@ public class ActivityPubActivityHandler(
         var objectValue = activity.GetValueOrDefault("object");
         if (objectValue is not Dictionary<string, object> objectDict)
             return false;
-        
+
         var objectType = objectDict.GetValueOrDefault("type")?.ToString();
         if (objectType != "Note" && objectType != "Article")
         {
             logger.LogInformation("Skipping non-note content type: {Type}", objectType);
             return true;
         }
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
-        
+
         var contentUri = objectDict.GetValueOrDefault("id")?.ToString();
         if (string.IsNullOrEmpty(contentUri))
             return false;
-        
+
         var existingContent = await db.Posts
             .FirstOrDefaultAsync(c => c.FediverseUri == contentUri);
-        
+
         if (existingContent != null)
         {
             logger.LogInformation("Content already exists: {Uri}", contentUri);
             return true;
         }
-        
+
         var content = new SnPost
         {
             FediverseUri = contentUri,
-            FediverseType = objectType == "Article" ? FediverseContentType.FediverseArticle : FediverseContentType.FediverseNote,
+            FediverseType = objectType == "Article"
+                ? FediverseContentType.FediverseArticle
+                : FediverseContentType.FediverseNote,
             Title = objectDict.GetValueOrDefault("name")?.ToString(),
             Description = objectDict.GetValueOrDefault("summary")?.ToString(),
             Content = objectDict.GetValueOrDefault("content")?.ToString(),
-            ContentType = objectDict.GetValueOrDefault("contentMap") != null ? PostContentType.Html : PostContentType.Markdown,
+            ContentType = objectDict.GetValueOrDefault("contentMap") != null
+                ? PostContentType.Html
+                : PostContentType.Markdown,
             PublishedAt = ParseInstant(objectDict.GetValueOrDefault("published")),
             EditedAt = ParseInstant(objectDict.GetValueOrDefault("updated")),
             ActorId = actor.Id,
@@ -319,10 +309,10 @@ public class ActivityPubActivityHandler(
             Visibility = PostVisibility.Public,
             Metadata = BuildMetadataFromActivity(objectDict)
         };
-        
+
         db.Posts.Add(content);
         await db.SaveChangesAsync();
-        
+
         logger.LogInformation("Created federated content: {Uri}", contentUri);
         return true;
     }
@@ -341,19 +331,19 @@ public class ActivityPubActivityHandler(
             logger.LogWarning("Content not found for like: {Uri}", objectUri);
             return false;
         }
-        
+
         var existingReaction = await db.PostReactions
             .FirstOrDefaultAsync(r =>
                 r.ActorId == actor.Id &&
                 r.PostId == content.Id &&
                 r.Symbol == "thumb_up");
-        
+
         if (existingReaction != null)
         {
             logger.LogInformation("Like already exists");
             return true;
         }
-        
+
         var reaction = new SnPostReaction
         {
             FediverseUri = activity.GetValueOrDefault("id")?.ToString() ?? Guid.NewGuid().ToString(),
@@ -366,12 +356,12 @@ public class ActivityPubActivityHandler(
             CreatedAt = SystemClock.Instance.GetCurrentInstant(),
             UpdatedAt = SystemClock.Instance.GetCurrentInstant()
         };
-        
+
         db.PostReactions.Add(reaction);
         content.Upvotes++;
-        
+
         await db.SaveChangesAsync();
-        
+
         logger.LogInformation("Handled like from {Actor}", actorUri);
         return true;
     }
@@ -437,10 +427,10 @@ public class ActivityPubActivityHandler(
             logger.LogInformation("Undid follow relationship failed, no target actor uri provided.");
             return false;
         }
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
         var targetActor = await GetOrCreateActorAsync(targetActorUri);
-        
+
         var relationship = await db.FediverseRelationships
             .FirstOrDefaultAsync(r => r.ActorId == actor.Id && r.TargetActorId == targetActor.Id);
 
@@ -499,23 +489,22 @@ public class ActivityPubActivityHandler(
     {
         var actor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
-        
-        if (actor == null)
+
+        if (actor != null) return actor;
+
+        var instance = await GetOrCreateInstanceAsync(actorUri);
+        actor = new SnFediverseActor
         {
-            var instance = await GetOrCreateInstanceAsync(actorUri);
-            actor = new SnFediverseActor
-            {
-                Uri = actorUri,
-                Username = ExtractUsernameFromUri(actorUri),
-                DisplayName = ExtractUsernameFromUri(actorUri),
-                InstanceId = instance.Id
-            };
-            db.FediverseActors.Add(actor);
-            await db.SaveChangesAsync();
-            
-            await discoveryService.FetchActorDataAsync(actor);
-        }
-        
+            Uri = actorUri,
+            Username = ExtractUsernameFromUri(actorUri),
+            DisplayName = ExtractUsernameFromUri(actorUri),
+            InstanceId = instance.Id
+        };
+        db.FediverseActors.Add(actor);
+        await db.SaveChangesAsync();
+
+        await discoveryService.FetchActorDataAsync(actor);
+
         return actor;
     }
 
@@ -524,7 +513,7 @@ public class ActivityPubActivityHandler(
         var domain = ExtractDomainFromUri(actorUri);
         var instance = await db.FediverseInstances
             .FirstOrDefaultAsync(i => i.Domain == domain);
-        
+
         if (instance == null)
         {
             instance = new SnFediverseInstance
@@ -536,7 +525,7 @@ public class ActivityPubActivityHandler(
             await db.SaveChangesAsync();
             await discoveryService.FetchInstanceMetadataAsync(instance);
         }
-        
+
         return instance;
     }
 
@@ -555,13 +544,13 @@ public class ActivityPubActivityHandler(
     {
         if (value == null)
             return null;
-        
+
         if (value is Instant instant)
             return instant;
-        
+
         if (DateTimeOffset.TryParse(value.ToString(), out var dateTimeOffset))
             return Instant.FromDateTimeOffset(dateTimeOffset);
-        
+
         return null;
     }
 

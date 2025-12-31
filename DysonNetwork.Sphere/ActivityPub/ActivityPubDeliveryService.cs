@@ -29,16 +29,12 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendAcceptActivityAsync(
-        Guid publisherId,
+        SnFediverseActor actor,
         string followerActorUri,
         string followActivityId
     )
     {
-        var publisher = await db.Publishers.FindAsync(publisherId);
-        if (publisher == null)
-            return false;
-
-        var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var actorUrl = actor.Uri;
         var followerActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Uri == followerActorUri);
 
