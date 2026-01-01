@@ -16,6 +16,7 @@ builder.Services.AddAppAuthentication();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 builder.Services.AddRingService();
+builder.Services.AddDriveService();
 
 builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs();
