@@ -8,7 +8,7 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace DysonNetwork.Sphere.ActivityPub;
 
 [ApiController]
-[Route("activitypub")]
+[Route("activitypub/actors/{username}")]
 public class ActivityPubController(
     AppDatabase db,
     IConfiguration configuration,
@@ -20,7 +20,7 @@ public class ActivityPubController(
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
-    [HttpGet("actors/{username}")]
+    [HttpGet("")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubActor), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -88,7 +88,7 @@ public class ActivityPubController(
         return Ok(actor);
     }
 
-    [HttpPost("actors/{username}/inbox")]
+    [HttpPost("inbox")]
     [Consumes("application/activity+json")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -120,7 +120,7 @@ public class ActivityPubController(
         return Accepted();
     }
 
-    [HttpGet("actors/{username}/outbox")]
+    [HttpGet("outbox")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
@@ -157,32 +157,21 @@ public class ActivityPubController(
                 .Take(pageSize)
                 .ToListAsync();
 
-            var items = posts.Select(post => new
+            var items = posts.Select(post =>
             {
-                id = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
-                type = "Create",
-                actor = actorUrl,
-                published = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-                to = new[] { "https://www.w3.org/ns/activitystreams#Public" },
-                cc = new[] { $"{actorUrl}/followers" },
-                @object = new
+                var postObject = ActivityPubObjectFactory.CreatePostObject(configuration, post, actorUrl);
+                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                return new Dictionary<string, object>
                 {
-                    id = $"https://{Domain}/activitypub/objects/{post.Id}",
-                    type = post.Type == PostType.Article ? "Article" : "Note",
-                    published = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-                    attributedTo = actorUrl,
-                    content = post.Content ?? "",
-                    url = $"https://{Domain}/posts/{post.Id}",
-                    to = new[] { "https://www.w3.org/ns/activitystreams#Public" },
-                    cc = new[] { $"{actorUrl}/followers" },
-                    attachment = post.Attachments.Select(a => new
-                    {
-                        type = "Document",
-                        mediaType = a.MimeType,
-                        url = $"{configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files"}/{a.Id}"
-                    })
-                }
-            }).ToList<object>();
+                    ["id"] = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
+                    ["type"] = "Create",
+                    ["actor"] = actorUrl,
+                    ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
+                    ["to"] = ActivityPubObjectFactory.PublicTo,
+                    ["cc"] = new[] { $"{actorUrl}/followers" },
+                    ["@object"] = postObject
+                };
+            }).Cast<object>().ToList();
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -213,7 +202,7 @@ public class ActivityPubController(
         }
     }
 
-    [HttpGet("actors/{username}/followers")]
+    [HttpGet("followers")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
@@ -279,7 +268,7 @@ public class ActivityPubController(
         }
     }
 
-    [HttpGet("actors/{username}/following")]
+    [HttpGet("following")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
@@ -354,19 +343,19 @@ public class ActivityPubController(
             logger.LogInformation("Using existing public key for publisher: {PublisherId}", publisher.Id);
             return publicKeyPem;
         }
-        
-        logger.LogInformation("Generating new key pair for publisher: {PublisherId} ({Name})", 
+
+        logger.LogInformation("Generating new key pair for publisher: {PublisherId} ({Name})",
             publisher.Id, publisher.Name);
-        
+
         var (newPrivate, newPublic) = keyService.GenerateKeyPair();
         SavePublisherKey(publisher, "private_key", newPrivate);
         SavePublisherKey(publisher, "public_key", newPublic);
-        
+
         db.Update(publisher);
         await db.SaveChangesAsync();
-        
+
         logger.LogInformation("Saved new key pair to database for publisher: {PublisherId}", publisher.Id);
-        
+
         return newPublic;
     }
 

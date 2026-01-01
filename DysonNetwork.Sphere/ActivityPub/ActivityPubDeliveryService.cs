@@ -166,24 +166,9 @@ public class ActivityPubDeliveryService(
             ["type"] = "Create",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["to"] = ActivityPubObjectFactory.PublicTo,
             ["cc"] = new[] { $"{actorUrl}/followers" },
-            ["object"] = new Dictionary<string, object>
-            {
-                ["id"] = postUrl,
-                ["type"] = post.Type == PostType.Article ? "Article" : "Note",
-                ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-                ["attributedTo"] = actorUrl,
-                ["content"] = post.Content ?? "",
-                ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
-                ["cc"] = new[] { $"{actorUrl}/followers" },
-                ["attachment"] = post.Attachments.Select(a => new Dictionary<string, object>
-                {
-                    ["type"] = "Document",
-                    ["mediaType"] = "image/jpeg",
-                    ["url"] = $"{AssetsBaseUrl}/{a.Id}"
-                }).ToList<object>()
-            }
+            ["object"] = ActivityPubObjectFactory.CreatePostObject(configuration, post, actorUrl)
         };
 
         var followers = await GetRemoteFollowersAsync();
@@ -217,25 +202,9 @@ public class ActivityPubDeliveryService(
             ["type"] = "Update",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["to"] = ActivityPubObjectFactory.PublicTo,
             ["cc"] = new[] { $"{actorUrl}/followers" },
-            ["object"] = new Dictionary<string, object>
-            {
-                ["id"] = postUrl,
-                ["type"] = post.Type == PostType.Article ? "Article" : "Note",
-                ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-                ["updated"] = post.EditedAt?.ToDateTimeOffset() ?? new DateTimeOffset(),
-                ["attributedTo"] = actorUrl,
-                ["content"] = post.Content ?? "",
-                ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
-                ["cc"] = new[] { $"{actorUrl}/followers" },
-                ["attachment"] = post.Attachments.Select(a => new Dictionary<string, object>
-                {
-                    ["type"] = "Document",
-                    ["mediaType"] = "image/jpeg",
-                    ["url"] = $"{AssetsBaseUrl}/{a.Id}"
-                }).ToList<object>()
-            }
+            ["object"] = ActivityPubObjectFactory.CreatePostObject(configuration, post, actorUrl)
         };
 
         var followers = await GetRemoteFollowersAsync();
