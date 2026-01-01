@@ -94,7 +94,7 @@ public class BroadcastEventHandler(
     private async Task HandleWebSocketPackets(CancellationToken stoppingToken)
     {
         await foreach (var msg in nats.SubscribeAsync<byte[]>(
-                           WebSocketPacketEvent.SubjectPrefix + "sphere", cancellationToken: stoppingToken))
+                           WebSocketPacketEvent.SubjectPrefix + "messager", cancellationToken: stoppingToken))
         {
             logger.LogDebug("Handling websocket packet...");
 
