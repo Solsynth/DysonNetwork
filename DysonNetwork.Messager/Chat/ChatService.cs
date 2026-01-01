@@ -2,8 +2,9 @@ using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Messager.Chat.Realtime;
+using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Messager.WebReader;
 using NodaTime;
 using WebSocketPacket = DysonNetwork.Shared.Proto.WebSocketPacket;
 
@@ -16,7 +17,8 @@ public partial class ChatService(
     FileReferenceService.FileReferenceServiceClient fileRefs,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
-    ILogger<ChatService> logger
+    ILogger<ChatService> logger,
+    RemoteWebReaderService webReader
 )
 {
     private const string ChatFileUsageIdentifier = "chat";
@@ -36,10 +38,9 @@ public partial class ChatService(
             // Create a new scope for database operations
             using var scope = scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-            var webReader = scope.ServiceProvider.GetRequiredService<WebReaderService>();
 
             // Preview the links in the message
-            var updatedMessage = await CreateLinkPreviewAsync(message, webReader);
+            var updatedMessage = await CreateLinkPreviewAsync(message);
 
             // If embeds were added, update the message in the database
             if (updatedMessage.Meta != null &&
@@ -111,7 +112,7 @@ public partial class ChatService(
     /// <param name="message">The message to process</param>
     /// <param name="webReader">The web reader service</param>
     /// <returns>The message with link previews added to its meta data</returns>
-    public async Task<SnChatMessage> CreateLinkPreviewAsync(SnChatMessage message, WebReaderService? webReader = null)
+    public async Task<SnChatMessage> CreateLinkPreviewAsync(SnChatMessage message)
     {
         if (string.IsNullOrEmpty(message.Content))
             return message;
@@ -133,7 +134,6 @@ public partial class ChatService(
         }
 
         var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-        webReader ??= scopeFactory.CreateScope().ServiceProvider.GetRequiredService<WebReaderService>();
 
         // Process up to 3 links to avoid excessive processing
         var processedLinks = 0;
@@ -153,7 +153,7 @@ public partial class ChatService(
                     continue;
 
                 // Preview the link
-                var linkEmbed = await webReader.GetLinkPreviewAsync(url);
+                var linkEmbed = await webReader.GetLinkPreview(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
                 processedLinks++;
             }

@@ -21,7 +21,6 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<AuthService.AuthServiceClient>(
                 "https://_grpc.pass",
                 "AuthService");
-
             services.AddGrpcClientWithSharedChannel<PermissionService.PermissionServiceClient>(
                 "https://_grpc.pass",
                 "PermissionService");
@@ -39,19 +38,15 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<BotAccountReceiverService.BotAccountReceiverServiceClient>(
                 "https://_grpc.pass",
                 "BotAccountReceiverService");
-
             services.AddGrpcClientWithSharedChannel<ActionLogService.ActionLogServiceClient>(
                 "https://_grpc.pass",
                 "ActionLogService");
-
             services.AddGrpcClientWithSharedChannel<PaymentService.PaymentServiceClient>(
                 "https://_grpc.pass",
                 "PaymentService");
-
             services.AddGrpcClientWithSharedChannel<WalletService.WalletServiceClient>(
                 "https://_grpc.pass",
                 "WalletService");
-
             services.AddGrpcClientWithSharedChannel<RealmService.RealmServiceClient>(
                 "https://_grpc.pass",
                 "RealmService");
@@ -104,6 +99,25 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<CustomAppService.CustomAppServiceClient>(
                 "https://_grpc.develop",
                 "CustomAppService");
+
+            return services;
+        }
+
+        public IServiceCollection AddInsightService()
+        {
+            services.AddGrpcClientWithSharedChannel<WebFeedService.WebFeedServiceClient>(
+                "https://_grpc.insight",
+                "WebFeedServiceClient");
+            services.AddGrpcClientWithSharedChannel<WebArticleService.WebArticleServiceClient>(
+                "https://_grpc.insight",
+                "WebArticleService");
+            services.AddGrpcClientWithSharedChannel<WebReaderService.WebReaderServiceClient>(
+                "https://_grpc.insight",
+                "WebReaderServiceClient");
+            
+            services.AddSingleton<RemoteWebFeedService>();
+            services.AddSingleton<RemoteWebReaderService>();
+            services.AddSingleton<RemoteWebArticleService>();
 
             return services;
         }

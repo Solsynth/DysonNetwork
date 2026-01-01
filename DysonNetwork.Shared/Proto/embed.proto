@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+
+import "google/protobuf/timestamp.proto";
+
+message LinkEmbed {
+  string url = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional string image_url = 4;
+  optional string favicon_url = 5;
+  optional string site_name = 6;
+  optional string content_type = 7;
+  optional string author = 8;
+  optional google.protobuf.Timestamp published_date = 9;
+}

@@ -6,7 +6,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Messager.Poll;
 using DysonNetwork.Messager.Wallet;
-using DysonNetwork.Messager.WebReader;
+using DysonNetwork.Shared.Models.Embed;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

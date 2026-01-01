@@ -11,6 +11,9 @@ builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration);
 
+builder.Services.AddGrpc();
+builder.Services.AddGrpcReflection();
+
 builder.Services.AddControllers();
 builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();

@@ -70,12 +70,6 @@ public class AppDatabase(
         modelBuilder.ApplySoftDeleteFilters();
     }
 
-    private static void SetSoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)
-        where TEntity : ModelBase
-    {
-        modelBuilder.Entity<TEntity>().HasQueryFilter(e => e.DeletedAt == null);
-    }
-
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         this.ApplyAuditableAndSoftDelete();

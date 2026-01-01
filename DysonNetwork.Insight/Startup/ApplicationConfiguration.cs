@@ -1,3 +1,4 @@
+using DysonNetwork.Insight.Reader;
 using DysonNetwork.Shared.Http;
 
 namespace DysonNetwork.Insight.Startup;
@@ -16,6 +17,11 @@ public static class ApplicationConfiguration
         app.UseAuthorization();
 
         app.MapControllers();
+
+        app.MapGrpcService<WebReaderGrpcService>();
+        app.MapGrpcService<WebArticleGrpcService>();
+        app.MapGrpcService<WebFeedGrpcService>();
+        app.MapGrpcReflectionService();
 
         return app;
     }

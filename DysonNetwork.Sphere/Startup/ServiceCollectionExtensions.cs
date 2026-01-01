@@ -12,7 +12,7 @@ using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
-using DysonNetwork.Sphere.WebReader;
+
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -93,8 +93,6 @@ public static class ServiceCollectionExtensions
             services.AddScoped<PublisherSubscriptionService>();
             services.AddScoped<TimelineService>();
             services.AddScoped<PostService>();
-            services.AddScoped<WebReaderService>();
-            services.AddScoped<WebFeedService>();
             services.AddScoped<DiscoveryService>();
             services.AddScoped<PollService>();
             services.AddScoped<AutocompletionService>();

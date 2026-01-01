@@ -3,7 +3,7 @@ using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.WebReader;
+
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.ActivityPub;
@@ -12,6 +12,7 @@ using Microsoft.Extensions.Localization;
 using NodaTime;
 using Markdig;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Models.Embed;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -25,7 +26,7 @@ public partial class PostService(
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
     Publisher.PublisherService ps,
-    WebReaderService reader,
+    RemoteWebReaderService reader,
     AccountService.AccountServiceClient accounts,
     ActivityPubObjectFactory objFactory
 )
@@ -365,7 +366,7 @@ public partial class PostService(
                     continue;
 
                 // Preview the link
-                var linkEmbed = await reader.GetLinkPreviewAsync(url);
+                var linkEmbed = await reader.GetLinkPreview(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
                 processedLinks++;
             }

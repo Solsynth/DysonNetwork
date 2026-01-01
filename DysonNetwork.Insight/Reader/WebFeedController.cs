@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using WebFeedConfig = DysonNetwork.Shared.Models.WebFeedConfig;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

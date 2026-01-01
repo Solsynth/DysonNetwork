@@ -1,3 +1,6 @@
+using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
+
 namespace DysonNetwork.Shared.Models.Embed;
 
 /// <summary>
@@ -52,4 +55,54 @@ public class LinkEmbed : EmbeddableBase
     /// Published date of the content if available
     /// </summary>
     public DateTime? PublishedDate { get; set; }
+
+    public Proto.LinkEmbed ToProtoValue()
+    {
+        var proto = new Proto.LinkEmbed
+        {
+            Url = Url
+        };
+
+        if (!string.IsNullOrEmpty(Title))
+            proto.Title = Title;
+
+        if (!string.IsNullOrEmpty(Description))
+            proto.Description = Description;
+
+        if (!string.IsNullOrEmpty(ImageUrl))
+            proto.ImageUrl = ImageUrl;
+
+        if (!string.IsNullOrEmpty(FaviconUrl))
+            proto.FaviconUrl = FaviconUrl;
+
+        if (!string.IsNullOrEmpty(SiteName))
+            proto.SiteName = SiteName;
+
+        if (!string.IsNullOrEmpty(ContentType))
+            proto.ContentType = ContentType;
+
+        if (!string.IsNullOrEmpty(Author))
+            proto.Author = Author;
+
+        if (PublishedDate.HasValue)
+            proto.PublishedDate = Timestamp.FromDateTime(PublishedDate.Value.ToUniversalTime());
+
+        return proto;
+    }
+
+    public static LinkEmbed FromProtoValue(Proto.LinkEmbed proto)
+    {
+        return new LinkEmbed
+        {
+            Url = proto.Url,
+            Title = proto.Title == "" ? null : proto.Title,
+            Description = proto.Description == "" ? null : proto.Description,
+            ImageUrl = proto.ImageUrl == "" ? null : proto.ImageUrl,
+            FaviconUrl = proto.FaviconUrl == "" ? null : proto.FaviconUrl,
+            SiteName = proto.SiteName == "" ? null : proto.SiteName,
+            ContentType = proto.ContentType == "" ? null : proto.ContentType,
+            Author = proto.Author == "" ? null : proto.Author,
+            PublishedDate = proto.PublishedDate != null ? proto.PublishedDate.ToDateTime() : null
+        };
+    }
 }

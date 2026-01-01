@@ -8,6 +8,14 @@
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.4.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.33.2" />
+    <PackageReference Include="Grpc.AspNetCore.Server.ClientFactory" Version="2.76.0" />
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.76.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.76.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.76.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.1">
       <PrivateAssets>all</PrivateAssets>
@@ -28,6 +36,10 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Remove="..\DysonNetwork.Shared\Proto\**" />
   </ItemGroup>
 
 </Project>

@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
-using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -15,7 +14,8 @@ public class TimelineService(
     Post.PostService ps,
     RemoteRealmService rs,
     DiscoveryService ds,
-    AccountService.AccountServiceClient accounts
+    AccountService.AccountServiceClient accounts,
+    RemoteWebArticleService webArticles
 )
 {
     private static double CalculateHotRank(SnPost post, Instant now)
@@ -235,40 +235,10 @@ public class TimelineService(
             ).ToActivity();
     }
 
-    private async Task<SnTimelineEvent?> GetArticleDiscoveryActivity(
-        int count = 5,
-        int feedSampleSize = 10
-    )
+    private async Task<SnTimelineEvent?> GetArticleDiscoveryActivity(int count = 5)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var today = now.InZone(DateTimeZone.Utc).Date;
-        var todayBegin = today.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-        var todayEnd = today.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-        var recentFeedIds = await db
-            .WebArticles.Where(a => a.CreatedAt >= todayBegin && a.CreatedAt < todayEnd)
-            .GroupBy(a => a.FeedId)
-            .OrderByDescending(g => g.Max(a => a.PublishedAt))
-            .Take(feedSampleSize)
-            .Select(g => g.Key)
-            .ToListAsync();
-
-        var recentArticles = new List<WebArticle>();
-        var random = new Random();
-
-        foreach (var feedId in recentFeedIds.OrderBy(_ => random.Next()))
-        {
-            var article = await db
-                .WebArticles.Include(a => a.Feed)
-                .Where(a => a.FeedId == feedId)
-                .OrderBy(_ => EF.Functions.Random())
-                .FirstOrDefaultAsync();
-
-            if (article == null)
-                continue;
-            recentArticles.Add(article);
-            if (recentArticles.Count >= count)
-                break;
-        }
+        var recentArticles = await webArticles.GetRecentArticles(count);
 
         return recentArticles.Count > 0
             ? new TimelineDiscoveryEvent(

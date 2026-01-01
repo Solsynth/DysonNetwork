@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere;
-using DysonNetwork.Sphere.WebReader;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -1364,9 +1364,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("meta");
 
-                    b.Property<LinkEmbed>("Preview")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("preview");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1426,9 +1423,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(8192)")
                         .HasColumnName("description");
 
-                    b.Property<LinkEmbed>("Preview")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("preview");
 
                     b.Property<Guid>("PublisherId")
                         .HasColumnType("uuid")

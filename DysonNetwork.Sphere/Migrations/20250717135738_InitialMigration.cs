@@ -1,5 +1,5 @@
 ﻿using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.WebReader;
+
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;
 using NpgsqlTypes;
@@ -439,7 +439,6 @@ namespace DysonNetwork.Sphere.Migrations
                     url = table.Column<string>(type: "character varying(8192)", maxLength: 8192, nullable: false),
                     title = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
                     description = table.Column<string>(type: "character varying(8192)", maxLength: 8192, nullable: true),
-                    preview = table.Column<LinkEmbed>(type: "jsonb", nullable: true),
                     config = table.Column<WebFeedConfig>(type: "jsonb", nullable: false),
                     publisher_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
@@ -692,7 +691,6 @@ namespace DysonNetwork.Sphere.Migrations
                     url = table.Column<string>(type: "character varying(8192)", maxLength: 8192, nullable: false),
                     author = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     meta = table.Column<Dictionary<string, object>>(type: "jsonb", nullable: true),
-                    preview = table.Column<LinkEmbed>(type: "jsonb", nullable: true),
                     content = table.Column<string>(type: "text", nullable: true),
                     published_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     feed_id = table.Column<Guid>(type: "uuid", nullable: false),
