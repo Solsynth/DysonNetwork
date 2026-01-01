@@ -27,7 +27,6 @@ public class AppDatabase(
     public DbSet<SnCloudFileIndex> FileIndexes { get; set; }
 
     public DbSet<PersistentTask> Tasks { get; set; } = null!;
-    public DbSet<PersistentUploadTask> UploadTasks { get; set; } = null!; // Backward compatibility
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -40,18 +39,6 @@ public class AppDatabase(
         ).UseSnakeCaseNamingConvention();
 
         base.OnConfiguring(optionsBuilder);
-    }
-
-    public static void ConfigureOptions(IServiceProvider serviceProvider, DbContextOptionsBuilder optionsBuilder)
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        optionsBuilder.UseNpgsql(
-            configuration.GetConnectionString("App"),
-            opt => opt
-                .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
-                .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-                .UseNodaTime()
-        ).UseSnakeCaseNamingConvention();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
