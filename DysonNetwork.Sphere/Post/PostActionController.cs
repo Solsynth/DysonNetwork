@@ -51,7 +51,7 @@ public class PostActionController(
         [MaxLength(16)] public List<string>? Tags { get; set; }
         [MaxLength(8)] public List<string>? Categories { get; set; }
         [MaxLength(32)] public List<string>? Attachments { get; set; }
-        
+
         public Dictionary<string, object>? Meta { get; set; }
         public Instant? PublishedAt { get; set; }
         public Guid? RepliedPostId { get; set; }
@@ -185,7 +185,7 @@ public class PostActionController(
                 {
                     FundId = request.FundId.Value.ToString()
                 });
-                
+
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != currentUser.Id)
                     return BadRequest("You can only share funds that you created.");
@@ -286,7 +286,7 @@ public class PostActionController(
             return Unauthorized();
 
         var friendsResponse = await accounts.ListFriendsAsync(
-            new ListRelationshipSimpleRequest { AccountId = currentUser.Id.ToString() }
+            new ListRelationshipSimpleRequest { RelatedId = currentUser.Id }
         );
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
@@ -305,7 +305,7 @@ public class PostActionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var isSelfReact =
-            post.Publisher.AccountId is not null && post.Publisher.AccountId == accountId;
+            post.Publisher?.AccountId is not null && post.Publisher.AccountId == accountId;
 
         var isExistingReaction = await db.PostReactions.AnyAsync(r =>
             r.PostId == post.Id && r.Symbol == request.Symbol && r.AccountId == accountId
@@ -454,7 +454,8 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (post.PublisherId == null || !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
+        if (post.PublisherId == null ||
+            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
@@ -518,7 +519,8 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (post.PublisherId == null || !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
+        if (post.PublisherId == null ||
+            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
@@ -574,7 +576,7 @@ public class PostActionController(
             return BadRequest("Content is required.");
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
-        
+
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) && request.Type != PostType.Article)
             return BadRequest("Thumbnail only supported in article.");
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) &&
@@ -675,7 +677,7 @@ public class PostActionController(
                 {
                     FundId = request.FundId.Value.ToString()
                 });
-                
+
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != currentUser.Id)
                     return BadRequest("You can only share funds that you created.");
@@ -746,7 +748,7 @@ public class PostActionController(
         {
             post.RealmId = null;
         }
-        
+
         try
         {
             post = await ps.UpdatePostAsync(

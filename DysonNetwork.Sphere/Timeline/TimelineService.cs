@@ -85,7 +85,7 @@ public class TimelineService(
 
         // Get user's friends and publishers
         var friendsResponse = await accounts.ListFriendsAsync(
-            new ListRelationshipSimpleRequest { AccountId = currentUser.Id }
+            new ListRelationshipSimpleRequest { RelatedId = currentUser.Id }
         );
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
