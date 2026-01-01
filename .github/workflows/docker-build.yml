@@ -27,8 +27,8 @@ jobs:
               run: |
                   files="${{ steps.changed-files.outputs.files }}"
                   matrix="{\"include\":[]}"
-                  services=("Sphere" "Pass" "Ring" "Drive" "Develop" "Gateway" "Insight" "Zone", "Messager")
-                  images=("sphere" "pass" "ring" "drive" "develop" "gateway" "insight" "zone", "messager")
+                  services=("Sphere" "Pass" "Ring" "Drive" "Develop" "Gateway" "Insight" "Zone" "Messager")
+                  images=("sphere" "pass" "ring" "drive" "develop" "gateway" "insight" "zone" "messager")
                   changed_services=()
 
                   for file in $files; do
