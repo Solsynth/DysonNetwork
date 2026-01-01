@@ -57,7 +57,8 @@ public partial class PostService(
             }
 
             // Truncate forwarded post content with shorter embed length
-            if (item.ForwardedPost?.Content == null || Markdown.ToPlainText(item.ForwardedPost.Content).Length <= embedMaxLength) continue;
+            if (item.ForwardedPost?.Content == null ||
+                Markdown.ToPlainText(item.ForwardedPost.Content).Length <= embedMaxLength) continue;
             var forwardedPlainText = Markdown.ToPlainText(item.ForwardedPost.Content);
             item.ForwardedPost.Content = forwardedPlainText[..embedMaxLength];
             item.ForwardedPost.IsTruncated = true;
@@ -490,7 +491,8 @@ public partial class PostService(
         }
         else
         {
-            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId,
+                    Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors can pin replies.");
 
             post.PinMode = pinMode;
@@ -515,7 +517,8 @@ public partial class PostService(
         }
         else
         {
-            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId,
+                    Shared.Models.PublisherMemberRole.Editor))
                 throw new InvalidOperationException("Only editors can unpin posts.");
         }
 
@@ -545,13 +548,13 @@ public partial class PostService(
     )
     {
         var isExistingReaction = reaction.AccountId.HasValue &&
-            await db.Set<SnPostReaction>()
-                .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId.Value);
+                                 await db.Set<SnPostReaction>()
+                                     .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId.Value);
 
         if (isRemoving)
             await db.PostReactions
                 .Where(r => r.PostId == post.Id && r.Symbol == reaction.Symbol &&
-                    reaction.AccountId.HasValue && r.AccountId == reaction.AccountId.Value)
+                            reaction.AccountId.HasValue && r.AccountId == reaction.AccountId.Value)
                 .ExecuteDeleteAsync();
         else
             db.PostReactions.Add(reaction);
@@ -586,59 +589,56 @@ public partial class PostService(
         // Send ActivityPub Like/Undo activities if post's publisher has actor
         if (post.PublisherId.HasValue && reaction.AccountId.HasValue)
         {
-            var publisherActor = await apDelivery.GetLocalActorAsync(post.PublisherId.Value);
+            var accountPublisher = await db.Publishers
+                .Where(p => p.Members.Any(m => m.AccountId == reaction.AccountId.Value))
+                .FirstOrDefaultAsync();
+            var accountActor = accountPublisher is null
+                ? null
+                : await apDelivery.GetLocalActorAsync(accountPublisher.Id);
 
-            if (publisherActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
+            if (accountActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
             {
-                var likerActor = await db.FediverseActors
-                    .FirstOrDefaultAsync(a => a.PublisherId.HasValue && a.PublisherId.Value == reaction.AccountId.Value);
-
-                if (likerActor != null)
+                if (!isRemoving)
                 {
-                    if (!isRemoving)
+                    // Sending Like - deliver to publisher's remote followers
+                    _ = Task.Run(async () =>
                     {
-                        // Sending Like - deliver to publisher's remote followers
-                        _ = Task.Run(async () =>
+                        try
                         {
-                            try
-                            {
-                                using var scope = factory.CreateScope();
-                                var deliveryService = scope.ServiceProvider
-                                    .GetRequiredService<ActivityPubDeliveryService>();
-                                await deliveryService.SendLikeActivityToLocalPostAsync(
-                                    post.PublisherId.Value,
-                                    post.Id,
-                                    likerActor.Id
-                                );
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.LogError($"Error sending ActivityPub Like: {ex.Message}");
-                            }
-                        });
-                    }
-                    else
+                            using var scope = factory.CreateScope();
+                            var deliveryService = scope.ServiceProvider
+                                .GetRequiredService<ActivityPubDeliveryService>();
+                            await deliveryService.SendLikeActivityToLocalPostAsync(
+                                accountActor,
+                                post.Id
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError($"Error sending ActivityPub Like: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    // Sending Undo Like - deliver to publisher's remote followers
+                    _ = Task.Run(async () =>
                     {
-                        // Sending Undo Like - deliver to publisher's remote followers
-                        _ = Task.Run(async () =>
+                        try
                         {
-                            try
-                            {
-                                using var scope = factory.CreateScope();
-                                var deliveryService = scope.ServiceProvider
-                                    .GetRequiredService<ActivityPubDeliveryService>();
-                                await deliveryService.SendUndoLikeActivityAsync(
-                                    post.PublisherId.Value,
-                                    post.Id,
-                                    string.Empty
-                                );
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.LogError($"Error sending ActivityPub Undo Like: {ex.Message}");
-                            }
-                        });
-                    }
+                            using var scope = factory.CreateScope();
+                            var deliveryService = scope.ServiceProvider
+                                .GetRequiredService<ActivityPubDeliveryService>();
+                            await deliveryService.SendUndoLikeActivityAsync(
+                                accountActor,
+                                post.Id
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError($"Error sending ActivityPub Undo Like: {ex.Message}");
+                        }
+                    });
                 }
             }
         }
@@ -1160,7 +1160,8 @@ public static class PostQueryExtensions
         source = isListing switch
         {
             true when currentUser is not null => source.Where(e =>
-                e.Visibility != Shared.Models.PostVisibility.Unlisted || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))),
+                e.Visibility != Shared.Models.PostVisibility.Unlisted ||
+                (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))),
             true => source.Where(e => e.Visibility != Shared.Models.PostVisibility.Unlisted),
             _ => source
         };
@@ -1171,8 +1172,10 @@ public static class PostQueryExtensions
                 .Where(e => e.Visibility == Shared.Models.PostVisibility.Public);
 
         return source
-            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value)))
-            .Where(e => e.Visibility != Shared.Models.PostVisibility.Private || publishersId.Contains(e.PublisherId.Value))
+            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) ||
+                        (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value)))
+            .Where(e => e.Visibility != Shared.Models.PostVisibility.Private ||
+                        publishersId.Contains(e.PublisherId.Value))
             .Where(e => e.Visibility != Shared.Models.PostVisibility.Friends ||
                         (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
                         publishersId.Contains(e.PublisherId.Value));

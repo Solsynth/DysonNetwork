@@ -370,29 +370,11 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendLikeActivityToLocalPostAsync(
-        Guid publisherId,
-        Guid postId,
-        Guid actorId
+        SnFediverseActor actor,
+        Guid postId
     )
     {
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.Id == publisherId);
-
-        if (publisher == null)
-            return false;
-
-        var publisherActor = await GetLocalActorAsync(publisherId);
-        if (publisherActor == null)
-            return false;
-
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.Id == actorId);
-
-        if (actor == null)
-            return false;
-
-        var actorUrl = publisherActor.Uri;
+        var actorUrl = actor.Uri;
         var postUrl = $"https://{Domain}/posts/{postId}";
         var activityId = $"{actorUrl}/likes/{Guid.NewGuid()}";
 
@@ -419,23 +401,11 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendUndoLikeActivityAsync(
-        Guid publisherId,
-        Guid postId,
-        string likeActivityId
+        SnFediverseActor actor,
+        Guid postId
     )
     {
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.Id == publisherId);
-
-        if (publisher == null)
-            return false;
-
-        var localActor = await GetLocalActorAsync(publisherId);
-        if (localActor == null)
-            return false;
-
-        var actorUrl = localActor.Uri;
+        var actorUrl = actor.Uri;
         var postUrl = $"https://{Domain}/posts/{postId}";
         var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
 
@@ -454,7 +424,7 @@ public class ActivityPubDeliveryService(
             ["cc"] = new[] { $"{actorUrl}/followers" }
         };
 
-        var followers = await GetRemoteFollowersAsync(localActor.Id);
+        var followers = await GetRemoteFollowersAsync(actor.Id);
 
         foreach (var follower in followers)
         {
