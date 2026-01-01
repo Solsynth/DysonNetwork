@@ -5,14 +5,13 @@ using DysonNetwork.Shared;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Localization;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Localization;
 using NodaTime;
 using DysonNetwork.Shared.Models;
 
-namespace DysonNetwork.Sphere.Chat;
+namespace DysonNetwork.Messager.Chat;
 
 [ApiController]
 [Route("/api/chat")]
@@ -20,7 +19,6 @@ public class ChatRoomController(
     AppDatabase db,
     ChatRoomService crs,
     RemoteRealmService rs,
-    IStringLocalizer<NotificationResource> localizer,
     AccountService.AccountServiceClient accounts,
     FileService.FileServiceClient files,
     FileReferenceService.FileReferenceServiceClient fileRefs,
@@ -1084,12 +1082,11 @@ public class ChatRoomController(
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
         CultureService.SetCultureInfo(account);
+                var title = "Chat Invite";
+                var body = member.ChatRoom.Type == ChatRoomType.DirectMessage
+                    ? $"{sender.Nick} sent you a direct message"
+                    : $"You have been invited to {member.ChatRoom.Name ?? "Unnamed"}";
 
-        string title = localizer["ChatInviteTitle"];
-
-        string body = member.ChatRoom.Type == ChatRoomType.DirectMessage
-            ? localizer["ChatInviteDirectBody", sender.Nick]
-            : localizer["ChatInviteBody", member.ChatRoom.Name ?? "Unnamed"];
 
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest

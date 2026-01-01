@@ -43,7 +43,7 @@ public class WebFeed : ModelBase
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 
-    [JsonIgnore] public ICollection<WebArticle> Articles { get; set; } = new List<WebArticle>();
+    [JsonIgnore] public List<WebArticle> Articles { get; set; } = new List<WebArticle>();
 }
 
 public class WebFeedSubscription : ModelBase

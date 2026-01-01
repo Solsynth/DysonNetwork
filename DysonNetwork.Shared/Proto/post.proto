@@ -9,6 +9,7 @@ import "google/protobuf/wrappers.proto";
 import "file.proto";
 import "realm.proto";
 import "publisher.proto";
+import "account.proto";
 
 // Enums
 enum PostType {
@@ -320,5 +321,3 @@ service PostService {
   // List posts with filters
   rpc ListPosts(ListPostsRequest) returns (ListPostsResponse);
 }
-
-import 'account.proto';

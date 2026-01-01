@@ -5,7 +5,7 @@ using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 
-namespace DysonNetwork.Sphere.Chat.Realtime;
+namespace DysonNetwork.Messager.Chat.Realtime;
 
 /// <summary>
 /// LiveKit implementation of the real-time communication service

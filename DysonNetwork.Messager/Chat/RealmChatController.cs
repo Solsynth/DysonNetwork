@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.Chat;
+namespace DysonNetwork.Messager.Chat;
 
 [ApiController]
 [Route("/api/realms/{slug}")]

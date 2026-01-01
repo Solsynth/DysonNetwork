@@ -42,7 +42,7 @@ public class AppDatabase(
     public DbSet<SnChatMember> ChatMembers { get; set; } = null!;
     public DbSet<SnChatMessage> ChatMessages { get; set; } = null!;
     public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
-    public DbSet<SnChatMessageReaction> ChatReactions { get; set; } = null!;
+    public DbSet<SnChatReaction> ChatReactions { get; set; } = null!;
 
     public DbSet<SnSticker> Stickers { get; set; } = null!;
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;

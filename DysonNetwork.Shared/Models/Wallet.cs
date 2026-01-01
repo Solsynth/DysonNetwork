@@ -11,7 +11,7 @@ public class SnWallet : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public ICollection<SnWalletPocket> Pockets { get; set; } = new List<SnWalletPocket>();
+    public List<SnWalletPocket> Pockets { get; set; } = new List<SnWalletPocket>();
 
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
@@ -98,7 +98,7 @@ public class SnWalletFund : ModelBase
     public SnAccount CreatorAccount { get; set; } = null!;
 
     // Recipients
-    public ICollection<SnWalletFundRecipient> Recipients { get; set; } = new List<SnWalletFundRecipient>();
+    public List<SnWalletFundRecipient> Recipients { get; set; } = new List<SnWalletFundRecipient>();
 
     // Expiration
     public Instant ExpiredAt { get; set; }

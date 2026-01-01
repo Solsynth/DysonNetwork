@@ -57,7 +57,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FastUploadLink { get; set; }
 
-    public ICollection<SnCloudFileReference> References { get; set; } = new List<SnCloudFileReference>();
+    public List<SnCloudFileReference> References { get; set; } = new List<SnCloudFileReference>();
 
     public Guid AccountId { get; set; }
 

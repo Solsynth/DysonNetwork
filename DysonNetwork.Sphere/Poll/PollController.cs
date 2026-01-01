@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PollQuestionType = DysonNetwork.Shared.Models.PollQuestionType;
 
 namespace DysonNetwork.Sphere.Poll;
 
@@ -14,7 +15,7 @@ namespace DysonNetwork.Sphere.Poll;
 [Route("/api/polls")]
 public class PollController(
     AppDatabase db,
-    PollService polls,
+    Poll.PollService polls,
     Publisher.PublisherService pub,
     RemoteAccountService remoteAccountsHelper
 ) : ControllerBase

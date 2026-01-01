@@ -4,7 +4,7 @@ using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.Chat;
+namespace DysonNetwork.Messager.Chat;
 
 public class ChatRoomService(
     AppDatabase db,

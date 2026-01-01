@@ -33,7 +33,7 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
 
     [IgnoreMember]
     [JsonIgnore]
-    public ICollection<SnChatMember> Members { get; set; } = new List<SnChatMember>();
+    public List<SnChatMember> Members { get; set; } = new List<SnChatMember>();
 
     public Guid? AccountId { get; set; }
 
@@ -46,7 +46,7 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
 
     [NotMapped]
     [JsonPropertyName("members")]
-    public ICollection<ChatMemberTransmissionObject> DirectMembers { get; set; } =
+    public List<ChatMemberTransmissionObject> DirectMembers { get; set; } =
         new List<ChatMemberTransmissionObject>();
 
     public string ResourceIdentifier => $"chatroom:{Id}";
@@ -81,29 +81,21 @@ public class SnChatMember : ModelBase
     public SnChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
 
-    [NotMapped]
-    public SnAccount? Account { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
+    [NotMapped] public SnAccountStatus? Status { get; set; }
 
-    [NotMapped]
-    public SnAccountStatus? Status { get; set; }
-
-    [MaxLength(1024)]
-    public string? Nick { get; set; }
+    [MaxLength(1024)] public string? Nick { get; set; }
 
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? LastReadAt { get; set; }
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
 
+    [JsonIgnore] public List<SnChatMessage> Messages { get; set; } = [];
+    [JsonIgnore] public List<SnChatReaction> Reactions { get; set; } = [];
+
     public Guid? InvitedById { get; set; }
     public SnChatMember? InvitedBy { get; set; }
-
-    // Backwards support field
-    [NotMapped]
-    public int Role { get; } = 0;
-
-    [NotMapped]
-    public bool IsBot { get; } = false;
 
     /// <summary>
     /// The break time is the user doesn't receive any message from this member for a while.
@@ -146,13 +138,6 @@ public class ChatMemberTransmissionObject : ModelBase
     public Instant? BreakUntil { get; set; }
     public Instant? TimeoutUntil { get; set; }
     public ChatTimeoutCause? TimeoutCause { get; set; }
-
-    // Backwards support field
-    [NotMapped]
-    public int Role { get; } = 0;
-
-    [NotMapped]
-    public bool IsBot { get; } = false;
 
     public static ChatMemberTransmissionObject FromEntity(SnChatMember member)
     {

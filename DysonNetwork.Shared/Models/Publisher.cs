@@ -35,14 +35,14 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [MaxLength(8192)] [JsonIgnore] public string? PrivateKeyPem { get; set; }
     [MaxLength(8192)] public string? PublicKeyPem { get; set; }
 
-    [IgnoreMember] [JsonIgnore] public ICollection<SnPost> Posts { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnPoll> Polls { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnPostCollection> Collections { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnPublisherMember> Members { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnPublisherFeature> Features { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnPost> Posts { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnPoll> Polls { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnPublisherMember> Members { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnPublisherFeature> Features { get; set; } = [];
 
     [JsonIgnore]
-    public ICollection<SnPublisherSubscription> Subscriptions { get; set; } = [];
+    public List<SnPublisherSubscription> Subscriptions { get; set; } = [];
 
     public Guid? AccountId { get; set; }
     public Guid? RealmId { get; set; }

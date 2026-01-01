@@ -1,13 +1,13 @@
 using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Chat.Realtime;
-using DysonNetwork.Sphere.WebReader;
+using DysonNetwork.Messager.Chat.Realtime;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Messager.WebReader;
 using NodaTime;
 using WebSocketPacket = DysonNetwork.Shared.Proto.WebSocketPacket;
 
-namespace DysonNetwork.Sphere.Chat;
+namespace DysonNetwork.Messager.Chat;
 
 public partial class ChatService(
     AppDatabase db,

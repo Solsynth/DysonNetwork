@@ -116,6 +116,12 @@ public static class ServiceInjectionHelper
             .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
             );
+
+        services
+            .AddGrpcClient<PollService.PollServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
+            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
+            );
         services.AddSingleton<RemotePublisherService>();
 
         return services;

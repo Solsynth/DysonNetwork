@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
+using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Rewind;
@@ -23,6 +24,7 @@ public static class ApplicationConfiguration
 
         // Map gRPC services
         app.MapGrpcService<PostServiceGrpc>();
+        app.MapGrpcService<PollServiceGrpc>();
         app.MapGrpcService<PublisherServiceGrpc>();
         app.MapGrpcService<SphereRewindServiceGrpc>();
         app.MapGrpcReflectionService();

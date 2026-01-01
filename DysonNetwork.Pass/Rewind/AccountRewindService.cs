@@ -42,7 +42,8 @@ public class AccountRewindService(
         var rewindEventTasks = new List<Task<RewindEvent>>
         {
             passRewindSrv.CreateRewindEvent(accountId, currentYear),
-            CreateRewindServiceClient("sphere").GetRewindEventAsync(rewindRequest).ResponseAsync
+            CreateRewindServiceClient("sphere").GetRewindEventAsync(rewindRequest).ResponseAsync,
+            CreateRewindServiceClient("messager").GetRewindEventAsync(rewindRequest).ResponseAsync
         };
         var rewindEvents = await Task.WhenAll(rewindEventTasks);
 

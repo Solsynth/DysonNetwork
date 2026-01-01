@@ -1,6 +1,6 @@
 using DysonNetwork.Shared.Proto;
 
-namespace DysonNetwork.Sphere.Chat.Realtime;
+namespace DysonNetwork.Messager.Chat.Realtime;
 
 /// <summary>
 /// Interface for real-time communication services (like Cloudflare, Agora, Twilio, etc.)

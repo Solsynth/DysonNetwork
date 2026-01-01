@@ -4,18 +4,16 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Autocompletion;
-using DysonNetwork.Sphere.Poll;
-using DysonNetwork.Sphere.Wallet;
-using DysonNetwork.Sphere.WebReader;
+using DysonNetwork.Messager.Poll;
+using DysonNetwork.Messager.Wallet;
+using DysonNetwork.Messager.WebReader;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Swashbuckle.AspNetCore.Annotations;
 
-namespace DysonNetwork.Sphere.Chat;
+namespace DysonNetwork.Messager.Chat;
 
 [ApiController]
 [Route("/api/chat")]
@@ -25,9 +23,8 @@ public partial class ChatController(
     ChatRoomService crs,
     FileService.FileServiceClient files,
     AccountService.AccountServiceClient accounts,
-    AutocompletionService aus,
     PaymentService.PaymentServiceClient paymentClient,
-    PollService polls
+    PollService.PollServiceClient pollClient
 ) : ControllerBase
 {
     public class MarkMessageReadRequest
@@ -293,12 +290,16 @@ public partial class ChatController(
         {
             try
             {
-                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
-                // Poll validation is handled by the MakePollEmbed method
+                var pollResponse = await pollClient.GetPollAsync(new GetPollRequest { Id = request.PollId.Value.ToString() });
+                // Poll validation is handled by gRPC call
             }
-            catch (Exception ex)
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("The specified poll does not exist.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            {
+                return BadRequest("Invalid poll ID.");
             }
         }
 
@@ -329,12 +330,13 @@ public partial class ChatController(
         // Add embed for poll if provided
         if (request.PollId.HasValue)
         {
-            var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+            var pollResponse = await pollClient.GetPollAsync(new GetPollRequest { Id = request.PollId.Value.ToString() });
+            var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
             message.Meta ??= new Dictionary<string, object>();
             if (
                 !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
                 message.Meta["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
             embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
@@ -472,7 +474,8 @@ public partial class ChatController(
         {
             try
             {
-                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                var pollResponse = await pollClient.GetPollAsync(new GetPollRequest { Id = request.PollId.Value.ToString() });
+                var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
                 message.Meta ??= new Dictionary<string, object>();
                 if (
                     !message.Meta.TryGetValue("embeds", out var existingEmbeds)
@@ -487,9 +490,13 @@ public partial class ChatController(
                 embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
                 message.Meta["embeds"] = embeds;
             }
-            catch (Exception ex)
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest(ex.Message);
+                return BadRequest("The specified poll does not exist.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            {
+                return BadRequest("Invalid poll ID.");
             }
         }
         else
@@ -565,21 +572,4 @@ public partial class ChatController(
     }
 
 
-    [SwaggerIgnore]
-    public async Task<ActionResult<List<Shared.Models.Autocompletion>>> ChatAutoComplete(
-        [FromBody] AutocompletionRequest request, Guid roomId)
-    {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
-            return Unauthorized();
-
-        var accountId = Guid.Parse(currentUser.Id);
-        var isMember = await db.ChatMembers
-            .AnyAsync(m =>
-                m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
-        if (!isMember)
-            return StatusCode(403, "You are not a member of this chat room.");
-
-        var result = await aus.GetAutocompletion(request.Content, chatId: roomId, limit: 10);
-        return Ok(result);
-    }
 }

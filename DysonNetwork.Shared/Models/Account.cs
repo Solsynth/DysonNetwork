@@ -24,16 +24,16 @@ public class SnAccount : ModelBase
     public Guid? AutomatedId { get; set; }
 
     public SnAccountProfile Profile { get; set; } = null!;
-    public ICollection<SnAccountContact> Contacts { get; set; } = [];
-    public ICollection<SnAccountBadge> Badges { get; set; } = [];
+    public List<SnAccountContact> Contacts { get; set; } = [];
+    public List<SnAccountBadge> Badges { get; set; } = [];
 
-    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountAuthFactor> AuthFactors { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountConnection> Connections { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnAuthSession> Sessions { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnAuthChallenge> Challenges { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnAccountAuthFactor> AuthFactors { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnAccountConnection> Connections { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnAuthSession> Sessions { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnAuthChallenge> Challenges { get; set; } = [];
 
-    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountRelationship> OutgoingRelationships { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public ICollection<SnAccountRelationship> IncomingRelationships { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnAccountRelationship> OutgoingRelationships { get; set; } = [];
+    [IgnoreMember] [JsonIgnore] public List<SnAccountRelationship> IncomingRelationships { get; set; } = [];
 
     [NotMapped] public SnSubscriptionReferenceObject? PerkSubscription { get; set; }
 

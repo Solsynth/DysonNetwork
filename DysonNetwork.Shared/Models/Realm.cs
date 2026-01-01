@@ -24,7 +24,7 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
 
-    [IgnoreMember] [JsonIgnore] public ICollection<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
+    [IgnoreMember] [JsonIgnore] public List<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
 
     public Guid AccountId { get; set; }
 

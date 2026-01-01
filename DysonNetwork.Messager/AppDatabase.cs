@@ -14,6 +14,12 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
+    public DbSet<SnChatRoom> ChatRooms { get; set; } = null!;
+    public DbSet<SnChatMember> ChatMembers { get; set; } = null!;
+    public DbSet<SnChatMessage> ChatMessages { get; set; } = null!;
+    public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
+    public DbSet<SnChatReaction> ChatReactions { get; set; } = null!;
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
@@ -30,6 +36,36 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<SnChatMember>()
+            .HasKey(pm => new { pm.Id });
+        modelBuilder.Entity<SnChatMember>()
+            .HasAlternateKey(pm => new { pm.ChatRoomId, pm.AccountId });
+        modelBuilder.Entity<SnChatMember>()
+            .HasOne(pm => pm.ChatRoom)
+            .WithMany(p => p.Members)
+            .HasForeignKey(pm => pm.ChatRoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnChatMessage>()
+            .HasOne(m => m.ForwardedMessage)
+            .WithMany()
+            .HasForeignKey(m => m.ForwardedMessageId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SnChatMessage>()
+            .HasOne(m => m.RepliedMessage)
+            .WithMany()
+            .HasForeignKey(m => m.RepliedMessageId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SnRealtimeCall>()
+            .HasOne(m => m.Room)
+            .WithMany()
+            .HasForeignKey(m => m.RoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnRealtimeCall>()
+            .HasOne(m => m.Sender)
+            .WithMany()
+            .HasForeignKey(m => m.SenderId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

@@ -17,7 +17,7 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
     
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = []; 
 
-    public ICollection<SnChatMessageReaction> Reactions { get; set; } = new List<SnChatMessageReaction>();
+    public List<SnChatReaction> Reactions { get; set; } = new();
 
     public Guid? RepliedMessageId { get; set; }
     public SnChatMessage? RepliedMessage { get; set; }
@@ -66,7 +66,7 @@ public enum MessageReactionAttitude
     Negative,
 }
 
-public class SnChatMessageReaction : ModelBase
+public class SnChatReaction : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid MessageId { get; set; }

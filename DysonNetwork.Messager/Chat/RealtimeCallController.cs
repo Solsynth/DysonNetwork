@@ -1,13 +1,13 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Chat.Realtime;
+using DysonNetwork.Messager.Chat.Realtime;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
 
-namespace DysonNetwork.Sphere.Chat;
+namespace DysonNetwork.Messager.Chat;
 
 public class RealtimeChatConfiguration
 {

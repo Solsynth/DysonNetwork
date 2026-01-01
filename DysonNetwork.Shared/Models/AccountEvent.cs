@@ -113,7 +113,7 @@ public class SnCheckInResult : ModelBase
     public int? RewardExperience { get; set; }
 
     [Column(TypeName = "jsonb")]
-    public ICollection<CheckInFortuneTip> Tips { get; set; } = new List<CheckInFortuneTip>();
+    public List<CheckInFortuneTip> Tips { get; set; } = new List<CheckInFortuneTip>();
 
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
@@ -135,7 +135,7 @@ public class DailyEventResponse
 {
     public Instant Date { get; set; }
     public SnCheckInResult? CheckInResult { get; set; }
-    public ICollection<SnAccountStatus> Statuses { get; set; } = new List<SnAccountStatus>();
+    public List<SnAccountStatus> Statuses { get; set; } = new List<SnAccountStatus>();
 }
 
 public enum PresenceType

@@ -34,8 +34,8 @@ public class SnFediverseActor : ModelBase
     public Guid InstanceId { get; set; }
     public SnFediverseInstance Instance { get; set; } = null!;
     
-    [JsonIgnore] public ICollection<SnFediverseRelationship> FollowingRelationships { get; set; } = [];
-    [JsonIgnore] public ICollection<SnFediverseRelationship> FollowerRelationships { get; set; } = [];
+    [JsonIgnore] public List<SnFediverseRelationship> FollowingRelationships { get; set; } = [];
+    [JsonIgnore] public List<SnFediverseRelationship> FollowerRelationships { get; set; } = [];
     
     public Instant? LastFetchedAt { get; set; }
     public Instant? LastActivityAt { get; set; }

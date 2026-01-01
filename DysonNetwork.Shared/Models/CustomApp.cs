@@ -30,7 +30,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnCustomAppOauthConfig? OauthConfig { get; set; }
     [Column(TypeName = "jsonb")] public SnCustomAppLinks? Links { get; set; }
 
-    [JsonIgnore] public ICollection<SnCustomAppSecret> Secrets { get; set; } = new List<SnCustomAppSecret>();
+    [JsonIgnore] public List<SnCustomAppSecret> Secrets { get; set; } = new List<SnCustomAppSecret>();
 
     public Guid ProjectId { get; set; }
     public SnDevProject Project { get; set; } = null!;

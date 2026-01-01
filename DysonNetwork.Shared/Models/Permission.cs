@@ -81,8 +81,8 @@ public class SnPermissionGroup : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string Key { get; set; } = null!;
 
-    public ICollection<SnPermissionNode> Nodes { get; set; } = [];
-    [JsonIgnore] public ICollection<SnPermissionGroupMember> Members { get; set; } = [];
+    public List<SnPermissionNode> Nodes { get; set; } = [];
+    [JsonIgnore] public List<SnPermissionGroupMember> Members { get; set; } = [];
 }
 
 public class SnPermissionGroupMember : ModelBase

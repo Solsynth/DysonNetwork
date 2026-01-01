@@ -17,6 +17,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using PostType = DysonNetwork.Shared.Models.PostType;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
+using PollsService = DysonNetwork.Sphere.Poll.PollService;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -29,7 +30,7 @@ public class PostActionController(
     AccountService.AccountServiceClient accounts,
     ActionLogService.ActionLogServiceClient als,
     PaymentService.PaymentServiceClient payments,
-    PollService polls,
+    PollsService polls,
     RemoteRealmService rs
 ) : ControllerBase
 {
