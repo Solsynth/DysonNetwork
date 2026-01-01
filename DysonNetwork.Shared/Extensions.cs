@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
@@ -45,13 +46,16 @@ public static class Extensions
                 // Turn on service discovery by default
                 http.AddServiceDiscovery();
                 // Ignore CA
-                http.ConfigurePrimaryHttpMessageHandler(sp => new HttpClientHandler
+                http.ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler
                 {
                     ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                    MaxConnectionsPerServer = 5,
                 });
             });
 
             builder.Services.AddSingleton<IClock>(SystemClock.Instance);
+
+            builder.Services.AddSharedGrpcChannels();
 
             builder.AddNatsClient("Queue");
             builder.AddRedisClient(
@@ -59,6 +63,10 @@ public static class Extensions
                 configureOptions: opts =>
                 {
                     opts.AbortOnConnectFail = false;
+                    opts.ConnectRetry = 3;
+                    opts.ConnectTimeout = 5000;
+                    opts.SyncTimeout = 3000;
+                    opts.AsyncTimeout = 3000;
                 }
             );
 
@@ -81,7 +89,7 @@ public static class Extensions
             return builder;
         }
 
-        public TBuilder ConfigureOpenTelemetry()
+        private TBuilder ConfigureOpenTelemetry()
         {
             builder.Logging.AddOpenTelemetry(logging =>
             {

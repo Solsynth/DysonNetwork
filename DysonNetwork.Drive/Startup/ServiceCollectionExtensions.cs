@@ -11,7 +11,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAppServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<AppDatabase>(); // Assuming you'll have an AppDatabase
+        services.AddDbContextPool<AppDatabase>(AppDatabase.ConfigureOptions);
         services.AddHttpContextAccessor();
 
         services.AddHttpClient();

@@ -11,8 +11,7 @@ namespace DysonNetwork.Zone.Startup;
 public class BroadcastEventHandler(
     IServiceProvider serviceProvider,
     ILogger<BroadcastEventHandler> logger,
-    INatsConnection nats,
-    RingService.RingServiceClient pusher
+    INatsConnection nats
 ) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

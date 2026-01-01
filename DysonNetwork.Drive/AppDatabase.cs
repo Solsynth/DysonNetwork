@@ -42,6 +42,18 @@ public class AppDatabase(
         base.OnConfiguring(optionsBuilder);
     }
 
+    public static void ConfigureOptions(IServiceProvider serviceProvider, DbContextOptionsBuilder optionsBuilder)
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        optionsBuilder.UseNpgsql(
+            configuration.GetConnectionString("App"),
+            opt => opt
+                .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
+                .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+                .UseNodaTime()
+        ).UseSnakeCaseNamingConvention();
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

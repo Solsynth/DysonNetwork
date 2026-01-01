@@ -5,136 +5,107 @@ namespace DysonNetwork.Shared.Registry;
 
 public static class ServiceInjectionHelper
 {
-    public static IServiceCollection AddRingService(this IServiceCollection services)
+    extension(IServiceCollection services)
     {
-        services
-            .AddGrpcClient<RingService.RingServiceClient>(o => o.Address = new Uri("https://_grpc.ring"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+        public IServiceCollection AddRingService()
+        {
+            services.AddGrpcClientWithSharedChannel<RingService.RingServiceClient>(
+                "https://_grpc.ring",
+                "RingService");
 
-        return services;
-    }
+            return services;
+        }
 
-    public static IServiceCollection AddAuthService(this IServiceCollection services)
-    {
-        services
-            .AddGrpcClient<AuthService.AuthServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+        public IServiceCollection AddAuthService()
+        {
+            services.AddGrpcClientWithSharedChannel<AuthService.AuthServiceClient>(
+                "https://_grpc.pass",
+                "AuthService");
 
-        services
-            .AddGrpcClient<PermissionService.PermissionServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<PermissionService.PermissionServiceClient>(
+                "https://_grpc.pass",
+                "PermissionService");
 
-        return services;
-    }
+            return services;
+        }
 
-    public static IServiceCollection AddAccountService(this IServiceCollection services)
-    {
-        services
-            .AddGrpcClient<AccountService.AccountServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
-        services.AddSingleton<RemoteAccountService>();
+        public IServiceCollection AddAccountService()
+        {
+            services.AddGrpcClientWithSharedChannel<AccountService.AccountServiceClient>(
+                "https://_grpc.pass",
+                "AccountService");
+            services.AddSingleton<RemoteAccountService>();
 
-        services
-            .AddGrpcClient<BotAccountReceiverService.BotAccountReceiverServiceClient>(o =>
-                o.Address = new Uri("https://_grpc.pass")
-            )
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<BotAccountReceiverService.BotAccountReceiverServiceClient>(
+                "https://_grpc.pass",
+                "BotAccountReceiverService");
 
-        services.AddGrpcClient<ActionLogService.ActionLogServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<ActionLogService.ActionLogServiceClient>(
+                "https://_grpc.pass",
+                "ActionLogService");
 
-        services.AddGrpcClient<PaymentService.PaymentServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<PaymentService.PaymentServiceClient>(
+                "https://_grpc.pass",
+                "PaymentService");
 
-        services.AddGrpcClient<WalletService.WalletServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<WalletService.WalletServiceClient>(
+                "https://_grpc.pass",
+                "WalletService");
 
-        services
-            .AddGrpcClient<RealmService.RealmServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
-        services.AddSingleton<RemoteRealmService>();
-        
-        services
-            .AddGrpcClient<SocialCreditService.SocialCreditServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
-        
-        services
-            .AddGrpcClient<ExperienceService.ExperienceServiceClient>(o => o.Address = new Uri("https://_grpc.pass"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<RealmService.RealmServiceClient>(
+                "https://_grpc.pass",
+                "RealmService");
+            services.AddSingleton<RemoteRealmService>();
 
-        return services;
-    }
+            services.AddGrpcClientWithSharedChannel<SocialCreditService.SocialCreditServiceClient>(
+                "https://_grpc.pass",
+                "SocialCreditService");
 
-    public static IServiceCollection AddDriveService(this IServiceCollection services)
-    {
-        services.AddGrpcClient<FileService.FileServiceClient>(o => o.Address = new Uri("https://_grpc.drive"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<ExperienceService.ExperienceServiceClient>(
+                "https://_grpc.pass",
+                "ExperienceService");
 
-        services.AddGrpcClient<FileReferenceService.FileReferenceServiceClient>(o =>
-                o.Address = new Uri("https://_grpc.drive"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            return services;
+        }
 
-        return services;
-    }
+        public IServiceCollection AddDriveService()
+        {
+            services.AddGrpcClientWithSharedChannel<FileService.FileServiceClient>(
+                "https://_grpc.drive",
+                "FileService");
 
-    public static IServiceCollection AddSphereService(this IServiceCollection services)
-    {
-        services
-            .AddGrpcClient<PostService.PostServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<FileReferenceService.FileReferenceServiceClient>(
+                "https://_grpc.drive",
+                "FileReferenceService");
 
-        services
-            .AddGrpcClient<PublisherService.PublisherServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            return services;
+        }
 
-        services
-            .AddGrpcClient<PollService.PollServiceClient>(o => o.Address = new Uri("https://_grpc.sphere"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
-        services.AddSingleton<RemotePublisherService>();
+        public IServiceCollection AddSphereService()
+        {
+            services.AddGrpcClientWithSharedChannel<PostService.PostServiceClient>(
+                "https://_grpc.sphere",
+                "PostService");
 
-        return services;
-    }
+            services.AddGrpcClientWithSharedChannel<PublisherService.PublisherServiceClient>(
+                "https://_grpc.sphere",
+                "PublisherService");
 
-    public static IServiceCollection AddDevelopService(this IServiceCollection services)
-    {
-        services.AddGrpcClient<CustomAppService.CustomAppServiceClient>(o =>
-                o.Address = new Uri("https://_grpc.develop"))
-            .ConfigurePrimaryHttpMessageHandler(_ => new HttpClientHandler()
-                { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }
-            );
+            services.AddGrpcClientWithSharedChannel<PollService.PollServiceClient>(
+                "https://_grpc.sphere",
+                "PollService");
+            services.AddSingleton<RemotePublisherService>();
 
-        return services;
+            return services;
+        }
+
+        public IServiceCollection AddDevelopService()
+        {
+            services.AddGrpcClientWithSharedChannel<CustomAppService.CustomAppServiceClient>(
+                "https://_grpc.develop",
+                "CustomAppService");
+
+            return services;
+        }
     }
 }
