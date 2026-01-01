@@ -1,4 +1,3 @@
-using DysonNetwork.Insight.Reader;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -27,14 +26,7 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInMinutes(1)
                     .RepeatForever())
             );
-
-            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity("WebFeedScraper").StoreDurably());
-            q.AddTrigger(opts => opts
-                .ForJob("WebFeedScraper")
-                .WithIdentity("WebFeedScraperTrigger")
-                .WithCronSchedule("0 0 0 * * ?")
-            );
-
+            
             q.AddJob<PublisherSettlementJob>(opts => opts.WithIdentity("PublisherSettlement"));
             q.AddTrigger(opts => opts
                 .ForJob("PublisherSettlement")

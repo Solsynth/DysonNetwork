@@ -98,7 +98,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\DysonNetwork.Insight\DysonNetwork.Insight.csproj" />
         <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
 
