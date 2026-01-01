@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 [ApiController]
 [Route("/api/feeds/articles")]

@@ -1,4 +1,6 @@
-namespace DysonNetwork.Sphere.WebReader;
+using DysonNetwork.Shared.Models.Embed;
+
+namespace DysonNetwork.Insight.Reader;
 
 public class ScrapedArticle
 {

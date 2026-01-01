@@ -1,20 +1,21 @@
 using System.ServiceModel.Syndication;
 using System.Xml;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Models.Embed;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 public class WebFeedService(
     AppDatabase database,
     IHttpClientFactory httpClientFactory,
     ILogger<WebFeedService> logger,
-    WebReaderService webReaderService
+    WebReaderService readerService
 )
 {
-    public async Task<WebFeed> CreateWebFeedAsync(Shared.Models.SnPublisher publisher,
-        WebFeedController.WebFeedRequest request)
+    public async Task<SnWebFeed> CreateWebFeedAsync(SnPublisher publisher, WebFeedController.WebFeedRequest request)
     {
-        var feed = new WebFeed
+        var feed = new SnWebFeed
         {
             Url = request.Url!,
             Title = request.Title!,
@@ -29,7 +30,7 @@ public class WebFeedService(
         return feed;
     }
 
-    public async Task<WebFeed?> GetFeedAsync(Guid id, Guid? publisherId = null)
+    public async Task<SnWebFeed?> GetFeedAsync(Guid id, Guid? publisherId = null)
     {
         var query = database.WebFeeds
             .Include(a => a.Publisher)
@@ -40,12 +41,12 @@ public class WebFeedService(
         return await query.FirstOrDefaultAsync();
     }
 
-    public async Task<List<WebFeed>> GetFeedsByPublisherAsync(Guid publisherId)
+    public async Task<List<SnWebFeed>> GetFeedsByPublisherAsync(Guid publisherId)
     {
         return await database.WebFeeds.Where(a => a.PublisherId == publisherId).ToListAsync();
     }
 
-    public async Task<WebFeed> UpdateFeedAsync(WebFeed feed, WebFeedController.WebFeedRequest request)
+    public async Task<SnWebFeed> UpdateFeedAsync(SnWebFeed feed, WebFeedController.WebFeedRequest request)
     {
         if (request.Url is not null)
             feed.Url = request.Url;
@@ -76,7 +77,7 @@ public class WebFeedService(
         return true;
     }
 
-    public async Task ScrapeFeedAsync(WebFeed feed, CancellationToken cancellationToken = default)
+    public async Task ScrapeFeedAsync(SnWebFeed feed, CancellationToken cancellationToken = default)
     {
         var httpClient = httpClientFactory.CreateClient();
         var response = await httpClient.GetAsync(feed.Url, cancellationToken);
@@ -98,7 +99,7 @@ public class WebFeedService(
             if (string.IsNullOrEmpty(itemUrl))
                 continue;
 
-            var articleExists = await database.Set<WebArticle>()
+            var articleExists = await database.Set<SnWebArticle>()
                 .AnyAsync(a => a.FeedId == feed.Id && a.Url == itemUrl, cancellationToken);
 
             if (articleExists)
@@ -109,17 +110,17 @@ public class WebFeedService(
 
             if (feed.Config.ScrapPage)
             {
-                var scrapedArticle = await webReaderService.ScrapeArticleAsync(itemUrl, cancellationToken);
+                var scrapedArticle = await readerService.ScrapeArticleAsync(itemUrl, cancellationToken);
                 preview = scrapedArticle.LinkEmbed;
                 if (scrapedArticle.Content is not null)
                     content = scrapedArticle.Content;
             }
             else
             {
-                preview = await webReaderService.GetLinkPreviewAsync(itemUrl, cancellationToken);
+                preview = await readerService.GetLinkPreviewAsync(itemUrl, cancellationToken);
             }
 
-            var newArticle = new WebArticle
+            var newArticle = new SnWebArticle
             {
                 FeedId = feed.Id,
                 Title = item.Title.Text,

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Shared.Models.Embed;
 
 /// <summary>
 /// The embeddable can be used in the post or messages' meta's embeds fields

@@ -1,9 +1,10 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models.Embed;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 /// <summary>
 /// Controller for web scraping and link preview services

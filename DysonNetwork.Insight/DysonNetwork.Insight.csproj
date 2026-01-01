@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.4.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.1">
       <PrivateAssets>all</PrivateAssets>
@@ -18,6 +19,7 @@
     <PackageReference Include="Quartz" Version="3.15.1" />
     <PackageReference Include="Quartz.AspNetCore" Version="3.15.1" />
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.15.1" />
+    <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup>

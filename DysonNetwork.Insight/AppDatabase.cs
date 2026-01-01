@@ -15,6 +15,10 @@ public class AppDatabase(
     public DbSet<SnThinkingThought> ThinkingThoughts { get; set; }
     public DbSet<SnUnpaidAccount> UnpaidAccounts { get; set; }
     
+    public DbSet<SnWebArticle> WebArticles { get; set; }
+    public DbSet<SnWebFeed> WebFeeds { get; set; }
+    public DbSet<SnWebFeedSubscription> WebFeedSubscriptions { get; set; }
+    
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

@@ -2,9 +2,10 @@ using System.Globalization;
 using AngleSharp;
 using AngleSharp.Dom;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Models.Embed;
 using HtmlAgilityPack;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 /// <summary>
 /// The service is amin to providing scrapping service to the Solar Network.

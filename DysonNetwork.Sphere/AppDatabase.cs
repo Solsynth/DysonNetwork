@@ -1,19 +1,12 @@
 using System.Linq.Expressions;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.WebReader;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Query;
 using NodaTime;
 using Quartz;
 
 namespace DysonNetwork.Sphere;
-
-public interface IIdentifiedResource
-{
-    public string ResourceIdentifier { get; }
-}
 
 public class AppDatabase(
     DbContextOptions<AppDatabase> options,
@@ -52,10 +45,6 @@ public class AppDatabase(
     public DbSet<SnFediverseActor> FediverseActors { get; set; } = null!;
     public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
-
-    public DbSet<WebArticle> WebArticles { get; set; } = null!;
-    public DbSet<WebFeed> WebFeeds { get; set; } = null!;
-    public DbSet<WebFeedSubscription> WebFeedSubscriptions { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -139,13 +128,6 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<WebFeed>()
-            .HasIndex(f => f.Url)
-            .IsUnique();
-        modelBuilder.Entity<WebArticle>()
-            .HasIndex(a => a.Url)
-            .IsUnique();
 
         modelBuilder.Entity<SnFediverseActor>()
             .HasOne(a => a.Instance)

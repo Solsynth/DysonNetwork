@@ -1,4 +1,4 @@
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 /// <summary>
 /// Exception thrown when an error occurs during web reading operations

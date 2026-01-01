@@ -1,7 +1,8 @@
+using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 [DisallowConcurrentExecution]
 public class WebFeedScraperJob(
@@ -15,7 +16,7 @@ public class WebFeedScraperJob(
     {
         logger.LogInformation("Starting web feed scraper job.");
 
-        var feeds = await database.Set<WebFeed>().ToListAsync(context.CancellationToken);
+        var feeds = await database.Set<SnWebFeed>().ToListAsync(context.CancellationToken);
 
         foreach (var feed in feeds)
         {

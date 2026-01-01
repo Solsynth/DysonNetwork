@@ -1,4 +1,4 @@
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Shared.Models.Embed;
 
 /// <summary>
 /// The link embed is a part of the embeddable implementations

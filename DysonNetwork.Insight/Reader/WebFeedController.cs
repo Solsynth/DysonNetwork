@@ -1,14 +1,16 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 [Authorize]
 [ApiController]
 [Route("/api/publishers/{pubName}/feeds")]
-public class WebFeedController(WebFeedService webFeed, Publisher.PublisherService ps) : ControllerBase
+public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps) : ControllerBase
 {
     public record WebFeedRequest(
         [MaxLength(8192)] string? Url,

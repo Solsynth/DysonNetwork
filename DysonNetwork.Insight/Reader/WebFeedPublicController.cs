@@ -1,9 +1,10 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.WebReader;
+namespace DysonNetwork.Insight.Reader;
 
 [ApiController]
 [Route("/api/feeds")]
@@ -39,7 +40,7 @@ public class WebFeedPublicController(
             return Ok(existingSubscription);
 
         // Create new subscription
-        var subscription = new WebFeedSubscription
+        var subscription = new SnWebFeedSubscription
         {
             FeedId = feedId,
             AccountId = accountId
@@ -83,7 +84,7 @@ public class WebFeedPublicController(
     /// <returns>Subscription status</returns>
     [HttpGet("{feedId:guid}/subscription")]
     [Authorize]
-    public async Task<ActionResult<WebFeedSubscription>> GetSubscriptionStatus(Guid feedId)
+    public async Task<ActionResult<SnWebFeedSubscription>> GetSubscriptionStatus(Guid feedId)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
@@ -105,7 +106,7 @@ public class WebFeedPublicController(
     /// <returns>List of subscribed feeds</returns>
     [HttpGet("subscribed")]
     [Authorize]
-    public async Task<ActionResult<WebFeed>> GetSubscribedFeeds(
+    public async Task<ActionResult<SnWebFeed>> GetSubscribedFeeds(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -137,7 +138,7 @@ public class WebFeedPublicController(
     /// </summary>
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<WebFeed>> GetWebFeedArticles(
+    public async Task<ActionResult<SnWebFeed>> GetWebFeedArticles(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -174,7 +175,7 @@ public class WebFeedPublicController(
     /// <returns>Feed metadata</returns>
     [AllowAnonymous]
     [HttpGet("{feedId:guid}")]
-    public async Task<ActionResult<WebFeed>> GetFeedById(Guid feedId)
+    public async Task<ActionResult<SnWebFeed>> GetFeedById(Guid feedId)
     {
         var feed = await webFeed.GetFeedAsync(feedId);
         if (feed == null)
@@ -192,7 +193,7 @@ public class WebFeedPublicController(
     /// <returns>List of articles from the feed</returns>
     [AllowAnonymous]
     [HttpGet("{feedId:guid}/articles")]
-    public async Task<ActionResult<WebArticle>> GetFeedArticles(
+    public async Task<ActionResult<SnWebArticle>> GetFeedArticles(
         [FromRoute] Guid feedId,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
@@ -224,7 +225,7 @@ public class WebFeedPublicController(
     /// </summary>
     [HttpGet("explore")]
     [Authorize]
-    public async Task<ActionResult<WebFeed>> ExploreFeeds(
+    public async Task<ActionResult<SnWebFeed>> ExploreFeeds(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery] string? query = null
