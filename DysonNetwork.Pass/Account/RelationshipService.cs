@@ -52,7 +52,8 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<SnAccountRelationship> CreateRelationship(SnAccount sender, SnAccount target, RelationshipStatus status)
+    public async Task<SnAccountRelationship> CreateRelationship(SnAccount sender, SnAccount target,
+        RelationshipStatus status)
     {
         if (status == RelationshipStatus.Pending)
             throw new InvalidOperationException(
@@ -169,12 +170,14 @@ public class RelationshipService(
 
         await db.SaveChangesAsync();
 
-        await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId, RelationshipStatus.Friends, status);
+        await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId, RelationshipStatus.Friends,
+            status);
 
         return relationshipBackward;
     }
 
-    public async Task<SnAccountRelationship> UpdateRelationship(Guid accountId, Guid relatedId, RelationshipStatus status)
+    public async Task<SnAccountRelationship> UpdateRelationship(Guid accountId, Guid relatedId,
+        RelationshipStatus status)
     {
         var relationship = await GetRelationship(accountId, relatedId);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
@@ -189,24 +192,26 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<List<Guid>> ListAccountFriends(SnAccount account)
+    public async Task<List<Guid>> ListAccountFriends(SnAccount account, bool isRelated = false)
     {
-        return await ListAccountFriends(account.Id);
+        return await ListAccountFriends(account.Id, isRelated);
     }
 
-    public async Task<List<Guid>> ListAccountFriends(Guid accountId)
+    public async Task<List<Guid>> ListAccountFriends(Guid accountId, bool isRelated = false)
     {
-        return await GetCachedRelationships(accountId, RelationshipStatus.Friends, UserFriendsCacheKeyPrefix);
+        return await GetCachedRelationships(accountId, RelationshipStatus.Friends, UserFriendsCacheKeyPrefix,
+            isRelated);
     }
 
-    public async Task<List<Guid>> ListAccountBlocked(SnAccount account)
+    public async Task<List<Guid>> ListAccountBlocked(SnAccount account, bool isRelated = false)
     {
-        return await ListAccountBlocked(account.Id);
+        return await ListAccountBlocked(account.Id, isRelated);
     }
 
-    public async Task<List<Guid>> ListAccountBlocked(Guid accountId)
+    public async Task<List<Guid>> ListAccountBlocked(Guid accountId, bool isRelated = false)
     {
-        return await GetCachedRelationships(accountId, RelationshipStatus.Blocked, UserBlockedCacheKeyPrefix);
+        return await GetCachedRelationships(accountId, RelationshipStatus.Blocked, UserBlockedCacheKeyPrefix,
+            isRelated);
     }
 
     public async Task<bool> HasRelationshipWithStatus(Guid accountId, Guid relatedId,
@@ -216,29 +221,26 @@ public class RelationshipService(
         return relationship is not null;
     }
 
-    private async Task<List<Guid>> GetCachedRelationships(Guid accountId, RelationshipStatus status, string cachePrefix)
+    private async Task<List<Guid>> GetCachedRelationships(
+        Guid accountId,
+        RelationshipStatus status,
+        string cachePrefix,
+        bool isRelated = false
+    )
     {
         if (accountId == Guid.Empty)
             throw new ArgumentException("Account ID cannot be empty.");
 
-        var cacheKey = $"{cachePrefix}{accountId}";
+        var cacheKey = $"{cachePrefix}{accountId}:{isRelated}";
         var relationships = await cache.GetAsync<List<Guid>>(cacheKey);
 
         if (relationships != null) return relationships;
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
         var query = db.AccountRelationships
-            .Where(r => r.RelatedId == accountId)
+            .Where(r => isRelated ? r.RelatedId == accountId : r.AccountId == accountId)
             .Where(r => r.Status == status)
             .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
-            .Select(r => r.AccountId);
-
-        if (status == RelationshipStatus.Friends)
-        {
-            var usersBlockedByMe = db.AccountRelationships
-                .Where(r => r.AccountId == accountId && r.Status == RelationshipStatus.Blocked)
-                .Select(r => r.RelatedId);
-            query = query.Except(usersBlockedByMe);
-        }
+            .Select(r => isRelated ? r.AccountId : r.RelatedId);
 
         relationships = await query.ToListAsync();
 

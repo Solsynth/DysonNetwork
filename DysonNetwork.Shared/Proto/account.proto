@@ -290,8 +290,6 @@ service AccountService {
     rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse) {}
 
     // Relationship Operations
-    rpc ListRelationships(ListRelationshipsRequest) returns (ListRelationshipsResponse) {}
-
     rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse) {}
     rpc HasRelationship(GetRelationshipRequest) returns (google.protobuf.BoolValue) {}
     rpc ListFriends(ListRelationshipSimpleRequest) returns (ListRelationshipSimpleResponse) {}
@@ -489,7 +487,10 @@ message GetRelationshipResponse {
 }
 
 message ListRelationshipSimpleRequest {
-    string account_id = 1;
+    oneof relation_identifier {
+        string account_id = 1;
+        string related_id = 2;
+    }
 }
 
 message ListRelationshipSimpleResponse {

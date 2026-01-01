@@ -53,7 +53,8 @@ public class AccountServiceGrpc(
             .FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
 
         if (account == null)
-            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, $"Account with automated ID {request.AutomatedId} not found"));
+            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound,
+                $"Account with automated ID {request.AutomatedId} not found"));
 
         var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
         account.PerkSubscription = perk?.ToReference();
@@ -87,8 +88,8 @@ public class AccountServiceGrpc(
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
     }
-    
-    
+
+
     public override async Task<GetAccountBatchResponse> GetBotAccountBatch(GetBotAccountBatchRequest request,
         ServerCallContext context)
     {
@@ -159,7 +160,8 @@ public class AccountServiceGrpc(
         return response;
     }
 
-    public override async Task<GetAccountBatchResponse> SearchAccount(SearchAccountRequest request, ServerCallContext context)
+    public override async Task<GetAccountBatchResponse> SearchAccount(SearchAccountRequest request,
+        ServerCallContext context)
     {
         var accounts = await _db.Accounts
             .AsNoTracking()
@@ -232,21 +234,48 @@ public class AccountServiceGrpc(
     public override async Task<ListRelationshipSimpleResponse> ListFriends(
         ListRelationshipSimpleRequest request, ServerCallContext context)
     {
-        var accountId = Guid.Parse(request.AccountId);
-        var relationship = await relationships.ListAccountFriends(accountId);
         var resp = new ListRelationshipSimpleResponse();
-        resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
-        return resp;
+        switch (request.RelationIdentifierCase)
+        {
+            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+                var accountId = Guid.Parse(request.AccountId);
+                var relationship = await relationships.ListAccountFriends(accountId);
+                resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
+                return resp;
+            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
+                var relatedId = Guid.Parse(request.RelatedId);
+                var relatedRelationship = await relationships.ListAccountFriends(relatedId, true);
+                resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
+                return resp;
+                break;
+            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            default:
+                throw new RpcException(new Status(StatusCode.InvalidArgument,
+                    $"The relationship identifier must be provided."));
+        }
     }
 
     public override async Task<ListRelationshipSimpleResponse> ListBlocked(
         ListRelationshipSimpleRequest request, ServerCallContext context)
     {
-        var accountId = Guid.Parse(request.AccountId);
-        var relationship = await relationships.ListAccountBlocked(accountId);
         var resp = new ListRelationshipSimpleResponse();
-        resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
-        return resp;
+        switch (request.RelationIdentifierCase)
+        {
+            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+                var accountId = Guid.Parse(request.AccountId);
+                var relationship = await relationships.ListAccountBlocked(accountId);
+                resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
+                return resp;
+            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
+                var relatedId = Guid.Parse(request.RelatedId);
+                var relatedRelationship = await relationships.ListAccountBlocked(relatedId, true);
+                resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
+                return resp;
+            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            default:
+                throw new RpcException(new Status(StatusCode.InvalidArgument,
+                    $"The relationship identifier must be provided."));
+        }
     }
 
     public override async Task<GetRelationshipResponse> GetRelationship(GetRelationshipRequest request,
