@@ -27,6 +27,7 @@ public class AppDatabase(
     public DbSet<SnCloudFileIndex> FileIndexes { get; set; }
 
     public DbSet<PersistentTask> Tasks { get; set; } = null!;
+    public DbSet<PersistentUploadTask> UploadTasks { get; set; } = null!; // Backward compatibility
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
