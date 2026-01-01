@@ -27,7 +27,7 @@ public partial class PostService(
     Publisher.PublisherService ps,
     WebReaderService reader,
     AccountService.AccountServiceClient accounts,
-    ActivityPubDeliveryService apDelivery
+    ActivityPubObjectFactory objFactory
 )
 {
     private const string PostFileUsageIdentifier = "post";
@@ -586,15 +586,18 @@ public partial class PostService(
 
         await db.SaveChangesAsync();
 
+        if (isSelfReact) return isRemoving;
+        
         // Send ActivityPub Like/Undo activities if post's publisher has actor
-        if (post.PublisherId.HasValue && reaction.AccountId.HasValue)
+        if (post.PublisherId.HasValue)
         {
+            var accountId = Guid.Parse(sender.Id);
             var accountPublisher = await db.Publishers
-                .Where(p => p.Members.Any(m => m.AccountId == reaction.AccountId.Value))
+                .Where(p => p.Members.Any(m => m.AccountId == accountId))
                 .FirstOrDefaultAsync();
             var accountActor = accountPublisher is null
                 ? null
-                : await apDelivery.GetLocalActorAsync(accountPublisher.Id);
+                : await objFactory.GetLocalActorAsync(accountPublisher.Id);
 
             if (accountActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
             {
@@ -643,49 +646,48 @@ public partial class PostService(
             }
         }
 
-        if (!isSelfReact)
-            _ = Task.Run(async () =>
+        _ = Task.Run(async () =>
+        {
+            using var scope = factory.CreateScope();
+            var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
+            var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+            try
             {
-                using var scope = factory.CreateScope();
-                var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
-                var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
-                try
+                if (post.PublisherId == null) return;
+                var members = await pub.GetPublisherMembers(post.PublisherId.Value);
+                var queryRequest = new GetAccountBatchRequest();
+                queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
+                var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+                foreach (var member in queryResponse.Accounts)
                 {
-                    if (post.PublisherId == null) return;
-                    var members = await pub.GetPublisherMembers(post.PublisherId.Value);
-                    var queryRequest = new GetAccountBatchRequest();
-                    queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
-                    var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
-                    foreach (var member in queryResponse.Accounts)
-                    {
-                        if (member is null) continue;
-                        CultureService.SetCultureInfo(member);
+                    if (member is null) continue;
+                    CultureService.SetCultureInfo(member);
 
-                        await nty.SendPushNotificationToUserAsync(
-                            new SendPushNotificationToUserRequest
+                    await nty.SendPushNotificationToUserAsync(
+                        new SendPushNotificationToUserRequest
+                        {
+                            UserId = member.Id,
+                            Notification = new PushNotification
                             {
-                                UserId = member.Id,
-                                Notification = new PushNotification
-                                {
-                                    Topic = "posts.reactions.new",
-                                    Title = localizer["PostReactTitle", sender.Nick],
-                                    Body = string.IsNullOrWhiteSpace(post.Title)
-                                        ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
-                                        : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
-                                            post.Title],
-                                    IsSavable = true,
-                                    ActionUri = $"/posts/{post.Id}"
-                                }
+                                Topic = "posts.reactions.new",
+                                Title = localizer["PostReactTitle", sender.Nick],
+                                Body = string.IsNullOrWhiteSpace(post.Title)
+                                    ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
+                                    : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
+                                        post.Title],
+                                IsSavable = true,
+                                ActionUri = $"/posts/{post.Id}"
                             }
-                        );
-                    }
+                        }
+                    );
                 }
-                catch (Exception ex)
-                {
-                    logger.LogError($"Error when sending post reactions notification: {ex.Message} {ex.StackTrace}");
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Error when sending post reactions notification: {ex.Message} {ex.StackTrace}");
+            }
+        });
 
         return isRemoving;
     }

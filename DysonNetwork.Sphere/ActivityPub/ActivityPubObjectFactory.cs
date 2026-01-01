@@ -1,15 +1,22 @@
 using System.Text;
 using DysonNetwork.Shared.Models;
 using Markdig;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public static class ActivityPubObjectFactory
+public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase db)
 {
-    public static readonly string[] PublicTo = ["https://www.w3.org/ns/activitystreams#Public"];
+    public static readonly string PublicTo = "https://www.w3.org/ns/activitystreams#Public";
 
-    public static Dictionary<string, object> CreatePostObject(
-        IConfiguration configuration,
+    public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
+    {
+        return await db.FediverseActors
+            .Include(a => a.Instance)
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+    }
+
+    public Dictionary<string, object> CreatePostObject(
         SnPost post,
         string actorUrl
     )
@@ -44,6 +51,23 @@ public static class ActivityPubObjectFactory
 
         var finalContent = contentBuilder.ToString();
 
+        var postReceivers = new List<string> { PublicTo };
+
+        if (post.RepliedPost != null)
+        {
+            // Local post
+            if (post.RepliedPost.Publisher != null)
+            {
+                var actor = GetLocalActorAsync(post.RepliedPost.PublisherId!.Value).GetAwaiter().GetResult();
+                if (actor?.FollowersUri != null)
+                    postReceivers.Add(actor.FollowersUri);
+            }
+
+            // Fediverse post
+            if (post.Actor?.FollowersUri != null)
+                postReceivers.Add(post.Actor.FollowersUri);
+        }
+
         var postObject = new Dictionary<string, object>
         {
             ["id"] = postUrl,
@@ -51,7 +75,7 @@ public static class ActivityPubObjectFactory
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["attributedTo"] = actorUrl,
             ["content"] = Markdown.ToHtml(finalContent),
-            ["to"] = PublicTo,
+            ["to"] = postReceivers,
             ["cc"] = new[] { $"{actorUrl}/followers" },
             ["attachment"] = post.Attachments.Select(a => new Dictionary<string, object>
             {
@@ -60,6 +84,26 @@ public static class ActivityPubObjectFactory
                 ["url"] = $"{assetsBaseUrl}/{a.Id}"
             }).ToList<object>()
         };
+
+        if (post.RepliedPost != null)
+        {
+            // Local post
+            if (post.RepliedPost.Publisher != null)
+                postObject["inReplyTo"] = $"https://{baseDomain}/posts/{post.RepliedPostId}";
+            // Fediverse post
+            if (post.RepliedPost.FediverseUri != null)
+                postObject["inReplyTo"] = post.RepliedPost.FediverseUri;
+        }
+
+        if (post.ForwardedPost != null)
+        {
+            // Local post
+            if (post.ForwardedPost.Publisher != null)
+                postObject["quoteUri"] = $"https://{baseDomain}/posts/{post.RepliedPostId}";
+            // Fediverse post
+            if (post.ForwardedPost.FediverseUri != null)
+                postObject["quoteUri"] = post.ForwardedPost.FediverseUri;
+        }
 
         if (post.EditedAt.HasValue)
             postObject["updated"] = post.EditedAt.Value.ToDateTimeOffset();

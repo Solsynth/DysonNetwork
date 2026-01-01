@@ -10,7 +10,8 @@ public class ActivityPubDeliveryService(
     ActivityPubQueueService queueService,
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger,
-    IClock clock
+    IClock clock,
+    ActivityPubObjectFactory objFactory
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
@@ -53,7 +54,7 @@ public class ActivityPubDeliveryService(
         string targetActorUri
     )
     {
-        var localActor = await GetLocalActorAsync(publisherId);
+        var localActor = await objFactory.GetLocalActorAsync(publisherId);
         if (localActor == null)
             return false;
 
@@ -106,7 +107,7 @@ public class ActivityPubDeliveryService(
         string targetActorUri
     )
     {
-        var localActor = await GetLocalActorAsync(publisherId);
+        var localActor = await objFactory.GetLocalActorAsync(publisherId);
         if (localActor == null)
             return false;
 
@@ -140,7 +141,7 @@ public class ActivityPubDeliveryService(
         if (relationship == null) return false;
 
         var success = await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, targetActor.InboxUri, activityId);
-        
+
         db.Remove(relationship);
         await db.SaveChangesAsync();
 
@@ -151,7 +152,7 @@ public class ActivityPubDeliveryService(
     {
         if (post.PublisherId == null)
             return false;
-        var localActor = await GetLocalActorAsync(post.PublisherId.Value);
+        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
         if (localActor == null)
             return false;
 
@@ -166,9 +167,9 @@ public class ActivityPubDeliveryService(
             ["type"] = "Create",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-            ["to"] = ActivityPubObjectFactory.PublicTo,
+            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
-            ["object"] = ActivityPubObjectFactory.CreatePostObject(configuration, post, actorUrl)
+            ["object"] = objFactory.CreatePostObject(post, actorUrl)
         };
 
         var followers = await GetRemoteFollowersAsync();
@@ -187,7 +188,7 @@ public class ActivityPubDeliveryService(
     {
         if (post.PublisherId == null)
             return false;
-        var localActor = await GetLocalActorAsync(post.PublisherId.Value);
+        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
         if (localActor == null)
             return false;
 
@@ -202,9 +203,9 @@ public class ActivityPubDeliveryService(
             ["type"] = "Update",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-            ["to"] = ActivityPubObjectFactory.PublicTo,
+            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
-            ["object"] = ActivityPubObjectFactory.CreatePostObject(configuration, post, actorUrl)
+            ["object"] = objFactory.CreatePostObject(post, actorUrl)
         };
 
         var followers = await GetRemoteFollowersAsync();
@@ -223,7 +224,7 @@ public class ActivityPubDeliveryService(
     {
         if (post.PublisherId == null)
             return false;
-        var localActor = await GetLocalActorAsync(post.PublisherId.Value);
+        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
         if (localActor == null)
             return false;
 
@@ -499,8 +500,10 @@ public class ActivityPubDeliveryService(
 
         stats.TotalDeliveries = deliveries.Count;
         stats.SentDeliveries = deliveries.Count(d => d.Status == DeliveryStatus.Sent);
-        stats.FailedDeliveries = deliveries.Count(d => d.Status == DeliveryStatus.Failed || d.Status == DeliveryStatus.ExhaustedRetries);
-        stats.PendingDeliveries = deliveries.Count(d => d.Status == DeliveryStatus.Pending || d.Status == DeliveryStatus.Processing);
+        stats.FailedDeliveries = deliveries.Count(d =>
+            d.Status == DeliveryStatus.Failed || d.Status == DeliveryStatus.ExhaustedRetries);
+        stats.PendingDeliveries =
+            deliveries.Count(d => d.Status == DeliveryStatus.Pending || d.Status == DeliveryStatus.Processing);
 
         return stats;
     }
@@ -576,13 +579,6 @@ public class ActivityPubDeliveryService(
             .Where(r => r.TargetActorId == actorId && r.State == RelationshipState.Accepted)
             .Select(r => r.Actor)
             .ToListAsync();
-    }
-
-    public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
-    {
-        return await db.FediverseActors
-            .Include(a => a.Instance)
-            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
     }
 
     public async Task<SnFediverseActor?> GetOrCreateLocalActorAsync(SnPublisher publisher)

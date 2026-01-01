@@ -15,7 +15,8 @@ public class ActivityPubController(
     ILogger<ActivityPubController> logger,
     ActivityPubSignatureService signatureService,
     ActivityPubActivityHandler activityHandler,
-    ActivityPubKeyService keyService
+    ActivityPubKeyService keyService,
+    ActivityPubObjectFactory objFactory
 ) : ControllerBase
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
@@ -159,7 +160,7 @@ public class ActivityPubController(
 
             var items = posts.Select(post =>
             {
-                var postObject = ActivityPubObjectFactory.CreatePostObject(configuration, post, actorUrl);
+                var postObject = objFactory.CreatePostObject(post, actorUrl);
                 postObject["url"] = $"https://{Domain}/posts/{post.Id}";
                 return new Dictionary<string, object>
                 {
@@ -167,7 +168,7 @@ public class ActivityPubController(
                     ["type"] = "Create",
                     ["actor"] = actorUrl,
                     ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-                    ["to"] = ActivityPubObjectFactory.PublicTo,
+                    ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
                     ["cc"] = new[] { $"{actorUrl}/followers" },
                     ["@object"] = postObject
                 };
