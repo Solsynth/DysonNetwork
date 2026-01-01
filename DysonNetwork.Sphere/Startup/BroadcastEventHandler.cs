@@ -125,10 +125,6 @@ public class BroadcastEventHandler(
                 using var scope = serviceProvider.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
-                await db.ChatMembers
-                    .Where(m => m.AccountId == evt.AccountId)
-                    .ExecuteDeleteAsync(cancellationToken: stoppingToken);
-
                 await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken: stoppingToken);
                 try
                 {

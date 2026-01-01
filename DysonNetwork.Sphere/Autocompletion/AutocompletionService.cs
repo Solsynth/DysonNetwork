@@ -48,18 +48,8 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
         {
             case "u":
                 var allAccounts = await remoteAccountsHelper.SearchAccounts(query);
-                var filteredAccounts = allAccounts;
 
-                if (chatId.HasValue)
-                {
-                    var chatMemberIds = await db.ChatMembers
-                        .Where(m => m.ChatRoomId == chatId.Value && m.JoinedAt != null && m.LeaveAt == null)
-                        .Select(m => m.AccountId)
-                        .ToListAsync();
-                    var chatMemberIdStrings = chatMemberIds.Select(id => id.ToString()).ToHashSet();
-                    filteredAccounts = allAccounts.Where(a => chatMemberIdStrings.Contains(a.Id)).ToList();
-                }
-                else if (realmId.HasValue)
+                if (realmId.HasValue)
                 {
                     // TODO: Filter to realm members only - needs efficient implementation
                     // var realmMemberIds = await db.RealmMembers
@@ -70,7 +60,7 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                     // filteredAccounts = allAccounts.Where(a => realmMemberIdStrings.Contains(a.Id)).ToList();
                 }
 
-                var users = filteredAccounts
+                var users = allAccounts
                     .Take(limit)
                     .Select(a => new DysonNetwork.Shared.Models.Autocompletion
                     {
@@ -104,20 +94,6 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                     Data = r
                 });
                 results.AddRange(autocompletions);
-                break;
-
-            case "c":
-                var chats = await db.ChatRooms
-                    .Where(c => c.Name != null && EF.Functions.Like(c.Name, $"{query}%"))
-                    .Take(limit)
-                    .Select(c => new DysonNetwork.Shared.Models.Autocompletion
-                    {
-                        Type = "chat",
-                        Keyword = "@c/" + c.Name,
-                        Data = c
-                    })
-                    .ToListAsync();
-                results.AddRange(chats);
                 break;
         }
 

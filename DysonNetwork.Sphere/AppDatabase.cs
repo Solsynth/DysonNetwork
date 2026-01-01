@@ -31,12 +31,6 @@ public class AppDatabase(
     public DbSet<SnPollQuestion> PollQuestions { get; set; } = null!;
     public DbSet<SnPollAnswer> PollAnswers { get; set; } = null!;
 
-    public DbSet<SnChatRoom> ChatRooms { get; set; } = null!;
-    public DbSet<SnChatMember> ChatMembers { get; set; } = null!;
-    public DbSet<SnChatMessage> ChatMessages { get; set; } = null!;
-    public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
-    public DbSet<SnChatReaction> ChatReactions { get; set; } = null!;
-
     public DbSet<SnSticker> Stickers { get; set; } = null!;
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;
     public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; } = null!;
@@ -98,36 +92,6 @@ public class AppDatabase(
             .HasMany(p => p.Collections)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_collection_links"));
-
-        modelBuilder.Entity<SnChatMember>()
-            .HasKey(pm => new { pm.Id });
-        modelBuilder.Entity<SnChatMember>()
-            .HasAlternateKey(pm => new { pm.ChatRoomId, pm.AccountId });
-        modelBuilder.Entity<SnChatMember>()
-            .HasOne(pm => pm.ChatRoom)
-            .WithMany(p => p.Members)
-            .HasForeignKey(pm => pm.ChatRoomId)
-            .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<SnChatMessage>()
-            .HasOne(m => m.ForwardedMessage)
-            .WithMany()
-            .HasForeignKey(m => m.ForwardedMessageId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<SnChatMessage>()
-            .HasOne(m => m.RepliedMessage)
-            .WithMany()
-            .HasForeignKey(m => m.RepliedMessageId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<SnRealtimeCall>()
-            .HasOne(m => m.Room)
-            .WithMany()
-            .HasForeignKey(m => m.RoomId)
-            .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<SnRealtimeCall>()
-            .HasOne(m => m.Sender)
-            .WithMany()
-            .HasForeignKey(m => m.SenderId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnFediverseActor>()
             .HasOne(a => a.Instance)
