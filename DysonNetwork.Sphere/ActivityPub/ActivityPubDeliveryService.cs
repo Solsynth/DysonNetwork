@@ -160,6 +160,30 @@ public class ActivityPubDeliveryService(
         var postUrl = $"https://{Domain}/posts/{post.Id}";
         var activityId = $"{postUrl}/activity";
 
+        var postReceivers = new List<string> { $"{actorUrl}/followers" };
+
+        if (post.RepliedPostId != null)
+        {
+            var repliedPost = await db.Posts
+                .Where(p => p.Id == post.RepliedPostId)
+                .Include(p => p.Publisher)
+                .Include(p => p.Actor)
+                .FirstOrDefaultAsync();
+            post.RepliedPost = repliedPost;
+
+            // Local post
+            if (repliedPost?.Publisher != null)
+            {
+                var actor = await objFactory.GetLocalActorAsync(repliedPost.PublisherId!.Value);
+                if (actor?.FollowersUri != null)
+                    postReceivers.Add(actor.FollowersUri);
+            }
+
+            // Fediverse post
+            if (repliedPost?.Actor?.FollowersUri != null)
+                postReceivers.Add(post.Actor!.FollowersUri!);
+        }
+
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
@@ -168,11 +192,24 @@ public class ActivityPubDeliveryService(
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
-            ["cc"] = new[] { $"{actorUrl}/followers" },
+            ["cc"] = postReceivers.ToArray(),
             ["object"] = await objFactory.CreatePostObject(post, actorUrl)
         };
 
-        var followers = await GetRemoteFollowersAsync();
+        var followers = await GetRemoteFollowersAsync(localActor.Id);
+        if (post.RepliedPost != null)
+        {
+            if (post.RepliedPost.PublisherId.HasValue)
+            {
+                var repliedLocalActor = await objFactory.GetLocalActorAsync(post.RepliedPost.PublisherId.Value);
+                if (repliedLocalActor != null)
+                    followers.AddRange(await GetRemoteFollowersAsync(repliedLocalActor.Id));
+            }
+
+            if (post.RepliedPost.ActorId.HasValue)
+                followers.AddRange(await GetRemoteFollowersAsync(post.RepliedPost.ActorId.Value));
+        }
+
         logger.LogInformation("Enqueuing Create activity for {Count} followers", followers.Count);
 
         foreach (var follower in followers)
