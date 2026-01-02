@@ -42,6 +42,8 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
         
+        modelBuilder.Ignore<SnAccount>();
+        
         modelBuilder.ApplySoftDeleteFilters();
     }
 }
