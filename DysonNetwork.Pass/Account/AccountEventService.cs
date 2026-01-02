@@ -25,9 +25,10 @@ public class AccountEventService(
 {
     private static readonly Random Random = new();
     private const string StatusCacheKey = "account:status:";
+    private const string PreviousStatusCacheKey = "account:status:prev:";
     private const string ActivityCacheKey = "account:activities:";
 
-    public async Task<bool> GetAccountIsConnected(Guid userId)
+    private async Task<bool> GetAccountIsConnected(Guid userId)
     {
         var resp = await pusher.GetWebsocketConnectionStatusAsync(
             new GetWebsocketConnectionStatusRequest { UserId = userId.ToString() }
@@ -49,6 +50,8 @@ public class AccountEventService(
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         cache.RemoveAsync(cacheKey);
+        var prevCacheKey = $"{PreviousStatusCacheKey}{userId}";
+        cache.RemoveAsync(prevCacheKey);
     }
 
     public void PurgeActivityCache(Guid userId)
@@ -70,51 +73,71 @@ public class AccountEventService(
         );
     }
 
+    private static bool StatusesEqual(SnAccountStatus a, SnAccountStatus b)
+    {
+        return a.Attitude == b.Attitude &&
+               a.IsOnline == b.IsOnline &&
+               a.IsCustomized == b.IsCustomized &&
+               a.Label == b.Label &&
+               a.IsInvisible == b.IsInvisible &&
+               a.IsNotDisturb == b.IsNotDisturb;
+    }
+
     public async Task<SnAccountStatus> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
+        SnAccountStatus status;
         if (cachedStatus is not null)
         {
             cachedStatus!.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
-            return cachedStatus;
+            status = cachedStatus;
         }
-
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var status = await db.AccountStatuses
-            .Where(e => e.AccountId == userId)
-            .Where(e => e.ClearedAt == null || e.ClearedAt > now)
-            .OrderByDescending(e => e.CreatedAt)
-            .FirstOrDefaultAsync();
-        var isOnline = await GetAccountIsConnected(userId);
-        if (status is not null)
+        else
         {
-            status.IsOnline = !status.IsInvisible && isOnline;
-            await cache.SetWithGroupsAsync(cacheKey, status, [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
-                TimeSpan.FromMinutes(5));
-            return status;
-        }
-
-        if (isOnline)
-        {
-            return new SnAccountStatus
+            var now = SystemClock.Instance.GetCurrentInstant();
+            status = await db.AccountStatuses
+                .Where(e => e.AccountId == userId)
+                .Where(e => e.ClearedAt == null || e.ClearedAt > now)
+                .OrderByDescending(e => e.CreatedAt)
+                .FirstOrDefaultAsync();
+            var isOnline = await GetAccountIsConnected(userId);
+            if (status is not null)
             {
-                Attitude = Shared.Models.StatusAttitude.Neutral,
-                IsOnline = true,
-                IsCustomized = false,
-                Label = "Online",
-                AccountId = userId,
-            };
+                status.IsOnline = !status.IsInvisible && isOnline;
+                await cache.SetWithGroupsAsync(cacheKey, status, [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
+                    TimeSpan.FromMinutes(5));
+            }
+            else
+            {
+                if (isOnline)
+                {
+                    status = new SnAccountStatus
+                    {
+                        Attitude = Shared.Models.StatusAttitude.Neutral,
+                        IsOnline = true,
+                        IsCustomized = false,
+                        Label = "Online",
+                        AccountId = userId,
+                    };
+                }
+                else
+                {
+                    status = new SnAccountStatus
+                    {
+                        Attitude = Shared.Models.StatusAttitude.Neutral,
+                        IsOnline = false,
+                        IsCustomized = false,
+                        Label = "Offline",
+                        AccountId = userId,
+                    };
+                }
+            }
         }
 
-        return new SnAccountStatus
-        {
-            Attitude = Shared.Models.StatusAttitude.Neutral,
-            IsOnline = false,
-            IsCustomized = false,
-            Label = "Offline",
-            AccountId = userId,
-        };
+        await cache.SetAsync($"{PreviousStatusCacheKey}{userId}", status, TimeSpan.FromMinutes(5));
+
+        return status;
     }
 
     public async Task<Dictionary<Guid, SnAccountStatus>> GetStatuses(List<Guid> userIds)

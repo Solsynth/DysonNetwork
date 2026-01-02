@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Wallet;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
@@ -18,6 +19,16 @@ public class BroadcastEventHandler(
     IServiceProvider serviceProvider
 ) : BackgroundService
 {
+    private static bool StatusesEqual(SnAccountStatus a, SnAccountStatus b)
+    {
+        return a.Attitude == b.Attitude &&
+               a.IsOnline == b.IsOnline &&
+               a.IsCustomized == b.IsCustomized &&
+               a.Label == b.Label &&
+               a.IsInvisible == b.IsInvisible &&
+               a.IsNotDisturb == b.IsNotDisturb;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var paymentTask = HandlePaymentEventsAsync(stoppingToken);
@@ -159,26 +170,33 @@ public class BroadcastEventHandler(
             {
                 var evt =
                     GrpcTypeHelper.ConvertByteStringToObject<WebSocketConnectedEvent>(ByteString.CopyFrom(msg.Data));
+                if (evt is null) continue;
 
                 logger.LogInformation("Received WebSocket connected event for user {AccountId}, device {DeviceId}",
                     evt.AccountId, evt.DeviceId);
 
                 await using var scope = serviceProvider.CreateAsyncScope();
                 var accountEventService = scope.ServiceProvider.GetRequiredService<AccountEventService>();
+                var cache = scope.ServiceProvider.GetRequiredService<ICacheService>();
 
+                var previous = await cache.GetAsync<SnAccountStatus>($"account:status:prev:{evt.AccountId}");
                 var status = await accountEventService.GetStatus(evt.AccountId);
 
-                await nats.PublishAsync(
-                    AccountStatusUpdatedEvent.Type,
-                    ByteString.CopyFromUtf8(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
-                    {
-                        AccountId = evt.AccountId,
-                        Status = status,
-                        UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                    }, GrpcTypeHelper.SerializerOptionsWithoutIgnore)).ToByteArray()
-                );
+                if (previous != null && !StatusesEqual(previous, status))
+                {
+                    await nats.PublishAsync(
+                        AccountStatusUpdatedEvent.Type,
+                        ByteString.CopyFromUtf8(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
+                        {
+                            AccountId = evt.AccountId,
+                            Status = status,
+                            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+                        }, GrpcTypeHelper.SerializerOptionsWithoutIgnore)).ToByteArray(),
+                        cancellationToken: stoppingToken
+                    );
+                }
 
-                logger.LogInformation("Broadcasted status update for user {AccountId}", evt.AccountId);
+                logger.LogInformation("Handled status update for user {AccountId} on connect", evt.AccountId);
             }
             catch (Exception ex)
             {
@@ -204,20 +222,25 @@ public class BroadcastEventHandler(
 
                 await using var scope = serviceProvider.CreateAsyncScope();
                 var accountEventService = scope.ServiceProvider.GetRequiredService<AccountEventService>();
+                var cache = scope.ServiceProvider.GetRequiredService<ICacheService>();
 
+                var previous = await cache.GetAsync<SnAccountStatus>($"account:status:prev:{evt.AccountId}");
                 var status = await accountEventService.GetStatus(evt.AccountId);
 
-                await nats.PublishAsync(
-                    AccountStatusUpdatedEvent.Type,
-                    ByteString.CopyFromUtf8(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
-                    {
-                        AccountId = evt.AccountId,
-                        Status = status,
-                        UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                    }, GrpcTypeHelper.SerializerOptionsWithoutIgnore)).ToByteArray()
-                );
+                if (previous != null && !StatusesEqual(previous, status))
+                {
+                    await nats.PublishAsync(
+                        AccountStatusUpdatedEvent.Type,
+                        ByteString.CopyFromUtf8(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
+                        {
+                            AccountId = evt.AccountId,
+                            Status = status,
+                            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+                        }, GrpcTypeHelper.SerializerOptionsWithoutIgnore)).ToByteArray()
+                    );
+                }
 
-                logger.LogInformation("Broadcasted status update for user {AccountId}", evt.AccountId);
+                logger.LogInformation("Handled status update for user {AccountId} on disconnect", evt.AccountId);
             }
             catch (Exception ex)
             {
