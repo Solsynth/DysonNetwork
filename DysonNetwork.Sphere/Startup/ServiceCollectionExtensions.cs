@@ -10,6 +10,7 @@ using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
 
@@ -95,6 +96,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<PostService>();
             services.AddScoped<DiscoveryService>();
             services.AddScoped<PollService>();
+            services.AddScoped<StickerService>();
             services.AddScoped<AutocompletionService>();
             services.AddScoped<ActivityPubKeyService>();
             services.AddScoped<ActivityPubSignatureService>();
