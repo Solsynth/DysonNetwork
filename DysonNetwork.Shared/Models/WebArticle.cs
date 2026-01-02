@@ -116,7 +116,7 @@ public class SnWebFeed : ModelBase
     [Column(TypeName = "jsonb")] public WebFeedConfig Config { get; set; } = new();
 
     public Guid PublisherId { get; set; }
-    public SnPublisher Publisher { get; set; } = null!;
+    [NotMapped] public SnPublisher Publisher { get; set; } = null!;
 
     [JsonIgnore] public List<SnWebArticle> Articles { get; set; } = new();
 
