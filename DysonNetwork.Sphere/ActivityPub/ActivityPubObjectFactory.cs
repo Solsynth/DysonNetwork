@@ -16,7 +16,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
     }
 
-    public Dictionary<string, object> CreatePostObject(
+    public async Task<Dictionary<string, object>> CreatePostObject(
         SnPost post,
         string actorUrl
     )
@@ -51,21 +51,28 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
 
         var finalContent = contentBuilder.ToString();
 
-        var postReceivers = new List<string> { PublicTo };
+        var postReceivers = new List<string> { $"{actorUrl}/followers" };
 
-        if (post.RepliedPost != null)
+        if (post.RepliedPostId != null)
         {
+            var repliedPost = await db.Posts
+                .Where(p => p.Id == post.RepliedPostId)
+                .Include(p => p.Publisher)
+                .Include(p => p.Actor)
+                .FirstOrDefaultAsync();
+            post.RepliedPost = repliedPost;
+
             // Local post
-            if (post.RepliedPost.Publisher != null)
+            if (repliedPost?.Publisher != null)
             {
-                var actor = GetLocalActorAsync(post.RepliedPost.PublisherId!.Value).GetAwaiter().GetResult();
+                var actor = await GetLocalActorAsync(repliedPost.PublisherId!.Value);
                 if (actor?.FollowersUri != null)
                     postReceivers.Add(actor.FollowersUri);
             }
 
             // Fediverse post
-            if (post.Actor?.FollowersUri != null)
-                postReceivers.Add(post.Actor.FollowersUri);
+            if (repliedPost?.Actor?.FollowersUri != null)
+                postReceivers.Add(post.Actor!.FollowersUri!);
         }
 
         var postObject = new Dictionary<string, object>
@@ -75,8 +82,8 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["attributedTo"] = actorUrl,
             ["content"] = Markdown.ToHtml(finalContent),
-            ["to"] = postReceivers,
-            ["cc"] = new[] { $"{actorUrl}/followers" },
+            ["to"] = new[] { PublicTo },
+            ["cc"] = postReceivers,
             ["attachment"] = post.Attachments.Select(a => new Dictionary<string, object>
             {
                 ["type"] = "Document",
@@ -85,6 +92,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
             }).ToList<object>()
         };
 
+        // The post's replied post is ensure loaded above, so we directly using it here
         if (post.RepliedPost != null)
         {
             // Local post
@@ -95,14 +103,19 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
                 postObject["inReplyTo"] = post.RepliedPost.FediverseUri;
         }
 
-        if (post.ForwardedPost != null)
+        if (post.ForwardedPostId != null)
         {
+            var forwardedPost = await db.Posts
+                .Where(p => p.Id == post.ForwardedPostId)
+                .Include(p => p.Publisher)
+                .FirstOrDefaultAsync();
+
             // Local post
-            if (post.ForwardedPost.Publisher != null)
+            if (forwardedPost?.Publisher != null)
                 postObject["quoteUri"] = $"https://{baseDomain}/posts/{post.RepliedPostId}";
             // Fediverse post
-            if (post.ForwardedPost.FediverseUri != null)
-                postObject["quoteUri"] = post.ForwardedPost.FediverseUri;
+            if (forwardedPost?.FediverseUri != null)
+                postObject["quoteUri"] = forwardedPost.FediverseUri;
         }
 
         if (post.EditedAt.HasValue)

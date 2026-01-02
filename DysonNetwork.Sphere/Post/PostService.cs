@@ -645,6 +645,11 @@ public partial class PostService(
                     });
                 }
             }
+            else
+            {
+                logger.LogWarning("Seems {PublisherName} didn't enable actor, skipping delivery of Like activity...",
+                    accountPublisher?.Name);
+            }
         }
 
         _ = Task.Run(async () =>

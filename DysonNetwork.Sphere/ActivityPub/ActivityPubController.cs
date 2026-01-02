@@ -158,9 +158,9 @@ public class ActivityPubController(
                 .Take(pageSize)
                 .ToListAsync();
 
-            var items = posts.Select(post =>
+            var items = Task.WhenAll(posts.Select(async post =>
             {
-                var postObject = objFactory.CreatePostObject(post, actorUrl);
+                var postObject = await objFactory.CreatePostObject(post, actorUrl);
                 postObject["url"] = $"https://{Domain}/posts/{post.Id}";
                 return new Dictionary<string, object>
                 {
@@ -172,7 +172,7 @@ public class ActivityPubController(
                     ["cc"] = new[] { $"{actorUrl}/followers" },
                     ["@object"] = postObject
                 };
-            }).Cast<object>().ToList();
+            })).Result.Cast<object>().ToList();
 
             var collectionPage = new ActivityPubCollectionPage
             {

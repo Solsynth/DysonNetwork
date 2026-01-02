@@ -169,7 +169,7 @@ public class ActivityPubDeliveryService(
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
-            ["object"] = objFactory.CreatePostObject(post, actorUrl)
+            ["object"] = await objFactory.CreatePostObject(post, actorUrl)
         };
 
         var followers = await GetRemoteFollowersAsync();
@@ -205,7 +205,7 @@ public class ActivityPubDeliveryService(
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
-            ["object"] = objFactory.CreatePostObject(post, actorUrl)
+            ["object"] = await objFactory.CreatePostObject(post, actorUrl)
         };
 
         var followers = await GetRemoteFollowersAsync();

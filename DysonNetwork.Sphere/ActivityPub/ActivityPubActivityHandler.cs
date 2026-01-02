@@ -26,7 +26,7 @@ public class ActivityPubActivityHandler(
     {
         if (!Uri.TryCreate(objectUri, UriKind.Absolute, out var uri))
             return await db.Posts.FirstOrDefaultAsync(c => c.FediverseUri == objectUri);
-        
+
         var domain = uri.Host;
 
         // Remote post
@@ -320,6 +320,37 @@ public class ActivityPubActivityHandler(
             Visibility = PostVisibility.Public,
             Metadata = BuildMetadataFromActivity(objectDict)
         };
+        
+        var inReplyTo = GetStringValue(objectDict, "inReplyTo");
+        if (!string.IsNullOrEmpty(inReplyTo))
+        {
+            var replyingTo = await db.Posts
+                .Where(c => c.FediverseUri == inReplyTo)
+                .FirstOrDefaultAsync();
+            if (replyingTo == null)
+            {
+                logger.LogWarning("Incoming post replied to {Uri}, but that post was not found in our database, skipping...", inReplyTo);
+                return true;
+            }
+
+            content.RepliedPostId = replyingTo.Id;
+        }
+        
+        var quoteUri = GetStringValue(objectDict, "quoteUri");
+        if (!string.IsNullOrEmpty(quoteUri))
+        {
+            var forwardedItem = await db.Posts
+                .FirstOrDefaultAsync(c => c.FediverseUri == quoteUri);
+            if (forwardedItem == null)
+            {
+                logger.LogWarning("Incoming post quoted {Uri}, but the post not found in our database...", quoteUri);
+                content.ForwardedGone = true;
+            }
+            else
+            {
+                content.ForwardedPostId = forwardedItem.Id;
+            }
+        }
 
         db.Posts.Add(content);
         await db.SaveChangesAsync();
@@ -422,7 +453,7 @@ public class ActivityPubActivityHandler(
         var objectUri = GetStringValue(objectDict, "id");
         if (string.IsNullOrEmpty(objectUri))
             return false;
-        
+
         var actor = await GetOrCreateActorAsync(actorUri);
 
         var content = await GetPostByUriAsync(objectUri);
@@ -730,9 +761,7 @@ public class ActivityPubActivityHandler(
                 .ToList();
 
             if (fediverseTags.Count > 0)
-            {
-                metadata["fediverseTags"] = fediverseTags;
-            }
+                metadata["fediverse_tags"] = fediverseTags;
         }
 
         var emojiValue = objectDict.GetValueOrDefault("emoji");
@@ -749,9 +778,13 @@ public class ActivityPubActivityHandler(
 
             if (emojis.Count > 0)
             {
-                metadata["fediverseEmojis"] = emojis;
+                metadata["fediverse_emojis"] = emojis;
             }
         }
+
+        var fediverseUrl = objectDict.GetValueOrDefault("url");
+        if (fediverseUrl is not null)
+            metadata["fediverse_url"] = fediverseUrl.ToString()!;
 
         return metadata;
     }
