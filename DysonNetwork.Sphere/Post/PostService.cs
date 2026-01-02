@@ -3,7 +3,6 @@ using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.ActivityPub;
@@ -11,8 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
 using Markdig;
+using AngleSharp.Html.Parser;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
+using PostContentType = DysonNetwork.Shared.Models.PostContentType;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -37,32 +38,79 @@ public partial class PostService(
     {
         const int maxLength = 256;
         const int embedMaxLength = 80;
+        var parser = new HtmlParser();
         foreach (var item in input)
         {
             if (item.Content?.Length > maxLength)
             {
-                var plainText = Markdown.ToPlainText(item.Content);
-                item.Content = plainText.Length > maxLength ? plainText[..maxLength] : plainText;
-                item.IsTruncated = true;
+                string plainText;
+                if (item.ContentType == PostContentType.Markdown)
+                {
+                    plainText = Markdown.ToPlainText(item.Content);
+                }
+                else if (item.ContentType == PostContentType.Html)
+                {
+                    var document = parser.ParseDocument(item.Content);
+                    plainText = document.Body?.TextContent.Trim() ?? "";
+                }
+                else
+                {
+                    continue;
+                }
+                if (plainText.Length > maxLength)
+                {
+                    item.Content = plainText.Substring(0, maxLength);
+                    item.IsTruncated = true;
+                }
             }
 
             // Truncate replied post content with shorter embed length
-            if (item.RepliedPost?.Content != null)
+            if (item.RepliedPost?.Content != null && item.Content?.Length > embedMaxLength)
             {
-                var plainText = Markdown.ToPlainText(item.RepliedPost.Content);
+                string plainText;
+                if (item.ContentType == PostContentType.Markdown)
+                {
+                    plainText = Markdown.ToPlainText(item.RepliedPost.Content);
+                }
+                else if (item.ContentType == PostContentType.Html)
+                {
+                    var document = parser.ParseDocument(item.RepliedPost.Content);
+                    plainText = document.Body?.TextContent.Trim() ?? "";
+                }
+                else
+                {
+                    continue;
+                }
                 if (plainText.Length > embedMaxLength)
                 {
-                    item.RepliedPost.Content = plainText[..embedMaxLength];
+                    item.RepliedPost.Content = plainText.Substring(0, embedMaxLength);
                     item.RepliedPost.IsTruncated = true;
                 }
             }
 
             // Truncate forwarded post content with shorter embed length
-            if (item.ForwardedPost?.Content == null ||
-                Markdown.ToPlainText(item.ForwardedPost.Content).Length <= embedMaxLength) continue;
-            var forwardedPlainText = Markdown.ToPlainText(item.ForwardedPost.Content);
-            item.ForwardedPost.Content = forwardedPlainText[..embedMaxLength];
-            item.ForwardedPost.IsTruncated = true;
+            if (item.ForwardedPost?.Content != null && item.Content?.Length > embedMaxLength)
+            {
+                string plainText;
+                if (item.ContentType == PostContentType.Markdown)
+                {
+                    plainText = Markdown.ToPlainText(item.ForwardedPost.Content);
+                }
+                else if (item.ContentType == PostContentType.Html)
+                {
+                    var document = parser.ParseDocument(item.ForwardedPost.Content);
+                    plainText = document.Body?.TextContent.Trim() ?? "";
+                }
+                else
+                {
+                    continue;
+                }
+                if (plainText.Length > embedMaxLength)
+                {
+                    item.ForwardedPost.Content = plainText.Substring(0, embedMaxLength);
+                    item.ForwardedPost.IsTruncated = true;
+                }
+            }
         }
 
         return input;
@@ -588,7 +636,7 @@ public partial class PostService(
         await db.SaveChangesAsync();
 
         if (isSelfReact) return isRemoving;
-        
+
         // Send ActivityPub Like/Undo activities if post's publisher has actor
         if (post.PublisherId.HasValue)
         {
