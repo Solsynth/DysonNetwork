@@ -1,4 +1,5 @@
 using DysonNetwork.Insight;
+using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;
@@ -10,9 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration);
-
-builder.Services.AddGrpc();
-builder.Services.AddGrpcReflection();
 
 builder.Services.AddControllers();
 builder.Services.AddAppServices();
@@ -40,6 +38,10 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
 }
+
+app.MapGrpcService<WebReaderGrpcService>();
+app.MapGrpcService<WebArticleGrpcService>();
+app.MapGrpcService<WebFeedGrpcService>();
 
 app.ConfigureAppMiddleware(builder.Configuration);
 

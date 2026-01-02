@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Registry;
@@ -11,60 +12,65 @@ namespace DysonNetwork.Insight.Startup;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAppServices(this IServiceCollection services)
+    extension(IServiceCollection services)
     {
-        services.AddDbContext<AppDatabase>();
-        services.AddHttpContextAccessor();
-
-        services.AddHttpClient();
-
-        // Register gRPC services
-        services.AddGrpc(options =>
+        public IServiceCollection AddAppServices()
         {
-            options.EnableDetailedErrors = true; // Will be adjusted in Program.cs
-            options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
-            options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
-        });
-        services.AddGrpcReflection();
+            services.AddDbContext<AppDatabase>();
+            services.AddHttpContextAccessor();
 
-        // Register gRPC services
+            services.AddHttpClient();
 
-        // Register OIDC services
-        services.AddControllers().AddJsonOptions(options =>
+            // Register gRPC services
+            services.AddGrpc(options =>
+            {
+                options.EnableDetailedErrors = true; // Will be adjusted in Program.cs
+                options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
+                options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
+            });
+            services.AddGrpcReflection();
+
+            // Register gRPC services
+
+            // Register OIDC services
+            services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
+                options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+                options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
+
+                options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+            });
+
+            return services;
+        }
+
+        public IServiceCollection AddAppAuthentication()
         {
-            options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
-            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-            options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
+            services.AddAuthorization();
+            return services;
+        }
 
-            options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-        });
+        public IServiceCollection AddAppFlushHandlers()
+        {
+            services.AddSingleton<FlushBufferService>();
 
-        return services;
-    }
+            return services;
+        }
 
-    public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
-    {
-        services.AddAuthorization();
-        return services;
-    }
+        public IServiceCollection AddAppBusinessServices()
+        {
+            return services;
+        }
 
-    public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
-    {
-        services.AddSingleton<FlushBufferService>();
+        public IServiceCollection AddThinkingServices(IConfiguration configuration)
+        {
+            services.AddSingleton<ThoughtProvider>();
+            services.AddScoped<ThoughtService>();
+            services.AddScoped<WebFeedService>();
+            services.AddScoped<WebReaderService>();
 
-        return services;
-    }
-
-    public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
-    {
-        return services;
-    }
-
-    public static IServiceCollection AddThinkingServices(this IServiceCollection services, IConfiguration configuration)
-    {
-        services.AddSingleton<ThoughtProvider>();
-        services.AddScoped<ThoughtService>();
-
-        return services;
+            return services;
+        }
     }
 }
