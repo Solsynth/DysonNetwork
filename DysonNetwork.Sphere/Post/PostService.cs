@@ -647,8 +647,9 @@ public partial class PostService(
             var accountActor = accountPublisher is null
                 ? null
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);
+            var publisherActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
 
-            if (accountActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
+            if (accountActor != null && publisherActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
             {
                 if (!isRemoving)
                 {
@@ -662,7 +663,8 @@ public partial class PostService(
                                 .GetRequiredService<ActivityPubDeliveryService>();
                             await deliveryService.SendLikeActivityToLocalPostAsync(
                                 accountActor,
-                                post.Id
+                                post.Id,
+                                publisherActor
                             );
                         }
                         catch (Exception ex)
@@ -683,7 +685,8 @@ public partial class PostService(
                                 .GetRequiredService<ActivityPubDeliveryService>();
                             await deliveryService.SendUndoLikeActivityAsync(
                                 accountActor,
-                                post.Id
+                                post.Id,
+                                publisherActor
                             );
                         }
                         catch (Exception ex)

@@ -341,7 +341,8 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendLikeActivityToLocalPostAsync(
         SnFediverseActor actor,
-        Guid postId
+        Guid postId,
+        SnFediverseActor postSenderActor
     )
     {
         var actorUrl = actor.Uri;
@@ -356,12 +357,13 @@ public class ActivityPubDeliveryService(
             ["actor"] = actor.Uri,
             ["object"] = postUrl,
             ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
-            ["cc"] = new[] { $"{actorUrl}/followers" }
+            ["cc"] = new[] { $"{actorUrl}/followers", postSenderActor.Uri, postSenderActor.FollowersUri }
         };
 
         var followers = await GetRemoteFollowersAsync(actor.Id);
+        var ogFollowers = await GetRemoteFollowersAsync(postSenderActor.Id);
 
-        foreach (var follower in followers)
+        foreach (var follower in followers.Concat(ogFollowers))
         {
             if (follower.InboxUri == null) continue;
             await EnqueueActivityDeliveryAsync("Like", activity, actorUrl, follower.InboxUri, activityId);
@@ -372,7 +374,8 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendUndoLikeActivityAsync(
         SnFediverseActor actor,
-        Guid postId
+        Guid postId,
+        SnFediverseActor postSenderActor
     )
     {
         var actorUrl = actor.Uri;
@@ -391,12 +394,13 @@ public class ActivityPubDeliveryService(
                 ["object"] = postUrl
             },
             ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
-            ["cc"] = new[] { $"{actorUrl}/followers" }
+            ["cc"] = new[] { $"{actorUrl}/followers", postSenderActor.Uri, postSenderActor.FollowersUri }
         };
 
         var followers = await GetRemoteFollowersAsync(actor.Id);
+        var ogFollowers = await GetRemoteFollowersAsync(postSenderActor.Id);
 
-        foreach (var follower in followers)
+        foreach (var follower in followers.Concat(ogFollowers))
         {
             if (follower.InboxUri == null) continue;
             await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, follower.InboxUri, activityId);
