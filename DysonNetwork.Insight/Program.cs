@@ -39,10 +39,6 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-app.MapGrpcService<WebReaderGrpcService>();
-app.MapGrpcService<WebArticleGrpcService>();
-app.MapGrpcService<WebFeedGrpcService>();
-
 app.ConfigureAppMiddleware(builder.Configuration);
 
 app.UseSwaggerManifest("DysonNetwork.Insight");
