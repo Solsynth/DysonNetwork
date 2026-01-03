@@ -36,7 +36,8 @@ public class NotificationController(
         [FromQuery] int offset = 0,
         // The page size set to 5 is to avoid the client pulled the notification
         // but didn't render it in the screen-viewable region.
-        [FromQuery] int take = 8
+        [FromQuery] int take = 8,
+        [FromQuery] bool unmark = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -54,7 +55,8 @@ public class NotificationController(
             .ToListAsync();
 
         Response.Headers["X-Total"] = totalCount.ToString();
-        await nty.MarkNotificationsViewed(notifications.ToList());
+
+        if (!unmark) await nty.MarkNotificationsViewed(notifications.ToList());
 
         return Ok(notifications);
     }
@@ -124,10 +126,10 @@ public class NotificationController(
 
     public class NotificationRequest
     {
-        [Required][MaxLength(1024)] public string Topic { get; set; } = null!;
-        [Required][MaxLength(1024)] public string Title { get; set; } = null!;
+        [Required] [MaxLength(1024)] public string Topic { get; set; } = null!;
+        [Required] [MaxLength(1024)] public string Title { get; set; } = null!;
         [MaxLength(2048)] public string? Subtitle { get; set; }
-        [Required][MaxLength(4096)] public string Content { get; set; } = null!;
+        [Required] [MaxLength(4096)] public string Content { get; set; } = null!;
         public Dictionary<string, object?>? Meta { get; set; }
         public int Priority { get; set; } = 10;
     }
