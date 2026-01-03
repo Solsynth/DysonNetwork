@@ -92,6 +92,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public PostPinMode? PinMode { get; set; }
 
     [Column(TypeName = "jsonb")]
+    [JsonPropertyName("meta")]
     public Dictionary<string, object>? Metadata { get; set; }
 
     [Column(TypeName = "jsonb")]
