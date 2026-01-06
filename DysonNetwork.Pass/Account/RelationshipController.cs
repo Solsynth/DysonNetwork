@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -273,5 +274,31 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
         {
             return BadRequest(err.Message);
         }
+    }
+
+    public class InspectRelationshipResponse
+    {
+        public List<SnAccount> Friends { get; set; } = [];
+        public List<SnAccount> Blocked { get; set; } = [];
+        public List<SnAccount> Pending { get; set; } = [];
+    }
+
+    [HttpGet("inspect/{accountId:guid}")]
+    [Authorize]
+    [AskPermission("relationships.inspect")]
+    public async Task<ActionResult<InspectRelationshipResponse>> InspectRelationship(Guid accountId)
+    {
+        var relationships = await db.AccountRelationships
+            .Where(r => r.AccountId == accountId)
+            .Include(r => r.Related)
+            .GroupBy(r => r.Status, r => r.Related)
+            .ToDictionaryAsync(r => r.Key, r => r);
+
+        return Ok(new InspectRelationshipResponse
+        {
+            Friends = relationships.TryGetValue(RelationshipStatus.Friends, out var friends) ? friends.ToList() : [],
+            Blocked = relationships.TryGetValue(RelationshipStatus.Blocked, out var blocked) ? blocked.ToList() : [],
+            Pending = relationships.TryGetValue(RelationshipStatus.Pending, out var pending) ? pending.ToList() : []
+        });
     }
 }
