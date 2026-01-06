@@ -22,24 +22,14 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
 
         var query = db.AccountRelationships.AsQueryable()
             .OrderByDescending(r => r.CreatedAt)
-            .Where(r => r.RelatedId == accountId);
+            .Where(r => r.AccountId == accountId);
         var totalCount = await query.CountAsync();
         var relationships = await query
             .Include(r => r.Related)
-            .Include(r => r.Related.Profile)
-            .Include(r => r.Account)
-            .Include(r => r.Account.Profile)
+            .ThenInclude(a => a.Profile)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
-
-        var statuses = await db.AccountRelationships
-            .Where(r => r.AccountId == accountId)
-            .ToDictionaryAsync(r => r.RelatedId);
-        foreach (var relationship in relationships)
-            relationship.Status = statuses.TryGetValue(relationship.AccountId, out var status)
-                ? status.Status
-                : RelationshipStatus.Pending;
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -55,9 +45,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
         var relationships = await db.AccountRelationships
             .Where(r => r.AccountId == currentUser.Id && r.Status == RelationshipStatus.Pending)
             .Include(r => r.Related)
-            .Include(r => r.Related.Profile)
-            .Include(r => r.Account)
-            .Include(r => r.Account.Profile)
+            .ThenInclude(a => a.Profile)
             .ToListAsync();
 
         return relationships;
