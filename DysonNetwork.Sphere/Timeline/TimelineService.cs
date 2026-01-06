@@ -1,7 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -13,7 +12,6 @@ public class TimelineService(
     Publisher.PublisherService pub,
     Post.PostService ps,
     RemoteRealmService rs,
-    DiscoveryService ds,
     AccountService.AccountServiceClient accounts,
     RemoteWebArticleService webArticles
 )
@@ -194,7 +192,7 @@ public class TimelineService(
 
     private async Task<SnTimelineEvent?> GetRealmDiscoveryActivity(int count = 5)
     {
-        var realms = await ds.GetCommunityRealmAsync(null, count, 0, true);
+        var realms = await rs.GetPublicRealms("random", count);
         return realms.Count > 0
             ? new TimelineDiscoveryEvent(
                 realms.Select(x => new DiscoveryItem("realm", x)).ToList()

@@ -5,7 +5,6 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Autocompletion;
-using DysonNetwork.Sphere.Discovery;
 using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
@@ -94,7 +93,6 @@ public static class ServiceCollectionExtensions
             services.AddScoped<PublisherSubscriptionService>();
             services.AddScoped<TimelineService>();
             services.AddScoped<PostService>();
-            services.AddScoped<DiscoveryService>();
             services.AddScoped<PollService>();
             services.AddScoped<StickerService>();
             services.AddScoped<AutocompletionService>();

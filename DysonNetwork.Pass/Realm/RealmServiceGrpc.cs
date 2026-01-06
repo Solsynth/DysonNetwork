@@ -68,24 +68,30 @@ public class RealmServiceGrpc(
         return new GetUserRealmsResponse { RealmIds = { realms.Select(g => g.ToString()) } };
     }
 
-    public override Task<GetPublicRealmsResponse> GetPublicRealms(
+    public override async Task<GetPublicRealmsResponse> GetPublicRealms(
         GetPublicRealmsRequest request,
         ServerCallContext context
     )
     {
-        var realmsQueryable = db.Realms.Where(r => r.IsPublic).AsQueryable();
+        var realmsQuery = db.Realms.AsQueryable();
 
-        realmsQueryable = request.OrderBy switch
+        realmsQuery = request.IsCommunity ?
+            realmsQuery.Where(r => r.IsCommunity) :
+            realmsQuery.Where(r => r.IsPublic);
+
+        realmsQuery = request.OrderBy switch
         {
-            "random" => realmsQueryable.OrderBy(_ => EF.Functions.Random()),
-            "name" => realmsQueryable.OrderBy(r => r.Name),
-            "popularity" => realmsQueryable.OrderByDescending(r => r.Members.Count),
-            _ => realmsQueryable.OrderByDescending(r => r.CreatedAt)
+            "random" => realmsQuery.OrderBy(_ => EF.Functions.Random()),
+            "name" => realmsQuery.OrderBy(r => r.Name),
+            "popularity" => realmsQuery.OrderByDescending(r => r.Members.Count),
+            _ => realmsQuery.OrderByDescending(r => r.CreatedAt)
         };
 
+        var realms = await realmsQuery.Take(request.Take).ToListAsync();
+
         var response = new GetPublicRealmsResponse();
-        response.Realms.AddRange(realmsQueryable.Select(r => r.ToProtoValue()));
-        return Task.FromResult(response);
+        response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
+        return response;
     }
 
     public override async Task<GetPublicRealmsResponse> SearchRealms(SearchRealmsRequest request,

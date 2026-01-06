@@ -47,10 +47,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Discovery\" />
-    </ItemGroup>
-
-    <ItemGroup>
         <EmbeddedResource Update="Resources\SharedResource.resx">
             <Generator>ResXFileCodeGenerator</Generator>
             <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>

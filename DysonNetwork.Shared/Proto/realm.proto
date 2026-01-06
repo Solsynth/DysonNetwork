@@ -86,6 +86,8 @@ message GetUserRealmsResponse {
 
 message GetPublicRealmsRequest {
     optional string order_by = 1;
+    int32 take = 2;
+    bool is_community = 3;
 }
 
 message GetPublicRealmsResponse {
