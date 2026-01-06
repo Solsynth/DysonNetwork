@@ -38,13 +38,16 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
 
     [HttpGet("requests")]
     [Authorize]
-    public async Task<ActionResult<List<SnAccountRelationship>>> ListSentRequests()
+    public async Task<ActionResult<List<SnAccountRelationship>>> ListRelationshipRequests()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var relationships = await db.AccountRelationships
-            .Where(r => r.AccountId == currentUser.Id && r.Status == RelationshipStatus.Pending)
+            .Where(r => r.Status == RelationshipStatus.Pending)
+            .Where(r => r.AccountId == currentUser.Id || r.RelatedId == currentUser.Id)
             .Include(r => r.Related)
+            .ThenInclude(a => a.Profile)
+            .Include(r => r.Account)
             .ThenInclude(a => a.Profile)
             .ToListAsync();
 
