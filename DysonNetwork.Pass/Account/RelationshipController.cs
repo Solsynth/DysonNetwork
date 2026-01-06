@@ -22,6 +22,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
 
         var query = db.AccountRelationships.AsQueryable()
             .OrderByDescending(r => r.CreatedAt)
+            .Where(r => r.Status != RelationshipStatus.Pending)
             .Where(r => r.AccountId == accountId);
         var totalCount = await query.CountAsync();
         var relationships = await query
