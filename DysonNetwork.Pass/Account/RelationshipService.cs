@@ -192,6 +192,18 @@ public class RelationshipService(
         return relationship;
     }
 
+    public async Task<SnAccountRelationship> DeleteRelationship(Guid accountId, Guid relatedId)
+    {
+        var relationship = await GetRelationship(accountId, relatedId);
+        if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
+        db.Remove(relationship);
+        await db.SaveChangesAsync();
+
+        await PurgeRelationshipCache(accountId, relatedId, relationship.Status);
+        
+        return relationship;
+    }
+
     public async Task<List<Guid>> ListAccountFriends(SnAccount account, bool isRelated = false)
     {
         return await ListAccountFriends(account.Id, isRelated);
