@@ -53,12 +53,6 @@
     <data name="PostReplyTitle" xml:space="preserve">
         <value>{0} replied your post</value>
     </data>
-    <data name="PostReplyBody">
-        <value>{0} replied: {1}</value>
-    </data>
-    <data name="PostReplyContentBody">
-        <value>{0} replied post {1}: {2}</value>
-    </data>
     <data name="PostOnlyMedia" xml:space="preserve">
         <value>shared media</value>
     </data>

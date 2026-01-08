@@ -45,12 +45,6 @@
     <data name="PostReplyTitle" xml:space="preserve">
         <value>{0} 回复了你的帖子</value>
     </data>
-    <data name="PostReplyBody">
-        <value>{0}：{1}</value>
-    </data>
-    <data name="PostReplyContentBody">
-        <value>{0} 回复了帖子 {1}: {2}</value>
-    </data>
     <data name="PostOnlyMedia" xml:space="preserve">
         <value>分享媒体</value>
     </data>

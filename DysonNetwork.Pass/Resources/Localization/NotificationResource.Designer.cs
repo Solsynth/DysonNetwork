@@ -105,18 +105,6 @@ namespace DysonNetwork.Sphere.Resources.Localization {
             }
         }
         
-        internal static string PostReplyBody {
-            get {
-                return ResourceManager.GetString("PostReplyBody", resourceCulture);
-            }
-        }
-        
-        internal static string PostReplyContentBody {
-            get {
-                return ResourceManager.GetString("PostReplyContentBody", resourceCulture);
-            }
-        }
-        
         internal static string PostOnlyMedia {
             get {
                 return ResourceManager.GetString("PostOnlyMedia", resourceCulture);

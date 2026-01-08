@@ -26,9 +26,9 @@ public class PublisherSubscriptionService(
     public async Task<bool> SubscriptionExistsAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
-            .AnyAsync(ps => ps.AccountId == accountId &&
-                            ps.PublisherId == publisherId &&
-                            ps.Status == PublisherSubscriptionStatus.Active);
+            .AnyAsync(p => p.AccountId == accountId &&
+                            p.PublisherId == publisherId &&
+                            p.Status == PublisherSubscriptionStatus.Active);
     }
 
     /// <summary>
@@ -40,8 +40,8 @@ public class PublisherSubscriptionService(
     public async Task<SnPublisherSubscription?> GetSubscriptionAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
-            .Include(ps => ps.Publisher)
-            .FirstOrDefaultAsync(ps => ps.AccountId == accountId && ps.PublisherId == publisherId);
+            .Include(p => p.Publisher)
+            .FirstOrDefaultAsync(p => p.AccountId == accountId && p.PublisherId == publisherId);
     }
 
     /// <summary>
@@ -51,6 +51,8 @@ public class PublisherSubscriptionService(
     /// <returns>The number of subscribers notified</returns>
     public async Task<int> NotifySubscriberPost(SnPost post)
     {
+        if (!post.PublisherId.HasValue || post.Publisher is null)
+            return 0;
         if (post.RepliedPostId is not null)
             return 0;
         if (post.Visibility != Shared.Models.PostVisibility.Public)
@@ -63,7 +65,7 @@ public class PublisherSubscriptionService(
         var data = new Dictionary<string, object>
         {
             ["post_id"] = post.Id,
-            ["publisher_id"] = post.Publisher.Id.ToString()
+            ["publisher_id"] = post.PublisherId.Value.ToString()
         };
 
         if (post.Attachments.Any(p => p.MimeType?.StartsWith("image/") ?? false))
@@ -71,7 +73,7 @@ public class PublisherSubscriptionService(
                 post.Attachments
                     .Where(p => p.MimeType?.StartsWith("image/") ?? false)
                     .Select(p => p.Id).First();
-        if (post.Publisher.Picture is not null) data["pfp"] = post.Publisher.Picture.Id;
+        if (post.Publisher?.Picture is not null) data["pfp"] = post.Publisher.Picture.Id;
 
         // Gather subscribers
         var subscribers = await db.PublisherSubscriptions
@@ -118,7 +120,7 @@ public class PublisherSubscriptionService(
                 var notification = new PushNotification
                 {
                     Topic = "posts.new",
-                    Title = localizer["PostSubscriptionTitle", post.Publisher.Nick, title],
+                    Title = localizer["PostSubscriptionTitle", post.Publisher!.Nick, title],
                     Body = message,
                     Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
                     IsSavable = true,
@@ -147,8 +149,8 @@ public class PublisherSubscriptionService(
     public async Task<List<SnPublisherSubscription>> GetAccountSubscriptionsAsync(Guid accountId)
     {
         return await db.PublisherSubscriptions
-            .Include(ps => ps.Publisher)
-            .Where(ps => ps.AccountId == accountId && ps.Status == PublisherSubscriptionStatus.Active)
+            .Include(p => p.Publisher)
+            .Where(p => p.AccountId == accountId && p.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
     }
 
@@ -160,7 +162,8 @@ public class PublisherSubscriptionService(
     public async Task<List<SnPublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
     {
         return await db.PublisherSubscriptions
-            .Where(ps => ps.PublisherId == publisherId && ps.Status == PublisherSubscriptionStatus.Active)
+            .Where(p => p.PublisherId == publisherId)
+            .Where(p => p.Status == PublisherSubscriptionStatus.Active)
             .ToListAsync();
     }
 

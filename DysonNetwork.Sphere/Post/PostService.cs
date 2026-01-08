@@ -57,6 +57,7 @@ public partial class PostService(
                 {
                     continue;
                 }
+
                 if (plainText.Length > maxLength)
                 {
                     item.Content = plainText.Substring(0, maxLength);
@@ -81,6 +82,7 @@ public partial class PostService(
                 {
                     continue;
                 }
+
                 if (plainText.Length > embedMaxLength)
                 {
                     item.RepliedPost.Content = plainText.Substring(0, embedMaxLength);
@@ -105,6 +107,7 @@ public partial class PostService(
                 {
                     continue;
                 }
+
                 if (plainText.Length > embedMaxLength)
                 {
                     item.ForwardedPost.Content = plainText.Substring(0, embedMaxLength);
@@ -124,8 +127,9 @@ public partial class PostService(
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
                 : post.Content;
         var title = post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
-        content ??= localizer["PostOnlyMedia"];
         title ??= localizer["PostOnlyMedia"];
+        if (string.IsNullOrWhiteSpace(content))
+            content = localizer["PostOnlyMedia"];
         return (title, content);
     }
 
@@ -219,13 +223,13 @@ public partial class PostService(
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
                 var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
-                var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+                var notifyTargets = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
                     var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId!.Value);
                     var queryRequest = new GetAccountBatchRequest();
                     queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
-                    var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+                    var queryResponse = await notifyTargets.GetAccountBatchAsync(queryRequest);
                     foreach (var member in queryResponse.Accounts)
                     {
                         if (member is null) continue;
@@ -238,10 +242,7 @@ public partial class PostService(
                                 {
                                     Topic = "post.replies",
                                     Title = localizer["PostReplyTitle", sender!.Nick],
-                                    Body = string.IsNullOrWhiteSpace(post.Title)
-                                        ? localizer["PostReplyBody", sender.Nick, ChopPostForNotification(post).content]
-                                        : localizer["PostReplyContentBody", sender.Nick, post.Title,
-                                            ChopPostForNotification(post).content],
+                                    Body = ChopPostForNotification(post).content,
                                     IsSavable = true,
                                     ActionUri = $"/posts/{post.Id}"
                                 }
@@ -649,7 +650,8 @@ public partial class PostService(
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);
             var publisherActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
 
-            if (accountActor != null && publisherActor != null && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
+            if (accountActor != null && publisherActor != null &&
+                reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
             {
                 if (!isRemoving)
                 {
