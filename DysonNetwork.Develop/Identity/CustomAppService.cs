@@ -8,7 +8,6 @@ namespace DysonNetwork.Develop.Identity;
 
 public class CustomAppService(
     AppDatabase db,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     FileService.FileServiceClient files
 )
 {
@@ -46,16 +45,6 @@ public class CustomAppService(
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
-
-            // Create a new reference
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = picture.Id,
-                    Usage = "custom-apps.picture",
-                    ResourceId = app.ResourceIdentifier
-                }
-            );
         }
         if (request.BackgroundId is not null)
         {
@@ -65,16 +54,6 @@ public class CustomAppService(
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
-
-            // Create a new reference
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = background.Id,
-                    Usage = "custom-apps.background",
-                    ResourceId = app.ResourceIdentifier
-                }
-            );
         }
 
         db.CustomApps.Add(app);
@@ -209,16 +188,6 @@ public class CustomAppService(
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
-
-            // Create a new reference
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = picture.Id,
-                    Usage = "custom-apps.picture",
-                    ResourceId = app.ResourceIdentifier
-                }
-            );
         }
         if (request.BackgroundId is not null)
         {
@@ -228,16 +197,6 @@ public class CustomAppService(
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
-
-            // Create a new reference
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = background.Id,
-                    Usage = "custom-apps.background",
-                    ResourceId = app.ResourceIdentifier
-                }
-            );
         }
 
         db.Update(app);
@@ -256,12 +215,6 @@ public class CustomAppService(
 
         db.CustomApps.Remove(app);
         await db.SaveChangesAsync();
-
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-            {
-                ResourceId = app.ResourceIdentifier
-            }
-        );
 
         return true;
     }

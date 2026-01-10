@@ -19,7 +19,6 @@ public class RealmController(
     AppDatabase db,
     RealmService rs,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService als,
     RelationshipService rels,
     AccountEventService accountEvents
@@ -414,28 +413,6 @@ public class RealmController(
             Request
         );
 
-        var realmResourceId = $"realm:{realm.Id}";
-
-        if (realm.Picture is not null)
-        {
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = realm.Picture.Id,
-                Usage = "realm.picture",
-                ResourceId = realmResourceId
-            });
-        }
-
-        if (realm.Background is not null)
-        {
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = realm.Background.Id,
-                Usage = "realm.background",
-                ResourceId = realmResourceId
-            });
-        }
-
         return Ok(realm);
     }
 
@@ -478,24 +455,7 @@ public class RealmController(
             var pictureResult = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
-            // Remove old references for the realm picture
-            if (realm.Picture is not null)
-            {
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                {
-                    ResourceId = realm.ResourceIdentifier
-                });
-            }
-
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
-
-            // Create a new reference
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = realm.Picture.Id,
-                Usage = "realm.picture",
-                ResourceId = realm.ResourceIdentifier
-            });
         }
 
         if (request.BackgroundId is not null)
@@ -503,24 +463,7 @@ public class RealmController(
             var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
             if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
 
-            // Remove old references for the realm background
-            if (realm.Background is not null)
-            {
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                {
-                    ResourceId = realm.ResourceIdentifier
-                });
-            }
-
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
-
-            // Create a new reference
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = realm.Background.Id,
-                Usage = "realm.background",
-                ResourceId = realm.ResourceIdentifier
-            });
         }
 
         db.Realms.Update(realm);
@@ -732,13 +675,6 @@ public class RealmController(
             },
             Request
         );
-
-        // Delete all file references for this realm
-        var realmResourceId = $"realm:{realm.Id}";
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-        {
-            ResourceId = realmResourceId
-        });
 
         return NoContent();
     }

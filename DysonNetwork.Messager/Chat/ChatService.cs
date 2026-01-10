@@ -14,7 +14,6 @@ public partial class ChatService(
     AppDatabase db,
     ChatRoomService crs,
     FileService.FileServiceClient filesClient,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
     ILogger<ChatService> logger,
@@ -200,9 +199,6 @@ public partial class ChatService(
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
 
-        // Create file references if message has attachments
-        await CreateFileReferencesForMessageAsync(message);
-
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
         message.ChatRoom = room;
@@ -370,8 +366,11 @@ public partial class ChatService(
         }
     }
 
-    private List<Account> FilterAccountsForNotification(List<SnChatMember> members, SnChatMessage message,
-        SnChatMember sender)
+    private static List<Account> FilterAccountsForNotification(
+        List<SnChatMember> members,
+        SnChatMessage message,
+        SnChatMember sender
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -390,51 +389,6 @@ public partial class ChatService(
         }
 
         return accountsToNotify.Where(a => a.Id != sender.AccountId.ToString()).ToList();
-    }
-
-    private async Task CreateFileReferencesForMessageAsync(SnChatMessage message)
-    {
-        var files = message.Attachments.Distinct().ToList();
-        if (files.Count == 0) return;
-
-        var request = new CreateReferenceBatchRequest
-        {
-            Usage = ChatFileUsageIdentifier,
-            ResourceId = message.ResourceIdentifier,
-        };
-        request.FilesId.AddRange(message.Attachments.Select(a => a.Id));
-        await fileRefs.CreateReferenceBatchAsync(request);
-    }
-
-    private async Task UpdateFileReferencesForMessageAsync(SnChatMessage message, List<string> attachmentsId)
-    {
-        // Delete existing references for this message
-        await fileRefs.DeleteResourceReferencesAsync(
-            new DeleteResourceReferencesRequest { ResourceId = message.ResourceIdentifier }
-        );
-
-        // Create new references for each attachment
-        var createRequest = new CreateReferenceBatchRequest
-        {
-            Usage = ChatFileUsageIdentifier,
-            ResourceId = message.ResourceIdentifier,
-        };
-        createRequest.FilesId.AddRange(attachmentsId);
-        await fileRefs.CreateReferenceBatchAsync(createRequest);
-
-        // Update message attachments by getting files from database
-        var queryRequest = new GetFileBatchRequest();
-        queryRequest.Ids.AddRange(attachmentsId);
-        var queryResult = await filesClient.GetFileBatchAsync(queryRequest);
-        message.Attachments = queryResult.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
-    }
-
-    private async Task DeleteFileReferencesForMessageAsync(SnChatMessage message)
-    {
-        var messageResourceId = $"message:{message.Id}";
-        await fileRefs.DeleteResourceReferencesAsync(
-            new DeleteResourceReferencesRequest { ResourceId = messageResourceId }
-        );
     }
 
     /// <summary>
@@ -709,9 +663,6 @@ public partial class ChatService(
 
         // Update do not override meta, replies to and forwarded to
 
-        if (attachmentsId is not null)
-            await UpdateFileReferencesForMessageAsync(message, attachmentsId);
-
         // Mark as edited if content or attachments changed
         if (isContentChanged || isAttachmentsChanged)
             message.EditedAt = SystemClock.Instance.GetCurrentInstant();
@@ -773,9 +724,6 @@ public partial class ChatService(
         {
             throw new InvalidOperationException("Only regular messages can be deleted.");
         }
-
-        // Remove all file references for this message
-        await DeleteFileReferencesForMessageAsync(message);
 
         // Soft delete by setting DeletedAt timestamp
         message.DeletedAt = SystemClock.Instance.GetCurrentInstant();

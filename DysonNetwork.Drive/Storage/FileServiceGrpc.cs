@@ -41,27 +41,6 @@ namespace DysonNetwork.Drive.Storage
             return new Empty();
         }
 
-        public override async Task<LoadFromReferenceResponse> LoadFromReference(
-            LoadFromReferenceRequest request,
-            ServerCallContext context
-        )
-        {
-            // Assuming CloudFileReferenceObject is a simple class/struct that holds an ID
-            // You might need to define this or adjust the LoadFromReference method in FileService
-            var references = request.ReferenceIds.Select(id => new SnCloudFileReferenceObject { Id = id }).ToList();
-            var files = await fileService.LoadFromReference(references);
-            var response = new LoadFromReferenceResponse();
-            response.Files.AddRange(files.Where(f => f != null).Select(f => f!.ToProtoValue()));
-            return response;
-        }
-
-        public override async Task<IsReferencedResponse> IsReferenced(IsReferencedRequest request,
-            ServerCallContext context)
-        {
-            var isReferenced = await fileService.IsReferencedAsync(request.FileId);
-            return new IsReferencedResponse { IsReferenced = isReferenced };
-        }
-
         public override async Task<Empty> PurgeCache(PurgeCacheRequest request, ServerCallContext context)
         {
             await fileService._PurgeCacheAsync(request.FileId);

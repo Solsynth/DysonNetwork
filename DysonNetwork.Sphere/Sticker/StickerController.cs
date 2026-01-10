@@ -15,8 +15,7 @@ public class StickerController(
     AppDatabase db,
     StickerService st,
     Publisher.PublisherService ps,
-    FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs
+    FileService.FileServiceClient files
 ) : ControllerBase
 {
     private async Task<IActionResult> _CheckStickerPackPermissions(
@@ -161,16 +160,6 @@ public class StickerController(
         db.StickerPacks.Add(pack);
         await db.SaveChangesAsync();
 
-        if (pack.Icon is not null)
-        {
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = pack.Icon.Id,
-                Usage = StickerService.StickerPackUsageIdentifier,
-                ResourceId = pack.ResourceIdentifier
-            });
-        }
-
         return Ok(pack);
     }
 
@@ -207,24 +196,7 @@ public class StickerController(
             if (file is null)
                 return BadRequest("Icon not found.");
 
-            if (file.Id != pack.Icon?.Id)
-            {
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                    { ResourceId = pack.ResourceIdentifier, Usage = StickerService.StickerPackUsageIdentifier });
-
-                pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
-                await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-                {
-                    FileId = pack.Icon.Id,
-                    Usage = StickerService.StickerPackUsageIdentifier,
-                    ResourceId = pack.ResourceIdentifier
-                });
-            }
-            else
-            {
-                // Still update the column in case user want to sync the changes of the file meta               
-                pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
-            }
+            pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         db.StickerPacks.Update(pack);

@@ -23,7 +23,6 @@ public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     AccountUsernameService uname,
     AffiliationSpellService ars,
     EmailService mailer,
@@ -229,28 +228,12 @@ public class AccountService(
         if (!string.IsNullOrEmpty(pictureId))
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = pictureId });
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    ResourceId = account.Profile.ResourceIdentifier,
-                    FileId = pictureId,
-                    Usage = "profile.picture"
-                }
-            );
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (!string.IsNullOrEmpty(backgroundId))
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = backgroundId });
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    ResourceId = account.Profile.ResourceIdentifier,
-                    FileId = backgroundId,
-                    Usage = "profile.background"
-                }
-            );
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 

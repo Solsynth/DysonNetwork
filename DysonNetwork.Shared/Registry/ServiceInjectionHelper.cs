@@ -69,10 +69,6 @@ public static class ServiceInjectionHelper
                 "https://_grpc.drive",
                 "FileService");
 
-            services.AddGrpcClientWithSharedChannel<FileReferenceService.FileReferenceServiceClient>(
-                "https://_grpc.drive",
-                "FileReferenceService");
-
             return services;
         }
 

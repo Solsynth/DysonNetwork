@@ -24,7 +24,6 @@ public class AccountCurrentController(
     AccountEventService events,
     AuthService auth,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     Credit.SocialCreditService creditService
 ) : ControllerBase
 {
@@ -122,36 +121,12 @@ public class AccountCurrentController(
         if (request.PictureId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
-            if (profile.Picture is not null)
-                await fileRefs.DeleteResourceReferencesAsync(
-                    new DeleteResourceReferencesRequest { ResourceId = profile.ResourceIdentifier }
-                );
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    ResourceId = profile.ResourceIdentifier,
-                    FileId = request.PictureId,
-                    Usage = "profile.picture"
-                }
-            );
             profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
-            if (profile.Background is not null)
-                await fileRefs.DeleteResourceReferencesAsync(
-                    new DeleteResourceReferencesRequest { ResourceId = profile.ResourceIdentifier }
-                );
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    ResourceId = profile.ResourceIdentifier,
-                    FileId = request.BackgroundId,
-                    Usage = "profile.background"
-                }
-            );
             profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 

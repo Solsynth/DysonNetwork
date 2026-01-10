@@ -7,13 +7,9 @@ namespace DysonNetwork.Sphere.Sticker;
 
 public class StickerService(
     AppDatabase db,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     ICacheService cache
 )
 {
-    public const string StickerFileUsageIdentifier = "sticker";
-    public const string StickerPackUsageIdentifier = "sticker.pack";
-
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     public async Task<SnSticker> CreateStickerAsync(SnSticker sticker)
@@ -23,33 +19,13 @@ public class StickerService(
         db.Stickers.Add(sticker);
         await db.SaveChangesAsync();
 
-        await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-        {
-            FileId = sticker.Image.Id,
-            Usage = StickerFileUsageIdentifier,
-            ResourceId = sticker.ResourceIdentifier
-        });
-
         return sticker;
     }
 
     public async Task<SnSticker> UpdateStickerAsync(SnSticker sticker, SnCloudFileReferenceObject? newImage)
     {
         if (newImage is not null)
-        {
-            await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                { ResourceId = sticker.ResourceIdentifier });
-
             sticker.Image = newImage;
-
-            // Create new reference
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = newImage.Id,
-                Usage = StickerFileUsageIdentifier,
-                ResourceId = sticker.ResourceIdentifier
-            });
-        }
 
         db.Stickers.Update(sticker);
         await db.SaveChangesAsync();
@@ -62,12 +38,6 @@ public class StickerService(
 
     public async Task DeleteStickerAsync(SnSticker sticker)
     {
-        var stickerResourceId = $"sticker:{sticker.Id}";
-
-        // Delete all file references for this sticker
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-            { ResourceId = stickerResourceId });
-
         db.Stickers.Remove(sticker);
         await db.SaveChangesAsync();
 
@@ -80,17 +50,6 @@ public class StickerService(
         var stickers = await db.Stickers
             .Where(s => s.PackId == pack.Id)
             .ToListAsync();
-
-        var images = stickers.Select(s => s.Image).ToList();
-
-        // Delete all file references for each sticker in the pack
-        foreach (var stickerResourceId in stickers.Select(sticker => $"sticker:{sticker.Id}"))
-            await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                { ResourceId = stickerResourceId });
-
-        // Delete any references for the pack itself
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-            { ResourceId = pack.ResourceIdentifier });
 
         db.Stickers.RemoveRange(stickers);
         db.StickerPacks.Remove(pack);

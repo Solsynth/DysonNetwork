@@ -12,7 +12,6 @@ public class BotAccountReceiverGrpc(
     AppDatabase db,
     AccountService accounts,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     AuthService authService
 )
     : BotAccountReceiverService.BotAccountReceiverServiceBase
@@ -53,36 +52,12 @@ public class BotAccountReceiverGrpc(
         if (request.PictureId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
-            if (account.Profile.Picture is not null)
-                await fileRefs.DeleteResourceReferencesAsync(
-                    new DeleteResourceReferencesRequest { ResourceId = account.Profile.ResourceIdentifier }
-                );
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    ResourceId = account.Profile.ResourceIdentifier,
-                    FileId = request.PictureId,
-                    Usage = "profile.picture"
-                }
-            );
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
-            if (account.Profile.Background is not null)
-                await fileRefs.DeleteResourceReferencesAsync(
-                    new DeleteResourceReferencesRequest { ResourceId = account.Profile.ResourceIdentifier }
-                );
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    ResourceId = account.Profile.ResourceIdentifier,
-                    FileId = request.BackgroundId,
-                    Usage = "profile.background"
-                }
-            );
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 

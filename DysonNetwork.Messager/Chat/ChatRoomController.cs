@@ -21,7 +21,6 @@ public class ChatRoomController(
     RemoteRealmService rs,
     AccountService.AccountServiceClient accounts,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
     RingService.RingServiceClient pusher,
     RemoteAccountService remoteAccountsHelper
@@ -220,13 +219,6 @@ public class ChatRoomController(
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
                 if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
                 chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
-
-                await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-                {
-                    FileId = fileResponse.Id,
-                    Usage = "chatroom.picture",
-                    ResourceId = chatRoom.ResourceIdentifier,
-                });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -241,13 +233,6 @@ public class ChatRoomController(
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
                 if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
                 chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
-
-                await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-                {
-                    FileId = fileResponse.Id,
-                    Usage = "chatroom.background",
-                    ResourceId = chatRoom.ResourceIdentifier,
-                });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -257,28 +242,6 @@ public class ChatRoomController(
 
         db.ChatRooms.Add(chatRoom);
         await db.SaveChangesAsync();
-
-        var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
-
-        if (chatRoom.Picture is not null)
-        {
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = chatRoom.Picture.Id,
-                Usage = "chat.room.picture",
-                ResourceId = chatRoomResourceId
-            });
-        }
-
-        if (chatRoom.Background is not null)
-        {
-            await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-            {
-                FileId = chatRoom.Background.Id,
-                Usage = "chat.room.background",
-                ResourceId = chatRoomResourceId
-            });
-        }
 
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
@@ -329,21 +292,6 @@ public class ChatRoomController(
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
                 if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
-                // Remove old references for pictures
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                {
-                    ResourceId = chatRoom.ResourceIdentifier,
-                    Usage = "chat.room.picture"
-                });
-
-                // Add a new reference
-                await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-                {
-                    FileId = fileResponse.Id,
-                    Usage = "chat.room.picture",
-                    ResourceId = chatRoom.ResourceIdentifier
-                });
-
                 chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
@@ -358,21 +306,6 @@ public class ChatRoomController(
             {
                 var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
                 if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
-
-                // Remove old references for backgrounds
-                await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-                {
-                    ResourceId = chatRoom.ResourceIdentifier,
-                    Usage = "chat.room.background"
-                });
-
-                // Add a new reference
-                await fileRefs.CreateReferenceAsync(new CreateReferenceRequest
-                {
-                    FileId = fileResponse.Id,
-                    Usage = "chat.room.background",
-                    ResourceId = chatRoom.ResourceIdentifier
-                });
 
                 chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
@@ -426,14 +359,6 @@ public class ChatRoomController(
             return StatusCode(403, "You need be part of the DM to update the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to update the chat.");
-
-        var chatRoomResourceId = $"chatroom:{chatRoom.Id}";
-
-        // Delete all file references for this chat room
-        await fileRefs.DeleteResourceReferencesAsync(new DeleteResourceReferencesRequest
-        {
-            ResourceId = chatRoomResourceId
-        });
 
         await using var transaction = await db.Database.BeginTransactionAsync();
 
