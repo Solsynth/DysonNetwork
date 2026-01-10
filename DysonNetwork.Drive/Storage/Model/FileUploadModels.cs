@@ -161,7 +161,6 @@ public class PersistentTask : ModelBase
     public long? EstimatedDurationSeconds { get; set; }
 }
 
-// Backward compatibility - UploadTask inherits from PersistentTask
 public class PersistentUploadTask : PersistentTask
 {
     public PersistentUploadTask()

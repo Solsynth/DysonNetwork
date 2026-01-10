@@ -159,9 +159,37 @@ public class BroadcastEventHandler(
         var fileToUpdate = await scopedDb.Files.AsNoTracking().FirstAsync(f => f.Id == fileId);
 
         // Find the upload task associated with this file
-        var uploadTask = await scopedDb.Tasks
-            .OfType<PersistentUploadTask>()
-            .FirstOrDefaultAsync(t => t.FileName == fileToUpdate.Name && t.FileSize == fileToUpdate.Size);
+        var baseTask = await scopedDb.Tasks
+            .Where(t => t.Type == TaskType.FileUpload)
+            .FirstOrDefaultAsync();
+
+        var uploadTask = baseTask != null ? new PersistentUploadTask
+        {
+            Id = baseTask.Id,
+            TaskId = baseTask.TaskId,
+            Name = baseTask.Name,
+            Description = baseTask.Description,
+            Type = baseTask.Type,
+            Status = baseTask.Status,
+            AccountId = baseTask.AccountId,
+            Progress = baseTask.Progress,
+            Parameters = baseTask.Parameters,
+            Results = baseTask.Results,
+            ErrorMessage = baseTask.ErrorMessage,
+            StartedAt = baseTask.StartedAt,
+            CompletedAt = baseTask.CompletedAt,
+            ExpiredAt = baseTask.ExpiredAt,
+            LastActivity = baseTask.LastActivity,
+            Priority = baseTask.Priority,
+            EstimatedDurationSeconds = baseTask.EstimatedDurationSeconds,
+            CreatedAt = baseTask.CreatedAt,
+            UpdatedAt = baseTask.UpdatedAt
+        } : null;
+
+        if (uploadTask != null && (uploadTask.FileName != fileToUpdate.Name || uploadTask.FileSize != fileToUpdate.Size))
+        {
+            uploadTask = null;
+        }
 
         if (fileToUpdate.IsEncrypted)
         {

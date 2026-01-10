@@ -664,14 +664,52 @@ public class PersistentTaskService(
         if (cachedTask is not null)
             return cachedTask;
 
-        var task = await db.Tasks
-            .OfType<PersistentUploadTask>()
-            .FirstOrDefaultAsync(t => t.TaskId == taskId && t.Status == TaskStatus.InProgress);
+        var baseTask = await db.Tasks
+            .FirstOrDefaultAsync(t => t.TaskId == taskId && t.Type == TaskType.FileUpload && t.Status == TaskStatus.InProgress);
 
-        if (task is not null)
-            await SetCacheAsync(task);
+        if (baseTask is null)
+            return null;
 
+        var task = ConvertToUploadTask(baseTask);
+        await SetCacheAsync(task);
         return task;
+    }
+
+    /// <summary>
+    /// Converts a base PersistentTask to PersistentUploadTask
+    /// </summary>
+    private PersistentUploadTask ConvertToUploadTask(PersistentTask baseTask)
+    {
+        return new PersistentUploadTask
+        {
+            Id = baseTask.Id,
+            TaskId = baseTask.TaskId,
+            Name = baseTask.Name,
+            Description = baseTask.Description,
+            Type = baseTask.Type,
+            Status = baseTask.Status,
+            AccountId = baseTask.AccountId,
+            Progress = baseTask.Progress,
+            Parameters = baseTask.Parameters,
+            Results = baseTask.Results,
+            ErrorMessage = baseTask.ErrorMessage,
+            StartedAt = baseTask.StartedAt,
+            CompletedAt = baseTask.CompletedAt,
+            ExpiredAt = baseTask.ExpiredAt,
+            LastActivity = baseTask.LastActivity,
+            Priority = baseTask.Priority,
+            EstimatedDurationSeconds = baseTask.EstimatedDurationSeconds,
+            CreatedAt = baseTask.CreatedAt,
+            UpdatedAt = baseTask.UpdatedAt
+        };
+    }
+
+    /// <summary>
+    /// Converts a list of base PersistentTasks to PersistentUploadTasks
+    /// </summary>
+    private List<PersistentUploadTask> ConvertToUploadTasks(List<PersistentTask> baseTasks)
+    {
+        return baseTasks.Select(ConvertToUploadTask).ToList();
     }
 
     /// <summary>
@@ -697,8 +735,7 @@ public class PersistentTaskService(
 
                 // Use ExecuteUpdateAsync to update the Parameters dictionary directly
                 var updatedRows = await db.Tasks
-                    .OfType<PersistentUploadTask>()
-                    .Where(t => t.TaskId == taskId)
+                    .Where(t => t.TaskId == taskId && t.Type == TaskType.FileUpload)
                     .ExecuteUpdateAsync(setters => setters
                         .SetProperty(t => t.Parameters, ParameterHelper.Untyped(parameters))
                         .SetProperty(t => t.LastActivity, now)
@@ -754,7 +791,7 @@ public class PersistentTaskService(
         int limit = 50
     )
     {
-        var query = db.Tasks.OfType<PersistentUploadTask>().Where(t => t.AccountId == accountId);
+        var query = db.Tasks.Where(t => t.Type == TaskType.FileUpload && t.AccountId == accountId);
 
         // Apply status filter
         if (status.HasValue)
@@ -766,19 +803,9 @@ public class PersistentTaskService(
         var totalCount = await query.CountAsync();
 
         // Apply sorting
-        IOrderedQueryable<PersistentUploadTask> orderedQuery;
+        IOrderedQueryable<PersistentTask> orderedQuery;
         switch (sortBy?.ToLower())
         {
-            case "filename":
-                orderedQuery = sortDescending
-                    ? query.OrderByDescending(t => t.FileName)
-                    : query.OrderBy(t => t.FileName);
-                break;
-            case "filesize":
-                orderedQuery = sortDescending
-                    ? query.OrderByDescending(t => t.FileSize)
-                    : query.OrderBy(t => t.FileSize);
-                break;
             case "created":
                 orderedQuery = sortDescending
                     ? query.OrderByDescending(t => t.CreatedAt)
@@ -798,10 +825,26 @@ public class PersistentTaskService(
         }
 
         // Apply pagination
-        var items = await orderedQuery
+        var baseTasks = await orderedQuery
             .Skip(offset)
             .Take(limit)
             .ToListAsync();
+
+        var items = ConvertToUploadTasks(baseTasks);
+
+        // Sort by derived properties if needed (filename, filesize)
+        if (sortBy?.ToLower() == "filename")
+        {
+            items = sortDescending
+                ? items.OrderByDescending(t => t.FileName).ToList()
+                : items.OrderBy(t => t.FileName).ToList();
+        }
+        else if (sortBy?.ToLower() == "filesize")
+        {
+            items = sortDescending
+                ? items.OrderByDescending(t => t.FileSize).ToList()
+                : items.OrderBy(t => t.FileSize).ToList();
+        }
 
         return (items, totalCount);
     }
@@ -811,10 +854,11 @@ public class PersistentTaskService(
     /// </summary>
     public async Task<UserUploadStats> GetUserUploadStatsAsync(Guid accountId)
     {
-        var tasks = await db.Tasks
-            .OfType<PersistentUploadTask>()
-            .Where(t => t.AccountId == accountId)
+        var baseTasks = await db.Tasks
+            .Where(t => t.Type == TaskType.FileUpload && t.AccountId == accountId)
             .ToListAsync();
+
+        var tasks = ConvertToUploadTasks(baseTasks);
 
         var stats = new UserUploadStats
         {
@@ -850,8 +894,7 @@ public class PersistentTaskService(
     public async Task<int> CleanupUserFailedTasksAsync(Guid accountId)
     {
         var failedTasks = await db.Tasks
-            .OfType<PersistentUploadTask>()
-            .Where(t => t.AccountId == accountId &&
+            .Where(t => t.Type == TaskType.FileUpload && t.AccountId == accountId &&
                         (t.Status == TaskStatus.Failed || t.Status == TaskStatus.Expired))
             .ToListAsync();
 
@@ -883,12 +926,13 @@ public class PersistentTaskService(
     /// </summary>
     public async Task<List<PersistentUploadTask>> GetRecentUserTasksAsync(Guid accountId, int limit = 10)
     {
-        return await db.Tasks
-            .OfType<PersistentUploadTask>()
-            .Where(t => t.AccountId == accountId)
+        var baseTasks = await db.Tasks
+            .Where(t => t.Type == TaskType.FileUpload && t.AccountId == accountId)
             .OrderByDescending(t => t.LastActivity)
             .Take(limit)
             .ToListAsync();
+
+        return ConvertToUploadTasks(baseTasks);
     }
 
     /// <summary>
