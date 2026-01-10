@@ -14,8 +14,7 @@ public class FileController(
     AppDatabase db,
     FileService fs,
     IConfiguration configuration,
-    IWebHostEnvironment env,
-    FileReferenceService fileReferenceService
+    IWebHostEnvironment env
 ) : ControllerBase
 {
     [HttpGet("{id}")]
@@ -232,17 +231,19 @@ public class FileController(
     }
 
     [HttpGet("{id}/references")]
-    public async Task<ActionResult<List<Shared.Models.SnCloudFileReference>>> GetFileReferences(string id)
+    public async Task<ActionResult<List<SnCloudFile>>> GetFileReferences(string id)
     {
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound("File not found.");
 
-        // Check if user has access to the file
+        // Check if user has access to
         var accessResult = await ValidateFileAccess(file, null);
         if (accessResult is not null) return accessResult;
 
-        // Get references using the injected FileReferenceService
-        var references = await fileReferenceService.GetReferencesAsync(id);
+        // Get other cloud files sharing the same object
+        var references = await db.Files
+            .Where(f => f.ObjectId == file.ObjectId && f.Id != file.Id)
+            .ToListAsync();
         return Ok(references);
     }
 

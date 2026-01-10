@@ -19,7 +19,6 @@ public class PublisherController(
     PublisherService ps,
     AccountService.AccountServiceClient accounts,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     ActionLogService.ActionLogServiceClient als,
     RemoteRealmService remoteRealmService,
     IServiceScopeFactory factory
@@ -569,25 +568,7 @@ public class PublisherController(
                 );
             var picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
-            // Remove old references for the publisher picture
-            if (publisher.Picture is not null)
-                await fileRefs.DeleteResourceReferencesAsync(
-                    new DeleteResourceReferencesRequest
-                    {
-                        ResourceId = publisher.ResourceIdentifier,
-                    }
-                );
-
             publisher.Picture = picture;
-
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = picture.Id,
-                    Usage = "publisher.picture",
-                    ResourceId = publisher.ResourceIdentifier,
-                }
-            );
         }
 
         if (request.BackgroundId is not null)
@@ -601,27 +582,7 @@ public class PublisherController(
                 );
             var background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
-            // Remove old references for the publisher background
-            if (publisher.Background is not null)
-            {
-                await fileRefs.DeleteResourceReferencesAsync(
-                    new DeleteResourceReferencesRequest
-                    {
-                        ResourceId = publisher.ResourceIdentifier,
-                    }
-                );
-            }
-
             publisher.Background = background;
-
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = background.Id,
-                    Usage = "publisher.background",
-                    ResourceId = publisher.ResourceIdentifier,
-                }
-            );
         }
 
         db.Update(publisher);
@@ -716,11 +677,6 @@ public class PublisherController(
             return StatusCode(403, "You need to be the owner to delete the publisher.");
 
         var publisherResourceId = $"publisher:{publisher.Id}";
-
-        // Delete all file references for this publisher
-        await fileRefs.DeleteResourceReferencesAsync(
-            new DeleteResourceReferencesRequest { ResourceId = publisherResourceId }
-        );
 
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();

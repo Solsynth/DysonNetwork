@@ -25,7 +25,6 @@ public partial class PostService(
     ICacheService cache,
     ILogger<PostService> logger,
     FileService.FileServiceClient files,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     Publisher.PublisherService ps,
     RemoteWebReaderService reader,
     AccountService.AccountServiceClient accounts,
@@ -194,18 +193,6 @@ public partial class PostService(
         db.Posts.Add(post);
         await db.SaveChangesAsync();
 
-        // Create file references for each attachment
-        if (post.Attachments.Count != 0)
-        {
-            var request = new CreateReferenceBatchRequest
-            {
-                Usage = PostFileUsageIdentifier,
-                ResourceId = post.ResourceIdentifier,
-            };
-            request.FilesId.AddRange(post.Attachments.Select(a => a.Id));
-            await fileRefs.CreateReferenceBatchAsync(request);
-        }
-
         if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow)
             _ = Task.Run(async () =>
             {
@@ -306,17 +293,6 @@ public partial class PostService(
 
         if (attachments is not null)
         {
-            var postResourceId = $"post:{post.Id}";
-
-            // Update resource references using the new file list
-            var request = new UpdateResourceFilesRequest
-            {
-                ResourceId = postResourceId,
-                Usage = PostFileUsageIdentifier,
-            };
-            request.FileIds.AddRange(attachments);
-            await fileRefs.UpdateResourceFilesAsync(request);
-
             // Update post attachments by getting files from database
             var queryRequest = new GetFileBatchRequest();
             queryRequest.Ids.AddRange(attachments);
@@ -475,11 +451,6 @@ public partial class PostService(
 
     public async Task DeletePostAsync(SnPost post)
     {
-        // Delete all file references for this post
-        await fileRefs.DeleteResourceReferencesAsync(
-            new DeleteResourceReferencesRequest { ResourceId = post.ResourceIdentifier }
-        );
-
         var now = SystemClock.Instance.GetCurrentInstant();
         await using var transaction = await db.Database.BeginTransactionAsync();
         try

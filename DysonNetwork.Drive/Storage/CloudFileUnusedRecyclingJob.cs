@@ -26,7 +26,7 @@ public class CloudFileUnusedRecyclingJob(
                     File.Delete(file);
             }
         }
-        
+
         logger.LogInformation("Marking unused cloud files...");
 
         var recyclablePools = await db.Pools
@@ -47,7 +47,7 @@ public class CloudFileUnusedRecyclingJob(
         logger.LogInformation("Found {TotalFiles} files to check for unused status", totalFiles);
 
         // Define a timestamp to limit the age of files we're processing in this run
-        // This spreads the processing across multiple job runs for very large databases
+        // This spreads processing across multiple job runs for very large databases
         var ageThreshold = now - Duration.FromDays(30); // Process files up to 90 days old in this run
 
         // Instead of loading all files at once, use pagination
@@ -80,13 +80,12 @@ public class CloudFileUnusedRecyclingJob(
             processedCount += fileBatch.Count;
             lastProcessedId = fileBatch.Last();
 
-            // Optimized query: Find files that have no references OR all references are expired
-            // This replaces the memory-intensive approach of loading all references
+            // Optimized query: Find files that have no other cloud files sharing the same object
+            // A file is considered "unused" if no other SnCloudFile shares its ObjectId
             var filesToMark = await db.Files
                 .Where(f => fileBatch.Contains(f.Id))
-                .Where(f => !db.FileReferences.Any(r => r.FileId == f.Id) || // No references at all
-                           !db.FileReferences.Any(r => r.FileId == f.Id && // OR has references but all are expired
-                                                     (r.ExpiredAt == null || r.ExpiredAt > now)))
+                .Where(f => f.ObjectId == null || // No file object at all
+                           !db.Files.Any(cf => cf.ObjectId == f.ObjectId && cf.Id != f.Id)) // Or no other files share this object
                 .Select(f => f.Id)
                 .ToListAsync();
 
@@ -112,7 +111,7 @@ public class CloudFileUnusedRecyclingJob(
                 );
             }
         }
-        
+
         var expiredCount = await db.Files
             .Where(f => f.ExpiredAt.HasValue && f.ExpiredAt.Value <= now)
             .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsMarkedRecycle, true));

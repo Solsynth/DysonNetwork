@@ -40,6 +40,8 @@ public class FileService(
             .Where(f => f.Id == fileId)
             .Include(f => f.Pool)
             .Include(f => f.Bundle)
+            .Include(f => f.Object)
+            .ThenInclude(o => o.FileReplicas)
             .FirstOrDefaultAsync();
 
         if (file != null)
@@ -69,6 +71,8 @@ public class FileService(
             var dbFiles = await db.Files
                 .Where(f => uncachedIds.Contains(f.Id))
                 .Include(f => f.Pool)
+                .Include(f => f.Object)
+                .ThenInclude(o => o.FileReplicas)
                 .ToListAsync();
 
             foreach (var file in dbFiles)
@@ -228,8 +232,34 @@ public class FileService(
 
     private async Task SaveFileToDatabaseAsync(SnCloudFile file)
     {
+        var fileObject = new SnFileObject
+        {
+            Id = file.Id,
+            AccountId = file.AccountId,
+            Size = file.Size,
+            Meta = file.FileMeta,
+            MimeType = file.MimeType,
+            Hash = file.Hash,
+            HasCompression = file.HasCompression,
+            HasThumbnail = file.HasThumbnail
+        };
+
+        var replica = new SnFileReplica
+        {
+            Id = Guid.NewGuid(),
+            ObjectId = file.Id,
+            PoolId = file.PoolId!.Value,
+            StorageId = file.StorageId ?? file.Id,
+            Status = SnFileReplicaStatus.Available,
+            IsPrimary = true
+        };
+
         db.Files.Add(file);
+        db.FileObjects.Add(fileObject);
+        db.FileReplicas.Add(replica);
+
         await db.SaveChangesAsync();
+        file.ObjectId = file.Id;
         file.StorageId ??= file.Id;
     }
 
@@ -470,8 +500,20 @@ public class FileService(
 
         await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(updatable.ToSetPropertyCalls());
 
+        if (updateMask.Paths.Contains("file_meta"))
+        {
+            await db.FileObjects
+                .Where(fo => fo.Id == file.ObjectId)
+                .ExecuteUpdateAsync(setter => setter
+                    .SetProperty(fo => fo.Meta, file.FileMeta));
+        }
+
         await _PurgeCacheAsync(file.Id);
-        return await db.Files.AsNoTracking().FirstAsync(f => f.Id == file.Id);
+        return await db.Files
+            .AsNoTracking()
+            .Include(f => f.Object)
+            .ThenInclude(o => o.FileReplicas)
+            .FirstAsync(f => f.Id == file.Id);
     }
 
     public async Task DeleteFileAsync(SnCloudFile file, bool skipData = false)
@@ -481,17 +523,23 @@ public class FileService(
         await _PurgeCacheAsync(file.Id);
 
         if (!skipData)
-            await DeleteFileDataAsync(file);
+        {
+            var hasOtherReferences = await db.Files
+                .AnyAsync(f => f.ObjectId == file.ObjectId && f.Id != file.Id);
+
+            if (!hasOtherReferences)
+                await DeleteFileDataAsync(file);
+        }
     }
 
     public async Task DeleteFileDataAsync(SnCloudFile file, bool force = false)
     {
-        if (!file.PoolId.HasValue) return;
+        if (!file.PoolId.HasValue || file.ObjectId == null) return;
 
         if (!force)
         {
             var sameOriginFiles = await db.Files
-                .Where(f => f.StorageId == file.StorageId && f.Id != file.Id)
+                .Where(f => f.ObjectId == file.ObjectId && f.Id != file.Id)
                 .Select(f => f.Id)
                 .ToListAsync();
 
@@ -499,6 +547,17 @@ public class FileService(
                 return;
         }
 
+        var replicas = await db.FileReplicas
+            .Where(r => r.ObjectId == file.ObjectId)
+            .ToListAsync();
+
+        if (replicas.Count == 0)
+        {
+            logger.LogWarning("No replicas found for file object {ObjectId}", file.ObjectId);
+            return;
+        }
+
+        var primaryReplica = replicas.First(r => r.IsPrimary);
         var dest = await GetRemoteStorageConfig(file.PoolId.Value);
         if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
         var client = CreateMinioClient(dest);
@@ -508,7 +567,7 @@ public class FileService(
             );
 
         var bucket = dest.Bucket;
-        var objectId = file.StorageId ?? file.Id;
+        var objectId = primaryReplica.StorageId;
 
         await client.RemoveObjectAsync(
             new RemoveObjectArgs().WithBucket(bucket).WithObject(objectId)
@@ -541,36 +600,55 @@ public class FileService(
                 logger.LogWarning("Failed to delete thumbnail of file {fileId}", file.Id);
             }
         }
+
+        db.FileReplicas.RemoveRange(replicas);
+        var fileObject = await db.FileObjects.FindAsync(file.ObjectId);
+        if (fileObject != null) db.FileObjects.Remove(fileObject);
+        await db.SaveChangesAsync();
     }
 
     public async Task DeleteFileDataBatchAsync(List<SnCloudFile> files)
     {
-        files = files.Where(f => f.PoolId.HasValue).ToList();
+        files = files.Where(f => f.PoolId.HasValue && f.ObjectId != null).ToList();
 
-        foreach (var fileGroup in files.GroupBy(f => f.PoolId!.Value))
+        var objectIds = files.Select(f => f.ObjectId).Distinct().ToList();
+        var replicas = await db.FileReplicas
+            .Where(r => objectIds.Contains(r.ObjectId))
+            .ToListAsync();
+
+        foreach (var poolGroup in replicas.GroupBy(r => r.PoolId))
         {
-            var dest = await GetRemoteStorageConfig(fileGroup.Key);
+            var dest = await GetRemoteStorageConfig(poolGroup.Key);
             if (dest is null)
-                throw new InvalidOperationException($"No remote storage configured for pool {fileGroup.Key}");
+                throw new InvalidOperationException($"No remote storage configured for pool {poolGroup.Key}");
             var client = CreateMinioClient(dest);
             if (client is null)
                 throw new InvalidOperationException(
-                    $"Failed to configure client for remote destination '{fileGroup.Key}'"
+                    $"Failed to configure client for remote destination '{poolGroup.Key}'"
                 );
 
             List<string> objectsToDelete = [];
 
-            foreach (var file in fileGroup)
+            foreach (var replica in poolGroup)
             {
-                objectsToDelete.Add(file.StorageId ?? file.Id);
-                if (file.HasCompression) objectsToDelete.Add(file.StorageId ?? file.Id + ".compressed");
-                if (file.HasThumbnail) objectsToDelete.Add(file.StorageId ?? file.Id + ".thumbnail");
+                var file = files.First(f => f.ObjectId == replica.ObjectId);
+                objectsToDelete.Add(replica.StorageId);
+                if (file.HasCompression) objectsToDelete.Add(replica.StorageId + ".compressed");
+                if (file.HasThumbnail) objectsToDelete.Add(replica.StorageId + ".thumbnail");
             }
 
             await client.RemoveObjectsAsync(
                 new RemoveObjectsArgs().WithBucket(dest.Bucket).WithObjects(objectsToDelete)
             );
+
+            db.FileReplicas.RemoveRange(poolGroup);
         }
+
+        var fileObjects = await db.FileObjects
+            .Where(fo => objectIds.Contains(fo.Id))
+            .ToListAsync();
+        db.FileObjects.RemoveRange(fileObjects);
+        await db.SaveChangesAsync();
     }
 
     private async Task<SnFileBundle?> GetBundleAsync(Guid id, Guid accountId)
@@ -654,6 +732,8 @@ public class FileService(
         {
             var dbFiles = await db.Files
                 .Where(f => uncachedIds.Contains(f.Id))
+                .Include(f => f.Object)
+                .ThenInclude(o => o.FileReplicas)
                 .ToListAsync();
 
             foreach (var file in dbFiles)
@@ -674,15 +754,21 @@ public class FileService(
 
     public async Task<int> GetReferenceCountAsync(string fileId)
     {
-        return await db.FileReferences
-            .Where(r => r.FileId == fileId)
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
+        if (file == null || file.ObjectId == null) return 0;
+
+        return await db.Files
+            .Where(f => f.ObjectId == file.ObjectId && f.Id != fileId)
             .CountAsync();
     }
 
     public async Task<bool> IsReferencedAsync(string fileId)
     {
-        return await db.FileReferences
-            .Where(r => r.FileId == fileId)
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
+        if (file == null || file.ObjectId == null) return false;
+
+        return await db.Files
+            .Where(f => f.ObjectId == file.ObjectId && f.Id != fileId)
             .AnyAsync();
     }
 
@@ -709,8 +795,6 @@ public class FileService(
             .Where(f => f.AccountId == accountId && f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
-        await Task.WhenAll(tasks);
         var fileIds = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIds);
         db.RemoveRange(files);
@@ -724,8 +808,6 @@ public class FileService(
             .Where(f => f.AccountId == accountId && fileIds.Contains(f.Id))
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
-        await Task.WhenAll(tasks);
         var fileIdsList = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIdsList);
         db.RemoveRange(files);
@@ -739,8 +821,6 @@ public class FileService(
             .Where(f => f.PoolId == poolId && f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
-        await Task.WhenAll(tasks);
         var fileIds = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIds);
         db.RemoveRange(files);
@@ -754,8 +834,6 @@ public class FileService(
             .Where(f => f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
-        var tasks = files.Select(f => DeleteFileDataAsync(f, true));
-        await Task.WhenAll(tasks);
         var fileIds = files.Select(f => f.Id).ToList();
         await _PurgeCacheRangeAsync(fileIds);
         db.RemoveRange(files);

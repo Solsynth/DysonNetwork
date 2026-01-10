@@ -22,7 +22,6 @@ public class FediverseStatus
 
 public class PublisherService(
     AppDatabase db,
-    FileReferenceService.FileReferenceServiceClient fileRefs,
     SocialCreditService.SocialCreditServiceClient socialCredits,
     ExperienceService.ExperienceServiceClient experiences,
     ICacheService cache,
@@ -210,30 +209,6 @@ public class PublisherService(
         db.Publishers.Add(publisher);
         await db.SaveChangesAsync();
 
-        if (publisher.Picture is not null)
-        {
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = publisher.Picture.Id,
-                    Usage = "publisher.picture",
-                    ResourceId = publisher.ResourceIdentifier,
-                }
-            );
-        }
-
-        if (publisher.Background is not null)
-        {
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = publisher.Background.Id,
-                    Usage = "publisher.background",
-                    ResourceId = publisher.ResourceIdentifier,
-                }
-            );
-        }
-
         return publisher;
     }
 
@@ -269,30 +244,6 @@ public class PublisherService(
 
         db.Publishers.Add(publisher);
         await db.SaveChangesAsync();
-
-        if (publisher.Picture is not null)
-        {
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = publisher.Picture.Id,
-                    Usage = "publisher.picture",
-                    ResourceId = publisher.ResourceIdentifier,
-                }
-            );
-        }
-
-        if (publisher.Background is not null)
-        {
-            await fileRefs.CreateReferenceAsync(
-                new CreateReferenceRequest
-                {
-                    FileId = publisher.Background.Id,
-                    Usage = "publisher.background",
-                    ResourceId = publisher.ResourceIdentifier,
-                }
-            );
-        }
 
         return publisher;
     }

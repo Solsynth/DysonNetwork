@@ -26,7 +26,6 @@ public class AppDatabase(
     public DbSet<SnFileObject> FileObjects { get; set; } = null!;
     public DbSet<SnFileReplica> FileReplicas { get; set; } = null!;
     public DbSet<SnFilePermission> FilePermissions { get; set; } = null!;
-    public DbSet<SnCloudFileReference> FileReferences { get; set; } = null!;
     public DbSet<SnCloudFileIndex> FileIndexes { get; set; }
 
     public DbSet<PersistentTask> Tasks { get; set; } = null!;
