@@ -54,6 +54,7 @@ public static class ServiceCollectionExtensions
 
         public IServiceCollection AddAppBusinessServices()
         {
+            services.AddScoped<Storage.FileMigrationService>();
             services.AddScoped<Storage.FileService>();
             services.AddScoped<Storage.FileReferenceService>();
             services.AddScoped<Storage.PersistentTaskService>();

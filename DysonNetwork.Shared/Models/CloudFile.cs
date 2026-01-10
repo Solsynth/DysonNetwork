@@ -26,7 +26,10 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public bool HasCompression { get; set; } = false;
     public bool HasThumbnail { get; set; } = false;
     public bool IsEncrypted { get; set; } = false;
-
+    
+    [MaxLength(32)] public string? ObjectId { get; set; }
+    public SnFileObject? Object { get; set; }
+    
     public FilePool? Pool { get; set; }
     public Guid? PoolId { get; set; }
     [JsonIgnore] public SnFileBundle? Bundle { get; set; }
