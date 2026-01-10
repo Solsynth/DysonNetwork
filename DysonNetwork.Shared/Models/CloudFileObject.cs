@@ -35,8 +35,8 @@ public class SnFileReplica : ModelBase
     [MaxLength(32)] public string ObjectId { get; set; }
     public SnFileObject Object { get; set; } = null!;
 
-    public Guid PoolId { get; set; }
-    public FilePool Pool { get; set; } = null!;
+    public Guid? PoolId { get; set; }
+    public FilePool? Pool { get; set; } = null!;
 
     [MaxLength(128)]
     public string StorageId { get; set; } = null!;

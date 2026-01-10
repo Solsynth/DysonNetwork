@@ -204,7 +204,7 @@ public class FileService(
         };
     }
 
-    private async Task<(string processingPath, bool isTempFile)> ProcessEncryptionAsync(
+    private Task<(string processingPath, bool isTempFile)> ProcessEncryptionAsync(
         string fileId,
         string managedTempPath,
         string? encryptPassword,
@@ -213,7 +213,7 @@ public class FileService(
     )
     {
         if (string.IsNullOrWhiteSpace(encryptPassword))
-            return (managedTempPath, true);
+            return Task.FromResult((managedTempPath, true));
 
         if (!pool.PolicyConfig.AllowEncryption)
             throw new InvalidOperationException("Encryption is not allowed in this pool");
@@ -227,7 +227,7 @@ public class FileService(
         file.MimeType = "application/octet-stream";
         file.Size = new FileInfo(encryptedPath).Length;
 
-        return (encryptedPath, true);
+        return Task.FromResult((encryptedPath, true));
     }
 
     private async Task SaveFileToDatabaseAsync(SnCloudFile file)
@@ -248,7 +248,7 @@ public class FileService(
         {
             Id = Guid.NewGuid(),
             ObjectId = file.Id,
-            PoolId = file.PoolId!.Value,
+            PoolId = file.PoolId,
             StorageId = file.StorageId ?? file.Id,
             Status = SnFileReplicaStatus.Available,
             IsPrimary = true
@@ -616,7 +616,7 @@ public class FileService(
             .Where(r => objectIds.Contains(r.ObjectId))
             .ToListAsync();
 
-        foreach (var poolGroup in replicas.GroupBy(r => r.PoolId))
+        foreach (var poolGroup in replicas.Where(r => r.PoolId.HasValue).GroupBy(r => r.PoolId!.Value))
         {
             var dest = await GetRemoteStorageConfig(poolGroup.Key);
             if (dest is null)

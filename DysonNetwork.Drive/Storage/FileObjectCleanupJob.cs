@@ -45,43 +45,39 @@ public class FileObjectCleanupJob(AppDatabase db, FileService fileService, ILogg
                     .Where(r => r.ObjectId == fileObject.Id)
                     .ToListAsync();
 
-                foreach (var replica in replicas)
+                foreach (var replica in replicas.Where(r => r.PoolId.HasValue))
                 {
-                    var dest = await fileService.GetRemoteStorageConfig(replica.PoolId);
-                    if (dest != null)
+                    var dest = await fileService.GetRemoteStorageConfig(replica.PoolId!.Value);
+                    if (dest == null) continue;
+                    var client = fileService.CreateMinioClient(dest);
+                    if (client == null) continue;
+                    try
                     {
-                        var client = fileService.CreateMinioClient(dest);
-                        if (client != null)
+                        await client.RemoveObjectAsync(
+                            new RemoveObjectArgs()
+                                .WithBucket(dest.Bucket)
+                                .WithObject(replica.StorageId)
+                        );
+                        if (fileObject.HasCompression)
                         {
-                            try
-                            {
-                                await client.RemoveObjectAsync(
-                                    new RemoveObjectArgs()
-                                        .WithBucket(dest.Bucket)
-                                        .WithObject(replica.StorageId)
-                                );
-                                if (fileObject.HasCompression)
-                                {
-                                    await client.RemoveObjectAsync(
-                                        new RemoveObjectArgs()
-                                            .WithBucket(dest.Bucket)
-                                            .WithObject(replica.StorageId + ".compressed")
-                                    );
-                                }
-                                if (fileObject.HasThumbnail)
-                                {
-                                    await client.RemoveObjectAsync(
-                                        new RemoveObjectArgs()
-                                            .WithBucket(dest.Bucket)
-                                            .WithObject(replica.StorageId + ".thumbnail")
-                                    );
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                logger.LogError(ex, "Failed to delete orphaned file object {ObjectId} from remote storage", fileObject.Id);
-                            }
+                            await client.RemoveObjectAsync(
+                                new RemoveObjectArgs()
+                                    .WithBucket(dest.Bucket)
+                                    .WithObject(replica.StorageId + ".compressed")
+                            );
                         }
+                        if (fileObject.HasThumbnail)
+                        {
+                            await client.RemoveObjectAsync(
+                                new RemoveObjectArgs()
+                                    .WithBucket(dest.Bucket)
+                                    .WithObject(replica.StorageId + ".thumbnail")
+                            );
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Failed to delete orphaned file object {ObjectId} from remote storage", fileObject.Id);
                     }
                 }
 

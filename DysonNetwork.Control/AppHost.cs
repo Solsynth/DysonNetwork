@@ -36,7 +36,8 @@ var messagerService = builder.AddProject<Projects.DysonNetwork_Messager>("messag
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService)
-    .WithReference(developService);
+    .WithReference(developService)
+    .WithReference(driveService);
 
 passService.WithReference(developService).WithReference(driveService);
 
