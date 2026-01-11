@@ -141,6 +141,7 @@ public class FileIndexService(AppDatabase db)
         return await db.FileIndexes
             .Where(fi => fi.AccountId == accountId && fi.Path == normalizedPath)
             .Include(fi => fi.File)
+            .ThenInclude(f => f.Object)
             .ToListAsync();
     }
 
@@ -154,6 +155,7 @@ public class FileIndexService(AppDatabase db)
         return await db.FileIndexes
             .Where(fi => fi.FileId == fileId)
             .Include(fi => fi.File)
+            .ThenInclude(f => f.Object)
             .ToListAsync();
     }
 

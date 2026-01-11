@@ -156,7 +156,10 @@ public class BroadcastEventHandler(
 
         logger.LogInformation("Processing file {FileId} in background...", fileId);
 
-        var fileToUpdate = await scopedDb.Files.AsNoTracking().FirstAsync(f => f.Id == fileId);
+        var fileToUpdate = await scopedDb.Files
+            .AsNoTracking()
+            .Include(f => f.Object)
+            .FirstAsync(f => f.Id == fileId);
 
         // Find the upload task associated with this file
         var baseTask = await scopedDb.Tasks

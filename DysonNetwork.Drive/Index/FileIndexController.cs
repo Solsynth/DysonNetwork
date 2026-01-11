@@ -546,6 +546,7 @@ public class FileIndexController(
             var fileIndexes = await db.FileIndexes
                 .Where(fi => fi.AccountId == accountId)
                 .Include(fi => fi.File)
+                .ThenInclude(f => f.Object)
                 .Where(fi =>
                     (string.IsNullOrEmpty(path) || fi.Path == FileIndexService.NormalizePath(path)) &&
                     (fi.File.Name.ToLower().Contains(searchTerm) ||
