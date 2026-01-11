@@ -194,13 +194,6 @@ public class SnPublisherMember : ModelBase
     }
 }
 
-public enum PublisherSubscriptionStatus
-{
-    Active,
-    Expired,
-    Cancelled
-}
-
 public class SnPublisherSubscription : ModelBase
 {
     public Guid Id { get; set; }
@@ -208,9 +201,6 @@ public class SnPublisherSubscription : ModelBase
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
-
-    public PublisherSubscriptionStatus Status { get; set; } = PublisherSubscriptionStatus.Active;
-    public int Tier { get; set; } = 0;
 }
 
 public class SnPublisherFeature : ModelBase

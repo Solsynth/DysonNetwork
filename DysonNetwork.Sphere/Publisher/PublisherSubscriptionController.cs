@@ -17,7 +17,6 @@ public class PublisherSubscriptionController(
 {
     public class SubscribeRequest
     {
-        public int? Tier { get; set; }
     }
 
     [HttpGet("{name}/subscription")]
@@ -53,8 +52,7 @@ public class PublisherSubscriptionController(
         {
             var subscription = await subs.CreateSubscriptionAsync(
                 Guid.Parse(currentUser.Id),
-                publisher.Id,
-                request.Tier ?? 0
+                publisher.Id
             );
 
             return subscription;
@@ -101,7 +99,7 @@ public class PublisherSubscriptionController(
 
         var pubQuery = db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
-            .Where(ps => ps.AccountId == accountId && ps.Status == PublisherSubscriptionStatus.Active)
+            .Where(ps => ps.AccountId == accountId)
             .OrderByDescending(ps => ps.CreatedAt)
             .AsQueryable();
 
