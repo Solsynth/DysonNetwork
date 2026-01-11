@@ -167,6 +167,7 @@ public class FileIndexService(AppDatabase db)
         return await db.FileIndexes
             .Where(fi => fi.AccountId == accountId)
             .Include(fi => fi.File)
+            .ThenInclude(f => f.Object)
             .ToListAsync();
     }
 

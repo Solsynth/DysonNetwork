@@ -42,9 +42,11 @@ public class UsageService(AppDatabase db)
                 PoolName = p.Name,
                 UsageBytes = fileQuery
                     .Where(f => f.PoolId == p.Id)
+                    .Include(f => f.Object)
                     .Sum(f => f.Size),
                 Cost = fileQuery
                            .Where(f => f.PoolId == p.Id)
+                           .Include(f => f.Object)
                            .Sum(f => f.Size) / 1024.0 / 1024.0 *
                        (p.BillingConfig.CostMultiplier ?? 1.0),
                 FileCount = fileQuery
@@ -80,6 +82,7 @@ public class UsageService(AppDatabase db)
             .AsQueryable();
 
         var usageBytes = await fileQuery
+            .Include(f => f.Object)
             .SumAsync(f => f.Size);
 
         var fileCount = await fileQuery
@@ -106,6 +109,7 @@ public class UsageService(AppDatabase db)
             .Where(f => f.PoolId.HasValue)
             .Where(f => !f.IsMarkedRecycle)
             .Include(f => f.Pool)
+            .Include(f => f.Object)
             .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
             .Select(f => new
             {

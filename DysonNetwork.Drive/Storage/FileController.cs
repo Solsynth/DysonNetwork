@@ -303,6 +303,7 @@ public class FileController(
             .Where(e => e.IsMarkedRecycle == recycled)
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Pool)
+            .Include(e => e.Object)
             .AsQueryable();
 
         if (pool.HasValue) filesQuery = filesQuery.Where(e => e.PoolId == pool);

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -33,7 +34,7 @@ public class SnFileReplica : ModelBase
     public Guid Id { get; set; }
 
     [MaxLength(32)] public string ObjectId { get; set; }
-    public SnFileObject Object { get; set; } = null!;
+    [JsonIgnore] public SnFileObject Object { get; set; } = null!;
 
     public Guid? PoolId { get; set; }
     public FilePool? Pool { get; set; } = null!;

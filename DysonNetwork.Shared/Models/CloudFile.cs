@@ -20,14 +20,14 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
 
     [NotMapped]
     [Column(TypeName = "jsonb")]
-    public Dictionary<string, object?> FileMeta => Object!.Meta ?? [];
-    [NotMapped] [MaxLength(256)] public string? MimeType => Object!.MimeType;
-    [NotMapped] [MaxLength(256)] public string? Hash => Object!.Hash;
+    public Dictionary<string, object?> FileMeta => Object?.Meta ?? [];
+    [NotMapped] [MaxLength(256)] public string? MimeType => Object?.MimeType;
+    [NotMapped] [MaxLength(256)] public string? Hash => Object?.Hash;
     public Instant? ExpiredAt { get; set; }
-    [NotMapped] public long Size => Object!.Size;
+    [NotMapped] public long Size => Object?.Size ?? 0;
     public Instant? UploadedAt { get; set; }
-    [NotMapped] public bool HasCompression => Object!.HasCompression;
-    [NotMapped] public bool HasThumbnail => Object!.HasThumbnail;
+    [NotMapped] public bool HasCompression => Object?.HasCompression ?? false;
+    [NotMapped] public bool HasThumbnail => Object?.HasThumbnail ?? false;
 
     [MaxLength(32)] public string? ObjectId { get; set; }
     public SnFileObject? Object { get; set; }

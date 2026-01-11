@@ -216,6 +216,7 @@ public class FileIndexController(
                             && f.IsMarkedRecycle == recycled
                             && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId)
                 )
+                .Include(f => f.Object)
                 .AsQueryable();
 
             // Apply sorting

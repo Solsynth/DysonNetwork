@@ -64,7 +64,10 @@ public class FileUploadController(
         var accountId = Guid.Parse(currentUser.Id);
 
         // Check if a file with the same hash already exists
-        var existingFile = await db.Files.FirstOrDefaultAsync(f => f.Hash == request.Hash);
+        var existingFile = await db.Files
+            .Include(f => f.Object)
+            .Where(f => f.Object != null && f.Object.Hash == request.Hash)
+            .FirstOrDefaultAsync();
         if (existingFile != null)
         {
             // Create the file index if a path is provided, even for existing files

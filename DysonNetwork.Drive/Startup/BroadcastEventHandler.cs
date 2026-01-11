@@ -314,9 +314,12 @@ public class BroadcastEventHandler(
             await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
                 .SetProperty(f => f.UploadedAt, now)
                 .SetProperty(f => f.PoolId, destPool)
-                .SetProperty(f => f.MimeType, newMimeType)
-                .SetProperty(f => f.HasCompression, hasCompression)
-                .SetProperty(f => f.HasThumbnail, hasThumbnail)
+            );
+
+            await scopedDb.FileObjects.Where(fo => fo.Id == fileId).ExecuteUpdateAsync(setter => setter
+                .SetProperty(fo => fo.MimeType, newMimeType)
+                .SetProperty(fo => fo.HasCompression, hasCompression)
+                .SetProperty(fo => fo.HasThumbnail, hasThumbnail)
             );
 
             // Only delete temp file after successful upload and db update
