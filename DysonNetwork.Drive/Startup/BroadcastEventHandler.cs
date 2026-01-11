@@ -190,12 +190,8 @@ public class BroadcastEventHandler(
         {
             uploadTask = null;
         }
-
-        if (fileToUpdate.IsEncrypted)
-        {
-            uploads.Add((processingFilePath, string.Empty, contentType, false));
-        }
-        else if (!pool.PolicyConfig.NoOptimization)
+        
+        if (!pool.PolicyConfig.NoOptimization)
         {
             var fileExtension = Path.GetExtension(processingFilePath);
             switch (contentType.Split('/')[0])

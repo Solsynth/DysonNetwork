@@ -13,23 +13,25 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [MaxLength(32)]
     public string Id { get; set; } = Guid.NewGuid().ToString().Replace("-", string.Empty);
 
-    [MaxLength(1024)] public string Name { get; set; } = string.Empty;
+    [MaxLength(1024)] public string Name { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object?>? FileMeta { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?>? UserMeta { get; set; }
     [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];
-    [MaxLength(256)] public string? MimeType { get; set; }
-    [MaxLength(256)] public string? Hash { get; set; }
+
+    [NotMapped]
+    [Column(TypeName = "jsonb")]
+    public Dictionary<string, object?> FileMeta => Object!.Meta ?? [];
+    [NotMapped] [MaxLength(256)] public string? MimeType => Object!.MimeType;
+    [NotMapped] [MaxLength(256)] public string? Hash => Object!.Hash;
     public Instant? ExpiredAt { get; set; }
-    public long Size { get; set; }
+    [NotMapped] public long Size => Object!.Size;
     public Instant? UploadedAt { get; set; }
-    public bool HasCompression { get; set; } = false;
-    public bool HasThumbnail { get; set; } = false;
-    public bool IsEncrypted { get; set; } = false;
-    
+    [NotMapped] public bool HasCompression => Object!.HasCompression;
+    [NotMapped] public bool HasThumbnail => Object!.HasThumbnail;
+
     [MaxLength(32)] public string? ObjectId { get; set; }
     public SnFileObject? Object { get; set; }
-    
+
     public FilePool? Pool { get; set; }
     public Guid? PoolId { get; set; }
     [JsonIgnore] public SnFileBundle? Bundle { get; set; }
@@ -60,7 +62,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FastUploadLink { get; set; }
 
-    public Guid AccountId { get; set;     }
+    public Guid AccountId { get; set; }
 
     public SnCloudFileReferenceObject ToReferenceObject()
     {

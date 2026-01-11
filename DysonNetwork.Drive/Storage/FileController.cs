@@ -67,10 +67,6 @@ public class FileController(
         var tempFilePath = Path.Combine(Path.GetTempPath(), file.Id);
         if (System.IO.File.Exists(tempFilePath))
         {
-            if (file.IsEncrypted)
-                return Task.FromResult<ActionResult>(StatusCode(StatusCodes.Status403Forbidden,
-                    "Encrypted files cannot be accessed before they are processed and stored."));
-
             return Task.FromResult<ActionResult>(PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream",
                 file.Name, enableRangeProcessing: true));
         }

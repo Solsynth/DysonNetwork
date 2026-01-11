@@ -110,7 +110,9 @@ public class FileService(
         var (managedTempPath, fileSize, finalContentType) =
             await PrepareFileAsync(fileId, filePath, fileName, contentType);
 
-        var file = CreateFileObject(fileId, fileName, finalContentType, fileSize, finalExpiredAt, bundle, accountId);
+        var fileObject = CreateFileObject(fileId, accountId, finalContentType, fileSize);
+
+        var file = CreateCloudFile(fileId, fileName, fileObject, finalExpiredAt, bundle, accountId);
 
         if (!pool.PolicyConfig.NoMetadata)
         {
@@ -118,11 +120,11 @@ public class FileService(
         }
 
         var (processingPath, isTempFile) =
-            await ProcessEncryptionAsync(fileId, managedTempPath, encryptPassword, pool, file);
+            await ProcessEncryptionAsync(fileId, managedTempPath, encryptPassword, pool, fileObject);
 
-        file.Hash = await HashFileAsync(processingPath);
+        fileObject.Hash = await HashFileAsync(processingPath);
 
-        await SaveFileToDatabaseAsync(file);
+        await SaveFileToDatabaseAsync(file, fileObject);
 
         await PublishFileUploadedEventAsync(file, pool, processingPath, isTempFile);
 
@@ -182,11 +184,26 @@ public class FileService(
         return (managedTempPath, fileSize, finalContentType);
     }
 
-    private SnCloudFile CreateFileObject(
+    private SnFileObject CreateFileObject(
+        string fileId,
+        Guid accountId,
+        string contentType,
+        long fileSize
+    )
+    {
+        return new SnFileObject
+        {
+            Id = fileId,
+            AccountId = accountId,
+            MimeType = contentType,
+            Size = fileSize,
+        };
+    }
+
+    private SnCloudFile CreateCloudFile(
         string fileId,
         string fileName,
-        string contentType,
-        long fileSize,
+        SnFileObject fileObject,
         Instant? expiredAt,
         SnFileBundle? bundle,
         Guid accountId
@@ -196,8 +213,8 @@ public class FileService(
         {
             Id = fileId,
             Name = fileName,
-            MimeType = contentType,
-            Size = fileSize,
+            Object = fileObject,
+            ObjectId = fileId,
             ExpiredAt = expiredAt,
             BundleId = bundle?.Id,
             AccountId = accountId,
@@ -209,7 +226,7 @@ public class FileService(
         string managedTempPath,
         string? encryptPassword,
         FilePool pool,
-        SnCloudFile file
+        SnFileObject fileObject
     )
     {
         if (string.IsNullOrWhiteSpace(encryptPassword))
@@ -223,27 +240,14 @@ public class FileService(
 
         File.Delete(managedTempPath);
 
-        file.IsEncrypted = true;
-        file.MimeType = "application/octet-stream";
-        file.Size = new FileInfo(encryptedPath).Length;
+        fileObject.MimeType = "application/octet-stream";
+        fileObject.Size = new FileInfo(encryptedPath).Length;
 
         return Task.FromResult((encryptedPath, true));
     }
 
-    private async Task SaveFileToDatabaseAsync(SnCloudFile file)
+    private async Task SaveFileToDatabaseAsync(SnCloudFile file, SnFileObject fileObject)
     {
-        var fileObject = new SnFileObject
-        {
-            Id = file.Id,
-            AccountId = file.AccountId,
-            Size = file.Size,
-            Meta = file.FileMeta,
-            MimeType = file.MimeType,
-            Hash = file.Hash,
-            HasCompression = file.HasCompression,
-            HasThumbnail = file.HasThumbnail
-        };
-
         var replica = new SnFileReplica
         {
             Id = Guid.NewGuid(),
@@ -254,9 +258,19 @@ public class FileService(
             IsPrimary = true
         };
 
+        var permission = new SnFilePermission
+        {
+            Id = Guid.NewGuid(),
+            FileId = file.Id,
+            SubjectType = SnFilePermissionType.Someone,
+            SubjectId = file.AccountId.ToString(),
+            Permission = SnFilePermissionLevel.Write
+        };
+
         db.Files.Add(file);
         db.FileObjects.Add(fileObject);
         db.FileReplicas.Add(replica);
+        db.FilePermissions.Add(permission);
 
         await db.SaveChangesAsync();
         file.ObjectId = file.Id;
@@ -327,11 +341,11 @@ public class FileService(
                     if (orientation is 6 or 8) (width, height) = (height, width);
                     meta["exif"] = exif;
                     meta["ratio"] = height != 0 ? (double)width / height : 0;
-                    file.FileMeta = meta;
+                    file.Object!.Meta = meta;
                 }
                 catch (Exception ex)
                 {
-                    file.FileMeta = new Dictionary<string, object?>();
+                    file.Object!.Meta = new Dictionary<string, object?>();
                     logger.LogError(ex, "Failed to analyze image file {FileId}", file.Id);
                 }
 
@@ -342,7 +356,7 @@ public class FileService(
                 try
                 {
                     var mediaInfo = await FFProbe.AnalyseAsync(filePath);
-                    file.FileMeta = new Dictionary<string, object?>
+                    file.Object!.Meta = new Dictionary<string, object?>
                     {
                         ["width"] = mediaInfo.PrimaryVideoStream?.Width,
                         ["height"] = mediaInfo.PrimaryVideoStream?.Height,
@@ -378,8 +392,8 @@ public class FileService(
                             .ToList(),
                     };
                     if (mediaInfo.PrimaryVideoStream is not null)
-                        file.FileMeta["ratio"] = (double)mediaInfo.PrimaryVideoStream.Width /
-                                                 mediaInfo.PrimaryVideoStream.Height;
+                        file.Object!.Meta["ratio"] = (double)mediaInfo.PrimaryVideoStream.Width /
+                                                      mediaInfo.PrimaryVideoStream.Height;
                 }
                 catch (Exception ex)
                 {
@@ -856,7 +870,6 @@ file class UpdatableCloudFile(SnCloudFile file)
         return setter => setter
             .SetProperty(f => f.Name, Name)
             .SetProperty(f => f.Description, Description)
-            .SetProperty(f => f.FileMeta, FileMeta)
             .SetProperty(f => f.UserMeta, userMeta)
             .SetProperty(f => f.IsMarkedRecycle, IsMarkedRecycle);
     }
