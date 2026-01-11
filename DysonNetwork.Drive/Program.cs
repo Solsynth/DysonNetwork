@@ -43,6 +43,7 @@ using (var scope = app.Services.CreateScope())
     // Run one-time migration
     var migrationService = scope.ServiceProvider.GetRequiredService<FileMigrationService>();
     await migrationService.MigrateCloudFilesAsync();
+    await migrationService.MigratePermissionsAsync();
 }
 
 app.ConfigureAppMiddleware();

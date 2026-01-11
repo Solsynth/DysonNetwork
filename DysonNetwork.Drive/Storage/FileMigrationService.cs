@@ -43,10 +43,20 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
                 IsPrimary = true
             };
 
+            var permission = new SnFilePermission
+            {
+                Id = Guid.NewGuid(),
+                FileId = cf.Id,
+                SubjectType = SnFilePermissionType.Anyone,
+                SubjectId = string.Empty,
+                Permission = SnFilePermissionLevel.Read
+            };
+
             fileObject.FileReplicas.Add(fileReplica);
 
             db.FileObjects.Add(fileObject);
             db.FileReplicas.Add(fileReplica);
+            db.FilePermissions.Add(permission);
 
             cf.ObjectId = fileObject.Id;
             cf.Object = fileObject;
@@ -55,5 +65,34 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
         await db.SaveChangesAsync();
         
         logger.LogInformation("Cloud file migration completed.");
+    }
+
+    public async Task MigratePermissionsAsync()
+    {
+        logger.LogInformation("Starting file permission migration.");
+
+        var filesWithoutPermission = await db.Files
+            .Where(f => !db.FilePermissions.Any(p => p.FileId == f.Id))
+            .ToListAsync();
+
+        logger.LogDebug("Found {Count} files without permissions.", filesWithoutPermission.Count);
+
+        foreach (var file in filesWithoutPermission)
+        {
+            var permission = new SnFilePermission
+            {
+                Id = Guid.NewGuid(),
+                FileId = file.Id,
+                SubjectType = SnFilePermissionType.Anyone,
+                SubjectId = string.Empty,
+                Permission = SnFilePermissionLevel.Read
+            };
+
+            db.FilePermissions.Add(permission);
+        }
+
+        await db.SaveChangesAsync();
+        
+        logger.LogInformation("Permission migration completed. Created {Count} permissions.", filesWithoutPermission.Count);
     }
 }

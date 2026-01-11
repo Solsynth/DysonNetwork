@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -17,6 +19,11 @@ public class FileController(
     IWebHostEnvironment env
 ) : ControllerBase
 {
+    private string AccessTokenSecret => configuration["AccessToken:Secret"]
+                                        ?? "dyson-network-default-access-token-secret-change-in-production";
+
+    private static readonly TimeSpan LocalSignedUrlExpiry = TimeSpan.FromMinutes(10);
+
     [HttpGet("{id}")]
     public async Task<ActionResult> OpenFile(
         string id,
@@ -31,7 +38,8 @@ public class FileController(
         var file = await fs.GetFileAsync(fileId);
         if (file is null) return NotFound("File not found.");
 
-        var accessResult = await ValidateFileAccess(file, passcode);
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var accessResult = await ValidateFileAccess(file, passcode, currentUser);
         if (accessResult is not null) return accessResult;
 
         // Handle direct storage URL redirect
@@ -54,34 +62,180 @@ public class FileController(
         return (parts.First(), parts.Last());
     }
 
-    private async Task<ActionResult?> ValidateFileAccess(SnCloudFile file, string? passcode)
+    private async Task<ActionResult?> ValidateFileAccess(SnCloudFile file, string? passcode,
+        Account? currentUser = null)
     {
         if (file.Bundle is not null && !file.Bundle.VerifyPasscode(passcode))
             return StatusCode(StatusCodes.Status403Forbidden, "The passcode is incorrect.");
-        return null;
+
+        var hasAccess = await CheckFilePermissionAsync(file, currentUser, SnFilePermissionLevel.Read);
+        return !hasAccess
+            ? StatusCode(StatusCodes.Status403Forbidden, "You don't have permission to access this file.")
+            : null;
+    }
+
+    private async Task<bool> CheckFilePermissionAsync(SnCloudFile file, Account? currentUser,
+        SnFilePermissionLevel requiredLevel)
+    {
+        if (currentUser?.IsSuperuser == true)
+            return true;
+
+        var permission = await db.FilePermissions
+            .FirstOrDefaultAsync(p => p.FileId == file.Id);
+
+        if (permission is null)
+        {
+            var isOwner = currentUser is not null && file.AccountId == Guid.Parse(currentUser.Id);
+            if (isOwner)
+                return true;
+            return false;
+        }
+
+        if (permission.SubjectType == SnFilePermissionType.Anyone)
+        {
+            var hasAccess = requiredLevel == SnFilePermissionLevel.Read
+                            || (requiredLevel == SnFilePermissionLevel.Write &&
+                                permission.Permission == SnFilePermissionLevel.Write);
+            return hasAccess;
+        }
+
+        if (permission.SubjectType == SnFilePermissionType.Someone && currentUser is not null)
+        {
+            if (permission.SubjectId == currentUser.Id)
+            {
+                var hasAccess = requiredLevel == SnFilePermissionLevel.Read
+                                || (requiredLevel == SnFilePermissionLevel.Write &&
+                                    permission.Permission == SnFilePermissionLevel.Write);
+                return hasAccess;
+            }
+        }
+
+        return false;
+    }
+
+    private async Task<bool> HasWritePermissionAsync(SnCloudFile file, Account? currentUser)
+    {
+        if (currentUser?.IsSuperuser == true)
+            return true;
+
+        if (currentUser is not null && file.AccountId == Guid.Parse(currentUser.Id))
+            return true;
+
+        var permission = await db.FilePermissions
+            .FirstOrDefaultAsync(p => p.FileId == file.Id);
+
+        if (permission is null)
+            return false;
+
+        return permission.Permission == SnFilePermissionLevel.Write;
     }
 
     private Task<ActionResult> ServeLocalFile(SnCloudFile file)
     {
-        // Try temp storage first
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var hasWritePermission = Task.Run(() => HasWritePermissionAsync(file, currentUser)).GetAwaiter().GetResult();
+        var accessToken = GenerateLocalSignedToken(file.Id, currentUser?.Id, hasWritePermission);
+
+        var accessUrl = $"/api/files/{file.Id}/access?token={accessToken}";
+        return Task.FromResult<ActionResult>(Redirect(accessUrl));
+    }
+
+    [HttpGet("{id}/access")]
+    public async Task<ActionResult> AccessFile(string id, [FromQuery] string token)
+    {
+        var validation = ValidateLocalSignedToken(token);
+        if (!validation.IsValid)
+            return StatusCode(StatusCodes.Status403Forbidden, "Invalid or expired access token.");
+
+        if (validation.FileId != id)
+            return StatusCode(StatusCodes.Status400BadRequest, "Token mismatch.");
+
+        var file = await fs.GetFileAsync(id);
+        if (file is null) return NotFound("File not found.");
+
         var tempFilePath = Path.Combine(Path.GetTempPath(), file.Id);
         if (System.IO.File.Exists(tempFilePath))
         {
-            return Task.FromResult<ActionResult>(PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream",
-                file.Name, enableRangeProcessing: true));
+            return PhysicalFile(tempFilePath, file.MimeType ?? "application/octet-stream",
+                file.Name, enableRangeProcessing: true);
         }
 
-        // Fallback for tus uploads
         var tusStorePath = configuration.GetValue<string>("Storage:Uploads");
         if (string.IsNullOrEmpty(tusStorePath))
-            return Task.FromResult<ActionResult>(StatusCode(StatusCodes.Status400BadRequest,
-                "File is being processed. Please try again later."));
+            return StatusCode(StatusCodes.Status400BadRequest,
+                "File is being processed. Please try again later.");
         var tusFilePath = Path.Combine(env.ContentRootPath, tusStorePath, file.Id);
-        return System.IO.File.Exists(tusFilePath)
-            ? Task.FromResult<ActionResult>(PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream",
-                file.Name, enableRangeProcessing: true))
-            : Task.FromResult<ActionResult>(StatusCode(StatusCodes.Status400BadRequest,
-                "File is being processed. Please try again later."));
+        if (System.IO.File.Exists(tusFilePath))
+        {
+            return PhysicalFile(tusFilePath, file.MimeType ?? "application/octet-stream",
+                file.Name, enableRangeProcessing: true);
+        }
+
+        return StatusCode(StatusCodes.Status400BadRequest,
+            "File is being processed. Please try again later.");
+    }
+
+    private string GenerateLocalSignedToken(string fileId, string? userId, bool hasWritePermission)
+    {
+        var expiry = DateTimeOffset.UtcNow.Add(LocalSignedUrlExpiry).ToUnixTimeSeconds();
+        var payload = $"{fileId}|{userId ?? ""}|{expiry}|{hasWritePermission}";
+
+        var payloadBytes = Encoding.UTF8.GetBytes(payload);
+        var payloadBase64 = Convert.ToBase64String(payloadBytes);
+
+        var signature = ComputeHmacSignature(payloadBase64);
+        var token = $"{payloadBase64}.{signature}";
+
+        return Uri.EscapeDataString(token);
+    }
+
+    private (bool IsValid, string FileId, string? UserId, bool HasWritePermission) ValidateLocalSignedToken(
+        string token)
+    {
+        try
+        {
+            var tokenDecoded = Uri.UnescapeDataString(token);
+            var parts = tokenDecoded.Split('.');
+            if (parts.Length != 2)
+                return (false, string.Empty, null, false);
+
+            var payloadBase64 = parts[0];
+            var providedSignature = parts[1];
+
+            var expectedSignature = ComputeHmacSignature(payloadBase64);
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(expectedSignature),
+                    Encoding.UTF8.GetBytes(providedSignature)))
+                return (false, string.Empty, null, false);
+
+            var payloadBytes = Convert.FromBase64String(payloadBase64);
+            var payload = Encoding.UTF8.GetString(payloadBytes);
+            var payloadParts = payload.Split('|');
+
+            if (payloadParts.Length < 4)
+                return (false, string.Empty, null, false);
+
+            var fileId = payloadParts[0];
+            var userId = string.IsNullOrEmpty(payloadParts[1]) ? null : payloadParts[1];
+            var expiry = long.Parse(payloadParts[2]);
+            var hasWritePermission = bool.Parse(payloadParts[3]);
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiry)
+                return (false, string.Empty, null, false);
+
+            return (true, fileId, userId, hasWritePermission);
+        }
+        catch
+        {
+            return (false, string.Empty, null, false);
+        }
+    }
+
+    private string ComputeHmacSignature(string data)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(AccessTokenSecret));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private async Task<ActionResult> ServeRemoteFile(
@@ -232,11 +386,10 @@ public class FileController(
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound("File not found.");
 
-        // Check if user has access to
-        var accessResult = await ValidateFileAccess(file, null);
+        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var accessResult = await ValidateFileAccess(file, null, currentUser);
         if (accessResult is not null) return accessResult;
 
-        // Get other cloud files sharing the same object
         var references = await db.Files
             .Where(f => f.ObjectId == file.ObjectId && f.Id != file.Id)
             .ToListAsync();
