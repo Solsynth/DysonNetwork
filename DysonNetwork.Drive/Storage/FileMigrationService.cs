@@ -20,65 +20,78 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
 
         foreach (var cf in cloudFiles)
         {
-            var ext = Path.GetExtension(cf.Name);
-            var mimeType = ext != "" && MimeTypes.TryGetMimeType(ext, out var mime) ? mime : "application/octet-stream";
-
-            var fileObject = await db.FileObjects.FindAsync(cf.Id);
-
-            if (fileObject == null)
+            try
             {
-                fileObject = new SnFileObject
+                var ext = Path.GetExtension(cf.Name);
+                var mimeType = ext != "" && MimeTypes.TryGetMimeType(ext, out var mime) ? mime : "application/octet-stream";
+
+                var fileObject = await db.FileObjects.FindAsync(cf.Id);
+
+                if (fileObject == null)
                 {
-                    Id = cf.Id,
-                    MimeType = mimeType,
-                    HasCompression = mimeType.StartsWith("image/"),
-                    HasThumbnail = mimeType.StartsWith("video/")
-                };
+                    fileObject = new SnFileObject
+                    {
+                        Id = cf.Id,
+                        MimeType = mimeType,
+                        HasCompression = mimeType.StartsWith("image/"),
+                        HasThumbnail = mimeType.StartsWith("video/")
+                    };
 
-                db.FileObjects.Add(fileObject);
+                    db.FileObjects.Add(fileObject);
+                }
+
+                var replicaExists = await db.FileReplicas.AnyAsync(r =>
+                    r.ObjectId == fileObject.Id &&
+                    r.PoolId == cf.PoolId!.Value);
+
+                if (!replicaExists)
+                {
+                    var fileReplica = new SnFileReplica
+                    {
+                        Id = Guid.NewGuid(),
+                        ObjectId = fileObject.Id,
+                        PoolId = cf.PoolId!.Value,
+                        StorageId = cf.StorageId ?? cf.Id,
+                        Status = SnFileReplicaStatus.Available,
+                        IsPrimary = true
+                    };
+
+                    fileObject.FileReplicas.Add(fileReplica);
+                    db.FileReplicas.Add(fileReplica);
+                }
+
+                var permissionExists = await db.FilePermissions.AnyAsync(p => p.FileId == cf.Id);
+
+                if (!permissionExists)
+                {
+                    var permission = new SnFilePermission
+                    {
+                        Id = Guid.NewGuid(),
+                        FileId = cf.Id,
+                        SubjectType = SnFilePermissionType.Anyone,
+                        SubjectId = string.Empty,
+                        Permission = SnFilePermissionLevel.Read
+                    };
+
+                    db.FilePermissions.Add(permission);
+                }
+
+                cf.ObjectId = fileObject.Id;
+                cf.Object = fileObject;
+
+                await db.SaveChangesAsync();
+                logger.LogInformation("Migrated file {FileId} successfully.", cf.Id);
             }
-
-            var replicaExists = await db.FileReplicas.AnyAsync(r =>
-                r.ObjectId == fileObject.Id &&
-                r.PoolId == cf.PoolId!.Value);
-
-            if (!replicaExists)
+            catch (Exception ex)
             {
-                var fileReplica = new SnFileReplica
-                {
-                    Id = Guid.NewGuid(),
-                    ObjectId = fileObject.Id,
-                    PoolId = cf.PoolId!.Value,
-                    StorageId = cf.StorageId ?? cf.Id,
-                    Status = SnFileReplicaStatus.Available,
-                    IsPrimary = true
-                };
-
-                fileObject.FileReplicas.Add(fileReplica);
-                db.FileReplicas.Add(fileReplica);
+                logger.LogError(ex,
+                    "Failed migrating file {FileId}. ObjectId={ObjectId}, PoolId={PoolId}, StorageId={StorageId}",
+                    cf.Id,
+                    cf.ObjectId,
+                    cf.PoolId,
+                    cf.StorageId);
             }
-
-            var permissionExists = await db.FilePermissions.AnyAsync(p => p.FileId == cf.Id);
-
-            if (!permissionExists)
-            {
-                var permission = new SnFilePermission
-                {
-                    Id = Guid.NewGuid(),
-                    FileId = cf.Id,
-                    SubjectType = SnFilePermissionType.Anyone,
-                    SubjectId = string.Empty,
-                    Permission = SnFilePermissionLevel.Read
-                };
-
-                db.FilePermissions.Add(permission);
-            }
-
-            cf.ObjectId = fileObject.Id;
-            cf.Object = fileObject;
         }
-
-        await db.SaveChangesAsync();
         
         logger.LogInformation("Cloud file migration completed.");
     }
