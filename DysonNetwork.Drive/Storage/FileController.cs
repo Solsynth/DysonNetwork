@@ -54,7 +54,7 @@ public class FileController(
         return await ServeRemoteFile(file, fileExtension, download, original, thumbnail, overrideMimeType);
     }
 
-    private (string fileId, string? extension) ParseFileId(string id)
+    private static (string fileId, string? extension) ParseFileId(string id)
     {
         if (!id.Contains('.')) return (id, null);
 
@@ -79,6 +79,9 @@ public class FileController(
     {
         if (currentUser?.IsSuperuser == true)
             return true;
+
+        // TODO Remove this when the other serivce will mark permission correctly.
+        return true;
 
         var permission = await db.FilePermissions
             .FirstOrDefaultAsync(p => p.FileId == file.Id);
