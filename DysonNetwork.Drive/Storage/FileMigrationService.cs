@@ -1,6 +1,5 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using System.IO;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -13,8 +12,7 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
         var cloudFiles = await db.Files
             .Where(f =>
                 f.ObjectId == null &&
-                f.PoolId != null &&
-                !db.FileObjects.Any(fo => fo.Id == f.Id)
+                f.PoolId != null
             )
             .ToListAsync();
 
@@ -22,6 +20,12 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
 
         foreach (var cf in cloudFiles)
         {
+            if (await db.FileObjects.AnyAsync(fo => fo.Id == cf.Id))
+            {
+                logger.LogWarning("FileObject for {Id} already exists, skipping.", cf.Id);
+                continue;
+            }
+
             var ext = Path.GetExtension(cf.Name);
             var mimeType = ext != "" && MimeTypes.TryGetMimeType(ext, out var mime) ? mime : "application/octet-stream";
 
