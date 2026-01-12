@@ -12,7 +12,6 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
         var cloudFiles = await db.Files
             .Where(f =>
                 f.ObjectId == null &&
-                f.StorageId != null &&
                 f.PoolId != null &&
                 !db.FileObjects.Any(fo => fo.Id == f.Id)
             )
