@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -21,15 +22,15 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
 
         foreach (var cf in cloudFiles)
         {
+            var ext = Path.GetExtension(cf.Name);
+            var mimeType = ext != "" && MimeTypes.TryGetMimeType(ext, out var mime) ? mime : "application/octet-stream";
+
             var fileObject = new SnFileObject
             {
                 Id = cf.Id,
-                Size = cf.Size,
-                Meta = cf.FileMeta,
-                MimeType = cf.MimeType,
-                Hash = cf.Hash,
-                HasCompression = cf.HasCompression,
-                HasThumbnail = cf.HasThumbnail
+                MimeType = mimeType,
+                HasCompression = mimeType.StartsWith("image/"),
+                HasThumbnail = mimeType.StartsWith("video/")
             };
 
             var fileReplica = new SnFileReplica
