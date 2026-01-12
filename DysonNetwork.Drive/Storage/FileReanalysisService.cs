@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Minio;
@@ -18,8 +19,10 @@ public class FileReanalysisService(
         return await db.Files
             .Where(f => f.ObjectId != null && f.PoolId != null)
             .Include(f => f.Object)
+            .ThenInclude(f => f.FileReplicas)
             .Include(f => f.Pool)
             .Where(f => f.Object != null && (f.Object.Meta == null || f.Object.Meta.Count == 0))
+            .Where(f => f.Object!.FileReplicas.Count > 0)
             .Take(limit)
             .ToListAsync();
     }
@@ -46,16 +49,38 @@ public class FileReanalysisService(
         {
             await DownloadFileAsync(file, primaryReplica, tempPath);
 
+            var fileInfo = new FileInfo(tempPath);
+            long actualSize = fileInfo.Length;
+            string actualHash = await HashFileAsync(tempPath);
+
             var meta = await ExtractMetadataAsync(file, tempPath);
-            if (meta != null && meta.Count > 0)
+
+            bool updated = false;
+            if (file.Object.Size == 0 || file.Object.Size != actualSize)
+            {
+                file.Object.Size = actualSize;
+                updated = true;
+            }
+            if (string.IsNullOrEmpty(file.Object.Hash) || file.Object.Hash != actualHash)
+            {
+                file.Object.Hash = actualHash;
+                updated = true;
+            }
+            if (meta is { Count: > 0 })
             {
                 file.Object.Meta = meta;
+                updated = true;
+            }
+
+            if (updated)
+            {
                 await db.SaveChangesAsync();
-                logger.LogInformation("Successfully reanalyzed file {FileId}, updated metadata with {MetaCount} fields", file.Id, meta.Count);
+                int metaCount = meta?.Count ?? 0;
+                logger.LogInformation("Successfully reanalyzed file {FileId}, updated metadata with {MetaCount} fields", file.Id, metaCount);
             }
             else
             {
-                logger.LogWarning("No metadata extracted for file {FileId}", file.Id);
+                logger.LogInformation("File {FileId} already up to date", file.Id);
             }
         }
         catch (Exception ex)
@@ -236,6 +261,38 @@ public class FileReanalysisService(
             logger.LogError(ex, "Failed to analyze media file {FileId}", file.Id);
             return null;
         }
+    }
+
+    private static async Task<string> HashFileAsync(string filePath, int chunkSize = 1024 * 1024)
+    {
+        var fileInfo = new FileInfo(filePath);
+        if (fileInfo.Length > chunkSize * 1024 * 5)
+            return await HashFastApproximateAsync(filePath, chunkSize);
+
+        await using var stream = File.OpenRead(filePath);
+        using var md5 = MD5.Create();
+        var hashBytes = await md5.ComputeHashAsync(stream);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    private static async Task<string> HashFastApproximateAsync(string filePath, int chunkSize = 1024 * 1024)
+    {
+        await using var stream = File.OpenRead(filePath);
+
+        var buffer = new byte[chunkSize * 2];
+        var fileLength = stream.Length;
+
+        var bytesRead = await stream.ReadAsync(buffer.AsMemory(0, chunkSize));
+
+        if (fileLength > chunkSize)
+        {
+            stream.Seek(-chunkSize, SeekOrigin.End);
+            bytesRead += await stream.ReadAsync(buffer.AsMemory(chunkSize, chunkSize));
+        }
+
+        var hash = MD5.HashData(buffer.AsSpan(0, bytesRead));
+        stream.Position = 0;
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private static bool IsIgnoredField(string fieldName)
