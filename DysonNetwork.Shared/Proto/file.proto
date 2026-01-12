@@ -54,6 +54,34 @@ message CloudFile {
 
   // Blurhash for placeholder (optional, for images)
   optional string blurhash = 15;
+
+  // Nested file object containing additional metadata
+  optional FileObject object = 16;
+}
+
+// FileObject represents the actual file data stored in cloud storage.
+// It contains metadata about the file content that may be shared across multiple references.
+message FileObject {
+  // Unique identifier for the file object
+  string id = 1;
+
+  // File size in bytes
+  int64 size = 2;
+
+  // File metadata (e.g., dimensions, duration, etc.) stored as JSON bytes
+  bytes meta = 3;
+
+  // MIME type of the file
+  string mime_type = 4;
+
+  // File content hash (e.g., MD5, SHA-256)
+  string hash = 5;
+
+  // Indicates if the file is stored with compression
+  bool has_compression = 6;
+
+  // Indicates if the file has a thumbnail
+  bool has_thumbnail = 7;
 }
 
 // Service for file operations

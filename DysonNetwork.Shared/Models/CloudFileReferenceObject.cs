@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
@@ -44,12 +45,16 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
 
     public static SnCloudFileReferenceObject FromProtoValue(Proto.CloudFile proto)
     {
+        var fileMeta = proto.Object != null
+            ? ConvertObjectToDictionary(proto.Object.Meta)
+            : ConvertToDictionary(proto.FileMeta);
+
         return new SnCloudFileReferenceObject
         {
             Id = proto.Id,
             Name = proto.Name,
-            FileMeta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(proto.FileMeta) ?? [],
-            UserMeta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(proto.UserMeta) ?? [],
+            FileMeta = fileMeta,
+            UserMeta = ConvertToDictionary(proto.UserMeta),
             SensitiveMarks = proto.HasSensitiveMarks
                 ? GrpcTypeHelper.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks)
                 : [],
@@ -62,6 +67,65 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Height = proto.HasHeight ? proto.Height : null,
             Blurhash = proto.HasBlurhash ? proto.Blurhash : null
         };
+    }
+
+    private static Dictionary<string, object?> ConvertObjectToDictionary(Google.Protobuf.ByteString byteString)
+    {
+        if (byteString.IsEmpty)
+            return [];
+
+        var jsonElement = GrpcTypeHelper.ConvertByteStringToObject<JsonElement>(byteString);
+        if (jsonElement.ValueKind != JsonValueKind.Object)
+            return [];
+
+        var result = new Dictionary<string, object?>();
+        foreach (var property in jsonElement.EnumerateObject())
+        {
+            result[property.Name] = ConvertJsonElement(property.Value);
+        }
+        return result;
+    }
+
+    private static Dictionary<string, object?> ConvertToDictionary(Google.Protobuf.ByteString byteString)
+    {
+        if (byteString.IsEmpty)
+            return [];
+
+        var jsonElement = GrpcTypeHelper.ConvertByteStringToObject<JsonElement>(byteString);
+        if (jsonElement.ValueKind != JsonValueKind.Object)
+            return [];
+
+        var result = new Dictionary<string, object?>();
+        foreach (var property in jsonElement.EnumerateObject())
+        {
+            result[property.Name] = ConvertJsonElement(property.Value);
+        }
+        return result;
+    }
+
+    private static object? ConvertJsonElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt64(out long l) ? l : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            JsonValueKind.Object => ConvertToDictionaryElement(element),
+            JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToList(),
+            _ => null
+        };
+    }
+
+    private static Dictionary<string, object?> ConvertToDictionaryElement(JsonElement element)
+    {
+        var result = new Dictionary<string, object?>();
+        foreach (var property in element.EnumerateObject())
+        {
+            result[property.Name] = ConvertJsonElement(property.Value);
+        }
+        return result;
     }
 
     /// <summary>

@@ -1,4 +1,3 @@
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -7,7 +6,7 @@ namespace DysonNetwork.Drive.Storage
 {
     public class FileServiceGrpc(FileService fileService) : Shared.Proto.FileService.FileServiceBase
     {
-        public override async Task<Shared.Proto.CloudFile> GetFile(GetFileRequest request, ServerCallContext context)
+        public override async Task<CloudFile> GetFile(GetFileRequest request, ServerCallContext context)
         {
             var file = await fileService.GetFileAsync(request.Id);
             return file?.ToProtoValue() ?? throw new RpcException(new Status(StatusCode.NotFound, "File not found"));
@@ -19,7 +18,7 @@ namespace DysonNetwork.Drive.Storage
             return new GetFileBatchResponse { Files = { files.Select(f => f.ToProtoValue()) } };
         }
 
-        public override async Task<Shared.Proto.CloudFile> UpdateFile(UpdateFileRequest request,
+        public override async Task<CloudFile> UpdateFile(UpdateFileRequest request,
             ServerCallContext context)
         {
             var file = await fileService.GetFileAsync(request.File.Id);

@@ -73,7 +73,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
             DeletedAt = DeletedAt,
             Id = Id,
             Name = Name,
-            FileMeta = FileMeta ?? [],
+            FileMeta = FileMeta,
             UserMeta = UserMeta ?? [],
             SensitiveMarks = SensitiveMarks,
             MimeType = MimeType,
@@ -102,12 +102,31 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
             Url = StorageUrl ?? string.Empty,
             ContentType = MimeType ?? string.Empty,
             UploadedAt = UploadedAt?.ToTimestamp(),
-            // Convert file metadata
             FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta),
-            // Convert user metadata
             UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta),
             SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks)
         };
+
+        if (FileMeta.TryGetValue("width", out var width) && width is int w)
+            proto.Width = w;
+        if (FileMeta.TryGetValue("height", out var height) && height is int h)
+            proto.Height = h;
+        if (FileMeta.TryGetValue("blurhash", out var blurhash) && blurhash is string bh && !string.IsNullOrEmpty(bh))
+            proto.Blurhash = bh;
+
+        if (Object != null)
+        {
+            proto.Object = new Proto.FileObject
+            {
+                Id = Object.Id,
+                Size = Object.Size,
+                Meta = GrpcTypeHelper.ConvertObjectToByteString(Object.Meta),
+                MimeType = Object.MimeType ?? string.Empty,
+                Hash = Object.Hash ?? string.Empty,
+                HasCompression = Object.HasCompression,
+                HasThumbnail = Object.HasThumbnail
+            };
+        }
 
         return proto;
     }
