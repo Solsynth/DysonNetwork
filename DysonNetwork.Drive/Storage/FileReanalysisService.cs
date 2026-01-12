@@ -7,6 +7,7 @@ using Minio.DataModel.Args;
 using Minio.Exceptions;
 using NetVips;
 using DysonNetwork.Shared.Models;
+using NodaTime;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -16,8 +17,11 @@ public class FileReanalysisService(
 )
 {
     private readonly HashSet<string> _failedFileIds = new();
-    public async Task<List<SnCloudFile>> GetFilesNeedingReanalysisAsync(int limit = 100)
+
+    private async Task<List<SnCloudFile>> GetFilesNeedingReanalysisAsync(int limit = 100)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var deadline = now.Minus(Duration.FromMinutes(30));
         return await db.Files
             .Where(f => f.ObjectId != null && f.PoolId != null)
             .Include(f => f.Object)
@@ -25,25 +29,27 @@ public class FileReanalysisService(
             .Include(f => f.Pool)
             .Where(f => f.Object != null && (f.Object.Meta == null || f.Object.Meta.Count == 0))
             .Where(f => f.Object!.FileReplicas.Count > 0)
+            .Where(f => f.CreatedAt <= deadline)
+            .Skip(_failedFileIds.Count)
             .Take(limit)
             .ToListAsync();
     }
 
-    public async Task ReanalyzeFileAsync(SnCloudFile file)
+    public async Task<bool> ReanalyzeFileAsync(SnCloudFile file)
     {
         logger.LogInformation("Starting reanalysis for file {FileId}: {FileName}", file.Id, file.Name);
 
         if (file.Object == null || file.Pool == null)
         {
             logger.LogWarning("File {FileId} missing object or pool, skipping reanalysis", file.Id);
-            return;
+            return true; // not a failure
         }
 
         var primaryReplica = file.Object.FileReplicas.FirstOrDefault(r => r.IsPrimary);
         if (primaryReplica == null)
         {
             logger.LogWarning("File {FileId} has no primary replica, skipping reanalysis", file.Id);
-            return;
+            return true; // not a failure
         }
 
         var tempPath = Path.Combine(Path.GetTempPath(), $"reanalysis_{file.Id}_{Guid.NewGuid()}");
@@ -52,10 +58,19 @@ public class FileReanalysisService(
             await DownloadFileAsync(file, primaryReplica, tempPath);
 
             var fileInfo = new FileInfo(tempPath);
-            long actualSize = fileInfo.Length;
-            string actualHash = await HashFileAsync(tempPath);
+            var actualSize = fileInfo.Length;
+            var actualHash = await HashFileAsync(tempPath);
 
             var meta = await ExtractMetadataAsync(file, tempPath);
+
+            if (meta == null && !string.IsNullOrEmpty(file.MimeType) && (file.MimeType.StartsWith("image/") ||
+                                                                         file.MimeType.StartsWith("video/") ||
+                                                                         file.MimeType.StartsWith("audio/")))
+            {
+                logger.LogWarning("Failed to extract metadata for supported MIME type {MimeType} on file {FileId}",
+                    file.MimeType, file.Id);
+                return false;
+            }
 
             bool updated = false;
             if (file.Object.Size == 0 || file.Object.Size != actualSize)
@@ -63,11 +78,13 @@ public class FileReanalysisService(
                 file.Object.Size = actualSize;
                 updated = true;
             }
+
             if (string.IsNullOrEmpty(file.Object.Hash) || file.Object.Hash != actualHash)
             {
                 file.Object.Hash = actualHash;
                 updated = true;
             }
+
             if (meta is { Count: > 0 })
             {
                 file.Object.Meta = meta;
@@ -78,22 +95,27 @@ public class FileReanalysisService(
             {
                 await db.SaveChangesAsync();
                 int metaCount = meta?.Count ?? 0;
-                logger.LogInformation("Successfully reanalyzed file {FileId}, updated metadata with {MetaCount} fields", file.Id, metaCount);
+                logger.LogInformation("Successfully reanalyzed file {FileId}, updated metadata with {MetaCount} fields",
+                    file.Id, metaCount);
             }
             else
             {
                 logger.LogInformation("File {FileId} already up to date", file.Id);
             }
+
+            return true;
         }
         catch (ObjectNotFoundException)
         {
             logger.LogWarning("File {FileId} not found in remote storage, deleting record", file.Id);
             db.Files.Remove(file);
             await db.SaveChangesAsync();
+            return true; // handled
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to reanalyze file {FileId}", file.Id);
+            return false; // failure
         }
         finally
         {
@@ -115,14 +137,11 @@ public class FileReanalysisService(
         }
 
         var file = files[0];
-        try
+        bool success = await ReanalyzeFileAsync(file);
+        if (!success)
         {
-            await ReanalyzeFileAsync(file);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to reanalyze file {FileId}, skipping for now", file.Id);
-            _failedFileIds.Add(file.Id.ToString());
+            logger.LogWarning("Failed to reanalyze file {FileId}, skipping for now", file.Id);
+            _failedFileIds.Add(file.Id);
         }
     }
 
@@ -170,7 +189,8 @@ public class FileReanalysisService(
             case "audio":
                 return await ExtractMediaMetadataAsync(file, filePath);
             default:
-                logger.LogDebug("Skipping metadata extraction for unsupported MIME type {MimeType} on file {FileId}", mimeType, file.Id);
+                logger.LogDebug("Skipping metadata extraction for unsupported MIME type {MimeType} on file {FileId}",
+                    mimeType, file.Id);
                 return null;
         }
     }
@@ -217,6 +237,7 @@ public class FileReanalysisService(
             {
                 meta["blurhash"] = blurhash;
             }
+
             var exif = new Dictionary<string, object>();
 
             foreach (var field in vipsImage.GetFields())
@@ -283,7 +304,7 @@ public class FileReanalysisService(
             };
             if (mediaInfo.PrimaryVideoStream is not null)
                 meta["ratio"] = (double)mediaInfo.PrimaryVideoStream.Width /
-                                  mediaInfo.PrimaryVideoStream.Height;
+                                mediaInfo.PrimaryVideoStream.Height;
             return meta;
         }
         catch (Exception ex)
