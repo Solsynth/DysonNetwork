@@ -4,6 +4,7 @@ using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Minio;
 using Minio.DataModel.Args;
+using Minio.Exceptions;
 using NetVips;
 using DysonNetwork.Shared.Models;
 
@@ -82,6 +83,12 @@ public class FileReanalysisService(
             {
                 logger.LogInformation("File {FileId} already up to date", file.Id);
             }
+        }
+        catch (ObjectNotFoundException)
+        {
+            logger.LogWarning("File {FileId} not found in remote storage, deleting record", file.Id);
+            db.Files.Remove(file);
+            await db.SaveChangesAsync();
         }
         catch (Exception ex)
         {
