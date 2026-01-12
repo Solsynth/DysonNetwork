@@ -39,11 +39,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
-
-    // Run one-time migration
-    var migrationService = scope.ServiceProvider.GetRequiredService<FileMigrationService>();
-    await migrationService.MigrateCloudFilesAsync();
-    await migrationService.MigratePermissionsAsync();
 }
 
 app.ConfigureAppMiddleware();

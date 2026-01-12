@@ -56,12 +56,14 @@ public static class ServiceCollectionExtensions
         {
             services.AddScoped<Storage.FileMigrationService>();
             services.AddScoped<Storage.FileService>();
+            services.AddScoped<Storage.FileReanalysisService>();
             services.AddScoped<Storage.PersistentTaskService>();
             services.AddScoped<FileIndexService>();
             services.AddScoped<Billing.UsageService>();
             services.AddScoped<Billing.QuotaService>();
 
             services.AddHostedService<BroadcastEventHandler>();
+            services.AddHostedService<Storage.FileReanalysisBackgroundService>();
 
             return services;
         }
