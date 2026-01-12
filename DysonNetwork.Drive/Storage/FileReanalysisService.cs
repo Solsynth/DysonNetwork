@@ -15,6 +15,7 @@ public class FileReanalysisService(
     ILogger<FileReanalysisService> logger
 )
 {
+    private readonly HashSet<string> _failedFileIds = new();
     public async Task<List<SnCloudFile>> GetFilesNeedingReanalysisAsync(int limit = 100)
     {
         return await db.Files
@@ -105,7 +106,8 @@ public class FileReanalysisService(
 
     public async Task ProcessNextFileAsync()
     {
-        var files = await GetFilesNeedingReanalysisAsync(1);
+        var files = await GetFilesNeedingReanalysisAsync(10);
+        files = files.Where(f => !_failedFileIds.Contains(f.Id.ToString())).ToList();
         if (files.Count == 0)
         {
             logger.LogInformation("No files found needing reanalysis");
@@ -113,7 +115,15 @@ public class FileReanalysisService(
         }
 
         var file = files[0];
-        await ReanalyzeFileAsync(file);
+        try
+        {
+            await ReanalyzeFileAsync(file);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to reanalyze file {FileId}, skipping for now", file.Id);
+            _failedFileIds.Add(file.Id.ToString());
+        }
     }
 
     private async Task DownloadFileAsync(SnCloudFile file, SnFileReplica replica, string tempPath)
@@ -169,7 +179,16 @@ public class FileReanalysisService(
     {
         try
         {
-            var blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(3, 3, filePath);
+            string? blurhash = null;
+            try
+            {
+                blurhash = BlurHashSharp.SkiaSharp.BlurHashEncoder.Encode(3, 3, filePath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to generate blurhash for file {FileId}, skipping", file.Id);
+            }
+
             await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             stream.Position = 0;
 
@@ -188,12 +207,16 @@ public class FileReanalysisService(
 
             var meta = new Dictionary<string, object?>
             {
-                ["blurhash"] = blurhash,
                 ["format"] = vipsImage.Get("vips-loader") ?? "unknown",
                 ["width"] = width,
                 ["height"] = height,
                 ["orientation"] = orientation,
             };
+
+            if (blurhash != null)
+            {
+                meta["blurhash"] = blurhash;
+            }
             var exif = new Dictionary<string, object>();
 
             foreach (var field in vipsImage.GetFields())
