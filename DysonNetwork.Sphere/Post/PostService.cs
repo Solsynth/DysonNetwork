@@ -163,6 +163,14 @@ public partial class PostService(
             post.Attachments = attachments
                 .Select(id => post.Attachments.First(a => a.Id == id))
                 .ToList();
+
+            if (post.Visibility == Shared.Models.PostVisibility.Public)
+            {
+                foreach (var attachment in post.Attachments)
+                {
+                    await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
+                }
+            }
         }
 
         if (tags is not null)
@@ -326,8 +334,24 @@ public partial class PostService(
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
         }
 
+        var oldVisibility = post.Visibility;
         db.Update(post);
         await db.SaveChangesAsync();
+
+        if (post.Visibility == Shared.Models.PostVisibility.Public && oldVisibility != Shared.Models.PostVisibility.Public)
+        {
+            foreach (var attachment in post.Attachments)
+            {
+                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
+            }
+        }
+        else if (oldVisibility == Shared.Models.PostVisibility.Public && post.Visibility != Shared.Models.PostVisibility.Public)
+        {
+            foreach (var attachment in post.Attachments)
+            {
+                await files.UnsetFilePublicAsync(new UnsetFilePublicRequest { FileId = attachment.Id });
+            }
+        }
 
         // Process link preview in the background to avoid delaying post update
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));

@@ -374,6 +374,8 @@ public class PublisherController(
                     "Invalid picture id, unable to find the file on cloud."
                 );
             picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
@@ -386,6 +388,8 @@ public class PublisherController(
                     "Invalid background id, unable to find the file on cloud."
                 );
             background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         var publisher = await ps.CreateIndividualPublisher(
@@ -471,6 +475,8 @@ public class PublisherController(
                     "Invalid picture id, unable to find the file on cloud."
                 );
             picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
@@ -483,6 +489,8 @@ public class PublisherController(
                     "Invalid background id, unable to find the file on cloud."
                 );
             background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         var publisher = await ps.CreateOrganizationPublisher(
@@ -569,6 +577,8 @@ public class PublisherController(
             var picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             publisher.Picture = picture;
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
@@ -583,6 +593,8 @@ public class PublisherController(
             var background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             publisher.Background = background;
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.Update(publisher);

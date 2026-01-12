@@ -155,6 +155,8 @@ public class StickerController(
                 return BadRequest("Icon not found.");
 
             pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.IconId });
         }
 
         db.StickerPacks.Add(pack);
@@ -197,6 +199,8 @@ public class StickerController(
                 return BadRequest("Icon not found.");
 
             pack.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.IconId });
         }
 
         db.StickerPacks.Update(pack);

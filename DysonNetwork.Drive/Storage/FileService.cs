@@ -854,6 +854,45 @@ public class FileService(
         await db.SaveChangesAsync();
         return count;
     }
+
+    public async Task SetPublicAsync(string fileId)
+    {
+        var existingPermission = await db.FilePermissions
+            .FirstOrDefaultAsync(p =>
+                p.FileId == fileId &&
+                p.SubjectType == SnFilePermissionType.Anyone &&
+                p.Permission == SnFilePermissionLevel.Read);
+
+        if (existingPermission != null)
+            return;
+
+        var permission = new SnFilePermission
+        {
+            Id = Guid.NewGuid(),
+            FileId = fileId,
+            SubjectType = SnFilePermissionType.Anyone,
+            SubjectId = string.Empty,
+            Permission = SnFilePermissionLevel.Read
+        };
+
+        db.FilePermissions.Add(permission);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task UnsetPublicAsync(string fileId)
+    {
+        var permission = await db.FilePermissions
+            .FirstOrDefaultAsync(p =>
+                p.FileId == fileId &&
+                p.SubjectType == SnFilePermissionType.Anyone &&
+                p.Permission == SnFilePermissionLevel.Read);
+
+        if (permission == null)
+            return;
+
+        db.FilePermissions.Remove(permission);
+        await db.SaveChangesAsync();
+    }
 }
 
 file class UpdatableCloudFile(SnCloudFile file)

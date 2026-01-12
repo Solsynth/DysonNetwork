@@ -53,12 +53,16 @@ public class BotAccountReceiverGrpc(
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
+
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.Accounts.Update(account);

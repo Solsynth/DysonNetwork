@@ -70,6 +70,12 @@ service FileService {
 
   // Purge cache for a file
   rpc PurgeCache(PurgeCacheRequest) returns (google.protobuf.Empty);
+
+  // Set file as publicly readable (anyone read permission)
+  rpc SetFilePublic(SetFilePublicRequest) returns (google.protobuf.Empty);
+
+  // Remove public read permission
+  rpc UnsetFilePublic(UnsetFilePublicRequest) returns (google.protobuf.Empty);
 }
 
 // Request message for GetFile
@@ -111,5 +117,13 @@ message DeleteFileRequest {
 }
 
 message PurgeCacheRequest {
+  string file_id = 1;
+}
+
+message SetFilePublicRequest {
+  string file_id = 1;
+}
+
+message UnsetFilePublicRequest {
   string file_id = 1;
 }

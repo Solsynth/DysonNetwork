@@ -46,5 +46,17 @@ namespace DysonNetwork.Drive.Storage
             await fileService._PurgeCacheAsync(request.FileId);
             return new Empty();
         }
+
+        public override async Task<Empty> SetFilePublic(SetFilePublicRequest request, ServerCallContext context)
+        {
+            await fileService.SetPublicAsync(request.FileId);
+            return new Empty();
+        }
+
+        public override async Task<Empty> UnsetFilePublic(UnsetFilePublicRequest request, ServerCallContext context)
+        {
+            await fileService.UnsetPublicAsync(request.FileId);
+            return new Empty();
+        }
     }
 }

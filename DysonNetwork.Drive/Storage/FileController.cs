@@ -80,9 +80,6 @@ public class FileController(
         if (currentUser?.IsSuperuser == true)
             return true;
 
-        // TODO Remove this when the other serivce will mark permission correctly.
-        return true;
-
         var permission = await db.FilePermissions
             .FirstOrDefaultAsync(p => p.FileId == file.Id);
 
