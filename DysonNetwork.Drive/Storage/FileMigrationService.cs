@@ -20,47 +20,59 @@ public class FileMigrationService(AppDatabase db, ILogger<FileMigrationService> 
 
         foreach (var cf in cloudFiles)
         {
-            if (await db.FileObjects.AnyAsync(fo => fo.Id == cf.Id))
-            {
-                logger.LogWarning("FileObject for {Id} already exists, skipping.", cf.Id);
-                continue;
-            }
-
             var ext = Path.GetExtension(cf.Name);
             var mimeType = ext != "" && MimeTypes.TryGetMimeType(ext, out var mime) ? mime : "application/octet-stream";
 
-            var fileObject = new SnFileObject
+            var fileObject = await db.FileObjects.FindAsync(cf.Id);
+
+            if (fileObject == null)
             {
-                Id = cf.Id,
-                MimeType = mimeType,
-                HasCompression = mimeType.StartsWith("image/"),
-                HasThumbnail = mimeType.StartsWith("video/")
-            };
+                fileObject = new SnFileObject
+                {
+                    Id = cf.Id,
+                    MimeType = mimeType,
+                    HasCompression = mimeType.StartsWith("image/"),
+                    HasThumbnail = mimeType.StartsWith("video/")
+                };
 
-            var fileReplica = new SnFileReplica
+                db.FileObjects.Add(fileObject);
+            }
+
+            var replicaExists = await db.FileReplicas.AnyAsync(r =>
+                r.ObjectId == fileObject.Id &&
+                r.PoolId == cf.PoolId!.Value);
+
+            if (!replicaExists)
             {
-                Id = Guid.NewGuid(),
-                ObjectId = fileObject.Id,
-                PoolId = cf.PoolId!.Value,
-                StorageId = cf.StorageId ?? cf.Id,
-                Status = SnFileReplicaStatus.Available,
-                IsPrimary = true
-            };
+                var fileReplica = new SnFileReplica
+                {
+                    Id = Guid.NewGuid(),
+                    ObjectId = fileObject.Id,
+                    PoolId = cf.PoolId!.Value,
+                    StorageId = cf.StorageId ?? cf.Id,
+                    Status = SnFileReplicaStatus.Available,
+                    IsPrimary = true
+                };
 
-            var permission = new SnFilePermission
+                fileObject.FileReplicas.Add(fileReplica);
+                db.FileReplicas.Add(fileReplica);
+            }
+
+            var permissionExists = await db.FilePermissions.AnyAsync(p => p.FileId == cf.Id);
+
+            if (!permissionExists)
             {
-                Id = Guid.NewGuid(),
-                FileId = cf.Id,
-                SubjectType = SnFilePermissionType.Anyone,
-                SubjectId = string.Empty,
-                Permission = SnFilePermissionLevel.Read
-            };
+                var permission = new SnFilePermission
+                {
+                    Id = Guid.NewGuid(),
+                    FileId = cf.Id,
+                    SubjectType = SnFilePermissionType.Anyone,
+                    SubjectId = string.Empty,
+                    Permission = SnFilePermissionLevel.Read
+                };
 
-            fileObject.FileReplicas.Add(fileReplica);
-
-            db.FileObjects.Add(fileObject);
-            db.FileReplicas.Add(fileReplica);
-            db.FilePermissions.Add(permission);
+                db.FilePermissions.Add(permission);
+            }
 
             cf.ObjectId = fileObject.Id;
             cf.Object = fileObject;
