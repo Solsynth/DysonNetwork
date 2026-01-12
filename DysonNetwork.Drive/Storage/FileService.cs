@@ -194,7 +194,6 @@ public class FileService(
         return new SnFileObject
         {
             Id = fileId,
-            AccountId = accountId,
             MimeType = contentType,
             Size = fileSize,
         };

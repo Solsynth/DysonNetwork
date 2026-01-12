@@ -7,7 +7,6 @@ namespace DysonNetwork.Shared.Models;
 public class SnFileObject : ModelBase
 {
     [MaxLength(32)] public string Id { get; set; }
-    public Guid AccountId { get; set; }
 
     public long Size { get; set; }
 
