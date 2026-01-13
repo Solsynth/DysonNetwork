@@ -321,7 +321,7 @@ public class FileController(
         string? overrideMimeType
     )
     {
-        var client = fs.CreateMinioClient(dest);
+        var client = FileService.CreateMinioClient(dest);
         if (client is null)
             return BadRequest("Failed to configure client for remote destination, file got an invalid storage remote.");
 

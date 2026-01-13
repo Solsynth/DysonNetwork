@@ -8,8 +8,8 @@ public static class FileUploadedEvent
 public record FileUploadedEventPayload(
     string FileId,
     Guid RemoteId,
-    string StorageId,
-    string ContentType,
+    string? StorageId,
+    string? ContentType,
     string ProcessingFilePath,
     bool IsTempFile
 );

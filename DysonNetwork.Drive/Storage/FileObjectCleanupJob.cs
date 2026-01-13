@@ -49,7 +49,7 @@ public class FileObjectCleanupJob(AppDatabase db, FileService fileService, ILogg
                 {
                     var dest = await fileService.GetRemoteStorageConfig(replica.PoolId!.Value);
                     if (dest == null) continue;
-                    var client = fileService.CreateMinioClient(dest);
+                    var client = FileService.CreateMinioClient(dest);
                     if (client == null) continue;
                     try
                     {

@@ -257,19 +257,10 @@ public class FileService(
             IsPrimary = true
         };
 
-        var permission = new SnFilePermission
-        {
-            Id = Guid.NewGuid(),
-            FileId = file.Id,
-            SubjectType = SnFilePermissionType.Someone,
-            SubjectId = file.AccountId.ToString(),
-            Permission = SnFilePermissionLevel.Write
-        };
 
         db.Files.Add(file);
         db.FileObjects.Add(fileObject);
         db.FileReplicas.Add(replica);
-        db.FilePermissions.Add(permission);
 
         await db.SaveChangesAsync();
         file.ObjectId = file.Id;
@@ -700,7 +691,7 @@ public class FileService(
         return await GetRemoteStorageConfig(id);
     }
 
-    public IMinioClient? CreateMinioClient(RemoteStorageConfig dest)
+    public static IMinioClient? CreateMinioClient(RemoteStorageConfig dest)
     {
         var client = new MinioClient()
             .WithEndpoint(dest.Endpoint)
@@ -717,74 +708,10 @@ public class FileService(
         await cache.RemoveAsync(cacheKey);
     }
 
-    internal async Task _PurgeCacheRangeAsync(IEnumerable<string> fileIds)
+    private async Task _PurgeCacheRangeAsync(IEnumerable<string> fileIds)
     {
         var tasks = fileIds.Select(_PurgeCacheAsync);
         await Task.WhenAll(tasks);
-    }
-
-    public async Task<List<SnCloudFile?>> LoadFromReference(List<SnCloudFileReferenceObject> references)
-    {
-        var cachedFiles = new Dictionary<string, SnCloudFile>();
-        var uncachedIds = new List<string>();
-
-        foreach (var reference in references)
-        {
-            var cacheKey = string.Concat(CacheKeyPrefix, reference.Id);
-            var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
-
-            if (cachedFile != null)
-            {
-                cachedFiles[reference.Id] = cachedFile;
-            }
-            else
-            {
-                uncachedIds.Add(reference.Id);
-            }
-        }
-
-        if (uncachedIds.Count > 0)
-        {
-            var dbFiles = await db.Files
-                .Where(f => uncachedIds.Contains(f.Id))
-                .Include(f => f.Object)
-                .ThenInclude(o => o.FileReplicas)
-                .ToListAsync();
-
-            foreach (var file in dbFiles)
-            {
-                var cacheKey = string.Concat(CacheKeyPrefix, file.Id);
-                await cache.SetAsync(cacheKey, file, CacheDuration);
-                cachedFiles[file.Id] = file;
-            }
-        }
-
-        return
-        [
-            .. references
-                .Select(r => cachedFiles.GetValueOrDefault(r.Id))
-                .Where(f => f != null)
-        ];
-    }
-
-    public async Task<int> GetReferenceCountAsync(string fileId)
-    {
-        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
-        if (file == null || file.ObjectId == null) return 0;
-
-        return await db.Files
-            .Where(f => f.ObjectId == file.ObjectId && f.Id != fileId)
-            .CountAsync();
-    }
-
-    public async Task<bool> IsReferencedAsync(string fileId)
-    {
-        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
-        if (file == null || file.ObjectId == null) return false;
-
-        return await db.Files
-            .Where(f => f.ObjectId == file.ObjectId && f.Id != fileId)
-            .AnyAsync();
     }
 
     private static bool IsIgnoredField(string fieldName)
