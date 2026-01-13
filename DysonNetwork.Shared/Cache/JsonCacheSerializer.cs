@@ -19,7 +19,7 @@ public class JsonCacheSerializer : ICacheSerializer
             {
                 Modifiers = { JsonExtensions.UnignoreAllProperties() },
             },
-            ReferenceHandler = ReferenceHandler.Preserve,
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
             NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
             Converters = { new ByteStringConverter() }
         };

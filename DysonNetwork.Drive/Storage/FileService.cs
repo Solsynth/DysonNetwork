@@ -30,7 +30,7 @@ public class FileService(
 
     public async Task<SnCloudFile?> GetFileAsync(string fileId)
     {
-        var cacheKey = $"{CacheKeyPrefix}{fileId}";
+        var cacheKey = string.Concat(CacheKeyPrefix, fileId);
 
         var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
         if (cachedFile is not null)
@@ -57,7 +57,7 @@ public class FileService(
 
         foreach (var fileId in fileIds)
         {
-            var cacheKey = $"{CacheKeyPrefix}{fileId}";
+            var cacheKey = string.Concat(CacheKeyPrefix, fileId);
             var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
 
             if (cachedFile != null)
@@ -77,7 +77,7 @@ public class FileService(
 
             foreach (var file in dbFiles)
             {
-                var cacheKey = $"{CacheKeyPrefix}{file.Id}";
+                var cacheKey = string.Concat(CacheKeyPrefix, file.Id);
                 await cache.SetAsync(cacheKey, file, CacheDuration);
                 cachedFiles[file.Id] = file;
             }
@@ -295,6 +295,8 @@ public class FileService(
 
     private async Task ExtractMetadataAsync(SnCloudFile file, string filePath)
     {
+        if (file.Object == null) return;
+
         switch (file.MimeType?.Split('/')[0])
         {
             case "image":
@@ -340,11 +342,11 @@ public class FileService(
                     if (orientation is 6 or 8) (width, height) = (height, width);
                     meta["exif"] = exif;
                     meta["ratio"] = height != 0 ? (double)width / height : 0;
-                    file.Object!.Meta = meta;
+                    file.Object.Meta = meta;
                 }
                 catch (Exception ex)
                 {
-                    file.Object!.Meta = new Dictionary<string, object?>();
+                    file.Object.Meta = new Dictionary<string, object?>();
                     logger.LogError(ex, "Failed to analyze image file {FileId}", file.Id);
                 }
 
@@ -355,7 +357,7 @@ public class FileService(
                 try
                 {
                     var mediaInfo = await FFProbe.AnalyseAsync(filePath);
-                    file.Object!.Meta = new Dictionary<string, object?>
+                    file.Object.Meta = new Dictionary<string, object?>
                     {
                         ["width"] = mediaInfo.PrimaryVideoStream?.Width,
                         ["height"] = mediaInfo.PrimaryVideoStream?.Height,
@@ -391,7 +393,7 @@ public class FileService(
                             .ToList(),
                     };
                     if (mediaInfo.PrimaryVideoStream is not null)
-                        file.Object!.Meta["ratio"] = (double)mediaInfo.PrimaryVideoStream.Width /
+                        file.Object.Meta["ratio"] = (double)mediaInfo.PrimaryVideoStream.Width /
                                                       mediaInfo.PrimaryVideoStream.Height;
                 }
                 catch (Exception ex)
@@ -711,7 +713,7 @@ public class FileService(
 
     internal async Task _PurgeCacheAsync(string fileId)
     {
-        var cacheKey = $"{CacheKeyPrefix}{fileId}";
+        var cacheKey = string.Concat(CacheKeyPrefix, fileId);
         await cache.RemoveAsync(cacheKey);
     }
 
@@ -728,7 +730,7 @@ public class FileService(
 
         foreach (var reference in references)
         {
-            var cacheKey = $"{CacheKeyPrefix}{reference.Id}";
+            var cacheKey = string.Concat(CacheKeyPrefix, reference.Id);
             var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
 
             if (cachedFile != null)
@@ -751,7 +753,7 @@ public class FileService(
 
             foreach (var file in dbFiles)
             {
-                var cacheKey = $"{CacheKeyPrefix}{file.Id}";
+                var cacheKey = string.Concat(CacheKeyPrefix, file.Id);
                 await cache.SetAsync(cacheKey, file, CacheDuration);
                 cachedFiles[file.Id] = file;
             }
