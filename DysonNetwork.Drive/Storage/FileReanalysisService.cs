@@ -73,6 +73,13 @@ public class FileReanalysisService(
             return true; // not a failure
         }
 
+        if (file.Object.MimeType != null && file.Object.MimeType.StartsWith("application/") && file.Object.Size != 0 &&
+            file.Object.Hash != null)
+        {
+            logger.LogInformation("File {FileId} already reanalyzed, no need for reanalysis", file.Id);
+            return true; // skip
+        }
+
         var primaryReplica = file.Object.FileReplicas.FirstOrDefault(r => r.IsPrimary);
         if (primaryReplica == null)
         {
