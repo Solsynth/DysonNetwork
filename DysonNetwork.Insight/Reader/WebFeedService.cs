@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Insight.Reader;
 
@@ -15,6 +16,9 @@ public class WebFeedService(
     RemotePublisherService remotePublisherService
 )
 {
+    private const string VerificationFileName = "solar-network-feed.txt";
+    private static readonly TimeZoneInfo UtcZone = TimeZoneInfo.Utc;
+
     public async Task<SnWebFeed> CreateWebFeedAsync(SnPublisher publisher, WebFeedController.WebFeedRequest request)
     {
         var feed = new SnWebFeed
@@ -162,4 +166,158 @@ public class WebFeedService(
 
         await database.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<WebFeedVerificationInitResult> GenerateVerificationCodeAsync(Guid feedId)
+    {
+        var feed = await database.WebFeeds.FindAsync(feedId);
+        if (feed == null)
+            throw new InvalidOperationException($"Feed with ID {feedId} not found");
+
+        var domain = GetDomainFromUrl(feed.Url);
+        var verificationCode = GenerateVerificationCode();
+        var verificationUrl = $"https://{domain}/.well-known/{VerificationFileName}";
+
+        feed.VerificationKey = verificationCode;
+        await database.SaveChangesAsync();
+
+        return new WebFeedVerificationInitResult
+        {
+            VerificationUrl = verificationUrl,
+            Code = verificationCode,
+            Instructions = $"Create a file at '{verificationUrl}' containing only this verification code."
+        };
+    }
+
+    public async Task<WebFeedVerificationResult> VerifyOwnershipAsync(Guid feedId, CancellationToken cancellationToken = default)
+    {
+        var feed = await database.WebFeeds.FindAsync(feedId);
+        if (feed == null)
+            throw new InvalidOperationException($"Feed with ID {feedId} not found");
+
+        if (string.IsNullOrEmpty(feed.VerificationKey))
+            return new WebFeedVerificationResult
+            {
+                Success = false,
+                Message = "No verification code generated. Please call the init endpoint first."
+            };
+
+        var domain = GetDomainFromUrl(feed.Url);
+        var verificationUrl = $"https://{domain}/.well-known/{VerificationFileName}";
+
+        try
+        {
+            using var httpClient = httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
+            var response = await httpClient.GetAsync(verificationUrl, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                await RevokeVerificationAsync(feed, "Verification file not found or inaccessible");
+                return new WebFeedVerificationResult
+                {
+                    Success = false,
+                    Message = $"Verification file not found (HTTP {response.StatusCode}). Verification status has been revoked."
+                };
+            }
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            var trimmedContent = content.Trim();
+
+            if (trimmedContent != feed.VerificationKey)
+            {
+                await RevokeVerificationAsync(feed, "Verification code mismatch");
+                return new WebFeedVerificationResult
+                {
+                    Success = false,
+                    Message = "Verification code does not match. Verification status has been revoked."
+                };
+            }
+
+            feed.VerifiedAt = SystemClock.Instance.GetCurrentInstant();
+            feed.VerificationKey = null;
+            await database.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation("Successfully verified ownership of feed {FeedId} at {Url}", feedId, feed.Url);
+
+            return new WebFeedVerificationResult
+            {
+                Success = true,
+                VerifiedAt = feed.VerifiedAt.Value.ToDateTimeUtc(),
+                Message = "Website ownership verified successfully."
+            };
+        }
+        catch (TaskCanceledException)
+        {
+            await RevokeVerificationAsync(feed, "Verification request timed out");
+            return new WebFeedVerificationResult
+            {
+                Success = false,
+                Message = "Verification request timed out. Verification status has been revoked."
+            };
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error during verification for feed {FeedId}", feedId);
+            await RevokeVerificationAsync(feed, $"Verification error: {ex.Message}");
+            return new WebFeedVerificationResult
+            {
+                Success = false,
+                Message = $"Error during verification: {ex.Message}. Verification status has been revoked."
+            };
+        }
+    }
+
+    public async Task RevokeVerificationAsync(SnWebFeed feed, string reason)
+    {
+        logger.LogWarning("Revoking verification for feed {FeedId}: {Reason}", feed.Id, reason);
+        feed.VerifiedAt = null;
+        feed.VerificationKey = null;
+        await database.SaveChangesAsync();
+    }
+
+    public async Task VerifyAllFeedsAsync(CancellationToken cancellationToken = default)
+    {
+        var verifiedFeeds = await database.WebFeeds
+            .Where(f => f.VerifiedAt.HasValue)
+            .ToListAsync(cancellationToken);
+
+        logger.LogInformation("Starting periodic verification check for {Count} feeds", verifiedFeeds.Count);
+
+        foreach (var feed in verifiedFeeds)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
+            await VerifyOwnershipAsync(feed.Id, cancellationToken);
+        }
+
+        logger.LogInformation("Completed periodic verification check");
+    }
+
+    private static string GenerateVerificationCode()
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
+        var randomPart = Guid.NewGuid().ToString("N")[..16];
+        return $"dn_{timestamp}_{randomPart}";
+    }
+
+    private static string GetDomainFromUrl(string url)
+    {
+        var uri = new Uri(url);
+        return uri.Host;
+    }
+}
+
+public class WebFeedVerificationInitResult
+{
+    public string VerificationUrl { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string Instructions { get; set; } = string.Empty;
+}
+
+public class WebFeedVerificationResult
+{
+    public bool Success { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public string Message { get; set; } = string.Empty;
 }

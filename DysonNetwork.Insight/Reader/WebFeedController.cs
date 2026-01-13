@@ -128,4 +128,63 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
         await webFeed.ScrapeFeedAsync(feed);
         return Ok();
     }
+
+    [HttpPost("{id:guid}/verify/init")]
+    [Authorize]
+    public async Task<ActionResult<WebFeedVerificationInitResult>> InitVerification([FromRoute] string pubName, Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to verify a web feed");
+
+        var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
+        if (feed == null)
+            return NotFound();
+
+        try
+        {
+            var result = await webFeed.GenerateVerificationCodeAsync(id);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpPost("{id:guid}/verify")]
+    [Authorize]
+    public async Task<ActionResult<WebFeedVerificationResult>> VerifyOwnership([FromRoute] string pubName, Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var publisher = await ps.GetPublisherByName(pubName);
+        if (publisher is null) return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+            return StatusCode(403, "You must be an editor of the publisher to verify a web feed");
+
+        var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
+        if (feed == null)
+            return NotFound();
+
+        try
+        {
+            var result = await webFeed.VerifyOwnershipAsync(id);
+            if (!result.Success)
+                return BadRequest(result.Message);
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
 }

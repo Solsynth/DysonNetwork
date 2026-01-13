@@ -26,6 +26,13 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("WebFeedScraperTrigger")
                 .WithCronSchedule("0 0 0 * * ?")
             );
+
+            q.AddJob<WebFeedVerificationJob>(opts => opts.WithIdentity("WebFeedVerification").StoreDurably());
+            q.AddTrigger(opts => opts
+                .ForJob("WebFeedVerification")
+                .WithIdentity("WebFeedVerificationTrigger")
+                .WithCronSchedule("0 0 4 * * ?")
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
