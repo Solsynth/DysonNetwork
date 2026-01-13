@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
 namespace DysonNetwork.Sphere.Timeline;
 
@@ -215,9 +216,10 @@ public class TimelineService(
         var publicRealms = await rs.GetPublicRealms();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
-        var postsQuery = db
-            .Posts.Include(p => p.Categories)
+        var postsQuery = db.Posts
+            .Include(p => p.Categories)
             .Include(p => p.Tags)
+            .Where(p => p.Visibility == PostVisibility.Public)
             .Where(p => p.RepliedPostId == null)
             .Where(p => p.RealmId == null || publicRealmIds.Contains(p.RealmId.Value))
             .OrderBy(_ => EF.Functions.Random())
