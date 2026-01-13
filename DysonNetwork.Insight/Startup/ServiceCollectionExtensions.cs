@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
 using NodaTime;
@@ -67,8 +68,8 @@ public static class ServiceCollectionExtensions
         {
             services.AddSingleton<ThoughtProvider>();
             services.AddScoped<ThoughtService>();
-            services.AddScoped<WebFeedService>();
-            services.AddScoped<WebReaderService>();
+            services.AddScoped<Reader.WebFeedService>();
+            services.AddScoped<Reader.WebReaderService>();
 
             return services;
         }

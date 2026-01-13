@@ -1,5 +1,4 @@
 using DysonNetwork.Insight;
-using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Http;

@@ -119,7 +119,6 @@ public class WebFeedPublicController(
         var query = db.WebFeedSubscriptions
             .Where(s => s.AccountId == accountId)
             .Include(s => s.Feed)
-            .ThenInclude(f => f.Publisher)
             .OrderByDescending(s => s.CreatedAt);
 
         var totalCount = await query.CountAsync();
@@ -155,7 +154,6 @@ public class WebFeedPublicController(
 
         var query = db.WebFeeds
             .Where(f => subscribedFeedIds.Contains(f.Id))
-            .Include(f => f.Publisher)
             .OrderByDescending(f => f.CreatedAt);
 
         var totalCount = await query.CountAsync();
@@ -207,8 +205,7 @@ public class WebFeedPublicController(
         var query = db.WebArticles
             .Where(a => a.FeedId == feedId)
             .OrderByDescending(a => a.CreatedAt)
-            .Include(a => a.Feed)
-            .ThenInclude(f => f.Publisher);
+            .Include(a => a.Feed);
 
         var totalCount = await query.CountAsync();
         var articles = await query
@@ -237,7 +234,6 @@ public class WebFeedPublicController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var feedsQuery = db.WebFeeds
-            .Include(f => f.Publisher)
             .OrderByDescending(f => f.CreatedAt)
             .AsQueryable();
 

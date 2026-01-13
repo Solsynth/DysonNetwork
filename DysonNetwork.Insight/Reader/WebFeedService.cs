@@ -2,6 +2,7 @@ using System.ServiceModel.Syndication;
 using System.Xml;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Insight.Reader;
@@ -10,7 +11,8 @@ public class WebFeedService(
     AppDatabase database,
     IHttpClientFactory httpClientFactory,
     ILogger<WebFeedService> logger,
-    WebReaderService readerService
+    WebReaderService readerService,
+    RemotePublisherService remotePublisherService
 )
 {
     public async Task<SnWebFeed> CreateWebFeedAsync(SnPublisher publisher, WebFeedController.WebFeedRequest request)
@@ -22,6 +24,7 @@ public class WebFeedService(
             Description = request.Description,
             Config = request.Config ?? new WebFeedConfig(),
             PublisherId = publisher.Id,
+            Publisher = publisher
         };
 
         database.WebFeeds.Add(feed);
@@ -30,20 +33,41 @@ public class WebFeedService(
         return feed;
     }
 
+    private async Task<SnPublisher?> LoadPublisherAsync(Guid publisherId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await remotePublisherService.GetPublisher(id: publisherId.ToString(), cancellationToken: cancellationToken);
+        }
+        catch (Grpc.Core.RpcException)
+        {
+            return null;
+        }
+    }
+
     public async Task<SnWebFeed?> GetFeedAsync(Guid id, Guid? publisherId = null)
     {
         var query = database.WebFeeds
-            .Include(a => a.Publisher)
             .Where(a => a.Id == id)
             .AsQueryable();
         if (publisherId.HasValue)
             query = query.Where(a => a.PublisherId == publisherId.Value);
-        return await query.FirstOrDefaultAsync();
+        var feed = await query.FirstOrDefaultAsync();
+        if (feed != null)
+        {
+            feed.Publisher = await LoadPublisherAsync(feed.PublisherId, CancellationToken.None) ?? new SnPublisher();
+        }
+        return feed;
     }
 
     public async Task<List<SnWebFeed>> GetFeedsByPublisherAsync(Guid publisherId)
     {
-        return await database.WebFeeds.Where(a => a.PublisherId == publisherId).ToListAsync();
+        var feeds = await database.WebFeeds.Where(a => a.PublisherId == publisherId).ToListAsync();
+        foreach (var feed in feeds)
+        {
+            feed.Publisher = await LoadPublisherAsync(feed.PublisherId, CancellationToken.None) ?? new SnPublisher();
+        }
+        return feeds;
     }
 
     public async Task<SnWebFeed> UpdateFeedAsync(SnWebFeed feed, WebFeedController.WebFeedRequest request)
@@ -59,6 +83,8 @@ public class WebFeedService(
 
         database.Update(feed);
         await database.SaveChangesAsync();
+
+        feed.Publisher = await LoadPublisherAsync(feed.PublisherId, CancellationToken.None) ?? new SnPublisher();
 
         return feed;
     }
