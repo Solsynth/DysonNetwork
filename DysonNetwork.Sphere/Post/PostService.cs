@@ -1021,6 +1021,7 @@ public partial class PostService(
             var postsInPeriod = await db.Posts
                 .Where(e => e.Visibility == Shared.Models.PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
+                .Where(e => e.FediverseUri == null)
                 .Select(e => e.Id)
                 .ToListAsync();
 
