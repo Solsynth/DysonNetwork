@@ -18,7 +18,7 @@ public class FileReanalysisService(
     IOptions<FileReanalysisOptions> options)
 {
     private readonly FileReanalysisOptions _options = options.Value;
-    private readonly HashSet<string> _failedFileIds = new();
+    private readonly HashSet<string> _failedFileIds = [];
 
     private async Task<List<SnCloudFile>> GetFilesNeedingReanalysisAsync(int limit = 100)
     {
@@ -28,7 +28,8 @@ public class FileReanalysisService(
             .Where(f => f.ObjectId != null)
             .Include(f => f.Object)
             .ThenInclude(f => f.FileReplicas)
-            .Where(f => f.Object != null && (f.Object.Meta == null || f.Object.Meta.Count == 0))
+            .Where(f => f.Object != null && (f.Object.Meta == null || f.Object.Meta.Count == 0 || f.Object.Size == 0 ||
+                                             f.Object.Hash == null))
             .Where(f => f.Object!.FileReplicas.Count > 0)
             .Where(f => f.CreatedAt <= deadline)
             .Skip(_failedFileIds.Count)
@@ -62,7 +63,7 @@ public class FileReanalysisService(
             .ToListAsync();
     }
 
-    public async Task<bool> ReanalyzeFileAsync(SnCloudFile file)
+    private async Task<bool> ReanalyzeFileAsync(SnCloudFile file)
     {
         logger.LogInformation("Starting reanalysis for file {FileId}: {FileName}", file.Id, file.Name);
 
@@ -96,10 +97,9 @@ public class FileReanalysisService(
             {
                 logger.LogWarning("Failed to extract metadata for supported MIME type {MimeType} on file {FileId}",
                     file.MimeType, file.Id);
-                return false;
             }
 
-            bool updated = false;
+            var updated = false;
             if (file.Object.Size == 0 || file.Object.Size != actualSize)
             {
                 file.Object.Size = actualSize;
@@ -120,19 +120,15 @@ public class FileReanalysisService(
 
             if (updated)
             {
+                db.FileObjects.Update(file.Object);
                 await db.SaveChangesAsync();
-                int metaCount = meta?.Count ?? 0;
+                var metaCount = meta?.Count ?? 0;
                 logger.LogInformation("Successfully reanalyzed file {FileId}, updated metadata with {MetaCount} fields",
                     file.Id, metaCount);
             }
             else
             {
                 logger.LogInformation("File {FileId} already up to date", file.Id);
-            }
-
-            if (_options.ValidateCompression || _options.ValidateThumbnails)
-            {
-                await ValidateCompressionAndThumbnailAsync(file);
             }
 
             return true;
@@ -152,9 +148,7 @@ public class FileReanalysisService(
         finally
         {
             if (File.Exists(tempPath))
-            {
                 File.Delete(tempPath);
-            }
         }
     }
 
@@ -186,7 +180,8 @@ public class FileReanalysisService(
             var client = CreateMinioClient(dest);
             if (client == null)
             {
-                logger.LogWarning("Failed to create Minio client for pool {PoolId}, skipping validation", primaryReplica.PoolId);
+                logger.LogWarning("Failed to create Minio client for pool {PoolId}, skipping validation",
+                    primaryReplica.PoolId);
                 return;
             }
 
@@ -194,10 +189,13 @@ public class FileReanalysisService(
 
             if (_options.ValidateCompression && file.Object.HasCompression)
             {
-                var compressedExists = await ObjectExistsAsync(client, dest.Bucket, primaryReplica.StorageId + ".compressed");
+                var compressedExists =
+                    await ObjectExistsAsync(client, dest.Bucket, primaryReplica.StorageId + ".compressed");
                 if (!compressedExists)
                 {
-                    logger.LogInformation("File {FileId} has compression flag but compressed version not found, setting HasCompression to false", file.Id);
+                    logger.LogInformation(
+                        "File {FileId} has compression flag but compressed version not found, setting HasCompression to false",
+                        file.Id);
                     file.Object.HasCompression = false;
                     updated = true;
                 }
@@ -205,10 +203,13 @@ public class FileReanalysisService(
 
             if (_options.ValidateThumbnails && file.Object.HasThumbnail)
             {
-                var thumbnailExists = await ObjectExistsAsync(client, dest.Bucket, primaryReplica.StorageId + ".thumbnail");
+                var thumbnailExists =
+                    await ObjectExistsAsync(client, dest.Bucket, primaryReplica.StorageId + ".thumbnail");
                 if (!thumbnailExists)
                 {
-                    logger.LogInformation("File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false", file.Id);
+                    logger.LogInformation(
+                        "File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false",
+                        file.Id);
                     file.Object.HasThumbnail = false;
                     updated = true;
                 }
@@ -226,7 +227,7 @@ public class FileReanalysisService(
         }
     }
 
-    private async Task<bool> ObjectExistsAsync(IMinioClient client, string bucket, string objectName)
+    private static async Task<bool> ObjectExistsAsync(IMinioClient client, string bucket, string objectName)
     {
         try
         {
@@ -244,37 +245,58 @@ public class FileReanalysisService(
 
     public async Task ProcessNextFileAsync()
     {
-        if (!_options.Enabled)
-        {
-            logger.LogDebug("File reanalysis is disabled, skipping");
-            return;
-        }
+        var reanalysisFiles = await GetFilesNeedingReanalysisAsync(10);
+        reanalysisFiles = reanalysisFiles.Where(f => !_failedFileIds.Contains(f.Id.ToString())).ToList();
 
-        var files = await GetFilesNeedingReanalysisAsync(10);
-        files = files.Where(f => !_failedFileIds.Contains(f.Id.ToString())).ToList();
-        if (files.Count == 0)
+        if (reanalysisFiles.Count > 0)
         {
-            if (_options.ValidateCompression || _options.ValidateThumbnails)
+            if (!_options.Enabled)
             {
-                files = await GetFilesNeedingCompressionValidationAsync(5);
-                if (files.Count == 0)
+                logger.LogDebug("File reanalysis is disabled, skipping reanalysis but continuing with validation");
+            }
+            else
+            {
+                var file = reanalysisFiles[0];
+                bool success = await ReanalyzeFileAsync(file);
+                if (!success)
                 {
-                    files = await GetFilesNeedingThumbnailValidationAsync(5);
+                    logger.LogWarning("Failed to reanalyze file {FileId}, skipping for now", file.Id);
+                    _failedFileIds.Add(file.Id);
                 }
+
+                return;
             }
         }
-        if (files.Count == 0)
+
+        if (_options.ValidateCompression)
         {
-            logger.LogInformation("No files found needing reanalysis");
-            return;
+            var compressionFiles = await GetFilesNeedingCompressionValidationAsync(5);
+            if (compressionFiles.Count > 0)
+            {
+                var file = compressionFiles[0];
+                await ValidateCompressionAndThumbnailAsync(file);
+                return;
+            }
         }
 
-        var file = files[0];
-        bool success = await ReanalyzeFileAsync(file);
-        if (!success)
+        if (_options.ValidateThumbnails)
         {
-            logger.LogWarning("Failed to reanalyze file {FileId}, skipping for now", file.Id);
-            _failedFileIds.Add(file.Id);
+            var thumbnailFiles = await GetFilesNeedingThumbnailValidationAsync(5);
+            if (thumbnailFiles.Count > 0)
+            {
+                var file = thumbnailFiles[0];
+                await ValidateCompressionAndThumbnailAsync(file);
+                return;
+            }
+        }
+
+        if (reanalysisFiles.Count > 0 && !_options.Enabled)
+        {
+            logger.LogInformation("Reanalysis is disabled, no other work to do");
+        }
+        else
+        {
+            logger.LogInformation("No files found needing reanalysis or validation");
         }
     }
 
@@ -290,6 +312,7 @@ public class FileReanalysisService(
         {
             throw new InvalidOperationException($"No remote storage configured for pool {replica.PoolId}");
         }
+
         var dest = pool.StorageConfig;
 
         var client = CreateMinioClient(dest);
