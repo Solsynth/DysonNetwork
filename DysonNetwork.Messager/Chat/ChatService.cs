@@ -20,8 +20,6 @@ public partial class ChatService(
     RemoteWebReaderService webReader
 )
 {
-    private const string ChatFileUsageIdentifier = "chat";
-
     [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
@@ -198,6 +196,9 @@ public partial class ChatService(
         // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
+
+        foreach (var attachment in message.Attachments)
+            await filesClient.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
 
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
@@ -647,9 +648,7 @@ public partial class ChatService(
     {
         // Only allow editing regular text messages
         if (message.Type != "text")
-        {
             throw new InvalidOperationException("Only regular messages can be edited.");
-        }
 
         var isContentChanged = content is not null && content != message.Content;
         var isAttachmentsChanged = attachmentsId is not null;
@@ -666,6 +665,10 @@ public partial class ChatService(
         // Mark as edited if content or attachments changed
         if (isContentChanged || isAttachmentsChanged)
             message.EditedAt = SystemClock.Instance.GetCurrentInstant();
+
+        if (isAttachmentsChanged)
+            foreach (var attachment in message.Attachments)
+                await filesClient.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
 
         db.Update(message);
         await db.SaveChangesAsync();

@@ -31,8 +31,6 @@ public partial class PostService(
     ActivityPubObjectFactory objFactory
 )
 {
-    private const string PostFileUsageIdentifier = "post";
-
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
     {
         const int maxLength = 256;
@@ -164,13 +162,8 @@ public partial class PostService(
                 .Select(id => post.Attachments.First(a => a.Id == id))
                 .ToList();
 
-            if (post.Visibility == Shared.Models.PostVisibility.Public)
-            {
-                foreach (var attachment in post.Attachments)
-                {
-                    await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
-                }
-            }
+            foreach (var attachment in post.Attachments)
+                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
         }
 
         if (tags is not null)
@@ -334,31 +327,17 @@ public partial class PostService(
                 throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
         }
 
-        var oldVisibility = post.Visibility;
         db.Update(post);
         await db.SaveChangesAsync();
 
-        if (post.Visibility == Shared.Models.PostVisibility.Public && oldVisibility != Shared.Models.PostVisibility.Public)
-        {
-            foreach (var attachment in post.Attachments)
-            {
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
-            }
-        }
-        else if (oldVisibility == Shared.Models.PostVisibility.Public && post.Visibility != Shared.Models.PostVisibility.Public)
-        {
-            foreach (var attachment in post.Attachments)
-            {
-                await files.UnsetFilePublicAsync(new UnsetFilePublicRequest { FileId = attachment.Id });
-            }
-        }
+        foreach (var attachment in post.Attachments)
+            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
 
         // Process link preview in the background to avoid delaying post update
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
         // Send ActivityPub Update activity in background for public posts
         if (post.Visibility == Shared.Models.PostVisibility.Public)
-        {
             _ = Task.Run(async () =>
             {
                 try
@@ -372,7 +351,6 @@ public partial class PostService(
                     logger.LogError($"Error when sending ActivityPub Update activity: {err.Message}");
                 }
             });
-        }
 
         return post;
     }
