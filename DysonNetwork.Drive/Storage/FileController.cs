@@ -74,39 +74,33 @@ public class FileController(
             : null;
     }
 
-    private async Task<bool> CheckFilePermissionAsync(SnCloudFile file, Account? currentUser,
-        SnFilePermissionLevel requiredLevel)
+    private async Task<bool> CheckFilePermissionAsync(
+        SnCloudFile file,
+        Account? currentUser,
+        SnFilePermissionLevel requiredLevel
+    )
     {
         if (currentUser?.IsSuperuser == true)
             return true;
 
-        var permission = await db.FilePermissions
-            .FirstOrDefaultAsync(p => p.FileId == file.Id);
+        Guid? accountId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
+        if (file.AccountId == accountId)
+            return true;
 
-        if (permission is null)
-        {
-            var isOwner = currentUser is not null && file.AccountId == Guid.Parse(currentUser.Id);
-            if (isOwner)
-                return true;
-            return false;
-        }
+        var permissions = await db.FilePermissions
+            .Where(p => p.FileId == file.Id)
+            .ToListAsync();
 
-        if (permission.SubjectType == SnFilePermissionType.Anyone)
+        foreach (var perm in permissions)
         {
-            var hasAccess = requiredLevel == SnFilePermissionLevel.Read
-                            || (requiredLevel == SnFilePermissionLevel.Write &&
-                                permission.Permission == SnFilePermissionLevel.Write);
-            return hasAccess;
-        }
-
-        if (permission.SubjectType == SnFilePermissionType.Someone && currentUser is not null)
-        {
-            if (permission.SubjectId == currentUser.Id)
+            switch (perm.SubjectType)
             {
-                var hasAccess = requiredLevel == SnFilePermissionLevel.Read
-                                || (requiredLevel == SnFilePermissionLevel.Write &&
-                                    permission.Permission == SnFilePermissionLevel.Write);
-                return hasAccess;
+                case SnFilePermissionType.Anyone:
+                case SnFilePermissionType.Someone when currentUser != null && perm.SubjectId == currentUser.Id:
+                    if (requiredLevel == SnFilePermissionLevel.Read ||
+                        (requiredLevel == SnFilePermissionLevel.Write && perm.Permission == SnFilePermissionLevel.Write))
+                        return true;
+                    break;
             }
         }
 
@@ -121,13 +115,24 @@ public class FileController(
         if (currentUser is not null && file.AccountId == Guid.Parse(currentUser.Id))
             return true;
 
-        var permission = await db.FilePermissions
-            .FirstOrDefaultAsync(p => p.FileId == file.Id);
+        var permissions = await db.FilePermissions
+            .Where(p => p.FileId == file.Id)
+            .ToListAsync();
 
-        if (permission is null)
-            return false;
+        foreach (var perm in permissions)
+        {
+            if (perm.Permission != SnFilePermissionLevel.Write) continue;
 
-        return permission.Permission == SnFilePermissionLevel.Write;
+            switch (perm.SubjectType)
+            {
+                case SnFilePermissionType.Anyone:
+                    return true;
+                case SnFilePermissionType.Someone when currentUser != null && perm.SubjectId == currentUser.Id:
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private Task<ActionResult> ServeLocalFile(SnCloudFile file)
@@ -136,7 +141,8 @@ public class FileController(
         var hasWritePermission = Task.Run(() => HasWritePermissionAsync(file, currentUser)).GetAwaiter().GetResult();
         var accessToken = GenerateLocalSignedToken(file.Id, currentUser?.Id, hasWritePermission);
 
-        var accessUrl = $"/api/files/{file.Id}/access?token={accessToken}";
+        var gatewayUrl = configuration["GatewayUrl"];
+        var accessUrl = $"{gatewayUrl}/drive/files/{file.Id}/access?token={accessToken}";
         return Task.FromResult<ActionResult>(Redirect(accessUrl));
     }
 
