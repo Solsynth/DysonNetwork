@@ -32,8 +32,6 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [MaxLength(32)] public string? ObjectId { get; set; }
     public SnFileObject? Object { get; set; }
 
-    public FilePool? Pool { get; set; }
-    public Guid? PoolId { get; set; }
     [JsonIgnore] public SnFileBundle? Bundle { get; set; }
     public Guid? BundleId { get; set; }
     [JsonIgnore] public List<SnCloudFileIndex> FileIndexes { get; set; } = [];

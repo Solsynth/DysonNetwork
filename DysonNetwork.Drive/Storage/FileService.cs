@@ -38,7 +38,6 @@ public class FileService(
 
         var file = await db.Files
             .Where(f => f.Id == fileId)
-            .Include(f => f.Pool)
             .Include(f => f.Bundle)
             .Include(f => f.Object)
             .ThenInclude(o => o.FileReplicas)
@@ -70,7 +69,7 @@ public class FileService(
         {
             var dbFiles = await db.Files
                 .Where(f => uncachedIds.Contains(f.Id))
-                .Include(f => f.Pool)
+                .Include(f => f.Bundle)
                 .Include(f => f.Object)
                 .ThenInclude(o => o.FileReplicas)
                 .ToListAsync();
@@ -124,7 +123,7 @@ public class FileService(
 
         fileObject.Hash = await HashFileAsync(processingPath);
 
-        await SaveFileToDatabaseAsync(file, fileObject);
+        await SaveFileToDatabaseAsync(file, fileObject, pool.Id);
 
         await PublishFileUploadedEventAsync(file, pool, processingPath, isTempFile);
 
@@ -245,13 +244,13 @@ public class FileService(
         return Task.FromResult((encryptedPath, true));
     }
 
-    private async Task SaveFileToDatabaseAsync(SnCloudFile file, SnFileObject fileObject)
+    private async Task SaveFileToDatabaseAsync(SnCloudFile file, SnFileObject fileObject, Guid poolId)
     {
         var replica = new SnFileReplica
         {
             Id = Guid.NewGuid(),
             ObjectId = file.Id,
-            PoolId = file.PoolId,
+            PoolId = poolId,
             StorageId = file.StorageId ?? file.Id,
             Status = SnFileReplicaStatus.Available,
             IsPrimary = true
@@ -540,7 +539,30 @@ public class FileService(
 
     public async Task DeleteFileDataAsync(SnCloudFile file, bool force = false)
     {
-        if (!file.PoolId.HasValue || file.ObjectId == null) return;
+        if (file.ObjectId == null) return;
+
+        var replicas = await db.FileReplicas
+            .Where(r => r.ObjectId == file.ObjectId)
+            .ToListAsync();
+
+        if (replicas.Count == 0)
+        {
+            logger.LogWarning("No replicas found for file object {ObjectId}", file.ObjectId);
+            return;
+        }
+
+        var primaryReplica = replicas.FirstOrDefault(r => r.IsPrimary);
+        if (primaryReplica == null)
+        {
+            logger.LogWarning("No primary replica found for file object {ObjectId}", file.ObjectId);
+            return;
+        }
+
+        if (primaryReplica.PoolId == null)
+        {
+            logger.LogWarning("Primary replica has no pool ID for file object {ObjectId}", file.ObjectId);
+            return;
+        }
 
         if (!force)
         {
@@ -553,23 +575,12 @@ public class FileService(
                 return;
         }
 
-        var replicas = await db.FileReplicas
-            .Where(r => r.ObjectId == file.ObjectId)
-            .ToListAsync();
-
-        if (replicas.Count == 0)
-        {
-            logger.LogWarning("No replicas found for file object {ObjectId}", file.ObjectId);
-            return;
-        }
-
-        var primaryReplica = replicas.First(r => r.IsPrimary);
-        var dest = await GetRemoteStorageConfig(file.PoolId.Value);
-        if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
+        var dest = await GetRemoteStorageConfig(primaryReplica.PoolId.Value);
+        if (dest is null) throw new InvalidOperationException($"No remote storage configured for pool {primaryReplica.PoolId}");
         var client = CreateMinioClient(dest);
         if (client is null)
             throw new InvalidOperationException(
-                $"Failed to configure client for remote destination '{file.PoolId}'"
+                $"Failed to configure client for remote destination '{primaryReplica.PoolId}'"
             );
 
         var bucket = dest.Bucket;
@@ -615,7 +626,7 @@ public class FileService(
 
     public async Task DeleteFileDataBatchAsync(List<SnCloudFile> files)
     {
-        files = files.Where(f => f.PoolId.HasValue && f.ObjectId != null).ToList();
+        files = files.Where(f => f.ObjectId != null).ToList();
 
         var objectIds = files.Select(f => f.ObjectId).Distinct().ToList();
         var replicas = await db.FileReplicas
@@ -759,8 +770,14 @@ public class FileService(
 
     public async Task<int> DeletePoolRecycledFilesAsync(Guid poolId)
     {
+        var fileIdsWithReplicas = await db.FileReplicas
+            .Where(r => r.PoolId == poolId)
+            .Select(r => r.ObjectId)
+            .Distinct()
+            .ToListAsync();
+
         var files = await db.Files
-            .Where(f => f.PoolId == poolId && f.IsMarkedRecycle)
+            .Where(f => fileIdsWithReplicas.Contains(f.Id) && f.IsMarkedRecycle)
             .ToListAsync();
         var count = files.Count;
         var fileIds = files.Select(f => f.Id).ToList();

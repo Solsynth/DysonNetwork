@@ -23,10 +23,9 @@ public class FileReanalysisService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var deadline = now.Minus(Duration.FromMinutes(30));
         return await db.Files
-            .Where(f => f.ObjectId != null && f.PoolId != null)
+            .Where(f => f.ObjectId != null)
             .Include(f => f.Object)
             .ThenInclude(f => f.FileReplicas)
-            .Include(f => f.Pool)
             .Where(f => f.Object != null && (f.Object.Meta == null || f.Object.Meta.Count == 0))
             .Where(f => f.Object!.FileReplicas.Count > 0)
             .Where(f => f.CreatedAt <= deadline)
@@ -39,9 +38,9 @@ public class FileReanalysisService(
     {
         logger.LogInformation("Starting reanalysis for file {FileId}: {FileName}", file.Id, file.Name);
 
-        if (file.Object == null || file.Pool == null)
+        if (file.Object == null)
         {
-            logger.LogWarning("File {FileId} missing object or pool, skipping reanalysis", file.Id);
+            logger.LogWarning("File {FileId} missing object, skipping reanalysis", file.Id);
             return true; // not a failure
         }
 
@@ -147,16 +146,22 @@ public class FileReanalysisService(
 
     private async Task DownloadFileAsync(SnCloudFile file, SnFileReplica replica, string tempPath)
     {
-        var dest = file.Pool!.StorageConfig;
-        if (dest == null)
+        if (replica.PoolId == null)
         {
-            throw new InvalidOperationException($"No remote storage configured for pool {file.PoolId}");
+            throw new InvalidOperationException($"Replica for file {file.Id} has no pool ID");
         }
+
+        var pool = await db.Pools.FindAsync(replica.PoolId.Value);
+        if (pool == null)
+        {
+            throw new InvalidOperationException($"No remote storage configured for pool {replica.PoolId}");
+        }
+        var dest = pool.StorageConfig;
 
         var client = CreateMinioClient(dest);
         if (client == null)
         {
-            throw new InvalidOperationException($"Failed to create Minio client for pool {file.PoolId}");
+            throw new InvalidOperationException($"Failed to create Minio client for pool {replica.PoolId}");
         }
 
         await using var fileStream = File.Create(tempPath);

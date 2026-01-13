@@ -230,7 +230,7 @@ public class FileIndexController(
                               : filesQuery.OrderBy(f => f.CreatedAt)
             };
 
-            if (pool.HasValue) filesQuery = filesQuery.Where(f => f.PoolId == pool);
+            if (pool.HasValue) filesQuery = filesQuery.Where(f => f.Object!.FileReplicas.Any(r => r.PoolId == pool.Value));
 
             if (!string.IsNullOrWhiteSpace(query))
             {

@@ -314,9 +314,20 @@ public class BroadcastEventHandler(
             logger.LogInformation("Uploaded file {FileId} done!", fileId);
 
             var now = SystemClock.Instance.GetCurrentInstant();
+
+            var newReplica = new SnFileReplica
+            {
+                Id = Guid.NewGuid(),
+                ObjectId = fileId,
+                PoolId = destPool,
+                StorageId = storageId,
+                Status = SnFileReplicaStatus.Available,
+                IsPrimary = false
+            };
+            scopedDb.FileReplicas.Add(newReplica);
+
             await scopedDb.Files.Where(f => f.Id == fileId).ExecuteUpdateAsync(setter => setter
                 .SetProperty(f => f.UploadedAt, now)
-                .SetProperty(f => f.PoolId, destPool)
             );
 
             await scopedDb.FileObjects.Where(fo => fo.Id == fileId).ExecuteUpdateAsync(setter => setter

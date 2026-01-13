@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using DysonNetwork.Shared.Models;
 using Quartz;
 
 namespace DysonNetwork.Drive.Storage;
@@ -40,8 +41,10 @@ public class CloudFileUnusedRecyclingJob(
         var markedCount = 0;
         var totalFiles = await db.Files
             .Where(f => f.FileIndexes.Count == 0)
-            .Where(f => f.PoolId.HasValue && recyclablePools.Contains(f.PoolId.Value))
+            .Where(f => f.Object!.FileReplicas.Any(r => r.PoolId.HasValue && recyclablePools.Contains(r.PoolId.Value)))
             .Where(f => !f.IsMarkedRecycle)
+            .Include(f => f.Object)
+            .ThenInclude(o => o.FileReplicas)
             .CountAsync();
 
         logger.LogInformation("Found {TotalFiles} files to check for unused status", totalFiles);
@@ -56,17 +59,18 @@ public class CloudFileUnusedRecyclingJob(
 
         while (hasMoreFiles)
         {
-            // Query for the next batch of files using keyset pagination
-            var filesQuery = db.Files
-                .Where(f => f.PoolId.HasValue && recyclablePools.Contains(f.PoolId.Value))
+            IQueryable<SnCloudFile> baseQuery = db.Files
+                .Where(f => f.Object!.FileReplicas.Any(r => r.PoolId.HasValue && recyclablePools.Contains(r.PoolId.Value)))
                 .Where(f => !f.IsMarkedRecycle)
-                .Where(f => f.CreatedAt <= ageThreshold); // Only process older files first
+                .Where(f => f.CreatedAt <= ageThreshold)
+                .Include(f => f.Object)
+                .ThenInclude(o => o.FileReplicas);
 
             if (lastProcessedId != null)
-                filesQuery = filesQuery.Where(f => string.Compare(f.Id, lastProcessedId) > 0);
+                baseQuery = baseQuery.Where(f => string.Compare(f.Id, lastProcessedId) > 0);
 
-            var fileBatch = await filesQuery
-                .OrderBy(f => f.Id) // Ensure consistent ordering for pagination
+            var fileBatch = await baseQuery
+                .OrderBy(f => f.Id)
                 .Take(batchSize)
                 .Select(f => f.Id)
                 .ToListAsync();
@@ -80,12 +84,11 @@ public class CloudFileUnusedRecyclingJob(
             processedCount += fileBatch.Count;
             lastProcessedId = fileBatch.Last();
 
-            // Optimized query: Find files that have no other cloud files sharing the same object
-            // A file is considered "unused" if no other SnCloudFile shares its ObjectId
+            // Optimized query: Find files that have no file object or no replicas
+            // A file is considered "unused" if its file object has no replicas
             var filesToMark = await db.Files
                 .Where(f => fileBatch.Contains(f.Id))
-                .Where(f => f.ObjectId == null || // No file object at all
-                           !db.Files.Any(cf => cf.ObjectId == f.ObjectId && cf.Id != f.Id)) // Or no other files share this object
+                .Where(f => f.Object == null || f.Object.FileReplicas.Count == 0)
                 .Select(f => f.Id)
                 .ToListAsync();
 

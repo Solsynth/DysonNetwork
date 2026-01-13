@@ -253,11 +253,12 @@ public class FileController(
         string? overrideMimeType
     )
     {
-        if (!file.PoolId.HasValue)
+        var primaryReplica = file.Object?.FileReplicas.FirstOrDefault(r => r.IsPrimary);
+        if (primaryReplica == null || primaryReplica.PoolId == null)
             return StatusCode(StatusCodes.Status500InternalServerError,
                 "File is in an inconsistent state: uploaded but no pool ID.");
 
-        var pool = await fs.GetPoolAsync(file.PoolId.Value);
+        var pool = await fs.GetPoolAsync(primaryReplica.PoolId.Value);
         if (pool is null)
             return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
 
@@ -461,11 +462,10 @@ public class FileController(
         var filesQuery = db.Files
             .Where(e => e.IsMarkedRecycle == recycled)
             .Where(e => e.AccountId == accountId)
-            .Include(e => e.Pool)
             .Include(e => e.Object)
             .AsQueryable();
 
-        if (pool.HasValue) filesQuery = filesQuery.Where(e => e.PoolId == pool);
+        if (pool.HasValue) filesQuery = filesQuery.Where(e => e.Object!.FileReplicas.Any(r => r.PoolId == pool.Value));
 
         if (!string.IsNullOrWhiteSpace(query))
         {
