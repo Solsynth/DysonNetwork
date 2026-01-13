@@ -28,10 +28,10 @@ public class FileReanalysisService(
             .Where(f => f.ObjectId != null)
             .Include(f => f.Object)
             .ThenInclude(f => f.FileReplicas)
-            .Where(f => f.Object != null && (f.Object.Meta == null || f.Object.Meta.Count == 0 || f.Object.Size == 0 ||
-                                             f.Object.Hash == null))
+            .Where(f => f.Object!.Meta == null || f.Object.Meta.Count == 0 || f.Object.Size == 0 || f.Object.Hash == null)
             .Where(f => f.Object!.FileReplicas.Count > 0)
             .Where(f => f.CreatedAt <= deadline)
+            .OrderBy(f => f.Object!.UpdatedAt)
             .Skip(_failedFileIds.Count)
             .Take(limit)
             .ToListAsync();
