@@ -31,43 +31,45 @@ public class UsageService(AppDatabase db)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         
-        var poolUsages = await db.Pools
-            .Select(p => new UsageDetails
-            {
-                PoolId = p.Id,
-                PoolName = p.Name,
-                UsageBytes = db.Files
-                    .Where(f => f.AccountId == accountId)
+        var replicaData = await db.FileReplicas
+            .Where(r => r.Status == SnFileReplicaStatus.Available)
+            .Where(r => r.PoolId.HasValue)
+            .Join(
+                db.Files.Where(f => f.AccountId == accountId)
                     .Where(f => !f.IsMarkedRecycle)
-                    .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
-                    .SelectMany(f => f.Object!.FileReplicas
-                        .Where(r => r.PoolId == p.Id && r.Status == SnFileReplicaStatus.Available))
-                    .Join(db.FileObjects,
-                        r => r.ObjectId,
-                        o => o.Id,
-                        (r, o) => o.Size)
-                    .DefaultIfEmpty(0L)
-                    .Sum(),
-                Cost = db.Files
-                    .Where(f => f.AccountId == accountId)
-                    .Where(f => !f.IsMarkedRecycle)
-                    .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
-                    .SelectMany(f => f.Object!.FileReplicas
-                        .Where(r => r.PoolId == p.Id && r.Status == SnFileReplicaStatus.Available))
-                    .Join(db.FileObjects,
-                        r => r.ObjectId,
-                        o => o.Id,
-                        (r, o) => new { Size = o.Size, Multiplier = p.BillingConfig.CostMultiplier ?? 1.0 })
-                    .Sum(x => x.Size * x.Multiplier) / 1024.0 / 1024.0,
-                FileCount = db.Files
-                    .Where(f => f.AccountId == accountId)
-                    .Where(f => !f.IsMarkedRecycle)
-                    .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
-                    .SelectMany(f => f.Object!.FileReplicas
-                        .Where(r => r.PoolId == p.Id && r.Status == SnFileReplicaStatus.Available))
-                    .Count()
-            })
+                    .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now),
+                r => r.ObjectId,
+                f => f.Id,
+                (r, f) => new { r.PoolId, r.ObjectId }
+            )
+            .Join(
+                db.FileObjects,
+                x => x.ObjectId,
+                o => o.Id,
+                (x, o) => new { x.PoolId, o.Size }
+            )
             .ToListAsync();
+
+        var poolUsages = replicaData
+            .GroupBy(r => r.PoolId!.Value)
+            .Select(g =>
+            {
+                var poolId = g.Key;
+                var pool = db.Pools.Local.FirstOrDefault(p => p.Id == poolId) 
+                           ?? db.Pools.Find(poolId);
+                var multiplier = pool?.BillingConfig.CostMultiplier ?? 1.0;
+                var totalBytes = g.Sum(x => x.Size);
+                
+                return new UsageDetails
+                {
+                    PoolId = poolId,
+                    PoolName = pool?.Name ?? "Unknown",
+                    UsageBytes = totalBytes,
+                    Cost = totalBytes * multiplier / 1024.0 / 1024.0,
+                    FileCount = g.Count()
+                };
+            })
+            .ToList();
 
         var totalUsage = poolUsages.Sum(p => p.UsageBytes);
         var totalFileCount = poolUsages.Sum(p => p.FileCount);
@@ -90,22 +92,27 @@ public class UsageService(AppDatabase db)
         }
         
         var now = SystemClock.Instance.GetCurrentInstant();
-        var replicaQuery = db.Files
-            .Where(f => f.AccountId == accountId)
-            .Where(f => !f.IsMarkedRecycle)
-            .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now)
-            .SelectMany(f => f.Object!.FileReplicas
-                .Where(r => r.PoolId == poolId && r.Status == SnFileReplicaStatus.Available));
-
-        var usageBytes = await replicaQuery
-            .Join(db.FileObjects,
+        
+        var replicaData = await db.FileReplicas
+            .Where(r => r.PoolId == poolId)
+            .Where(r => r.Status == SnFileReplicaStatus.Available)
+            .Join(
+                db.Files.Where(f => f.AccountId == accountId)
+                    .Where(f => !f.IsMarkedRecycle)
+                    .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now),
                 r => r.ObjectId,
-                o => o.Id,
-                (r, o) => o.Size)
-            .DefaultIfEmpty(0L)
-            .SumAsync();
+                f => f.Id,
+                (r, f) => r.ObjectId
+            )
+            .Distinct()
+            .ToListAsync();
 
-        var fileCount = await replicaQuery.CountAsync();
+        var fileCount = replicaData.Count;
+        
+        var objectIds = replicaData.Distinct().ToList();
+        var usageBytes = await db.FileObjects
+            .Where(o => objectIds.Contains(o.Id))
+            .SumAsync(o => o.Size);
 
         var cost = usageBytes / 1024.0 / 1024.0 *
                    (pool.BillingConfig.CostMultiplier ?? 1.0);
