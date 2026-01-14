@@ -47,66 +47,26 @@ public class FileReanalysisService(
 
     private async Task<List<SnCloudFile>> GetFilesNeedingCompressionValidationAsync(int limit = 1000)
     {
-        var files = await db.Files
+        return await db.Files
             .Where(f => f.ObjectId != null)
-            .Select(f => new SnCloudFile
-            {
-                Id = f.Id,
-                ObjectId = f.ObjectId,
-                Object = new SnFileObject
-                {
-                    Id = f.Object.Id,
-                    HasCompression = f.Object.HasCompression,
-                    FileReplicas = f.Object.FileReplicas.Where(r => r.IsPrimary).ToList()
-                }
-            })
-            .Where(f => f.Object != null && f.Object.HasCompression)
-            .Where(f => f.Object!.FileReplicas.Count > 0)
-            .OrderBy(f => f.Object!.Id)
+            .Include(f => f.Object)
+            .ThenInclude(o => o!.FileReplicas)
+            .Where(f => f.Object!.HasCompression)
+            .Where(f => f.Object!.FileReplicas.Any(r => r.IsPrimary))
             .Take(limit)
             .ToListAsync();
-
-        // Load objects for tracking updates
-        var objectIds = files.Select(f => f.ObjectId).ToList();
-        var objects = await db.FileObjects.Where(o => objectIds.Contains(o.Id)).ToDictionaryAsync(o => o.Id);
-        foreach (var file in files)
-        {
-            file.Object = objects[file.ObjectId!];
-        }
-
-        return files;
     }
 
     private async Task<List<SnCloudFile>> GetFilesNeedingThumbnailValidationAsync(int limit = 1000)
     {
-        var files = await db.Files
+        return await db.Files
             .Where(f => f.ObjectId != null)
-            .Select(f => new SnCloudFile
-            {
-                Id = f.Id,
-                ObjectId = f.ObjectId,
-                Object = new SnFileObject
-                {
-                    Id = f.Object.Id,
-                    HasThumbnail = f.Object.HasThumbnail,
-                    FileReplicas = f.Object.FileReplicas.Where(r => r.IsPrimary).ToList()
-                }
-            })
-            .Where(f => f.Object != null && f.Object.HasThumbnail)
-            .Where(f => f.Object!.FileReplicas.Count > 0)
-            .OrderBy(f => f.Object!.Id)
+            .Include(f => f.Object)
+            .ThenInclude(o => o!.FileReplicas)
+            .Where(f => f.Object!.HasThumbnail)
+            .Where(f => f.Object!.FileReplicas.Any(r => r.IsPrimary))
             .Take(limit)
             .ToListAsync();
-
-        // Load objects for tracking updates
-        var objectIds = files.Select(f => f.ObjectId).ToList();
-        var objects = await db.FileObjects.Where(o => objectIds.Contains(o.Id)).ToDictionaryAsync(o => o.Id);
-        foreach (var file in files)
-        {
-            file.Object = objects[file.ObjectId!];
-        }
-
-        return files;
     }
 
     private async Task<bool> ReanalyzeFileAsync(SnCloudFile file)
