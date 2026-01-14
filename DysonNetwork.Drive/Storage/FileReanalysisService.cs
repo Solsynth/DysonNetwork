@@ -210,7 +210,7 @@ public class FileReanalysisService(
                     if (!_bucketObjectCache.TryGetValue(dest.Bucket, out var objectNames))
                     {
                         var listArgs = new ListObjectsArgs().WithBucket(dest.Bucket);
-                        objectNames = new HashSet<string>();
+                        objectNames = [];
                         await foreach (var item in client.ListObjectsEnumAsync(listArgs))
                         {
                             if (item.Key.EndsWith(".compressed") || item.Key.EndsWith(".thumbnail"))
@@ -252,10 +252,9 @@ public class FileReanalysisService(
                             }
                         }
 
-                        if (updated)
-                        {
-                            logger.LogInformation("Updated compression/thumbnail status for file {FileId}", file.Id);
-                        }
+                        if (!updated) continue;
+                        logger.LogInformation("Updated compression/thumbnail status for file {FileId}", file.Id);
+                        db.Update(file.Object);
                     }
 
                     // Save changes for the group
