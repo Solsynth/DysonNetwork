@@ -1,6 +1,6 @@
 namespace DysonNetwork.Drive.Storage;
 
-public class FileReanalysisBackgroundService(FileReanalysisService reanalysisService, ILogger<FileReanalysisBackgroundService> logger) : BackgroundService
+public class FileReanalysisBackgroundService(FileReanalysisService reanalysisService, ILogger<FileReanalysisBackgroundService> logger, IConfiguration config) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -17,8 +17,9 @@ public class FileReanalysisBackgroundService(FileReanalysisService reanalysisSer
                 logger.LogError(ex, "Error during file reanalysis");
             }
 
-            // Wait 10 seconds before processing next file
-            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+            // Wait configured milliseconds before processing next file
+            var delayMs = config.GetValue("FileReanalysis:DelayMs", 10000);
+            await Task.Delay(TimeSpan.FromMilliseconds(delayMs), stoppingToken);
         }
 
         logger.LogInformation("File reanalysis background service stopped");
