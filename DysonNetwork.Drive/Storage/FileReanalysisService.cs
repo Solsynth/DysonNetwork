@@ -24,7 +24,8 @@ public class FileReanalysisService(
     private int _totalProcessed = 0;
     private int _reanalysisSuccess = 0;
     private int _reanalysisFailure = 0;
-    private int _validationProcessed = 0;
+    private int _validationCompressionProcessed = 0;
+    private int _validationThumbnailProcessed = 0;
 
     private async Task<List<SnCloudFile>> GetFilesNeedingReanalysisAsync(int limit = 1000)
     {
@@ -45,7 +46,7 @@ public class FileReanalysisService(
             .ToListAsync();
     }
 
-    private async Task<List<SnCloudFile>> GetFilesNeedingCompressionValidationAsync(int limit = 1000)
+    private async Task<List<SnCloudFile>> GetFilesNeedingCompressionValidationAsync(int offset, int limit = 1000)
     {
         return await db.Files
             .Where(f => f.ObjectId != null)
@@ -54,10 +55,11 @@ public class FileReanalysisService(
             .Where(f => f.Object!.HasCompression)
             .Where(f => f.Object!.FileReplicas.Any(r => r.IsPrimary))
             .Take(limit)
+            .Skip(offset)
             .ToListAsync();
     }
 
-    private async Task<List<SnCloudFile>> GetFilesNeedingThumbnailValidationAsync(int limit = 1000)
+    private async Task<List<SnCloudFile>> GetFilesNeedingThumbnailValidationAsync(int offset, int limit = 1000)
     {
         return await db.Files
             .Where(f => f.ObjectId != null)
@@ -66,6 +68,7 @@ public class FileReanalysisService(
             .Where(f => f.Object!.HasThumbnail)
             .Where(f => f.Object!.FileReplicas.Any(r => r.IsPrimary))
             .Take(limit)
+            .Skip(offset)
             .ToListAsync();
     }
 
@@ -200,15 +203,12 @@ public class FileReanalysisService(
                 continue;
             }
 
-            var updatedFiles = new List<SnCloudFile>();
-
             foreach (var file in poolFiles)
             {
                 if (file.Object == null) continue;
                 var primaryReplica = file.Object.FileReplicas.FirstOrDefault(r => r.IsPrimary);
                 if (primaryReplica == null) continue;
 
-                var fileUpdated = false;
                 var baseStorageId = primaryReplica.StorageId;
 
                 if (validateCompression && file.Object.HasCompression)
@@ -225,8 +225,9 @@ public class FileReanalysisService(
                         logger.LogInformation(
                             "File {FileId} has compression flag but compressed version not found, setting HasCompression to false",
                             file.Id);
-                        file.Object.HasCompression = false;
-                        fileUpdated = true;
+                        await db.FileObjects
+                            .Where(f => f.Id == file.ObjectId!)
+                            .ExecuteUpdateAsync(p => p.SetProperty(c => c.HasCompression, false));
                     }
                     catch (Exception ex)
                     {
@@ -248,31 +249,15 @@ public class FileReanalysisService(
                         logger.LogInformation(
                             "File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false",
                             file.Id);
-                        file.Object.HasThumbnail = false;
-                        fileUpdated = true;
+                        await db.FileObjects
+                            .Where(f => f.Id == file.ObjectId!)
+                            .ExecuteUpdateAsync(p => p.SetProperty(c => c.HasThumbnail, false));
                     }
                     catch (Exception ex)
                     {
                         logger.LogWarning(ex, "Failed to stat thumbnail for file {FileId}", file.Id);
                     }
                 }
-
-                if (fileUpdated)
-                {
-                    updatedFiles.Add(file);
-                }
-            }
-
-            if (updatedFiles.Count > 0)
-            {
-                foreach (var file in updatedFiles)
-                {
-                    db.Update(file.Object);
-                }
-
-                await db.SaveChangesAsync();
-                logger.LogInformation("Updated compression/thumbnail status for {Count} files in pool {PoolId}",
-                    updatedFiles.Count, poolId);
             }
         }
     }
@@ -318,28 +303,28 @@ public class FileReanalysisService(
 
         if (_options.ValidateCompression)
         {
-            var compressionFiles = await GetFilesNeedingCompressionValidationAsync();
+            var compressionFiles = await GetFilesNeedingCompressionValidationAsync(_validationCompressionProcessed);
             if (compressionFiles.Count > 0)
             {
                 await ValidateBatchCompressionAndThumbnailAsync(compressionFiles, true, false);
-                _validationProcessed += compressionFiles.Count;
+                _validationCompressionProcessed += compressionFiles.Count;
                 _totalProcessed += compressionFiles.Count;
                 logger.LogInformation("Batch compression validation progress: {ValidationProcessed} processed",
-                    _validationProcessed);
+                    _validationCompressionProcessed);
                 return;
             }
         }
 
         if (_options.ValidateThumbnails)
         {
-            var thumbnailFiles = await GetFilesNeedingThumbnailValidationAsync();
+            var thumbnailFiles = await GetFilesNeedingThumbnailValidationAsync(_validationThumbnailProcessed);
             if (thumbnailFiles.Count > 0)
             {
                 await ValidateBatchCompressionAndThumbnailAsync(thumbnailFiles, false, true);
-                _validationProcessed += thumbnailFiles.Count;
+                _validationThumbnailProcessed += thumbnailFiles.Count;
                 _totalProcessed += thumbnailFiles.Count;
                 logger.LogInformation("Batch thumbnail validation progress: {ValidationProcessed} processed",
-                    _validationProcessed);
+                    _validationThumbnailProcessed);
                 return;
             }
         }
