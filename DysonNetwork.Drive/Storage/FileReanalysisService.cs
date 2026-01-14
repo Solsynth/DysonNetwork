@@ -171,7 +171,6 @@ public class FileReanalysisService(
         bool validateThumbnail
     )
     {
-        // Collect unique pool IDs and fetch all pools in one query
         var poolIds = files.Select(f => f.Object!.FileReplicas.First(r => r.IsPrimary).PoolId)
             .Where(pid => pid.HasValue)
             .Select(pid => pid!.Value)
@@ -181,93 +180,101 @@ public class FileReanalysisService(
 
         var groupedByPool = files.GroupBy(f => f.Object!.FileReplicas.First(r => r.IsPrimary).PoolId);
 
-        var tasks = new List<Task>();
         foreach (var group in groupedByPool)
         {
             if (!group.Key.HasValue) continue;
             var poolId = group.Key.Value;
             var poolFiles = group.ToList();
-            tasks.Add(Task.Run(async () =>
+
+            if (!pools.TryGetValue(poolId, out var pool))
             {
-                try
+                logger.LogWarning("No pool found for pool {PoolId}, skipping batch validation", poolId);
+                continue;
+            }
+
+            var dest = pool.StorageConfig;
+            var client = CreateMinioClient(dest);
+            if (client == null)
+            {
+                logger.LogWarning("Failed to create Minio client for pool {PoolId}, skipping batch validation", poolId);
+                continue;
+            }
+
+            var updatedFiles = new List<SnCloudFile>();
+
+            foreach (var file in poolFiles)
+            {
+                if (file.Object == null) continue;
+                var primaryReplica = file.Object.FileReplicas.FirstOrDefault(r => r.IsPrimary);
+                if (primaryReplica == null) continue;
+
+                var fileUpdated = false;
+                var baseStorageId = primaryReplica.StorageId;
+
+                if (validateCompression && file.Object.HasCompression)
                 {
-                    if (!pools.TryGetValue(poolId, out var pool))
+                    try
                     {
-                        logger.LogWarning("No pool found for pool {PoolId}, skipping batch validation", poolId);
-                        return;
+                        var statArgs = new StatObjectArgs()
+                            .WithBucket(dest.Bucket)
+                            .WithObject(baseStorageId + ".compressed");
+                        await client.StatObjectAsync(statArgs);
                     }
-
-                    var dest = pool.StorageConfig;
-                    var client = CreateMinioClient(dest);
-                    if (client == null)
+                    catch (ObjectNotFoundException)
                     {
-                        logger.LogWarning("Failed to create Minio client for pool {PoolId}, skipping batch validation",
-                            poolId);
-                        return;
+                        logger.LogInformation(
+                            "File {FileId} has compression flag but compressed version not found, setting HasCompression to false",
+                            file.Id);
+                        file.Object.HasCompression = false;
+                        fileUpdated = true;
                     }
-
-                    // Get or fetch cached list of relevant objects in the bucket
-                    if (!_bucketObjectCache.TryGetValue(dest.Bucket, out var objectNames))
+                    catch (Exception ex)
                     {
-                        var listArgs = new ListObjectsArgs().WithBucket(dest.Bucket);
-                        objectNames = [];
-                        await foreach (var item in client.ListObjectsEnumAsync(listArgs))
-                        {
-                            if (item.Key.EndsWith(".compressed") || item.Key.EndsWith(".thumbnail"))
-                                objectNames.Add(item.Key);
-                        }
-                        _bucketObjectCache[dest.Bucket] = objectNames;
+                        logger.LogWarning(ex, "Failed to stat compressed version for file {FileId}", file.Id);
                     }
-
-                    // Check existence for each file in the group
-                    foreach (var file in poolFiles)
-                    {
-                        if (file.Object == null) continue;
-                        var primaryReplica = file.Object.FileReplicas.FirstOrDefault(r => r.IsPrimary);
-                        if (primaryReplica == null) continue;
-
-                        var updated = false;
-
-                        if (validateCompression && file.Object.HasCompression)
-                        {
-                            if (!objectNames.Contains(primaryReplica.StorageId + ".compressed"))
-                            {
-                                logger.LogInformation(
-                                    "File {FileId} has compression flag but compressed version not found, setting HasCompression to false",
-                                    file.Id);
-                                file.Object.HasCompression = false;
-                                updated = true;
-                            }
-                        }
-
-                        if (validateThumbnail && file.Object.HasThumbnail)
-                        {
-                            if (!objectNames.Contains(primaryReplica.StorageId + ".thumbnail"))
-                            {
-                                logger.LogInformation(
-                                    "File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false",
-                                    file.Id);
-                                file.Object.HasThumbnail = false;
-                                updated = true;
-                            }
-                        }
-
-                        if (!updated) continue;
-                        logger.LogInformation("Updated compression/thumbnail status for file {FileId}", file.Id);
-                        db.Update(file.Object);
-                    }
-
-                    // Save changes for the group
-                    await db.SaveChangesAsync();
                 }
-                catch (Exception ex)
+
+                if (validateThumbnail && file.Object.HasThumbnail)
                 {
-                    logger.LogError(ex, "Failed to batch validate compression/thumbnail for pool {PoolId}", poolId);
+                    try
+                    {
+                        var statArgs = new StatObjectArgs()
+                            .WithBucket(dest.Bucket)
+                            .WithObject(baseStorageId + ".thumbnail");
+                        await client.StatObjectAsync(statArgs);
+                    }
+                    catch (ObjectNotFoundException)
+                    {
+                        logger.LogInformation(
+                            "File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false",
+                            file.Id);
+                        file.Object.HasThumbnail = false;
+                        fileUpdated = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to stat thumbnail for file {FileId}", file.Id);
+                    }
                 }
-            }));
+
+                if (fileUpdated)
+                {
+                    updatedFiles.Add(file);
+                }
+            }
+
+            if (updatedFiles.Count > 0)
+            {
+                foreach (var file in updatedFiles)
+                {
+                    db.Update(file.Object);
+                }
+
+                await db.SaveChangesAsync();
+                logger.LogInformation("Updated compression/thumbnail status for {Count} files in pool {PoolId}",
+                    updatedFiles.Count, poolId);
+            }
         }
-
-        await Task.WhenAll(tasks);
     }
 
     public async Task ProcessNextFileAsync()
