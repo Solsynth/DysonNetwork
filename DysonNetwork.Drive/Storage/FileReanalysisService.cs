@@ -19,6 +19,10 @@ public class FileReanalysisService(
 {
     private readonly FileReanalysisOptions _options = options.Value;
     private readonly HashSet<string> _failedFileIds = [];
+    private int _totalProcessed = 0;
+    private int _reanalysisSuccess = 0;
+    private int _reanalysisFailure = 0;
+    private int _validationProcessed = 0;
 
     private async Task<List<SnCloudFile>> GetFilesNeedingReanalysisAsync(int limit = 100)
     {
@@ -270,7 +274,15 @@ public class FileReanalysisService(
                 {
                     logger.LogWarning("Failed to reanalyze file {FileId}, skipping for now", file.Id);
                     _failedFileIds.Add(file.Id);
+                    _reanalysisFailure++;
                 }
+                else
+                {
+                    _reanalysisSuccess++;
+                }
+                _totalProcessed++;
+                var successRate = (_reanalysisSuccess + _reanalysisFailure) > 0 ? (double)_reanalysisSuccess / (_reanalysisSuccess + _reanalysisFailure) * 100 : 0;
+                logger.LogInformation("Reanalysis progress: {ReanalysisSuccess} succeeded, {ReanalysisFailure} failed ({SuccessRate:F1}%)", _reanalysisSuccess, _reanalysisFailure, successRate);
 
                 return;
             }
@@ -283,6 +295,9 @@ public class FileReanalysisService(
             {
                 var file = compressionFiles[0];
                 await ValidateCompressionAndThumbnailAsync(file);
+                _validationProcessed++;
+                _totalProcessed++;
+                logger.LogInformation("Validation progress: {ValidationProcessed} processed", _validationProcessed);
                 return;
             }
         }
@@ -294,6 +309,9 @@ public class FileReanalysisService(
             {
                 var file = thumbnailFiles[0];
                 await ValidateCompressionAndThumbnailAsync(file);
+                _validationProcessed++;
+                _totalProcessed++;
+                logger.LogInformation("Validation progress: {ValidationProcessed} processed", _validationProcessed);
                 return;
             }
         }
