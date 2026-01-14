@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using DysonNetwork.Drive.Storage.Options;
 using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -33,7 +34,8 @@ public class FileReanalysisService(
             .Include(f => f.Object)
             .ThenInclude(f => f.FileReplicas)
             .Where(f => ((f.Object!.MimeType == null || !f.Object.MimeType.StartsWith("application/")) &&
-                (f.Object!.Meta == null || f.Object.Meta.Count == 0)) || f.Object.Size == 0 || f.Object.Hash == null)
+                         (f.Object!.Meta == null || f.Object.Meta.Count == 0)) || f.Object.Size == 0 ||
+                        f.Object.Hash == null)
             .Where(f => f.Object!.FileReplicas.Count > 0)
             .Where(f => f.CreatedAt <= deadline)
             .OrderBy(f => f.Object!.UpdatedAt)
@@ -239,7 +241,8 @@ public class FileReanalysisService(
         }
     }
 
-    private async Task ValidateBatchCompressionAndThumbnailAsync(List<SnCloudFile> files, bool validateCompression, bool validateThumbnail)
+    private async Task ValidateBatchCompressionAndThumbnailAsync(List<SnCloudFile> files, bool validateCompression,
+        bool validateThumbnail)
     {
         // Collect unique pool IDs and fetch all pools in one query
         var poolIds = files.Select(f => f.Object!.FileReplicas.First(r => r.IsPrimary).PoolId)
@@ -272,7 +275,8 @@ public class FileReanalysisService(
                     var client = CreateMinioClient(dest);
                     if (client == null)
                     {
-                        logger.LogWarning("Failed to create Minio client for pool {PoolId}, skipping batch validation", poolId);
+                        logger.LogWarning("Failed to create Minio client for pool {PoolId}, skipping batch validation",
+                            poolId);
                         return;
                     }
 
@@ -295,7 +299,9 @@ public class FileReanalysisService(
                         {
                             if (!objectNames.Contains(primaryReplica.StorageId + ".compressed"))
                             {
-                                logger.LogInformation("File {FileId} has compression flag but compressed version not found, setting HasCompression to false", file.Id);
+                                logger.LogInformation(
+                                    "File {FileId} has compression flag but compressed version not found, setting HasCompression to false",
+                                    file.Id);
                                 file.Object.HasCompression = false;
                                 updated = true;
                             }
@@ -305,7 +311,9 @@ public class FileReanalysisService(
                         {
                             if (!objectNames.Contains(primaryReplica.StorageId + ".thumbnail"))
                             {
-                                logger.LogInformation("File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false", file.Id);
+                                logger.LogInformation(
+                                    "File {FileId} has thumbnail flag but thumbnail not found, setting HasThumbnail to false",
+                                    file.Id);
                                 file.Object.HasThumbnail = false;
                                 updated = true;
                             }
@@ -353,19 +361,16 @@ public class FileReanalysisService(
 
     public async Task ProcessNextFileAsync()
     {
-        var reanalysisFiles = await GetFilesNeedingReanalysisAsync(10);
-        reanalysisFiles = reanalysisFiles.Where(f => !_failedFileIds.Contains(f.Id.ToString())).ToList();
-
-        if (reanalysisFiles.Count > 0)
+        List<SnCloudFile> reanalysisFiles = [];
+        if (_options.Enabled)
         {
-            if (!_options.Enabled)
-            {
-                logger.LogDebug("File reanalysis is disabled, skipping reanalysis but continuing with validation");
-            }
-            else
+            reanalysisFiles = await GetFilesNeedingReanalysisAsync(10);
+            reanalysisFiles = reanalysisFiles.Where(f => !_failedFileIds.Contains(f.Id.ToString())).ToList();
+
+            if (reanalysisFiles.Count > 0)
             {
                 var file = reanalysisFiles[0];
-                bool success = await ReanalyzeFileAsync(file);
+                var success = await ReanalyzeFileAsync(file);
                 if (!success)
                 {
                     logger.LogWarning("Failed to reanalyze file {FileId}, skipping for now", file.Id);
@@ -376,12 +381,21 @@ public class FileReanalysisService(
                 {
                     _reanalysisSuccess++;
                 }
+
                 _totalProcessed++;
-                var successRate = (_reanalysisSuccess + _reanalysisFailure) > 0 ? (double)_reanalysisSuccess / (_reanalysisSuccess + _reanalysisFailure) * 100 : 0;
-                logger.LogInformation("Reanalysis progress: {ReanalysisSuccess} succeeded, {ReanalysisFailure} failed ({SuccessRate:F1}%)", _reanalysisSuccess, _reanalysisFailure, successRate);
+                var successRate = (_reanalysisSuccess + _reanalysisFailure) > 0
+                    ? (double)_reanalysisSuccess / (_reanalysisSuccess + _reanalysisFailure) * 100
+                    : 0;
+                logger.LogInformation(
+                    "Reanalysis progress: {ReanalysisSuccess} succeeded, {ReanalysisFailure} failed ({SuccessRate:F1}%)",
+                    _reanalysisSuccess, _reanalysisFailure, successRate);
 
                 return;
             }
+        }
+        else
+        {
+            logger.LogDebug("File reanalysis is disabled, skipping reanalysis but continuing with validation");
         }
 
         if (_options.ValidateCompression)
@@ -392,7 +406,8 @@ public class FileReanalysisService(
                 await ValidateBatchCompressionAndThumbnailAsync(compressionFiles, true, false);
                 _validationProcessed += compressionFiles.Count;
                 _totalProcessed += compressionFiles.Count;
-                logger.LogInformation("Batch compression validation progress: {ValidationProcessed} processed", _validationProcessed);
+                logger.LogInformation("Batch compression validation progress: {ValidationProcessed} processed",
+                    _validationProcessed);
                 return;
             }
         }
@@ -405,7 +420,8 @@ public class FileReanalysisService(
                 await ValidateBatchCompressionAndThumbnailAsync(thumbnailFiles, false, true);
                 _validationProcessed += thumbnailFiles.Count;
                 _totalProcessed += thumbnailFiles.Count;
-                logger.LogInformation("Batch thumbnail validation progress: {ValidationProcessed} processed", _validationProcessed);
+                logger.LogInformation("Batch thumbnail validation progress: {ValidationProcessed} processed",
+                    _validationProcessed);
                 return;
             }
         }

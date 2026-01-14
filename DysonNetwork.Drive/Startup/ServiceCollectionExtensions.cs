@@ -52,8 +52,10 @@ public static class ServiceCollectionExtensions
             return services;
         }
 
-        public IServiceCollection AddAppBusinessServices()
+        public IServiceCollection AddAppBusinessServices(IConfiguration configuration)
         {
+            services.Configure<Storage.Options.FileReanalysisOptions>(configuration.GetSection("FileReanalysis"));
+
             services.AddScoped<Storage.FileService>();
             services.AddScoped<Storage.FileReanalysisService>();
             services.AddScoped<Storage.PersistentTaskService>();

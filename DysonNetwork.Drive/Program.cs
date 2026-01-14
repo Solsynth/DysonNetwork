@@ -21,7 +21,7 @@ builder.Services.AddRingService();
 builder.Services.AddAccountService();
 
 builder.Services.AddAppFlushHandlers();
-builder.Services.AddAppBusinessServices();
+builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs();
 
 builder.AddSwaggerManifest(
