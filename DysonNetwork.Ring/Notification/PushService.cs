@@ -251,18 +251,29 @@ public class PushService
             notification.Meta
         );
 
-        // WS first
+        // Send to each account
         foreach (var account in accounts)
         {
             notification.AccountId = account;
+
+            // WebSocket
             WebSocketService.SendPacketToAccount(account, new WebSocketPacket
             {
                 Type = "notifications.new",
                 Data = notification
             });
-        }
 
-        await DeliverPushNotification(notification);
+            // Push notifications
+            var subscriptions = await _db.PushSubscriptions
+                .Where(s => s.AccountId == account)
+                .ToListAsync();
+
+            if (subscriptions.Count > 0)
+            {
+                var tasks = subscriptions.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
+                await Task.WhenAll(tasks);
+            }
+        }
     }
 
     private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription,

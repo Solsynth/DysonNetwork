@@ -147,20 +147,21 @@ public class NotificationController(
         [FromQuery] bool save = false
     )
     {
-        await nty.SendNotificationBatch(
-            new SnNotification
-            {
-                CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-                UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
-                Topic = request.Topic,
-                Title = request.Title,
-                Subtitle = request.Subtitle,
-                Content = request.Content,
-                Meta = request.Meta ?? [],
-            },
-            request.AccountId,
-            save
-        );
+        var notification = new SnNotification
+        {
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
+            Topic = request.Topic,
+            Title = request.Title,
+            Subtitle = request.Subtitle,
+            Content = request.Content,
+        };
+        if (request.Meta != null)
+        {
+            notification.Meta = request.Meta;
+        }
+
+        await nty.SendNotificationBatch(notification, request.AccountId, save);
         return Ok();
     }
 }
