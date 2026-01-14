@@ -56,8 +56,8 @@ public class FileIndexController(
             {
                 "name" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Name).ToList()
                                    : fileIndexes.OrderBy(fi => fi.File.Name).ToList(),
-                "size" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Size).ToList()
-                                   : fileIndexes.OrderBy(fi => fi.File.Size).ToList(),
+                "size" => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.Object!.Size).ToList()
+                                   : fileIndexes.OrderBy(fi => fi.File.Object!.Size).ToList(),
                 _ => orderDesc ? fileIndexes.OrderByDescending(fi => fi.File.CreatedAt).ToList()
                               : fileIndexes.OrderBy(fi => fi.File.CreatedAt).ToList()
             };
@@ -211,7 +211,7 @@ public class FileIndexController(
 
         try
         {
-            var filesQuery = db.Files
+            var baseQuery = db.Files
                 .Where(f => f.AccountId == accountId
                             && f.IsMarkedRecycle == recycled
                             && !db.FileIndexes.Any(fi => fi.FileId == f.Id && fi.AccountId == accountId)
@@ -219,23 +219,22 @@ public class FileIndexController(
                 .Include(f => f.Object)
                 .AsQueryable();
 
-            // Apply sorting
-            filesQuery = order.ToLower() switch
-            {
-                "name" => orderDesc ? filesQuery.OrderByDescending(f => f.Name)
-                                   : filesQuery.OrderBy(f => f.Name),
-                "size" => orderDesc ? filesQuery.OrderByDescending(f => f.Size)
-                                   : filesQuery.OrderBy(f => f.Size),
-                _ => orderDesc ? filesQuery.OrderByDescending(f => f.CreatedAt)
-                              : filesQuery.OrderBy(f => f.CreatedAt)
-            };
-
-            if (pool.HasValue) filesQuery = filesQuery.Where(f => f.Object!.FileReplicas.Any(r => r.PoolId == pool.Value));
+            if (pool.HasValue) baseQuery = baseQuery.Where(f => f.Object!.FileReplicas.Any(r => r.PoolId == pool.Value));
 
             if (!string.IsNullOrWhiteSpace(query))
             {
-                filesQuery = filesQuery.Where(f => f.Name.Contains(query));
+                baseQuery = baseQuery.Where(f => f.Name.Contains(query));
             }
+
+            var filesQuery = order.ToLower() switch
+            {
+                "name" => orderDesc ? baseQuery.OrderByDescending(f => f.Name)
+                                   : baseQuery.OrderBy(f => f.Name),
+                "size" => orderDesc ? baseQuery.OrderByDescending(f => f.Object.Size)
+                                   : baseQuery.OrderBy(f => f.Object.Size),
+                _ => orderDesc ? baseQuery.OrderByDescending(f => f.CreatedAt)
+                              : baseQuery.OrderBy(f => f.CreatedAt)
+            };
 
             var totalCount = await filesQuery.CountAsync();
 
