@@ -18,6 +18,7 @@ public class AppDatabase(
     public DbSet<SnCustomApp> CustomApps { get; set; } = null!;
     public DbSet<SnCustomAppSecret> CustomAppSecrets { get; set; } = null!;
     public DbSet<SnBotAccount> BotAccounts { get; set; } = null!;
+    public DbSet<SnMiniApp> MiniApps { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

@@ -28,5 +28,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="MiniApp\" />
+  </ItemGroup>
  
 </Project>

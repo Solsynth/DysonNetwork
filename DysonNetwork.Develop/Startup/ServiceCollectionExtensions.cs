@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CustomAppService>();
         services.AddScoped<DevProjectService>();
         services.AddScoped<BotAccountService>();
+        services.AddScoped<MiniApp.MiniAppService>();
 
         return services;
     }

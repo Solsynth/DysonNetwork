@@ -114,7 +114,7 @@ public class PostActionController(
             Content = request.Content,
             Visibility = request.Visibility ?? Shared.Models.PostVisibility.Public,
             PublishedAt = request.PublishedAt,
-            Type = request.Type ?? Shared.Models.PostType.Moment,
+            Type = request.Type ?? PostType.Moment,
             Metadata = request.Meta,
             EmbedView = request.EmbedView,
             Publisher = publisher,
