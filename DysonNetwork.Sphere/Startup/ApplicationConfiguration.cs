@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;

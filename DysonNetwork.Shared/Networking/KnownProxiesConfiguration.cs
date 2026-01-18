@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using IPNetwork = System.Net.IPNetwork;
 
-namespace DysonNetwork.Shared.Http;
+namespace DysonNetwork.Shared.Networking;
 
 public static class KnownProxiesConfiguration
 {

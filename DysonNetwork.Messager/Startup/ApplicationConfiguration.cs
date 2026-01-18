@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Messager.Startup;
 

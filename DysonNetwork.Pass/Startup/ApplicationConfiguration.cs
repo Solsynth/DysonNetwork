@@ -5,7 +5,7 @@ using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Wallet;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Pass.Startup;
 

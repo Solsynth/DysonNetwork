@@ -1,7 +1,7 @@
 using DysonNetwork.Zone;
 using DysonNetwork.Zone.Startup;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
 using Microsoft.EntityFrameworkCore;

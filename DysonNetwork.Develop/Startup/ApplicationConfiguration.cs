@@ -1,6 +1,6 @@
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Develop.Startup;
 

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 
-namespace DysonNetwork.Shared.Http;
+namespace DysonNetwork.Shared.Networking;
 
 public static class KestrelConfiguration
 {

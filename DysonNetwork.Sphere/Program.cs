@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.Startup;

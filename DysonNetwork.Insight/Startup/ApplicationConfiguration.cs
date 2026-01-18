@@ -1,5 +1,5 @@
 using DysonNetwork.Insight.Reader;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Insight.Startup;
 

@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using DysonNetwork.Gateway.Health;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 using Yarp.ReverseProxy.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
 using NodaTime;

@@ -1,5 +1,5 @@
 using DysonNetwork.Ring.Services;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Ring.Startup;
 

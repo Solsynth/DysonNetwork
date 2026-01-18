@@ -1,7 +1,7 @@
 using DysonNetwork.Ring;
 using DysonNetwork.Ring.Startup;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 

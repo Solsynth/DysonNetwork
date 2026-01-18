@@ -1,6 +1,6 @@
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Startup;
-using DysonNetwork.Shared.Http;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 

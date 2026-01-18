@@ -1,8 +1,8 @@
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Http;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Messager;
 using DysonNetwork.Messager.Startup;
+using DysonNetwork.Shared.Networking;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 
-namespace DysonNetwork.Shared.Http;
+namespace DysonNetwork.Shared.Networking;
 
 public static class SwaggerGen
 {
