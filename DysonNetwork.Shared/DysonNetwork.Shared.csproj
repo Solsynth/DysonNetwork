@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <PackageId>DysonNetwork.Shared</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>LittleSheep</Authors>
+        <Company>Solsynth</Company>
+        <Description>Shared project of the Solar Network server side software.</Description>
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
