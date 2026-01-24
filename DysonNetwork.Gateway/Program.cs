@@ -1,10 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using DysonNetwork.Gateway.Configuration;
 using DysonNetwork.Gateway.Health;
 using DysonNetwork.Shared.Networking;
 using Yarp.ReverseProxy.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Options;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -16,6 +18,10 @@ builder.ConfigureAppKestrel(builder.Configuration, maxRequestBodySize: long.MaxV
 
 builder.Services.AddSingleton<GatewayReadinessStore>();
 builder.Services.AddHostedService<GatewayHealthAggregator>();
+
+// Add configuration options for gateway endpoints
+builder.Services.Configure<DysonNetwork.Gateway.Configuration.GatewayEndpointsOptions>(
+    builder.Configuration.GetSection(DysonNetwork.Gateway.Configuration.GatewayEndpointsOptions.SectionName));
 
 builder.Services.AddCors(options =>
 {
@@ -169,6 +175,15 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 });
 
 var app = builder.Build();
+
+// Initialize GatewayConstant with configuration values
+var gatewayEndpointsOptions = app.Services
+    .GetRequiredService<IOptions<GatewayEndpointsOptions>>().Value;
+GatewayConstant.InitializeFromConfiguration(gatewayEndpointsOptions);
+
+// Reinitialize the readiness store with configured service names
+var readinessStore = app.Services.GetRequiredService<GatewayReadinessStore>();
+readinessStore.ReinitializeServices(GatewayConstant.ServiceNames);
 
 var forwardedHeadersOptions = new ForwardedHeadersOptions
 {

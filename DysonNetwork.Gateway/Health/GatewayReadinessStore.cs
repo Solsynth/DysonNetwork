@@ -34,6 +34,42 @@ public class GatewayReadinessStore
         InitializeServices(GatewayConstant.ServiceNames);
     }
 
+    /// <summary>
+    /// Reinitializes the store with new service names from configuration.
+    /// This method should be called when configuration changes.
+    /// </summary>
+    /// <param name="serviceNames">The new service names to track</param>
+    public void ReinitializeServices(string[] serviceNames)
+    {
+        lock (_lock)
+        {
+            // Preserve existing health states for services that still exist
+            var existingStates = new Dictionary<string, ServiceHealthState>(_services);
+
+            _services.Clear();
+
+            foreach (var name in serviceNames)
+            {
+                // Use existing state if available, otherwise create new unhealthy state
+                if (existingStates.TryGetValue(name, out var existingState))
+                {
+                    _services[name] = existingState;
+                }
+                else
+                {
+                    _services[name] = new ServiceHealthState(
+                        name,
+                        IsHealthy: false,
+                        LastChecked: SystemClock.Instance.GetCurrentInstant(),
+                        Error: "Not checked yet"
+                    );
+                }
+            }
+
+            RecalculateLocked();
+        }
+    }
+
     private void InitializeServices(IEnumerable<string> serviceNames)
     {
         lock (_lock)
