@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 
+namespace DysonNetwork.Gateway.Configuration;
+
 [ApiController]
 [Route("config")]
 public class ConfigurationController(IConfiguration configuration) : ControllerBase

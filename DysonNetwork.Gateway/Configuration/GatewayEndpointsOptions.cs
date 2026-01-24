@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace DysonNetwork.Gateway.Configuration;
 
 public class GatewayEndpointsOptions
