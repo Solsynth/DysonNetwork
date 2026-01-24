@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <PackageId>DysonNetwork.Shared</PackageId>
-        <Version>1.0.0</Version>
+        <Version>1.0.1</Version>
         <Authors>LittleSheep</Authors>
         <Company>Solsynth</Company>
         <Description>Shared project of the Solar Network server side software.</Description>

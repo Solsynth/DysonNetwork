@@ -12,6 +12,7 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<RingService.RingServiceClient>(
                 "https://_grpc.ring",
                 "RingService");
+            services.AddSingleton<RemoteRingService>();
 
             return services;
         }
