@@ -24,53 +24,6 @@ public class PublisherController(
     IServiceScopeFactory factory
 ) : ControllerBase
 {
-    [HttpGet("{name}")]
-    public async Task<ActionResult<SnPublisher>> GetPublisher(string name)
-    {
-        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
-        if (publisher is null)
-            return NotFound();
-        if (publisher.AccountId is null)
-            return Ok(publisher);
-
-        var account = await accounts.GetAccountAsync(
-            new GetAccountRequest { Id = publisher.AccountId.Value.ToString() }
-        );
-        publisher.Account = SnAccount.FromProtoValue(account);
-
-        return Ok(publisher);
-    }
-
-    [HttpGet("{name}/heatmap")]
-    public async Task<ActionResult<ActivityHeatmap>> GetPublisherHeatmap(string name)
-    {
-        var heatmap = await ps.GetPublisherHeatmap(name);
-        if (heatmap is null)
-            return NotFound();
-        return Ok(heatmap);
-    }
-
-    [HttpGet("{name}/stats")]
-    public async Task<ActionResult<PublisherService.PublisherStats>> GetPublisherStats(string name)
-    {
-        var stats = await ps.GetPublisherStats(name);
-        if (stats is null)
-            return NotFound();
-        return Ok(stats);
-    }
-
-    [HttpGet("of/{accountId:guid}")]
-    public async Task<ActionResult<List<SnPublisher>>> GetAccountManagedPublishers(Guid accountId)
-    {
-        var members = await db
-            .PublisherMembers.Where(m => m.AccountId == accountId)
-            .Where(m => m.JoinedAt != null)
-            .Include(e => e.Publisher)
-            .ToListAsync();
-
-        return members.Select(m => m.Publisher).ToList();
-    }
-
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnPublisher>>> ListManagedPublishers()
@@ -111,7 +64,7 @@ public class PublisherController(
         public Guid RelatedUserId { get; set; }
 
         [Required]
-        public Shared.Models.PublisherMemberRole Role { get; set; }
+        public PublisherMemberRole Role { get; set; }
     }
 
     [HttpPost("invites/{name}")]
@@ -948,4 +901,3 @@ public class PublisherController(
         }
     }
 }
-

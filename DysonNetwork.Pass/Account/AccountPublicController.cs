@@ -68,7 +68,7 @@ public class AccountPublicController(
     }
 
     [HttpGet("search")]
-    public async Task<List<SnAccount>> Search([FromQuery] string query, [FromQuery] int take = 20)
+    public async Task<List<SnAccount>> SearchAccounts([FromQuery] string query, [FromQuery] int take = 20)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
