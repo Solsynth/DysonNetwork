@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
-using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Geometry;
@@ -28,58 +27,6 @@ public class AccountController(
     GeoService geo
 ) : ControllerBase
 {
-    [HttpGet("{name}")]
-    [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<SnAccount?>> GetByName(string name)
-    {
-        var account = await db.Accounts
-            .Include(e => e.Badges)
-            .Include(e => e.Profile)
-            .Include(e => e.Contacts.Where(c => c.IsPublic))
-            .Where(a => EF.Functions.Like(a.Name, name))
-            .FirstOrDefaultAsync();
-        if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
-
-        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
-        account.PerkSubscription = perk?.ToReference();
-
-        return account;
-    }
-
-    [HttpGet("{name}/badges")]
-    [ProducesResponseType<List<SnAccountBadge>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<List<SnAccountBadge>>> GetBadgesByName(string name)
-    {
-        var account = await db.Accounts
-            .Include(e => e.Badges)
-            .Where(a => a.Name == name)
-            .FirstOrDefaultAsync();
-        return account is null
-            ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier))
-            : account.Badges.ToList();
-    }
-
-    [HttpGet("{name}/credits")]
-    [ProducesResponseType<double>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<double>> GetSocialCredits(string name)
-    {
-        var account = await db.Accounts
-            .Where(a => a.Name == name)
-            .Select(a => new { a.Id })
-            .FirstOrDefaultAsync();
-
-        if (account is null)
-        {
-            return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
-        }
-
-        var credits = await socialCreditService.GetSocialCredit(account.Id);
-        return credits;
-    }
-
     public class AccountCreateRequest
     {
         [Required]
@@ -90,7 +37,7 @@ public class AccountController(
         ]
         public string Name { get; set; } = string.Empty;
 
-        [Required] [MaxLength(256)] public string Nick { get; set; } = string.Empty;
+        [Required][MaxLength(256)] public string Nick { get; set; } = string.Empty;
 
         [EmailAddress]
         [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
@@ -106,7 +53,7 @@ public class AccountController(
         [MaxLength(32)] public string Language { get; set; } = "en-us";
 
         [Required] public string CaptchaToken { get; set; } = string.Empty;
-        
+
         public string? AffiliationSpell { get; set; }
     }
 
@@ -123,7 +70,7 @@ public class AccountController(
         [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
         [MaxLength(1024)]
         public string? Email { get; set; }
-        
+
         public string? AffiliationSpell { get; set; }
     }
 
@@ -303,19 +250,6 @@ public class AccountController(
 
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
-    }
-
-    [HttpGet("search")]
-    public async Task<List<SnAccount>> Search([FromQuery] string query, [FromQuery] int take = 20)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-            return [];
-        return await db.Accounts
-            .Include(e => e.Profile)
-            .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") ||
-                        EF.Functions.ILike(a.Nick, $"%{query}%"))
-            .Take(take)
-            .ToListAsync();
     }
 
     [HttpPost("credits/validate")]
