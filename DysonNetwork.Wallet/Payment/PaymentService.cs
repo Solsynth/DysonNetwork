@@ -1,26 +1,28 @@
 using System.Data;
 using System.Globalization;
-using DysonNetwork.Pass.Localization;
+using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
 using NATS.Net;
 using NodaTime;
-using AccountService = DysonNetwork.Pass.Account.AccountService;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class PaymentService(
     AppDatabase db,
     WalletService wat,
-    RingService.RingServiceClient pusher,
+    IGrpcClientFactory<RingService.RingServiceClient> pusherFactory,
     IStringLocalizer<NotificationResource> localizer,
     INatsConnection nats
 )
 {
+    private readonly RingService.RingServiceClient _pusher = pusherFactory.CreateClient();
+
     public async Task<SnWalletOrder> CreateOrderAsync(
         Guid? payeeWalletId,
         string currency,
@@ -178,21 +180,14 @@ public class PaymentService(
     {
         if (payerWallet is not null)
         {
-            var account = await db.Accounts
-                .Where(a => a.Id == payerWallet.AccountId)
-                .FirstOrDefaultAsync();
-            if (account is null) return;
-
-            AccountService.SetCultureInfo(account);
-
             // Due to ID is uuid, it longer than 8 words for sure
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
-            await pusher.SendPushNotificationToUserAsync(
+            await _pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
-                    UserId = account.Id.ToString(),
+                    UserId = payerWallet.AccountId.ToString(),
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
@@ -212,21 +207,14 @@ public class PaymentService(
 
         if (payeeWallet is not null)
         {
-            var account = await db.Accounts
-                .Where(a => a.Id == payeeWallet.AccountId)
-                .FirstOrDefaultAsync();
-            if (account is null) return;
-
-            AccountService.SetCultureInfo(account);
-
             // Due to ID is uuid, it longer than 8 words for sure
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
-            await pusher.SendPushNotificationToUserAsync(
+            await _pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
-                    UserId = account.Id.ToString(),
+                    UserId = payeeWallet.AccountId.ToString(),
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
@@ -322,22 +310,15 @@ public class PaymentService(
     {
         if (payerWallet is not null)
         {
-            var account = await db.Accounts
-                .Where(a => a.Id == payerWallet.AccountId)
-                .FirstOrDefaultAsync();
-            if (account is null) return;
-
-            AccountService.SetCultureInfo(account);
-
             // Due to ID is uuid, it longer than 8 words for sure
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
 
-            await pusher.SendPushNotificationToUserAsync(
+            await _pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
-                    UserId = account.Id.ToString(),
+                    UserId = payerWallet.AccountId.ToString(),
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.paid",
@@ -353,21 +334,14 @@ public class PaymentService(
 
         if (payeeWallet is not null)
         {
-            var account = await db.Accounts
-                .Where(a => a.Id == payeeWallet.AccountId)
-                .FirstOrDefaultAsync();
-            if (account is null) return;
-
-            AccountService.SetCultureInfo(account);
-
             // Due to ID is uuid, it longer than 8 words for sure
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
-            await pusher.SendPushNotificationToUserAsync(
+            await _pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
-                    UserId = account.Id.ToString(),
+                    UserId = payeeWallet.AccountId.ToString(),
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.received",

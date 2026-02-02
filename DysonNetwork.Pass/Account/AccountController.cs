@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Pass.Credit;
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
@@ -20,7 +19,6 @@ public class AccountController(
     AppDatabase db,
     AuthService auth,
     AccountService accounts,
-    SubscriptionService subscriptions,
     AccountEventService events,
     SocialCreditService socialCreditService,
     AffiliationSpellService ars,

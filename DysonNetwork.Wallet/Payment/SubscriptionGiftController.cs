@@ -5,7 +5,7 @@ using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/subscriptions/gifts")]
@@ -74,9 +74,9 @@ public class SubscriptionGiftController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var gift = await db.WalletGifts
-            .Include(g => g.Gifter).ThenInclude(a => a.Profile)
-            .Include(g => g.Recipient).ThenInclude(a => a.Profile)
-            .Include(g => g.Redeemer).ThenInclude(a => a.Profile)
+            .Include(g => g.Gifter).ThenInclude(a => a!.Profile)
+            .Include(g => g.Recipient).ThenInclude(a => a!.Profile)
+            .Include(g => g.Redeemer).ThenInclude(a => a!.Profile)
             .Include(g => g.Subscription)
             .Include(g => g.Coupon)
             .FirstOrDefaultAsync(g => g.Id == giftId);

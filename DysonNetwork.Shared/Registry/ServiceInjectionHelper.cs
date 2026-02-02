@@ -64,6 +64,26 @@ public static class ServiceInjectionHelper
             return services;
         }
 
+        public IServiceCollection AddWalletService()
+        {
+            services.AddGrpcClientWithSharedChannel<WalletService.WalletServiceClient>(
+                "https://_grpc.wallet",
+                "WalletService");
+            services.AddSingleton<RemoteWalletService>();
+
+            services.AddGrpcClientWithSharedChannel<PaymentService.PaymentServiceClient>(
+                "https://_grpc.wallet",
+                "PaymentService");
+            services.AddSingleton<RemotePaymentService>();
+
+            services.AddGrpcClientWithSharedChannel<SubscriptionService.SubscriptionServiceClient>(
+                "https://_grpc.wallet",
+                "SubscriptionService");
+            services.AddSingleton<RemoteSubscriptionService>();
+
+            return services;
+        }
+
         public IServiceCollection AddDriveService()
         {
             services.AddGrpcClientWithSharedChannel<FileService.FileServiceClient>(

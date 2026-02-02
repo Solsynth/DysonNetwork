@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -14,43 +13,6 @@ namespace DysonNetwork.Pass.Lotteries;
 [Route("/api/lotteries")]
 public class LotteryController(AppDatabase db, LotteryService lotteryService) : ControllerBase
 {
-    public class CreateLotteryRequest
-    {
-        [Required]
-        public List<int> RegionOneNumbers { get; set; } = null!;
-        [Required]
-        [Range(0, 99)]
-        public int RegionTwoNumber { get; set; }
-        [Range(1, int.MaxValue)]
-        public int Multiplier { get; set; } = 1;
-    }
-
-    [HttpPost]
-    [Authorize]
-    public async Task<ActionResult<SnWalletOrder>> CreateLottery([FromBody] CreateLotteryRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        try
-        {
-            var order = await lotteryService.CreateLotteryOrderAsync(
-                accountId: currentUser.Id,
-                region1: request.RegionOneNumbers,
-                region2: request.RegionTwoNumber,
-                multiplier: request.Multiplier);
-
-            return Ok(order);
-        }
-        catch (ArgumentException err)
-        {
-            return BadRequest(err.Message);
-        }
-        catch (InvalidOperationException err)
-        {
-            return BadRequest(err.Message);
-        }
-    }
-
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnLottery>>> GetLotteries(

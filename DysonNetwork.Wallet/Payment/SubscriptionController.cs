@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Pass.Wallet.PaymentHandlers;
+using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Models;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/subscriptions")]

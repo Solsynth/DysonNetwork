@@ -39,7 +39,11 @@ var messagerService = builder.AddProject<Projects.DysonNetwork_Messager>("messag
     .WithReference(developService)
     .WithReference(driveService);
 
-passService.WithReference(developService).WithReference(driveService);
+var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
+    .WithReference(passService)
+    .WithReference(ringService);
+
+passService.WithReference(developService).WithReference(driveService).WithReference(walletService);
 
 List<IResourceBuilder<ProjectResource>> services =
 [
@@ -50,7 +54,8 @@ List<IResourceBuilder<ProjectResource>> services =
     developService,
     insightService,
     zoneService,
-    messagerService
+    messagerService,
+    walletService
 ];
 
 for (var idx = 0; idx < services.Count; idx++)

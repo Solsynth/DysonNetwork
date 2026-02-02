@@ -1,5 +1,4 @@
 using DysonNetwork.Pass.Credit;
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +10,6 @@ namespace DysonNetwork.Pass.Account;
 [Route("/api/accounts")]
 public class AccountPublicController(
     AppDatabase db,
-    SubscriptionService subscriptions,
     SocialCreditService socialCreditService
 ) : ControllerBase
 {
@@ -27,9 +25,6 @@ public class AccountPublicController(
             .Where(a => EF.Functions.Like(a.Name, name))
             .FirstOrDefaultAsync();
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
-
-        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
-        account.PerkSubscription = perk?.ToReference();
 
         return account;
     }

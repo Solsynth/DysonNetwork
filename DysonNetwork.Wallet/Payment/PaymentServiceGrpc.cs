@@ -3,7 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using NodaTime;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class PaymentServiceGrpc(PaymentService paymentService)
     : Shared.Proto.PaymentService.PaymentServiceBase

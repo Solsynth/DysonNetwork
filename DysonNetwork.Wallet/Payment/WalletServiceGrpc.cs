@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class WalletServiceGrpc(WalletService walletService) : Shared.Proto.WalletService.WalletServiceBase
 {

@@ -1,6 +1,6 @@
 using NodaTime;
 
-namespace DysonNetwork.Pass.Wallet.PaymentHandlers;
+namespace DysonNetwork.Wallet.Payment.PaymentHandlers;
 
 public interface ISubscriptionOrder
 {

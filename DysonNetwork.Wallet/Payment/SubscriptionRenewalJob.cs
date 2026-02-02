@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Quartz;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class SubscriptionRenewalJob(
     AppDatabase db,

@@ -51,32 +51,13 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<SnPermissionGroupMember>()
-            .HasKey(pg => new { pg.GroupId, pg.Actor });
-        modelBuilder.Entity<SnPermissionGroupMember>()
-            .HasOne(pg => pg.Group)
-            .WithMany(g => g.Members)
-            .HasForeignKey(pg => pg.GroupId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<SnAccountRelationship>()
-            .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
-        modelBuilder.Entity<SnAccountRelationship>()
-            .HasOne(r => r.Account)
-            .WithMany(a => a.OutgoingRelationships)
-            .HasForeignKey(r => r.AccountId);
-        modelBuilder.Entity<SnAccountRelationship>()
-            .HasOne(r => r.Related)
-            .WithMany(a => a.IncomingRelationships)
-            .HasForeignKey(r => r.RelatedId);
-        
-        modelBuilder.Entity<SnRealmMember>()
-            .HasKey(pm => new { pm.RealmId, pm.AccountId });
-        modelBuilder.Entity<SnRealmMember>()
-            .HasOne(pm => pm.Realm)
-            .WithMany(p => p.Members)
-            .HasForeignKey(pm => pm.RealmId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // Ignore account-related entities that belong to Pass project
+        // These are referenced via navigation properties but tables are in Pass database
+        modelBuilder.Ignore<SnAccount>();
+        modelBuilder.Ignore<SnAccountProfile>();
+        modelBuilder.Ignore<SnPermissionGroupMember>();
+        modelBuilder.Ignore<SnAccountRelationship>();
+        modelBuilder.Ignore<SnRealmMember>();
 
         modelBuilder.ApplySoftDeleteFilters();
     }

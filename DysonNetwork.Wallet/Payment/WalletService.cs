@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class WalletService(AppDatabase db)
 {

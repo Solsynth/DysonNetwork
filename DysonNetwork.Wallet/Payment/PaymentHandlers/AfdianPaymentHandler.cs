@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using NodaTime;
 
-namespace DysonNetwork.Pass.Wallet.PaymentHandlers;
+namespace DysonNetwork.Wallet.Payment.PaymentHandlers;
 
 public class AfdianPaymentHandler(
     IHttpClientFactory httpClientFactory,
@@ -40,7 +40,7 @@ public class AfdianPaymentHandler(
     {
         try
         {
-            var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
+            var token = _configuration["Payment:Auth:Afdian"] ?? "_:";
             var tokenParts = token.Split(':');
             var userId = tokenParts[0];
             token = tokenParts[1];
@@ -96,7 +96,7 @@ public class AfdianPaymentHandler(
 
         try
         {
-            var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
+            var token = _configuration["Payment:Auth:Afdian"] ?? "_:";
             var tokenParts = token.Split(':');
             var userId = tokenParts[0];
             token = tokenParts[1];
@@ -165,7 +165,7 @@ public class AfdianPaymentHandler(
             // Join the order IDs with commas as specified in the API documentation
             var orderIdsParam = string.Join(",", orders);
 
-            var token = _configuration["Payment:Auth:Afdian"] ?? "_:_";
+            var token = _configuration["Payment:Auth:Afdian"] ?? "_:";
             var tokenParts = token.Split(':');
             var userId = tokenParts[0];
             token = tokenParts[1];

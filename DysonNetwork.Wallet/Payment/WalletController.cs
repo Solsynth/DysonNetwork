@@ -1,6 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
@@ -9,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/wallets")]
@@ -17,7 +15,6 @@ public class WalletController(
     AppDatabase db,
     WalletService ws,
     PaymentService payment,
-    AuthService auth,
     ICacheService cache,
     ILogger<WalletController> logger
 ) : ControllerBase
@@ -139,11 +136,9 @@ public class WalletController(
             .Skip(offset)
             .Take(take)
             .Include(t => t.PayerWallet)
-            .ThenInclude(w => w.Account)
-            .ThenInclude(w => w.Profile)
+            .ThenInclude(w => w!.Account)
             .Include(t => t.PayeeWallet)
-            .ThenInclude(w => w.Account)
-            .ThenInclude(w => w.Profile)
+            .ThenInclude(w => w!.Account)
             .ToListAsync();
 
         return Ok(transactions);
@@ -228,10 +223,6 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        // Validate PIN code
-        if (!await auth.ValidatePinCode(currentUser.Id, request.PinCode))
-            return StatusCode(403, "Invalid PIN Code");
-
         if (currentUser.Id == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
 
         try
@@ -260,7 +251,6 @@ public class WalletController(
         [Required] public FundSplitType SplitType { get; set; }
         public string? Message { get; set; }
         public int? ExpirationHours { get; set; } // Optional: hours until expiration
-        [Required] public string PinCode { get; set; } = null!; // Required PIN for fund creation
     }
 
     [HttpPost("funds")]
@@ -268,10 +258,6 @@ public class WalletController(
     public async Task<ActionResult<SnWalletFund>> CreateFund([FromBody] CreateFundRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        // Validate PIN code
-        if (!await auth.ValidatePinCode(currentUser.Id, request.PinCode))
-            return StatusCode(403, "Invalid PIN Code");
 
         try
         {
@@ -313,9 +299,7 @@ public class WalletController(
         var query = db.WalletFunds
             .Include(f => f.Recipients)
             .ThenInclude(r => r.RecipientAccount)
-            .ThenInclude(a => a.Profile)
             .Include(f => f.CreatorAccount)
-            .ThenInclude(a => a.Profile)
             .Where(f => f.CreatorAccountId == currentUser.Id ||
                         f.Recipients.Any(r => r.RecipientAccountId == currentUser.Id))
             .AsQueryable();
@@ -343,9 +327,7 @@ public class WalletController(
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
             .ThenInclude(r => r.RecipientAccount)
-            .ThenInclude(a => a.Profile)
             .Include(f => f.CreatorAccount)
-            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync(f => f.Id == id);
 
         if (fund is null)
@@ -362,12 +344,12 @@ public class WalletController(
 
         try
         {
-            var transaction = await payment.ReceiveFundAsync(
+            var walletTransaction = await payment.ReceiveFundAsync(
                 recipientAccountId: currentUser.Id,
                 fundId: id
             );
 
-            return Ok(transaction);
+            return Ok(walletTransaction);
         }
         catch (Exception err)
         {

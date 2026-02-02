@@ -1,20 +1,22 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/orders")]
 public class OrderController(
     PaymentService payment,
-    Pass.Auth.AuthService auth,
     AppDatabase db,
-    CustomAppService.CustomAppServiceClient customApps
+    IGrpcClientFactory<CustomAppService.CustomAppServiceClient> customAppsFactory
 ) : ControllerBase
 {
+    private readonly CustomAppService.CustomAppServiceClient _customApps = customAppsFactory.CreateClient();
+
     public class CreateOrderRequest
     {
         public string Currency { get; set; } = null!;
@@ -31,11 +33,11 @@ public class OrderController(
     [HttpPost]
     public async Task<ActionResult<SnWalletOrder>> CreateOrder([FromBody] CreateOrderRequest request)
     {
-        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        var clientResp = await _customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
         if (clientResp.App is null) return BadRequest("Client not found");
         var client = SnCustomApp.FromProtoValue(clientResp.App);
 
-        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var secret = await _customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
         {
             AppId = client.Id.ToString(),
             Secret = request.ClientSecret,
@@ -78,10 +80,6 @@ public class OrderController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        // Validate PIN code
-        if (!await auth.ValidatePinCode(currentUser.Id, request.PinCode))
-            return StatusCode(403, "Invalid PIN Code");
-
         try
         {
             // Get the wallet for the current user
@@ -109,11 +107,11 @@ public class OrderController(
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<SnWalletOrder>> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
     {
-        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        var clientResp = await _customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
         if (clientResp.App is null) return BadRequest("Client not found");
         var client = SnCustomApp.FromProtoValue(clientResp.App);
 
-        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var secret = await _customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
         {
             AppId = client.Id.ToString(),
             Secret = request.ClientSecret,
@@ -140,4 +138,3 @@ public class OrderController(
         return Ok(order);
     }
 }
-

@@ -1,5 +1,4 @@
 using System.Globalization;
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -14,11 +13,9 @@ namespace DysonNetwork.Pass.Account;
 
 public class AccountEventService(
     AppDatabase db,
-    Wallet.PaymentService payment,
     ICacheService cache,
     IStringLocalizer<Localization.AccountEventResource> localizer,
     RingService.RingServiceClient pusher,
-    SubscriptionService subscriptions,
     Pass.Leveling.ExperienceService experienceService,
     INatsConnection nats
 )
@@ -234,9 +231,6 @@ public class AccountEventService(
 
     public async Task<bool> CheckInDailyDoAskCaptcha(SnAccount user)
     {
-        var perkSubscription = await subscriptions.GetPerkSubscriptionAsync(user.Id);
-        if (perkSubscription is not null) return false;
-
         var cacheKey = $"{CaptchaCacheKey}{user.Id}";
         var needsCaptcha = await cache.GetAsync<bool?>(cacheKey);
         if (needsCaptcha is not null)
@@ -425,22 +419,6 @@ public class AccountEventService(
             BackdatedFrom = backdated.HasValue ? SystemClock.Instance.GetCurrentInstant() : null,
             CreatedAt = backdated ?? SystemClock.Instance.GetCurrentInstant(),
         };
-
-        try
-        {
-            if (result.RewardPoints.HasValue)
-                await payment.CreateTransactionWithAccountAsync(
-                    null,
-                    user.Id,
-                    WalletCurrency.SourcePoint,
-                    result.RewardPoints.Value,
-                    $"Check-in reward on {now:yyyy/MM/dd}"
-                );
-        }
-        catch
-        {
-            result.RewardPoints = null;
-        }
 
         db.AccountCheckInResults.Add(result);
         await db.SaveChangesAsync(); // Remember to save changes to the database

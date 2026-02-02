@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +12,7 @@ public class TokenAuthService(
     IConfiguration config,
     ICacheService cache,
     ILogger<TokenAuthService> logger,
-    OidcProvider.Services.OidcProviderService oidc,
-    SubscriptionService subscriptions
+    OidcProvider.Services.OidcProviderService oidc
 )
 {
     /// <summary>
@@ -114,18 +112,6 @@ public class TokenAuthService(
                 session.Scopes.Count,
                 session.IpAddress,
                 (session.UserAgent ?? string.Empty).Length
-            );
-
-            logger.LogDebug("AuthenticateTokenAsync: enriching account with subscription (accountId={AccountId})", session.AccountId);
-            var perk = await subscriptions.GetPerkSubscriptionAsync(session.AccountId);
-            session.Account.PerkSubscription = perk?.ToReference();
-            logger.LogInformation(
-                "AuthenticateTokenAsync: subscription attached (accountId={AccountId}, hasPerk={HasPerk}, identifier={Identifier}, status={Status}, available={Available})",
-                session.AccountId,
-                perk is not null,
-                perk?.Identifier,
-                perk?.Status,
-                perk?.IsAvailable
             );
 
             await cache.SetWithGroupsAsync(

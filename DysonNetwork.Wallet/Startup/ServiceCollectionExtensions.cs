@@ -7,6 +7,9 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Wallet.Localization;
+using DysonNetwork.Wallet.Payment;
+using DysonNetwork.Wallet.Payment.PaymentHandlers;
 
 namespace DysonNetwork.Wallet.Startup;
 
@@ -39,6 +42,10 @@ public static class ServiceCollectionExtensions
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
             options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+        }).AddDataAnnotationsLocalization(options =>
+        {
+            options.DataAnnotationLocalizerProvider = (type, factory) =>
+                factory.Create(typeof(NotificationResource));
         });
         services.AddRazorPages();
 
@@ -81,6 +88,12 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();
+
+        // Register Wallet services
+        services.AddScoped<WalletService>();
+        services.AddScoped<PaymentService>();
+        services.AddScoped<SubscriptionService>();
+        services.AddScoped<AfdianPaymentHandler>();
 
         services.AddHostedService<BroadcastEventHandler>();
 

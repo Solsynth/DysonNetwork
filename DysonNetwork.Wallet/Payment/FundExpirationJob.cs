@@ -1,6 +1,6 @@
 using Quartz;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class FundExpirationJob(
     PaymentService paymentService,

@@ -2,7 +2,6 @@ using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Account.Presences;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
-using DysonNetwork.Pass.Wallet;
 using Quartz;
 
 namespace DysonNetwork.Pass.Startup;
@@ -34,33 +33,6 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("LastActiveFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(5)
-                    .RepeatForever())
-            );
-
-            q.AddJob<SubscriptionRenewalJob>(opts => opts.WithIdentity("SubscriptionRenewal"));
-            q.AddTrigger(opts => opts
-                .ForJob("SubscriptionRenewal")
-                .WithIdentity("SubscriptionRenewalTrigger")
-                .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(30)
-                    .RepeatForever())
-            );
-
-            q.AddJob<GiftCleanupJob>(opts => opts.WithIdentity("GiftCleanup"));
-            q.AddTrigger(opts => opts
-                .ForJob("GiftCleanup")
-                .WithIdentity("GiftCleanupTrigger")
-                .WithSimpleSchedule(o => o
-                    .WithIntervalInHours(1)
-                    .RepeatForever())
-            );
-
-            q.AddJob<FundExpirationJob>(opts => opts.WithIdentity("FundExpiration"));
-            q.AddTrigger(opts => opts
-                .ForJob("FundExpiration")
-                .WithIdentity("FundExpirationTrigger")
-                .WithSimpleSchedule(o => o
-                    .WithIntervalInHours(1)
                     .RepeatForever())
             );
 

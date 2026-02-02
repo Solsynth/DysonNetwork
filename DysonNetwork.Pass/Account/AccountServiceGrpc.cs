@@ -1,4 +1,3 @@
-using DysonNetwork.Pass.Wallet;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -11,7 +10,6 @@ public class AccountServiceGrpc(
     AppDatabase db,
     AccountEventService accountEvents,
     RelationshipService relationships,
-    SubscriptionService subscriptions,
     ILogger<AccountServiceGrpc> logger
 )
     : Shared.Proto.AccountService.AccountServiceBase
@@ -35,9 +33,6 @@ public class AccountServiceGrpc(
         if (account == null)
             throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.Id} not found"));
 
-        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
-        account.PerkSubscription = perk?.ToReference();
-
         return account.ToProtoValue();
     }
 
@@ -56,9 +51,6 @@ public class AccountServiceGrpc(
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound,
                 $"Account with automated ID {request.AutomatedId} not found"));
 
-        var perk = await subscriptions.GetPerkSubscriptionAsync(account.Id);
-        account.PerkSubscription = perk?.ToReference();
-
         return account.ToProtoValue();
     }
 
@@ -76,13 +68,6 @@ public class AccountServiceGrpc(
             .Where(a => accountIds.Contains(a.Id))
             .Include(a => a.Profile)
             .ToListAsync();
-
-        var perks = await subscriptions.GetPerkSubscriptionsAsync(
-            accounts.Select(x => x.Id).ToList()
-        );
-        foreach (var account in accounts)
-            if (perks.TryGetValue(account.Id, out var perk))
-                account.PerkSubscription = perk?.ToReference();
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -104,13 +89,6 @@ public class AccountServiceGrpc(
             .Where(a => a.AutomatedId != null && automatedIds.Contains(a.AutomatedId.Value))
             .Include(a => a.Profile)
             .ToListAsync();
-
-        var perks = await subscriptions.GetPerkSubscriptionsAsync(
-            accounts.Select(x => x.Id).ToList()
-        );
-        foreach (var account in accounts)
-            if (perks.TryGetValue(account.Id, out var perk))
-                account.PerkSubscription = perk?.ToReference();
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -148,13 +126,6 @@ public class AccountServiceGrpc(
             .Include(a => a.Profile)
             .ToListAsync();
 
-        var perks = await subscriptions.GetPerkSubscriptionsAsync(
-            accounts.Select(x => x.Id).ToList()
-        );
-        foreach (var account in accounts)
-            if (perks.TryGetValue(account.Id, out var perk))
-                account.PerkSubscription = perk?.ToReference();
-
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
@@ -168,13 +139,6 @@ public class AccountServiceGrpc(
             .Where(a => EF.Functions.ILike(a.Name, $"%{request.Query}%"))
             .Include(a => a.Profile)
             .ToListAsync();
-
-        var perks = await subscriptions.GetPerkSubscriptionsAsync(
-            accounts.Select(x => x.Id).ToList()
-        );
-        foreach (var account in accounts)
-            if (perks.TryGetValue(account.Id, out var perk))
-                account.PerkSubscription = perk?.ToReference();
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -212,13 +176,6 @@ public class AccountServiceGrpc(
             .Include(a => a.Profile)
             .ToListAsync();
 
-        var perks = await subscriptions.GetPerkSubscriptionsAsync(
-            accounts.Select(x => x.Id).ToList()
-        );
-        foreach (var account in accounts)
-            if (perks.TryGetValue(account.Id, out var perk))
-                account.PerkSubscription = perk?.ToReference();
-
         var response = new ListAccountsResponse
         {
             TotalSize = totalCount,
@@ -247,7 +204,6 @@ public class AccountServiceGrpc(
                 var relatedRelationship = await relationships.ListAccountFriends(relatedId, true);
                 resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
                 return resp;
-                break;
             case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,

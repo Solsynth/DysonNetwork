@@ -28,7 +28,8 @@ public class GatewayEndpointsOptions
         "develop",
         "insight",
         "zone",
-        "messager"
+        "messager",
+        "wallet"
     ];
 
     /// <summary>
@@ -39,7 +40,8 @@ public class GatewayEndpointsOptions
         "ring",
         "pass",
         "drive",
-        "sphere"
+        "sphere",
+        "wallet"
     ];
 
     /// <summary>

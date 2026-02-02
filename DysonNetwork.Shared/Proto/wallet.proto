@@ -293,3 +293,41 @@ message TransferRequest {
 message GetWalletFundRequest {
   string fund_id = 1;
 }
+
+service SubscriptionService {
+  rpc GetSubscription(GetSubscriptionRequest) returns (Subscription);
+  rpc GetPerkSubscription(GetPerkSubscriptionRequest) returns (Subscription);
+  rpc GetPerkSubscriptions(GetPerkSubscriptionsRequest) returns (GetPerkSubscriptionsResponse);
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (Subscription);
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (Subscription);
+}
+
+message GetSubscriptionRequest {
+  string account_id = 1;
+  string identifier = 2;
+}
+
+message GetPerkSubscriptionRequest {
+  string account_id = 1;
+}
+
+message GetPerkSubscriptionsRequest {
+  repeated string account_ids = 1;
+}
+
+message GetPerkSubscriptionsResponse {
+  repeated Subscription subscriptions = 1;
+}
+
+message CreateSubscriptionRequest {
+  string account_id = 1;
+  string identifier = 2;
+  string payment_method = 3;
+  optional string coupon_code = 4;
+  bool is_free_trial = 5;
+}
+
+message CancelSubscriptionRequest {
+  string account_id = 1;
+  string identifier = 2;
+}

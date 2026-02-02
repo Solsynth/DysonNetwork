@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Wallet.Payment;
 
 namespace DysonNetwork.Wallet.Startup;
 
@@ -25,6 +26,8 @@ public static class ApplicationConfiguration
 
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
+        app.MapGrpcService<WalletServiceGrpc>();
+        app.MapGrpcService<PaymentServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

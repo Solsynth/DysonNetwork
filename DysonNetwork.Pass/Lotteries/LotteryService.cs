@@ -1,9 +1,7 @@
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Pass.Wallet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NodaTime;
-using System.Text.Json;
 
 namespace DysonNetwork.Pass.Lotteries;
 
@@ -17,8 +15,6 @@ public class LotteryOrderMetaData
 
 public class LotteryService(
     AppDatabase db,
-    PaymentService paymentService,
-    WalletService walletService,
     ILogger<LotteryService> logger)
 {
     private static bool ValidateNumbers(List<int> region1, int region2)
@@ -74,70 +70,6 @@ public class LotteryService(
     private static decimal CalculateLotteryPrice(int multiplier)
     {
         return 10 + (multiplier - 1) * 10;
-    }
-
-    public async Task<SnWalletOrder> CreateLotteryOrderAsync(Guid accountId, List<int> region1, int region2,
-        int multiplier = 1)
-    {
-        if (!ValidateNumbers(region1, region2))
-            throw new ArgumentException("Invalid lottery numbers");
-
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var todayStart = new LocalDateTime(now.InUtc().Year, now.InUtc().Month, now.InUtc().Day, 0, 0).InUtc()
-            .ToInstant();
-        var hasPurchasedToday = await db.Lotteries.AnyAsync(l =>
-            l.AccountId == accountId &&
-            l.CreatedAt >= todayStart &&
-            l.DrawStatus == LotteryDrawStatus.Pending
-        );
-        if (hasPurchasedToday)
-            throw new InvalidOperationException("You can only purchase one lottery per day.");
-
-        var price = CalculateLotteryPrice(multiplier);
-
-        var lotteryData = new LotteryOrderMetaData
-        {
-            AccountId = accountId,
-            RegionOneNumbers = region1,
-            RegionTwoNumber = region2,
-            Multiplier = multiplier
-        };
-
-        return await paymentService.CreateOrderAsync(
-            null,
-            WalletCurrency.SourcePoint,
-            price,
-            appIdentifier: "lottery",
-            productIdentifier: "lottery",
-            meta: new Dictionary<string, object>
-            {
-                ["data"] = JsonSerializer.Serialize(lotteryData)
-            });
-    }
-
-    public async Task HandleLotteryOrder(SnWalletOrder order)
-    {
-        if (order.Status == OrderStatus.Finished)
-            return; // Already processed
-
-        if (order.Status != OrderStatus.Paid ||
-            !order.Meta.TryGetValue("data", out var dataValue) ||
-            dataValue is null ||
-            dataValue is not JsonElement { ValueKind: JsonValueKind.String } jsonElem)
-            throw new InvalidOperationException("Invalid order.");
-
-        var jsonString = jsonElem.GetString();
-        if (jsonString is null)
-            throw new InvalidOperationException("Invalid order.");
-
-        var data = JsonSerializer.Deserialize<LotteryOrderMetaData>(jsonString);
-        if (data is null)
-            throw new InvalidOperationException("Invalid order data.");
-
-        await CreateTicketAsync(data.AccountId, data.RegionOneNumbers, data.RegionTwoNumber, data.Multiplier);
-
-        order.Status = OrderStatus.Finished;
-        await db.SaveChangesAsync();
     }
 
     private static int CalculateReward(int region1Matches, bool region2Match)
@@ -221,27 +153,13 @@ public class LotteryService(
 
                 if (reward > 0)
                 {
-                    var wallet = await walletService.GetWalletAsync(ticket.AccountId);
-                    if (wallet != null)
-                    {
-                        await paymentService.CreateTransactionAsync(
-                            payerWalletId: null,
-                            payeeWalletId: wallet.Id,
-                            currency: WalletCurrency.SourcePoint,
-                            amount: reward,
-                            remarks: $"Lottery prize: {region1Matches} matches{(region2Match ? " + special" : "")}"
-                        );
-                        logger.LogInformation(
-                            "Awarded {Amount} to account {AccountId} for {Matches} matches{(Special ? \" + special\" : \"\")}",
-                            reward, ticket.AccountId, region1Matches, region2Match ? " + special" : "");
-                        totalPrizesAwarded++;
-                        totalPrizeAmount += reward;
-                    }
-                    else
-                    {
-                        logger.LogWarning("Wallet not found for account {AccountId}, skipping prize award",
-                            ticket.AccountId);
-                    }
+                    // Note: Prize awarding is now handled by the Wallet service
+                    // The Wallet service will process lottery results and award prizes
+                    logger.LogInformation(
+                        "Lottery prize of {Amount} to account {AccountId} for {Matches} matches needs to be awarded via Wallet service",
+                        reward, ticket.AccountId, region1Matches);
+                    totalPrizesAwarded++;
+                    totalPrizeAmount += reward;
                 }
 
                 ticket.DrawStatus = LotteryDrawStatus.Drawn;

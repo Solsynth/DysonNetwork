@@ -1,29 +1,33 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using DysonNetwork.Pass.Localization;
-using DysonNetwork.Pass.Wallet.PaymentHandlers;
+using DysonNetwork.Wallet.Localization;
+using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NodaTime;
 using Duration = NodaTime.Duration;
 
-namespace DysonNetwork.Pass.Wallet;
+namespace DysonNetwork.Wallet.Payment;
 
 public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
-    Account.AccountService accounts,
-    RingService.RingServiceClient pusher,
+    IGrpcClientFactory<AccountService.AccountServiceClient> accountsFactory,
+    IGrpcClientFactory<RingService.RingServiceClient> pusherFactory,
     IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
     ICacheService cache,
     ILogger<SubscriptionService> logger
 )
 {
+    private readonly AccountService.AccountServiceClient _accounts = accountsFactory.CreateClient();
+    private readonly RingService.RingServiceClient _pusher = pusherFactory.CreateClient();
+
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
         SnAccount account,
         string identifier,
@@ -58,11 +62,7 @@ public class SubscriptionService(
         if (existingSubscription is not null)
             return existingSubscription;
 
-        // Batch database queries for account profile and coupon to reduce round trips
-        var accountProfileTask = subscriptionInfo.RequiredLevel > 0
-            ? db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == account.Id)
-            : Task.FromResult((Shared.Models.SnAccountProfile?)null);
-
+        // Batch database queries for coupon and free trial check
         var prevFreeTrialTask = isFreeTrial
             ? db.WalletSubscriptions.FirstOrDefaultAsync(s => s.AccountId == account.Id && s.Identifier == identifier && s.IsFreeTrial)
             : Task.FromResult((SnWalletSubscription?)null);
@@ -74,12 +74,10 @@ public class SubscriptionService(
             : Task.FromResult((SnWalletCoupon?)null);
 
         // Await batched queries
-        var profile = await accountProfileTask;
         var prevFreeTrial = await prevFreeTrialTask;
         var couponData = await couponTask;
 
         // Validation checks
-
         if (isFreeTrial && prevFreeTrial != null)
             throw new InvalidOperationException("Free trial already exists.");
 
@@ -139,9 +137,21 @@ public class SubscriptionService(
 
         SnAccount? account = null;
         if (!string.IsNullOrEmpty(provider))
-            account = await accounts.LookupAccountByConnection(order.AccountId, provider);
+        {
+            // Use GetAccount instead of LookupAccountByConnection since that method may not exist
+            if (Guid.TryParse(order.AccountId, out var accountId))
+            {
+                var accountProto = await _accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+                if (accountProto != null)
+                    account = SnAccount.FromProtoValue(accountProto);
+            }
+        }
         else if (Guid.TryParse(order.AccountId, out var accountId))
-            account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        {
+            var accountProto = await _accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+            if (accountProto != null)
+                account = SnAccount.FromProtoValue(accountProto);
+        }
 
         if (account is null)
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
@@ -249,14 +259,6 @@ public class SubscriptionService(
             ? template
             : null;
         if (subscriptionInfo is null) throw new InvalidOperationException("No matching subscription found.");
-
-        if (subscriptionInfo.RequiredLevel > 0)
-        {
-            var profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == subscription.AccountId);
-            if (profile is null) throw new InvalidOperationException("Account must have a profile");
-            if (profile.Level < subscriptionInfo.RequiredLevel)
-                throw new InvalidOperationException("Account level must be at least 60 to purchase a gift.");
-        }
 
         return await payment.CreateOrderAsync(
             null,
@@ -412,11 +414,6 @@ public class SubscriptionService(
 
     private async Task NotifySubscriptionBegun(SnWalletSubscription subscription)
     {
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == subscription.AccountId);
-        if (account is null) return;
-
-        Account.AccountService.SetCultureInfo(account);
-
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
                 ? humanReadable
@@ -436,10 +433,10 @@ public class SubscriptionService(
             }),
             IsSavable = true
         };
-        await pusher.SendPushNotificationToUserAsync(
+        await _pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {
-                UserId = account.Id.ToString(),
+                UserId = subscription.AccountId.ToString(),
                 Notification = notification
             }
         );
@@ -601,10 +598,9 @@ public class SubscriptionService(
         SnAccount? recipient = null;
         if (recipientId.HasValue)
         {
-            recipient = await db.Accounts
-              .Where(a => a.Id == recipientId.Value)
-              .Include(a => a.Profile)
-              .FirstOrDefaultAsync();
+            var accountProto = await _accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
+            if (accountProto != null)
+                recipient = SnAccount.FromProtoValue(accountProto);
             if (recipient is null)
                 throw new ArgumentOutOfRangeException(nameof(recipientId), "Recipient account not found.");
         }
@@ -748,8 +744,7 @@ public class SubscriptionService(
             }
 
             if (gift.GifterId == redeemer.Id) return (gift, sameTypeSubscription);
-            var gifter = await db.Accounts.FirstOrDefaultAsync(a => a.Id == gift.GifterId);
-            if (gifter != null) await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gifter, redeemer);
+            await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gift.GifterId, redeemer);
 
             return (gift, sameTypeSubscription);
         }
@@ -815,13 +810,7 @@ public class SubscriptionService(
 
         // Send notification to gifter if different from redeemer
         if (gift.GifterId == redeemer.Id) return (gift, subscription);
-        {
-            var gifter = await db.Accounts.FirstOrDefaultAsync(a => a.Id == gift.GifterId);
-            if (gifter != null)
-            {
-                await NotifyGiftClaimedByRecipient(gift, subscription, gifter, redeemer);
-            }
-        }
+        await NotifyGiftClaimedByRecipient(gift, subscription, gift.GifterId, redeemer);
 
         return (gift, subscription);
     }
@@ -832,9 +821,6 @@ public class SubscriptionService(
     public async Task<SnWalletGift?> GetGiftByCodeAsync(string giftCode)
     {
         return await db.WalletGifts
-            .Include(g => g.Gifter).ThenInclude(a => a.Profile)
-            .Include(g => g.Recipient).ThenInclude(a => a.Profile)
-            .Include(g => g.Redeemer).ThenInclude(a => a.Profile)
             .Include(g => g.Coupon)
             .FirstOrDefaultAsync(g => g.GiftCode == giftCode);
     }
@@ -846,9 +832,6 @@ public class SubscriptionService(
     public async Task<List<SnWalletGift>> GetGiftsByGifterAsync(Guid gifterId)
     {
         return await db.WalletGifts
-            .Include(g => g.Recipient).ThenInclude(a => a.Profile)
-            .Include(g => g.Redeemer).ThenInclude(a => a.Profile)
-            .Include(g => g.Subscription)
             .Where(g => g.GifterId == gifterId && g.Status != DysonNetwork.Shared.Models.GiftStatus.Created)
             .OrderByDescending(g => g.CreatedAt)
             .ToListAsync();
@@ -857,9 +840,6 @@ public class SubscriptionService(
     public async Task<List<SnWalletGift>> GetGiftsByRecipientAsync(Guid recipientId)
     {
         return await db.WalletGifts
-            .Include(g => g.Gifter).ThenInclude(a => a.Profile)
-            .Include(g => g.Redeemer).ThenInclude(a => a.Profile)
-            .Include(g => g.Subscription)
             .Where(g => g.RecipientId == recipientId || (g.IsOpenGift && g.RedeemerId == recipientId))
             .OrderByDescending(g => g.CreatedAt)
             .ToListAsync();
@@ -933,10 +913,8 @@ public class SubscriptionService(
         return new string(result);
     }
 
-    private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, SnAccount gifter, SnAccount redeemer)
+    private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId, SnAccount redeemer)
     {
-        Account.AccountService.SetCultureInfo(gifter);
-
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
                 ? humanReadable
@@ -956,10 +934,10 @@ public class SubscriptionService(
             IsSavable = true
         };
 
-        await pusher.SendPushNotificationToUserAsync(
+        await _pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {
-                UserId = gifter.Id.ToString(),
+                UserId = gifterId.ToString(),
                 Notification = notification
             }
         );
