@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Pass.Realm;
 
 [ApiController]
-[Route("api/realms/discovery")]
-public class RealmDiscoveryController(AppDatabase db) : ControllerBase
+[Route("api/realms/public")]
+public class RealmPublicController(AppDatabase db) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<List<SnRealm>>> GetRealmDiscovery(
+    public async Task<ActionResult<List<SnRealm>>> ListCommunityRealms(
         [FromQuery] string? query,
         [FromQuery] int take = 10,
         [FromQuery] int offset = 0
