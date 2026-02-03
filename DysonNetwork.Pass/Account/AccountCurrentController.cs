@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +23,8 @@ public class AccountCurrentController(
     AccountEventService events,
     AuthService auth,
     FileService.FileServiceClient files,
-    Credit.SocialCreditService creditService
+    Credit.SocialCreditService creditService,
+    RemoteSubscriptionService remoteSubscription
 ) : ControllerBase
 {
     [HttpGet]
@@ -38,6 +40,24 @@ public class AccountCurrentController(
             .Include(e => e.Profile)
             .Where(e => e.Id == userId)
             .FirstOrDefaultAsync();
+
+        if (account != null)
+        {
+            // Populate PerkSubscription from Wallet service via gRPC
+            try
+            {
+                var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+                if (subscription != null)
+                {
+                    account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the request - PerkSubscription is optional
+                Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
+            }
+        }
 
         return Ok(account);
     }
@@ -321,7 +341,10 @@ public class AccountCurrentController(
         }
         else
         {
-            if (currentUser.PerkSubscription is null)
+            // Check PerkSubscription via RemoteSubscriptionService instead of relying on currentUser.PerkSubscription
+            // which is not populated when currentUser comes from HttpContext.Items
+            var perkSubscription = await remoteSubscription.GetPerkSubscription(currentUser.Id);
+            if (perkSubscription == null)
                 return StatusCode(403, ApiError.Unauthorized(
                     message: "You need to have a subscription to check-in backdated.",
                     forbidden: true,

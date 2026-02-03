@@ -1,6 +1,7 @@
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +11,8 @@ namespace DysonNetwork.Pass.Account;
 [Route("/api/accounts")]
 public class AccountPublicController(
     AppDatabase db,
-    SocialCreditService socialCreditService
+    SocialCreditService socialCreditService,
+    RemoteSubscriptionService remoteSubscription
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -25,6 +27,21 @@ public class AccountPublicController(
             .Where(a => EF.Functions.Like(a.Name, name))
             .FirstOrDefaultAsync();
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+
+        // Populate PerkSubscription from Wallet service via gRPC
+        try
+        {
+            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+            if (subscription != null)
+            {
+                account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't fail the request - PerkSubscription is optional
+            Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
+        }
 
         return account;
     }
@@ -67,11 +84,44 @@ public class AccountPublicController(
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
-        return await db.Accounts
+        
+        var accounts = await db.Accounts
             .Include(e => e.Profile)
             .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") ||
                         EF.Functions.ILike(a.Nick, $"%{query}%"))
             .Take(take)
             .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        if (accounts.Count > 0)
+        {
+            try
+            {
+                var accountIds = accounts.Select(a => a.Id).ToList();
+                var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
+                
+                var subscriptionDict = subscriptions
+                    .Where(s => s != null)
+                    .ToDictionary(
+                        s => Guid.Parse(s.AccountId), 
+                        s => SnWalletSubscription.FromProtoValue(s).ToReference()
+                    );
+
+                foreach (var account in accounts)
+                {
+                    if (subscriptionDict.TryGetValue(account.Id, out var subscription))
+                    {
+                        account.PerkSubscription = subscription;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the request - PerkSubscription is optional
+                Console.WriteLine($"Failed to populate PerkSubscriptions for search results: {ex.Message}");
+            }
+        }
+
+        return accounts;
     }
 }

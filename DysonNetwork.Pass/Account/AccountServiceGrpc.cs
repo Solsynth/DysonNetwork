@@ -1,4 +1,6 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +12,7 @@ public class AccountServiceGrpc(
     AppDatabase db,
     AccountEventService accountEvents,
     RelationshipService relationships,
+    RemoteSubscriptionService remoteSubscription,
     ILogger<AccountServiceGrpc> logger
 )
     : Shared.Proto.AccountService.AccountServiceBase
@@ -33,6 +36,9 @@ public class AccountServiceGrpc(
         if (account == null)
             throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.Id} not found"));
 
+        // Populate PerkSubscription from Wallet service via gRPC
+        await PopulatePerkSubscriptionAsync(account);
+
         return account.ToProtoValue();
     }
 
@@ -51,6 +57,9 @@ public class AccountServiceGrpc(
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound,
                 $"Account with automated ID {request.AutomatedId} not found"));
 
+        // Populate PerkSubscription from Wallet service via gRPC
+        await PopulatePerkSubscriptionAsync(account);
+
         return account.ToProtoValue();
     }
 
@@ -68,6 +77,9 @@ public class AccountServiceGrpc(
             .Where(a => accountIds.Contains(a.Id))
             .Include(a => a.Profile)
             .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -89,6 +101,9 @@ public class AccountServiceGrpc(
             .Where(a => a.AutomatedId != null && automatedIds.Contains(a.AutomatedId.Value))
             .Include(a => a.Profile)
             .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -126,6 +141,9 @@ public class AccountServiceGrpc(
             .Include(a => a.Profile)
             .ToListAsync();
 
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
+
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
@@ -139,6 +157,9 @@ public class AccountServiceGrpc(
             .Where(a => EF.Functions.ILike(a.Name, $"%{request.Query}%"))
             .Include(a => a.Profile)
             .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
 
         var response = new GetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -175,6 +196,9 @@ public class AccountServiceGrpc(
             .Take(request.PageSize)
             .Include(a => a.Profile)
             .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
 
         var response = new ListAccountsResponse
         {
@@ -263,5 +287,57 @@ public class AccountServiceGrpc(
                 (Shared.Models.RelationshipStatus)request.Status
             );
         return new BoolValue { Value = hasRelationship };
+    }
+
+    /// <summary>
+    /// Populates the PerkSubscription property for a single account by calling the Wallet service via gRPC.
+    /// </summary>
+    private async Task PopulatePerkSubscriptionAsync(SnAccount account)
+    {
+        try
+        {
+            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+            if (subscription != null)
+            {
+                account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to populate PerkSubscription for account {AccountId} in gRPC service", account.Id);
+        }
+    }
+
+    /// <summary>
+    /// Populates the PerkSubscription property for multiple accounts by calling the Wallet service via gRPC.
+    /// </summary>
+    private async Task PopulatePerkSubscriptionsAsync(List<SnAccount> accounts)
+    {
+        if (accounts.Count == 0) return;
+
+        try
+        {
+            var accountIds = accounts.Select(a => a.Id).ToList();
+            var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
+            
+            var subscriptionDict = subscriptions
+                .Where(s => s != null)
+                .ToDictionary(
+                    s => Guid.Parse(s.AccountId), 
+                    s => SnWalletSubscription.FromProtoValue(s).ToReference()
+                );
+
+            foreach (var account in accounts)
+            {
+                if (subscriptionDict.TryGetValue(account.Id, out var subscription))
+                {
+                    account.PerkSubscription = subscription;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to populate PerkSubscriptions for {Count} accounts in gRPC service", accounts.Count);
+        }
     }
 }

@@ -16,6 +16,7 @@ using NATS.Net;
 using NodaTime;
 using OtpNet;
 using AuthService = DysonNetwork.Pass.Auth.AuthService;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Pass.Account;
 
@@ -31,6 +32,7 @@ public class AccountService(
     IStringLocalizer<EmailResource> emailLocalizer,
     ICacheService cache,
     ILogger<AccountService> logger,
+    RemoteSubscriptionService remoteSubscription,
     INatsConnection nats
 )
 {
@@ -756,5 +758,57 @@ public class AccountService(
                 DeletedAt = SystemClock.Instance.GetCurrentInstant()
             }).ToByteArray()
         );
+    }
+
+    /// <summary>
+    /// Populates the PerkSubscription property for a single account by calling the Wallet service via gRPC.
+    /// </summary>
+    public async Task PopulatePerkSubscriptionAsync(SnAccount account)
+    {
+        try
+        {
+            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+            if (subscription != null)
+            {
+                account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to populate PerkSubscription for account {AccountId}", account.Id);
+        }
+    }
+
+    /// <summary>
+    /// Populates the PerkSubscription property for multiple accounts by calling the Wallet service via gRPC.
+    /// </summary>
+    public async Task PopulatePerkSubscriptionsAsync(List<SnAccount> accounts)
+    {
+        if (accounts.Count == 0) return;
+
+        try
+        {
+            var accountIds = accounts.Select(a => a.Id).ToList();
+            var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
+            
+            var subscriptionDict = subscriptions
+                .Where(s => s != null)
+                .ToDictionary(
+                    s => Guid.Parse(s.AccountId), 
+                    s => SnWalletSubscription.FromProtoValue(s).ToReference()
+                );
+
+            foreach (var account in accounts)
+            {
+                if (subscriptionDict.TryGetValue(account.Id, out var subscription))
+                {
+                    account.PerkSubscription = subscription;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to populate PerkSubscriptions for {Count} accounts", accounts.Count);
+        }
     }
 }
