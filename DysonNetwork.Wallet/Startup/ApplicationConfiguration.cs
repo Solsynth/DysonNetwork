@@ -28,6 +28,7 @@ public static class ApplicationConfiguration
     {
         app.MapGrpcService<WalletServiceGrpc>();
         app.MapGrpcService<PaymentServiceGrpc>();
+        app.MapGrpcService<SubscriptionServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;
