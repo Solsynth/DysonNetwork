@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,11 +24,11 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> CreateWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            var wallet = await ws.CreateWalletAsync(currentUser.Id);
+            var wallet = await ws.CreateWalletAsync(Guid.Parse(currentUser.Id));
             return Ok(wallet);
         }
         catch (Exception err)
@@ -40,9 +41,9 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> GetWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var wallet = await ws.GetWalletAsync(currentUser.Id);
+        var wallet = await ws.GetWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
         return Ok(wallet);
     }
@@ -64,9 +65,9 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<WalletStats>> GetWalletStats([FromQuery] int period = 30)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var wallet = await ws.GetWalletAsync(currentUser.Id);
+        var wallet = await ws.GetWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
 
         var periodEnd = SystemClock.Instance.GetCurrentInstant();
@@ -119,9 +120,9 @@ public class WalletController(
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
+        var accountWallet = await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
 
         var query = db.PaymentTransactions
@@ -150,9 +151,9 @@ public class WalletController(
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var accountWallet = await db.Wallets.Where(w => w.AccountId == currentUser.Id).FirstOrDefaultAsync();
+        var accountWallet = await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
 
         var query = db.PaymentOrders.AsQueryable()
@@ -221,14 +222,14 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletTransaction>> Transfer([FromBody] WalletTransferRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        if (currentUser.Id == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
+        if (Guid.Parse(currentUser.Id) == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
 
         try
         {
             var transaction = await payment.TransferAsync(
-                payerAccountId: currentUser.Id,
+                payerAccountId: Guid.Parse(currentUser.Id),
                 payeeAccountId: request.PayeeAccountId,
                 currency: request.Currency,
                 amount: request.Amount
@@ -248,7 +249,7 @@ public class WalletController(
         [Required] public string Currency { get; set; } = null!;
         [Required] public decimal TotalAmount { get; set; }
         [Required] public int AmountOfSplits { get; set; }
-        [Required] public FundSplitType SplitType { get; set; }
+        [Required] public Shared.Models.FundSplitType SplitType { get; set; }
         public string? Message { get; set; }
         public int? ExpirationHours { get; set; } // Optional: hours until expiration
     }
@@ -257,7 +258,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletFund>> CreateFund([FromBody] CreateFundRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
@@ -268,7 +269,7 @@ public class WalletController(
             }
 
             var fund = await payment.CreateFundAsync(
-                creatorAccountId: currentUser.Id,
+                creatorAccountId: Guid.Parse(currentUser.Id),
                 recipientAccountIds: request.RecipientAccountIds,
                 currency: request.Currency,
                 totalAmount: request.TotalAmount,
@@ -291,17 +292,18 @@ public class WalletController(
     public async Task<ActionResult<List<SnWalletFund>>> GetFunds(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] FundStatus? status = null
+        [FromQuery] Shared.Models.FundStatus? status = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var currentUserId = Guid.Parse(currentUser.Id);
         var query = db.WalletFunds
             .Include(f => f.Recipients)
             .ThenInclude(r => r.RecipientAccount)
             .Include(f => f.CreatorAccount)
-            .Where(f => f.CreatorAccountId == currentUser.Id ||
-                        f.Recipients.Any(r => r.RecipientAccountId == currentUser.Id))
+            .Where(f => f.CreatorAccountId == currentUserId ||
+                        f.Recipients.Any(r => r.RecipientAccountId == currentUserId))
             .AsQueryable();
 
         if (status.HasValue)
@@ -340,12 +342,12 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletTransaction>> ReceiveFund(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
             var walletTransaction = await payment.ReceiveFundAsync(
-                recipientAccountId: currentUser.Id,
+                recipientAccountId: Guid.Parse(currentUser.Id),
                 fundId: id
             );
 
@@ -365,12 +367,12 @@ public class WalletController(
         [FromQuery] DateTime? endDate = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
             var overview = await payment.GetWalletOverviewAsync(
-                accountId: currentUser.Id,
+                accountId: Guid.Parse(currentUser.Id),
                 startDate: startDate,
                 endDate: endDate
             );

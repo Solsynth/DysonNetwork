@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -24,9 +25,9 @@ public class SubscriptionGiftController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var query = await subscriptions.GetGiftsByGifterAsync(currentUser.Id);
+        var query = await subscriptions.GetGiftsByGifterAsync(Guid.Parse(currentUser.Id));
         var totalCount = query.Count;
 
         var gifts = query
@@ -49,9 +50,9 @@ public class SubscriptionGiftController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var gifts = await subscriptions.GetGiftsByRecipientAsync(currentUser.Id);
+        var gifts = await subscriptions.GetGiftsByRecipientAsync(Guid.Parse(currentUser.Id));
         var totalCount = gifts.Count;
 
         gifts = gifts
@@ -71,8 +72,9 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> GetGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
+        var currentUserId = Guid.Parse(currentUser.Id);
         var gift = await db.WalletGifts
             .Include(g => g.Gifter).ThenInclude(a => a!.Profile)
             .Include(g => g.Recipient).ThenInclude(a => a!.Profile)
@@ -82,8 +84,8 @@ public class SubscriptionGiftController(
             .FirstOrDefaultAsync(g => g.Id == giftId);
 
         if (gift is null) return NotFound();
-        if (gift.GifterId != currentUser.Id && gift.RecipientId != currentUser.Id &&
-            !(gift.IsOpenGift && gift.RedeemerId == currentUser.Id))
+        if (gift.GifterId != currentUserId && gift.RecipientId != currentUserId &&
+            !(gift.IsOpenGift && gift.RedeemerId == currentUserId))
             return NotFound();
 
         return gift;
@@ -96,7 +98,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<GiftCheckResponse>> CheckGiftCode(string giftCode)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var gift = await subscriptions.GetGiftByCodeAsync(giftCode);
         if (gift is null) return NotFound("Gift code not found.");
@@ -119,7 +121,7 @@ public class SubscriptionGiftController(
         {
             error = "Gift has expired.";
         }
-        else if (!gift.IsOpenGift && gift.RecipientId != currentUser.Id)
+        else if (!gift.IsOpenGift && gift.RecipientId != Guid.Parse(currentUser.Id))
         {
             error = "This gift is intended for someone else.";
         }
@@ -141,7 +143,7 @@ public class SubscriptionGiftController(
                     : [gift.SubscriptionIdentifier];
 
                 var existingSubscription =
-                    await subscriptions.GetSubscriptionAsync(currentUser.Id, subscriptionsInGroup);
+                    await subscriptions.GetSubscriptionAsync(Guid.Parse(currentUser.Id), subscriptionsInGroup);
                 if (existingSubscription is not null)
                 {
                     error = "You already have an active subscription of this type.";
@@ -193,7 +195,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> PurchaseGift([FromBody] PurchaseGiftRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         if (currentUser.Profile.Level < MinimumAccountLevel)
         {
@@ -247,7 +249,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<RedeemGiftResponse>> RedeemGift([FromBody] RedeemGiftRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
@@ -278,11 +280,11 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> SendGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            var gift = await subscriptions.MarkGiftAsSentAsync(giftId, currentUser.Id);
+            var gift = await subscriptions.MarkGiftAsSentAsync(giftId, Guid.Parse(currentUser.Id));
             return gift;
         }
         catch (InvalidOperationException ex)
@@ -298,11 +300,11 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> CancelGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            var gift = await subscriptions.CancelGiftAsync(giftId, currentUser.Id);
+            var gift = await subscriptions.CancelGiftAsync(giftId, Guid.Parse(currentUser.Id));
             return gift;
         }
         catch (InvalidOperationException ex)
@@ -318,11 +320,11 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletOrder>> CreateGiftOrder(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            var order = await subscriptions.CreateGiftOrder(currentUser.Id, giftId);
+            var order = await subscriptions.CreateGiftOrder(Guid.Parse(currentUser.Id), giftId);
             return order;
         }
         catch (InvalidOperationException ex)

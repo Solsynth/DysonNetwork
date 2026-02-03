@@ -5,6 +5,7 @@ using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -20,10 +21,10 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var query = db.WalletSubscriptions.AsQueryable()
-            .Where(s => s.AccountId == currentUser.Id)
+            .Where(s => s.AccountId == Guid.Parse(currentUser.Id))
             .Include(s => s.Coupon)
             .OrderByDescending(s => s.BegunAt);
 
@@ -43,10 +44,10 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     [Authorize]
     public async Task<ActionResult<SnWalletSubscription>> GetSubscriptionFuzzy(string prefix)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         var subscription = await db.WalletSubscriptions
-            .Where(s => s.AccountId == currentUser.Id && s.IsActive)
+            .Where(s => s.AccountId == Guid.Parse(currentUser.Id) && s.IsActive)
             .Where(s => EF.Functions.ILike(s.Identifier, prefix + "%"))
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
@@ -59,9 +60,9 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     [Authorize]
     public async Task<ActionResult<SnWalletSubscription>> GetSubscription(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var subscription = await subscriptions.GetSubscriptionAsync(currentUser.Id, identifier);
+        var subscription = await subscriptions.GetSubscriptionAsync(Guid.Parse(currentUser.Id), identifier);
         if (subscription is null) return NotFound($"Subscription with identifier {identifier} was not found.");
 
         return subscription;
@@ -85,7 +86,7 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
         [FromHeader(Name = "X-Noop")] bool noop = false
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         Duration? cycleDuration = null;
         if (request.CycleDurationDays.HasValue)
@@ -121,11 +122,11 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     [Authorize]
     public async Task<ActionResult<SnWalletSubscription>> CancelSubscription(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            var subscription = await subscriptions.CancelSubscriptionAsync(currentUser.Id, identifier);
+            var subscription = await subscriptions.CancelSubscriptionAsync(Guid.Parse(currentUser.Id), identifier);
             return subscription;
         }
         catch (InvalidOperationException ex)
@@ -138,11 +139,11 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
     [Authorize]
     public async Task<ActionResult<SnWalletOrder>> CreateSubscriptionOrder(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
-            var order = await subscriptions.CreateSubscriptionOrder(currentUser.Id, identifier);
+            var order = await subscriptions.CreateSubscriptionOrder(Guid.Parse(currentUser.Id), identifier);
             return order;
         }
         catch (InvalidOperationException ex)

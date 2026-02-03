@@ -76,12 +76,12 @@ public class OrderController(
     [Authorize]
     public async Task<ActionResult<SnWalletOrder>> PayOrder(Guid id, [FromBody] PayOrderRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
         try
         {
             // Get the wallet for the current user
-            var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == currentUser.Id);
+            var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == Guid.Parse(currentUser.Id));
             if (wallet == null)
                 return BadRequest("Wallet was not found.");
 

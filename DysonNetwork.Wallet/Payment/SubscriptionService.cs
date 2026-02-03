@@ -26,7 +26,7 @@ public class SubscriptionService(
 )
 {
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
-        SnAccount account,
+        Account account,
         string identifier,
         string paymentMethod,
         SnPaymentDetails paymentDetails,
@@ -53,7 +53,8 @@ public class SubscriptionService(
 
         cycleDuration ??= Duration.FromDays(30);
 
-        var existingSubscription = await GetSubscriptionAsync(account.Id, subscriptionsInGroup);
+        var accountId = Guid.Parse(account.Id);
+        var existingSubscription = await GetSubscriptionAsync(accountId, subscriptionsInGroup);
         if (existingSubscription is not null && !noop)
             throw new InvalidOperationException($"Active subscription with identifier {identifier} already exists.");
         if (existingSubscription is not null)
@@ -61,7 +62,7 @@ public class SubscriptionService(
 
         // Batch database queries for coupon and free trial check
         var prevFreeTrialTask = isFreeTrial
-            ? db.WalletSubscriptions.FirstOrDefaultAsync(s => s.AccountId == account.Id && s.Identifier == identifier && s.IsFreeTrial)
+            ? db.WalletSubscriptions.FirstOrDefaultAsync(s => s.AccountId == accountId && s.Identifier == identifier && s.IsFreeTrial)
             : Task.FromResult((SnWalletSubscription?)null);
 
         Guid couponGuidId = Guid.TryParse(coupon ?? "", out var parsedId) ? parsedId : Guid.Empty;
@@ -96,7 +97,7 @@ public class SubscriptionService(
             CouponId = couponData?.Id,
             Coupon = couponData,
             RenewalAt = (isFreeTrial || !isAutoRenewal) ? null : now.Plus(cycleDuration.Value),
-            AccountId = account.Id,
+            AccountId = accountId,
         };
 
         db.WalletSubscriptions.Add(subscription);
@@ -572,7 +573,7 @@ public class SubscriptionService(
     /// <param name="cycleDuration">The duration of the subscription once redeemed (default 30 days).</param>
     /// <returns>The created gift record.</returns>
     public async Task<SnWalletGift> PurchaseGiftAsync(
-        SnAccount gifter,
+        Account gifter,
         Guid? recipientId,
         string subscriptionIdentifier,
         string paymentMethod,
@@ -592,12 +593,12 @@ public class SubscriptionService(
                 $@"Subscription {subscriptionIdentifier} was not found.");
 
         // Check if recipient account exists (if specified)
-        SnAccount? recipient = null;
+        Account? recipient = null;
         if (recipientId.HasValue)
         {
             var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
             if (accountProto != null)
-                recipient = SnAccount.FromProtoValue(accountProto);
+                recipient = accountProto;
             if (recipient is null)
                 throw new ArgumentOutOfRangeException(nameof(recipientId), "Recipient account not found.");
         }
@@ -634,7 +635,7 @@ public class SubscriptionService(
 
         var gift = new SnWalletGift
         {
-            GifterId = gifter.Id,
+            GifterId = Guid.Parse(gifter.Id),
             RecipientId = recipientId,
             GiftCode = giftCode,
             Message = message,
@@ -654,8 +655,6 @@ public class SubscriptionService(
         db.WalletGifts.Add(gift);
         await db.SaveChangesAsync();
 
-        gift.Gifter = gifter;
-
         return gift;
     }
 
@@ -666,10 +665,11 @@ public class SubscriptionService(
     /// <param name="giftCode">The unique redemption code.</param>
     /// <returns>A tuple containing the activated gift and the created subscription.</returns>
     public async Task<(SnWalletGift Gift, SnWalletSubscription Subscription)> RedeemGiftAsync(
-        SnAccount redeemer,
+        Account redeemer,
         string giftCode)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
+        var redeemerId = Guid.Parse(redeemer.Id);
 
         // Find and validate the gift
         var gift = await db.WalletGifts
@@ -685,11 +685,11 @@ public class SubscriptionService(
         if (now > gift.ExpiresAt)
             throw new InvalidOperationException("Gift has expired.");
 
-        if (gift.GifterId == redeemer.Id)
+        if (gift.GifterId == redeemerId)
             throw new InvalidOperationException("You cannot redeem your own gift.");
 
         // Validate redeemer permissions
-        if (!gift.IsOpenGift && gift.RecipientId != redeemer.Id)
+        if (!gift.IsOpenGift && gift.RecipientId != redeemerId)
             throw new InvalidOperationException("This gift is not intended for you.");
 
         // Check if redeemer already has this subscription type
@@ -700,7 +700,7 @@ public class SubscriptionService(
         if (subscriptionInfo is null)
             throw new InvalidOperationException("Invalid gift subscription type.");
 
-        var sameTypeSubscription = await GetSubscriptionAsync(redeemer.Id, gift.SubscriptionIdentifier);
+        var sameTypeSubscription = await GetSubscriptionAsync(redeemerId, gift.SubscriptionIdentifier);
         if (sameTypeSubscription is not null)
         {
             // Extend existing subscription
@@ -722,7 +722,7 @@ public class SubscriptionService(
             // Update gift status and link
             gift.Status = Shared.Models.GiftStatus.Redeemed;
             gift.RedeemedAt = now;
-            gift.RedeemerId = redeemer.Id;
+            gift.RedeemerId = redeemerId;
             gift.SubscriptionId = sameTypeSubscription.Id;
             gift.UpdatedAt = now;
 
@@ -740,7 +740,7 @@ public class SubscriptionService(
                 throw;
             }
 
-            if (gift.GifterId == redeemer.Id) return (gift, sameTypeSubscription);
+            if (gift.GifterId == redeemerId) return (gift, sameTypeSubscription);
             await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gift.GifterId, redeemer);
 
             return (gift, sameTypeSubscription);
@@ -753,7 +753,7 @@ public class SubscriptionService(
                 .ToArray()
             : [gift.SubscriptionIdentifier];
 
-        var existingSubscription = await GetSubscriptionAsync(redeemer.Id, subscriptionsInGroup);
+        var existingSubscription = await GetSubscriptionAsync(redeemerId, subscriptionsInGroup);
         if (existingSubscription is not null)
             throw new InvalidOperationException("You already have an active subscription of this type.");
 
@@ -779,13 +779,13 @@ public class SubscriptionService(
             CouponId = gift.CouponId,
             Coupon = gift.Coupon,
             RenewalAt = now.Plus(cycleDuration),
-            AccountId = redeemer.Id,
+            AccountId = redeemerId,
         };
 
         // Update the gift status
         gift.Status = DysonNetwork.Shared.Models.GiftStatus.Redeemed;
         gift.RedeemedAt = now;
-        gift.RedeemerId = redeemer.Id;
+        gift.RedeemerId = redeemerId;
         gift.Subscription = subscription;
         gift.UpdatedAt = now;
 
@@ -806,7 +806,7 @@ public class SubscriptionService(
         }
 
         // Send notification to gifter if different from redeemer
-        if (gift.GifterId == redeemer.Id) return (gift, subscription);
+        if (gift.GifterId == redeemerId) return (gift, subscription);
         await NotifyGiftClaimedByRecipient(gift, subscription, gift.GifterId, redeemer);
 
         return (gift, subscription);
@@ -910,7 +910,7 @@ public class SubscriptionService(
         return new string(result);
     }
 
-    private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId, SnAccount redeemer)
+    private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId, Account redeemer)
     {
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
@@ -926,7 +926,7 @@ public class SubscriptionService(
             {
                 ["gift_id"] = gift.Id.ToString(),
                 ["subscription_id"] = subscription.Id.ToString(),
-                ["redeemer_id"] = redeemer.Id.ToString()
+                ["redeemer_id"] = redeemer.Id
             }),
             IsSavable = true
         };
