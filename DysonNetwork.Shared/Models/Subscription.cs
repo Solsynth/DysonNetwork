@@ -405,27 +405,40 @@ public class SnWalletSubscription : ModelBase
         };
     }
 
-    public Proto.Subscription ToProtoValue() => new()
+    public Proto.Subscription ToProtoValue()
     {
-        Id = Id.ToString(),
-        BegunAt = BegunAt.ToTimestamp(),
-        EndedAt = EndedAt?.ToTimestamp(),
-        Identifier = Identifier,
-        IsActive = IsActive,
-        IsFreeTrial = IsFreeTrial,
-        Status = (Proto.SubscriptionStatus)Status,
-        PaymentMethod = PaymentMethod,
-        PaymentDetails = PaymentDetails.ToProtoValue(),
-        BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
-        CouponId = CouponId?.ToString(),
-        Coupon = Coupon?.ToProtoValue(),
-        RenewalAt = RenewalAt?.ToTimestamp(),
-        AccountId = AccountId.ToString(),
-        IsAvailable = IsAvailable,
-        FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
-        CreatedAt = CreatedAt.ToTimestamp(),
-        UpdatedAt = UpdatedAt.ToTimestamp()
-    };
+        var proto = new Proto.Subscription
+        {
+            Id = Id.ToString(),
+            BegunAt = BegunAt.ToTimestamp(),
+            EndedAt = EndedAt?.ToTimestamp(),
+            Identifier = Identifier,
+            IsActive = IsActive,
+            IsFreeTrial = IsFreeTrial,
+            Status = (Proto.SubscriptionStatus)Status,
+            PaymentMethod = PaymentMethod,
+            PaymentDetails = PaymentDetails.ToProtoValue(),
+            BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
+            RenewalAt = RenewalAt?.ToTimestamp(),
+            AccountId = AccountId.ToString(),
+            IsAvailable = IsAvailable,
+            FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp()
+        };
+
+        if (CouponId.HasValue)
+        {
+            proto.CouponId = CouponId.Value.ToString();
+        }
+
+        if (Coupon != null)
+        {
+            proto.Coupon = Coupon.ToProtoValue();
+        }
+
+        return proto;
+    }
 
     public static SnWalletSubscription FromProtoValue(Proto.Subscription proto) => new()
     {
