@@ -1,16 +1,15 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 
 namespace DysonNetwork.Wallet.Payment;
 
 public class SubscriptionServiceGrpc(
     SubscriptionService subscriptionService,
-    IGrpcClientFactory<AccountService.AccountServiceClient> accountsFactory
+    AccountService.AccountServiceClient accounts
 ) : Shared.Proto.SubscriptionService.SubscriptionServiceBase
 {
-    private readonly AccountService.AccountServiceClient _accounts = accountsFactory.CreateClient();
+    private readonly AccountService.AccountServiceClient _accounts = accounts;
 
     public override async Task<Subscription> GetSubscription(
         GetSubscriptionRequest request,
