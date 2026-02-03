@@ -25,10 +25,23 @@ jobs:
             - name: Determine changed services
               id: changes
               run: |
-                  files="${{ steps.changed-files.outputs.files }}"
-                  matrix="{\"include\":[]}"
                   services=("Sphere" "Pass" "Ring" "Drive" "Develop" "Gateway" "Insight" "Zone" "Messager" "Wallet")
                   images=("sphere" "pass" "ring" "drive" "develop" "gateway" "insight" "zone" "messager" "wallet")
+                  
+                  # On manual dispatch, build all services
+                  if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                    json_objects=""
+                    for i in "${!services[@]}"; do
+                      json_objects+="{\"service\":\"${services[$i]}\",\"image\":\"${images[$i]}\"},"
+                    done
+                    matrix="{\"include\":[${json_objects%,}]}"
+                    echo "matrix=$matrix" >> $GITHUB_OUTPUT
+                    echo "Building all services on manual dispatch"
+                    exit 0
+                  fi
+                  
+                  files="${{ steps.changed-files.outputs.files }}"
+                  matrix="{\"include\":[]}"
                   changed_services=()
 
                   for file in $files; do
