@@ -17,17 +17,14 @@ namespace DysonNetwork.Wallet.Payment;
 public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
-    IGrpcClientFactory<AccountService.AccountServiceClient> accountsFactory,
-    IGrpcClientFactory<RingService.RingServiceClient> pusherFactory,
+    AccountService.AccountServiceClient accounts,
+    RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     IConfiguration configuration,
     ICacheService cache,
     ILogger<SubscriptionService> logger
 )
 {
-    private readonly AccountService.AccountServiceClient _accounts = accountsFactory.CreateClient();
-    private readonly RingService.RingServiceClient _pusher = pusherFactory.CreateClient();
-
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
         SnAccount account,
         string identifier,
@@ -141,14 +138,14 @@ public class SubscriptionService(
             // Use GetAccount instead of LookupAccountByConnection since that method may not exist
             if (Guid.TryParse(order.AccountId, out var accountId))
             {
-                var accountProto = await _accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+                var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
                 if (accountProto != null)
                     account = SnAccount.FromProtoValue(accountProto);
             }
         }
         else if (Guid.TryParse(order.AccountId, out var accountId))
         {
-            var accountProto = await _accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+            var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
             if (accountProto != null)
                 account = SnAccount.FromProtoValue(accountProto);
         }
@@ -433,7 +430,7 @@ public class SubscriptionService(
             }),
             IsSavable = true
         };
-        await _pusher.SendPushNotificationToUserAsync(
+        await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {
                 UserId = subscription.AccountId.ToString(),
@@ -598,7 +595,7 @@ public class SubscriptionService(
         SnAccount? recipient = null;
         if (recipientId.HasValue)
         {
-            var accountProto = await _accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
+            var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
             if (accountProto != null)
                 recipient = SnAccount.FromProtoValue(accountProto);
             if (recipient is null)
@@ -934,7 +931,7 @@ public class SubscriptionService(
             IsSavable = true
         };
 
-        await _pusher.SendPushNotificationToUserAsync(
+        await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {
                 UserId = gifterId.ToString(),

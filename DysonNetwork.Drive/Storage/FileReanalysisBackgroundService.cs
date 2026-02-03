@@ -1,15 +1,18 @@
 namespace DysonNetwork.Drive.Storage;
 
-public class FileReanalysisBackgroundService(FileReanalysisService reanalysisService, ILogger<FileReanalysisBackgroundService> logger, IConfiguration config) : BackgroundService
+public class FileReanalysisBackgroundService(IServiceProvider srv, ILogger<FileReanalysisBackgroundService> logger, IConfiguration config) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("File reanalysis background service started");
 
+        using var scope = srv.CreateScope();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                var reanalysisService = scope.ServiceProvider.GetRequiredService<FileReanalysisService>();
                 await reanalysisService.ProcessNextFileAsync();
             }
             catch (Exception ex)

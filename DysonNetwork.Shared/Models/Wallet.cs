@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using System.Text.Json.Serialization;
 using MessagePack;
@@ -14,7 +15,7 @@ public class SnWallet : ModelBase
     public List<SnWalletPocket> Pockets { get; set; } = new List<SnWalletPocket>();
 
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 
     public Proto.Wallet ToProtoValue()
     {
@@ -95,7 +96,7 @@ public class SnWalletFund : ModelBase
 
     // Creator
     public Guid CreatorAccountId { get; set; }
-    public SnAccount CreatorAccount { get; set; } = null!;
+    [NotMapped] public SnAccount CreatorAccount { get; set; } = null!;
 
     // Recipients
     public List<SnWalletFundRecipient> Recipients { get; set; } = new List<SnWalletFundRecipient>();
@@ -139,7 +140,7 @@ public class SnWalletFundRecipient : ModelBase
     [JsonIgnore] public SnWalletFund Fund { get; set; } = null!;
 
     public Guid RecipientAccountId { get; set; }
-    public SnAccount RecipientAccount { get; set; } = null!;
+    [NotMapped] public SnAccount RecipientAccount { get; set; } = null!;
 
     public decimal Amount { get; set; }
     public bool IsReceived { get; set; } = false;

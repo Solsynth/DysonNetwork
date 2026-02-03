@@ -50,15 +50,7 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        // Ignore account-related entities that belong to Pass project
-        // These are referenced via navigation properties but tables are in Pass database
-        modelBuilder.Ignore<SnAccount>();
-        modelBuilder.Ignore<SnAccountProfile>();
-        modelBuilder.Ignore<SnPermissionGroupMember>();
-        modelBuilder.Ignore<SnAccountRelationship>();
-        modelBuilder.Ignore<SnRealmMember>();
-
+        
         modelBuilder.ApplySoftDeleteFilters();
     }
 

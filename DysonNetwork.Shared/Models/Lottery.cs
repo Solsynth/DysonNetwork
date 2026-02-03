@@ -32,7 +32,7 @@ public class SnLottery : ModelBase
 {
     public Guid Id { get; init; } = Guid.NewGuid();
 
-    public SnAccount Account { get; init; } = null!;
+    [NotMapped] public SnAccount Account { get; init; } = null!;
     public Guid AccountId { get; init; }
 
     [Column(TypeName = "jsonb")]

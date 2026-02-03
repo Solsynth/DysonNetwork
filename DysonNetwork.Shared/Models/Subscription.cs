@@ -74,13 +74,13 @@ public class SnWalletGift : ModelBase
     /// The user who purchased/gave the gift.
     /// </summary>
     public Guid GifterId { get; set; }
-    public SnAccount Gifter { get; set; } = null!;
+    [NotMapped] public SnAccount Gifter { get; set; } = null!;
 
     /// <summary>
     /// The intended recipient. Null for open gifts that anyone can redeem.
     /// </summary>
     public Guid? RecipientId { get; set; }
-    public SnAccount? Recipient { get; set; }
+    [NotMapped] public SnAccount? Recipient { get; set; }
 
     /// <summary>
     /// Unique redemption code/link identifier for the gift.
@@ -124,7 +124,7 @@ public class SnWalletGift : ModelBase
     /// The user who redeemed the gift (if different from recipient).
     /// </summary>
     public Guid? RedeemerId { get; set; }
-    public SnAccount? Redeemer { get; set; }
+    [NotMapped] public SnAccount? Redeemer { get; set; }
 
     /// <summary>
     /// The subscription created when the gift is redeemed.
@@ -331,7 +331,7 @@ public class SnWalletSubscription : ModelBase
     public Instant? RenewalAt { get; set; }
 
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 
     /// <summary>
     /// If this subscription was redeemed from a gift, this references the gift record.

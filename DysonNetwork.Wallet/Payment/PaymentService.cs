@@ -16,13 +16,11 @@ namespace DysonNetwork.Wallet.Payment;
 public class PaymentService(
     AppDatabase db,
     WalletService wat,
-    IGrpcClientFactory<RingService.RingServiceClient> pusherFactory,
+    RingService.RingServiceClient pusher,
     IStringLocalizer<NotificationResource> localizer,
     INatsConnection nats
 )
 {
-    private readonly RingService.RingServiceClient _pusher = pusherFactory.CreateClient();
-
     public async Task<SnWalletOrder> CreateOrderAsync(
         Guid? payeeWalletId,
         string currency,
@@ -184,7 +182,7 @@ public class PaymentService(
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
-            await _pusher.SendPushNotificationToUserAsync(
+            await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
                     UserId = payerWallet.AccountId.ToString(),
@@ -211,7 +209,7 @@ public class PaymentService(
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
-            await _pusher.SendPushNotificationToUserAsync(
+            await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
                     UserId = payeeWallet.AccountId.ToString(),
@@ -315,7 +313,7 @@ public class PaymentService(
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
 
-            await _pusher.SendPushNotificationToUserAsync(
+            await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
                     UserId = payerWallet.AccountId.ToString(),
@@ -338,7 +336,7 @@ public class PaymentService(
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
-            await _pusher.SendPushNotificationToUserAsync(
+            await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
                     UserId = payeeWallet.AccountId.ToString(),

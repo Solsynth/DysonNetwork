@@ -12,11 +12,9 @@ namespace DysonNetwork.Wallet.Payment;
 public class OrderController(
     PaymentService payment,
     AppDatabase db,
-    IGrpcClientFactory<CustomAppService.CustomAppServiceClient> customAppsFactory
+    CustomAppService.CustomAppServiceClient customApps
 ) : ControllerBase
 {
-    private readonly CustomAppService.CustomAppServiceClient _customApps = customAppsFactory.CreateClient();
-
     public class CreateOrderRequest
     {
         public string Currency { get; set; } = null!;
@@ -33,11 +31,11 @@ public class OrderController(
     [HttpPost]
     public async Task<ActionResult<SnWalletOrder>> CreateOrder([FromBody] CreateOrderRequest request)
     {
-        var clientResp = await _customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
         if (clientResp.App is null) return BadRequest("Client not found");
         var client = SnCustomApp.FromProtoValue(clientResp.App);
 
-        var secret = await _customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
         {
             AppId = client.Id.ToString(),
             Secret = request.ClientSecret,
@@ -107,11 +105,11 @@ public class OrderController(
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<SnWalletOrder>> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
     {
-        var clientResp = await _customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
         if (clientResp.App is null) return BadRequest("Client not found");
         var client = SnCustomApp.FromProtoValue(clientResp.App);
 
-        var secret = await _customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
         {
             AppId = client.Id.ToString(),
             Secret = request.ClientSecret,

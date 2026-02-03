@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
@@ -17,6 +18,7 @@ public class AccountEventService(
     IStringLocalizer<Localization.AccountEventResource> localizer,
     RingService.RingServiceClient pusher,
     Pass.Leveling.ExperienceService experienceService,
+    RemotePaymentService payment,
     INatsConnection nats
 )
 {
@@ -70,21 +72,11 @@ public class AccountEventService(
         );
     }
 
-    private static bool StatusesEqual(SnAccountStatus a, SnAccountStatus b)
-    {
-        return a.Attitude == b.Attitude &&
-               a.IsOnline == b.IsOnline &&
-               a.IsCustomized == b.IsCustomized &&
-               a.Label == b.Label &&
-               a.IsInvisible == b.IsInvisible &&
-               a.IsNotDisturb == b.IsNotDisturb;
-    }
-
     public async Task<SnAccountStatus> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
-        SnAccountStatus status;
+        SnAccountStatus? status;
         if (cachedStatus is not null)
         {
             cachedStatus!.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
@@ -360,7 +352,7 @@ public class AccountEventService(
             // Skip random logic and tips generation for birthday
             checkInLevel = CheckInResultLevel.Special;
             tips = [
-                new CheckInFortuneTip()
+                new CheckInFortuneTip
                 {
                     IsPositive = true,
                     Title = localizer["FortuneTipSpecialTitle_Birthday"].Value,
@@ -419,6 +411,22 @@ public class AccountEventService(
             BackdatedFrom = backdated.HasValue ? SystemClock.Instance.GetCurrentInstant() : null,
             CreatedAt = backdated ?? SystemClock.Instance.GetCurrentInstant(),
         };
+
+        try
+        {
+            if (result.RewardPoints.HasValue)
+                await payment.CreateTransactionWithAccount(
+                    null,
+                    user.Id.ToString(),
+                    WalletCurrency.SourcePoint,
+                    result.RewardPoints.Value.ToString(CultureInfo.InvariantCulture),
+                    $"Check-in reward on {now:yyyy/MM/dd}"
+                );
+        }
+        catch
+        {
+            result.RewardPoints = null;
+        }
 
         db.AccountCheckInResults.Add(result);
         await db.SaveChangesAsync(); // Remember to save changes to the database
