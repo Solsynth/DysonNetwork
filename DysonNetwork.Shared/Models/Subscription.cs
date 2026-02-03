@@ -533,11 +533,20 @@ public class SnPaymentDetails
     public string Currency { get; set; } = null!;
     public string? OrderId { get; set; }
 
-    public Proto.PaymentDetails ToProtoValue() => new()
+    public Proto.PaymentDetails ToProtoValue()
     {
-        Currency = Currency,
-        OrderId = OrderId,
-    };
+        var proto = new Proto.PaymentDetails
+        {
+            Currency = Currency
+        };
+
+        if (OrderId != null)
+        {
+            proto.OrderId = OrderId;
+        }
+
+        return proto;
+    }
 
     public static SnPaymentDetails FromProtoValue(Proto.PaymentDetails proto) => new()
     {
