@@ -20,8 +20,15 @@ builder.Services.AddSingleton<GatewayReadinessStore>();
 builder.Services.AddHostedService<GatewayHealthAggregator>();
 
 // Add configuration options for gateway endpoints
-builder.Services.Configure<DysonNetwork.Gateway.Configuration.GatewayEndpointsOptions>(
-    builder.Configuration.GetSection(DysonNetwork.Gateway.Configuration.GatewayEndpointsOptions.SectionName));
+builder.Services.Configure<GatewayEndpointsOptions>(
+    builder.Configuration.GetSection(GatewayEndpointsOptions.SectionName));
+
+// Initialize GatewayConstant with configuration values early
+// This must happen before routes are defined since they use GatewayConstant.ServiceNames
+var gatewayEndpointsOptions = builder.Configuration
+    .GetSection(GatewayEndpointsOptions.SectionName)
+    .Get<GatewayEndpointsOptions>() ?? new GatewayEndpointsOptions();
+GatewayConstant.InitializeFromConfiguration(gatewayEndpointsOptions);
 
 builder.Services.AddCors(options =>
 {
@@ -68,7 +75,6 @@ builder.Services.AddRateLimiter(options =>
             "Rate limit exceeded. Try again later.", token);
     };
 });
-
 
 var specialRoutes = new[]
 {
@@ -175,11 +181,6 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 });
 
 var app = builder.Build();
-
-// Initialize GatewayConstant with configuration values
-var gatewayEndpointsOptions = app.Services
-    .GetRequiredService<IOptions<GatewayEndpointsOptions>>().Value;
-GatewayConstant.InitializeFromConfiguration(gatewayEndpointsOptions);
 
 // Reinitialize the readiness store with configured service names
 var readinessStore = app.Services.GetRequiredService<GatewayReadinessStore>();

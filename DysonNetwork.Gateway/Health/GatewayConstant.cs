@@ -12,7 +12,8 @@ public abstract class GatewayConstant
         "develop",
         "insight",
         "zone",
-        "messager"
+        "messager",
+        "wallet"
     ];
 
     // Default core service names used when no configuration is provided
