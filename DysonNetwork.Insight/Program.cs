@@ -21,6 +21,7 @@ builder.Services.AddAppScheduledJobs();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
 builder.Services.AddSphereService();
+builder.Services.AddWalletService();
 builder.Services.AddThinkingServices(builder.Configuration);
 
 builder.AddSwaggerManifest(
