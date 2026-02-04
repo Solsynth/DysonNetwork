@@ -86,6 +86,13 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+        {
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var resourceNamespace = "DysonNetwork.Wallet.Resources.Locales";
+            return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+        });
+        
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();
 

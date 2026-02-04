@@ -134,6 +134,12 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddScoped<RazorViewRenderer>();
+        services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+        {
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var resourceNamespace = "DysonNetwork.Pass.Resources.Locales";
+            return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+        });
         services.AddScoped<DysonNetwork.Shared.Templating.ITemplateService, DysonNetwork.Shared.Templating.RazorLightTemplateService>(sp =>
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
