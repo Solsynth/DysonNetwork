@@ -506,10 +506,6 @@ public class PaymentService(
         // Load the fund with account data including profiles
         var createdFund = await db.WalletFunds
             .Include(f => f.Recipients)
-            .ThenInclude(r => r.RecipientAccount)
-            .ThenInclude(a => a.Profile)
-            .Include(f => f.CreatorAccount)
-            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync(f => f.Id == fund.Id);
 
         return createdFund!;
@@ -751,10 +747,6 @@ public class PaymentService(
     {
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
-            .ThenInclude(r => r.RecipientAccount)
-            .ThenInclude(a => a.Profile)
-            .Include(f => f.CreatorAccount)
-            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync(f => f.Id == fundId);
 
         if (fund == null)

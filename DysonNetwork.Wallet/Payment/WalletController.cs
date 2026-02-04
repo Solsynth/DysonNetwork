@@ -137,9 +137,7 @@ public class WalletController(
             .Skip(offset)
             .Take(take)
             .Include(t => t.PayerWallet)
-            .ThenInclude(w => w!.Account)
             .Include(t => t.PayeeWallet)
-            .ThenInclude(w => w!.Account)
             .ToListAsync();
 
         return Ok(transactions);
@@ -300,8 +298,6 @@ public class WalletController(
         var currentUserId = Guid.Parse(currentUser.Id);
         var query = db.WalletFunds
             .Include(f => f.Recipients)
-            .ThenInclude(r => r.RecipientAccount)
-            .Include(f => f.CreatorAccount)
             .Where(f => f.CreatorAccountId == currentUserId ||
                         f.Recipients.Any(r => r.RecipientAccountId == currentUserId))
             .AsQueryable();
@@ -328,8 +324,6 @@ public class WalletController(
     {
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
-            .ThenInclude(r => r.RecipientAccount)
-            .Include(f => f.CreatorAccount)
             .FirstOrDefaultAsync(f => f.Id == id);
 
         if (fund is null)
