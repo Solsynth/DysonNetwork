@@ -21,7 +21,7 @@ public class DysonTokenAuthHandler(
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var tokenInfo = _ExtractToken(Request);
+        var tokenInfo = ExtractToken(Request);
 
         if (tokenInfo == null || string.IsNullOrEmpty(tokenInfo.Token))
             return AuthenticateResult.Fail("No token was provided.");
@@ -91,22 +91,7 @@ public class DysonTokenAuthHandler(
         return resp.Session ?? throw new InvalidOperationException("Session not found.");
     }
 
-    private static byte[] Base64UrlDecode(string base64Url)
-    {
-        var padded = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        switch (padded.Length % 4)
-        {
-            case 2: padded += "=="; break;
-            case 3: padded += "="; break;
-        }
-
-        return Convert.FromBase64String(padded);
-    }
-
-    private static TokenInfo? _ExtractToken(HttpRequest request)
+    private static TokenInfo? ExtractToken(HttpRequest request)
     {
         // Check for token in query parameters
         if (request.Query.TryGetValue(AuthConstants.TokenQueryParamName, out var queryToken))
@@ -120,7 +105,7 @@ public class DysonTokenAuthHandler(
 
 
         // Check for token in Authorization header
-        var authHeader = request.Headers["Authorization"].ToString();
+        var authHeader = request.Headers.Authorization.ToString();
         if (!string.IsNullOrEmpty(authHeader))
         {
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))

@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -12,7 +13,8 @@ public class TokenAuthService(
     IConfiguration config,
     ICacheService cache,
     ILogger<TokenAuthService> logger,
-    OidcProvider.Services.OidcProviderService oidc
+    OidcProvider.Services.OidcProviderService oidc,
+    RemoteSubscriptionService subscriptions
 )
 {
     /// <summary>
@@ -32,7 +34,7 @@ public class TokenAuthService(
                 logger.LogWarning("AuthenticateTokenAsync: no token provided");
                 return (false, null, "No token provided.");
             }
-            
+
             if (!string.IsNullOrEmpty(ipAddress))
             {
                 logger.LogDebug("AuthenticateTokenAsync: client IP: {IpAddress}", ipAddress);
@@ -95,6 +97,11 @@ public class TokenAuthService(
                 logger.LogWarning("AuthenticateTokenAsync: session not found (sessionId={SessionId})", sessionId);
                 return (false, null, "Session was not found.");
             }
+            else
+            {
+                var perkSub = await subscriptions.GetPerkSubscription(session.AccountId);
+                if (perkSub is not null) session.Account.PerkSubscription = SnWalletSubscription.FromProtoValue(perkSub!).ToReference();
+            }
 
             var now = SystemClock.Instance.GetCurrentInstant();
             if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
@@ -138,7 +145,7 @@ public class TokenAuthService(
             return (false, null, "Authentication error.");
         }
     }
-    
+
     public bool ValidateToken(string token, out Guid sessionId)
     {
         sessionId = Guid.Empty;
@@ -150,27 +157,27 @@ public class TokenAuthService(
             switch (parts.Length)
             {
                 case 3:
-                {
-                    // JWT via OIDC
-                    var (isValid, jwtResult) = oidc.ValidateToken(token);
-                    if (!isValid) return false;
-                    var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
-                    if (jti is null) return false;
-                    return Guid.TryParse(jti, out sessionId);
-                }
+                    {
+                        // JWT via OIDC
+                        var (isValid, jwtResult) = oidc.ValidateToken(token);
+                        if (!isValid) return false;
+                        var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+                        if (jti is null) return false;
+                        return Guid.TryParse(jti, out sessionId);
+                    }
                 case 2:
-                {
-                    // Compact token
-                    var payloadBytes = Base64UrlDecode(parts[0]);
-                    sessionId = new Guid(payloadBytes);
+                    {
+                        // Compact token
+                        var payloadBytes = Base64UrlDecode(parts[0]);
+                        sessionId = new Guid(payloadBytes);
 
-                    var publicKeyPem = File.ReadAllText(config["AuthToken:PublicKeyPath"]!);
-                    using var rsa = RSA.Create();
-                    rsa.ImportFromPem(publicKeyPem);
+                        var publicKeyPem = File.ReadAllText(config["AuthToken:PublicKeyPath"]!);
+                        using var rsa = RSA.Create();
+                        rsa.ImportFromPem(publicKeyPem);
 
-                    var signature = Base64UrlDecode(parts[1]);
-                    return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-                }
+                        var signature = Base64UrlDecode(parts[1]);
+                        return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                    }
                 default:
                     return false;
             }
