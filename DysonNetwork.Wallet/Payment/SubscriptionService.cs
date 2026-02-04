@@ -8,7 +8,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using NodaTime;
 using Duration = NodaTime.Duration;
 
@@ -19,7 +19,7 @@ public class SubscriptionService(
     PaymentService payment,
     AccountService.AccountServiceClient accounts,
     RingService.RingServiceClient pusher,
-    IStringLocalizer<NotificationResource> localizer,
+    ILocalizationService localizer,
     IConfiguration configuration,
     ICacheService cache,
     ILogger<SubscriptionService> logger
@@ -423,8 +423,8 @@ public class SubscriptionService(
         var notification = new PushNotification
         {
             Topic = "subscriptions.begun",
-            Title = localizer["SubscriptionAppliedTitle", humanReadableName],
-            Body = localizer["SubscriptionAppliedBody", duration, humanReadableName],
+            Title = localizer.Get("subscriptionAppliedTitle", args: new { subscriptionName = humanReadableName }),
+            Body = localizer.Get("subscriptionAppliedBody", args: new { duration, subscriptionName = humanReadableName }),
             Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["subscription_id"] = subscription.Id.ToString()
@@ -920,8 +920,8 @@ public class SubscriptionService(
         var notification = new PushNotification
         {
             Topic = "gifts.claimed",
-            Title = localizer["GiftClaimedTitle"],
-            Body = localizer["GiftClaimedBody", humanReadableName, redeemer.Name],
+            Title = localizer.Get("giftClaimedTitle"),
+            Body = localizer.Get("giftClaimedBody", args: new { subscriptionName = humanReadableName, redeemerName = redeemer.Name }),
             Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["gift_id"] = gift.Id.ToString(),

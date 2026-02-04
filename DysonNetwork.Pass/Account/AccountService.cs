@@ -6,11 +6,11 @@ using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Resources.Emails;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
 using NATS.Client.Core;
 using NATS.Net;
 using NodaTime;
@@ -28,8 +28,7 @@ public class AccountService(
     AffiliationSpellService ars,
     EmailService mailer,
     RingService.RingServiceClient pusher,
-    IStringLocalizer<NotificationResource> localizer,
-    IStringLocalizer<EmailResource> emailLocalizer,
+    ILocalizationService localizer,
     ICacheService cache,
     ILogger<AccountService> logger,
     RemoteSubscriptionService remoteSubscription,
@@ -434,8 +433,8 @@ public class AccountService(
                         Notification = new PushNotification
                         {
                             Topic = "auth.verification",
-                            Title = localizer["AuthCodeTitle"],
-                            Body = localizer["AuthCodeBody", code],
+                Title = localizer.Get("authCodeTitle"),
+                Body = localizer.Get("authCodeBody", args: new { code }),
                             IsSavable = false
                         }
                     }
@@ -466,7 +465,7 @@ public class AccountService(
                     .SendTemplatedEmailAsync<FactorCodeEmail, VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
-                        emailLocalizer["CodeEmailTitle"],
+                        localizer.Get("codeEmailTitle"),
                         new VerificationEmailModel
                         {
                             Name = account.Name,

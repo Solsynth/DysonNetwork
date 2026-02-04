@@ -1,0 +1,22 @@
+{
+  "welcomeMessage": "你好，{name}！",
+  "goodbyeMessage": "再见，{name}！",
+  "itemCount": {
+    "one": "{count}个项目",
+    "other": "{count}个项目"
+  },
+  "userCount": {
+    "one": "有 {count} 位用户在线",
+    "other": "有 {count} 位用户在线"
+  },
+  "notificationMessage": "您有 {count} 条来自 {sender} 的新消息",
+  "profileUpdated": "您的个人资料已成功更新",
+  "errorOccurred": "发生错误：{error}",
+  "loginSuccess": "欢迎回来，{username}！",
+  "loginFailed": "登录失败，请重试",
+  "accountCreated": "您的账户已成功创建",
+  "emailVerification": "请验证您的电子邮件地址",
+  "passwordReset": "密码重置链接已发送到您的邮箱",
+  "permissionDenied": "您没有权限访问此资源",
+  "lotteryWon": "恭喜！您赢得了抽奖！"
+}

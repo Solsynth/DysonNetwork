@@ -5,7 +5,7 @@ using DysonNetwork.Pass.Resources.Emails;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using NodaTime;
 using EmailResource = DysonNetwork.Pass.Localization.EmailResource;
 
@@ -15,7 +15,7 @@ public class MagicSpellService(
     AppDatabase db,
     IConfiguration configuration,
     ILogger<MagicSpellService> logger,
-    IStringLocalizer<EmailResource> localizer,
+    ILocalizationService localizer,
     EmailService email,
     ICacheService cache
 )
@@ -98,7 +98,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<RegistrationConfirmEmail, LandingEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["RegConfirmTitle"],
+                        localizer.Get("regConfirmTitle"),
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,
@@ -110,7 +110,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["AccountDeletionTitle"],
+                        localizer.Get("accountDeletionTitle"),
                         new AccountDeletionEmailModel
                         {
                             Name = contact.Account.Name,
@@ -122,7 +122,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer["PasswordResetTitle"],
+                        localizer.Get("passwordResetTitle"),
                         new PasswordResetEmailModel
                         {
                             Name = contact.Account.Name,
@@ -136,7 +136,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync<ContactVerificationEmail, ContactVerificationEmailModel>(
                         contact.Account.Nick,
                         contactMethod!,
-                        localizer["ContractVerificationTitle"],
+                        localizer.Get("contractVerificationTitle"),
                         new ContactVerificationEmailModel
                         {
                             Name = contact.Account.Name,

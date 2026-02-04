@@ -3,7 +3,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Pass.Account;
@@ -12,7 +12,7 @@ public class RelationshipService(
     AppDatabase db,
     ICacheService cache,
     RingService.RingServiceClient pusher,
-    IStringLocalizer<NotificationResource> localizer
+    ILocalizationService localizer
 )
 {
     private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
@@ -117,8 +117,8 @@ public class RelationshipService(
             Notification = new PushNotification
             {
                 Topic = "relationships.friends.request",
-                Title = localizer["FriendRequestTitle", sender.Nick],
-                Body = localizer["FriendRequestBody"],
+                Title = localizer.Get("friendRequestTitle", args: new { sender.Nick }),
+                Body = localizer.Get("friendRequestBody"),
                 ActionUri = "/account/relationships",
                 IsSavable = true
             }

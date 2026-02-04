@@ -1,0 +1,13 @@
+{
+  "postOnlyMedia": "仅媒体",
+  "postReplyTitle": "{user} 回复了您的帖子",
+  "postReactTitle": "{user} 对您的帖子做出了反应",
+  "postReactBody": "{user} 用 {reaction} 做出了反应",
+  "postReactContentBody": "{user} 用 {reaction} 对 \"{title}\" 做出了反应",
+  "postAwardedTitle": "{user} 打赏了您的帖子",
+  "postAwardedBody": "{user} 打赏了 {amount} 积分",
+  "postAwardedContentBody": "{user} 打赏了 {amount} 积分给 \"{title}\"",
+  "postSubscriptionTitle": "{publisher}: {title}",
+  "realmInviteTitle": "领域邀请",
+  "realmInviteBody": "您被邀请加入 {realm}"
+}

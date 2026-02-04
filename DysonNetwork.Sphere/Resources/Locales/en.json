@@ -1,0 +1,13 @@
+{
+  "postOnlyMedia": "Media only",
+  "postReplyTitle": "{user} replied to your post",
+  "postReactTitle": "{user} reacted to your post",
+  "postReactBody": "{user} reacted with {reaction}",
+  "postReactContentBody": "{user} reacted with {reaction} to \"{title}\"",
+  "postAwardedTitle": "{user} awarded your post",
+  "postAwardedBody": "{user} awarded {amount} points",
+  "postAwardedContentBody": "{user} awarded {amount} points to \"{title}\"",
+  "postSubscriptionTitle": "{publisher}: {title}",
+  "realmInviteTitle": "Realm Invitation",
+  "realmInviteBody": "You have been invited to join {realm}"
+}

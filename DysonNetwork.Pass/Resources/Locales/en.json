@@ -1,0 +1,22 @@
+{
+  "welcomeMessage": "Hello, {name}!",
+  "goodbyeMessage": "Goodbye, {name}!",
+  "itemCount": {
+    "one": "{count} item",
+    "other": "{count} items"
+  },
+  "userCount": {
+    "one": "There is {count} user online",
+    "other": "There are {count} users online"
+  },
+  "notificationMessage": "You have {count} new message(s) from {sender}",
+  "profileUpdated": "Your profile has been updated successfully",
+  "errorOccurred": "An error occurred: {error}",
+  "loginSuccess": "Welcome back, {username}!",
+  "loginFailed": "Login failed. Please try again.",
+  "accountCreated": "Your account has been created successfully",
+  "emailVerification": "Please verify your email address",
+  "passwordReset": "Password reset link has been sent to your email",
+  "permissionDenied": "You do not have permission to access this resource",
+  "lotteryWon": "Congratulations! You won the lottery!"
+}

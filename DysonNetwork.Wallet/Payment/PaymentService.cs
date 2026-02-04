@@ -6,7 +6,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using NATS.Client.Core;
 using NATS.Net;
 using NodaTime;
@@ -17,7 +17,7 @@ public class PaymentService(
     AppDatabase db,
     WalletService wat,
     RingService.RingServiceClient pusher,
-    IStringLocalizer<NotificationResource> localizer,
+    ILocalizationService localizer,
     INatsConnection nats
 )
 {
@@ -189,14 +189,16 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer["TransactionNewTitle", readableTransactionRemark],
+                        Title = localizer.Get("transactionNewTitle", args: new { remark = readableTransactionRemark }),
                         Body = transaction.Amount > 0
-                            ? localizer["TransactionNewBodyMinus",
-                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                transaction.Currency]
-                            : localizer["TransactionNewBodyPlus",
-                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                transaction.Currency],
+                            ? localizer.Get("transactionNewBodyMinus", args: new {
+                                amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                currency = transaction.Currency
+                            })
+                            : localizer.Get("transactionNewBodyPlus", args: new {
+                                amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                currency = transaction.Currency
+                            }),
                         IsSavable = true
                     }
                 }
@@ -216,14 +218,16 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer["TransactionNewTitle", readableTransactionRemark],
+                        Title = localizer.Get("transactionNewTitle", args: new { remark = readableTransactionRemark }),
                         Body = transaction.Amount > 0
-                            ? localizer["TransactionNewBodyPlus",
-                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                transaction.Currency]
-                            : localizer["TransactionNewBodyMinus",
-                                transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                transaction.Currency],
+                            ? localizer.Get("transactionNewBodyPlus", args: new {
+                                amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                currency = transaction.Currency
+                            })
+                            : localizer.Get("transactionNewBodyMinus", args: new {
+                                amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
+                                currency = transaction.Currency
+                            }),
                         IsSavable = true
                     }
                 }
@@ -320,10 +324,12 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.paid",
-                        Title = localizer["OrderPaidTitle", $"#{readableOrderId}"],
-                        Body = localizer["OrderPaidBody", order.Amount.ToString(CultureInfo.InvariantCulture),
-                            order.Currency,
-                            readableOrderRemark],
+                        Title = localizer.Get("orderPaidTitle", args: new { orderId = $"#{readableOrderId}" }),
+                        Body = localizer.Get("orderPaidBody", args: new {
+                            amount = order.Amount.ToString(CultureInfo.InvariantCulture),
+                            currency = order.Currency,
+                            remark = readableOrderRemark
+                        }),
                         IsSavable = true
                     }
                 }
@@ -343,10 +349,12 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.received",
-                        Title = localizer["OrderReceivedTitle", $"#{readableOrderId}"],
-                        Body = localizer["OrderReceivedBody", order.Amount.ToString(CultureInfo.InvariantCulture),
-                            order.Currency,
-                            readableOrderRemark],
+                        Title = localizer.Get("orderReceivedTitle", args: new { orderId = $"#{readableOrderId}" }),
+                        Body = localizer.Get("orderReceivedBody", args: new {
+                            amount = order.Amount.ToString(CultureInfo.InvariantCulture),
+                            currency = order.Currency,
+                            remark = readableOrderRemark
+                        }),
                         IsSavable = true
                     }
                 }

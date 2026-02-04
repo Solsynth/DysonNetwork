@@ -5,7 +5,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using NATS.Client.Core;
 using NodaTime;
 using NodaTime.Extensions;
@@ -15,7 +15,7 @@ namespace DysonNetwork.Pass.Account;
 public class AccountEventService(
     AppDatabase db,
     ICacheService cache,
-    IStringLocalizer<Localization.AccountEventResource> localizer,
+    ILocalizationService localizer,
     RingService.RingServiceClient pusher,
     Pass.Leveling.ExperienceService experienceService,
     RemotePaymentService payment,
@@ -359,8 +359,8 @@ public class AccountEventService(
                 new CheckInFortuneTip
                 {
                     IsPositive = true,
-                    Title = localizer["FortuneTipSpecialTitle_Birthday"].Value,
-                    Content = localizer["FortuneTipSpecialContent_Birthday", user.Nick].Value,
+                    Title = localizer.Get("fortuneTipSpecialTitleBirthday"),
+                    Content = localizer.Get("fortuneTipSpecialContentBirthday", args: new { user.Nick }),
                 }
             ];
         }
@@ -374,8 +374,8 @@ public class AccountEventService(
             tips = positiveIndices.Select(index => new CheckInFortuneTip
             {
                 IsPositive = true,
-                Title = localizer[$"FortuneTipPositiveTitle_{index}"].Value,
-                Content = localizer[$"FortuneTipPositiveContent_{index}"].Value
+                Title = localizer.Get($"fortuneTipPositiveTitle{index}"),
+                Content = localizer.Get($"fortuneTipPositiveContent{index}")
             }).ToList();
 
             // Generate 2 negative tips
@@ -387,8 +387,8 @@ public class AccountEventService(
             tips.AddRange(negativeIndices.Select(index => new CheckInFortuneTip
             {
                 IsPositive = false,
-                Title = localizer[$"FortuneTipNegativeTitle_{index}"].Value,
-                Content = localizer[$"FortuneTipNegativeContent_{index}"].Value
+                Title = localizer.Get($"fortuneTipNegativeTitle{index}"),
+                Content = localizer.Get($"fortuneTipNegativeContent{index}")
             }));
 
             // The 5 is specialized, keep it alone.

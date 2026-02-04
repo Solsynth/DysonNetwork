@@ -134,4 +134,8 @@
     <ItemGroup>
       <Folder Include="Migrations\" />
     </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\Locales\*.json" />
+    </ItemGroup>
 </Project>

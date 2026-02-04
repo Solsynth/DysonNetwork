@@ -5,14 +5,14 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 
 namespace DysonNetwork.Pass.Realm;
 
 public class RealmService(
     AppDatabase db,
     RingService.RingServiceClient pusher,
-    IStringLocalizer<NotificationResource> localizer,
+    ILocalizationService localizer,
     ICacheService cache
 )
 {
@@ -55,8 +55,8 @@ public class RealmService(
                 Notification = new PushNotification
                 {
                     Topic = "invites.realms",
-                    Title = localizer["RealmInviteTitle"],
-                    Body = localizer["RealmInviteBody", member.Realm.Name],
+                    Title = localizer.Get("realmInviteTitle"),
+                    Body = localizer.Get("realmInviteBody", args: new { realmName = member.Realm.Name }),
                     ActionUri = "/realms",
                     IsSavable = true
                 }

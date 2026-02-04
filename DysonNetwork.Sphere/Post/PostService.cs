@@ -7,7 +7,7 @@ using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using NodaTime;
 using Markdig;
 using AngleSharp.Html.Parser;
@@ -19,7 +19,7 @@ namespace DysonNetwork.Sphere.Post;
 
 public partial class PostService(
     AppDatabase db,
-    IStringLocalizer<NotificationResource> localizer,
+    ILocalizationService localizer,
     IServiceScopeFactory factory,
     FlushBufferService flushBuffer,
     ICacheService cache,
@@ -124,9 +124,9 @@ public partial class PostService(
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
                 : post.Content;
         var title = post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
-        title ??= localizer["PostOnlyMedia"];
+        title ??= localizer.Get("postOnlyMedia");
         if (string.IsNullOrWhiteSpace(content))
-            content = localizer["PostOnlyMedia"];
+            content = localizer.Get("postOnlyMedia");
         return (title, content);
     }
 
@@ -229,7 +229,7 @@ public partial class PostService(
                                 Notification = new PushNotification
                                 {
                                     Topic = "post.replies",
-                                    Title = localizer["PostReplyTitle", sender!.Nick],
+                                    Title = localizer.Get("postReplyTitle", args: new { senderNick = sender!.Nick }),
                                     Body = ChopPostForNotification(post).content,
                                     IsSavable = true,
                                     ActionUri = $"/posts/{post.Id}"
@@ -703,11 +703,10 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.reactions.new",
-                                Title = localizer["PostReactTitle", sender.Nick],
+                                Title = localizer.Get("postReactTitle", args: new { senderNick = sender.Nick }),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer["PostReactBody", sender.Nick, reaction.Symbol]
-                                    : localizer["PostReactContentBody", sender.Nick, reaction.Symbol,
-                                        post.Title],
+                                    ? localizer.Get("postReactBody", args: new { senderNick = sender.Nick, reaction.Symbol })
+                                    : localizer.Get("postReactContentBody", args: new { senderNick = sender.Nick, reaction.Symbol, post.Title }),
                                 IsSavable = true,
                                 ActionUri = $"/posts/{post.Id}"
                             }
@@ -1157,11 +1156,10 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.awards.new",
-                                Title = localizer["PostAwardedTitle", sender.Nick],
+                                Title = localizer.Get("postAwardedTitle", args: new { senderNick = sender.Nick }),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer["PostAwardedBody", sender.Nick, amount]
-                                    : localizer["PostAwardedContentBody", sender.Nick, amount,
-                                        post.Title],
+                                    ? localizer.Get("postAwardedBody", args: new { senderNick = sender.Nick, amount })
+                                    : localizer.Get("postAwardedContentBody", args: new { senderNick = sender.Nick, amount, post.Title }),
                                 IsSavable = true,
                                 ActionUri = $"/posts/{post.Id}"
                             }

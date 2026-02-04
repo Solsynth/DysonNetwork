@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 using AccountService = DysonNetwork.Pass.Account.AccountService;
 using ActionLogService = DysonNetwork.Pass.Account.ActionLogService;
 using DysonNetwork.Shared.Models;
@@ -22,7 +22,7 @@ public class AuthController(
     ActionLogService als,
     RingService.RingServiceClient pusher,
     IConfiguration configuration,
-    IStringLocalizer<NotificationResource> localizer,
+    ILocalizationService localizer,
     ILogger<AuthController> logger
 ) : ControllerBase
 {
@@ -237,9 +237,8 @@ public class AuthController(
                 Notification = new PushNotification
                 {
                     Topic = "auth.login",
-                    Title = localizer["NewLoginTitle"],
-                    Body = localizer["NewLoginBody", challenge.DeviceName ?? "unknown",
-                        challenge.IpAddress ?? "unknown"],
+                    Title = localizer.Get("newLoginTitle"),
+                    Body = localizer.Get("newLoginBody", args: new { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
                     IsSavable = true
                 },
                 UserId = challenge.AccountId.ToString()

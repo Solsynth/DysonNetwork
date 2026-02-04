@@ -4,14 +4,14 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
+using DysonNetwork.Shared.Localization;
 
 namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherSubscriptionService(
     AppDatabase db,
     Post.PostService ps,
-    IStringLocalizer<NotificationResource> localizer,
+    ILocalizationService localizer,
     ICacheService cache,
     RingService.RingServiceClient pusher,
     AccountService.AccountServiceClient accounts
@@ -118,7 +118,7 @@ public class PublisherSubscriptionService(
                 var notification = new PushNotification
                 {
                     Topic = "posts.new",
-                    Title = localizer["PostSubscriptionTitle", post.Publisher!.Nick, title],
+                    Title = localizer.Get("postSubscriptionTitle", args: new { publisherNick = post.Publisher!.Nick, title }),
                     Body = message,
                     Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
                     IsSavable = true,
