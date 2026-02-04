@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using DysonNetwork.Pass.Mailer;
-using DysonNetwork.Pass.Resources.Emails;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -95,10 +94,11 @@ public class MagicSpellService(
             switch (spell.Type)
             {
                 case MagicSpellType.AccountActivation:
-                    await email.SendTemplatedEmailAsync<RegistrationConfirmEmail, LandingEmailModel>(
+                    await email.SendRazorTemplateEmailAsync<LandingEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
                         localizer.Get("regConfirmTitle"),
+                        "Welcome",
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,
@@ -107,10 +107,11 @@ public class MagicSpellService(
                     );
                     break;
                 case MagicSpellType.AccountRemoval:
-                    await email.SendTemplatedEmailAsync<AccountDeletionEmail, AccountDeletionEmailModel>(
+                    await email.SendRazorTemplateEmailAsync<AccountDeletionEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
                         localizer.Get("accountDeletionTitle"),
+                        "AccountDeletion",
                         new AccountDeletionEmailModel
                         {
                             Name = contact.Account.Name,
@@ -119,10 +120,11 @@ public class MagicSpellService(
                     );
                     break;
                 case MagicSpellType.AuthPasswordReset:
-                    await email.SendTemplatedEmailAsync<PasswordResetEmail, PasswordResetEmailModel>(
+                    await email.SendRazorTemplateEmailAsync<PasswordResetEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
                         localizer.Get("passwordResetTitle"),
+                        "PasswordReset",
                         new PasswordResetEmailModel
                         {
                             Name = contact.Account.Name,
@@ -133,10 +135,11 @@ public class MagicSpellService(
                 case MagicSpellType.ContactVerification:
                     if (spell.Meta["contact_method"] is not string contactMethod)
                         throw new InvalidOperationException("Contact method is not found.");
-                    await email.SendTemplatedEmailAsync<ContactVerificationEmail, ContactVerificationEmailModel>(
+                    await email.SendRazorTemplateEmailAsync<ContactVerificationEmailModel>(
                         contact.Account.Nick,
                         contactMethod!,
-                        localizer.Get("contractVerificationTitle"),
+                        localizer.Get("contractMethodVerificationTitle"),
+                        "ContactVerification",
                         new ContactVerificationEmailModel
                         {
                             Name = contact.Account.Name,

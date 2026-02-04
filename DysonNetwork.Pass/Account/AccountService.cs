@@ -3,7 +3,6 @@ using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth.OpenId;
 using DysonNetwork.Pass.Localization;
 using DysonNetwork.Pass.Mailer;
-using DysonNetwork.Pass.Resources.Emails;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
@@ -462,10 +461,11 @@ public class AccountService(
                 }
 
                 await mailer
-                    .SendTemplatedEmailAsync<FactorCodeEmail, VerificationEmailModel>(
+                    .SendRazorTemplateEmailAsync<VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
                         localizer.Get("codeEmailTitle"),
+                        "FactorCode",
                         new VerificationEmailModel
                         {
                             Name = account.Name,

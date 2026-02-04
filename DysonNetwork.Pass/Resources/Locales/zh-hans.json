@@ -22,6 +22,6 @@
   "regConfirmTitle": "确认您的注册",
   "emailAccountDeletionTitle": "确认删除您的账户",
   "passwordResetTitle": "重置您的密码",
-  "contactMethodVerificationTitle": "验证联系方式",
+  "contractMethodVerificationTitle": "验证联系方式",
   "codeEmailTitle": "您的邮箱一次性密码"
 }

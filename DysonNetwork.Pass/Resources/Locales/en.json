@@ -22,6 +22,6 @@
   "regConfirmTitle": "Confirm your registration",
   "emailAccountDeletionTitle": "Confirm your account deletion",
   "passwordResetTitle": "Reset your password",
-  "contactMethodVerificationTitle": "Verify Contact Method",
+  "contractMethodVerificationTitle": "Verify Contact Method",
   "codeEmailTitle": "Your email one-time-password"
 }
