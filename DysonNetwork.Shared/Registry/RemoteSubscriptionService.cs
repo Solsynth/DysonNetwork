@@ -15,11 +15,12 @@ public class RemoteSubscriptionService(SubscriptionService.SubscriptionServiceCl
         return response;
     }
 
-    public async Task<Subscription> GetPerkSubscription(Guid accountId)
+    public async Task<Subscription?> GetPerkSubscription(Guid accountId)
     {
         var request = new GetPerkSubscriptionRequest { AccountId = accountId.ToString() };
         var response = await subscription.GetPerkSubscriptionAsync(request);
-        return response;
+        // Return null if subscription is empty (user has no active perk subscription)
+        return string.IsNullOrEmpty(response.Id) ? null : response;
     }
 
     public async Task<List<Subscription>> GetPerkSubscriptions(List<Guid> accountIds)
@@ -27,7 +28,8 @@ public class RemoteSubscriptionService(SubscriptionService.SubscriptionServiceCl
         var request = new GetPerkSubscriptionsRequest();
         request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
         var response = await subscription.GetPerkSubscriptionsAsync(request);
-        return response.Subscriptions.ToList();
+        // Filter out empty subscriptions (users with no active perk subscription)
+        return response.Subscriptions.Where(s => !string.IsNullOrEmpty(s.Id)).ToList();
     }
 
     public async Task<Subscription> CreateSubscription(

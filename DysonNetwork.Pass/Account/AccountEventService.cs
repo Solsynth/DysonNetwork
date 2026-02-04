@@ -19,6 +19,7 @@ public class AccountEventService(
     RingService.RingServiceClient pusher,
     Pass.Leveling.ExperienceService experienceService,
     RemotePaymentService payment,
+    RemoteSubscriptionService subscriptions,
     INatsConnection nats
 )
 {
@@ -223,6 +224,9 @@ public class AccountEventService(
 
     public async Task<bool> CheckInDailyDoAskCaptcha(SnAccount user)
     {
+        var perkSubscription = await subscriptions.GetPerkSubscription(user.Id);
+        if (perkSubscription is not null) return false;
+
         var cacheKey = $"{CaptchaCacheKey}{user.Id}";
         var needsCaptcha = await cache.GetAsync<bool?>(cacheKey);
         if (needsCaptcha is not null)

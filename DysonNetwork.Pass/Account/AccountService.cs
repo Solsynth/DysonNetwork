@@ -768,7 +768,7 @@ public class AccountService(
         try
         {
             var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
-            if (subscription != null)
+            if (subscription is not null)
             {
                 account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
             }

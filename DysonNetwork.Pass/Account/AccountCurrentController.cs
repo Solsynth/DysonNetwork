@@ -47,7 +47,7 @@ public class AccountCurrentController(
             try
             {
                 var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
-                if (subscription != null)
+                if (subscription is not null)
                 {
                     account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
                 }
@@ -344,7 +344,7 @@ public class AccountCurrentController(
             // Check PerkSubscription via RemoteSubscriptionService instead of relying on currentUser.PerkSubscription
             // which is not populated when currentUser comes from HttpContext.Items
             var perkSubscription = await remoteSubscription.GetPerkSubscription(currentUser.Id);
-            if (perkSubscription == null)
+            if (perkSubscription is null)
                 return StatusCode(403, ApiError.Unauthorized(
                     message: "You need to have a subscription to check-in backdated.",
                     forbidden: true,
@@ -377,7 +377,7 @@ public class AccountCurrentController(
                 true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest(ApiError.Validation(
                     new Dictionary<string, string[]>
                     {
-                        ["captchaToken"] = new[] { "Invalid captcha token." }
+                        ["captchaToken"] = ["Invalid captcha token."]
                     }, traceId: HttpContext.TraceIdentifier)),
                 _ => await events.CheckInDaily(currentUser, backdated)
             };

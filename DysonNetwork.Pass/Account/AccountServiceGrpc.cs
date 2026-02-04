@@ -297,7 +297,7 @@ public class AccountServiceGrpc(
         try
         {
             var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
-            if (subscription != null)
+            if (subscription is not null)
             {
                 account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
             }
@@ -321,7 +321,6 @@ public class AccountServiceGrpc(
             var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
             
             var subscriptionDict = subscriptions
-                .Where(s => s != null)
                 .ToDictionary(
                     s => Guid.Parse(s.AccountId), 
                     s => SnWalletSubscription.FromProtoValue(s).ToReference()

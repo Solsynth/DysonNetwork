@@ -32,8 +32,9 @@ public class SubscriptionServiceGrpc(
         var subscription = await subscriptionService.GetPerkSubscriptionAsync(
             Guid.Parse(request.AccountId)
         );
-        return subscription?.ToProtoValue()
-               ?? throw new RpcException(new Status(StatusCode.NotFound, "Perk subscription not found"));
+        // Return empty subscription if user has no active perk subscription (valid case)
+        // RemoteSubscriptionService will convert empty subscription to null
+        return subscription?.ToProtoValue() ?? new Subscription { Id = "" };
     }
 
     public override async Task<GetPerkSubscriptionsResponse> GetPerkSubscriptions(
