@@ -18,5 +18,10 @@
   "emailVerification": "请验证您的电子邮件地址",
   "passwordReset": "密码重置链接已发送到您的邮箱",
   "permissionDenied": "您没有权限访问此资源",
-  "lotteryWon": "恭喜！您赢得了抽奖！"
+  "lotteryWon": "恭喜！您赢得了抽奖！",
+  "regConfirmTitle": "确认您的注册",
+  "emailAccountDeletionTitle": "确认删除您的账户",
+  "passwordResetTitle": "重置您的密码",
+  "contactMethodVerificationTitle": "验证联系方式",
+  "codeEmailTitle": "您的邮箱一次性密码"
 }

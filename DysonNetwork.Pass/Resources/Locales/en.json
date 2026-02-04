@@ -18,5 +18,10 @@
   "emailVerification": "Please verify your email address",
   "passwordReset": "Password reset link has been sent to your email",
   "permissionDenied": "You do not have permission to access this resource",
-  "lotteryWon": "Congratulations! You won the lottery!"
+  "lotteryWon": "Congratulations! You won the lottery!",
+  "regConfirmTitle": "Confirm your registration",
+  "emailAccountDeletionTitle": "Confirm your account deletion",
+  "passwordResetTitle": "Reset your password",
+  "contactMethodVerificationTitle": "Verify Contact Method",
+  "codeEmailTitle": "Your email one-time-password"
 }
