@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
@@ -133,9 +134,9 @@ public class RemotePaymentService(DysonNetwork.Shared.Proto.PaymentService.Payme
         return response;
     }
 
-    public async Task<DysonNetwork.Shared.Proto.WalletFund> GetWalletFund(string fundId)
+    public async Task<WalletFund> GetWalletFund(string fundId)
     {
-        var request = new DysonNetwork.Shared.Proto.GetWalletFundRequest { FundId = fundId };
+        var request = new GetWalletFundRequest { FundId = fundId };
         var response = await payment.GetWalletFundAsync(request);
         return response;
     }

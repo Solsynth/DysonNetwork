@@ -743,14 +743,11 @@ public class PaymentService(
         await db.SaveChangesAsync();
     }
 
-    public async Task<SnWalletFund> GetWalletFundAsync(Guid fundId)
+    public async Task<SnWalletFund?> GetWalletFundAsync(Guid fundId)
     {
         var fund = await db.WalletFunds
             .Include(f => f.Recipients)
             .FirstOrDefaultAsync(f => f.Id == fundId);
-
-        if (fund == null)
-            throw new InvalidOperationException("Fund not found");
 
         return fund;
     }

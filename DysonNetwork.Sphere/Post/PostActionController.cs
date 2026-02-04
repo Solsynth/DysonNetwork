@@ -30,7 +30,7 @@ public class PostActionController(
     PublisherService pub,
     AccountService.AccountServiceClient accounts,
     ActionLogService.ActionLogServiceClient als,
-    PaymentService.PaymentServiceClient payments,
+    RemotePaymentService remotePayments,
     PollsService polls,
     RemoteRealmService rs
 ) : ControllerBase
@@ -183,10 +183,7 @@ public class PostActionController(
         {
             try
             {
-                var fundResponse = await payments.GetWalletFundAsync(new GetWalletFundRequest
-                {
-                    FundId = request.FundId.Value.ToString()
-                });
+                var fundResponse = await remotePayments.GetWalletFund(request.FundId.Value.ToString());
 
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != currentUser.Id)
@@ -412,24 +409,21 @@ public class PostActionController(
         var orderRemark = string.IsNullOrWhiteSpace(post.Title)
             ? "from @" + post.Publisher.Name
             : post.Title;
-        var order = await payments.CreateOrderAsync(
-            new CreateOrderRequest
-            {
-                ProductIdentifier = "posts.award",
-                Currency = "points", // NSP - Source Points
-                Remarks = $"Award post {orderRemark}",
-                Amount = request.Amount.ToString(CultureInfo.InvariantCulture),
-                Meta = GrpcTypeHelper.ConvertObjectToByteString(
-                    new Dictionary<string, object?>
-                    {
-                        ["account_id"] = accountId,
-                        ["post_id"] = post.Id,
-                        ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
-                        ["message"] = request.Message,
-                        ["attitude"] = request.Attitude,
-                    }
-                ),
-            }
+        var order = await remotePayments.CreateOrder(
+            currency: "points",
+            amount: request.Amount.ToString(CultureInfo.InvariantCulture),
+            productIdentifier: "posts.award",
+            remarks: $"Award post {orderRemark}",
+            meta: GrpcTypeHelper.ConvertObjectToByteString(
+                new Dictionary<string, object?>
+                {
+                    ["account_id"] = accountId,
+                    ["post_id"] = post.Id,
+                    ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
+                    ["message"] = request.Message,
+                    ["attitude"] = request.Attitude,
+                }
+            ).ToByteArray()
         );
 
         return Ok(new PostAwardResponse() { OrderId = Guid.Parse(order.Id) });
@@ -675,10 +669,7 @@ public class PostActionController(
         {
             try
             {
-                var fundResponse = await payments.GetWalletFundAsync(new GetWalletFundRequest
-                {
-                    FundId = request.FundId.Value.ToString()
-                });
+                var fundResponse = await remotePayments.GetWalletFund(request.FundId.Value.ToString());
 
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != currentUser.Id)

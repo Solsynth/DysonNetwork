@@ -117,6 +117,29 @@ public class SnWalletFund : ModelBase
         ExpiredAt = ExpiredAt.ToTimestamp(),
     };
 
+    public Proto.WalletFund ToProtoValueWithRecipients()
+    {
+        var proto = new Proto.WalletFund
+        {
+            Id = Id.ToString(),
+            Currency = Currency,
+            TotalAmount = TotalAmount.ToString(CultureInfo.InvariantCulture),
+            RemainingAmount = RemainingAmount.ToString(CultureInfo.InvariantCulture),
+            SplitType = (Proto.FundSplitType)SplitType,
+            Status = (Proto.FundStatus)Status,
+            Message = Message,
+            CreatorAccountId = CreatorAccountId.ToString(),
+            ExpiredAt = ExpiredAt.ToTimestamp(),
+        };
+
+        foreach (var recipient in Recipients)
+        {
+            proto.Recipients.Add(recipient.ToProtoValue());
+        }
+
+        return proto;
+    }
+
     public static SnWalletFund FromProtoValue(Proto.WalletFund proto) => new()
     {
         Id = Guid.Parse(proto.Id),

@@ -107,6 +107,6 @@ public class PaymentServiceGrpc(PaymentService paymentService)
     )
     {
         var walletFund = await paymentService.GetWalletFundAsync(Guid.Parse(request.FundId));
-        return walletFund.ToProtoValue();
+        return walletFund?.ToProtoValueWithRecipients() ?? new WalletFund();
     }
 }
