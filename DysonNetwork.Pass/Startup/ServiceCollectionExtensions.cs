@@ -134,6 +134,12 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddScoped<RazorViewRenderer>();
+        services.AddScoped<DysonNetwork.Shared.Templating.ITemplateService, DysonNetwork.Shared.Templating.RazorLightTemplateService>(sp =>
+        {
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var resourceNamespace = "DysonNetwork.Pass.Resources.Templates";
+            return new DysonNetwork.Shared.Templating.RazorLightTemplateService(assembly, resourceNamespace);
+        });
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();
         services.AddScoped<EmailService>();

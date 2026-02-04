@@ -137,5 +137,6 @@
 
     <ItemGroup>
         <EmbeddedResource Include="Resources\Locales\*.json" />
+        <EmbeddedResource Include="Resources\Templates\**\*.cshtml" />
     </ItemGroup>
 </Project>

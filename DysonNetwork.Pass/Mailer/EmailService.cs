@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Templating;
 using Microsoft.AspNetCore.Components;
 
 namespace DysonNetwork.Pass.Mailer;
@@ -6,6 +7,7 @@ namespace DysonNetwork.Pass.Mailer;
 public class EmailService(
     RingService.RingServiceClient pusher,
     RazorViewRenderer viewRenderer,
+    ITemplateService templateService,
     ILogger<EmailService> logger
 )
 {
@@ -42,6 +44,32 @@ public class EmailService(
         catch (Exception err)
         {
             logger.LogError(err, "Failed to render email template...");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Sends an email using a RazorLight template with locale support.
+    /// </summary>
+    /// <typeparam name="TModel">The model type for the template.</typeparam>
+    /// <param name="recipientName">The recipient's display name.</param>
+    /// <param name="recipientEmail">The recipient's email address.</param>
+    /// <param name="subject">The email subject.</param>
+    /// <param name="templateName">The template name (e.g., "welcome", "factor-code").</param>
+    /// <param name="model">The model data for the template.</param>
+    /// <param name="locale">Optional locale override (defaults to CurrentUICulture).</param>
+    public async Task SendRazorTemplateEmailAsync<TModel>(string? recipientName, string recipientEmail,
+        string subject, string templateName, TModel model, string? locale = null)
+    {
+        try
+        {
+            var htmlBody = await templateService.RenderAsync(templateName, model, locale);
+            await SendEmailAsync(recipientName, recipientEmail, subject, htmlBody);
+        }
+        catch (Exception err)
+        {
+            logger.LogError(err, "Failed to render RazorLight email template {TemplateName} for locale {Locale}",
+                templateName, locale ?? "default");
             throw;
         }
     }
