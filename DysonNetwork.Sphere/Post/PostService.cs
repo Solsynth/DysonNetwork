@@ -222,7 +222,6 @@ public partial class PostService(
                     foreach (var member in queryResponse.Accounts)
                     {
                         if (member is null) continue;
-                        CultureService.SetCultureInfo(member);
                         await nty.SendPushNotificationToUserAsync(
                             new SendPushNotificationToUserRequest
                             {
@@ -230,7 +229,7 @@ public partial class PostService(
                                 Notification = new PushNotification
                                 {
                                     Topic = "post.replies",
-                                    Title = localizer.Get("postReplyTitle", args: new { user = sender!.Nick }),
+                                    Title = localizer.Get("postReplyTitle", locale: member.Language, args: new { user = sender!.Nick }),
                                     Body = ChopPostForNotification(post).content,
                                     IsSavable = true,
                                     ActionUri = $"/posts/{post.Id}"
@@ -695,7 +694,6 @@ public partial class PostService(
                 foreach (var member in queryResponse.Accounts)
                 {
                     if (member is null) continue;
-                    CultureService.SetCultureInfo(member);
 
                     await nty.SendPushNotificationToUserAsync(
                         new SendPushNotificationToUserRequest
@@ -704,10 +702,10 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.reactions.new",
-                                Title = localizer.Get("postReactTitle", args: new { user = sender.Nick }),
+                                Title = localizer.Get("postReactTitle", locale: member.Language, args: new { user = sender.Nick }),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer.Get("postReactBody", args: new { user = sender.Nick, reaction = reaction.Symbol })
-                                    : localizer.Get("postReactContentBody", args: new { user = sender.Nick, reaction = reaction.Symbol, title = post.Title }),
+                                    ? localizer.Get("postReactBody", locale: member.Language, args: new { user = sender.Nick, reaction = reaction.Symbol })
+                                    : localizer.Get("postReactContentBody", locale: member.Language, args: new { user = sender.Nick, reaction = reaction.Symbol, title = post.Title }),
                                 IsSavable = true,
                                 ActionUri = $"/posts/{post.Id}"
                             }
@@ -884,7 +882,7 @@ public partial class PostService(
         if (currentUser is not null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-                { AccountId = currentUser.Id });
+            { AccountId = currentUser.Id });
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
             publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
         }
@@ -961,7 +959,7 @@ public partial class PostService(
             return false;
 
         if (post.Visibility == Shared.Models.PostVisibility.Friends &&
-            !(post.Publisher.AccountId.HasValue && userFriends.Contains(post.Publisher.AccountId.Value) || isMember))
+            !(post.Publisher is not null && post.Publisher.AccountId.HasValue && userFriends.Contains(post.Publisher.AccountId.Value) || isMember))
             return false;
 
         // Public and Unlisted are allowed
@@ -1148,7 +1146,6 @@ public partial class PostService(
                 foreach (var member in queryResponse.Accounts)
                 {
                     if (member is null) continue;
-                    CultureService.SetCultureInfo(member);
 
                     await nty.SendPushNotificationToUserAsync(
                         new SendPushNotificationToUserRequest
@@ -1157,10 +1154,10 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.awards.new",
-                                Title = localizer.Get("postAwardedTitle", args: new { user = sender.Nick }),
+                                Title = localizer.Get("postAwardedTitle", locale: member.Language, args: new { user = sender.Nick }),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer.Get("postAwardedBody", args: new { user = sender.Nick, amount })
-                                    : localizer.Get("postAwardedContentBody", args: new { user = sender.Nick, amount, title = post.Title }),
+                                    ? localizer.Get("postAwardedBody", locale: member.Language, args: new { user = sender.Nick, amount })
+                                    : localizer.Get("postAwardedContentBody", locale: member.Language, args: new { user = sender.Nick, amount, title = post.Title }),
                                 IsSavable = true,
                                 ActionUri = $"/posts/{post.Id}"
                             }
@@ -1209,9 +1206,9 @@ public static class PostQueryExtensions
             .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) ||
                         (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value)))
             .Where(e => e.Visibility != Shared.Models.PostVisibility.Private ||
-                        publishersId.Contains(e.PublisherId.Value))
+                        publishersId.Contains(e.PublisherId!.Value))
             .Where(e => e.Visibility != Shared.Models.PostVisibility.Friends ||
-                        (e.Publisher.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
-                        publishersId.Contains(e.PublisherId.Value));
+                        (e.Publisher!.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
+                        publishersId.Contains(e.PublisherId!.Value));
     }
 }

@@ -34,18 +34,6 @@ public class AccountService(
     INatsConnection nats
 )
 {
-    public static void SetCultureInfo(SnAccount account)
-    {
-        SetCultureInfo(account.Language);
-    }
-
-    public static void SetCultureInfo(string? languageCode)
-    {
-        var info = new CultureInfo(languageCode ?? "en-us", false);
-        CultureInfo.CurrentCulture = info;
-        CultureInfo.CurrentUICulture = info;
-    }
-
     public const string AccountCachePrefix = "account:";
 
     public async Task PurgeAccountCache(SnAccount account)
@@ -123,7 +111,7 @@ public class AccountService(
             ).CountAsync();
         if (dupeEmailCount > 0)
             throw new InvalidOperationException("Account email has already been used.");
-        
+
         var account = new SnAccount
         {
             Name = name,
@@ -432,8 +420,8 @@ public class AccountService(
                         Notification = new PushNotification
                         {
                             Topic = "auth.verification",
-                Title = localizer.Get("authCodeTitle", account.Language),
-                Body = localizer.Get("authCodeBody", locale: account.Language, args: new { code }),
+                            Title = localizer.Get("authCodeTitle", account.Language),
+                            Body = localizer.Get("authCodeBody", locale: account.Language, args: new { code }),
                             IsSavable = false
                         }
                     }
@@ -554,7 +542,7 @@ public class AccountService(
         {
             if (!await IsDeviceActive(session.ClientId.Value))
                 await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
-                    { DeviceId = session.Client!.DeviceId }
+                { DeviceId = session.Client!.DeviceId }
                 );
         }
 
@@ -790,11 +778,11 @@ public class AccountService(
         {
             var accountIds = accounts.Select(a => a.Id).ToList();
             var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
-            
+
             var subscriptionDict = subscriptions
                 .Where(s => s != null)
                 .ToDictionary(
-                    s => Guid.Parse(s.AccountId), 
+                    s => Guid.Parse(s.AccountId),
                     s => SnWalletSubscription.FromProtoValue(s).ToReference()
                 );
 

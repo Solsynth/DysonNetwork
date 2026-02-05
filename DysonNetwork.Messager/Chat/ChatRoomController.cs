@@ -40,7 +40,7 @@ public class ChatRoomController(
         if (chatRoom.Type != ChatRoomType.DirectMessage) return Ok(chatRoom);
 
         chatRoom = await crs.LoadChatRealms(chatRoom);
-        
+
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
             chatRoom = await crs.LoadDirectMessageMembers(chatRoom, Guid.Parse(currentUser.Id));
 
@@ -142,7 +142,7 @@ public class ChatRoomController(
 
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
         invitedMember.ChatRoom = dmRoom;
-        await _SendInviteNotify(invitedMember, currentUser);
+        await SendInviteNotify(invitedMember, currentUser);
 
         return Ok(dmRoom);
     }
@@ -168,7 +168,7 @@ public class ChatRoomController(
 
     public class ChatRoomRequest
     {
-        [Required] [MaxLength(1024)] public string? Name { get; set; }
+        [Required][MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
@@ -583,7 +583,7 @@ public class ChatRoomController(
             existingMember.JoinedAt = null;
             db.ChatMembers.Update(existingMember);
             await db.SaveChangesAsync();
-            await _SendInviteNotify(existingMember, currentUser);
+            await SendInviteNotify(existingMember, currentUser);
 
             _ = als.CreateActionLogAsync(new CreateActionLogRequest
             {
@@ -612,7 +612,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
 
         newMember.ChatRoom = chatRoom;
-        await _SendInviteNotify(newMember, currentUser);
+        await SendInviteNotify(newMember, currentUser);
 
         _ = als.CreateActionLogAsync(new CreateActionLogRequest
         {
@@ -814,7 +814,7 @@ public class ChatRoomController(
 
         return NoContent();
     }
-    
+
     [HttpDelete("{roomId:guid}/members/{memberId:guid}/timeout")]
     [Authorize]
     public async Task<ActionResult> RemoveChatMemberTimeout(Guid roomId, Guid memberId)
@@ -1003,14 +1003,13 @@ public class ChatRoomController(
         return NoContent();
     }
 
-    private async Task _SendInviteNotify(SnChatMember member, Account sender)
+    private async Task SendInviteNotify(SnChatMember member, Account sender)
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
-        CultureService.SetCultureInfo(account);
-                var title = "Chat Invite";
-                var body = member.ChatRoom.Type == ChatRoomType.DirectMessage
-                    ? $"{sender.Nick} sent you a direct message"
-                    : $"You have been invited to {member.ChatRoom.Name ?? "Unnamed"}";
+        var title = "Chat Invite";
+        var body = member.ChatRoom.Type == ChatRoomType.DirectMessage
+            ? $"{sender.Nick} sent you a direct message"
+            : $"You have been invited to {member.ChatRoom.Name ?? "Unnamed"}";
 
 
         await pusher.SendPushNotificationToUserAsync(

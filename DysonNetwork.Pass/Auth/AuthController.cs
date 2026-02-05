@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Pass.Localization;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Localization;
@@ -31,8 +30,8 @@ public class AuthController(
     public class ChallengeRequest
     {
         [Required] public Shared.Models.ClientPlatform Platform { get; set; }
-        [Required] [MaxLength(256)] public string Account { get; set; } = null!;
-        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [Required][MaxLength(256)] public string Account { get; set; } = null!;
+        [Required][MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
         public List<string> Audiences { get; set; } = [];
         public List<string> Scopes { get; set; } = [];
@@ -231,16 +230,15 @@ public class AuthController(
 
         if (challenge.StepRemain == 0)
         {
-            AccountService.SetCultureInfo(challenge.Account);
             await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+            {
+                Notification = new PushNotification
                 {
-                    Notification = new PushNotification
-                    {
-                        Topic = "auth.login",
-                        Title = localizer.Get("newLoginTitle", challenge.Account.Language),
-                        Body = localizer.Get("newLoginBody", locale: challenge.Account.Language, args: new { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
-                        IsSavable = true
-                    },
+                    Topic = "auth.login",
+                    Title = localizer.Get("newLoginTitle", challenge.Account.Language),
+                    Body = localizer.Get("newLoginBody", locale: challenge.Account.Language, args: new { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
+                    IsSavable = true
+                },
                 UserId = challenge.AccountId.ToString()
             });
             als.CreateActionLogFromRequest(ActionLogType.NewLogin,
@@ -270,7 +268,7 @@ public class AuthController(
 
     public class NewSessionRequest
     {
-        [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
+        [Required][MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
         [Required] public Shared.Models.ClientPlatform Platform { get; set; }
         public Instant? ExpiredAt { get; set; }

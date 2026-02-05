@@ -118,8 +118,6 @@ public class RealmServiceGrpc(
 
         if (account == null) throw new RpcException(new Status(StatusCode.NotFound, "Account not found"));
 
-        CultureService.SetCultureInfo(account.Language);
-
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest
             {

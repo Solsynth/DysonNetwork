@@ -17,7 +17,7 @@ public class RealmService(
 )
 {
     private const string CacheKeyPrefix = "account:realms:";
-    
+
     public async Task<List<Guid>> GetUserRealms(Guid accountId)
     {
         var cacheKey = $"{CacheKeyPrefix}{accountId}";
@@ -34,19 +34,17 @@ public class RealmService(
 
         // Cache the result for 5 minutes
         await cache.SetAsync(cacheKey, realms, TimeSpan.FromMinutes(5));
-        
+
         return realms;
     }
-    
+
     public async Task SendInviteNotify(SnRealmMember member)
     {
         var account = await db.Accounts
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.Id == member.AccountId);
-        
+
         if (account == null) throw new InvalidOperationException("Account not found");
-        
-        CultureService.SetCultureInfo(account.Language);
 
         await pusher.SendPushNotificationToUserAsync(
             new SendPushNotificationToUserRequest

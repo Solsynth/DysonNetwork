@@ -302,9 +302,9 @@ public class AccountEventService(
 
     private const string CheckInLockKey = "checkin:lock:";
 
-    public async Task<SnCheckInResult> CheckInDaily(SnAccount user, Instant? backdated = null)
+    public async Task<SnCheckInResult> CheckInDaily(SnAccount account, Instant? backdated = null)
     {
-        var lockKey = $"{CheckInLockKey}{user.Id}";
+        var lockKey = $"{CheckInLockKey}{account.Id}";
 
         try
         {
@@ -322,12 +322,9 @@ public class AccountEventService(
         await using var lockObj =
             await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5)) ??
             throw new InvalidOperationException("Check-in was in progress.");
-        var cultureInfo = new CultureInfo(user.Language, false);
-        CultureInfo.CurrentCulture = cultureInfo;
-        CultureInfo.CurrentUICulture = cultureInfo;
 
         var accountProfile = await db.AccountProfiles
-            .Where(x => x.AccountId == user.Id)
+            .Where(x => x.AccountId == account.Id)
             .Select(x => new { x.Birthday, x.TimeZone })
             .FirstOrDefaultAsync();
 
@@ -360,7 +357,7 @@ public class AccountEventService(
                 {
                     IsPositive = true,
                     Title = localizer.Get("fortuneTipSpecialTitleBirthday"),
-                    Content = localizer.Get("fortuneTipSpecialContentBirthday", args: new { user.Nick }),
+                    Content = localizer.Get("fortuneTipSpecialContentBirthday", args: new { account.Nick }),
                 }
             ];
         }
@@ -374,8 +371,8 @@ public class AccountEventService(
             tips = positiveIndices.Select(index => new CheckInFortuneTip
             {
                 IsPositive = true,
-                Title = localizer.Get($"fortuneTipPositiveTitle{index}"),
-                Content = localizer.Get($"fortuneTipPositiveContent{index}")
+                Title = localizer.Get($"fortuneTipPositiveTitle{index}", account.Language),
+                Content = localizer.Get($"fortuneTipPositiveContent{index}", account.Language)
             }).ToList();
 
             // Generate 2 negative tips
@@ -387,8 +384,8 @@ public class AccountEventService(
             tips.AddRange(negativeIndices.Select(index => new CheckInFortuneTip
             {
                 IsPositive = false,
-                Title = localizer.Get($"fortuneTipNegativeTitle{index}"),
-                Content = localizer.Get($"fortuneTipNegativeContent{index}")
+                Title = localizer.Get($"fortuneTipNegativeTitle{index}", account.Language),
+                Content = localizer.Get($"fortuneTipNegativeContent{index}", account.Language)
             }));
 
             // The 5 is specialized, keep it alone.
@@ -409,7 +406,7 @@ public class AccountEventService(
         {
             Tips = tips,
             Level = checkInLevel,
-            AccountId = user.Id,
+            AccountId = account.Id,
             RewardExperience = 100,
             RewardPoints = backdated.HasValue ? null : 10,
             BackdatedFrom = backdated.HasValue ? SystemClock.Instance.GetCurrentInstant() : null,
@@ -421,7 +418,7 @@ public class AccountEventService(
             if (result.RewardPoints.HasValue)
                 await payment.CreateTransactionWithAccount(
                     null,
-                    user.Id.ToString(),
+                    account.Id.ToString(),
                     WalletCurrency.SourcePoint,
                     result.RewardPoints.Value.ToString(CultureInfo.InvariantCulture),
                     $"Check-in reward on {now:yyyy/MM/dd}"
@@ -439,7 +436,7 @@ public class AccountEventService(
                 "check-in",
                 $"Check-in reward on {now:yyyy/MM/dd}",
                 result.RewardExperience.Value,
-                user.Id
+                account.Id
             );
 
         // The lock will be automatically released by the await using statement
