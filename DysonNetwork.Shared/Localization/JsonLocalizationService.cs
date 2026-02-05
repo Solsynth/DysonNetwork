@@ -10,7 +10,7 @@ public class JsonLocalizationService : ILocalizationService
     private readonly Assembly _assembly;
     private readonly string _resourceNamespace;
     private readonly object _lock = new();
-    private readonly List<string> _availableLocales = new();
+    private readonly List<string> _availableLocales = [];
 
     public JsonLocalizationService(Assembly? assembly = null, string? resourceNamespace = null)
     {
@@ -24,7 +24,7 @@ public class JsonLocalizationService : ILocalizationService
         var resourceNames = _assembly.GetManifestResourceNames();
         var prefix = $"{_resourceNamespace}.";
         var suffix = ".json";
-        
+
         foreach (var resourceName in resourceNames)
         {
             if (resourceName.StartsWith(prefix) && resourceName.EndsWith(suffix))
@@ -135,7 +135,7 @@ public class JsonLocalizationService : ILocalizationService
     private Dictionary<string, LocalizationEntry> LoadLocale(string locale)
     {
         var resourceName = $"{_resourceNamespace}.{locale}.json";
-        
+
         using var stream = _assembly.GetManifestResourceStream(resourceName);
         if (stream == null)
         {
@@ -144,7 +144,7 @@ public class JsonLocalizationService : ILocalizationService
 
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
-        
+
         var root = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
         if (root == null)
         {
@@ -199,14 +199,14 @@ public class JsonLocalizationService : ILocalizationService
                 return entry.One;
             }
         }
-        
+
         return entry.Other ?? entry.One ?? string.Empty;
     }
 
     private int? GetCountValue(object args)
     {
         if (args == null) return null;
-        
+
         var type = args.GetType();
         var countProperty = type.GetProperty("Count", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
         if (countProperty != null)

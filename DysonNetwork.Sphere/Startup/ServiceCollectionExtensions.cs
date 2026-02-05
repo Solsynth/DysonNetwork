@@ -86,13 +86,13 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddAppBusinessServices(IConfiguration configuration
         )
         {
-            services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+            _ = services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
             {
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
                 var resourceNamespace = "DysonNetwork.Sphere.Resources.Locales";
-                return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+                return new Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
             });
-            
+
             services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
             services.Configure<ActivityPubDeliveryOptions>(configuration.GetSection("ActivityPubDelivery"));
             services.AddScoped<GeoService>();

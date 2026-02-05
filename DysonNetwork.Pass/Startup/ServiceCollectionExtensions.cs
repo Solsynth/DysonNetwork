@@ -24,6 +24,7 @@ using DysonNetwork.Pass.Safety;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Localization;
 
 namespace DysonNetwork.Pass.Startup;
 
@@ -138,9 +139,9 @@ public static class ServiceCollectionExtensions
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Pass.Resources.Locales";
-            return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+            return new JsonLocalizationService(assembly, resourceNamespace);
         });
-        services.AddScoped<DysonNetwork.Shared.Templating.ITemplateService, DysonNetwork.Shared.Templating.RazorLightTemplateService>(sp =>
+        services.AddScoped<Shared.Templating.ITemplateService, Shared.Templating.RazorLightTemplateService>(sp =>
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Pass.Resources.Templates";
@@ -166,18 +167,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RealmService>();
         services.AddScoped<LotteryService>();
         services.AddScoped<AffiliationSpellService>();
-        
+
         services.AddScoped<SpotifyPresenceService>();
         services.AddScoped<SteamPresenceService>();
         services.AddScoped<IPresenceService, SpotifyPresenceService>();
         services.AddScoped<IPresenceService, SteamPresenceService>();
-        
+
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
 
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
-        
+
         services.AddHostedService<BroadcastEventHandler>();
 
         return services;

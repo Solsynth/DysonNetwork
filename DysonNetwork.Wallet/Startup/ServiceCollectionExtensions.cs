@@ -90,9 +90,9 @@ public static class ServiceCollectionExtensions
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Wallet.Resources.Locales";
-            return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+            return new Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
         });
-        
+
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();
 
