@@ -36,12 +36,6 @@ public static class ScheduledJobsConfiguration
                     .RepeatForever())
             );
 
-            q.AddJob<Lotteries.LotteryDrawJob>(opts => opts.WithIdentity("LotteryDraw"));
-            q.AddTrigger(opts => opts
-                .ForJob("LotteryDraw")
-                .WithIdentity("LotteryDrawTrigger")
-                .WithCronSchedule("0 0 0 * * ?"));
-
             q.AddJob<SocialCreditValidationJob>(opts => opts.WithIdentity("SocialCreditValidation"));
             q.AddTrigger(opts => opts
                 .ForJob("SocialCreditValidation")

@@ -16,7 +16,6 @@ using DysonNetwork.Pass.Auth.OidcProvider.Services;
 using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Leveling;
-using DysonNetwork.Pass.Lotteries;
 using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Rewind;
@@ -165,7 +164,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
-        services.AddScoped<LotteryService>();
         services.AddScoped<AffiliationSpellService>();
 
         services.AddScoped<SpotifyPresenceService>();

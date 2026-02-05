@@ -1,9 +1,8 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using NodaTime;
 
-namespace DysonNetwork.Pass.Lotteries;
+namespace DysonNetwork.Wallet.Lotteries;
 
 public class LotteryOrderMetaData
 {

@@ -1,13 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Pass.Lotteries;
+namespace DysonNetwork.Wallet.Lotteries;
 
 [ApiController]
 [Route("/api/lotteries")]

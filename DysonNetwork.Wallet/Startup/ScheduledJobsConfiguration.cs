@@ -40,8 +40,16 @@ public static class ScheduledJobsConfiguration
                 .WithSimpleSchedule(o => o
                     .WithIntervalInHours(1)
                     .RepeatForever())
+
             );
+
+            q.AddJob<Lotteries.LotteryDrawJob>(opts => opts.WithIdentity("LotteryDraw"));
+            q.AddTrigger(opts => opts
+                .ForJob("LotteryDraw")
+                .WithIdentity("LotteryDrawTrigger")
+                .WithCronSchedule("0 0 0 * * ?"));
         });
+
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 
         return services;

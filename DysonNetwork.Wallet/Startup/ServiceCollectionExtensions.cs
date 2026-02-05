@@ -10,6 +10,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Wallet.Payment;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
+using DysonNetwork.Wallet.Lotteries;
 
 namespace DysonNetwork.Wallet.Startup;
 
@@ -101,6 +102,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<AfdianPaymentHandler>();
+        services.AddScoped<LotteryService>();
 
         services.AddHostedService<BroadcastEventHandler>();
 

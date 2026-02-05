@@ -1,6 +1,6 @@
 using Quartz;
 
-namespace DysonNetwork.Pass.Lotteries;
+namespace DysonNetwork.Wallet.Lotteries;
 
 public class LotteryDrawJob(LotteryService lotteryService, ILogger<LotteryDrawJob> logger) : IJob
 {

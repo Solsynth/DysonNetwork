@@ -50,7 +50,7 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 
@@ -121,4 +121,3 @@ public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
         return new AppDatabase(optionsBuilder.Options, configuration);
     }
 }
-
