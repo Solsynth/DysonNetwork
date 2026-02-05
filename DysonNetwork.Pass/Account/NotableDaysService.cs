@@ -69,18 +69,6 @@ public class NotableDaysService(ICacheService cache)
         };
         globalDays.Add(newYear);
 
-        // Valentine's Day - February 14
-        var valentine = new NotableDay
-        {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 2, 14, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "Valentine's Day",
-            GlobalName = "Valentine's Day",
-            LocalizableKey = "ValentineDay",
-            CountryCode = null,
-            Holidays = [NotableHolidayType.Observance]
-        };
-        globalDays.Add(valentine);
-
         // April Fools' Day - April 1
         var aprilFools = new NotableDay
         {
