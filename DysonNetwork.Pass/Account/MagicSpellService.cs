@@ -97,8 +97,9 @@ public class MagicSpellService(
                     await email.SendRazorTemplateEmailAsync<LandingEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer.Get("regConfirmTitle"),
+                        localizer.Get("regConfirmTitle", accountLanguage),
                         "Welcome",
+                        accountLanguage,
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,
@@ -110,8 +111,9 @@ public class MagicSpellService(
                     await email.SendRazorTemplateEmailAsync<AccountDeletionEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer.Get("accountDeletionTitle"),
+                        localizer.Get("accountDeletionTitle", accountLanguage),
                         "AccountDeletion",
+                        accountLanguage,
                         new AccountDeletionEmailModel
                         {
                             Name = contact.Account.Name,
@@ -123,8 +125,9 @@ public class MagicSpellService(
                     await email.SendRazorTemplateEmailAsync<PasswordResetEmailModel>(
                         contact.Account.Nick,
                         contact.Content,
-                        localizer.Get("passwordResetTitle"),
+                        localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
+                        accountLanguage,
                         new PasswordResetEmailModel
                         {
                             Name = contact.Account.Name,
@@ -138,8 +141,9 @@ public class MagicSpellService(
                     await email.SendRazorTemplateEmailAsync<ContactVerificationEmailModel>(
                         contact.Account.Nick,
                         contactMethod!,
-                        localizer.Get("contractMethodVerificationTitle"),
+                        localizer.Get("contractMethodVerificationTitle", accountLanguage),
                         "ContactVerification",
+                        accountLanguage,
                         new ContactVerificationEmailModel
                         {
                             Name = contact.Account.Name,

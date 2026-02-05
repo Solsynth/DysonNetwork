@@ -117,8 +117,8 @@ public class RelationshipService(
             Notification = new PushNotification
             {
                 Topic = "relationships.friends.request",
-                Title = localizer.Get("friendRequestTitle", args: new { sender.Nick }),
-                Body = localizer.Get("friendRequestBody"),
+                Title = localizer.Get("friendRequestTitle", locale: sender.Language, args: new { sender.Nick }),
+                Body = localizer.Get("friendRequestBody", locale: sender.Language),
                 ActionUri = "/account/relationships",
                 IsSavable = true
             }

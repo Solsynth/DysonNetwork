@@ -233,14 +233,14 @@ public class AuthController(
         {
             AccountService.SetCultureInfo(challenge.Account);
             await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
-            {
-                Notification = new PushNotification
                 {
-                    Topic = "auth.login",
-                    Title = localizer.Get("newLoginTitle"),
-                    Body = localizer.Get("newLoginBody", args: new { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
-                    IsSavable = true
-                },
+                    Notification = new PushNotification
+                    {
+                        Topic = "auth.login",
+                        Title = localizer.Get("newLoginTitle", challenge.Account.Language),
+                        Body = localizer.Get("newLoginBody", locale: challenge.Account.Language, args: new { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
+                        IsSavable = true
+                    },
                 UserId = challenge.AccountId.ToString()
             });
             als.CreateActionLogFromRequest(ActionLogType.NewLogin,

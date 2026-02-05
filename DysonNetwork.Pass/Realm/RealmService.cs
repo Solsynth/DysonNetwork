@@ -55,8 +55,8 @@ public class RealmService(
                 Notification = new PushNotification
                 {
                     Topic = "invites.realms",
-                    Title = localizer.Get("realmInviteTitle"),
-                    Body = localizer.Get("realmInviteBody", args: new { realmName = member.Realm.Name }),
+                    Title = localizer.Get("realmInviteTitle", account.Language),
+                    Body = localizer.Get("realmInviteBody", locale: account.Language, args: new { realmName = member.Realm.Name }),
                     ActionUri = "/realms",
                     IsSavable = true
                 }

@@ -180,8 +180,9 @@ public class PaymentService(
         {
             // Due to ID is uuid, it longer than 8 words for sure
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
+            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
-
+ 
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -189,13 +190,13 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer.Get("transactionNewTitle", args: new { remark = readableTransactionRemark }),
+                        Title = localizer.Get("transactionNewTitle", locale: locale, args: new { remark = readableTransactionRemark }),
                         Body = transaction.Amount > 0
-                            ? localizer.Get("transactionNewBodyMinus", args: new {
+                            ? localizer.Get("transactionNewBodyMinus", locale: locale, args: new {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             })
-                            : localizer.Get("transactionNewBodyPlus", args: new {
+                            : localizer.Get("transactionNewBodyPlus", locale: locale, args: new {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             }),
@@ -208,9 +209,10 @@ public class PaymentService(
         if (payeeWallet is not null)
         {
             // Due to ID is uuid, it longer than 8 words for sure
+            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
-
+ 
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -218,13 +220,13 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer.Get("transactionNewTitle", args: new { remark = readableTransactionRemark }),
+                        Title = localizer.Get("transactionNewTitle", locale: locale, args: new { remark = readableTransactionRemark }),
                         Body = transaction.Amount > 0
-                            ? localizer.Get("transactionNewBodyPlus", args: new {
+                            ? localizer.Get("transactionNewBodyPlus", locale: locale, args: new {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             })
-                            : localizer.Get("transactionNewBodyMinus", args: new {
+                            : localizer.Get("transactionNewBodyMinus", locale: locale, args: new {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             }),
@@ -339,9 +341,36 @@ public class PaymentService(
         if (payeeWallet is not null)
         {
             // Due to ID is uuid, it longer than 8 words for sure
+            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+ 
+            await pusher.SendPushNotificationToUserAsync(
+                new SendPushNotificationToUserRequest
+                {
+                    UserId = payerWallet.AccountId.ToString(),
+                    Notification = new PushNotification
+                    {
+                        Topic = "wallets.orders.paid",
+                        Title = localizer.Get("orderPaidTitle", locale: locale, args: new { orderId = $"#{readableOrderId}" }),
+                        Body = localizer.Get("orderPaidBody", locale: locale, args: new {
+                            amount = order.Amount.ToString(CultureInfo.InvariantCulture),
+                            currency = order.Currency,
+                            remark = readableOrderRemark
+                        }),
+                        IsSavable = true
+                    }
+                }
+            );
+        }
 
+        if (payeeWallet is not null)
+        {
+            // Due to ID is uuid, it longer than 8 words for sure
+            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
+            var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
+            var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+ 
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -349,8 +378,8 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.received",
-                        Title = localizer.Get("orderReceivedTitle", args: new { orderId = $"#{readableOrderId}" }),
-                        Body = localizer.Get("orderReceivedBody", args: new {
+                        Title = localizer.Get("orderReceivedTitle", locale: locale, args: new { orderId = $"#{readableOrderId}" }),
+                        Body = localizer.Get("orderReceivedBody", locale: locale, args: new {
                             amount = order.Amount.ToString(CultureInfo.InvariantCulture),
                             currency = order.Currency,
                             remark = readableOrderRemark

@@ -118,15 +118,16 @@ public partial class PostService(
 
     public (string title, string content) ChopPostForNotification(SnPost post)
     {
+        var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
         var content = !string.IsNullOrEmpty(post.Description)
             ? post.Description?.Length >= 40 ? post.Description[..37] + "..." : post.Description
             : post.Content?.Length >= 100
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
                 : post.Content;
         var title = post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
-        title ??= localizer.Get("postOnlyMedia");
+        title ??= localizer.Get("postOnlyMedia", locale: locale);
         if (string.IsNullOrWhiteSpace(content))
-            content = localizer.Get("postOnlyMedia");
+            content = localizer.Get("postOnlyMedia", locale: locale);
         return (title, content);
     }
 

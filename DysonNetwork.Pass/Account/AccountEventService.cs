@@ -330,11 +330,11 @@ public class AccountEventService(
             .Where(x => x.AccountId == user.Id)
             .Select(x => new { x.Birthday, x.TimeZone })
             .FirstOrDefaultAsync();
-        
+
         var accountBirthday = accountProfile?.Birthday;
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        
+
         var userTimeZone = DateTimeZone.Utc;
         if (!string.IsNullOrEmpty(accountProfile?.TimeZone))
         {
@@ -343,9 +343,9 @@ public class AccountEventService(
 
         var todayInUserTz = now.InZone(userTimeZone).Date;
         var birthdayDate = accountBirthday?.InZone(userTimeZone).Date;
-        
-        var isBirthday = birthdayDate.HasValue && 
-                         birthdayDate.Value.Month == todayInUserTz.Month && 
+
+        var isBirthday = birthdayDate.HasValue &&
+                         birthdayDate.Value.Month == todayInUserTz.Month &&
                          birthdayDate.Value.Day == todayInUserTz.Day;
 
         List<CheckInFortuneTip> tips;
@@ -561,7 +561,7 @@ public class AccountEventService(
         {
             var userActivities = activitiesByUser.GetValueOrDefault(userId, new List<SnPresenceActivity>());
             results[userId] = userActivities;
-            
+
             // Update cache for this user
             var cacheKey = $"{ActivityCacheKey}{userId}";
             await cache.SetWithGroupsAsync(cacheKey, userActivities, [$"{AccountService.AccountCachePrefix}{userId}"],

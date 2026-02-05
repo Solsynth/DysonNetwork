@@ -420,11 +420,12 @@ public class SubscriptionService(
             ? subscription.EndedAt.Value.Minus(subscription.BegunAt).Days.ToString()
             : "infinite";
 
+        var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
         var notification = new PushNotification
         {
             Topic = "subscriptions.begun",
-            Title = localizer.Get("subscriptionAppliedTitle", args: new { subscriptionName = humanReadableName }),
-            Body = localizer.Get("subscriptionAppliedBody", args: new { duration, subscriptionName = humanReadableName }),
+            Title = localizer.Get("subscriptionAppliedTitle", locale: locale, args: new { subscriptionName = humanReadableName }),
+            Body = localizer.Get("subscriptionAppliedBody", locale: locale, args: new { duration, subscriptionName = humanReadableName }),
             Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["subscription_id"] = subscription.Id.ToString()
@@ -917,11 +918,12 @@ public class SubscriptionService(
                 ? humanReadable
                 : subscription.Identifier;
 
+        var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
         var notification = new PushNotification
         {
             Topic = "gifts.claimed",
-            Title = localizer.Get("giftClaimedTitle"),
-            Body = localizer.Get("giftClaimedBody", args: new { subscriptionName = humanReadableName, redeemerName = redeemer.Name }),
+            Title = localizer.Get("giftClaimedTitle", locale: locale),
+            Body = localizer.Get("giftClaimedBody", locale: locale, args: new { subscriptionName = humanReadableName, redeemerName = redeemer.Name }),
             Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["gift_id"] = gift.Id.ToString(),

@@ -9,5 +9,16 @@
   "postAwardedContentBody": "{user} awarded {amount} points to \"{title}\"",
   "postSubscriptionTitle": "{publisher}: {title}",
   "realmInviteTitle": "Realm Invitation",
-  "realmInviteBody": "You have been invited to join {realm}"
+  "realmInviteBody": "You have been invited to join {realm}",
+  "chatInviteTitle": "New Chat Invitation",
+  "chatInviteBody": "You just got invited to join {channel}",
+  "chatInviteDirectBody": "{user} sent an direct message invitation to you",
+  "postReplyBody": "{user} replied: {content}",
+  "postReplyContentBody": "{user} replied post \"{title}\": {content}",
+  "authCodeTitle": "Disposable Verification Code",
+  "authCodeBody": "{code} is your disposable code, it will expires in 5 minutes",
+  "subscriptionAppliedTitle": "Subscription {plan} just activated for your account",
+  "subscriptionAppliedBody": "Thank for supporting the Solar Network! Your {days} days {plan} subscription just begun, feel free to explore the newly unlocked features!",
+  "orderPaidTitle": "Order {orderId} recipient",
+  "orderPaidBody": "{amount} {currency} was removed from your wallet to pay for {item}"
 }

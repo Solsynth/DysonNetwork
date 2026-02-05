@@ -432,8 +432,8 @@ public class AccountService(
                         Notification = new PushNotification
                         {
                             Topic = "auth.verification",
-                Title = localizer.Get("authCodeTitle"),
-                Body = localizer.Get("authCodeBody", args: new { code }),
+                Title = localizer.Get("authCodeTitle", account.Language),
+                Body = localizer.Get("authCodeBody", locale: account.Language, args: new { code }),
                             IsSavable = false
                         }
                     }
@@ -464,8 +464,9 @@ public class AccountService(
                     .SendRazorTemplateEmailAsync<VerificationEmailModel>(
                         account.Nick,
                         contact.Content,
-                        localizer.Get("codeEmailTitle"),
+                        localizer.Get("codeEmailTitle", account.Language),
                         "FactorCode",
+                        account.Language,
                         new VerificationEmailModel
                         {
                             Name = account.Name,
