@@ -230,7 +230,7 @@ public partial class PostService(
                                 Notification = new PushNotification
                                 {
                                     Topic = "post.replies",
-                                    Title = localizer.Get("postReplyTitle", args: new { senderNick = sender!.Nick }),
+                                    Title = localizer.Get("postReplyTitle", args: new { user = sender!.Nick }),
                                     Body = ChopPostForNotification(post).content,
                                     IsSavable = true,
                                     ActionUri = $"/posts/{post.Id}"
@@ -704,10 +704,10 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.reactions.new",
-                                Title = localizer.Get("postReactTitle", args: new { senderNick = sender.Nick }),
+                                Title = localizer.Get("postReactTitle", args: new { user = sender.Nick }),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer.Get("postReactBody", args: new { senderNick = sender.Nick, reaction.Symbol })
-                                    : localizer.Get("postReactContentBody", args: new { senderNick = sender.Nick, reaction.Symbol, post.Title }),
+                                    ? localizer.Get("postReactBody", args: new { user = sender.Nick, reaction = reaction.Symbol })
+                                    : localizer.Get("postReactContentBody", args: new { user = sender.Nick, reaction = reaction.Symbol, title = post.Title }),
                                 IsSavable = true,
                                 ActionUri = $"/posts/{post.Id}"
                             }
@@ -1157,10 +1157,10 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.awards.new",
-                                Title = localizer.Get("postAwardedTitle", args: new { senderNick = sender.Nick }),
+                                Title = localizer.Get("postAwardedTitle", args: new { user = sender.Nick }),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer.Get("postAwardedBody", args: new { senderNick = sender.Nick, amount })
-                                    : localizer.Get("postAwardedContentBody", args: new { senderNick = sender.Nick, amount, post.Title }),
+                                    ? localizer.Get("postAwardedBody", args: new { user = sender.Nick, amount })
+                                    : localizer.Get("postAwardedContentBody", args: new { user = sender.Nick, amount, title = post.Title }),
                                 IsSavable = true,
                                 ActionUri = $"/posts/{post.Id}"
                             }

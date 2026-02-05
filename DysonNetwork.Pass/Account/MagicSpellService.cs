@@ -99,12 +99,12 @@ public class MagicSpellService(
                         contact.Content,
                         localizer.Get("regConfirmTitle", accountLanguage),
                         "Welcome",
-                        accountLanguage,
                         new LandingEmailModel
                         {
                             Name = contact.Account.Name,
                             Link = link
-                        }
+                        },
+                        accountLanguage
                     );
                     break;
                 case MagicSpellType.AccountRemoval:
@@ -113,12 +113,12 @@ public class MagicSpellService(
                         contact.Content,
                         localizer.Get("accountDeletionTitle", accountLanguage),
                         "AccountDeletion",
-                        accountLanguage,
                         new AccountDeletionEmailModel
                         {
                             Name = contact.Account.Name,
                             Link = link
-                        }
+                        },
+                        accountLanguage
                     );
                     break;
                 case MagicSpellType.AuthPasswordReset:
@@ -127,12 +127,12 @@ public class MagicSpellService(
                         contact.Content,
                         localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
-                        accountLanguage,
                         new PasswordResetEmailModel
                         {
                             Name = contact.Account.Name,
                             Link = link
-                        }
+                        },
+                        accountLanguage
                     );
                     break;
                 case MagicSpellType.ContactVerification:
@@ -143,12 +143,12 @@ public class MagicSpellService(
                         contactMethod!,
                         localizer.Get("contractMethodVerificationTitle", accountLanguage),
                         "ContactVerification",
-                        accountLanguage,
                         new ContactVerificationEmailModel
                         {
                             Name = contact.Account.Name,
                             Link = link
-                        }
+                        },
+                        accountLanguage
                     );
                     break;
                 case MagicSpellType.AccountDeactivation:

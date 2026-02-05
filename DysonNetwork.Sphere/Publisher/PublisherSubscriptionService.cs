@@ -118,7 +118,7 @@ public class PublisherSubscriptionService(
                 var notification = new PushNotification
                 {
                     Topic = "posts.new",
-                    Title = localizer.Get("postSubscriptionTitle", args: new { publisherNick = post.Publisher!.Nick, title }),
+                    Title = localizer.Get("postSubscriptionTitle", args: new { publisher = post.Publisher!.Nick, title }),
                     Body = message,
                     Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
                     IsSavable = true,

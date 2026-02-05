@@ -466,12 +466,12 @@ public class AccountService(
                         contact.Content,
                         localizer.Get("codeEmailTitle", account.Language),
                         "FactorCode",
-                        account.Language,
                         new VerificationEmailModel
                         {
                             Name = account.Name,
                             Code = code
-                        }
+                        },
+                        account.Language
                     );
 
                 await _SetFactorCode(factor, code, TimeSpan.FromMinutes(30));

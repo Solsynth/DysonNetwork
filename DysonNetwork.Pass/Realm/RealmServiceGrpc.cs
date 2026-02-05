@@ -128,7 +128,7 @@ public class RealmServiceGrpc(
                 {
                     Topic = "invites.realms",
                     Title = localizer.Get("realmInviteTitle", account.Language),
-                    Body = localizer.Get("realmInviteBody", locale: account.Language, args: new { realmName = member?.Name ?? "Unknown Realm" }),
+                    Body = localizer.Get("realmInviteBody", locale: account.Language, args: new { realmName = member?.Realm?.Name ?? "Unknown Realm" }),
                     ActionUri = "/realms",
                     IsSavable = true
                 }

@@ -20,5 +20,5 @@
   "subscriptionAppliedTitle": "Subscription {plan} just activated for your account",
   "subscriptionAppliedBody": "Thank for supporting the Solar Network! Your {days} days {plan} subscription just begun, feel free to explore the newly unlocked features!",
   "orderPaidTitle": "Order {orderId} recipient",
-  "orderPaidBody": "{amount} {currency} was removed from your wallet to pay for {item}"
+  "orderPaidBody": "{amount} {currency} was removed from your wallet to pay for {remark}"
 }

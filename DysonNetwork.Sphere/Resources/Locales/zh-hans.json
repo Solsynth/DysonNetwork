@@ -20,5 +20,5 @@
   "subscriptionAppliedTitle": "订阅 {plan} 刚刚为您的账户激活",
   "subscriptionAppliedBody": "感谢您支持 Solar Network！您的 {days} 天 {plan} 订阅刚刚开始，请尽情探索新解锁的功能！",
   "orderPaidTitle": "订单 {orderId} 收件人",
-  "orderPaidBody": "{amount} {currency} 已从您的钱包中扣除以支付 {item}"
+  "orderPaidBody": "{amount} {currency} 已从您的钱包中扣除以支付 {remark}"
 }
