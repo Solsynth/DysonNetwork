@@ -19,7 +19,8 @@ public class PaymentService(
     WalletService wat,
     RingService.RingServiceClient pusher,
     ILocalizationService localizer,
-    INatsConnection nats
+    INatsConnection nats,
+    DysonNetwork.Shared.EventBus.IEventBus eventBus
 )
 {
     public async Task<SnWalletOrder> CreateOrderAsync(
@@ -244,23 +245,19 @@ public class PaymentService(
             .Include(o => o.Transaction)
             .Include(o => o.PayeeWallet)
             .FirstOrDefaultAsync(o => o.Id == orderId) ?? throw new InvalidOperationException("Order not found");
-        var js = nats.CreateJetStreamContext();
 
         if (order.Status == Shared.Models.OrderStatus.Paid)
         {
-            await js.PublishAsync(
-                PaymentOrderEventBase.Type,
-                InfraObjectCoder.ConvertObjectToByteString(new PaymentOrderEvent
-                {
-                    OrderId = order.Id,
-                    WalletId = payerWallet.Id,
-                    AccountId = payerWallet.AccountId,
-                    AppIdentifier = order.AppIdentifier,
-                    ProductIdentifier = order.ProductIdentifier,
-                    Meta = order.Meta ?? [],
-                    Status = (int)order.Status,
-                }).ToByteArray()
-            );
+            await eventBus.PublishAsync(PaymentOrderEventBase.Type, new PaymentOrderEvent
+            {
+                OrderId = order.Id,
+                WalletId = payerWallet.Id,
+                AccountId = payerWallet.AccountId,
+                AppIdentifier = order.AppIdentifier,
+                ProductIdentifier = order.ProductIdentifier,
+                Meta = order.Meta ?? [],
+                Status = (int)order.Status,
+            });
 
             return order;
         }
@@ -294,19 +291,16 @@ public class PaymentService(
 
         await NotifyOrderPaid(order, payerWallet, order.PayeeWallet);
 
-        await js.PublishAsync(
-            PaymentOrderEventBase.Type,
-            InfraObjectCoder.ConvertObjectToByteString(new PaymentOrderEvent
-            {
-                OrderId = order.Id,
-                WalletId = payerWallet.Id,
-                AccountId = payerWallet.AccountId,
-                AppIdentifier = order.AppIdentifier,
-                ProductIdentifier = order.ProductIdentifier,
-                Meta = order.Meta ?? [],
-                Status = (int)order.Status,
-            }).ToByteArray()
-        );
+        await eventBus.PublishAsync(PaymentOrderEventBase.Type, new PaymentOrderEvent
+        {
+            OrderId = order.Id,
+            WalletId = payerWallet.Id,
+            AccountId = payerWallet.AccountId,
+            AppIdentifier = order.AppIdentifier,
+            ProductIdentifier = order.ProductIdentifier,
+            Meta = order.Meta ?? [],
+            Status = (int)order.Status,
+        });
 
         return order;
     }

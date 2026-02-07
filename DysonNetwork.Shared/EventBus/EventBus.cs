@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
 using NATS.Net;
 
 namespace DysonNetwork.Shared.EventBus;
@@ -30,9 +31,11 @@ public class EventBus : IEventBus
             var json = JsonSerializer.Serialize(eventPayload, InfraObjectCoder.SerializerOptions);
             var data = System.Text.Encoding.UTF8.GetBytes(json);
             
-            await _nats.PublishAsync(subject, data, cancellationToken: cancellationToken);
+            // Use JetStream for durable message delivery
+            var js = _nats.CreateJetStreamContext();
+            await js.PublishAsync(subject, data, cancellationToken: cancellationToken);
             
-            _logger.LogDebug("Published event {EventType} to subject {Subject}", eventPayload.EventType, subject);
+            _logger.LogDebug("Published event {EventType} to subject {Subject} via JetStream", eventPayload.EventType, subject);
         }
         catch (Exception ex)
         {

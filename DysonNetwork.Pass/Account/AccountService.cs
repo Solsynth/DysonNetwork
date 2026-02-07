@@ -31,7 +31,8 @@ public class AccountService(
     ICacheService cache,
     ILogger<AccountService> logger,
     RemoteSubscriptionService remoteSubscription,
-    INatsConnection nats
+    INatsConnection nats,
+    DysonNetwork.Shared.EventBus.IEventBus eventBus
 )
 {
     public const string AccountCachePrefix = "account:";
@@ -737,15 +738,11 @@ public class AccountService(
         db.Accounts.Remove(account);
         await db.SaveChangesAsync();
 
-        var js = nats.CreateJetStreamContext();
-        await js.PublishAsync(
-            AccountDeletedEvent.Type,
-            InfraObjectCoder.ConvertObjectToByteString(new AccountDeletedEvent
-            {
-                AccountId = account.Id,
-                DeletedAt = SystemClock.Instance.GetCurrentInstant()
-            }).ToByteArray()
-        );
+        await eventBus.PublishAsync(AccountDeletedEvent.Type, new AccountDeletedEvent
+        {
+            AccountId = account.Id,
+            DeletedAt = SystemClock.Instance.GetCurrentInstant()
+        });
     }
 
     /// <summary>

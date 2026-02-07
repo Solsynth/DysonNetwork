@@ -14,7 +14,8 @@ namespace DysonNetwork.Ring.Connection;
 public class WebSocketController(
     WebSocketService ws,
     ILogger<WebSocketContext> logger,
-    INatsConnection nats
+    INatsConnection nats,
+    DysonNetwork.Shared.EventBus.IEventBus eventBus
 ) : ControllerBase
 {
     private static readonly List<string> AllowedDeviceAlternative = ["watch"];
@@ -80,20 +81,12 @@ public class WebSocketController(
         );
 
         // Broadcast WebSocket connected event
-        await nats.PublishAsync(
-            WebSocketConnectedEvent.Type,
-            InfraObjectCoder
-                .ConvertObjectToByteString(
-                    new WebSocketConnectedEvent
-                    {
-                        AccountId = accountId,
-                        DeviceId = deviceId,
-                        IsOffline = false,
-                    }
-                )
-                .ToByteArray(),
-            cancellationToken: cts.Token
-        );
+        await eventBus.PublishAsync(WebSocketConnectedEvent.Type, new WebSocketConnectedEvent
+        {
+            AccountId = accountId,
+            DeviceId = deviceId,
+            IsOffline = false,
+        });
 
         try
         {
@@ -127,20 +120,12 @@ public class WebSocketController(
             ws.Disconnect(connectionKey);
 
             // Broadcast WebSocket disconnected event
-            await nats.PublishAsync(
-                WebSocketDisconnectedEvent.Type,
-                InfraObjectCoder
-                    .ConvertObjectToByteString(
-                        new WebSocketDisconnectedEvent
-                        {
-                            AccountId = accountId,
-                            DeviceId = deviceId,
-                            IsOffline = !WebSocketService.GetAccountIsConnected(accountId),
-                        }
-                    )
-                    .ToByteArray(),
-                cancellationToken: cts.Token
-            );
+            await eventBus.PublishAsync(WebSocketDisconnectedEvent.Type, new WebSocketDisconnectedEvent
+            {
+                AccountId = accountId,
+                DeviceId = deviceId,
+                IsOffline = !WebSocketService.GetAccountIsConnected(accountId),
+            });
 
             logger.LogDebug(
                 $"Connection disconnected with user @{currentUser.Name}#{currentUser.Id} and device #{deviceId}"

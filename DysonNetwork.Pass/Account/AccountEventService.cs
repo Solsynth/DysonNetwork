@@ -21,7 +21,8 @@ public class AccountEventService(
     Pass.Leveling.ExperienceService experienceService,
     RemotePaymentService payment,
     RemoteSubscriptionService subscriptions,
-    INatsConnection nats
+    INatsConnection nats,
+    DysonNetwork.Shared.EventBus.IEventBus eventBus
 )
 {
     private static readonly Random Random = new();
@@ -63,15 +64,12 @@ public class AccountEventService(
 
     private async Task BroadcastStatusUpdate(SnAccountStatus status)
     {
-        await nats.PublishAsync(
-            AccountStatusUpdatedEvent.Type,
-            InfraObjectCoder.ConvertObjectToByteString(new AccountStatusUpdatedEvent
-            {
-                AccountId = status.AccountId,
-                Status = status,
-                UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-            }).ToByteArray()
-        );
+        await eventBus.PublishAsync(AccountStatusUpdatedEvent.Type, new AccountStatusUpdatedEvent
+        {
+            AccountId = status.AccountId,
+            Status = status,
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+        });
     }
 
     public async Task<SnAccountStatus> GetStatus(Guid userId)

@@ -8,6 +8,7 @@ public static class EventBusServiceCollectionExtensions
     public static IEventBusBuilder AddEventBus(this IServiceCollection services)
     {
         services.AddSingleton<IEventBus, EventBus>();
+        services.AddHostedService<EventBusStreamInitializer>();
         services.AddHostedService<EventBusBackgroundService>();
         
         return new EventBusBuilder(services);
