@@ -13,7 +13,8 @@ public class EventBus : IEventBus
 {
     private readonly INatsConnection _nats;
     private readonly ILogger<EventBus> _logger;
-    private readonly HashSet<string> _ensuredStreams = new();
+    private readonly HashSet<string> _ensuredSubjects = new();
+    private readonly SemaphoreSlim _streamLock = new(1, 1);
 
     public EventBus(INatsConnection nats, ILogger<EventBus> logger)
     {
@@ -50,34 +51,95 @@ public class EventBus : IEventBus
 
     private async Task EnsureStreamExistsAsync(INatsJSContext js, string subject, CancellationToken cancellationToken)
     {
-        // Use subject as stream name (replace dots with underscores for valid stream name)
-        var streamName = subject.Replace('.', '_');
-        
-        if (_ensuredStreams.Contains(streamName))
+        // Check if we've already ensured this subject
+        if (_ensuredSubjects.Contains(subject))
         {
             return;
         }
 
+        await _streamLock.WaitAsync(cancellationToken);
         try
         {
-            // Try to get the stream first
-            await js.GetStreamAsync(streamName, cancellationToken: cancellationToken);
-            _ensuredStreams.Add(streamName);
-        }
-        catch (NatsJSException)
-        {
-            // Stream doesn't exist, create it
+            // Double-check after acquiring lock
+            if (_ensuredSubjects.Contains(subject))
+            {
+                return;
+            }
+
+            // Use a consistent stream name based on the subject
+            // Replace dots with underscores and take the first part for grouping
+            var streamName = GetStreamName(subject);
+
             try
             {
-                await js.CreateStreamAsync(new StreamConfig(streamName, [subject]), cancellationToken: cancellationToken);
-                _ensuredStreams.Add(streamName);
-                _logger.LogInformation("Created JetStream stream {StreamName} for subject {Subject}", streamName, subject);
+                // Try to get the stream first
+                var stream = await js.GetStreamAsync(streamName, cancellationToken: cancellationToken);
+                
+                // Check if this subject is already covered by the stream
+                if (stream.Info.Config.Subjects?.Contains(subject) != true)
+                {
+                    // Update stream to include this subject
+                    var subjects = stream.Info.Config.Subjects?.ToList() ?? new List<string>();
+                    subjects.Add(subject);
+                    await js.UpdateStreamAsync(new StreamConfig(streamName, subjects), cancellationToken: cancellationToken);
+                    _logger.LogInformation("Updated stream {StreamName} to include subject {Subject}", streamName, subject);
+                }
+                
+                _ensuredSubjects.Add(subject);
             }
-            catch (NatsJSException ex) when (ex.Message.Contains("already exists"))
+            catch (NatsJSException)
             {
-                // Stream was created by another instance, that's fine
-                _ensuredStreams.Add(streamName);
+                // Stream doesn't exist, create it
+                try
+                {
+                    await js.CreateStreamAsync(new StreamConfig(streamName, [subject]), cancellationToken: cancellationToken);
+                    _ensuredSubjects.Add(subject);
+                    _logger.LogInformation("Created JetStream stream {StreamName} for subject {Subject}", streamName, subject);
+                }
+                catch (NatsJSApiException apiEx) when (apiEx.Message.Contains("already exists") || apiEx.Message.Contains("overlap"))
+                {
+                    // Stream was created by another instance or subject overlaps, that's fine
+                    // Try to get the existing stream
+                    try
+                    {
+                        var existingStream = await js.GetStreamAsync(streamName, cancellationToken: cancellationToken);
+                        _ensuredSubjects.Add(subject);
+                        _logger.LogDebug("Stream {StreamName} already exists (created by another instance)", streamName);
+                    }
+                    catch
+                    {
+                        // If we can't get it, assume it exists and mark as ensured anyway
+                        _ensuredSubjects.Add(subject);
+                    }
+                }
             }
         }
+        finally
+        {
+            _streamLock.Release();
+        }
+    }
+
+    private static string GetStreamName(string subject)
+    {
+        // Group related subjects into the same stream
+        // e.g., "payment_orders" -> "payment_orders"
+        // e.g., "account_deleted" -> "account_events" 
+        // e.g., "websocket_connected" -> "websocket_events"
+        
+        var parts = subject.Split('.');
+        
+        // Special grouping rules
+        if (subject.StartsWith("payment"))
+            return "payment_events";
+        if (subject.StartsWith("account"))
+            return "account_events";
+        if (subject.StartsWith("websocket"))
+            return "websocket_events";
+        if (subject.StartsWith("file"))
+            return "file_events";
+        
+        // Default: use subject as stream name (replace dots with underscores)
+        return subject.Replace('.', '_');
     }
 }
