@@ -114,7 +114,7 @@ public class EventBusBackgroundService(
             await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
             {
                 messageCount++;
-                logger.LogDebug("Received JetStream message #{Count} on subject: {Subject}, stream: {Stream}, consumer: {Consumer}", 
+                logger.LogInformation("Received JetStream message #{Count} on subject: {Subject}, stream: {Stream}, consumer: {Consumer}", 
                     messageCount, subscription.Subject, subscription.StreamName, subscription.ConsumerName);
                 
                 var (success, shouldAck) = await HandleJetStreamMessageAsync(msg, subscription, stoppingToken);
@@ -122,12 +122,12 @@ public class EventBusBackgroundService(
                 if (success && shouldAck)
                 {
                     await msg.AckAsync(cancellationToken: stoppingToken);
-                    logger.LogDebug("Message acknowledged successfully");
+                    logger.LogInformation("Message acknowledged successfully");
                 }
                 else if (!shouldAck)
                 {
                     await msg.NakAsync(cancellationToken: stoppingToken);
-                    logger.LogWarning("Message negatively acknowledged (handler requested no ack)");
+                    logger.LogInformation("Message negatively acknowledged (handler requested no ack)");
                 }
                 else
                 {
