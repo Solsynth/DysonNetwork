@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime;
@@ -205,10 +206,10 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             proto.PinMode = (Proto.PostPinMode)((int)PinMode.Value + 1);
 
         if (Metadata != null)
-            proto.Meta = GrpcTypeHelper.ConvertObjectToByteString(Metadata);
+            proto.Meta = InfraObjectCoder.ConvertObjectToByteString(Metadata);
 
         if (SensitiveMarks != null)
-            proto.SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks);
+            proto.SensitiveMarks = InfraObjectCoder.ConvertObjectToByteString(SensitiveMarks);
 
         if (EmbedView != null)
             proto.EmbedView = EmbedView.ToProtoValue();
@@ -317,12 +318,12 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             post.PinMode = (PostPinMode)(proto.PinMode - 1);
 
         if (proto.Meta != null)
-            post.Metadata = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(
+            post.Metadata = InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(
                 proto.Meta
             );
 
         if (proto.SensitiveMarks != null)
-            post.SensitiveMarks = GrpcTypeHelper.ConvertByteStringToObject<
+            post.SensitiveMarks = InfraObjectCoder.ConvertByteStringToObject<
                 List<ContentSensitiveMark>
             >(proto.SensitiveMarks);
 

@@ -1,5 +1,6 @@
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Localization;
@@ -119,7 +120,7 @@ public class PublisherSubscriptionService(
                     Topic = "posts.new",
                     Title = localizer.Get("postSubscriptionTitle", locale: target.Key, args: new { publisher = post.Publisher!.Nick, title }),
                     Body = message,
-                    Meta = GrpcTypeHelper.ConvertObjectToByteString(data),
+                    Meta = InfraObjectCoder.ConvertObjectToByteString(data),
                     IsSavable = true,
                     ActionUri = $"/posts/{post.Id}"
                 };

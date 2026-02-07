@@ -1,5 +1,6 @@
 using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Notification;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.Collections;
@@ -74,7 +75,7 @@ public class RingServiceGrpc(
             Subtitle = request.Notification.Subtitle,
             Content = request.Notification.Body,
             Meta = request.Notification.HasMeta
-                ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
+                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
             AccountId = Guid.Parse(request.UserId),
         };
@@ -104,7 +105,7 @@ public class RingServiceGrpc(
             Subtitle = request.Notification.Subtitle,
             Content = request.Notification.Body,
             Meta = request.Notification.HasMeta
-                ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
+                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
         };
 

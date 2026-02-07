@@ -2,17 +2,16 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Google.Protobuf;
 using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
-using DysonNetwork.Shared.Data;
-using Google.Protobuf;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
-namespace DysonNetwork.Shared.Proto;
+namespace DysonNetwork.Shared.Data;
 
-public abstract class GrpcTypeHelper
+public abstract class InfraObjectCoder
 {
     public static readonly JsonSerializerOptions? SerializerOptionsWithoutIgnore = new JsonSerializerOptions()
     {

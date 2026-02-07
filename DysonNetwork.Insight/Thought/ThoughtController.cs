@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
@@ -374,7 +375,7 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             }
 
             var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
-                GrpcTypeHelper.SerializerOptions);
+                InfraObjectCoder.SerializerOptions);
             await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
             var outputBytes = streamBuilder.ToArray();
             await Response.Body.WriteAsync(outputBytes);

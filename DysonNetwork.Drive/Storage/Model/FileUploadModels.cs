@@ -5,6 +5,7 @@ using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 
 namespace DysonNetwork.Drive.Storage.Model;
 
@@ -72,14 +73,14 @@ public static class ParameterHelper
 {
     public static T? Typed<T>(Dictionary<string, object?> parameters)
     {
-        var rawParams = GrpcTypeHelper.ConvertObjectToByteString(parameters);
-        return GrpcTypeHelper.ConvertByteStringToObject<T>(rawParams);
+        var rawParams = InfraObjectCoder.ConvertObjectToByteString(parameters);
+        return InfraObjectCoder.ConvertByteStringToObject<T>(rawParams);
     }
 
     public static Dictionary<string, object?> Untyped<T>(T parameters)
     {
-        var rawParams = GrpcTypeHelper.ConvertObjectToByteString(parameters);
-        return GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(rawParams) ?? [];
+        var rawParams = InfraObjectCoder.ConvertObjectToByteString(parameters);
+        return InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(rawParams) ?? [];
     }
 }
 

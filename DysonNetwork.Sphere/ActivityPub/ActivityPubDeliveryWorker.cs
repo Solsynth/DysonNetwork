@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
@@ -42,7 +43,7 @@ public class ActivityPubDeliveryWorker(
         {
             try
             {
-                var message = GrpcTypeHelper.ConvertByteStringToObject<ActivityPubDeliveryMessage>(ByteString.CopyFrom(msg.Data));
+                var message = InfraObjectCoder.ConvertByteStringToObject<ActivityPubDeliveryMessage>(ByteString.CopyFrom(msg.Data));
                 if (message is not null)
                 {
                     await ProcessDeliveryAsync(message, stoppingToken);

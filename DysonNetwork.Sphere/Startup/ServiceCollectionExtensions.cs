@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Queue;
@@ -86,9 +87,9 @@ public static class ServiceCollectionExtensions
                         {
                             case "posts.award":
                                 {
-                                    var awardEvt = System.Text.Json.JsonSerializer.Deserialize<PaymentOrderAwardEvent>(
-                                        System.Text.Json.JsonSerializer.Serialize(evt),
-                                        DysonNetwork.Shared.Proto.GrpcTypeHelper.SerializerOptions
+                                    var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(
+                                        JsonSerializer.Serialize(evt),
+                                        InfraObjectCoder.SerializerOptions
                                     );
                                     if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
 

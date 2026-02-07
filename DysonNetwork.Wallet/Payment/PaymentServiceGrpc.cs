@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
@@ -24,7 +25,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
             request.HasProductIdentifier ? request.ProductIdentifier : null,
             request.HasRemarks ? request.Remarks : null,
             request.HasMeta
-                ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(request.Meta)
+                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(request.Meta)
                 : null,
             request.Reuseable
         );

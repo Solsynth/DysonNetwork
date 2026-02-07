@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
 using NATS.Client.Core;
@@ -40,7 +41,7 @@ public class QueueBackgroundService(
         {
             try
             {
-                var message = GrpcTypeHelper.ConvertByteStringToObject<QueueMessage>(ByteString.CopyFrom(msg.Data));
+                var message = InfraObjectCoder.ConvertByteStringToObject<QueueMessage>(ByteString.CopyFrom(msg.Data));
                 if (message is not null)
                 {
                     await ProcessMessageAsync(message, stoppingToken);

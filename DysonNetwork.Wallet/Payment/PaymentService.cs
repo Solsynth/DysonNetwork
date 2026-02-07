@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -249,7 +250,7 @@ public class PaymentService(
         {
             await js.PublishAsync(
                 PaymentOrderEventBase.Type,
-                GrpcTypeHelper.ConvertObjectToByteString(new PaymentOrderEvent
+                InfraObjectCoder.ConvertObjectToByteString(new PaymentOrderEvent
                 {
                     OrderId = order.Id,
                     WalletId = payerWallet.Id,
@@ -295,7 +296,7 @@ public class PaymentService(
 
         await js.PublishAsync(
             PaymentOrderEventBase.Type,
-            GrpcTypeHelper.ConvertObjectToByteString(new PaymentOrderEvent
+            InfraObjectCoder.ConvertObjectToByteString(new PaymentOrderEvent
             {
                 OrderId = order.Id,
                 WalletId = payerWallet.Id,

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
 
@@ -8,7 +9,7 @@ public class ActivityPubQueueService(INatsConnection nats)
 {
     public async Task EnqueueDeliveryAsync(ActivityPubDeliveryMessage message)
     {
-        var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
+        var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
         await nats.PublishAsync(ActivityPubDeliveryWorker.QueueName, rawMessage);
     }
 }

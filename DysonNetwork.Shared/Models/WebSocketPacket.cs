@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
@@ -25,7 +26,7 @@ public class WebSocketPacket
     public static WebSocketPacket FromBytes(byte[] bytes)
     {
         var json = System.Text.Encoding.UTF8.GetString(bytes);
-        return JsonSerializer.Deserialize<WebSocketPacket>(json, GrpcTypeHelper.SerializerOptions) ??
+        return JsonSerializer.Deserialize<WebSocketPacket>(json, InfraObjectCoder.SerializerOptions) ??
                throw new JsonException("Failed to deserialize WebSocketPacket");
     }
 
@@ -40,8 +41,8 @@ public class WebSocketPacket
             return typedData;
 
         return JsonSerializer.Deserialize<T>(
-            JsonSerializer.Serialize(Data, GrpcTypeHelper.SerializerOptions),
-            GrpcTypeHelper.SerializerOptions
+            JsonSerializer.Serialize(Data, InfraObjectCoder.SerializerOptions),
+            InfraObjectCoder.SerializerOptions
         );
     }
 
@@ -51,7 +52,7 @@ public class WebSocketPacket
     /// <returns>Byte array representation of the packet</returns>
     public byte[] ToBytes()
     {
-        var json = JsonSerializer.Serialize(this, GrpcTypeHelper.SerializerOptions);
+        var json = JsonSerializer.Serialize(this, InfraObjectCoder.SerializerOptions);
         return System.Text.Encoding.UTF8.GetBytes(json);
     }
     
@@ -60,7 +61,7 @@ public class WebSocketPacket
         return new Proto.WebSocketPacket
         {
             Type = Type,
-            Data = GrpcTypeHelper.ConvertObjectToByteString(Data),
+            Data = InfraObjectCoder.ConvertObjectToByteString(Data),
             ErrorMessage = ErrorMessage
         };
     }
@@ -70,7 +71,7 @@ public class WebSocketPacket
         return new WebSocketPacket
         {
             Type = packet.Type,
-            Data = GrpcTypeHelper.ConvertByteStringToObject<object?>(packet.Data),
+            Data = InfraObjectCoder.ConvertByteStringToObject<object?>(packet.Data),
             ErrorMessage = packet.ErrorMessage
         };
     }

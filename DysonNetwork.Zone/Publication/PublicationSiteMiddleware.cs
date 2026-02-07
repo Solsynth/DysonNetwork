@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Zone.Customization;
@@ -81,10 +82,10 @@ public class PublicationSiteMiddleware(RequestDelegate next)
                 case PublicationPageType.PostPage:
                     PostPageFilterConfig? filterConfig = null;
                     if (page.Config.TryGetValue("filter", out var filter) && filter is JsonElement filterJson)
-                         filterConfig = filterJson.Deserialize<PostPageFilterConfig>(GrpcTypeHelper.SerializerOptions);
+                         filterConfig = filterJson.Deserialize<PostPageFilterConfig>(InfraObjectCoder.SerializerOptions);
                     PostPageLayoutConfig? layoutConfig = null;
                     if (page.Config.TryGetValue("layout", out var layout) && layout is JsonElement layoutJson)
-                        layoutConfig = layoutJson.Deserialize<PostPageLayoutConfig>(GrpcTypeHelper.SerializerOptions);
+                        layoutConfig = layoutJson.Deserialize<PostPageLayoutConfig>(InfraObjectCoder.SerializerOptions);
                     context.Items["PostPage_LayoutConfig"] = layoutConfig;
                     context.Items["PostPage_FilterConfig"] = filterConfig;
                     context.Request.Path = "/Posts";

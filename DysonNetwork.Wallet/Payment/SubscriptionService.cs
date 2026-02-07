@@ -4,6 +4,7 @@ using System.Text.Json;
 using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -426,7 +427,7 @@ public class SubscriptionService(
             Topic = "subscriptions.begun",
             Title = localizer.Get("subscriptionAppliedTitle", locale: locale, args: new { subscriptionName = humanReadableName }),
             Body = localizer.Get("subscriptionAppliedBody", locale: locale, args: new { duration, subscription = humanReadableName }),
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
+            Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["subscription_id"] = subscription.Id.ToString()
             }),
@@ -830,7 +831,7 @@ public class SubscriptionService(
     public async Task<List<SnWalletGift>> GetGiftsByGifterAsync(Guid gifterId)
     {
         return await db.WalletGifts
-            .Where(g => g.GifterId == gifterId && g.Status != DysonNetwork.Shared.Models.GiftStatus.Created)
+            .Where(g => g.GifterId == gifterId && g.Status != Shared.Models.GiftStatus.Created)
             .OrderByDescending(g => g.CreatedAt)
             .ToListAsync();
     }
@@ -924,7 +925,7 @@ public class SubscriptionService(
             Topic = "gifts.claimed",
             Title = localizer.Get("giftClaimedTitle", locale: locale),
             Body = localizer.Get("giftClaimedBody", locale: locale, args: new { subscription = humanReadableName, user = redeemer.Name }),
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(new Dictionary<string, object>
+            Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["gift_id"] = gift.Id.ToString(),
                 ["subscription_id"] = subscription.Id.ToString(),

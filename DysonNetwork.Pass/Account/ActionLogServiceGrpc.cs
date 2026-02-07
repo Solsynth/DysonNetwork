@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +33,7 @@ public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServi
         try
         {
             var meta = request.Meta
-                ?.Select(x => new KeyValuePair<string, object>(x.Key, GrpcTypeHelper.ConvertValueToObject(x.Value)))
+                ?.Select(x => new KeyValuePair<string, object>(x.Key, InfraObjectCoder.ConvertValueToObject(x.Value)))
                 .ToDictionary() ?? new Dictionary<string, object>();
 
             _actionLogService.CreateActionLog(

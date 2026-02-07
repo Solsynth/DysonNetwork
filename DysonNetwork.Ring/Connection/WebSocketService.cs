@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
@@ -143,7 +144,7 @@ public class WebSocketService
                 var endpoint = packet.Endpoint.Replace("DysonNetwork.", "").ToLower();
                 await _nats.PublishAsync(
                     WebSocketPacketEvent.SubjectPrefix + endpoint,
-                    GrpcTypeHelper
+                    InfraObjectCoder
                         .ConvertObjectToByteString(new WebSocketPacketEvent
                         {
                             AccountId = Guid.Parse(currentUser.Id),

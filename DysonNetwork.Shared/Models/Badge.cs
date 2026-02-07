@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using MessagePack;
 using NodaTime;
@@ -50,7 +51,7 @@ public class SnAccountBadge : ModelBase
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp()
         };
-        proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta));
+        proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta));
 
         return proto;
     }
@@ -97,7 +98,7 @@ public class SnAccountBadgeRef : ModelBase
             ExpiredAt = ExpiredAt?.ToTimestamp(),
             AccountId = AccountId.ToString()
         };
-        proto.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta!));
+        proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta!));
 
         return proto;
     }
@@ -111,7 +112,7 @@ public class SnAccountBadgeRef : ModelBase
             Type = proto.Type,
             Label = proto.Label,
             Caption = proto.Caption,
-            Meta = GrpcTypeHelper.ConvertFromValueMap(proto.Meta).ToDictionary(),
+            Meta = InfraObjectCoder.ConvertFromValueMap(proto.Meta).ToDictionary(),
             ActivatedAt = proto.ActivatedAt?.ToInstant(),
             ExpiredAt = proto.ExpiredAt?.ToInstant(),
             AccountId = Guid.Parse(proto.AccountId)

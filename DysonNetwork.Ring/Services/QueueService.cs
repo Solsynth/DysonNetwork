@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
 
@@ -19,7 +20,7 @@ public class QueueService(INatsConnection nats)
                 Body = body
             })
         };
-        var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
+        var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
         await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 
@@ -34,7 +35,7 @@ public class QueueService(INatsConnection nats)
             TargetId = userId.ToString(),
             Data = JsonSerializer.Serialize(notification)
         };
-        var rawMessage = GrpcTypeHelper.ConvertObjectToByteString(message).ToByteArray();
+        var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
         await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 }

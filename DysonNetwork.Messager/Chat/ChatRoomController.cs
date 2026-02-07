@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
@@ -1022,7 +1023,7 @@ public class ChatRoomController(
                     Title = title,
                     Body = body,
                     IsSavable = true,
-                    Meta = GrpcTypeHelper.ConvertObjectToByteString(new
+                    Meta = InfraObjectCoder.ConvertObjectToByteString(new
                     {
                         room_id = member.ChatRoomId
                     })

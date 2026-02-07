@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
@@ -44,7 +45,7 @@ public class SnWebArticle : ModelBase
             proto.Author = Author;
 
         if (Meta != null)
-            proto.Meta = GrpcTypeHelper.ConvertObjectToByteString(Meta);
+            proto.Meta = InfraObjectCoder.ConvertObjectToByteString(Meta);
 
         if (Preview != null)
             proto.Preview = Preview.ToProtoValue();
@@ -70,7 +71,7 @@ public class SnWebArticle : ModelBase
             Url = proto.Url,
             FeedId = Guid.Parse(proto.FeedId),
             Author = proto.Author == "" ? null : proto.Author,
-            Meta = proto.Meta != null ? GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta) : null,
+            Meta = proto.Meta != null ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta) : null,
             Preview = proto.Preview != null ? EmbedLinkEmbed.FromProtoValue(proto.Preview) : null,
             Content = proto.Content == "" ? null : proto.Content,
             PublishedAt = proto.PublishedAt != null ? proto.PublishedAt.ToDateTime() : null,

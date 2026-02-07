@@ -76,9 +76,6 @@ public class SubscriptionGiftController(
 
         var currentUserId = Guid.Parse(currentUser.Id);
         var gift = await db.WalletGifts
-            .Include(g => g.Gifter).ThenInclude(a => a!.Profile)
-            .Include(g => g.Recipient).ThenInclude(a => a!.Profile)
-            .Include(g => g.Redeemer).ThenInclude(a => a!.Profile)
             .Include(g => g.Subscription)
             .Include(g => g.Coupon)
             .FirstOrDefaultAsync(g => g.Id == giftId);
@@ -332,6 +329,4 @@ public class SubscriptionGiftController(
             return BadRequest(ex.Message);
         }
     }
-
-
 }

@@ -118,17 +118,17 @@ public static class ServiceCollectionExtensions
 
                     logger.LogInformation(
                         "Received order event: {ProductIdentifier} {OrderId}",
-                        evt?.ProductIdentifier,
-                        evt?.OrderId
+                        evt.ProductIdentifier,
+                        evt.OrderId
                     );
 
-                    if (evt?.ProductIdentifier is null)
+                    if (evt.ProductIdentifier is null)
                         return;
 
                     // Handle subscription orders
                     if (
                         evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram) &&
-                        evt.Meta?.TryGetValue("gift_id", out var giftIdValue) == true
+                        evt.Meta.TryGetValue("gift_id", out _)
                     )
                     {
                         logger.LogInformation("Handling gift order: {OrderId}", evt.OrderId);

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models.Embed;
@@ -31,11 +32,11 @@ public abstract class EmbeddableBase
     {
         var jsonRaw = JsonSerializer.Serialize(
             input,
-            GrpcTypeHelper.SerializerOptionsWithoutIgnore
+            InfraObjectCoder.SerializerOptionsWithoutIgnore
         );
         return JsonSerializer.Deserialize<Dictionary<string, object>>(
             jsonRaw,
-            GrpcTypeHelper.SerializerOptionsWithoutIgnore
+            InfraObjectCoder.SerializerOptionsWithoutIgnore
         );
     }
 }

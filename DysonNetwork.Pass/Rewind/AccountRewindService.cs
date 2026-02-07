@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Net.Client;
@@ -49,7 +50,7 @@ public class AccountRewindService(
 
         var rewindData = rewindEvents.ToDictionary<RewindEvent, string, Dictionary<string, object?>>(
             rewindEvent => rewindEvent.ServiceId,
-            rewindEvent => GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object?>>(rewindEvent.Data) ??
+            rewindEvent => InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(rewindEvent.Data) ??
                            new Dictionary<string, object?>()
         );
 

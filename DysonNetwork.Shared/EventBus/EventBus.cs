@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
@@ -26,7 +27,7 @@ public class EventBus : IEventBus
     {
         try
         {
-            var json = JsonSerializer.Serialize(eventPayload, GrpcTypeHelper.SerializerOptions);
+            var json = JsonSerializer.Serialize(eventPayload, InfraObjectCoder.SerializerOptions);
             var data = System.Text.Encoding.UTF8.GetBytes(json);
             
             await _nats.PublishAsync(subject, data, cancellationToken: cancellationToken);

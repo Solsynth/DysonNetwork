@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Messager.Chat.Realtime;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
@@ -179,7 +180,7 @@ public partial class ChatService(
             Packet = new WebSocketPacket
             {
                 Type = type,
-                Data = GrpcTypeHelper.ConvertObjectToByteString(message),
+                Data = InfraObjectCoder.ConvertObjectToByteString(message),
             },
         };
         request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
@@ -327,7 +328,7 @@ public partial class ChatService(
         {
             Topic = "messages.new",
             Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(metaDict),
+            Meta = InfraObjectCoder.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
             Body = BuildNotificationBody(message, type)

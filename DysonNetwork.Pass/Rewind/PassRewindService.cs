@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
@@ -122,7 +123,7 @@ public class PassRewindService(AppDatabase db)
         {
             ServiceId = "pass",
             AccountId = accountId.ToString(),
-            Data = GrpcTypeHelper.ConvertObjectToByteString(data)
+            Data = InfraObjectCoder.ConvertObjectToByteString(data)
         };
     }
 }

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime;
@@ -191,7 +192,7 @@ public class SnPollAnswer : ModelBase
         var proto = new PollAnswer
         {
             Id = Id.ToString(),
-            Answer = GrpcTypeHelper.ConvertObjectToByteString(Answer),
+            Answer = InfraObjectCoder.ConvertObjectToByteString(Answer),
             AccountId = AccountId.ToString(),
             PollId = PollId.ToString(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
@@ -209,7 +210,7 @@ public class SnPollAnswer : ModelBase
         var answer = new SnPollAnswer
         {
             Id = Guid.Parse(proto.Id),
-            Answer = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, JsonElement>>(proto.Answer),
+            Answer = InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, JsonElement>>(proto.Answer),
             AccountId = Guid.Parse(proto.AccountId),
             PollId = Guid.Parse(proto.PollId),
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),

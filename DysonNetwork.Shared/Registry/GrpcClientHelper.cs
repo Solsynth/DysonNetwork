@@ -1,7 +1,7 @@
-using Grpc.Net.Client;
 using Grpc.Core;
+using Grpc.Net.Client;
 
-namespace DysonNetwork.Shared.Proto;
+namespace DysonNetwork.Shared.Registry;
 
 public static class GrpcClientHelper
 {

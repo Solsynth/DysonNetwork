@@ -414,7 +414,7 @@ public class PostActionController(
             amount: request.Amount.ToString(CultureInfo.InvariantCulture),
             productIdentifier: "posts.award",
             remarks: $"Award post {orderRemark}",
-            meta: GrpcTypeHelper.ConvertObjectToByteString(
+            meta: InfraObjectCoder.ConvertObjectToByteString(
                 new Dictionary<string, object?>
                 {
                     ["account_id"] = accountId,

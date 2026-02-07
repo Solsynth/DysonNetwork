@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -61,7 +62,7 @@ public class SnAccountStatus : ModelBase
             IsInvisible = IsInvisible,
             IsNotDisturb = IsNotDisturb,
             Label = Label ?? string.Empty,
-            Meta = GrpcTypeHelper.ConvertObjectToByteString(Meta),
+            Meta = InfraObjectCoder.ConvertObjectToByteString(Meta),
             ClearedAt = ClearedAt?.ToTimestamp(),
             AccountId = AccountId.ToString(),
         };
@@ -86,7 +87,7 @@ public class SnAccountStatus : ModelBase
             IsInvisible = proto.IsInvisible,
             IsNotDisturb = proto.IsNotDisturb,
             Label = proto.Label,
-            Meta = GrpcTypeHelper.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta),
+            Meta = InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta),
             ClearedAt = proto.ClearedAt?.ToInstant(),
             AccountId = Guid.Parse(proto.AccountId),
         };

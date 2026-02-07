@@ -1,5 +1,6 @@
 using System.Globalization;
 using DysonNetwork.Messager.Chat;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -166,7 +167,7 @@ public class MessagerRewindServiceGrpc(
         {
             ServiceId = "messager",
             AccountId = request.AccountId,
-            Data = GrpcTypeHelper.ConvertObjectToByteString(data, withoutIgnore: true),
+            Data = InfraObjectCoder.ConvertObjectToByteString(data, withoutIgnore: true),
         };
     }
 }

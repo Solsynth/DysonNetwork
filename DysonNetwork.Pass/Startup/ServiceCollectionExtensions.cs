@@ -21,6 +21,7 @@ using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Rewind;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
@@ -203,7 +204,7 @@ public static class ServiceCollectionExtensions
                             AccountId = evt.AccountId,
                             Status = status,
                             UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                        }, DysonNetwork.Shared.Proto.GrpcTypeHelper.SerializerOptionsWithoutIgnore)),
+                        }, InfraObjectCoder.SerializerOptionsWithoutIgnore)),
                         cancellationToken: ctx.CancellationToken
                     );
                 }
@@ -234,7 +235,7 @@ public static class ServiceCollectionExtensions
                             AccountId = evt.AccountId,
                             Status = status,
                             UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                        }, DysonNetwork.Shared.Proto.GrpcTypeHelper.SerializerOptionsWithoutIgnore)),
+                        }, InfraObjectCoder.SerializerOptionsWithoutIgnore)),
                         cancellationToken: ctx.CancellationToken
                     );
                 }

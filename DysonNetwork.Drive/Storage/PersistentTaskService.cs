@@ -1,5 +1,6 @@
 using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NanoidDotNet;
@@ -391,7 +392,7 @@ public class PersistentTaskService(
             var packet = new WebSocketPacket
             {
                 Type = "task.created",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
+                Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -423,7 +424,7 @@ public class PersistentTaskService(
             var packet = new WebSocketPacket
             {
                 Type = "task.progress",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
+                Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -455,7 +456,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "task.completed",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
+                Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -487,7 +488,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "task.failed",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(data)
+                Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -955,7 +956,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "upload.completed",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(completionData)
+                Data = InfraObjectCoder.ConvertObjectToByteString(completionData)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -990,7 +991,7 @@ public class PersistentTaskService(
             var wsPacket = new WebSocketPacket
             {
                 Type = "upload.failed",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(failureData)
+                Data = InfraObjectCoder.ConvertObjectToByteString(failureData)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
@@ -1048,7 +1049,7 @@ public class PersistentTaskService(
             var packet = new WebSocketPacket
             {
                 Type = "upload.progress",
-                Data = GrpcTypeHelper.ConvertObjectToByteString(progressData)
+                Data = InfraObjectCoder.ConvertObjectToByteString(progressData)
             };
 
             await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest

@@ -740,7 +740,7 @@ public class AccountService(
         var js = nats.CreateJetStreamContext();
         await js.PublishAsync(
             AccountDeletedEvent.Type,
-            GrpcTypeHelper.ConvertObjectToByteString(new AccountDeletedEvent
+            InfraObjectCoder.ConvertObjectToByteString(new AccountDeletedEvent
             {
                 AccountId = account.Id,
                 DeletedAt = SystemClock.Instance.GetCurrentInstant()

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -100,9 +101,9 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
             Url = StorageUrl ?? string.Empty,
             ContentType = MimeType ?? string.Empty,
             UploadedAt = UploadedAt?.ToTimestamp(),
-            FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta),
-            UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta),
-            SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks)
+            FileMeta = InfraObjectCoder.ConvertObjectToByteString(FileMeta),
+            UserMeta = InfraObjectCoder.ConvertObjectToByteString(UserMeta),
+            SensitiveMarks = InfraObjectCoder.ConvertObjectToByteString(SensitiveMarks)
         };
 
         if (FileMeta.TryGetValue("width", out var width) && width is int w)
@@ -118,7 +119,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
             {
                 Id = Object.Id,
                 Size = Object.Size,
-                Meta = GrpcTypeHelper.ConvertObjectToByteString(Object.Meta),
+                Meta = InfraObjectCoder.ConvertObjectToByteString(Object.Meta),
                 MimeType = Object.MimeType ?? string.Empty,
                 Hash = Object.Hash ?? string.Empty,
                 HasCompression = Object.HasCompression,

@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using Microsoft.AspNetCore.Authorization;
@@ -81,7 +82,7 @@ public class WebSocketController(
         // Broadcast WebSocket connected event
         await nats.PublishAsync(
             WebSocketConnectedEvent.Type,
-            GrpcTypeHelper
+            InfraObjectCoder
                 .ConvertObjectToByteString(
                     new WebSocketConnectedEvent
                     {
@@ -128,7 +129,7 @@ public class WebSocketController(
             // Broadcast WebSocket disconnected event
             await nats.PublishAsync(
                 WebSocketDisconnectedEvent.Type,
-                GrpcTypeHelper
+                InfraObjectCoder
                     .ConvertObjectToByteString(
                         new WebSocketDisconnectedEvent
                         {

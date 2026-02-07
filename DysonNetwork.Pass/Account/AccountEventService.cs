@@ -1,5 +1,6 @@
 using System.Globalization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
@@ -64,7 +65,7 @@ public class AccountEventService(
     {
         await nats.PublishAsync(
             AccountStatusUpdatedEvent.Type,
-            GrpcTypeHelper.ConvertObjectToByteString(new AccountStatusUpdatedEvent
+            InfraObjectCoder.ConvertObjectToByteString(new AccountStatusUpdatedEvent
             {
                 AccountId = status.AccountId,
                 Status = status,

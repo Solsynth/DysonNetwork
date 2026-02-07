@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
 using NodaTime.Serialization.Protobuf;
@@ -33,7 +34,7 @@ public class SnActionLog : ModelBase
         };
 
         // Convert Meta dictionary to Struct
-        protoLog.Meta.Add(GrpcTypeHelper.ConvertToValueMap(Meta));
+        protoLog.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta));
 
         if (SessionId.HasValue)
             protoLog.SessionId = SessionId.Value.ToString();

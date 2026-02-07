@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
@@ -56,7 +57,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             FileMeta = fileMeta,
             UserMeta = ConvertToDictionary(proto.UserMeta),
             SensitiveMarks = proto.HasSensitiveMarks
-                ? GrpcTypeHelper.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks)
+                ? InfraObjectCoder.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks)
                 : [],
             MimeType = proto.MimeType,
             Hash = proto.Hash,
@@ -74,7 +75,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
         if (byteString.IsEmpty)
             return [];
 
-        var jsonElement = GrpcTypeHelper.ConvertByteStringToObject<JsonElement>(byteString);
+        var jsonElement = InfraObjectCoder.ConvertByteStringToObject<JsonElement>(byteString);
         if (jsonElement.ValueKind != JsonValueKind.Object)
             return [];
 
@@ -91,7 +92,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
         if (byteString.IsEmpty)
             return [];
 
-        var jsonElement = GrpcTypeHelper.ConvertByteStringToObject<JsonElement>(byteString);
+        var jsonElement = InfraObjectCoder.ConvertByteStringToObject<JsonElement>(byteString);
         if (jsonElement.ValueKind != JsonValueKind.Object)
             return [];
 
@@ -146,9 +147,9 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Width = Width ?? 0,
             Height = Height ?? 0,
             Blurhash = Blurhash ?? string.Empty,
-            FileMeta = GrpcTypeHelper.ConvertObjectToByteString(FileMeta),
-            UserMeta = GrpcTypeHelper.ConvertObjectToByteString(UserMeta),
-            SensitiveMarks = GrpcTypeHelper.ConvertObjectToByteString(SensitiveMarks)
+            FileMeta = InfraObjectCoder.ConvertObjectToByteString(FileMeta),
+            UserMeta = InfraObjectCoder.ConvertObjectToByteString(UserMeta),
+            SensitiveMarks = InfraObjectCoder.ConvertObjectToByteString(SensitiveMarks)
         };
 
         return proto;
