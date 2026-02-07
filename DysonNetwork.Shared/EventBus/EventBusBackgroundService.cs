@@ -70,7 +70,7 @@ public class EventBusBackgroundService(
 
         await foreach (var msg in nats.SubscribeAsync<byte[]>(subscription.Subject, cancellationToken: stoppingToken))
         {
-            logger.LogDebug("Received message on subject: {Subject}", subscription.Subject);
+            logger.LogInformation("Received message on subject: {Subject}", subscription.Subject);
             await HandleMessageAsync(msg, subscription, stoppingToken);
         }
     }
@@ -155,7 +155,7 @@ public class EventBusBackgroundService(
         return await ProcessMessageInternalAsync(msg.Data, msg.Headers, subscription, stoppingToken);
     }
 
-    private async Task<(bool Success, bool ShouldAck)> ProcessMessageInternalAsync(byte[] data, NATS.Client.Core.NatsHeaders? headers,
+    private async Task<(bool Success, bool ShouldAck)> ProcessMessageInternalAsync(byte[] data, NatsHeaders? headers,
         EventSubscription subscription, CancellationToken stoppingToken)
     {
         var retryKey = $"{subscription.Subject}:{Guid.NewGuid()}";
