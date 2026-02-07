@@ -1,3 +1,5 @@
+using DysonNetwork.Shared.EventBus;
+
 namespace DysonNetwork.Shared.Queue;
 
 public class PaymentOrderEvent : PaymentOrderEventBase
@@ -5,9 +7,10 @@ public class PaymentOrderEvent : PaymentOrderEventBase
     public Dictionary<string, object> Meta { get; set; } = null!;
 }
 
-public class PaymentOrderEventBase
+public class PaymentOrderEventBase : EventBase
 {
     public static string Type => "payment_orders";
+    public override string EventType => Type;
     
     public Guid OrderId { get; set; }
     public Guid WalletId { get; set; }

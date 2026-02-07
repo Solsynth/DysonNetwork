@@ -5,7 +5,10 @@ using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Wallet.Payment;
@@ -104,7 +107,73 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<LotteryService>();
 
-        services.AddHostedService<BroadcastEventHandler>();
+        services.AddEventBus()
+            .AddListener<PaymentOrderEvent>(
+                PaymentOrderEventBase.Type,
+                async (evt, ctx) =>
+                {
+                    var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                    var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+                    var subscriptions = ctx.ServiceProvider.GetRequiredService<SubscriptionService>();
+
+                    logger.LogInformation(
+                        "Received order event: {ProductIdentifier} {OrderId}",
+                        evt?.ProductIdentifier,
+                        evt?.OrderId
+                    );
+
+                    if (evt?.ProductIdentifier is null)
+                        return;
+
+                    // Handle subscription orders
+                    if (
+                        evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram) &&
+                        evt.Meta?.TryGetValue("gift_id", out var giftIdValue) == true
+                    )
+                    {
+                        logger.LogInformation("Handling gift order: {OrderId}", evt.OrderId);
+
+                        var order = await db.PaymentOrders.FindAsync(
+                            [evt.OrderId],
+                            cancellationToken: ctx.CancellationToken
+                        );
+                        if (order is null)
+                        {
+                            logger.LogWarning("Order with ID {OrderId} not found. Redelivering.", evt.OrderId);
+                            throw new InvalidOperationException($"Order with ID {evt.OrderId} not found");
+                        }
+
+                        await subscriptions.HandleGiftOrder(order);
+
+                        logger.LogInformation("Gift for order {OrderId} handled successfully.", evt.OrderId);
+                    }
+                    else if (evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
+                    {
+                        logger.LogInformation("Handling stellar program order: {OrderId}", evt.OrderId);
+
+                        var order = await db.PaymentOrders.FindAsync(
+                            [evt.OrderId],
+                            cancellationToken: ctx.CancellationToken
+                        );
+                        if (order is null)
+                        {
+                            logger.LogWarning("Order with ID {OrderId} not found. Redelivering.", evt.OrderId);
+                            throw new InvalidOperationException($"Order with ID {evt.OrderId} not found");
+                        }
+
+                        await subscriptions.HandleSubscriptionOrder(order);
+
+                        logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
+                    }
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "payment_events";
+                    opts.ConsumerName = "wallet_payment_handler";
+                    opts.MaxRetries = 3;
+                }
+            );
 
         return services;
     }

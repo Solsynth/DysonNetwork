@@ -22,7 +22,8 @@ public class FileService(
     AppDatabase db,
     ILogger<FileService> logger,
     ICacheService cache,
-    INatsConnection nats
+    INatsConnection nats,
+    IServiceProvider serviceProvider
 )
 {
     private const string CacheKeyPrefix = "file:";
@@ -269,18 +270,16 @@ public class FileService(
     private async Task PublishFileUploadedEventAsync(SnCloudFile file, FilePool pool, string processingPath,
         bool isTempFile)
     {
-        var js = nats.CreateJetStreamContext();
-        await js.PublishAsync(
-            FileUploadedEvent.Type,
-            GrpcTypeHelper.ConvertObjectToByteString(new FileUploadedEventPayload(
-                file.Id,
-                pool.Id,
-                file.StorageId,
-                file.MimeType,
-                processingPath,
-                isTempFile)
-            ).ToByteArray()
-        );
+        var eventBus = serviceProvider.GetRequiredService<DysonNetwork.Shared.EventBus.IEventBus>();
+        await eventBus.PublishAsync(new FileUploadedEvent
+        {
+            FileId = file.Id,
+            RemoteId = pool.Id,
+            StorageId = file.StorageId,
+            ContentType = file.MimeType,
+            ProcessingFilePath = processingPath,
+            IsTempFile = isTempFile
+        });
     }
 
     private async Task ExtractMetadataAsync(SnCloudFile file, string filePath)

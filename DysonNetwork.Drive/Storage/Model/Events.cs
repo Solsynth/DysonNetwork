@@ -1,8 +1,18 @@
+using DysonNetwork.Shared.EventBus;
+
 namespace DysonNetwork.Drive.Storage.Model;
 
-public static class FileUploadedEvent
+public class FileUploadedEvent : EventBase
 {
-    public const string Type = "file_uploaded";
+    public static string Type => "file_uploaded";
+    public override string EventType => Type;
+
+    public string FileId { get; set; } = null!;
+    public Guid RemoteId { get; set; }
+    public string? StorageId { get; set; }
+    public string? ContentType { get; set; }
+    public string ProcessingFilePath { get; set; } = null!;
+    public bool IsTempFile { get; set; }
 }
 
 public record FileUploadedEventPayload(

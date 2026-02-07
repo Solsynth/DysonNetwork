@@ -2,12 +2,13 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Zone.Publication;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-
-// Add this using statement
 
 namespace DysonNetwork.Zone.Startup;
 
@@ -50,7 +51,25 @@ public static class ServiceCollectionExtensions
             options.SupportedUICultures = supportedCultures;
         });
 
-        services.AddHostedService<BroadcastEventHandler>();
+        services.AddEventBus()
+            .AddListener<AccountDeletedEvent>(
+                AccountDeletedEvent.Type,
+                async (evt, ctx) =>
+                {
+                    var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                    var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+
+                    logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
+
+                    // TODO clean up data
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "account_events";
+                    opts.ConsumerName = "zone_account_deleted_handler";
+                }
+            );
 
         return services;
     }

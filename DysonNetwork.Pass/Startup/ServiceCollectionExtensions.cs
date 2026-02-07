@@ -21,7 +21,10 @@ using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Rewind;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Localization;
 
@@ -177,7 +180,67 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
 
-        services.AddHostedService<BroadcastEventHandler>();
+        services.AddEventBus()
+            .AddListener<WebSocketConnectedEvent>(async (evt, ctx) =>
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var accountEventService = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
+                var cache = ctx.ServiceProvider.GetRequiredService<ICacheService>();
+                var nats = ctx.ServiceProvider.GetRequiredService<NATS.Client.Core.INatsConnection>();
+
+                logger.LogInformation("Received WebSocket connected event for user {AccountId}, device {DeviceId}",
+                    evt.AccountId, evt.DeviceId);
+
+                var previous = await cache.GetAsync<SnAccountStatus>($"account:status:prev:{evt.AccountId}");
+                var status = await accountEventService.GetStatus(evt.AccountId);
+
+                if (previous != null && !BroadcastEventHandler.StatusesEqual(previous, status))
+                {
+                    await nats.PublishAsync(
+                        AccountStatusUpdatedEvent.Type,
+                        System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
+                        {
+                            AccountId = evt.AccountId,
+                            Status = status,
+                            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+                        }, DysonNetwork.Shared.Proto.GrpcTypeHelper.SerializerOptionsWithoutIgnore)),
+                        cancellationToken: ctx.CancellationToken
+                    );
+                }
+
+                logger.LogInformation("Handled status update for user {AccountId} on connect", evt.AccountId);
+            })
+            .AddListener<WebSocketDisconnectedEvent>(async (evt, ctx) =>
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var accountEventService = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
+                var cache = ctx.ServiceProvider.GetRequiredService<ICacheService>();
+                var nats = ctx.ServiceProvider.GetRequiredService<NATS.Client.Core.INatsConnection>();
+
+                logger.LogInformation(
+                    "Received WebSocket disconnected event for user {AccountId}, device {DeviceId}, IsOffline: {IsOffline}",
+                    evt.AccountId, evt.DeviceId, evt.IsOffline
+                );
+
+                var previous = await cache.GetAsync<SnAccountStatus>($"account:status:prev:{evt.AccountId}");
+                var status = await accountEventService.GetStatus(evt.AccountId);
+
+                if (previous != null && !BroadcastEventHandler.StatusesEqual(previous, status))
+                {
+                    await nats.PublishAsync(
+                        AccountStatusUpdatedEvent.Type,
+                        System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
+                        {
+                            AccountId = evt.AccountId,
+                            Status = status,
+                            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+                        }, DysonNetwork.Shared.Proto.GrpcTypeHelper.SerializerOptionsWithoutIgnore)),
+                        cancellationToken: ctx.CancellationToken
+                    );
+                }
+
+                logger.LogInformation("Handled status update for user {AccountId} on disconnect", evt.AccountId);
+            });
 
         return services;
     }
