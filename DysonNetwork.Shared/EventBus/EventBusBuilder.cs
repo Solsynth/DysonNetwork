@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DysonNetwork.Shared.EventBus;
@@ -5,6 +6,7 @@ namespace DysonNetwork.Shared.EventBus;
 public interface IEventBusBuilder
 {
     IServiceCollection Services { get; }
+    string ServiceName { get; }
     
     IEventBusBuilder AddListener<TEvent>(
         EventHandler<TEvent> handler,
@@ -25,19 +27,22 @@ public class EventListenerOptions
     public bool UseJetStream { get; set; } = true; // Default to JetStream
     public string? ConsumerName { get; set; }
     public string? StreamName { get; set; }
+    public bool AutoAck { get; set; } = true; // Whether to auto-ack after successful handler execution
 }
 
 public class EventBusBuilder : IEventBusBuilder
 {
     private readonly List<EventSubscription> _subscriptions = new();
 
-    public EventBusBuilder(IServiceCollection services)
+    public EventBusBuilder(IServiceCollection services, string serviceName)
     {
         Services = services;
+        ServiceName = serviceName;
         services.AddSingleton(_subscriptions);
     }
 
     public IServiceCollection Services { get; }
+    public string ServiceName { get; }
 
     public IEventBusBuilder AddListener<TEvent>(
         EventHandler<TEvent> handler,
@@ -69,13 +74,12 @@ public class EventBusBuilder : IEventBusBuilder
             options.StreamName = instance.StreamName;
         }
 
-        // If consumer name not specified, generate one from the event type and handler
+        // If consumer name not specified, generate a unique one per service
         if (string.IsNullOrEmpty(options.ConsumerName))
         {
             var eventTypeName = typeof(TEvent).Name;
-            var serviceName = Services.FirstOrDefault(s => s.ImplementationType?.Namespace?.Contains("Startup") == true)
-                ?.ImplementationType?.Assembly.GetName().Name ?? "unknown";
-            options.ConsumerName = $"{serviceName.ToLowerInvariant().Replace(".", "_")}_{eventTypeName.ToLowerInvariant()}_consumer";
+            var serviceIdentifier = ServiceName.ToLowerInvariant().Replace(".", "_");
+            options.ConsumerName = $"{serviceIdentifier}_{eventTypeName.ToLowerInvariant()}_consumer";
         }
 
         var subscription = new EventSubscription
@@ -87,7 +91,8 @@ public class EventBusBuilder : IEventBusBuilder
             Parallelism = options.Parallelism,
             UseJetStream = options.UseJetStream,
             ConsumerName = options.ConsumerName,
-            StreamName = options.StreamName
+            StreamName = options.StreamName,
+            AutoAck = options.AutoAck
         };
 
         _subscriptions.Add(subscription);

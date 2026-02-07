@@ -6,6 +6,13 @@ public class EventContext
     public Dictionary<string, string> Headers { get; set; } = new();
     public CancellationToken CancellationToken { get; set; }
     public IServiceProvider ServiceProvider { get; set; } = null!;
+    
+    /// <summary>
+    /// Set this to false to prevent automatic acknowledgment.
+    /// The message will be negatively acknowledged (NAK) instead, 
+    /// allowing it to be redelivered to another consumer.
+    /// </summary>
+    public bool ShouldAcknowledge { get; set; } = true;
 }
 
 public delegate Task EventHandler<in TEvent>(TEvent eventPayload, EventContext context) where TEvent : IEvent;
@@ -20,4 +27,5 @@ public class EventSubscription
     public bool UseJetStream { get; init; } = false;
     public string? ConsumerName { get; init; }
     public string? StreamName { get; init; }
+    public bool AutoAck { get; init; } = true;
 }

@@ -117,17 +117,22 @@ public class EventBusBackgroundService(
                 logger.LogDebug("Received JetStream message #{Count} on subject: {Subject}, stream: {Stream}, consumer: {Consumer}", 
                     messageCount, subscription.Subject, subscription.StreamName, subscription.ConsumerName);
                 
-                var success = await HandleJetStreamMessageAsync(msg, subscription, stoppingToken);
+                var (success, shouldAck) = await HandleJetStreamMessageAsync(msg, subscription, stoppingToken);
 
-                if (success)
+                if (success && shouldAck)
                 {
                     await msg.AckAsync(cancellationToken: stoppingToken);
                     logger.LogDebug("Message acknowledged successfully");
                 }
+                else if (!shouldAck)
+                {
+                    await msg.NakAsync(cancellationToken: stoppingToken);
+                    logger.LogWarning("Message negatively acknowledged (handler requested no ack)");
+                }
                 else
                 {
                     await msg.NakAsync(cancellationToken: stoppingToken);
-                    logger.LogWarning("Message negatively acknowledged for retry");
+                    logger.LogWarning("Message negatively acknowledged for retry due to error");
                 }
             }
         }
@@ -138,19 +143,19 @@ public class EventBusBackgroundService(
         }
     }
 
-    private async Task HandleMessageAsync(INatsMsg<byte[]> msg, EventSubscription subscription,
-        CancellationToken stoppingToken)
-    {
-        var _ = await ProcessMessageInternalAsync(msg.Data, msg.Headers, subscription, stoppingToken);
-    }
-
-    private async Task<bool> HandleJetStreamMessageAsync(INatsJSMsg<byte[]> msg, EventSubscription subscription,
+    private async Task<(bool Success, bool ShouldAck)> HandleMessageAsync(INatsMsg<byte[]> msg, EventSubscription subscription,
         CancellationToken stoppingToken)
     {
         return await ProcessMessageInternalAsync(msg.Data, msg.Headers, subscription, stoppingToken);
     }
 
-    private async Task<bool> ProcessMessageInternalAsync(byte[] data, NATS.Client.Core.NatsHeaders? headers,
+    private async Task<(bool Success, bool ShouldAck)> HandleJetStreamMessageAsync(INatsJSMsg<byte[]> msg, EventSubscription subscription,
+        CancellationToken stoppingToken)
+    {
+        return await ProcessMessageInternalAsync(msg.Data, msg.Headers, subscription, stoppingToken);
+    }
+
+    private async Task<(bool Success, bool ShouldAck)> ProcessMessageInternalAsync(byte[] data, NATS.Client.Core.NatsHeaders? headers,
         EventSubscription subscription, CancellationToken stoppingToken)
     {
         var retryKey = $"{subscription.Subject}:{Guid.NewGuid()}";
@@ -167,7 +172,7 @@ public class EventBusBackgroundService(
             {
                 logger.LogWarning("Failed to deserialize event for subject: {Subject}. JSON: {Json}", 
                     subscription.Subject, json[..Math.Min(json.Length, 500)]);
-                return true; // Ack to prevent redelivery of malformed messages
+                return (true, true); // Ack to prevent redelivery of malformed messages
             }
 
             logger.LogDebug("Deserialized event of type {EventType}", eventPayload.GetType().Name);
@@ -192,11 +197,22 @@ public class EventBusBackgroundService(
                 await task;
             }
 
-            logger.LogInformation("Successfully handled event {EventType} on subject {Subject}",
-                subscription.EventType.Name, subscription.Subject);
+            // Check if handler wants to skip acknowledgment
+            var shouldAck = subscription.AutoAck && context.ShouldAcknowledge;
+            
+            if (!shouldAck)
+            {
+                logger.LogInformation("Handler for {EventType} on subject {Subject} requested no acknowledgment",
+                    subscription.EventType.Name, subscription.Subject);
+            }
+            else
+            {
+                logger.LogInformation("Successfully handled event {EventType} on subject {Subject}",
+                    subscription.EventType.Name, subscription.Subject);
+            }
 
             _retryCounts.TryRemove(retryKey, out _);
-            return true;
+            return (true, shouldAck);
         }
         catch (Exception ex)
         {
@@ -208,13 +224,13 @@ public class EventBusBackgroundService(
                     "Max retries ({MaxRetries}) exceeded for event on subject {Subject}. Dropping message.",
                     subscription.MaxRetries, subscription.Subject);
                 _retryCounts.TryRemove(retryKey, out _);
-                return true; // Ack to prevent infinite redelivery
+                return (true, true); // Ack to prevent infinite redelivery
             }
 
             logger.LogWarning(ex, "Error handling event on subject {Subject} (retry {RetryCount}/{MaxRetries})",
                 subscription.Subject, retryCount, subscription.MaxRetries);
 
-            return false;
+            return (false, false);
         }
     }
 }
