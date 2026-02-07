@@ -88,7 +88,7 @@ public static class ServiceCollectionExtensions
                             case "posts.award":
                                 {
                                     var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(
-                                        JsonSerializer.Serialize(evt),
+                                        JsonSerializer.Serialize(evt,  InfraObjectCoder.SerializerOptions),
                                         InfraObjectCoder.SerializerOptions
                                     );
                                     if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
