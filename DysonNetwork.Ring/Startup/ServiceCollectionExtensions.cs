@@ -6,6 +6,7 @@ using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Ring.Services;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.EventBus;
 using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -71,6 +72,9 @@ public static class ServiceCollectionExtensions
         
         // Register the background service
         services.AddHostedService<QueueBackgroundService>();
+
+        // Register EventBus (needed for WebSocketController to publish events)
+        services.AddEventBus();
 
         return services;
     }
