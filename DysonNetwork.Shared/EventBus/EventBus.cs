@@ -9,18 +9,10 @@ using NATS.Net;
 
 namespace DysonNetwork.Shared.EventBus;
 
-public class EventBus : IEventBus
+public class EventBus(INatsConnection nats, ILogger<EventBus> logger) : IEventBus
 {
-    private readonly INatsConnection _nats;
-    private readonly ILogger<EventBus> _logger;
     private readonly HashSet<string> _ensuredSubjects = new();
     private readonly SemaphoreSlim _streamLock = new(1, 1);
-
-    public EventBus(INatsConnection nats, ILogger<EventBus> logger)
-    {
-        _nats = nats;
-        _logger = logger;
-    }
 
     public Task PublishAsync<TEvent>(TEvent eventPayload, CancellationToken cancellationToken = default) where TEvent : IEvent
     {
@@ -34,17 +26,22 @@ public class EventBus : IEventBus
             var json = JsonSerializer.Serialize(eventPayload, InfraObjectCoder.SerializerOptions);
             var data = System.Text.Encoding.UTF8.GetBytes(json);
             
-            var js = _nats.CreateJetStreamContext();
+            logger.LogDebug("Publishing event {EventType} to subject {Subject}. JSON length: {Length}", 
+                eventPayload.EventType, subject, json.Length);
+            
+            var js = nats.CreateJetStreamContext();
             
             // Ensure stream exists before publishing
             await EnsureStreamExistsAsync(js, subject, cancellationToken);
             
-            await js.PublishAsync(subject, data, cancellationToken: cancellationToken);
-            _logger.LogDebug("Published event {EventType} to subject {Subject} via JetStream", eventPayload.EventType, subject);
+            logger.LogDebug("Stream ensured, publishing to {Subject}...", subject);
+            var ack = await js.PublishAsync(subject, data, cancellationToken: cancellationToken);
+            logger.LogInformation("Published event {EventType} to subject {Subject} via JetStream. Stream: {Stream}", 
+                eventPayload.EventType, subject, ack?.Stream ?? "n/a");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to publish event {EventType} to subject {Subject}", eventPayload.EventType, subject);
+            logger.LogError(ex, "Failed to publish event {EventType} to subject {Subject}", eventPayload.EventType, subject);
             throw;
         }
     }
@@ -54,6 +51,7 @@ public class EventBus : IEventBus
         // Check if we've already ensured this subject
         if (_ensuredSubjects.Contains(subject))
         {
+            logger.LogDebug("Subject {Subject} already ensured", subject);
             return;
         }
 
@@ -67,51 +65,63 @@ public class EventBus : IEventBus
             }
 
             // Use a consistent stream name based on the subject
-            // Replace dots with underscores and take the first part for grouping
             var streamName = GetStreamName(subject);
+            logger.LogDebug("Ensuring stream {StreamName} exists for subject {Subject}", streamName, subject);
 
             try
             {
                 // Try to get the stream first
                 var stream = await js.GetStreamAsync(streamName, cancellationToken: cancellationToken);
+                logger.LogDebug("Stream {StreamName} already exists", streamName);
                 
                 // Check if this subject is already covered by the stream
-                if (stream.Info.Config.Subjects?.Contains(subject) != true)
+                var currentSubjects = stream.Info.Config.Subjects?.ToList() ?? new List<string>();
+                if (!currentSubjects.Contains(subject))
                 {
                     // Update stream to include this subject
-                    var subjects = stream.Info.Config.Subjects?.ToList() ?? new List<string>();
-                    subjects.Add(subject);
-                    await js.UpdateStreamAsync(new StreamConfig(streamName, subjects), cancellationToken: cancellationToken);
-                    _logger.LogInformation("Updated stream {StreamName} to include subject {Subject}", streamName, subject);
+                    logger.LogInformation("Updating stream {StreamName} to include subject {Subject}", streamName, subject);
+                    currentSubjects.Add(subject);
+                    await js.UpdateStreamAsync(new StreamConfig(streamName, currentSubjects), cancellationToken: cancellationToken);
+                    logger.LogInformation("Updated stream {StreamName} to include subject {Subject}", streamName, subject);
+                }
+                else
+                {
+                    logger.LogDebug("Stream {StreamName} already includes subject {Subject}", streamName, subject);
                 }
                 
                 _ensuredSubjects.Add(subject);
             }
-            catch (NatsJSException)
+            catch (NatsJSException ex) when (ex.Message.Contains("not found") || ex.Message.Contains("No stream matches"))
             {
                 // Stream doesn't exist, create it
+                logger.LogInformation("Creating stream {StreamName} for subject {Subject}", streamName, subject);
                 try
                 {
                     await js.CreateStreamAsync(new StreamConfig(streamName, [subject]), cancellationToken: cancellationToken);
                     _ensuredSubjects.Add(subject);
-                    _logger.LogInformation("Created JetStream stream {StreamName} for subject {Subject}", streamName, subject);
+                    logger.LogInformation("Created JetStream stream {StreamName} for subject {Subject}", streamName, subject);
                 }
                 catch (NatsJSApiException apiEx) when (apiEx.Message.Contains("already exists") || apiEx.Message.Contains("overlap"))
                 {
-                    // Stream was created by another instance or subject overlaps, that's fine
-                    // Try to get the existing stream
+                    logger.LogWarning("Stream creation conflict for {StreamName}: {Message}. Fetching existing stream.", streamName, apiEx.Message);
+                    // Stream was created by another instance, fetch it
                     try
                     {
                         var existingStream = await js.GetStreamAsync(streamName, cancellationToken: cancellationToken);
                         _ensuredSubjects.Add(subject);
-                        _logger.LogDebug("Stream {StreamName} already exists (created by another instance)", streamName);
+                        logger.LogDebug("Found existing stream {StreamName}", streamName);
                     }
-                    catch
+                    catch (Exception getEx)
                     {
-                        // If we can't get it, assume it exists and mark as ensured anyway
-                        _ensuredSubjects.Add(subject);
+                        logger.LogError(getEx, "Could not fetch existing stream {StreamName}", streamName);
+                        throw;
                     }
                 }
+            }
+            catch (NatsJSApiException apiEx) when (apiEx.Message.Contains("overlap"))
+            {
+                logger.LogWarning("Subject {Subject} overlaps with existing stream. This may be expected if another service created it.", subject);
+                _ensuredSubjects.Add(subject);
             }
         }
         finally
@@ -123,13 +133,6 @@ public class EventBus : IEventBus
     private static string GetStreamName(string subject)
     {
         // Group related subjects into the same stream
-        // e.g., "payment_orders" -> "payment_orders"
-        // e.g., "account_deleted" -> "account_events" 
-        // e.g., "websocket_connected" -> "websocket_events"
-        
-        var parts = subject.Split('.');
-        
-        // Special grouping rules
         if (subject.StartsWith("payment"))
             return "payment_events";
         if (subject.StartsWith("account"))

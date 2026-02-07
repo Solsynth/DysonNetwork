@@ -32,6 +32,12 @@ public class EventBusBackgroundService(
         }
 
         logger.LogInformation("Starting EventBusBackgroundService with {Count} subscriptions", _subscriptions.Count);
+        
+        foreach (var sub in _subscriptions)
+        {
+            logger.LogInformation("Registered subscription: Subject={Subject}, EventType={EventType}, UseJetStream={UseJetStream}, Stream={StreamName}, Consumer={ConsumerName}",
+                sub.Subject, sub.EventType.Name, sub.UseJetStream, sub.StreamName, sub.ConsumerName);
+        }
 
         var tasks = _subscriptions.Select(sub => ProcessSubscriptionAsync(sub, stoppingToken));
         await Task.WhenAll(tasks);
@@ -58,6 +64,7 @@ public class EventBusBackgroundService(
 
         await foreach (var msg in nats.SubscribeAsync<byte[]>(subscription.Subject, cancellationToken: stoppingToken))
         {
+            logger.LogDebug("Received message on subject: {Subject}", subscription.Subject);
             await HandleMessageAsync(msg, subscription, stoppingToken);
         }
     }
@@ -78,7 +85,13 @@ public class EventBusBackgroundService(
 
         try
         {
+            logger.LogInformation("Ensuring stream {StreamName} exists for subject {Subject}", 
+                subscription.StreamName, subscription.Subject);
+            
             await js.EnsureStreamCreated(subscription.StreamName, new[] { subscription.Subject });
+
+            logger.LogInformation("Creating/updating consumer {ConsumerName} on stream {StreamName}",
+                subscription.ConsumerName, subscription.StreamName);
 
             var consumer = await js.CreateOrUpdateConsumerAsync(
                 subscription.StreamName,
@@ -91,17 +104,24 @@ public class EventBusBackgroundService(
                 subscription.StreamName, subscription.ConsumerName, subscription.Subject
             );
 
+            var messageCount = 0;
             await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
             {
+                messageCount++;
+                logger.LogDebug("Received JetStream message #{Count} on subject: {Subject}, stream: {Stream}, consumer: {Consumer}", 
+                    messageCount, subscription.Subject, subscription.StreamName, subscription.ConsumerName);
+                
                 var success = await HandleJetStreamMessageAsync(msg, subscription, stoppingToken);
 
                 if (success)
                 {
                     await msg.AckAsync(cancellationToken: stoppingToken);
+                    logger.LogDebug("Message acknowledged successfully");
                 }
                 else
                 {
                     await msg.NakAsync(cancellationToken: stoppingToken);
+                    logger.LogWarning("Message negatively acknowledged for retry");
                 }
             }
         }
@@ -132,14 +152,19 @@ public class EventBusBackgroundService(
         try
         {
             var json = System.Text.Encoding.UTF8.GetString(data);
+            logger.LogDebug("Processing message: {Json}", json[..Math.Min(json.Length, 200)]);
+            
             var eventPayload =
                 JsonSerializer.Deserialize(json, subscription.EventType, InfraObjectCoder.SerializerOptions);
 
             if (eventPayload == null)
             {
-                logger.LogWarning("Failed to deserialize event for subject: {Subject}", subscription.Subject);
+                logger.LogWarning("Failed to deserialize event for subject: {Subject}. JSON: {Json}", 
+                    subscription.Subject, json[..Math.Min(json.Length, 500)]);
                 return true; // Ack to prevent redelivery of malformed messages
             }
+
+            logger.LogDebug("Deserialized event of type {EventType}", eventPayload.GetType().Name);
 
             await using var scope = serviceProvider.CreateAsyncScope();
             var context = new EventContext
@@ -151,6 +176,9 @@ public class EventBusBackgroundService(
             };
 
             var handler = subscription.Handler;
+            logger.LogDebug("Invoking handler for {EventType} on subject {Subject}", 
+                subscription.EventType.Name, subscription.Subject);
+            
             var task = (Task?)handler.DynamicInvoke(eventPayload, context);
 
             if (task != null)
@@ -158,7 +186,7 @@ public class EventBusBackgroundService(
                 await task;
             }
 
-            logger.LogDebug("Successfully handled event {EventType} on subject {Subject}",
+            logger.LogInformation("Successfully handled event {EventType} on subject {Subject}",
                 subscription.EventType.Name, subscription.Subject);
 
             _retryCounts.TryRemove(retryKey, out _);
