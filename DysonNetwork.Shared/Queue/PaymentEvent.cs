@@ -11,6 +11,7 @@ public class PaymentOrderEventBase : EventBase
 {
     public static string Type => "payment_orders";
     public override string EventType => Type;
+    public override string StreamName => "payment_events";
     
     public Guid OrderId { get; set; }
     public Guid WalletId { get; set; }

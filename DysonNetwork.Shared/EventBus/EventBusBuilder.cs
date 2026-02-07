@@ -22,7 +22,7 @@ public class EventListenerOptions
 {
     public int MaxRetries { get; set; } = 3;
     public int Parallelism { get; set; } = 1;
-    public bool UseJetStream { get; set; } = false;
+    public bool UseJetStream { get; set; } = true; // Default to JetStream
     public string? ConsumerName { get; set; }
     public string? StreamName { get; set; }
 }
@@ -61,6 +61,22 @@ public class EventBusBuilder : IEventBusBuilder
     {
         var options = new EventListenerOptions();
         configureOptions?.Invoke(options);
+
+        // If stream name not specified, get it from the event class
+        if (string.IsNullOrEmpty(options.StreamName))
+        {
+            var instance = Activator.CreateInstance<TEvent>();
+            options.StreamName = instance.StreamName;
+        }
+
+        // If consumer name not specified, generate one from the event type and handler
+        if (string.IsNullOrEmpty(options.ConsumerName))
+        {
+            var eventTypeName = typeof(TEvent).Name;
+            var serviceName = Services.FirstOrDefault(s => s.ImplementationType?.Namespace?.Contains("Startup") == true)
+                ?.ImplementationType?.Assembly.GetName().Name ?? "unknown";
+            options.ConsumerName = $"{serviceName.ToLowerInvariant().Replace(".", "_")}_{eventTypeName.ToLowerInvariant()}_consumer";
+        }
 
         var subscription = new EventSubscription
         {

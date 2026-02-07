@@ -110,8 +110,7 @@ public static class ServiceCollectionExtensions
                     opts =>
                     {
                         opts.UseJetStream = true;
-                        opts.StreamName = "payment_events";
-                        opts.ConsumerName = "sphere_payment_handler";
+                        // StreamName is auto-detected from event class
                         opts.MaxRetries = 3;
                     }
                 )
@@ -152,8 +151,7 @@ public static class ServiceCollectionExtensions
                     opts =>
                     {
                         opts.UseJetStream = true;
-                        opts.StreamName = "account_events";
-                        opts.ConsumerName = "sphere_account_deleted_handler";
+                        // StreamName is auto-detected from event class
                         opts.MaxRetries = 3;
                     }
                 );

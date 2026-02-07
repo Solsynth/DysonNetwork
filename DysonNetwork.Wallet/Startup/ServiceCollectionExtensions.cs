@@ -169,8 +169,7 @@ public static class ServiceCollectionExtensions
                 opts =>
                 {
                     opts.UseJetStream = true;
-                    opts.StreamName = "payment_events";
-                    opts.ConsumerName = "wallet_payment_handler";
+                    // StreamName and ConsumerName are auto-detected from the event class
                     opts.MaxRetries = 3;
                 }
             );

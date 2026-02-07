@@ -7,6 +7,7 @@ public class WebSocketPacketEvent : EventBase
 {
     public static string Type => "websocket_msg";
     public override string EventType => Type;
+    public override string StreamName => "websocket_events";
 
     public const string SubjectPrefix = "websocket_";
 
@@ -19,6 +20,7 @@ public class WebSocketConnectedEvent : EventBase
 {
     public static string Type => "websocket_connected";
     public override string EventType => Type;
+    public override string StreamName => "websocket_events";
 
     public Guid AccountId { get; set; }
     public string DeviceId { get; set; } = null!;
@@ -30,6 +32,7 @@ public class WebSocketDisconnectedEvent : EventBase
 {
     public static string Type => "websocket_disconnected";
     public override string EventType => Type;
+    public override string StreamName => "websocket_events";
 
     public Guid AccountId { get; set; }
     public string DeviceId { get; set; } = null!;

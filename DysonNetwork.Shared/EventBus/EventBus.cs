@@ -31,8 +31,11 @@ public class EventBus(INatsConnection nats, ILogger<EventBus> logger) : IEventBu
             
             var js = nats.CreateJetStreamContext();
             
+            // Use the event's StreamName property
+            var streamName = eventPayload.StreamName;
+            
             // Ensure stream exists before publishing
-            await EnsureStreamExistsAsync(js, subject, cancellationToken);
+            await EnsureStreamExistsAsync(js, subject, streamName, cancellationToken);
             
             logger.LogDebug("Stream ensured, publishing to {Subject}...", subject);
             var ack = await js.PublishAsync(subject, data, cancellationToken: cancellationToken);
@@ -46,7 +49,7 @@ public class EventBus(INatsConnection nats, ILogger<EventBus> logger) : IEventBu
         }
     }
 
-    private async Task EnsureStreamExistsAsync(INatsJSContext js, string subject, CancellationToken cancellationToken)
+    private async Task EnsureStreamExistsAsync(INatsJSContext js, string subject, string streamName, CancellationToken cancellationToken)
     {
         // Check if we've already ensured this subject
         if (_ensuredSubjects.Contains(subject))
@@ -64,8 +67,6 @@ public class EventBus(INatsConnection nats, ILogger<EventBus> logger) : IEventBu
                 return;
             }
 
-            // Use a consistent stream name based on the subject
-            var streamName = GetStreamName(subject);
             logger.LogDebug("Ensuring stream {StreamName} exists for subject {Subject}", streamName, subject);
 
             try
@@ -128,21 +129,5 @@ public class EventBus(INatsConnection nats, ILogger<EventBus> logger) : IEventBu
         {
             _streamLock.Release();
         }
-    }
-
-    private static string GetStreamName(string subject)
-    {
-        // Group related subjects into the same stream
-        if (subject.StartsWith("payment"))
-            return "payment_events";
-        if (subject.StartsWith("account"))
-            return "account_events";
-        if (subject.StartsWith("websocket"))
-            return "websocket_events";
-        if (subject.StartsWith("file"))
-            return "file_events";
-        
-        // Default: use subject as stream name (replace dots with underscores)
-        return subject.Replace('.', '_');
     }
 }

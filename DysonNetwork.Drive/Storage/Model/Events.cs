@@ -6,6 +6,7 @@ public class FileUploadedEvent : EventBase
 {
     public static string Type => "file_uploaded";
     public override string EventType => Type;
+    public override string StreamName => "file_events";
 
     public string FileId { get; set; } = null!;
     public Guid RemoteId { get; set; }

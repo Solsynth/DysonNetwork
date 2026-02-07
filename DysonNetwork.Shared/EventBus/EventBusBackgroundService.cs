@@ -14,33 +14,39 @@ namespace DysonNetwork.Shared.EventBus;
 
 public class EventBusBackgroundService(
     IServiceProvider serviceProvider,
-    ILogger<EventBusBackgroundService> logger,
-    IEnumerable<EventSubscription> subscriptions
+    ILogger<EventBusBackgroundService> logger
 )
     : BackgroundService
 {
-    private readonly List<EventSubscription> _subscriptions = subscriptions.ToList();
     private readonly ConcurrentDictionary<string, int> _retryCounts = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (_subscriptions.Count == 0)
+        // Get subscriptions from DI container at execution time (not construction time)
+        // This ensures all subscriptions added via fluent API are available
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var subscriptions = scope.ServiceProvider.GetRequiredService<List<EventSubscription>>();
+        
+        // Always start the listeners, even if no subscriptions
+        // This allows dynamic subscription scenarios
+        if (subscriptions.Count == 0)
         {
             logger.LogInformation(
-                "No event subscriptions registered, EventBusBackgroundService will not start listeners");
-            return;
+                "No event subscriptions registered yet. EventBusBackgroundService is running and will listen when subscriptions are added.");
         }
-
-        logger.LogInformation("Starting EventBusBackgroundService with {Count} subscriptions", _subscriptions.Count);
-        
-        foreach (var sub in _subscriptions)
+        else
         {
-            logger.LogInformation("Registered subscription: Subject={Subject}, EventType={EventType}, UseJetStream={UseJetStream}, Stream={StreamName}, Consumer={ConsumerName}",
-                sub.Subject, sub.EventType.Name, sub.UseJetStream, sub.StreamName, sub.ConsumerName);
-        }
+            logger.LogInformation("Starting EventBusBackgroundService with {Count} subscriptions", subscriptions.Count);
+            
+            foreach (var sub in subscriptions)
+            {
+                logger.LogInformation("Registered subscription: Subject={Subject}, EventType={EventType}, UseJetStream={UseJetStream}, Stream={StreamName}, Consumer={ConsumerName}",
+                    sub.Subject, sub.EventType.Name, sub.UseJetStream, sub.StreamName, sub.ConsumerName);
+            }
 
-        var tasks = _subscriptions.Select(sub => ProcessSubscriptionAsync(sub, stoppingToken));
-        await Task.WhenAll(tasks);
+            var tasks = subscriptions.Select(sub => ProcessSubscriptionAsync(sub, stoppingToken));
+            await Task.WhenAll(tasks);
+        }
     }
 
     private async Task ProcessSubscriptionAsync(EventSubscription subscription, CancellationToken stoppingToken)
