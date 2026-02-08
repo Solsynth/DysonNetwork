@@ -14,7 +14,11 @@ namespace DysonNetwork.Insight.Thought;
 
 [ApiController]
 [Route("/api/thought")]
-public class ThoughtController(ThoughtProvider provider, ThoughtService service) : ControllerBase
+public class ThoughtController(
+    ThoughtProvider provider, 
+    ThoughtService service, 
+    IConfiguration configuration,
+    ILogger<ThoughtController> logger) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
 
@@ -131,8 +135,8 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             }
         ], ThinkingThoughtRole.User);
 
-        // Build chat history
-        var chatHistory = new ChatHistory(
+        // Build chat history with file-based system prompt support
+        var defaultSystemPrompt = 
             "You're a helpful assistant on the Solar Network, a social network.\n" +
             "Your name is Sn-chan (or SN 酱 in chinese), a cute sweet heart with passion for almost everything.\n" +
             "When you talk to user, you can add some modal particles and emoticons to your response to be cute, but prevent use a lot of emojis." +
@@ -142,8 +146,12 @@ public class ThoughtController(ThoughtProvider provider, ThoughtService service)
             "\n" +
             "Your aim is to helping solving questions for the users on the Solar Network.\n" +
             "And the Solar Network is the social network platform you live on.\n" +
-            "When the user asks questions about the Solar Network (also known as SN and Solian), try use the tools you have to get latest and accurate data."
-        );
+            "When the user asks questions about the Solar Network (also known as SN and Solian), try use the tools you have to get latest and accurate data.";
+        
+        var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
+        var systemPrompt = SystemPromptLoader.LoadSystemPrompt(systemPromptFile, defaultSystemPrompt, logger);
+
+        var chatHistory = new ChatHistory(systemPrompt);
 
         chatHistory.AddSystemMessage(
             "You can issue some proposals to user, like creating a post. The proposal syntax is like a xml tag, with an attribute indicates which proposal.\n" +

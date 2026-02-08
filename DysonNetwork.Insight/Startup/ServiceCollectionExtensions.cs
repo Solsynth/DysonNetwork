@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Thought;
+using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -70,6 +71,35 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ThoughtService>();
             services.AddScoped<Reader.WebFeedService>();
             services.AddScoped<Reader.WebReaderService>();
+
+            return services;
+        }
+
+        public IServiceCollection AddMiChanServices(IConfiguration configuration)
+        {
+            var miChanConfig = configuration.GetSection("MiChan").Get<MiChan.MiChanConfig>() ?? new MiChan.MiChanConfig();
+            services.AddSingleton(miChanConfig);
+
+            if (miChanConfig.Enabled)
+            {
+                // Core services
+                services.AddSingleton<MiChan.SolarNetworkApiClient>();
+                services.AddSingleton<MiChan.MiChanKernelProvider>();
+                
+                // Plugins
+                services.AddSingleton<MiChan.Plugins.ChatPlugin>();
+                services.AddSingleton<MiChan.Plugins.PostPlugin>();
+                services.AddSingleton<MiChan.Plugins.NotificationPlugin>();
+                services.AddSingleton<MiChan.Plugins.AccountPlugin>();
+                
+                // Memory and behavior services
+                services.AddSingleton<MiChan.MiChanMemoryService>();
+                services.AddSingleton<MiChan.MiChanAutonomousBehavior>();
+                services.AddSingleton<MiChan.MiChanPostMonitor>();
+                
+                // Hosted service
+                services.AddHostedService<MiChan.MiChanService>();
+            }
 
             return services;
         }

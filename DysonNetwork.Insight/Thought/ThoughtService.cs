@@ -266,4 +266,14 @@ public class ThoughtService(
             return (false, cost);
         }
     }
+
+    public async Task DeleteSequenceAsync(Guid sequenceId)
+    {
+        var sequence = await db.ThinkingSequences.FindAsync(sequenceId);
+        if (sequence != null)
+        {
+            db.ThinkingSequences.Remove(sequence);
+            await db.SaveChangesAsync();
+        }
+    }
 }

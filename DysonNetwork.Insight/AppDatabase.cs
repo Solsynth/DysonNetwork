@@ -18,6 +18,8 @@ public class AppDatabase(
     public DbSet<SnWebArticle> WebArticles { get; set; }
     public DbSet<SnWebFeed> WebFeeds { get; set; }
     public DbSet<SnWebFeedSubscription> WebFeedSubscriptions { get; set; }
+
+    public DbSet<MiChan.MiChanInteraction> MiChanInteractions { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
