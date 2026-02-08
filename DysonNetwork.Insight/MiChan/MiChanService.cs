@@ -39,6 +39,10 @@ public class MiChanService(
 
         logger.LogInformation("Starting MiChan service...");
 
+        // Wait 1 minute for other services to start
+        logger.LogInformation("MiChan waiting 60 seconds for other services to initialize...");
+        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+
         // Initialize services
         await InitializeAsync(stoppingToken);
 
