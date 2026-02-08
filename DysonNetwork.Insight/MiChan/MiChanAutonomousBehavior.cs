@@ -342,7 +342,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 attitude = attitudeValue
             };
 
-            await _apiClient.PostAsync("sphere", $"/api/posts/{post.Id}/reactions", request);
+            await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/reactions", request);
             
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
@@ -387,7 +387,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 mode = mode.ToString()
             };
 
-            await _apiClient.PostAsync("sphere", $"/api/posts/{post.Id}/pin", request);
+            await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/pin", request);
             
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
@@ -425,7 +425,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 return;
             }
 
-            await _apiClient.DeleteAsync("sphere", $"/api/posts/{post.Id}/pin");
+            await _apiClient.DeleteAsync("sphere", $"/posts/{post.Id}/pin");
             
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
@@ -471,7 +471,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
         try
         {
             // Get replies to this post
-            var replies = await _apiClient.GetAsync<List<SnPost>>("sphere", $"/api/posts/{post.Id}/replies?take=50");
+            var replies = await _apiClient.GetAsync<List<SnPost>>("sphere", $"/posts/{post.Id}/replies?take=50");
             if (replies == null || replies.Count == 0)
                 return false;
 

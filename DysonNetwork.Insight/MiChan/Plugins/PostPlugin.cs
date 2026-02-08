@@ -91,7 +91,7 @@ public class PostPlugin
                 attitude = attitudeValue
             };
 
-            await _apiClient.PostAsync("sphere", $"/api/posts/{postId}/reactions", request);
+            await _apiClient.PostAsync("sphere", $"/posts/{postId}/reactions", request);
             
             _logger.LogInformation("Reacted to post {PostId} with {Symbol} ({Attitude})", postId, symbol, attitude);
             return new { success = true, message = $"Reacted with {symbol} successfully" };
@@ -117,7 +117,7 @@ public class PostPlugin
                 mode = mode
             };
 
-            await _apiClient.PostAsync("sphere", $"/api/posts/{postId}/pin", request);
+            await _apiClient.PostAsync("sphere", $"/posts/{postId}/pin", request);
             
             _logger.LogInformation("Pinned post {PostId} to {Mode}", postId, mode);
             return new { success = true, message = $"Post pinned to {mode} successfully" };
@@ -137,7 +137,7 @@ public class PostPlugin
     {
         try
         {
-            await _apiClient.DeleteAsync("sphere", $"/api/posts/{postId}/pin");
+            await _apiClient.DeleteAsync("sphere", $"/posts/{postId}/pin");
             
             _logger.LogInformation("Unpinned post {PostId}", postId);
             return new { success = true, message = "Post unpinned successfully" };
