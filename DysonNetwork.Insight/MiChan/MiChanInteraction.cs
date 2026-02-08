@@ -21,7 +21,7 @@ public class MiChanInteraction : ModelBase
     /// Vector embedding for semantic search. Stores the embedding of the interaction content.
     /// Dimension matches the embedding model (qwen/qwen3-embedding-8b uses 4096 dimensions)
     /// </summary>
-    [Column(TypeName = "vector(4096)")]
+    [Column(TypeName = "vector(1536)")]
     public Vector? Embedding { get; set; }
     
     /// <summary>

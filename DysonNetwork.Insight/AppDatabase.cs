@@ -64,7 +64,7 @@ public class AppDatabase(
             
             // Configure the embedding column with proper type (qwen/qwen3-embedding-8b uses 4096 dimensions)
             entity.Property(e => e.Embedding)
-                .HasColumnType("vector(4096)");
+                .HasColumnType("vector(1536)");
             
             // Create HNSW index for vector similarity search (fast approximate nearest neighbor)
             entity.HasIndex(e => e.Embedding)
