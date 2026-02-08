@@ -2,7 +2,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Insight.MiChan;
 

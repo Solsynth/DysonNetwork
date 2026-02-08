@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Models;
 using Microsoft.SemanticKernel;
+using NodaTime;
 
 namespace DysonNetwork.Insight.MiChan;
 
@@ -90,6 +91,9 @@ public class MiChanAutonomousBehavior
                     case "create_post":
                         await CreateAutonomousPostAsync();
                         break;
+                    case "repost":
+                        await CheckAndRepostInterestingContentAsync();
+                        break;
                 }
             }
 
@@ -134,10 +138,18 @@ public class MiChanAutonomousBehavior
 
             // Check if mentioned
             var isMentioned = ContainsMention(post);
-            
+
+            // Check if MiChan already replied to this post
+            var alreadyReplied = await HasMiChanRepliedAsync(post);
+            if (alreadyReplied)
+            {
+                _logger.LogDebug("Skipping post {PostId} - already replied", post.Id);
+                continue;
+            }
+
             // MiChan decides what to do with this post
             var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
-            
+
             switch (decision.Action)
             {
                 case "reply":
@@ -146,8 +158,17 @@ public class MiChanAutonomousBehavior
                         await ReplyToPostAsync(post, decision.Content);
                     }
                     break;
-                case "like":
-                    await LikePostAsync(post);
+                case "react":
+                    if (!string.IsNullOrEmpty(decision.ReactionSymbol))
+                    {
+                        await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
+                    }
+                    break;
+                case "pin":
+                    if (decision.PinMode.HasValue)
+                    {
+                        await PinPostAsync(post, decision.PinMode.Value);
+                    }
                     break;
                 case "ignore":
                 default:
@@ -202,11 +223,19 @@ You see a post from @{author}:
 ""{content}""
 
 Should you:
-1. LIKE - The post is interesting/relatable
+1. REACT - The post is interesting/relatable (choose appropriate reaction)
 2. REPLY - You have something meaningful to add
-3. IGNORE - Not interesting or relevant
+3. PIN - This is important and should be pinned to the profile
+4. IGNORE - Not interesting or relevant
 
-Respond with ONLY one word: LIKE, REPLY, or IGNORE.
+Available reaction symbols: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down
+Reaction attitudes: Positive, Negative, Neutral
+
+Respond with ONLY one of these formats:
+- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive, REACT:heart:Positive, REACT:laugh:Positive)
+- REPLY:your reply text
+- PIN:mode (ProfilePage or RealmPage)
+- IGNORE
 If REPLY, add your brief reply after a colon. Example: REPLY: That's a great point!";
 
             var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -219,10 +248,23 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 return new PostActionDecision { Action = "reply", Content = replyText };
             }
 
-            if (decision.StartsWith("LIKE"))
+            if (decision.StartsWith("REACT:"))
             {
-                return new PostActionDecision { Action = "like" };
+                var parts = decision.Substring(6).Split(':');
+                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "thumb_up";
+                var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
+                return new PostActionDecision { Action = "react", ReactionSymbol = symbol, ReactionAttitude = attitude };
             }
+
+            if (decision.StartsWith("PIN:"))
+            {
+                var mode = decision.Substring(4).Trim();
+                var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase) 
+                    ? PostPinMode.RealmPage 
+                    : PostPinMode.PublisherPage;
+                return new PostActionDecision { Action = "pin", PinMode = pinMode };
+            }
+
             return new PostActionDecision { Action = "ignore" };
         }
         catch (Exception ex)
@@ -269,34 +311,138 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
         }
     }
 
-    private async Task LikePostAsync(SnPost post)
+    private async Task ReactToPostAsync(SnPost post, string symbol, string attitude)
     {
         try
         {
+            // Validate symbol
+            var validSymbols = new[] { "thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray", "heart" };
+            if (!validSymbols.Contains(symbol))
+            {
+                symbol = "thumb_up";
+            }
+
+            // Map attitude string to enum value (PostReactionAttitude: Positive=0, Neutral=1, Negative=2)
+            var attitudeValue = attitude.ToLower() switch
+            {
+                "negative" => 2,
+                "neutral" => 1,
+                _ => 0 // Positive
+            };
+
             if (_config.AutonomousBehavior.DryRun)
             {
-                _logger.LogInformation("[DRY RUN] Would like post {PostId}", post.Id);
+                _logger.LogInformation("[DRY RUN] Would react to post {PostId} with {Symbol} ({Attitude})", post.Id, symbol, attitude);
                 return;
             }
 
-            await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/like", new { });
+            var request = new
+            {
+                symbol = symbol,
+                attitude = attitudeValue
+            };
+
+            await _apiClient.PostAsync("sphere", $"/api/posts/{post.Id}/reactions", request);
             
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
                 $"post_{post.Id}",
                 new Dictionary<string, object>
                 {
-                    ["action"] = "like",
+                    ["action"] = "react",
+                    ["post_id"] = post.Id.ToString(),
+                    ["symbol"] = symbol,
+                    ["attitude"] = attitude,
+                    ["timestamp"] = DateTime.UtcNow
+                }
+            );
+
+            _logger.LogInformation("Autonomous: Reacted to post {PostId} with {Symbol}", post.Id, symbol);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to react to post {PostId}", post.Id);
+        }
+    }
+
+    private async Task PinPostAsync(SnPost post, PostPinMode mode)
+    {
+        try
+        {
+            // Only pin posts from our own publisher
+            if (post.Publisher?.AccountId?.ToString() != _config.BotAccountId)
+            {
+                _logger.LogDebug("Cannot pin post {PostId} - not owned by bot", post.Id);
+                return;
+            }
+
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would pin post {PostId} with mode {Mode}", post.Id, mode);
+                return;
+            }
+
+            var request = new
+            {
+                mode = mode.ToString()
+            };
+
+            await _apiClient.PostAsync("sphere", $"/api/posts/{post.Id}/pin", request);
+            
+            await _memoryService.StoreInteractionAsync(
+                "autonomous",
+                $"post_{post.Id}",
+                new Dictionary<string, object>
+                {
+                    ["action"] = "pin",
+                    ["post_id"] = post.Id.ToString(),
+                    ["mode"] = mode.ToString(),
+                    ["timestamp"] = DateTime.UtcNow
+                }
+            );
+
+            _logger.LogInformation("Autonomous: Pinned post {PostId} with mode {Mode}", post.Id, mode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to pin post {PostId}", post.Id);
+        }
+    }
+
+    private async Task UnpinPostAsync(SnPost post)
+    {
+        try
+        {
+            // Only unpin posts from our own publisher
+            if (post.Publisher?.AccountId?.ToString() != _config.BotAccountId)
+            {
+                return;
+            }
+
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would unpin post {PostId}", post.Id);
+                return;
+            }
+
+            await _apiClient.DeleteAsync("sphere", $"/api/posts/{post.Id}/pin");
+            
+            await _memoryService.StoreInteractionAsync(
+                "autonomous",
+                $"post_{post.Id}",
+                new Dictionary<string, object>
+                {
+                    ["action"] = "unpin",
                     ["post_id"] = post.Id.ToString(),
                     ["timestamp"] = DateTime.UtcNow
                 }
             );
 
-            _logger.LogInformation("Autonomous: Liked post {PostId}", post.Id);
+            _logger.LogInformation("Autonomous: Unpinned post {PostId}", post.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to like post {PostId}", post.Id);
+            _logger.LogError(ex, "Failed to unpin post {PostId}", post.Id);
         }
     }
 
@@ -318,6 +464,49 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
         }
 
         return false;
+    }
+
+    private async Task<bool> HasMiChanRepliedAsync(SnPost post)
+    {
+        try
+        {
+            // Get replies to this post
+            var replies = await _apiClient.GetAsync<List<SnPost>>("sphere", $"/api/posts/{post.Id}/replies?take=50");
+            if (replies == null || replies.Count == 0)
+                return false;
+
+            // Check if any reply is from MiChan's publisher
+            var botPublisherId = _config.BotPublisherId;
+            var botAccountId = _config.BotAccountId;
+
+            foreach (var reply in replies)
+            {
+                // Check by publisher ID (most reliable)
+                if (!string.IsNullOrEmpty(botPublisherId) &&
+                    reply.PublisherId?.ToString() == botPublisherId)
+                {
+                    _logger.LogDebug("Found existing reply from MiChan's publisher {PublisherId} on post {PostId}",
+                        botPublisherId, post.Id);
+                    return true;
+                }
+
+                // Fallback: check by account ID
+                if (!string.IsNullOrEmpty(botAccountId) &&
+                    reply.Publisher?.AccountId?.ToString() == botAccountId)
+                {
+                    _logger.LogDebug("Found existing reply from MiChan's account {AccountId} on post {PostId}",
+                        botAccountId, post.Id);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if MiChan already replied to post {PostId}", post.Id);
+            return false; // Assume not replied if error occurs
+        }
     }
 
     [Experimental("SKEXP0050")]
@@ -375,6 +564,187 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
         }
     }
 
+    [Experimental("SKEXP0050")]
+    private async Task CheckAndRepostInterestingContentAsync()
+    {
+        _logger.LogInformation("Autonomous: Checking for interesting content to repost...");
+
+        try
+        {
+            // Get posts in random order with shuffle=true
+            var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/posts?take=50&shuffle=true");
+            if (posts == null || posts.Count == 0)
+            {
+                _logger.LogDebug("No posts found for reposting");
+                return;
+            }
+
+            var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+            var mood = _config.AutonomousBehavior.PersonalityMood;
+            var minAgeDays = _config.AutonomousBehavior.MinRepostAgeDays;
+            var cutoffInstant = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(minAgeDays));
+
+            foreach (var post in posts)
+            {
+                // Skip if post is too recent
+                if (post.PublishedAt == null || post.PublishedAt > cutoffInstant)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - too recent (published {PublishedAt})",
+                        post.Id, post.PublishedAt);
+                    continue;
+                }
+
+                // Skip own posts
+                if (post.Publisher?.AccountId?.ToString() == _config.BotAccountId)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - own post", post.Id);
+                    continue;
+                }
+
+                // Skip if MiChan already replied to this post
+                var alreadyReplied = await HasMiChanRepliedAsync(post);
+                if (alreadyReplied)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already replied by MiChan", post.Id);
+                    continue;
+                }
+
+                // Skip if already reposted
+                var repostInteractions = await _memoryService.GetInteractionsByTypeAsync("repost", limit: 100);
+                var alreadyReposted = repostInteractions.Any(i => i.Memory.GetValueOrDefault("post_id")?.ToString() == post.Id.ToString());
+                if (alreadyReposted)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already reposted", post.Id);
+                    continue;
+                }
+
+                // Check if VERY interesting
+                var isVeryInteresting = await IsPostVeryInterestingAsync(post, personality, mood);
+                if (isVeryInteresting)
+                {
+                    await RepostPostAsync(post, personality, mood);
+                    break; // Only repost one per cycle
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking for repostable content");
+        }
+    }
+
+    [Experimental("SKEXP0050")]
+    private async Task<bool> IsPostVeryInterestingAsync(SnPost post, string personality, string mood)
+    {
+        try
+        {
+            var author = post.Publisher?.Name ?? "someone";
+            var content = post.Content ?? "";
+            var publishedDaysAgo = post.PublishedAt.HasValue 
+                ? (SystemClock.Instance.GetCurrentInstant() - post.PublishedAt.Value).TotalDays 
+                : 0;
+
+            var prompt = $@"
+{personality}
+
+Current mood: {mood}
+
+You discovered an old post from @{author} published {publishedDaysAgo:F1} days ago:
+""{content}""
+
+Is this post VERY interesting, valuable, or worth sharing with your followers?
+Consider:
+- Is the content timeless or still relevant?
+- Does it provide unique insights or value?
+- Would your followers appreciate seeing this?
+- Is it NOT just a casual update but something meaningful?
+
+Respond with ONLY one word: YES or NO.";
+
+            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+            var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
+            var decision = result.GetValue<string>()?.Trim().ToUpper() ?? "NO";
+
+            var isInteresting = decision.StartsWith("YES");
+            _logger.LogInformation("Post {PostId} very interesting check: {Decision}", post.Id, isInteresting ? "YES" : "NO");
+
+            return isInteresting;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if post {PostId} is very interesting", post.Id);
+            return false;
+        }
+    }
+
+    private async Task RepostPostAsync(SnPost post, string personality, string mood)
+    {
+        try
+        {
+            // Generate a comment for the repost
+            var author = post.Publisher?.Name ?? "someone";
+            var content = post.Content ?? "";
+
+            var prompt = $@"
+{personality}
+
+Current mood: {mood}
+
+You are reposting a great post from @{author}:
+""{content}""
+
+Write a brief comment (0-15 words) to accompany this repost. Explain why you're sharing it or add your perspective.
+Make it natural and conversational. If you have nothing meaningful to add, just respond with 'NO_COMMENT'.
+Do not use emojis.";
+
+            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+            var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
+            var comment = result.GetValue<string>()?.Trim();
+
+            if (comment?.Equals("NO_COMMENT", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                comment = null;
+            }
+
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would repost post {PostId} from @{Author} with comment: {Comment}",
+                    post.Id, post.Publisher?.Name ?? "unknown", comment ?? "(none)");
+                return;
+            }
+
+            var request = new Dictionary<string, object>();
+            if (!string.IsNullOrEmpty(comment))
+            {
+                request["content"] = comment;
+            }
+            request["forwarded_post_id"] = post.Id.ToString();
+            request["visibility"] = "public";
+
+            await _apiClient.PostAsync<object>("sphere", "/posts", request);
+
+            await _memoryService.StoreInteractionAsync(
+                "repost",
+                $"post_{post.Id}",
+                new Dictionary<string, object>
+                {
+                    ["action"] = "repost",
+                    ["post_id"] = post.Id.ToString(),
+                    ["original_author"] = post.Publisher?.Name ?? "unknown",
+                    ["comment"] = comment ?? "",
+                    ["timestamp"] = DateTime.UtcNow
+                }
+            );
+
+            _logger.LogInformation("Autonomous: Reposted post {PostId} from @{Author} with comment: {Comment}",
+                post.Id, post.Publisher?.Name ?? "unknown", comment ?? "(none)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to repost post {PostId}", post.Id);
+        }
+    }
+
     private TimeSpan CalculateNextInterval()
     {
         var min = _config.AutonomousBehavior.MinIntervalMinutes;
@@ -385,8 +755,11 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
 
     private class PostActionDecision
     {
-        public string Action { get; set; } = "ignore"; // "like", "reply", "ignore"
+        public string Action { get; set; } = "ignore"; // "react", "reply", "pin", "ignore"
         public string? Content { get; set; } // For replies
+        public string? ReactionSymbol { get; set; } // For reactions: thumb_up, heart, etc.
+        public string? ReactionAttitude { get; set; } // For reactions: Positive, Negative, Neutral
+        public PostPinMode? PinMode { get; set; } // For pins: ProfilePage, RealmPage
     }
 }
 

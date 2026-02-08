@@ -60,22 +60,91 @@ public class PostPlugin
         }
     }
 
-    [KernelFunction("like_post")]
-    [Description("Like a post.")]
-    public async Task<object> LikePost(
-        [Description("The ID of the post to like")] string postId
+    [KernelFunction("react_to_post")]
+    [Description("React to a post with an emoji symbol.")]
+    public async Task<object> ReactToPost(
+        [Description("The ID of the post to react to")] string postId,
+        [Description("The reaction symbol (thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down)")] string symbol = "thumb_up",
+        [Description("The attitude: Positive, Negative, or Neutral")] string attitude = "Positive"
     )
     {
         try
         {
-            await _apiClient.PostAsync("sphere", $"/posts/{postId}/like", new { });
+            // Validate symbol
+            var validSymbols = new[] { "thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray", "heart" };
+            if (!validSymbols.Contains(symbol.ToLower()))
+            {
+                return new { success = false, error = $"Invalid symbol. Valid symbols: {string.Join(", ", validSymbols)}" };
+            }
+
+            // Map attitude string to enum value (PostReactionAttitude: Positive=0, Neutral=1, Negative=2)
+            var attitudeValue = attitude.ToLower() switch
+            {
+                "negative" => 2,
+                "neutral" => 1,
+                _ => 0 // Positive
+            };
+
+            var request = new
+            {
+                symbol = symbol.ToLower(),
+                attitude = attitudeValue
+            };
+
+            await _apiClient.PostAsync("sphere", $"/api/posts/{postId}/reactions", request);
             
-            _logger.LogInformation("Liked post {PostId}", postId);
-            return new { success = true, message = "Post liked successfully" };
+            _logger.LogInformation("Reacted to post {PostId} with {Symbol} ({Attitude})", postId, symbol, attitude);
+            return new { success = true, message = $"Reacted with {symbol} successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to like post {PostId}", postId);
+            _logger.LogError(ex, "Failed to react to post {PostId}", postId);
+            return new { success = false, error = ex.Message };
+        }
+    }
+
+    [KernelFunction("pin_post")]
+    [Description("Pin a post to the profile or realm page.")]
+    public async Task<object> PinPost(
+        [Description("The ID of the post to pin")] string postId,
+        [Description("Pin mode: ProfilePage or RealmPage")] string mode = "ProfilePage"
+    )
+    {
+        try
+        {
+            var request = new
+            {
+                mode = mode
+            };
+
+            await _apiClient.PostAsync("sphere", $"/api/posts/{postId}/pin", request);
+            
+            _logger.LogInformation("Pinned post {PostId} to {Mode}", postId, mode);
+            return new { success = true, message = $"Post pinned to {mode} successfully" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to pin post {PostId}", postId);
+            return new { success = false, error = ex.Message };
+        }
+    }
+
+    [KernelFunction("unpin_post")]
+    [Description("Unpin a post from the profile or realm page.")]
+    public async Task<object> UnpinPost(
+        [Description("The ID of the post to unpin")] string postId
+    )
+    {
+        try
+        {
+            await _apiClient.DeleteAsync("sphere", $"/api/posts/{postId}/pin");
+            
+            _logger.LogInformation("Unpinned post {PostId}", postId);
+            return new { success = true, message = "Post unpinned successfully" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to unpin post {PostId}", postId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -92,7 +161,7 @@ public class PostPlugin
             var request = new
             {
                 content = content,
-                reply_to = postId
+                replied_post_id = postId
             };
 
             var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
@@ -118,7 +187,7 @@ public class PostPlugin
         {
             var request = new
             {
-                repost_of = postId,
+                forwarded_post_id = postId,
                 content = comment
             };
 

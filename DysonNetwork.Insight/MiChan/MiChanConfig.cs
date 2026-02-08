@@ -7,6 +7,7 @@ public class MiChanConfig
     public string WebSocketUrl { get; set; } = "ws://localhost:5070/ws";
     public string AccessToken { get; set; } = "";
     public string BotAccountId { get; set; } = "";
+    public string BotPublisherId { get; set; } = ""; // Publisher ID for posting (different from AccountId)
     public string ThinkingService { get; set; } = "deepseek-chat";
     public string Personality { get; set; } = "";
     public string? PersonalityFile { get; set; }
@@ -29,8 +30,9 @@ public class MiChanAutonomousBehaviorConfig
     public bool DryRun { get; set; } = false; // If true, no real posts/actions will be created
     public int MinIntervalMinutes { get; set; } = 10;
     public int MaxIntervalMinutes { get; set; } = 60;
-    public List<string> Actions { get; set; } = ["browse", "like", "create_post", "reply_trending"];
+    public List<string> Actions { get; set; } = ["browse", "react", "create_post", "pin", "repost"];
     public string PersonalityMood { get; set; } = "curious, friendly, occasionally philosophical";
+    public int MinRepostAgeDays { get; set; } = 3; // Minimum age of post before reposting (days)
 }
 
 public class MiChanPostMonitoringConfig

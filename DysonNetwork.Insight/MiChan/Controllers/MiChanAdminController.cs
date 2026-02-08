@@ -15,11 +15,11 @@ namespace DysonNetwork.Insight.MiChan.Controllers;
 [Route("/api/michan")]
 public class MiChanAdminController(
     MiChanConfig config,
-    MiChanService michan,
     ILogger<MiChanAdminController> logger,
     MiChanMemoryService memoryService,
     MiChanKernelProvider kernelProvider,
-    IServiceProvider serviceProvider)
+    IServiceProvider serviceProvider,
+    MiChanAutonomousBehavior autonomousBehavior)
     : ControllerBase
 {
     public class ChatWithMiChanRequest
@@ -241,6 +241,54 @@ public class MiChanAdminController(
         {
             personality
         });
+    }
+
+    /// <summary>
+    /// Trigger MiChan's autonomous behavior immediately
+    /// </summary>
+    [HttpPost("trigger")]
+    [AskPermission("michan.admin")]
+    public async Task<ActionResult> TriggerAutonomousBehavior()
+    {
+        if (!config.Enabled)
+        {
+            return BadRequest(new { error = "MiChan is currently disabled" });
+        }
+
+        if (!config.AutonomousBehavior.Enabled)
+        {
+            return BadRequest(new { error = "Autonomous behavior is currently disabled" });
+        }
+
+        try
+        {
+            logger.LogInformation("Admin triggered autonomous behavior");
+            var executed = await autonomousBehavior.TryExecuteAutonomousActionAsync();
+
+            if (executed)
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "Autonomous behavior executed successfully",
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "Autonomous behavior check completed (no action taken - may be on cooldown)",
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error triggering autonomous behavior");
+            return StatusCode(500, new { error = ex.Message });
+        }
     }
 
     /// <summary>
