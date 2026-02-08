@@ -315,7 +315,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
     {
         _logger.LogInformation("Autonomous: Creating a post...");
         
-        var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", 10);
+        var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", limit: 10);
         var interests = recentInteractions
             .SelectMany(i => i.Memory.GetValueOrDefault("topics", new List<string>()) as List<string> ?? new List<string>())
             .Distinct()

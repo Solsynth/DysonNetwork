@@ -92,6 +92,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<MiChan.Plugins.AccountPlugin>();
             
             // Memory and behavior services
+            services.AddSingleton<MiChan.EmbeddingService>();
             services.AddSingleton<MiChan.MiChanMemoryService>();
             services.AddSingleton<MiChan.MiChanAutonomousBehavior>();
             

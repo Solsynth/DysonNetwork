@@ -42,4 +42,8 @@ public class MiChanMemoryConfig
 {
     public int MaxContextLength { get; set; } = 100;
     public bool PersistToDatabase { get; set; } = true;
+    public bool EnableSemanticSearch { get; set; } = true;
+    public double MinSimilarityThreshold { get; set; } = 0.7;
+    public int SemanticSearchLimit { get; set; } = 5;
+    public TimeSpan? MaxMemoryAge { get; set; }
 }

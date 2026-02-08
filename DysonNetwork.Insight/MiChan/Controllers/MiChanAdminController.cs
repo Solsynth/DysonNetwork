@@ -206,8 +206,8 @@ public class MiChanAdminController(
     public async Task<ActionResult> GetStatus()
     {
         var activeContexts = await memoryService.GetActiveContextsAsync();
-        var recentAutonomous = await memoryService.GetInteractionsByTypeAsync("autonomous", 5);
-        var recentMentions = await memoryService.GetInteractionsByTypeAsync("mention_response", 5);
+        var recentAutonomous = await memoryService.GetInteractionsByTypeAsync("autonomous", limit: 5);
+        var recentMentions = await memoryService.GetInteractionsByTypeAsync("mention_response", limit: 5);
 
         return Ok(new
         {

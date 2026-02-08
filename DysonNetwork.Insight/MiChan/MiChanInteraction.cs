@@ -1,8 +1,11 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Shared.Models;
+using NodaTime;
+using Pgvector;
 
 namespace DysonNetwork.Insight.MiChan;
 
-public class MiChanInteraction
+public class MiChanInteraction : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Type { get; set; } = null!; // 'chat', 'autonomous', 'mention_response', 'admin'
@@ -14,5 +17,14 @@ public class MiChanInteraction
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object> Memory { get; set; } = new();
     
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// Vector embedding for semantic search. Stores the embedding of the interaction content.
+    /// </summary>
+    [Column(TypeName = "vector(1536)")]
+    public Vector? Embedding { get; set; }
+    
+    /// <summary>
+    /// The text content that was embedded (for reference/debugging)
+    /// </summary>
+    public string? EmbeddedContent { get; set; }
 }

@@ -3,6 +3,8 @@ using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace DysonNetwork.Insight;
 
@@ -29,6 +31,7 @@ public class AppDatabase(
                 .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
                 .UseNodaTime()
+                .UseVector()  // Enable pgvector support
         ).UseSnakeCaseNamingConvention();
 
         base.OnConfiguring(optionsBuilder);
@@ -47,6 +50,27 @@ public class AppDatabase(
         modelBuilder.Ignore<SnAccount>();
         
         modelBuilder.ApplySoftDeleteFilters();
+        
+        // Configure pgvector extension
+        modelBuilder.HasPostgresExtension("vector");
+        
+        // Configure MiChanInteraction
+        modelBuilder.Entity<MiChan.MiChanInteraction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ContextId);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.CreatedAt);
+            
+            // Configure the embedding column with proper type
+            entity.Property(e => e.Embedding)
+                .HasColumnType("vector(1536)");
+            
+            // Create HNSW index for vector similarity search (fast approximate nearest neighbor)
+            entity.HasIndex(e => e.Embedding)
+                .HasMethod("hnsw")
+                .HasOperators("vector_cosine_ops");
+        });
     }
 }
 

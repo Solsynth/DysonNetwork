@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
@@ -51,6 +52,11 @@ public class MiChanKernelProvider
                     model!,
                     new Uri(endpoint ?? "http://localhost:11434/api")
                 );
+                // Add Ollama embedding service
+                builder.AddOllamaTextEmbeddingGeneration(
+                    "nomic-embed-text",  // Ollama's good embedding model
+                    new Uri(endpoint ?? "http://localhost:11434/api")
+                );
                 break;
             case "deepseek":
                 var client = new OpenAIClient(
@@ -58,6 +64,9 @@ public class MiChanKernelProvider
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
                 builder.AddOpenAIChatCompletion(model!, client);
+                // Note: DeepSeek doesn't provide embeddings yet, we'll need OpenAI or Azure for embeddings
+                // Fall back to OpenAI embeddings if available
+                AddOpenAIEmbeddingsIfAvailable(builder);
                 break;
             default:
                 throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
@@ -68,6 +77,23 @@ public class MiChanKernelProvider
 
         _kernel = builder.Build();
         return _kernel;
+    }
+
+    private void AddOpenAIEmbeddingsIfAvailable(IKernelBuilder builder)
+    {
+        var openAiKey = _configuration.GetValue<string>("Thinking:OpenAI:ApiKey");
+        if (!string.IsNullOrEmpty(openAiKey))
+        {
+            builder.AddOpenAITextEmbeddingGeneration(
+                "text-embedding-3-small",  // Cheapest and good quality
+                openAiKey
+            );
+            _logger.LogInformation("OpenAI embeddings configured");
+        }
+        else
+        {
+            _logger.LogWarning("No embedding service configured. Semantic search will be disabled.");
+        }
     }
 
     [Experimental("SKEXP0050")]
