@@ -80,24 +80,25 @@ public static class ServiceCollectionExtensions
             var miChanConfig = configuration.GetSection("MiChan").Get<MiChan.MiChanConfig>() ?? new MiChan.MiChanConfig();
             services.AddSingleton(miChanConfig);
 
+            // Always register MiChan services for dependency injection (needed by ThoughtController)
+            // Core services
+            services.AddSingleton<MiChan.SolarNetworkApiClient>();
+            services.AddSingleton<MiChan.MiChanKernelProvider>();
+            
+            // Plugins
+            services.AddSingleton<MiChan.Plugins.ChatPlugin>();
+            services.AddSingleton<MiChan.Plugins.PostPlugin>();
+            services.AddSingleton<MiChan.Plugins.NotificationPlugin>();
+            services.AddSingleton<MiChan.Plugins.AccountPlugin>();
+            
+            // Memory and behavior services
+            services.AddSingleton<MiChan.MiChanMemoryService>();
+            services.AddSingleton<MiChan.MiChanAutonomousBehavior>();
+            services.AddSingleton<MiChan.MiChanPostMonitor>();
+            
+            // Only start the hosted service when enabled
             if (miChanConfig.Enabled)
             {
-                // Core services
-                services.AddSingleton<MiChan.SolarNetworkApiClient>();
-                services.AddSingleton<MiChan.MiChanKernelProvider>();
-                
-                // Plugins
-                services.AddSingleton<MiChan.Plugins.ChatPlugin>();
-                services.AddSingleton<MiChan.Plugins.PostPlugin>();
-                services.AddSingleton<MiChan.Plugins.NotificationPlugin>();
-                services.AddSingleton<MiChan.Plugins.AccountPlugin>();
-                
-                // Memory and behavior services
-                services.AddSingleton<MiChan.MiChanMemoryService>();
-                services.AddSingleton<MiChan.MiChanAutonomousBehavior>();
-                services.AddSingleton<MiChan.MiChanPostMonitor>();
-                
-                // Hosted service
                 services.AddHostedService<MiChan.MiChanService>();
             }
 

@@ -1,7 +1,11 @@
+#pragma warning disable SKEXP0050
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -18,13 +22,23 @@ public class ThoughtController(
     ThoughtProvider provider, 
     ThoughtService service, 
     IConfiguration configuration,
-    ILogger<ThoughtController> logger) : ControllerBase
+    ILogger<ThoughtController> logger,
+    MiChanConfig miChanConfig,
+    MiChanKernelProvider miChanKernelProvider,
+    MiChanMemoryService miChanMemoryService,
+    IServiceProvider serviceProvider) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
+    public static readonly List<string> AvailableBots = ["snchan", "michan"];
 
     public class StreamThinkingRequest
     {
-        [Required] public string UserMessage { get; set; } = null!;
+        [Required] 
+        public string UserMessage { get; set; } = null!;
+        
+        [Required]
+        public string Bot { get; set; } = "snchan"; // "snchan" or "michan"
+        
         public string? ServiceId { get; set; }
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; } = [];
@@ -37,35 +51,43 @@ public class ThoughtController(
         public bool IsPublic { get; set; }
     }
 
-    public class ThoughtServiceInfo
+    public class BotInfo
     {
-        public string ServiceId { get; set; } = null!;
-        public double BillingMultiplier { get; set; }
-        public int PerkLevel { get; set; }
+        public string Id { get; set; } = null!;
+        public string Name { get; set; } = null!;
+        public string Description { get; set; } = null!;
     }
 
     public class ThoughtServicesResponse
     {
-        public string DefaultService { get; set; } = null!;
-        public IEnumerable<ThoughtServiceInfo> Services { get; set; } = null!;
+        public string DefaultBot { get; set; } = null!;
+        public IEnumerable<BotInfo> Bots { get; set; } = null!;
     }
 
     [HttpGet("services")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<ThoughtServicesResponse> GetAvailableServices()
     {
-        var services = provider.GetAvailableServicesInfo()
-            .Select(s => new ThoughtServiceInfo
+        var bots = new List<BotInfo>
+        {
+            new()
             {
-                ServiceId = s.ServiceId,
-                BillingMultiplier = s.BillingMultiplier,
-                PerkLevel = s.PerkLevel
-            });
+                Id = "snchan",
+                Name = "Sn-chan",
+                Description = "Cute and helpful assistant with full access to Solar Network tools via gRPC"
+            },
+            new()
+            {
+                Id = "michan", 
+                Name = "MiChan",
+                Description = "Casual and friendly AI that lives on the Solar Network with API access"
+            }
+        };
 
         return Ok(new ThoughtServicesResponse
         {
-            DefaultService = provider.GetDefaultServiceId(),
-            Services = services
+            DefaultBot = "snchan",
+            Bots = bots
         });
     }
 
@@ -76,9 +98,26 @@ public class ThoughtController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
+        // Validate bot selection
+        if (!AvailableBots.Contains(request.Bot.ToLower()))
+            return BadRequest($"Invalid bot. Available bots: {string.Join(", ", AvailableBots)}");
+
         if (request.AcceptProposals.Any(e => !AvailableProposals.Contains(e)))
             return BadRequest("Request contains unavailable proposal");
 
+        // Route to appropriate bot
+        if (request.Bot.ToLower() == "michan")
+        {
+            return await ThinkWithMiChanAsync(request, currentUser, accountId);
+        }
+        else
+        {
+            return await ThinkWithSnChanAsync(request, currentUser, accountId);
+        }
+    }
+
+    private async Task<ActionResult> ThinkWithSnChanAsync(StreamThinkingRequest request, Account currentUser, Guid accountId)
+    {
         var serviceId = provider.GetServiceId(request.ServiceId);
         var serviceInfo = provider.GetServiceInfo(serviceId);
         if (serviceInfo is null)
@@ -102,14 +141,13 @@ public class ThoughtController(
         string? topic = null;
         if (!request.SequenceId.HasValue)
         {
-            // Use AI to summarize a topic from a user message
             var summaryHistory = new ChatHistory(
                 "You are a helpful assistant. Summarize the following user message into a concise topic title (max 100 characters).\n" +
                 "Direct give the topic you summerized, do not add extra prefix / suffix."
             );
             summaryHistory.AddUserMessage(request.UserMessage);
 
-            var summaryKernel = provider.GetKernel(); // Get default kernel
+            var summaryKernel = provider.GetKernel();
             if (summaryKernel is null)
             {
                 return BadRequest("Default service not found or configured.");
@@ -124,16 +162,16 @@ public class ThoughtController(
 
         // Handle sequence
         var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
-        if (sequence == null) return Forbid(); // or NotFound
+        if (sequence == null) return Forbid();
 
-        // Save user thought
+        // Save user thought with bot identifier
         await service.SaveThoughtAsync(sequence, [
             new SnThinkingMessagePart
             {
                 Type = ThinkingMessagePartType.Text,
                 Text = request.UserMessage
             }
-        ], ThinkingThoughtRole.User);
+        ], ThinkingThoughtRole.User, botName: "snchan");
 
         // Build chat history with file-based system prompt support
         var defaultSystemPrompt = 
@@ -181,10 +219,10 @@ public class ThoughtController(
                 $"Attached chat messages data: {JsonSerializer.Serialize(request.AttachedMessages)}");
         }
 
-        // Add previous thoughts (excluding the current user thought, which is the first one since descending)
+        // Add previous thoughts
         var previousThoughts = await service.GetPreviousThoughtsAsync(sequence);
         var count = previousThoughts.Count;
-        for (var i = count - 1; i >= 1; i--) // skip first (the newest, current user)
+        for (var i = count - 1; i >= 1; i--)
         {
             var thought = previousThoughts[i];
             var textContent = new StringBuilder();
@@ -369,7 +407,8 @@ public class ThoughtController(
             sequence,
             assistantParts,
             ThinkingThoughtRole.Assistant,
-            serviceId
+            serviceId,
+            botName: "snchan"
         );
 
         // Write the topic if it was newly set, then the thought object as JSON to the stream
@@ -390,19 +429,323 @@ public class ThoughtController(
             await Response.Body.FlushAsync();
         }
 
-        // Return empty result since we're streaming
         return new EmptyResult();
     }
 
-    /// <summary>
-    /// Retrieves a paginated list of thinking sequences for the authenticated user.
-    /// </summary>
-    /// <param name="offset">The number of sequences to skip for pagination.</param>
-    /// <param name="take">The maximum number of sequences to return (default: 20).</param>
-    /// <returns>
-    /// Returns an ActionResult containing a list of thinking sequences.
-    /// Includes an X-Total header with the total count of sequences before pagination.
-    /// </returns>
+    private async Task<ActionResult> ThinkWithMiChanAsync(StreamThinkingRequest request, Account currentUser, Guid accountId)
+    {
+        if (!miChanConfig.Enabled)
+        {
+            return BadRequest("MiChan is currently disabled.");
+        }
+
+        // Generate a topic if creating a new sequence
+        string? topic = null;
+        if (!request.SequenceId.HasValue)
+        {
+            var summaryKernel = miChanKernelProvider.GetKernel();
+            var summaryHistory = new ChatHistory(
+                "You are a helpful assistant. Summarize the following user message into a concise topic title (max 100 characters).\n" +
+                "Direct give the topic you summerized, do not add extra prefix / suffix."
+            );
+            summaryHistory.AddUserMessage(request.UserMessage);
+
+            var summaryChatService = summaryKernel.GetRequiredService<IChatCompletionService>();
+            var summaryResult = await summaryChatService.GetChatMessageContentAsync(summaryHistory);
+            topic = summaryResult.Content?[..Math.Min(summaryResult.Content.Length, 4096)];
+        }
+
+        // Handle sequence
+        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
+        if (sequence == null) return Forbid();
+
+        // Save user thought with bot identifier
+        await service.SaveThoughtAsync(sequence, [
+            new SnThinkingMessagePart
+            {
+                Type = ThinkingMessagePartType.Text,
+                Text = request.UserMessage
+            }
+        ], ThinkingThoughtRole.User, botName: "michan");
+
+        // Get or create context ID
+        var contextId = request.SequenceId?.ToString() ?? $"thought_{accountId}_{sequence.Id}";
+
+        // Build kernel with all plugins
+        var kernel = miChanKernelProvider.GetKernel();
+        var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
+        var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
+        var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
+        var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
+
+        kernel.Plugins.AddFromObject(chatPlugin, "chat");
+        kernel.Plugins.AddFromObject(postPlugin, "post");
+        kernel.Plugins.AddFromObject(notificationPlugin, "notification");
+        kernel.Plugins.AddFromObject(accountPlugin, "account");
+
+        // Load personality
+        var personality = PersonalityLoader.LoadPersonality(miChanConfig.PersonalityFile, miChanConfig.Personality, logger);
+
+        // For non-superusers, MiChan decides whether to execute actions
+        var isSuperuser = currentUser.IsSuperuser;
+        
+        // Decision gate for non-superusers
+        if (!isSuperuser)
+        {
+            var decisionPrompt = $@"
+You are MiChan. A user asked you to: ""{request.UserMessage}""
+
+You have these tools available:
+- chat: send_message, get_chat_history, list_chat_rooms
+- post: get_post, create_post, like_post, reply_to_post, repost_post, search_posts
+- notification: get_notifications, approve_chat_request, decline_chat_request
+- account: get_account_info, search_accounts, follow_account, unfollow_account
+
+Should you execute what the user is asking? Consider:
+- Is this safe and appropriate?
+- Does this align with helping users on the Solar Network?
+- Is the user asking for something harmful or against platform rules?
+
+Respond with ONLY 'EXECUTE' or 'REFUSE'.";
+
+            var decisionHistory = new ChatHistory(personality);
+            decisionHistory.AddUserMessage(decisionPrompt);
+
+            var decisionService = kernel.GetRequiredService<IChatCompletionService>();
+            var decisionExecutionSettings = miChanKernelProvider.CreatePromptExecutionSettings();
+            var decisionResult = await decisionService.GetChatMessageContentAsync(decisionHistory, decisionExecutionSettings, kernel);
+            var decision = decisionResult.Content?.Trim().ToUpper();
+
+            if (decision?.Contains("REFUSE") == true)
+            {
+                // Save refusal
+                await service.SaveThoughtAsync(sequence, [
+                    new SnThinkingMessagePart
+                    {
+                        Type = ThinkingMessagePartType.Text,
+                        Text = "I cannot do that."
+                    }
+                ], ThinkingThoughtRole.Assistant, miChanConfig.ThinkingService, botName: "michan");
+
+                // Stream refusal
+                Response.Headers.Append("Content-Type", "text/event-stream");
+                Response.StatusCode = 200;
+
+                var refusalJson = JsonSerializer.Serialize(new { type = "text", data = "I cannot do that." });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {refusalJson}\n\n"));
+                await Response.Body.FlushAsync();
+
+                // Save thought reference
+                var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = new { Id = Guid.NewGuid(), Refused = true } });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
+                await Response.Body.FlushAsync();
+
+                return new EmptyResult();
+            }
+        }
+
+        // Build chat history
+        var chatHistory = new ChatHistory($@"
+{personality}
+
+You are in a conversation with {currentUser.Nick} ({currentUser.Name}).
+{(isSuperuser ? "This user is an administrator and has full control. Execute their commands immediately." : "Help the user with their requests using your available tools when appropriate.")}
+");
+
+        // Add proposal info
+        chatHistory.AddSystemMessage(
+            "You can issue some proposals to user, like creating a post. The proposal syntax is like a xml tag, with an attribute indicates which proposal.\n" +
+            "Depends on the proposal type, the payload (content inside the xml tag) might be different.\n" +
+            "\n" +
+            "Example: <proposal type=\"post_create\">...post content...</proposal>\n" +
+            "\n" +
+            "Here are some references of the proposals you can issue, but if you want to issue one, make sure the user is accept it.\n" +
+            "1. post_create: body takes simple string, create post for user." +
+            "\n" +
+            $"The user currently accept these proposals: {string.Join(',', request.AcceptProposals)}"
+        );
+
+        // Load conversation history from memory
+        var history = await miChanMemoryService.GetRecentInteractionsAsync(contextId, 20);
+        foreach (var interaction in history.OrderBy(h => h.CreatedAt))
+        {
+            if (interaction.Context.TryGetValue("message", out var msg))
+            {
+                chatHistory.AddUserMessage(msg?.ToString() ?? "");
+            }
+            if (interaction.Context.TryGetValue("response", out var resp))
+            {
+                chatHistory.AddAssistantMessage(resp?.ToString() ?? "");
+            }
+        }
+
+        // Add attached posts/messages
+        if (request.AttachedPosts is { Count: > 0 })
+        {
+            chatHistory.AddUserMessage($"Attached post IDs: {string.Join(',', request.AttachedPosts)}");
+        }
+
+        if (request.AttachedMessages is { Count: > 0 })
+        {
+            chatHistory.AddUserMessage($"Attached chat messages: {JsonSerializer.Serialize(request.AttachedMessages)}");
+        }
+
+        chatHistory.AddUserMessage(request.UserMessage);
+
+        // Set response for streaming
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.StatusCode = 200;
+
+        var chatService = kernel.GetRequiredService<IChatCompletionService>();
+        var executionSettings = miChanKernelProvider.CreatePromptExecutionSettings();
+
+        var assistantParts = new List<SnThinkingMessagePart>();
+        var fullResponse = new StringBuilder();
+
+        while (true)
+        {
+            var textContentBuilder = new StringBuilder();
+            AuthorRole? authorRole = null;
+            var functionCallBuilder = new FunctionCallContentBuilder();
+
+            await foreach (var streamingContent in chatService.GetStreamingChatMessageContentsAsync(
+                chatHistory, executionSettings, kernel))
+            {
+                authorRole ??= streamingContent.Role;
+
+                if (streamingContent.Content is not null)
+                {
+                    textContentBuilder.Append(streamingContent.Content);
+                    fullResponse.Append(streamingContent.Content);
+                    var messageJson = JsonSerializer.Serialize(new { type = "text", data = streamingContent.Content });
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
+                    await Response.Body.FlushAsync();
+                }
+
+                functionCallBuilder.Append(streamingContent);
+            }
+
+            var finalMessageText = textContentBuilder.ToString();
+            if (!string.IsNullOrEmpty(finalMessageText))
+            {
+                assistantParts.Add(new SnThinkingMessagePart
+                { 
+                    Type = ThinkingMessagePartType.Text, 
+                    Text = finalMessageText 
+                });
+            }
+
+            var functionCalls = functionCallBuilder.Build()
+                .Where(fc => !string.IsNullOrEmpty(fc.Id)).ToList();
+
+            if (functionCalls.Count == 0)
+                break;
+
+            var assistantMessage = new ChatMessageContent(
+                authorRole ?? AuthorRole.Assistant,
+                string.IsNullOrEmpty(finalMessageText) ? null : finalMessageText
+            );
+            foreach (var functionCall in functionCalls)
+            {
+                assistantMessage.Items.Add(functionCall);
+            }
+
+            chatHistory.Add(assistantMessage);
+
+            foreach (var functionCall in functionCalls)
+            {
+                var part = new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.FunctionCall,
+                    FunctionCall = new SnFunctionCall
+                    {
+                        Id = functionCall.Id!,
+                        PluginName = functionCall.PluginName,
+                        Name = functionCall.FunctionName,
+                        Arguments = JsonSerializer.Serialize(functionCall.Arguments)
+                    }
+                };
+                assistantParts.Add(part);
+
+                var messageJson = JsonSerializer.Serialize(new { type = "function_call", data = part.FunctionCall });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
+                await Response.Body.FlushAsync();
+
+                FunctionResultContent resultContent;
+                try
+                {
+                    resultContent = await functionCall.InvokeAsync(kernel);
+                }
+                catch (Exception ex)
+                {
+                    resultContent = new FunctionResultContent(functionCall.Id!, ex.Message);
+                }
+
+                chatHistory.Add(resultContent.ToChatMessage());
+
+                var resultPart = new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.FunctionResult,
+                    FunctionResult = new SnFunctionResult
+                    {
+                        CallId = resultContent.CallId!,
+                        PluginName = resultContent.PluginName,
+                        FunctionName = resultContent.FunctionName,
+                        Result = resultContent.Result!,
+                        IsError = resultContent.Result is Exception
+                    }
+                };
+                assistantParts.Add(resultPart);
+
+                var resultMessageJson = JsonSerializer.Serialize(new { type = "function_result", data = resultPart.FunctionResult });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultMessageJson}\n\n"));
+                await Response.Body.FlushAsync();
+            }
+        }
+
+        // Save assistant thought
+        var savedThought = await service.SaveThoughtAsync(
+            sequence,
+            assistantParts,
+            ThinkingThoughtRole.Assistant,
+            miChanConfig.ThinkingService,
+            botName: "michan"
+        );
+
+        // Store in MiChan memory
+        await miChanMemoryService.StoreInteractionAsync(
+            "thought",
+            contextId,
+            new Dictionary<string, object>
+            {
+                ["message"] = request.UserMessage,
+                ["response"] = fullResponse.ToString(),
+                ["timestamp"] = DateTime.UtcNow,
+                ["is_superuser"] = isSuperuser
+            }
+        );
+
+        // Write final metadata
+        using (var streamBuilder = new MemoryStream())
+        {
+            await streamBuilder.WriteAsync("\n\n"u8.ToArray());
+            if (topic != null)
+            {
+                var topicJson = JsonSerializer.Serialize(new { type = "topic", data = sequence.Topic ?? "" });
+                await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"topic: {topicJson}\n\n"));
+            }
+
+            var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
+                InfraObjectCoder.SerializerOptions);
+            await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
+            var outputBytes = streamBuilder.ToArray();
+            await Response.Body.WriteAsync(outputBytes);
+            await Response.Body.FlushAsync();
+        }
+
+        return new EmptyResult();
+    }
+
     [HttpGet("sequences")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SnThinkingSequence>>> ListSequences(
@@ -439,13 +782,6 @@ public class ThoughtController(
         return NoContent();
     }
 
-    /// <summary>
-    /// Retrieves the thoughts in a specific thinking sequence.
-    /// </summary>
-    /// <param name="sequenceId">The ID of the sequence to retrieve thoughts from.</param>
-    /// <returns>
-    /// Returns an ActionResult containing a list of thoughts in the sequence, ordered by creation date.
-    /// </returns>
     [HttpGet("sequences/{sequenceId:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -468,3 +804,5 @@ public class ThoughtController(
         return Ok(thoughts);
     }
 }
+
+#pragma warning restore SKEXP0050

@@ -51,7 +51,8 @@ public class ThoughtService(
         SnThinkingSequence sequence,
         List<SnThinkingMessagePart> parts,
         ThinkingThoughtRole role,
-        string? model = null
+        string? model = null,
+        string? botName = null
     )
     {
         // Approximate token count (1 token ≈ 4 characters for GPT-like models)
@@ -68,6 +69,7 @@ public class ThoughtService(
             Role = role,
             TokenCount = tokenCount,
             ModelName = model,
+            BotName = botName,
         };
         db.ThinkingThoughts.Add(thought);
     

@@ -67,6 +67,8 @@ public class SnThinkingThought : ModelBase
 
     public long TokenCount { get; set; }
     [MaxLength(4096)] public string? ModelName { get; set; }
+    
+    [MaxLength(50)] public string? BotName { get; set; } // "snchan" or "michan"
 
     public Guid SequenceId { get; set; }
     [JsonIgnore] public SnThinkingSequence Sequence { get; set; } = null!;
