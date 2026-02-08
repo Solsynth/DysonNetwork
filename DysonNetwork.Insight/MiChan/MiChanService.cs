@@ -380,13 +380,11 @@ public class MiChanService(
         }
     }
 
-    private string GetPersonality()
+    public string GetPersonality()
     {
         // If personality file is configured, reload it each time (hot reload support)
         if (!string.IsNullOrWhiteSpace(config.PersonalityFile))
-        {
             return PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
-        }
 
         // Otherwise use cached personality or config value
         return _cachedPersonality ?? config.Personality;

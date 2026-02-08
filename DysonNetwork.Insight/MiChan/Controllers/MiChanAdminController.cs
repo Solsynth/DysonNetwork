@@ -5,8 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -15,32 +13,15 @@ namespace DysonNetwork.Insight.MiChan.Controllers;
 
 [ApiController]
 [Route("/api/michan")]
-[Authorize(Roles = "admin,superuser")]
-public class MiChanAdminController : ControllerBase
+public class MiChanAdminController(
+    MiChanConfig config,
+    MiChanService michan,
+    ILogger<MiChanAdminController> logger,
+    MiChanMemoryService memoryService,
+    MiChanKernelProvider kernelProvider,
+    IServiceProvider serviceProvider)
+    : ControllerBase
 {
-    private readonly MiChanConfig _config;
-    private readonly ILogger<MiChanAdminController> _logger;
-    private readonly MiChanMemoryService _memoryService;
-    private readonly MiChanKernelProvider _kernelProvider;
-    private readonly SolarNetworkApiClient _apiClient;
-    private readonly IServiceProvider _serviceProvider;
-
-    public MiChanAdminController(
-        MiChanConfig config,
-        ILogger<MiChanAdminController> logger,
-        MiChanMemoryService memoryService,
-        MiChanKernelProvider kernelProvider,
-        SolarNetworkApiClient apiClient,
-        IServiceProvider serviceProvider)
-    {
-        _config = config;
-        _logger = logger;
-        _memoryService = memoryService;
-        _kernelProvider = kernelProvider;
-        _apiClient = apiClient;
-        _serviceProvider = serviceProvider;
-    }
-
     public class ChatWithMiChanRequest
     {
         [Required]
@@ -61,32 +42,33 @@ public class MiChanAdminController : ControllerBase
     /// </summary>
     [HttpPost("chat")]
     [Experimental("SKEXP0050")]
+    [AskPermission("michan.admin")]
     public async IAsyncEnumerable<string> ChatWithMiChan(
         [FromBody] ChatWithMiChanRequest request,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        if (!_config.Enabled)
+        if (!config.Enabled)
         {
             yield return "MiChan is currently disabled.";
             yield break;
         }
 
         var contextId = request.ContextId ?? $"admin_{Guid.NewGuid():N}";
-        _logger.LogInformation("Admin chat started with context {ContextId}", contextId);
+        logger.LogInformation("Admin chat started with context {ContextId}", contextId);
 
         // Get or create conversation history
-        var history = await _memoryService.GetRecentInteractionsAsync(contextId, 20);
+        var history = await memoryService.GetRecentInteractionsAsync(contextId, 20);
         
         // Build kernel and chat history
-        var kernel = _kernelProvider.GetKernel();
+        var kernel = kernelProvider.GetKernel();
         
         if (request.UsePlugins)
         {
             // Register plugins for admin use
-            var chatPlugin = _serviceProvider.GetRequiredService<ChatPlugin>();
-            var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
-            var notificationPlugin = _serviceProvider.GetRequiredService<NotificationPlugin>();
-            var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
+            var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
+            var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
+            var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
+            var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
 
             kernel.Plugins.AddFromObject(chatPlugin, "chat");
             kernel.Plugins.AddFromObject(postPlugin, "post");
@@ -95,7 +77,7 @@ public class MiChanAdminController : ControllerBase
         }
 
         // Load personality
-        var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+        var personality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
         
         var chatHistory = new ChatHistory($"""
             {personality}
@@ -123,7 +105,7 @@ public class MiChanAdminController : ControllerBase
 
         // Stream response
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
-        var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+        var executionSettings = kernelProvider.CreatePromptExecutionSettings();
         
         var fullResponse = new System.Text.StringBuilder();
 
@@ -138,7 +120,7 @@ public class MiChanAdminController : ControllerBase
         }
 
         // Store interaction in memory
-        await _memoryService.StoreInteractionAsync(
+        await memoryService.StoreInteractionAsync(
             "admin",
             contextId,
             new Dictionary<string, object>
@@ -149,7 +131,7 @@ public class MiChanAdminController : ControllerBase
             }
         );
 
-        _logger.LogInformation("Admin chat completed for context {ContextId}", contextId);
+        logger.LogInformation("Admin chat completed for context {ContextId}", contextId);
     }
 
     /// <summary>
@@ -157,30 +139,31 @@ public class MiChanAdminController : ControllerBase
     /// </summary>
     [HttpPost("command")]
     [Experimental("SKEXP0050")]
+    [AskPermission("michan.admin")]
     public async Task<ActionResult> CommandMiChan([FromBody] CommandMiChanRequest request)
     {
-        if (!_config.Enabled)
+        if (!config.Enabled)
         {
             return BadRequest(new { error = "MiChan is currently disabled" });
         }
 
         try
         {
-            _logger.LogInformation("Executing command: {Command}", request.Command);
+            logger.LogInformation("Executing command: {Command}", request.Command);
 
-            var kernel = _kernelProvider.GetKernel();
+            var kernel = kernelProvider.GetKernel();
             
             // Register plugins
-            var chatPlugin = _serviceProvider.GetRequiredService<ChatPlugin>();
-            var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
-            var notificationPlugin = _serviceProvider.GetRequiredService<NotificationPlugin>();
+            var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
+            var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
+            var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
 
             kernel.Plugins.AddFromObject(chatPlugin, "chat");
             kernel.Plugins.AddFromObject(postPlugin, "post");
             kernel.Plugins.AddFromObject(notificationPlugin, "notification");
 
             // Execute command
-            var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+            var personality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
             
             var prompt = $"""
                 {personality}
@@ -196,7 +179,7 @@ public class MiChanAdminController : ControllerBase
                 prompt += $"\n\nParameters: {JsonSerializer.Serialize(request.Parameters)}";
             }
 
-            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+            var executionSettings = kernelProvider.CreatePromptExecutionSettings();
             var result = await kernel.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
             var response = result.GetValue<string>();
 
@@ -210,7 +193,7 @@ public class MiChanAdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error executing command: {Command}", request.Command);
+            logger.LogError(ex, "Error executing command: {Command}", request.Command);
             return StatusCode(500, new { error = ex.Message });
         }
     }
@@ -219,63 +202,38 @@ public class MiChanAdminController : ControllerBase
     /// Get MiChan's current status and memory
     /// </summary>
     [HttpGet("status")]
+    [AskPermission("michan.admin")]
     public async Task<ActionResult> GetStatus()
     {
-        var activeContexts = await _memoryService.GetActiveContextsAsync();
-        var recentAutonomous = await _memoryService.GetInteractionsByTypeAsync("autonomous", 5);
-        var recentMentions = await _memoryService.GetInteractionsByTypeAsync("mention_response", 5);
+        var activeContexts = await memoryService.GetActiveContextsAsync();
+        var recentAutonomous = await memoryService.GetInteractionsByTypeAsync("autonomous", 5);
+        var recentMentions = await memoryService.GetInteractionsByTypeAsync("mention_response", 5);
 
         return Ok(new
         {
-            enabled = _config.Enabled,
-            personality_file = _config.PersonalityFile,
-            autonomous_enabled = _config.AutonomousBehavior.Enabled,
-            memory_enabled = _config.Memory.PersistToDatabase,
+            enabled = config.Enabled,
+            personality_file = config.PersonalityFile,
+            autonomous_enabled = config.AutonomousBehavior.Enabled,
+            memory_enabled = config.Memory.PersistToDatabase,
             active_contexts = activeContexts.Count,
             recent_autonomous_actions = recentAutonomous.Count,
             recent_mention_responses = recentMentions.Count,
-            personality_preview = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger)[..Math.Min(200, PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger).Length)] + "..."
+            personality_preview = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger)[..Math.Min(200, PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger).Length)] + "..."
         });
     }
 
     /// <summary>
     /// Test a personality prompt without changing the config
     /// </summary>
-    [HttpPost("test-personality")]
+    [HttpGet("personality")]
     [Experimental("SKEXP0050")]
-    public async Task<ActionResult> TestPersonality([FromBody] TestPersonalityRequest request)
+    [AskPermission("michan.admin")]
+    public async Task<ActionResult> GetPersonality()
     {
-        try
+        return Ok(new
         {
-            var kernel = _kernelProvider.GetKernel();
-            
-            var chatHistory = new ChatHistory(request.Personality);
-            chatHistory.AddUserMessage(request.TestMessage);
-
-            var chatService = kernel.GetRequiredService<IChatCompletionService>();
-            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-            
-            var result = await chatService.GetChatMessageContentAsync(chatHistory, executionSettings, kernel);
-
-            return Ok(new
-            {
-                personality = request.Personality,
-                test_message = request.TestMessage,
-                response = result.Content
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message });
-        }
-    }
-
-    public class TestPersonalityRequest
-    {
-        [Required]
-        public string Personality { get; set; } = null!;
-        [Required]
-        public string TestMessage { get; set; } = null!;
+            personality = michan.GetPersonality()
+        });
     }
 
     /// <summary>
@@ -286,15 +244,15 @@ public class MiChanAdminController : ControllerBase
     {
         if (!string.IsNullOrEmpty(contextId))
         {
-            await _memoryService.ClearContextAsync(contextId);
+            await memoryService.ClearContextAsync(contextId);
             return Ok(new { message = $"Cleared memory for context {contextId}" });
         }
         else
         {
-            var contexts = await _memoryService.GetActiveContextsAsync();
+            var contexts = await memoryService.GetActiveContextsAsync();
             foreach (var ctx in contexts)
             {
-                await _memoryService.ClearContextAsync(ctx);
+                await memoryService.ClearContextAsync(ctx);
             }
             return Ok(new { message = $"Cleared memory for {contexts.Count} contexts" });
         }
