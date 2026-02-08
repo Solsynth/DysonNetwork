@@ -102,7 +102,8 @@ public class EventBusBackgroundService(
                 subscription.StreamName,
                 new ConsumerConfig(subscription.ConsumerName)
                 {
-                    FilterSubject = subscription.Subject
+                    FilterSubject = subscription.Subject,
+                    DeliverPolicy = ConsumerConfigDeliverPolicy.New
                 },
                 cancellationToken: stoppingToken
             );
