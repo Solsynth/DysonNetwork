@@ -24,16 +24,14 @@ public class MiChanAdminController(
 {
     public class ChatWithMiChanRequest
     {
-        [Required]
-        public string Message { get; set; } = null!;
+        [Required] public string Message { get; set; } = null!;
         public string? ContextId { get; set; }
         public bool UsePlugins { get; set; } = true;
     }
 
     public class CommandMiChanRequest
     {
-        [Required]
-        public string Command { get; set; } = null!;
+        [Required] public string Command { get; set; } = null!;
         public Dictionary<string, object>? Parameters { get; set; }
     }
 
@@ -58,10 +56,10 @@ public class MiChanAdminController(
 
         // Get or create conversation history
         var history = await memoryService.GetRecentInteractionsAsync(contextId, 20);
-        
+
         // Build kernel and chat history
         var kernel = kernelProvider.GetKernel();
-        
+
         if (request.UsePlugins)
         {
             // Register plugins for admin use
@@ -78,14 +76,14 @@ public class MiChanAdminController(
 
         // Load personality
         var personality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
-        
+
         var chatHistory = new ChatHistory($"""
-            {personality}
-            
-            You are in an administrative chat session. The user has full control over you.
-            You can use any of your available tools/functions to help the user.
-            Be helpful, direct, and execute any commands the user gives you.
-            """);
+                                           {personality}
+
+                                           You are in an administrative chat session. The user has full control over you.
+                                           You can use any of your available tools/functions to help the user.
+                                           Be helpful, direct, and execute any commands the user gives you.
+                                           """);
 
         // Add conversation history
         foreach (var interaction in history.OrderBy(i => i.CreatedAt))
@@ -94,6 +92,7 @@ public class MiChanAdminController(
             {
                 chatHistory.AddUserMessage(msg?.ToString() ?? "");
             }
+
             if (interaction.Context.TryGetValue("response", out var resp))
             {
                 chatHistory.AddAssistantMessage(resp?.ToString() ?? "");
@@ -106,11 +105,11 @@ public class MiChanAdminController(
         // Stream response
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
         var executionSettings = kernelProvider.CreatePromptExecutionSettings();
-        
+
         var fullResponse = new System.Text.StringBuilder();
 
         await foreach (var update in chatService.GetStreamingChatMessageContentsAsync(
-            chatHistory, executionSettings, kernel, cancellationToken))
+                           chatHistory, executionSettings, kernel, cancellationToken))
         {
             var content = update.Content;
             if (string.IsNullOrEmpty(content)) continue;
@@ -152,7 +151,7 @@ public class MiChanAdminController(
             logger.LogInformation("Executing command: {Command}", request.Command);
 
             var kernel = kernelProvider.GetKernel();
-            
+
             // Register plugins
             var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
             var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
@@ -164,15 +163,15 @@ public class MiChanAdminController(
 
             // Execute command
             var personality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
-            
+
             var prompt = $"""
-                {personality}
-                
-                The administrator is giving you a command: "{request.Command}"
-                
-                Execute this command immediately using your available tools.
-                Provide a brief summary of what you did.
-                """;
+                          {personality}
+
+                          The administrator is giving you a command: "{request.Command}"
+
+                          Execute this command immediately using your available tools.
+                          Provide a brief summary of what you did.
+                          """;
 
             if (request.Parameters != null)
             {
@@ -218,7 +217,11 @@ public class MiChanAdminController(
             active_contexts = activeContexts.Count,
             recent_autonomous_actions = recentAutonomous.Count,
             recent_mention_responses = recentMentions.Count,
-            personality_preview = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger)[..Math.Min(200, PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger).Length)] + "..."
+            personality_preview =
+                PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger)[
+                    ..Math.Min(200,
+                        PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger).Length)] +
+                "..."
         });
     }
 
@@ -230,9 +233,13 @@ public class MiChanAdminController(
     [AskPermission("michan.admin")]
     public async Task<ActionResult> GetPersonality()
     {
+        var personality = !string.IsNullOrWhiteSpace(config.PersonalityFile)
+            ? PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger)
+            : config.Personality;
+
         return Ok(new
         {
-            personality = michan.GetPersonality()
+            personality
         });
     }
 
@@ -254,6 +261,7 @@ public class MiChanAdminController(
             {
                 await memoryService.ClearContextAsync(ctx);
             }
+
             return Ok(new { message = $"Cleared memory for {contexts.Count} contexts" });
         }
     }

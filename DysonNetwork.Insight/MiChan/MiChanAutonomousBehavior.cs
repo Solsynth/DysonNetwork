@@ -238,10 +238,16 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
     {
         try
         {
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would reply to post {PostId} with: {Content}", post.Id, content);
+                return;
+            }
+
             var request = new
             {
                 content = content,
-                reply_to = post.Id.ToString()
+                replied_post_id = post.Id.ToString()
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
@@ -269,6 +275,12 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
     {
         try
         {
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would like post {PostId}", post.Id);
+                return;
+            }
+
             await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/like", new { });
             
             await _memoryService.StoreInteractionAsync(
@@ -342,6 +354,12 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
 
         if (!string.IsNullOrEmpty(content))
         {
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would create post: {Content}", content);
+                return;
+            }
+
             var request = new { content = content, visibility = "public" };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
             

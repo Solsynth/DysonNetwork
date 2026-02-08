@@ -26,6 +26,7 @@ public class MiChanAutoRespondConfig
 public class MiChanAutonomousBehaviorConfig
 {
     public bool Enabled { get; set; } = true;
+    public bool DryRun { get; set; } = false; // If true, no real posts/actions will be created
     public int MinIntervalMinutes { get; set; } = 10;
     public int MaxIntervalMinutes { get; set; } = 60;
     public List<string> Actions { get; set; } = ["browse", "like", "create_post", "reply_trending"];

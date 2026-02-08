@@ -64,16 +64,16 @@ public class MiChanKernelProvider
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
                 builder.AddOpenAIChatCompletion(model!, client);
-                // Add DeepSeek embeddings using the same client
-                builder.AddOpenAITextEmbeddingGeneration(
-                    "deepseek-embedding",  // DeepSeek's embedding model
-                    client
-                );
-                _logger.LogInformation("DeepSeek embeddings configured");
+                // Note: DeepSeek API does NOT provide embeddings endpoint
+                // We'll try to use Ollama for embeddings if available, otherwise semantic search is disabled
+                _logger.LogWarning("DeepSeek API does not support embeddings. Semantic search will be disabled unless Ollama is configured.");
                 break;
             default:
                 throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
         }
+
+        // Try to add Ollama embedding service as fallback for providers without native embeddings
+        AddOllamaEmbeddingFallback(builder, providerType);
 
         // Add web search plugins if configured
         InitializeHelperFunctions(builder);
@@ -102,6 +102,36 @@ public class MiChanKernelProvider
                 searchEngineId: googleCx);
             var google = new WebSearchEnginePlugin(googleConnector);
             builder.Plugins.AddFromObject(google, "google");
+        }
+    }
+
+    [Experimental("SKEXP0050")]
+    private void AddOllamaEmbeddingFallback(IKernelBuilder builder, string? currentProvider)
+    {
+        // Skip if Ollama is already the provider (it handles its own embeddings)
+        if (currentProvider == "ollama")
+            return;
+
+        // Check if Ollama endpoint is configured or available
+        var ollamaEndpoint = _configuration.GetValue<string>("Thinking:Ollama:EmbeddingEndpoint") 
+            ?? _configuration.GetValue<string>("Thinking:Services:ollama:Endpoint")
+            ?? "http://localhost:11434/api";
+        var ollamaModel = _configuration.GetValue<string>("Thinking:Ollama:EmbeddingModel") 
+            ?? "nomic-embed-text";
+
+        try
+        {
+            // Try to add Ollama embedding service
+            builder.AddOllamaTextEmbeddingGeneration(
+                ollamaModel,
+                new Uri(ollamaEndpoint)
+            );
+            _logger.LogInformation("Ollama embedding fallback configured at {Endpoint} with model {Model}", 
+                ollamaEndpoint, ollamaModel);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not configure Ollama embedding fallback. Semantic search will be disabled.");
         }
     }
 

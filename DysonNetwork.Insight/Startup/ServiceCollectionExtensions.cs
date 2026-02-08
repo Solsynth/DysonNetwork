@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -77,30 +78,28 @@ public static class ServiceCollectionExtensions
 
         public IServiceCollection AddMiChanServices(IConfiguration configuration)
         {
-            var miChanConfig = configuration.GetSection("MiChan").Get<MiChan.MiChanConfig>() ?? new MiChan.MiChanConfig();
+            var miChanConfig = configuration.GetSection("MiChan").Get<MiChanConfig>() ?? new MiChanConfig();
             services.AddSingleton(miChanConfig);
 
             // Always register MiChan services for dependency injection (needed by ThoughtController)
             // Core services
-            services.AddSingleton<MiChan.SolarNetworkApiClient>();
-            services.AddSingleton<MiChan.MiChanKernelProvider>();
+            services.AddSingleton<SolarNetworkApiClient>();
+            services.AddSingleton<MiChanKernelProvider>();
             
             // Plugins
-            services.AddSingleton<MiChan.Plugins.ChatPlugin>();
-            services.AddSingleton<MiChan.Plugins.PostPlugin>();
-            services.AddSingleton<MiChan.Plugins.NotificationPlugin>();
-            services.AddSingleton<MiChan.Plugins.AccountPlugin>();
+            services.AddSingleton<ChatPlugin>();
+            services.AddSingleton<PostPlugin>();
+            services.AddSingleton<NotificationPlugin>();
+            services.AddSingleton<AccountPlugin>();
             
             // Memory and behavior services
-            services.AddSingleton<MiChan.EmbeddingService>();
-            services.AddSingleton<MiChan.MiChanMemoryService>();
-            services.AddSingleton<MiChan.MiChanAutonomousBehavior>();
+            services.AddSingleton<EmbeddingService>();
+            services.AddSingleton<MiChanMemoryService>();
+            services.AddSingleton<MiChanAutonomousBehavior>();
             
             // Only start the hosted service when enabled
             if (miChanConfig.Enabled)
-            {
-                services.AddHostedService<MiChan.MiChanService>();
-            }
+                services.AddHostedService<MiChanService>();
 
             return services;
         }

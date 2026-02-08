@@ -1,5 +1,4 @@
 #pragma warning disable SKEXP0050
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Models;
