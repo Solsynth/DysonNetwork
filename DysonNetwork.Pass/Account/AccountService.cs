@@ -731,9 +731,11 @@ public class AccountService(
 
     public async Task DeleteAccount(SnAccount account)
     {
+        logger.LogWarning("Deleting account {AccountId}", account.Id);
+        var now =  SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Where(s => s.AccountId == account.Id)
-            .ExecuteDeleteAsync();
+            .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, now));
 
         db.Accounts.Remove(account);
         await db.SaveChangesAsync();
@@ -743,57 +745,5 @@ public class AccountService(
             AccountId = account.Id,
             DeletedAt = SystemClock.Instance.GetCurrentInstant()
         });
-    }
-
-    /// <summary>
-    /// Populates the PerkSubscription property for a single account by calling the Wallet service via gRPC.
-    /// </summary>
-    public async Task PopulatePerkSubscriptionAsync(SnAccount account)
-    {
-        try
-        {
-            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
-            if (subscription is not null)
-            {
-                account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to populate PerkSubscription for account {AccountId}", account.Id);
-        }
-    }
-
-    /// <summary>
-    /// Populates the PerkSubscription property for multiple accounts by calling the Wallet service via gRPC.
-    /// </summary>
-    public async Task PopulatePerkSubscriptionsAsync(List<SnAccount> accounts)
-    {
-        if (accounts.Count == 0) return;
-
-        try
-        {
-            var accountIds = accounts.Select(a => a.Id).ToList();
-            var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
-
-            var subscriptionDict = subscriptions
-                .Where(s => s != null)
-                .ToDictionary(
-                    s => Guid.Parse(s.AccountId),
-                    s => SnWalletSubscription.FromProtoValue(s).ToReference()
-                );
-
-            foreach (var account in accounts)
-            {
-                if (subscriptionDict.TryGetValue(account.Id, out var subscription))
-                {
-                    account.PerkSubscription = subscription;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to populate PerkSubscriptions for {Count} accounts", accounts.Count);
-        }
     }
 }

@@ -79,22 +79,23 @@ public static class ServiceCollectionExtensions
                     async (evt, ctx) =>
                     {
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-                        var fs = ctx.ServiceProvider.GetRequiredService<DysonNetwork.Drive.Storage.FileService>();
+                        var fs = ctx.ServiceProvider.GetRequiredService<Storage.FileService>();
                         var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
 
-                        logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
+                        logger.LogWarning("Account deleted: {AccountId}", evt.AccountId);
 
                         await using var transaction = await db.Database.BeginTransactionAsync(ctx.CancellationToken);
                         try
                         {
-                            var files = await db.Files
-                                .Where(p => p.AccountId == evt.AccountId)
-                                .ToListAsync(ctx.CancellationToken);
-
-                            await fs.DeleteFileDataBatchAsync(files);
+                            // var files = await db.Files
+                            //     .Where(p => p.AccountId == evt.AccountId)
+                            //     .ToListAsync(ctx.CancellationToken);
+                            // await fs.DeleteFileDataBatchAsync(files);
+                            var now = new Instant();
                             await db.Files
                                 .Where(p => p.AccountId == evt.AccountId)
-                                .ExecuteDeleteAsync(ctx.CancellationToken);
+                                .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now),
+                                    ctx.CancellationToken);
 
                             await transaction.CommitAsync(ctx.CancellationToken);
                         }
@@ -117,9 +118,9 @@ public static class ServiceCollectionExtensions
                     async (evt, ctx) =>
                     {
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-                        
+
                         logger.LogInformation("Processing file {FileId} in background...", evt.FileId);
-                        
+
                         await ProcessUploadedFileAsync(evt, ctx.ServiceProvider, logger, ctx.CancellationToken);
                     },
                     opts =>
@@ -134,7 +135,8 @@ public static class ServiceCollectionExtensions
             return services;
         }
 
-        private static async Task ProcessUploadedFileAsync(FileUploadedEvent evt, IServiceProvider serviceProvider, ILogger logger, CancellationToken cancellationToken)
+        private static async Task ProcessUploadedFileAsync(FileUploadedEvent evt, IServiceProvider serviceProvider,
+            ILogger logger, CancellationToken cancellationToken)
         {
             const string TempFileSuffix = "dypart";
             var AnimatedImageTypes = new[] { "image/gif", "image/apng", "image/avif" };
@@ -163,44 +165,49 @@ public static class ServiceCollectionExtensions
                 .Where(t => t.Type == TaskType.FileUpload)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            var uploadTask = baseTask != null ? new PersistentUploadTask
-            {
-                Id = baseTask.Id,
-                TaskId = baseTask.TaskId,
-                Name = baseTask.Name,
-                Description = baseTask.Description,
-                Type = baseTask.Type,
-                Status = baseTask.Status,
-                AccountId = baseTask.AccountId,
-                Progress = baseTask.Progress,
-                Parameters = baseTask.Parameters,
-                Results = baseTask.Results,
-                ErrorMessage = baseTask.ErrorMessage,
-                StartedAt = baseTask.StartedAt,
-                CompletedAt = baseTask.CompletedAt,
-                ExpiredAt = baseTask.ExpiredAt,
-                LastActivity = baseTask.LastActivity,
-                Priority = baseTask.Priority,
-                EstimatedDurationSeconds = baseTask.EstimatedDurationSeconds,
-                CreatedAt = baseTask.CreatedAt,
-                UpdatedAt = baseTask.UpdatedAt
-            } : null;
+            var uploadTask = baseTask != null
+                ? new PersistentUploadTask
+                {
+                    Id = baseTask.Id,
+                    TaskId = baseTask.TaskId,
+                    Name = baseTask.Name,
+                    Description = baseTask.Description,
+                    Type = baseTask.Type,
+                    Status = baseTask.Status,
+                    AccountId = baseTask.AccountId,
+                    Progress = baseTask.Progress,
+                    Parameters = baseTask.Parameters,
+                    Results = baseTask.Results,
+                    ErrorMessage = baseTask.ErrorMessage,
+                    StartedAt = baseTask.StartedAt,
+                    CompletedAt = baseTask.CompletedAt,
+                    ExpiredAt = baseTask.ExpiredAt,
+                    LastActivity = baseTask.LastActivity,
+                    Priority = baseTask.Priority,
+                    EstimatedDurationSeconds = baseTask.EstimatedDurationSeconds,
+                    CreatedAt = baseTask.CreatedAt,
+                    UpdatedAt = baseTask.UpdatedAt
+                }
+                : null;
 
-            if (uploadTask != null && (uploadTask.FileName != fileToUpdate.Name || uploadTask.FileSize != fileToUpdate.Size))
+            if (uploadTask != null &&
+                (uploadTask.FileName != fileToUpdate.Name || uploadTask.FileSize != fileToUpdate.Size))
             {
                 uploadTask = null;
             }
-            
+
             if (!pool.PolicyConfig.NoOptimization)
             {
                 var fileExtension = Path.GetExtension(evt.ProcessingFilePath);
                 switch ((evt.ContentType ?? "").Split('/')[0])
                 {
                     case "image":
-                        if (AnimatedImageTypes.Contains(evt.ContentType) || AnimatedImageExtensions.Contains(fileExtension))
+                        if (AnimatedImageTypes.Contains(evt.ContentType) ||
+                            AnimatedImageExtensions.Contains(fileExtension))
                         {
                             logger.LogInformation("Skip optimize file {FileId} due to it is animated...", evt.FileId);
-                            uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "image/unknown", false));
+                            uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "image/unknown",
+                                false));
                             break;
                         }
 
@@ -210,7 +217,8 @@ public static class ServiceCollectionExtensions
                             using var vipsImage = NetVips.Image.NewFromFile(evt.ProcessingFilePath);
                             var imageToWrite = vipsImage;
 
-                            if (vipsImage.Interpretation is NetVips.Enums.Interpretation.Scrgb or NetVips.Enums.Interpretation.Xyz)
+                            if (vipsImage.Interpretation is NetVips.Enums.Interpretation.Scrgb
+                                or NetVips.Enums.Interpretation.Xyz)
                             {
                                 imageToWrite = vipsImage.Colourspace(NetVips.Enums.Interpretation.Srgb);
                             }
@@ -240,7 +248,8 @@ public static class ServiceCollectionExtensions
                         catch (Exception ex)
                         {
                             logger.LogError(ex, "Failed to optimize image {FileId}, uploading original", evt.FileId);
-                            uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "image/unknown", false));
+                            uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "image/unknown",
+                                false));
                             newMimeType = evt.ContentType ?? "image/unknown";
                         }
 
@@ -249,7 +258,8 @@ public static class ServiceCollectionExtensions
                     case "video":
                         uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "video/unknown", false));
 
-                        var thumbnailPath = Path.Join(Path.GetTempPath(), $"{evt.FileId}.{TempFileSuffix}.thumbnail.jpg");
+                        var thumbnailPath = Path.Join(Path.GetTempPath(),
+                            $"{evt.FileId}.{TempFileSuffix}.thumbnail.jpg");
                         try
                         {
                             await FFMpegCore.FFMpegArguments
@@ -281,13 +291,15 @@ public static class ServiceCollectionExtensions
                         break;
 
                     default:
-                        uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "application/octet-stream", false));
+                        uploads.Add((evt.ProcessingFilePath, string.Empty,
+                            evt.ContentType ?? "application/octet-stream", false));
                         break;
                 }
             }
             else
             {
-                uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "application/octet-stream", false));
+                uploads.Add(
+                    (evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "application/octet-stream", false));
             }
 
             logger.LogInformation("Optimized file {FileId}, now uploading...", evt.FileId);
@@ -324,14 +336,14 @@ public static class ServiceCollectionExtensions
                 scopedDb.FileReplicas.Add(newReplica);
 
                 await scopedDb.Files.Where(f => f.Id == evt.FileId).ExecuteUpdateAsync(setter => setter
-                    .SetProperty(f => f.UploadedAt, now)
-                , cancellationToken);
+                        .SetProperty(f => f.UploadedAt, now)
+                    , cancellationToken);
 
                 await scopedDb.FileObjects.Where(fo => fo.Id == evt.FileId).ExecuteUpdateAsync(setter => setter
-                    .SetProperty(fo => fo.MimeType, newMimeType)
-                    .SetProperty(fo => fo.HasCompression, hasCompression)
-                    .SetProperty(fo => fo.HasThumbnail, hasThumbnail)
-                , cancellationToken);
+                        .SetProperty(fo => fo.MimeType, newMimeType)
+                        .SetProperty(fo => fo.HasCompression, hasCompression)
+                        .SetProperty(fo => fo.HasThumbnail, hasThumbnail)
+                    , cancellationToken);
 
                 // Only delete temp file after successful upload and db update
                 if (evt.IsTempFile)
@@ -376,7 +388,8 @@ public static class ServiceCollectionExtensions
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, "Failed to send large file processing notification for task {TaskId}", uploadTask.TaskId);
+                        logger.LogWarning(ex, "Failed to send large file processing notification for task {TaskId}",
+                            uploadTask.TaskId);
                     }
                 }
             }

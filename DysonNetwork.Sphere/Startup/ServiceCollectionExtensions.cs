@@ -52,10 +52,7 @@ public static class ServiceCollectionExtensions
                 });
             services.AddRazorPages();
 
-            services.AddGrpc(options =>
-            {
-                options.EnableDetailedErrors = true;
-            });
+            services.AddGrpc(options => { options.EnableDetailedErrors = true; });
             services.AddGrpcReflection();
 
             services.Configure<RequestLocalizationOptions>(options =>
@@ -86,25 +83,26 @@ public static class ServiceCollectionExtensions
                         switch (evt.ProductIdentifier)
                         {
                             case "posts.award":
-                                {
-                                    var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(
-                                        JsonSerializer.Serialize(evt,  InfraObjectCoder.SerializerOptions),
-                                        InfraObjectCoder.SerializerOptions
-                                    );
-                                    if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
+                            {
+                                var awardEvt = JsonSerializer.Deserialize<PaymentOrderAwardEvent>(
+                                    JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions),
+                                    InfraObjectCoder.SerializerOptions
+                                );
+                                if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
 
-                                    var meta = awardEvt.Meta;
+                                var meta = awardEvt.Meta;
 
-                                    logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
+                                logger.LogInformation("Handling post award order: {OrderId}", evt.OrderId);
 
-                                    var ps = ctx.ServiceProvider.GetRequiredService<PostService>();
-                                    var amountNum = decimal.Parse(meta.Amount);
+                                var ps = ctx.ServiceProvider.GetRequiredService<PostService>();
+                                var amountNum = decimal.Parse(meta.Amount);
 
-                                    await ps.AwardPost(meta.PostId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
+                                await ps.AwardPost(meta.PostId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
 
-                                    logger.LogInformation("Post award for order {OrderId} handled successfully.", evt.OrderId);
-                                    break;
-                                }
+                                logger.LogInformation("Post award for order {OrderId} handled successfully.",
+                                    evt.OrderId);
+                                break;
+                            }
                         }
                     },
                     opts =>
@@ -121,7 +119,7 @@ public static class ServiceCollectionExtensions
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                         var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
 
-                        logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
+                        logger.LogWarning("Account deleted: {AccountId}", evt.AccountId);
 
                         await using var transaction = await db.Database.BeginTransactionAsync(ctx.CancellationToken);
                         try
@@ -130,15 +128,17 @@ public static class ServiceCollectionExtensions
                                 .Where(p => p.Members.All(m => m.AccountId == evt.AccountId))
                                 .ToListAsync(ctx.CancellationToken);
 
+                            var now = new Instant();
                             foreach (var publisher in publishers)
                                 await db.Posts
                                     .Where(p => p.PublisherId == publisher.Id)
-                                    .ExecuteDeleteAsync(ctx.CancellationToken);
+                                    .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, now),
+                                        ctx.CancellationToken);
 
                             var publisherIds = publishers.Select(p => p.Id).ToList();
                             await db.Publishers
                                 .Where(p => publisherIds.Contains(p.Id))
-                                .ExecuteDeleteAsync(ctx.CancellationToken);
+                                .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, now), ctx.CancellationToken);
 
                             await transaction.CommitAsync(ctx.CancellationToken);
                         }
@@ -176,12 +176,14 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddAppBusinessServices(IConfiguration configuration
         )
         {
-            _ = services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
-            {
-                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                var resourceNamespace = "DysonNetwork.Sphere.Resources.Locales";
-                return new Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
-            });
+            _ = services
+                .AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService,
+                    DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+                {
+                    var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                    var resourceNamespace = "DysonNetwork.Sphere.Resources.Locales";
+                    return new Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+                });
 
             services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
             services.Configure<ActivityPubDeliveryOptions>(configuration.GetSection("ActivityPubDelivery"));

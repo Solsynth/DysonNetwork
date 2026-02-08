@@ -67,7 +67,7 @@ public static class ServiceCollectionExtensions
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                         var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
 
-                        logger.LogInformation("Account deleted: {AccountId}", evt.AccountId);
+                        logger.LogWarning("Account deleted: {AccountId}", evt.AccountId);
 
                         await db.ChatMembers
                             .Where(m => m.AccountId == evt.AccountId)

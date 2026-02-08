@@ -89,7 +89,7 @@ public class BotAccountReceiverGrpc(
         var automatedId = Guid.Parse(request.AutomatedId);
         var account = await accounts.GetBotAccount(automatedId);
         if (account is null)
-            throw new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.NotFound, "Account not found"));
+            throw new RpcException(new Status(StatusCode.NotFound, "Account not found"));
 
         await accounts.DeleteAccount(account);
 
