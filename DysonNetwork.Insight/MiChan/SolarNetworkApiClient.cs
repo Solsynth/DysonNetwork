@@ -20,7 +20,7 @@ public class SolarNetworkApiClient
         {
             BaseAddress = new Uri(config.GatewayUrl)
         };
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.AccessToken);
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("AtField", config.AccessToken);
     }
 
     private string BuildUrl(string serviceName, string path)

@@ -111,7 +111,7 @@ public class MiChanAutonomousBehavior
         _logger.LogInformation("Autonomous: Checking posts...");
         
         // Get recent posts
-        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/timeline/global?take=30");
+        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/posts?take=30");
         if (posts == null || posts.Count == 0)
             return;
 
@@ -121,11 +121,9 @@ public class MiChanAutonomousBehavior
         foreach (var post in posts.OrderByDescending(p => p.CreatedAt).Take(10))
         {
             // Skip already processed posts
-            if (_processedPostIds.Contains(post.Id.ToString()))
+            if (!_processedPostIds.Add(post.Id.ToString()))
                 continue;
 
-            _processedPostIds.Add(post.Id.ToString());
-            
             // Keep hash set size manageable
             if (_processedPostIds.Count > 1000)
             {
