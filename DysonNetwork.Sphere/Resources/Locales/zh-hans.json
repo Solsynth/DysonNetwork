@@ -1,5 +1,7 @@
 {
   "postOnlyMedia": "仅媒体",
+  "postMentionTitle": "{user} 在帖子中提到了您",
+  "postMentionBody": "{user} 提到了您: {content}",
   "postReplyTitle": "{user} 回复了您的帖子",
   "postReactTitle": "{user} 对您的帖子做出了反应",
   "postReactBody": "{user} 用 {reaction} 做出了反应",

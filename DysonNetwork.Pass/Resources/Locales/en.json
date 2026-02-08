@@ -32,6 +32,8 @@
   "chatInviteBody": "You just got invited to join {channel}",
   "chatInviteDirectBody": "{user} sent an direct message invitation to you",
   "postSubscriptionTitle": "{publisher}: {title}",
+  "postMentionTitle": "{user} mentioned you in a post",
+  "postMentionBody": "{user} mentioned you: {content}",
   "postReplyTitle": "{user} replied your post",
   "postReactTitle": "{user} reacted to your post",
   "postReactBody": "{user} reacted with {reaction}",

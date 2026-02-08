@@ -131,6 +131,111 @@ public partial class PostService(
         return (title, content);
     }
 
+    private List<string> ExtractMentions(string content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return new List<string>();
+
+        var matches = GetMentionRegex().Matches(content);
+        var mentions = new List<string>();
+
+        foreach (Match match in matches)
+        {
+            var username = match.Groups[1].Value;
+            if (!string.IsNullOrEmpty(username) && !mentions.Contains(username, StringComparer.OrdinalIgnoreCase))
+            {
+                mentions.Add(username);
+            }
+        }
+
+        return mentions;
+    }
+
+    private async Task SendMentionNotificationsAsync(SnPost post)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(post.Content))
+                return;
+
+            var mentions = ExtractMentions(post.Content);
+            if (mentions.Count == 0)
+                return;
+
+            // Limit to 16 mentions maximum
+            if (mentions.Count > 16)
+            {
+                logger.LogWarning("Post {PostId} has {MentionCount} mentions, limiting to 16", post.Id, mentions.Count);
+                mentions = mentions.Take(16).ToList();
+            }
+
+            using var scope = factory.CreateScope();
+            var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
+            var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var accountsClient = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+
+            var sender = post.Publisher;
+
+            foreach (var username in mentions)
+            {
+                try
+                {
+                    // Find publisher by name/username
+                    var mentionedPublisher = await db.Publishers
+                        .Include(p => p.Members)
+                        .FirstOrDefaultAsync(p => p.Name == username);
+
+                    if (mentionedPublisher == null)
+                        continue;
+
+                    // Get all member accounts of the mentioned publisher
+                    var memberIds = mentionedPublisher.Members.Select(m => m.AccountId.ToString()).ToList();
+                    if (memberIds.Count == 0)
+                        continue;
+
+                    // Get account details for language preferences
+                    var queryRequest = new GetAccountBatchRequest();
+                    queryRequest.Id.AddRange(memberIds);
+                    var queryResponse = await accountsClient.GetAccountBatchAsync(queryRequest);
+
+                    var (title, body) = ChopPostForNotification(post);
+
+                    foreach (var member in queryResponse.Accounts)
+                    {
+                        if (member == null)
+                            continue;
+
+                        await nty.SendPushNotificationToUserAsync(
+                            new SendPushNotificationToUserRequest
+                            {
+                                UserId = member.Id,
+                                Notification = new PushNotification
+                                {
+                                    Topic = "posts.mentions.new",
+                                    Title = localizer.Get("postMentionTitle", locale: member.Language, args: new { user = sender!.Nick }),
+                                    Body = localizer.Get("postMentionBody", locale: member.Language, args: new { user = sender!.Nick, content = body }),
+                                    IsSavable = true,
+                                    ActionUri = $"/posts/{post.Id}"
+                                }
+                            }
+                        );
+                    }
+
+                    logger.LogInformation("Sent mention notification for post {PostId} to publisher {PublisherName} ({MemberCount} members)",
+                        post.Id, username, memberIds.Count);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error sending mention notification to {Username} for post {PostId}", username, post.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error processing mention notifications for post {PostId}", post.Id);
+        }
+    }
+
     public async Task<SnPost> PostAsync(
         SnPost post,
         List<string>? attachments = null,
@@ -245,6 +350,9 @@ public partial class PostService(
             });
         }
 
+        // Send mention notifications in the background
+        _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
+
         // Process link preview in the background to avoid delaying post creation
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
@@ -357,6 +465,9 @@ public partial class PostService(
 
     [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
+
+    [GeneratedRegex(@"@(\w+)", RegexOptions.IgnoreCase)]
+    private static partial Regex GetMentionRegex();
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {

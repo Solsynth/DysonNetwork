@@ -1,5 +1,7 @@
 {
   "postOnlyMedia": "Media only",
+  "postMentionTitle": "{user} mentioned you in a post",
+  "postMentionBody": "{user} mentioned you: {content}",
   "postReplyTitle": "{user} replied to your post",
   "postReactTitle": "{user} reacted to your post",
   "postReactBody": "{user} reacted with {reaction}",
