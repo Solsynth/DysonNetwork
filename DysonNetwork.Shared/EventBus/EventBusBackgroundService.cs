@@ -100,7 +100,10 @@ public class EventBusBackgroundService(
 
             var consumer = await js.CreateOrUpdateConsumerAsync(
                 subscription.StreamName,
-                new ConsumerConfig(subscription.ConsumerName),
+                new ConsumerConfig(subscription.ConsumerName)
+                {
+                    FilterSubject = subscription.Subject
+                },
                 cancellationToken: stoppingToken
             );
 
