@@ -36,20 +36,28 @@ public class PostPlugin
     [KernelFunction("create_post")]
     [Description("Create and publish a new post.")]
     public async Task<object> CreatePost(
-        [Description("The content of the post")] string content,
-        [Description("Optional visibility: public, followers, or private")] string visibility = "public"
+        [Description("The content of the post")]
+        string content,
+        [Description("The title of the post, optional")]
+        string? title,
+        [Description("The description of the post, optional")]
+        string? description,
+        [Description("The tags of the post, splitted by comma, optional")]
+        string? tags
     )
     {
         try
         {
-            var request = new
+            var request = new Dictionary<string, object>()
             {
-                content = content,
-                visibility = visibility
+                ["content"] = content,
             };
+            if (!string.IsNullOrWhiteSpace(title)) request["title"] = title;
+            if (!string.IsNullOrWhiteSpace(description)) request["description"] = description;
+            if (!string.IsNullOrWhiteSpace(tags)) request["tags"] = tags.Split(',').Select(x => x.Trim()).ToArray();
 
             var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
-            
+
             _logger.LogInformation("Created new post");
             return new { success = true, message = "Post created successfully", data = result };
         }
@@ -63,18 +71,29 @@ public class PostPlugin
     [KernelFunction("react_to_post")]
     [Description("React to a post with an emoji symbol.")]
     public async Task<object> ReactToPost(
-        [Description("The ID of the post to react to")] string postId,
-        [Description("The reaction symbol (thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down)")] string symbol = "thumb_up",
-        [Description("The attitude: Positive, Negative, or Neutral")] string attitude = "Positive"
+        [Description("The ID of the post to react to")]
+        string postId,
+        [Description(
+            "The reaction symbol (thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down)")]
+        string symbol = "thumb_up",
+        [Description("The attitude: Positive, Negative, or Neutral")]
+        string attitude = "Positive"
     )
     {
         try
         {
             // Validate symbol
-            var validSymbols = new[] { "thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray", "heart" };
+            var validSymbols = new[]
+            {
+                "thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray",
+                "heart"
+            };
             if (!validSymbols.Contains(symbol.ToLower()))
             {
-                return new { success = false, error = $"Invalid symbol. Valid symbols: {string.Join(", ", validSymbols)}" };
+                return new
+                {
+                    success = false, error = $"Invalid symbol. Valid symbols: {string.Join(", ", validSymbols)}"
+                };
             }
 
             // Map attitude string to enum value (PostReactionAttitude: Positive=0, Neutral=1, Negative=2)
@@ -92,7 +111,7 @@ public class PostPlugin
             };
 
             await _apiClient.PostAsync("sphere", $"/posts/{postId}/reactions", request);
-            
+
             _logger.LogInformation("Reacted to post {PostId} with {Symbol} ({Attitude})", postId, symbol, attitude);
             return new { success = true, message = $"Reacted with {symbol} successfully" };
         }
@@ -106,19 +125,21 @@ public class PostPlugin
     [KernelFunction("pin_post")]
     [Description("Pin a post to the profile or realm page.")]
     public async Task<object> PinPost(
-        [Description("The ID of the post to pin")] string postId,
-        [Description("Pin mode: ProfilePage or RealmPage")] string mode = "ProfilePage"
+        [Description("The ID of the post to pin")]
+        string postId,
+        [Description("Pin mode: ProfilePage or RealmPage")]
+        string mode = "ProfilePage"
     )
     {
         try
         {
-            var request = new
+            var request = new Dictionary<string, object>()
             {
-                mode = mode
+                ["mode"] = mode
             };
 
             await _apiClient.PostAsync("sphere", $"/posts/{postId}/pin", request);
-            
+
             _logger.LogInformation("Pinned post {PostId} to {Mode}", postId, mode);
             return new { success = true, message = $"Post pinned to {mode} successfully" };
         }
@@ -132,13 +153,14 @@ public class PostPlugin
     [KernelFunction("unpin_post")]
     [Description("Unpin a post from the profile or realm page.")]
     public async Task<object> UnpinPost(
-        [Description("The ID of the post to unpin")] string postId
+        [Description("The ID of the post to unpin")]
+        string postId
     )
     {
         try
         {
             await _apiClient.DeleteAsync("sphere", $"/posts/{postId}/pin");
-            
+
             _logger.LogInformation("Unpinned post {PostId}", postId);
             return new { success = true, message = "Post unpinned successfully" };
         }
@@ -152,8 +174,10 @@ public class PostPlugin
     [KernelFunction("reply_to_post")]
     [Description("Reply to a post.")]
     public async Task<object> ReplyToPost(
-        [Description("The ID of the post to reply to")] string postId,
-        [Description("The content of the reply")] string content
+        [Description("The ID of the post to reply to")]
+        string postId,
+        [Description("The content of the reply")]
+        string content
     )
     {
         try
@@ -165,7 +189,7 @@ public class PostPlugin
             };
 
             var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
-            
+
             _logger.LogInformation("Replied to post {PostId}", postId);
             return new { success = true, message = "Reply created successfully", data = result };
         }
@@ -179,8 +203,10 @@ public class PostPlugin
     [KernelFunction("repost_post")]
     [Description("Repost (share) a post.")]
     public async Task<object> RepostPost(
-        [Description("The ID of the post to repost")] string postId,
-        [Description("Optional comment to add with the repost")] string? comment = null
+        [Description("The ID of the post to repost")]
+        string postId,
+        [Description("Optional comment to add with the repost")]
+        string? comment = null
     )
     {
         try
@@ -192,7 +218,7 @@ public class PostPlugin
             };
 
             var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
-            
+
             _logger.LogInformation("Reposted post {PostId}", postId);
             return new { success = true, message = "Post reposted successfully", data = result };
         }
@@ -207,16 +233,17 @@ public class PostPlugin
     [Description("Search for posts containing specific content.")]
     public async Task<List<SnPost>?> SearchPosts(
         [Description("Search query")] string query,
-        [Description("Maximum number of results")] int limit = 20
+        [Description("Maximum number of results")]
+        int limit = 20
     )
     {
         try
         {
             var posts = await _apiClient.GetAsync<List<SnPost>>(
-                "sphere", 
+                "sphere",
                 $"/posts/search?q={Uri.EscapeDataString(query)}&take={limit}"
             );
-            
+
             return posts ?? new List<SnPost>();
         }
         catch (Exception ex)
@@ -226,25 +253,47 @@ public class PostPlugin
         }
     }
 
-    [KernelFunction("list_timeline")]
-    [Description("Get the timeline (feed) posts.")]
-    public async Task<List<SnPost>?> ListTimeline(
-        [Description("Type of timeline: home, local, or global")] string timelineType = "home",
+    [KernelFunction("list_posts")]
+    [Description("Get the newest posts.")]
+    public async Task<List<SnPost>?> ListPosts(
+        [Description("Maximum number of posts")] int limit = 20, 
+        [Description("Skip how many posts already saw in recent queries")] int offset = 0
+    )
+    {
+        try
+        {
+            var posts = await _apiClient.GetAsync<List<SnPost>>(
+                "sphere",
+                $"/posts?offset={offset}&take={limit}"
+            );
+
+            return posts ?? new List<SnPost>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get recent posts");
+            return null;
+        }
+    }
+    
+    [KernelFunction("shuffle_posts")]
+    [Description("Get the random posts.")]
+    public async Task<List<SnPost>?> ListPosts(
         [Description("Maximum number of posts")] int limit = 20
     )
     {
         try
         {
             var posts = await _apiClient.GetAsync<List<SnPost>>(
-                "sphere", 
-                $"/timeline/{timelineType}?take={limit}"
+                "sphere",
+                $"/posts?shuffle=true&take={limit}"
             );
-            
+
             return posts ?? new List<SnPost>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get {TimelineType} timeline", timelineType);
+            _logger.LogError(ex, "Failed to get shuffled posts");
             return null;
         }
     }

@@ -47,7 +47,7 @@ public class PostActionController(
         public Shared.Models.PostVisibility? Visibility { get; set; } =
             Shared.Models.PostVisibility.Public;
 
-        public Shared.Models.PostType? Type { get; set; }
+        public PostType? Type { get; set; }
         public Shared.Models.PostEmbedView? EmbedView { get; set; }
 
         [MaxLength(16)] public List<string>? Tags { get; set; }
