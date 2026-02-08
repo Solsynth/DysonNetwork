@@ -22,7 +22,7 @@ public class SolarNetworkApiClient
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("AtField", config.AccessToken);
     }
 
-    private string BuildUrl(string serviceName, string path)
+    private static string BuildUrl(string serviceName, string path)
     {
         var normalizedPath = path.StartsWith("/") ? path[1..] : path;
         return $"/{serviceName}/{normalizedPath}";

@@ -154,22 +154,27 @@ public class MiChanKernelProvider
         }
     }
 
-    public PromptExecutionSettings CreatePromptExecutionSettings()
+    public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null)
     {
         var thinkingConfig = _configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{_config.ThinkingService}");
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        
+        // Default temperature: 0.8 for more creative/conversational responses
+        var temp = temperature ?? 0.8;
 
         return providerType switch
         {
             "ollama" => new OllamaPromptExecutionSettings
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
+                Temperature = (float)temp
             },
             "deepseek" or "openrouter" => new OpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                ModelId = _config.ThinkingService
+                ModelId = _config.ThinkingService,
+                Temperature = (float)temp
             },
             _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
         };

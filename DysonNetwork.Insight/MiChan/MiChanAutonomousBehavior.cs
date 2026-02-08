@@ -222,30 +222,71 @@ Current mood: {mood}
 You see a post from @{author}:
 ""{content}""
 
-Should you:
-1. REACT - The post is interesting/relatable (choose appropriate reaction)
-2. REPLY - You have something meaningful to add
-3. PIN - This is important and should be pinned to the profile
-4. IGNORE - Not interesting or relevant
+Choose ONE action:
 
-Available reaction symbols: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down
-Reaction attitudes: Positive, Negative, Neutral
+**REPLY** - Respond with your thoughts, agreement, question, or perspective. Use this when:
+- You have ANYTHING to say about the topic
+- You want to engage in conversation
+- You agree or disagree with the point
+- You have a related thought or question
 
-Respond with ONLY one of these formats:
-- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive, REACT:heart:Positive, REACT:laugh:Positive)
-- REPLY:your reply text
-- PIN:mode (ProfilePage or RealmPage)
+**REACT** - Quick emoji reaction when you want to acknowledge but have nothing to add. Use this when:
+- The post is good but you don't have words to contribute
+- You just want to show appreciation without conversation
+
+**PIN** - Save this post to your profile (only for truly important content)
+
+**IGNORE** - Skip this post completely
+
+REPLY is your default - be conversational and social! Don't be shy about engaging.
+
+Available reactions if you choose REACT: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down
+
+Respond with ONLY:
+- REPLY: your response text here
+- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive)
+- PIN:PublisherPage
 - IGNORE
-If REPLY, add your brief reply after a colon. Example: REPLY: That's a great point!";
+
+Examples:
+REPLY: That's really interesting! I've been thinking about this too.
+REPLY: I completely agree with your point about this.
+REACT:heart:Positive
+REACT:clap:Positive
+IGNORE";
 
             var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
             var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
             var decision = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
 
+            _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
+
             if (decision.StartsWith("REPLY:"))
             {
                 var replyText = decision.Substring(6).Trim();
                 return new PostActionDecision { Action = "reply", Content = replyText };
+            }
+
+            // 30% chance to convert REACT to REPLY to encourage more conversation
+            if (decision.StartsWith("REACT:") && _random.Next(100) < 30)
+            {
+                _logger.LogInformation("Converting REACT to REPLY for post {PostId} (30% chance)", post.Id);
+                var parts = decision.Substring(6).Split(':');
+                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "thumb_up";
+                
+                // Generate a quick reply based on the reaction type (no emojis)
+                var quickReply = symbol switch
+                {
+                    "heart" => "Love this!",
+                    "clap" => "Well said!",
+                    "laugh" => "Haha, this is great!",
+                    "thumb_up" => "Totally agree with this!",
+                    "party" => "This is exciting!",
+                    "pray" => "Sending good vibes",
+                    _ => "Interesting point!"
+                };
+                
+                return new PostActionDecision { Action = "reply", Content = quickReply };
             }
 
             if (decision.StartsWith("REACT:"))
@@ -322,6 +363,18 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 symbol = "thumb_up";
             }
 
+            // Check if MiChan already reacted to this post with any reaction
+            if (post.ReactionsMade != null && post.ReactionsMade.Count > 0)
+            {
+                var alreadyReacted = post.ReactionsMade.Any(r => r.Value);
+                if (alreadyReacted)
+                {
+                    _logger.LogDebug("Skipping reaction on post {PostId} - already reacted with {Symbols}",
+                        post.Id, string.Join(", ", post.ReactionsMade.Where(r => r.Value).Select(r => r.Key)));
+                    return;
+                }
+            }
+
             // Map attitude string to enum value (PostReactionAttitude: Positive=0, Neutral=1, Negative=2)
             var attitudeValue = attitude.ToLower() switch
             {
@@ -370,7 +423,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
         try
         {
             // Only pin posts from our own publisher
-            if (post.Publisher?.AccountId?.ToString() != _config.BotAccountId)
+            if (post.PublisherId?.ToString() != _config.BotPublisherId && post.Publisher?.Name != _config.BotPublisherId)
             {
                 _logger.LogDebug("Cannot pin post {PostId} - not owned by bot", post.Id);
                 return;
@@ -483,7 +536,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
             {
                 // Check by publisher ID (most reliable)
                 if (!string.IsNullOrEmpty(botPublisherId) &&
-                    reply.PublisherId?.ToString() == botPublisherId)
+                    reply.PublisherId?.ToString() == botPublisherId || reply.Publisher?.Name == botPublisherId)
                 {
                     _logger.LogDebug("Found existing reply from MiChan's publisher {PublisherId} on post {PostId}",
                         botPublisherId, post.Id);
@@ -492,7 +545,7 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
 
                 // Fallback: check by account ID
                 if (!string.IsNullOrEmpty(botAccountId) &&
-                    reply.Publisher?.AccountId?.ToString() == botAccountId)
+                    reply.Publisher?.AccountId?.ToString() == botAccountId ||  reply.Publisher?.Name == botAccountId)
                 {
                     _logger.LogDebug("Found existing reply from MiChan's account {AccountId} on post {PostId}",
                         botAccountId, post.Id);
