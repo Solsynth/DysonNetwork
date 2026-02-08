@@ -42,14 +42,17 @@ public class MiChanAutonomousBehavior
     {
         _kernel = _kernelProvider.GetKernel();
         
-        // Register plugins
+        // Register plugins (only if not already registered)
         var chatPlugin = _serviceProvider.GetRequiredService<ChatPlugin>();
         var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
         var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
 
-        _kernel.Plugins.AddFromObject(chatPlugin, "chat");
-        _kernel.Plugins.AddFromObject(postPlugin, "post");
-        _kernel.Plugins.AddFromObject(accountPlugin, "account");
+        if (!_kernel.Plugins.Contains("chat"))
+            _kernel.Plugins.AddFromObject(chatPlugin, "chat");
+        if (!_kernel.Plugins.Contains("post"))
+            _kernel.Plugins.AddFromObject(postPlugin, "post");
+        if (!_kernel.Plugins.Contains("account"))
+            _kernel.Plugins.AddFromObject(accountPlugin, "account");
 
         _logger.LogInformation("MiChan autonomous behavior initialized");
     }

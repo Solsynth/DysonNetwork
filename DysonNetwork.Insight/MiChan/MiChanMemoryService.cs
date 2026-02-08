@@ -3,22 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Insight.MiChan;
 
-public class MiChanMemoryService
+public class MiChanMemoryService(AppDatabase db, ILogger<MiChanMemoryService> logger, MiChanConfig config)
 {
-    private readonly AppDatabase _db;
-    private readonly ILogger<MiChanMemoryService> _logger;
-    private readonly MiChanConfig _config;
-
     // In-memory cache for recent interactions
     private readonly Dictionary<string, List<MiChanInteraction>> _memoryCache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
-
-    public MiChanMemoryService(AppDatabase db, ILogger<MiChanMemoryService> logger, MiChanConfig config)
-    {
-        _db = db;
-        _logger = logger;
-        _config = config;
-    }
 
     /// <summary>
     /// Store a new interaction in memory
@@ -48,10 +37,10 @@ public class MiChanMemoryService
                 _memoryCache[contextId].Add(interaction);
 
                 // Trim cache if too large
-                if (_memoryCache[contextId].Count > _config.Memory.MaxContextLength)
+                if (_memoryCache[contextId].Count > config.Memory.MaxContextLength)
                 {
                     _memoryCache[contextId] = _memoryCache[contextId]
-                        .Skip(_memoryCache[contextId].Count - _config.Memory.MaxContextLength)
+                        .Skip(_memoryCache[contextId].Count - config.Memory.MaxContextLength)
                         .ToList();
                 }
             }
@@ -61,17 +50,17 @@ public class MiChanMemoryService
             }
 
             // Persist to database if enabled
-            if (_config.Memory.PersistToDatabase)
+            if (config.Memory.PersistToDatabase)
             {
-                _db.MiChanInteractions.Add(interaction);
-                await _db.SaveChangesAsync();
+                db.MiChanInteractions.Add(interaction);
+                await db.SaveChangesAsync();
             }
 
-            _logger.LogDebug("Stored interaction {Type} for context {ContextId}", type, contextId);
+            logger.LogDebug("Stored interaction {Type} for context {ContextId}", type, contextId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error storing interaction");
+            logger.LogError(ex, "Error storing interaction");
         }
     }
 
@@ -92,9 +81,9 @@ public class MiChanMemoryService
             }
 
             // If not in cache, try database
-            if (_config.Memory.PersistToDatabase)
+            if (config.Memory.PersistToDatabase)
             {
-                return await _db.MiChanInteractions
+                return await db.MiChanInteractions
                     .Where(i => i.ContextId == contextId)
                     .OrderByDescending(i => i.CreatedAt)
                     .Take(count)
@@ -114,9 +103,9 @@ public class MiChanMemoryService
     /// </summary>
     public async Task<List<MiChanInteraction>> GetInteractionsByTypeAsync(string type, int count = 50)
     {
-        if (_config.Memory.PersistToDatabase)
+        if (config.Memory.PersistToDatabase)
         {
-            return await _db.MiChanInteractions
+            return await db.MiChanInteractions
                 .Where(i => i.Type == type)
                 .OrderByDescending(i => i.CreatedAt)
                 .Take(count)
@@ -162,11 +151,11 @@ public class MiChanMemoryService
                 _cacheLock.Release();
             }
 
-            _logger.LogDebug("Stored memory {Key} for context {ContextId}", key, contextId);
+            logger.LogDebug("Stored memory {Key} for context {ContextId}", key, contextId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error storing memory");
+            logger.LogError(ex, "Error storing memory");
         }
     }
 

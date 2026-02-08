@@ -54,12 +54,14 @@ public class MiChanPostMonitor : IDisposable
     {
         _kernel = _kernelProvider.GetKernel();
         
-        // Register plugins
+        // Register plugins (only if not already registered)
         var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
         var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
 
-        _kernel.Plugins.AddFromObject(postPlugin, "post");
-        _kernel.Plugins.AddFromObject(accountPlugin, "account");
+        if (!_kernel.Plugins.Contains("post"))
+            _kernel.Plugins.AddFromObject(postPlugin, "post");
+        if (!_kernel.Plugins.Contains("account"))
+            _kernel.Plugins.AddFromObject(accountPlugin, "account");
 
         _logger.LogInformation("MiChan post monitor initialized");
     }

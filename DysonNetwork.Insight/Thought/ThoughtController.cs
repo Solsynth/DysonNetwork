@@ -471,17 +471,21 @@ public class ThoughtController(
         // Get or create context ID
         var contextId = request.SequenceId?.ToString() ?? $"thought_{accountId}_{sequence.Id}";
 
-        // Build kernel with all plugins
+        // Build kernel with all plugins (only if not already registered)
         var kernel = miChanKernelProvider.GetKernel();
         var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
         var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
         var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
         var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
 
-        kernel.Plugins.AddFromObject(chatPlugin, "chat");
-        kernel.Plugins.AddFromObject(postPlugin, "post");
-        kernel.Plugins.AddFromObject(notificationPlugin, "notification");
-        kernel.Plugins.AddFromObject(accountPlugin, "account");
+        if (!kernel.Plugins.Contains("chat"))
+            kernel.Plugins.AddFromObject(chatPlugin, "chat");
+        if (!kernel.Plugins.Contains("post"))
+            kernel.Plugins.AddFromObject(postPlugin, "post");
+        if (!kernel.Plugins.Contains("notification"))
+            kernel.Plugins.AddFromObject(notificationPlugin, "notification");
+        if (!kernel.Plugins.Contains("account"))
+            kernel.Plugins.AddFromObject(accountPlugin, "account");
 
         // Load personality
         var personality = PersonalityLoader.LoadPersonality(miChanConfig.PersonalityFile, miChanConfig.Personality, logger);

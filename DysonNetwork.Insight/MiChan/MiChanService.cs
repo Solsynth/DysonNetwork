@@ -7,11 +7,12 @@ using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan;
 
-public class MiChanService : BackgroundService
+public class MiChanService(
+    MiChanConfig config,
+    ILogger<MiChanService> logger,
+    IServiceProvider serviceProvider)
+    : BackgroundService
 {
-    private readonly MiChanConfig _config;
-    private readonly ILogger<MiChanService> _logger;
-    private readonly IServiceProvider _serviceProvider;
     private MiChanWebSocketHandler? _webSocketHandler;
     private MiChanKernelProvider? _kernelProvider;
     private MiChanMemoryService? _memoryService;
@@ -24,37 +25,27 @@ public class MiChanService : BackgroundService
     private readonly Dictionary<Guid, List<MiChanMessage>> _conversations = new();
     private readonly SemaphoreSlim _conversationLock = new(1, 1);
 
-    public MiChanService(
-        MiChanConfig config,
-        ILogger<MiChanService> logger,
-        IServiceProvider serviceProvider)
-    {
-        _config = config;
-        _logger = logger;
-        _serviceProvider = serviceProvider;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_config.Enabled)
+        if (!config.Enabled)
         {
-            _logger.LogInformation("MiChan is disabled. Skipping initialization.");
+            logger.LogInformation("MiChan is disabled. Skipping initialization.");
             return;
         }
 
-        if (string.IsNullOrEmpty(_config.AccessToken) || string.IsNullOrEmpty(_config.BotAccountId))
+        if (string.IsNullOrEmpty(config.AccessToken) || string.IsNullOrEmpty(config.BotAccountId))
         {
-            _logger.LogWarning("MiChan is enabled but AccessToken or BotAccountId is not configured.");
+            logger.LogWarning("MiChan is enabled but AccessToken or BotAccountId is not configured.");
             return;
         }
 
-        _logger.LogInformation("Starting MiChan service...");
+        logger.LogInformation("Starting MiChan service...");
 
         // Initialize services
         await InitializeAsync(stoppingToken);
 
         // Start autonomous behavior loop
-        if (_config.AutonomousBehavior.Enabled)
+        if (config.AutonomousBehavior.Enabled)
         {
             _ = Task.Run(async () => await AutonomousLoopAsync(stoppingToken), stoppingToken);
         }
@@ -63,7 +54,7 @@ public class MiChanService : BackgroundService
         await ConnectWebSocketAsync(stoppingToken);
 
         // Start post monitoring
-        if (_config.PostMonitoring.Enabled && _postMonitor != null)
+        if (config.PostMonitoring.Enabled && _postMonitor != null)
         {
             _postMonitor.StartMonitoring();
         }
@@ -74,9 +65,9 @@ public class MiChanService : BackgroundService
             try
             {
                 // Check if WebSocket is connected, reconnect if needed
-                if (_webSocketHandler != null && !_webSocketHandler.IsConnected)
+                if (_webSocketHandler is { IsConnected: false })
                 {
-                    _logger.LogWarning("WebSocket disconnected. Attempting to reconnect...");
+                    logger.LogWarning("WebSocket disconnected. Attempting to reconnect...");
                     await ConnectWebSocketAsync(stoppingToken);
                 }
 
@@ -88,12 +79,12 @@ public class MiChanService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in MiChan service loop");
+                logger.LogError(ex, "Error in MiChan service loop");
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
         }
 
-        _logger.LogInformation("MiChan service stopped");
+        logger.LogInformation("MiChan service stopped");
     }
 
     private async Task InitializeAsync(CancellationToken cancellationToken)
@@ -101,49 +92,53 @@ public class MiChanService : BackgroundService
         try
         {
             // Create API client
-            _apiClient = _serviceProvider.GetRequiredService<SolarNetworkApiClient>();
+            _apiClient = serviceProvider.GetRequiredService<SolarNetworkApiClient>();
 
             // Create memory service
-            _memoryService = _serviceProvider.GetRequiredService<MiChanMemoryService>();
+            _memoryService = serviceProvider.GetRequiredService<MiChanMemoryService>();
 
             // Create kernel provider and get kernel
-            _kernelProvider = _serviceProvider.GetRequiredService<MiChanKernelProvider>();
+            _kernelProvider = serviceProvider.GetRequiredService<MiChanKernelProvider>();
             _kernel = _kernelProvider.GetKernel();
 
-            // Register plugins
-            var chatPlugin = _serviceProvider.GetRequiredService<ChatPlugin>();
-            var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
-            var notificationPlugin = _serviceProvider.GetRequiredService<NotificationPlugin>();
-            var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
+            // Register plugins (only if not already registered)
+            var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
+            var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
+            var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
+            var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
 
-            _kernel.Plugins.AddFromObject(chatPlugin, "chat");
-            _kernel.Plugins.AddFromObject(postPlugin, "post");
-            _kernel.Plugins.AddFromObject(notificationPlugin, "notification");
-            _kernel.Plugins.AddFromObject(accountPlugin, "account");
+            if (!_kernel.Plugins.Contains("chat"))
+                _kernel.Plugins.AddFromObject(chatPlugin, "chat");
+            if (!_kernel.Plugins.Contains("post"))
+                _kernel.Plugins.AddFromObject(postPlugin, "post");
+            if (!_kernel.Plugins.Contains("notification"))
+                _kernel.Plugins.AddFromObject(notificationPlugin, "notification");
+            if (!_kernel.Plugins.Contains("account"))
+                _kernel.Plugins.AddFromObject(accountPlugin, "account");
 
             // Create autonomous behavior
-            _autonomousBehavior = _serviceProvider.GetRequiredService<MiChanAutonomousBehavior>();
+            _autonomousBehavior = serviceProvider.GetRequiredService<MiChanAutonomousBehavior>();
             await _autonomousBehavior.InitializeAsync();
 
             // Create post monitor
-            _postMonitor = _serviceProvider.GetRequiredService<MiChanPostMonitor>();
+            _postMonitor = serviceProvider.GetRequiredService<MiChanPostMonitor>();
             await _postMonitor.InitializeAsync();
 
             // Load personality from file if configured
-            _cachedPersonality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+            _cachedPersonality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
 
-            _logger.LogInformation("MiChan initialized successfully");
+            logger.LogInformation("MiChan initialized successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to initialize MiChan");
+            logger.LogError(ex, "Failed to initialize MiChan");
             throw;
         }
     }
 
     private async Task AutonomousLoopAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Starting autonomous behavior loop...");
+        logger.LogInformation("Starting autonomous behavior loop...");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -153,7 +148,7 @@ public class MiChanService : BackgroundService
                 
                 if (executed)
                 {
-                    _logger.LogInformation("Autonomous action executed successfully");
+                    logger.LogInformation("Autonomous action executed successfully");
                 }
 
                 // Wait before checking again (5 minute interval check)
@@ -165,12 +160,12 @@ public class MiChanService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in autonomous behavior loop");
+                logger.LogError(ex, "Error in autonomous behavior loop");
                 await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
         }
 
-        _logger.LogInformation("Autonomous behavior loop stopped");
+        logger.LogInformation("Autonomous behavior loop stopped");
     }
 
     private async Task ConnectWebSocketAsync(CancellationToken cancellationToken)
@@ -178,20 +173,20 @@ public class MiChanService : BackgroundService
         try
         {
             _webSocketHandler = new MiChanWebSocketHandler(
-                _config,
-                _serviceProvider.GetRequiredService<ILogger<MiChanWebSocketHandler>>(),
+                config,
+                serviceProvider.GetRequiredService<ILogger<MiChanWebSocketHandler>>(),
                 this
             );
 
             _webSocketHandler.OnPacketReceived += OnWebSocketPacketReceived;
-            _webSocketHandler.OnConnected += (s, e) => _logger.LogInformation("MiChan WebSocket connected");
-            _webSocketHandler.OnDisconnected += (s, e) => _logger.LogWarning("MiChan WebSocket disconnected");
+            _webSocketHandler.OnConnected += (s, e) => logger.LogInformation("MiChan WebSocket connected");
+            _webSocketHandler.OnDisconnected += (s, e) => logger.LogWarning("MiChan WebSocket disconnected");
 
             await _webSocketHandler.ConnectAsync(cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to connect WebSocket");
+            logger.LogError(ex, "Failed to connect WebSocket");
             throw;
         }
     }
@@ -225,13 +220,13 @@ public class MiChanService : BackgroundService
                         break;
                     default:
                         // Handle other packet types if needed
-                        _logger.LogDebug("Received WebSocket packet of type: {Type}", packet.Type);
+                        logger.LogDebug("Received WebSocket packet of type: {Type}", packet.Type);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error handling WebSocket packet of type {Type}", packet.Type);
+                logger.LogError(ex, "Error handling WebSocket packet of type {Type}", packet.Type);
             }
         });
     }
@@ -258,7 +253,7 @@ public class MiChanService : BackgroundService
             var content = contentElement.GetString();
 
             // Skip if the message is from MiChan herself
-            if (senderId.ToString() == _config.BotAccountId)
+            if (senderId.ToString() == config.BotAccountId)
                 return;
 
             // Check if this is a DM or mentions MiChan
@@ -266,29 +261,29 @@ public class MiChanService : BackgroundService
 
             if (shouldRespond)
             {
-                _logger.LogInformation("Processing message from user {SenderId} in room {RoomId}", senderId, roomId);
+                logger.LogInformation("Processing message from user {SenderId} in room {RoomId}", senderId, roomId);
                 await GenerateAndSendResponseAsync(roomId, senderId, content);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling new message");
+            logger.LogError(ex, "Error handling new message");
         }
     }
 
     private async Task<bool> ShouldRespondToMessageAsync(Guid roomId, Guid senderId, string? content)
     {
-        if (!_config.AutoRespond.ToChatMessages && !_config.AutoRespond.ToDirectMessages)
+        if (!config.AutoRespond.ToChatMessages && !config.AutoRespond.ToDirectMessages)
             return false;
 
         // Check if this is a DM (direct message with single user)
         var isDM = await IsDirectMessageAsync(roomId);
 
-        if (isDM && _config.AutoRespond.ToDirectMessages)
+        if (isDM && config.AutoRespond.ToDirectMessages)
             return true;
 
         // Check if MiChan is mentioned in the message
-        if (_config.AutoRespond.ToMentions)
+        if (config.AutoRespond.ToMentions)
         {
             var botAccount = await _apiClient!.GetAsync<object>("pass", "/accounts/me");
             // Check if content mentions the bot by username or display name
@@ -370,7 +365,7 @@ public class MiChanService : BackgroundService
 
             // Store the messages
             await AddMessageToConversationAsync(roomId, senderId.ToString(), content ?? "", false);
-            await AddMessageToConversationAsync(roomId, _config.BotAccountId, response, true);
+            await AddMessageToConversationAsync(roomId, config.BotAccountId, response, true);
 
             // Update memory with response
             await _memoryService.StoreMemoryAsync(
@@ -388,24 +383,24 @@ public class MiChanService : BackgroundService
                 ["content"] = response
             });
 
-            _logger.LogInformation("Sent response to room {RoomId}", roomId);
+            logger.LogInformation("Sent response to room {RoomId}", roomId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating and sending response");
+            logger.LogError(ex, "Error generating and sending response");
         }
     }
 
     private string GetPersonality()
     {
         // If personality file is configured, reload it each time (hot reload support)
-        if (!string.IsNullOrWhiteSpace(_config.PersonalityFile))
+        if (!string.IsNullOrWhiteSpace(config.PersonalityFile))
         {
-            return PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+            return PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
         }
 
         // Otherwise use cached personality or config value
-        return _cachedPersonality ?? _config.Personality;
+        return _cachedPersonality ?? config.Personality;
     }
 
     private async Task<List<MiChanMessage>> GetConversationHistoryAsync(Guid roomId)
@@ -457,7 +452,7 @@ public class MiChanService : BackgroundService
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Stopping MiChan service...");
+        logger.LogInformation("Stopping MiChan service...");
 
         _postMonitor?.StopMonitoring();
         _postMonitor?.Dispose();
