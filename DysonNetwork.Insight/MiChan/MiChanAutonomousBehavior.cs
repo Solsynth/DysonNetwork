@@ -218,14 +218,12 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 var replyText = decision.Substring(6).Trim();
                 return new PostActionDecision { Action = "reply", Content = replyText };
             }
-            else if (decision.StartsWith("LIKE"))
+
+            if (decision.StartsWith("LIKE"))
             {
                 return new PostActionDecision { Action = "like" };
             }
-            else
-            {
-                return new PostActionDecision { Action = "ignore" };
-            }
+            return new PostActionDecision { Action = "ignore" };
         }
         catch (Exception ex)
         {
@@ -244,10 +242,10 @@ If REPLY, add your brief reply after a colon. Example: REPLY: That's a great poi
                 return;
             }
 
-            var request = new
+            var request = new Dictionary<string, object>()
             {
-                content = content,
-                replied_post_id = post.Id.ToString()
+                ["content"] = content,
+                ["replied_post_id"] = post.Id.ToString()
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
