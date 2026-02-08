@@ -59,14 +59,27 @@ public class MiChanKernelProvider
                 );
                 break;
             case "deepseek":
-                var client = new OpenAIClient(
+                var deepseekClient = new OpenAIClient(
                     new ApiKeyCredential(apiKey!),
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
-                builder.AddOpenAIChatCompletion(model!, client);
+                builder.AddOpenAIChatCompletion(model!, deepseekClient);
                 // Note: DeepSeek API does NOT provide embeddings endpoint
                 // We'll try to use Ollama for embeddings if available, otherwise semantic search is disabled
                 _logger.LogWarning("DeepSeek API does not support embeddings. Semantic search will be disabled unless Ollama is configured.");
+                break;
+            
+            case "openrouter":
+                var openRouterClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://openrouter.ai/api/v1") }
+                );
+                builder.AddOpenAIChatCompletion(model!, openRouterClient);
+                // Add OpenRouter embeddings support (e.g., qwen/qwen3-embedding-8b)
+                var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
+                    ?? "qwen/qwen3-embedding-8b";
+                builder.AddOpenAITextEmbeddingGeneration(embeddingModel, openRouterClient);
+                _logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
                 break;
             default:
                 throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
@@ -147,7 +160,7 @@ public class MiChanKernelProvider
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
             },
-            "deepseek" => new OpenAIPromptExecutionSettings
+            "deepseek" or "openrouter" => new OpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 ModelId = _config.ThinkingService
