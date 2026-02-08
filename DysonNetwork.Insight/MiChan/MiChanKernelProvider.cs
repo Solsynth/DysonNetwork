@@ -65,8 +65,7 @@ public class MiChanKernelProvider
                 );
                 builder.AddOpenAIChatCompletion(model!, deepseekClient);
                 // Note: DeepSeek API does NOT provide embeddings endpoint
-                // We'll try to use Ollama for embeddings if available, otherwise semantic search is disabled
-                _logger.LogWarning("DeepSeek API does not support embeddings. Semantic search will be disabled unless Ollama is configured.");
+                // OpenRouter will be used as fallback for embeddings if configured
                 break;
             
             case "openrouter":
@@ -85,8 +84,8 @@ public class MiChanKernelProvider
                 throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
         }
 
-        // Try to add Ollama embedding service as fallback for providers without native embeddings
-        AddOllamaEmbeddingFallback(builder, providerType);
+        // Try to add OpenRouter embedding service as fallback for providers without native embeddings
+        AddOpenRouterEmbeddingFallback(builder, providerType);
 
         // Add web search plugins if configured
         InitializeHelperFunctions(builder);
@@ -119,32 +118,39 @@ public class MiChanKernelProvider
     }
 
     [Experimental("SKEXP0050")]
-    private void AddOllamaEmbeddingFallback(IKernelBuilder builder, string? currentProvider)
+    private void AddOpenRouterEmbeddingFallback(IKernelBuilder builder, string? currentProvider)
     {
-        // Skip if Ollama is already the provider (it handles its own embeddings)
-        if (currentProvider == "ollama")
+        // Skip if OpenRouter is already the provider (it handles its own embeddings)
+        if (currentProvider == "openrouter")
             return;
 
-        // Check if Ollama endpoint is configured or available
-        var ollamaEndpoint = _configuration.GetValue<string>("Thinking:Ollama:EmbeddingEndpoint") 
-            ?? _configuration.GetValue<string>("Thinking:Services:ollama:Endpoint")
-            ?? "http://localhost:11434/api";
-        var ollamaModel = _configuration.GetValue<string>("Thinking:Ollama:EmbeddingModel") 
-            ?? "nomic-embed-text";
+        // Check if OpenRouter is configured for embedding fallback
+        var openRouterApiKey = _configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
+        if (string.IsNullOrEmpty(openRouterApiKey))
+        {
+            _logger.LogWarning("No OpenRouter API key configured for embedding fallback. Semantic search will be disabled for {Provider}.", currentProvider);
+            return;
+        }
+
+        var openRouterEndpoint = _configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
+            ?? "https://openrouter.ai/api/v1";
+        var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
+            ?? "qwen/qwen3-embedding-8b";
 
         try
         {
-            // Try to add Ollama embedding service
-            builder.AddOllamaTextEmbeddingGeneration(
-                ollamaModel,
-                new Uri(ollamaEndpoint)
+            // Add OpenRouter embedding service as fallback
+            var openRouterClient = new OpenAIClient(
+                new ApiKeyCredential(openRouterApiKey),
+                new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
             );
-            _logger.LogInformation("Ollama embedding fallback configured at {Endpoint} with model {Model}", 
-                ollamaEndpoint, ollamaModel);
+            builder.AddOpenAITextEmbeddingGeneration(embeddingModel, openRouterClient);
+            _logger.LogInformation("OpenRouter embedding fallback configured with model {Model} for {Provider}", 
+                embeddingModel, currentProvider);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not configure Ollama embedding fallback. Semantic search will be disabled.");
+            _logger.LogWarning(ex, "Could not configure OpenRouter embedding fallback. Semantic search will be disabled.");
         }
     }
 
