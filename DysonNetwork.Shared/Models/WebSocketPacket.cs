@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -25,9 +24,10 @@ public class WebSocketPacket
     /// <returns>Deserialized WebSocketPacket</returns>
     public static WebSocketPacket FromBytes(byte[] bytes)
     {
+        ArgumentNullException.ThrowIfNull(bytes, nameof(bytes));
         var json = System.Text.Encoding.UTF8.GetString(bytes);
-        return JsonSerializer.Deserialize<WebSocketPacket>(json, InfraObjectCoder.SerializerOptions) ??
-               throw new JsonException("Failed to deserialize WebSocketPacket");
+        return JsonSerializer.Deserialize<WebSocketPacket>(json, InfraObjectCoder.SerializerOptions)
+            ?? throw new JsonException("Failed to deserialize WebSocketPacket");
     }
 
     /// <summary>
@@ -55,14 +55,14 @@ public class WebSocketPacket
         var json = JsonSerializer.Serialize(this, InfraObjectCoder.SerializerOptions);
         return System.Text.Encoding.UTF8.GetBytes(json);
     }
-    
+
     public Proto.WebSocketPacket ToProtoValue()
     {
         return new Proto.WebSocketPacket
         {
             Type = Type,
             Data = InfraObjectCoder.ConvertObjectToByteString(Data),
-            ErrorMessage = ErrorMessage
+            ErrorMessage = ErrorMessage,
         };
     }
 
@@ -72,7 +72,8 @@ public class WebSocketPacket
         {
             Type = packet.Type,
             Data = InfraObjectCoder.ConvertByteStringToObject<object?>(packet.Data),
-            ErrorMessage = packet.ErrorMessage
+            ErrorMessage = packet.ErrorMessage,
         };
     }
 }
+

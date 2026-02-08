@@ -114,6 +114,12 @@ public static class ServiceCollectionExtensions
 
                         logger.LogDebug("Handling websocket packet...");
 
+                        if (evt.PacketBytes == null)
+                        {
+                            logger.LogWarning("Received WebSocketPacketEvent with null PacketBytes for account {AccountId}", evt.AccountId);
+                            return;
+                        }
+
                         var packet = WebSocketPacket.FromBytes(evt.PacketBytes);
                         logger.LogInformation("Handling websocket packet... {Type}", packet.Type);
 
