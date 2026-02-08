@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Embeddings;
 using Pgvector;
 

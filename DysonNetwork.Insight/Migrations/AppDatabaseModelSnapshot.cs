@@ -58,7 +58,7 @@ namespace DysonNetwork.Insight.Migrations
                         .HasColumnName("embedded_content");
 
                     b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(4096)")
+                        .HasColumnType("vector(1536)")
                         .HasColumnName("embedding");
 
                     b.Property<Dictionary<string, object>>("Memory")

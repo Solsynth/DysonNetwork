@@ -170,7 +170,6 @@ public partial class PostService(
             }
 
             using var scope = factory.CreateScope();
-            var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
             var accountsClient = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
 

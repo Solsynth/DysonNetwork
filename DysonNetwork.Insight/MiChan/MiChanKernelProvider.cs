@@ -77,7 +77,7 @@ public class MiChanKernelProvider
                 // Add OpenRouter embeddings support (e.g., qwen/qwen3-embedding-8b)
                 var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
                     ?? "qwen/qwen3-embedding-8b";
-                builder.AddOpenAITextEmbeddingGeneration(embeddingModel, openRouterClient);
+                builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
                 _logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
                 break;
             default:
@@ -144,7 +144,7 @@ public class MiChanKernelProvider
                 new ApiKeyCredential(openRouterApiKey),
                 new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
             );
-            builder.AddOpenAITextEmbeddingGeneration(embeddingModel, openRouterClient);
+            builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
             _logger.LogInformation("OpenRouter embedding fallback configured with model {Model} for {Provider}", 
                 embeddingModel, currentProvider);
         }
