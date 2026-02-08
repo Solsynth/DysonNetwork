@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Embeddings;
 using Pgvector;
@@ -7,16 +8,30 @@ namespace DysonNetwork.Insight.MiChan;
 /// <summary>
 /// Service for generating text embeddings using Semantic Kernel
 /// </summary>
+#pragma warning disable SKEXP0050
 public class EmbeddingService
 {
-    private readonly ITextEmbeddingGenerationService _embeddingService;
+    private readonly MiChanKernelProvider _kernelProvider;
     private readonly ILogger<EmbeddingService> _logger;
 
-    public EmbeddingService(Kernel kernel, ILogger<EmbeddingService> logger)
+    public EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<EmbeddingService> logger)
     {
-        // Try to get embedding service from kernel
-        _embeddingService = kernel.GetRequiredService<ITextEmbeddingGenerationService>();
+        _kernelProvider = kernelProvider;
         _logger = logger;
+    }
+
+    private ITextEmbeddingGenerationService? GetEmbeddingService()
+    {
+        try
+        {
+            var kernel = _kernelProvider.GetKernel();
+            return kernel.Services.GetService<ITextEmbeddingGenerationService>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Embedding service not available. Semantic search will be disabled.");
+            return null;
+        }
     }
 
     /// <summary>
@@ -32,8 +47,14 @@ public class EmbeddingService
                 return null;
             }
 
+            var embeddingService = GetEmbeddingService();
+            if (embeddingService == null)
+            {
+                return null;
+            }
+
             // Call the service without passing cancellationToken as second parameter
-            var embeddings = await _embeddingService.GenerateEmbeddingsAsync([text]);
+            var embeddings = await embeddingService.GenerateEmbeddingsAsync([text]);
             
             if (embeddings.Count == 0)
             {
@@ -64,8 +85,14 @@ public class EmbeddingService
                 return [];
             }
 
+            var embeddingService = GetEmbeddingService();
+            if (embeddingService == null)
+            {
+                return texts.Select(_ => (Vector?)null).ToList();
+            }
+
             // Call the service without passing cancellationToken
-            var embeddings = await _embeddingService.GenerateEmbeddingsAsync(texts);
+            var embeddings = await embeddingService.GenerateEmbeddingsAsync(texts);
             
             return embeddings.Select(e => (Vector?)new Vector(e.ToArray())).ToList();
         }
@@ -75,6 +102,11 @@ public class EmbeddingService
             return texts.Select(_ => (Vector?)null).ToList();
         }
     }
+
+    /// <summary>
+    /// Check if embedding service is available
+    /// </summary>
+    public bool IsAvailable => GetEmbeddingService() != null;
 
     /// <summary>
     /// Extract searchable content from interaction context

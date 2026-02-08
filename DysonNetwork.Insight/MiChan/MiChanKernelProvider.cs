@@ -64,9 +64,12 @@ public class MiChanKernelProvider
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
                 );
                 builder.AddOpenAIChatCompletion(model!, client);
-                // Note: DeepSeek doesn't provide embeddings yet, we'll need OpenAI or Azure for embeddings
-                // Fall back to OpenAI embeddings if available
-                AddOpenAIEmbeddingsIfAvailable(builder);
+                // Add DeepSeek embeddings using the same client
+                builder.AddOpenAITextEmbeddingGeneration(
+                    "deepseek-embedding",  // DeepSeek's embedding model
+                    client
+                );
+                _logger.LogInformation("DeepSeek embeddings configured");
                 break;
             default:
                 throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
@@ -77,23 +80,6 @@ public class MiChanKernelProvider
 
         _kernel = builder.Build();
         return _kernel;
-    }
-
-    private void AddOpenAIEmbeddingsIfAvailable(IKernelBuilder builder)
-    {
-        var openAiKey = _configuration.GetValue<string>("Thinking:OpenAI:ApiKey");
-        if (!string.IsNullOrEmpty(openAiKey))
-        {
-            builder.AddOpenAITextEmbeddingGeneration(
-                "text-embedding-3-small",  // Cheapest and good quality
-                openAiKey
-            );
-            _logger.LogInformation("OpenAI embeddings configured");
-        }
-        else
-        {
-            _logger.LogWarning("No embedding service configured. Semantic search will be disabled.");
-        }
     }
 
     [Experimental("SKEXP0050")]
