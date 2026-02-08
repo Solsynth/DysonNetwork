@@ -17,7 +17,6 @@ public class MiChanService(
     private MiChanKernelProvider? _kernelProvider;
     private MiChanMemoryService? _memoryService;
     private MiChanAutonomousBehavior? _autonomousBehavior;
-    private MiChanPostMonitor? _postMonitor;
     private SolarNetworkApiClient? _apiClient;
     private Kernel? _kernel;
     private string? _cachedPersonality;
@@ -52,12 +51,6 @@ public class MiChanService(
 
         // Connect WebSocket
         await ConnectWebSocketAsync(stoppingToken);
-
-        // Start post monitoring
-        if (config.PostMonitoring.Enabled && _postMonitor != null)
-        {
-            _postMonitor.StartMonitoring();
-        }
 
         // Keep the service running
         while (!stoppingToken.IsCancellationRequested)
@@ -116,13 +109,9 @@ public class MiChanService(
             if (!_kernel.Plugins.Contains("account"))
                 _kernel.Plugins.AddFromObject(accountPlugin, "account");
 
-            // Create autonomous behavior
+            // Create autonomous behavior (includes post checking)
             _autonomousBehavior = serviceProvider.GetRequiredService<MiChanAutonomousBehavior>();
             await _autonomousBehavior.InitializeAsync();
-
-            // Create post monitor
-            _postMonitor = serviceProvider.GetRequiredService<MiChanPostMonitor>();
-            await _postMonitor.InitializeAsync();
 
             // Load personality from file if configured
             _cachedPersonality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);
@@ -453,9 +442,6 @@ public class MiChanService(
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Stopping MiChan service...");
-
-        _postMonitor?.StopMonitoring();
-        _postMonitor?.Dispose();
 
         if (_webSocketHandler != null)
         {

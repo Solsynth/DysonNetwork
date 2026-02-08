@@ -94,7 +94,6 @@ public static class ServiceCollectionExtensions
             // Memory and behavior services
             services.AddSingleton<MiChan.MiChanMemoryService>();
             services.AddSingleton<MiChan.MiChanAutonomousBehavior>();
-            services.AddSingleton<MiChan.MiChanPostMonitor>();
             
             // Only start the hosted service when enabled
             if (miChanConfig.Enabled)

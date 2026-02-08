@@ -1,5 +1,6 @@
 #pragma warning disable SKEXP0050
 using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Models;
 using Microsoft.SemanticKernel;
@@ -19,6 +20,8 @@ public class MiChanAutonomousBehavior
     private readonly Random _random = new();
     private DateTime _lastActionTime = DateTime.MinValue;
     private TimeSpan _nextInterval;
+    private readonly HashSet<string> _processedPostIds = new();
+    private readonly Regex _mentionRegex;
 
     public MiChanAutonomousBehavior(
         MiChanConfig config,
@@ -35,6 +38,7 @@ public class MiChanAutonomousBehavior
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
         _nextInterval = CalculateNextInterval();
+        _mentionRegex = new Regex($"@{Regex.Escape(config.BotAccountId)}\\b|@michan\\b", RegexOptions.IgnoreCase);
     }
 
     [Experimental("SKEXP0050")]
@@ -72,27 +76,21 @@ public class MiChanAutonomousBehavior
         {
             _logger.LogInformation("Executing autonomous action...");
             
-            // Select a random action from configured actions
-            var availableActions = _config.AutonomousBehavior.Actions;
-            if (availableActions.Count == 0)
-                return false;
-
-            var action = availableActions[_random.Next(availableActions.Count)];
+            // Always check posts first for mentions and interesting content
+            await CheckAndInteractWithPostsAsync();
             
-            switch (action)
+            // Then possibly do additional actions
+            var availableActions = _config.AutonomousBehavior.Actions;
+            if (availableActions.Count > 0 && _random.Next(100) < 30) // 30% chance for extra action
             {
-                case "browse":
-                    await BrowseAndAnalyzePostsAsync();
-                    break;
-                case "like":
-                    await BrowseAndLikePostsAsync();
-                    break;
-                case "create_post":
-                    await CreateAutonomousPostAsync();
-                    break;
-                case "reply_trending":
-                    await ReplyToTrendingPostAsync();
-                    break;
+                var action = availableActions[_random.Next(availableActions.Count)];
+                
+                switch (action)
+                {
+                    case "create_post":
+                        await CreateAutonomousPostAsync();
+                        break;
+                }
             }
 
             _lastActionTime = DateTime.UtcNow;
@@ -108,69 +106,210 @@ public class MiChanAutonomousBehavior
     }
 
     [Experimental("SKEXP0050")]
-    private async Task BrowseAndAnalyzePostsAsync()
+    private async Task CheckAndInteractWithPostsAsync()
     {
-        _logger.LogInformation("Autonomous: Browsing timeline...");
+        _logger.LogInformation("Autonomous: Checking posts...");
         
-        // Get timeline posts
-        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/timeline/home?take=20");
+        // Get recent posts
+        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/timeline/global?take=30");
         if (posts == null || posts.Count == 0)
             return;
 
-        // Select a random post to analyze
-        var post = posts[_random.Next(posts.Count)];
-        
-        // Store in memory
-        await _memoryService.StoreInteractionAsync(
-            "autonomous",
-            $"browse_{DateTime.UtcNow:yyyyMMdd_HHmmss}",
-            new Dictionary<string, object>
-            {
-                ["action"] = "browse",
-                ["post_id"] = post.Id,
-                ["post_content"] = post.Content,
-                ["author"] = post.Publisher?.Name ?? "unknown"
-            },
-            new Dictionary<string, object>
-            {
-                ["interest_level"] = _random.Next(1, 10),
-                ["mood"] = _config.AutonomousBehavior.PersonalityMood
-            }
-        );
+        var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+        var mood = _config.AutonomousBehavior.PersonalityMood;
 
-        _logger.LogInformation("Autonomous: Analyzed post from {Author}", post.Publisher?.Name ?? "unknown");
-    }
-
-    [Experimental("SKEXP0050")]
-    private async Task BrowseAndLikePostsAsync()
-    {
-        _logger.LogInformation("Autonomous: Browsing for interesting posts to like...");
-        
-        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/timeline/home?take=20");
-        if (posts == null || posts.Count == 0)
-            return;
-
-        // Try to find a post that matches MiChan's "interests"
-        var postPlugin = _kernel!.Plugins["post"];
-        var getPostFunction = postPlugin["get_post"];
-
-        // Randomly like 1-3 posts
-        var postsToLike = posts.OrderBy(_ => _random.Next()).Take(_random.Next(1, 4));
-        
-        foreach (var post in postsToLike)
+        foreach (var post in posts.OrderByDescending(p => p.CreatedAt).Take(10))
         {
-            try
+            // Skip already processed posts
+            if (_processedPostIds.Contains(post.Id.ToString()))
+                continue;
+
+            _processedPostIds.Add(post.Id.ToString());
+            
+            // Keep hash set size manageable
+            if (_processedPostIds.Count > 1000)
             {
-                await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/like", new { });
-                _logger.LogInformation("Autonomous: Liked post {PostId}", post.Id);
-                
-                await Task.Delay(TimeSpan.FromSeconds(2)); // Small delay between likes
+                var toRemove = _processedPostIds.Take(500).ToList();
+                foreach (var id in toRemove)
+                    _processedPostIds.Remove(id);
             }
-            catch (Exception ex)
+
+            // Check if mentioned
+            var isMentioned = ContainsMention(post);
+            
+            // MiChan decides what to do with this post
+            var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
+            
+            switch (decision.Action)
             {
-                _logger.LogWarning(ex, "Failed to like post {PostId}", post.Id);
+                case "reply":
+                    if (!string.IsNullOrEmpty(decision.Content))
+                    {
+                        await ReplyToPostAsync(post, decision.Content);
+                    }
+                    break;
+                case "like":
+                    await LikePostAsync(post);
+                    break;
+                case "ignore":
+                default:
+                    _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
+                    break;
+            }
+
+            // If mentioned, prioritize and respond
+            if (isMentioned)
+            {
+                _logger.LogInformation("Autonomous: Detected mention in post {PostId}", post.Id);
+                break; // Only handle one mention per cycle
             }
         }
+    }
+
+    private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality, string mood)
+    {
+        try
+        {
+            var author = post.Publisher?.Name ?? "someone";
+            var content = post.Content ?? "";
+
+            // If mentioned, always reply
+            if (isMentioned)
+            {
+                var prompt = $@"
+{personality}
+
+Current mood: {mood}
+
+@{author} mentioned you in their post:
+""{content}""
+
+Write a friendly, natural reply (1-3 sentences). Be conversational and genuine.
+Do not use emojis.";
+
+                var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+                var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
+                var replyContent = result.GetValue<string>()?.Trim();
+
+                return new PostActionDecision { Action = "reply", Content = replyContent };
+            }
+
+            // Otherwise, decide whether to interact
+            var decisionPrompt = $@"
+{personality}
+
+Current mood: {mood}
+
+You see a post from @{author}:
+""{content}""
+
+Should you:
+1. LIKE - The post is interesting/relatable
+2. REPLY - You have something meaningful to add
+3. IGNORE - Not interesting or relevant
+
+Respond with ONLY one word: LIKE, REPLY, or IGNORE.
+If REPLY, add your brief reply after a colon. Example: REPLY: That's a great point!";
+
+            var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
+            var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
+            var decision = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
+
+            if (decision.StartsWith("REPLY:"))
+            {
+                var replyText = decision.Substring(6).Trim();
+                return new PostActionDecision { Action = "reply", Content = replyText };
+            }
+            else if (decision.StartsWith("LIKE"))
+            {
+                return new PostActionDecision { Action = "like" };
+            }
+            else
+            {
+                return new PostActionDecision { Action = "ignore" };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deciding action for post {PostId}", post.Id);
+            return new PostActionDecision { Action = "ignore" };
+        }
+    }
+
+    private async Task ReplyToPostAsync(SnPost post, string content)
+    {
+        try
+        {
+            var request = new
+            {
+                content = content,
+                reply_to = post.Id.ToString()
+            };
+            await _apiClient.PostAsync<object>("sphere", "/posts", request);
+
+            await _memoryService.StoreInteractionAsync(
+                "autonomous",
+                $"post_{post.Id}",
+                new Dictionary<string, object>
+                {
+                    ["action"] = "reply",
+                    ["post_id"] = post.Id.ToString(),
+                    ["content"] = content,
+                    ["timestamp"] = DateTime.UtcNow
+                }
+            );
+
+            _logger.LogInformation("Autonomous: Replied to post {PostId}", post.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reply to post {PostId}", post.Id);
+        }
+    }
+
+    private async Task LikePostAsync(SnPost post)
+    {
+        try
+        {
+            await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/like", new { });
+            
+            await _memoryService.StoreInteractionAsync(
+                "autonomous",
+                $"post_{post.Id}",
+                new Dictionary<string, object>
+                {
+                    ["action"] = "like",
+                    ["post_id"] = post.Id.ToString(),
+                    ["timestamp"] = DateTime.UtcNow
+                }
+            );
+
+            _logger.LogInformation("Autonomous: Liked post {PostId}", post.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to like post {PostId}", post.Id);
+        }
+    }
+
+    private bool ContainsMention(SnPost post)
+    {
+        if (_mentionRegex.IsMatch(post.Content ?? ""))
+            return true;
+
+        if (post.Mentions != null)
+        {
+            foreach (var mention in post.Mentions)
+            {
+                if (mention.Username?.Equals("michan", StringComparison.OrdinalIgnoreCase) == true ||
+                    mention.Username?.Equals($"@{_config.BotAccountId}", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     [Experimental("SKEXP0050")]
@@ -178,7 +317,6 @@ public class MiChanAutonomousBehavior
     {
         _logger.LogInformation("Autonomous: Creating a post...");
         
-        // Get recent memories to inform post content
         var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", 10);
         var interests = recentInteractions
             .SelectMany(i => i.Memory.GetValueOrDefault("topics", new List<string>()) as List<string> ?? new List<string>())
@@ -186,7 +324,6 @@ public class MiChanAutonomousBehavior
             .Take(5)
             .ToList();
 
-        // Generate post content using AI
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
         var mood = _config.AutonomousBehavior.PersonalityMood;
         
@@ -224,60 +361,18 @@ public class MiChanAutonomousBehavior
         }
     }
 
-    [Experimental("SKEXP0050")]
-    private async Task ReplyToTrendingPostAsync()
-    {
-        _logger.LogInformation("Autonomous: Looking for trending posts to reply to...");
-        
-        // Get trending posts
-        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/timeline/global?take=20");
-        if (posts == null || posts.Count == 0)
-            return;
-
-        // Select a post with engagement
-        var trendingPost = posts
-            .Where(p => !string.IsNullOrEmpty(p.Content))
-            .OrderByDescending(p => p.CreatedAt)
-            .FirstOrDefault();
-
-        if (trendingPost == null)
-            return;
-
-        // Generate reply
-        var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
-        
-        var prompt = $"""
-            {personality}
-            
-            Someone posted: "{trendingPost.Content}"
-            
-            Write a brief, friendly reply (1-2 sentences) that adds to the conversation.
-            Be genuine and conversational. Do not use emojis.
-            """;
-
-        var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-        var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-        var replyContent = result.GetValue<string>()?.Trim();
-
-        if (!string.IsNullOrEmpty(replyContent))
-        {
-            var request = new
-            {
-                content = replyContent,
-                reply_to = trendingPost.Id.ToString()
-            };
-            await _apiClient.PostAsync<object>("sphere", "/posts", request);
-
-            _logger.LogInformation("Autonomous: Replied to post {PostId}", trendingPost.Id);
-        }
-    }
-
     private TimeSpan CalculateNextInterval()
     {
         var min = _config.AutonomousBehavior.MinIntervalMinutes;
         var max = _config.AutonomousBehavior.MaxIntervalMinutes;
         var minutes = _random.Next(min, max + 1);
         return TimeSpan.FromMinutes(minutes);
+    }
+
+    private class PostActionDecision
+    {
+        public string Action { get; set; } = "ignore"; // "like", "reply", "ignore"
+        public string? Content { get; set; } // For replies
     }
 }
 

@@ -35,7 +35,6 @@ public class MiChanAutonomousBehaviorConfig
 public class MiChanPostMonitoringConfig
 {
     public bool Enabled { get; set; } = true;
-    public string NatsSubject { get; set; } = "posts.created";
     public int MentionResponseTimeoutSeconds { get; set; } = 30;
 }
 
