@@ -1,6 +1,7 @@
 #pragma warning disable SKEXP0050
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -19,13 +20,14 @@ namespace DysonNetwork.Insight.Thought;
 [ApiController]
 [Route("/api/thought")]
 public class ThoughtController(
-    ThoughtProvider provider, 
-    ThoughtService service, 
+    ThoughtProvider provider,
+    ThoughtService service,
     IConfiguration configuration,
     ILogger<ThoughtController> logger,
     MiChanConfig miChanConfig,
     MiChanKernelProvider miChanKernelProvider,
     MiChanMemoryService miChanMemoryService,
+    SolarNetworkApiClient apiClient,
     IServiceProvider serviceProvider) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
@@ -569,8 +571,12 @@ You are in a conversation with {currentUser.Nick} ({currentUser.Name}).
             $"The user currently accept these proposals: {string.Join(',', request.AcceptProposals)}"
         );
 
-        // Load conversation history from memory
-        var history = await miChanMemoryService.GetRecentInteractionsAsync(contextId, 20);
+        // Load conversation history from memory using hybrid semantic + recent search
+        var history = await miChanMemoryService.GetRelevantContextAsync(
+            contextId,
+            currentQuery: request.UserMessage,
+            semanticCount: 5,
+            recentCount: 10);
         foreach (var interaction in history.OrderBy(h => h.CreatedAt))
         {
             if (interaction.Context.TryGetValue("message", out var msg))
@@ -583,10 +589,62 @@ You are in a conversation with {currentUser.Nick} ({currentUser.Name}).
             }
         }
 
-        // Add attached posts/messages
+        // Add attached posts with image analysis if available
         if (request.AttachedPosts is { Count: > 0 })
         {
-            chatHistory.AddUserMessage($"Attached post IDs: {string.Join(',', request.AttachedPosts)}");
+            var postsWithImages = new List<SnPost>();
+            var postTexts = new List<string>();
+
+            foreach (var postId in request.AttachedPosts)
+            {
+                try
+                {
+                    if (Guid.TryParse(postId, out var postGuid))
+                    {
+                        var post = await apiClient.GetAsync<SnPost>("sphere", $"/posts/{postGuid}");
+                        if (post != null)
+                        {
+                            postTexts.Add($"Post by @{post.Publisher?.Name}: {post.Content}");
+                            if (post.Attachments?.Count > 0)
+                            {
+                                postsWithImages.Add(post);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to fetch attached post {PostId}", postId);
+                }
+            }
+
+            // Add post text content
+            if (postTexts.Count > 0)
+            {
+                chatHistory.AddUserMessage("Attached posts:\n" + string.Join("\n\n", postTexts));
+            }
+
+            // Analyze images using vision model if posts have attachments and vision is enabled
+            if (postsWithImages.Count > 0 && miChanConfig.Vision.EnableVisionAnalysis && miChanKernelProvider.IsVisionModelAvailable())
+            {
+                try
+                {
+                    var visionChatHistory = await BuildVisionChatHistoryForPostsAsync(postsWithImages, request.UserMessage);
+                    var visionKernel = miChanKernelProvider.GetVisionKernel();
+                    var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
+                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                    var visionResult = await chatCompletionService.GetChatMessageContentAsync(visionChatHistory, visionSettings);
+
+                    if (!string.IsNullOrEmpty(visionResult.Content))
+                    {
+                        chatHistory.AddSystemMessage($"Image analysis: {visionResult.Content}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to analyze images in attached posts");
+                }
+            }
         }
 
         if (request.AttachedMessages is { Count: > 0 })
@@ -806,6 +864,76 @@ You are in a conversation with {currentUser.Nick} ({currentUser.Name}).
         var thoughts = await service.GetPreviousThoughtsAsync(sequence);
 
         return Ok(thoughts);
+    }
+
+    /// <summary>
+    /// Build a ChatHistory with images for vision analysis of attached posts
+    /// </summary>
+    private async Task<ChatHistory> BuildVisionChatHistoryForPostsAsync(List<SnPost> posts, string userQuery)
+    {
+        var chatHistory = new ChatHistory("You are an AI assistant analyzing images in social media posts. Describe what you see in the images and relate it to the user's question.");
+
+        // Build the text part of the message
+        var textBuilder = new StringBuilder();
+        textBuilder.AppendLine("The user has shared posts with images and asked a question.");
+        textBuilder.AppendLine();
+        textBuilder.AppendLine("Posts:");
+
+        foreach (var post in posts)
+        {
+            textBuilder.AppendLine($"- Post by @{post.Publisher?.Name}: {post.Content}");
+        }
+
+        textBuilder.AppendLine();
+        textBuilder.AppendLine($"User's question: {userQuery}");
+        textBuilder.AppendLine();
+        textBuilder.AppendLine("Please analyze the images and provide relevant context to help answer the user's question.");
+
+        // Create a collection to hold all content items (text + images)
+        var contentItems = new ChatMessageContentItemCollection();
+        contentItems.Add(new TextContent(textBuilder.ToString()));
+
+        // Download and add images
+        var httpClient = new HttpClient
+        {
+            BaseAddress = new Uri(miChanConfig.GatewayUrl)
+        };
+        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", miChanConfig.AccessToken);
+
+        foreach (var post in posts)
+        {
+            if (post.Attachments == null) continue;
+
+            foreach (var attachment in post.Attachments)
+            {
+                try
+                {
+                    if (attachment.MimeType?.StartsWith("image/") == true)
+                    {
+                        var imagePath = attachment.Url ?? $"/drive/files/{attachment.Id}";
+                        var imageBytes = await httpClient.GetByteArrayAsync(imagePath);
+                        if (imageBytes != null && imageBytes.Length > 0)
+                        {
+                            contentItems.Add(new ImageContent(imageBytes, attachment.MimeType));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to download image {FileId} for vision analysis", attachment.Id);
+                }
+            }
+        }
+
+        // Create a ChatMessageContent with all items and add it to history
+        var userMessage = new ChatMessageContent
+        {
+            Role = AuthorRole.User,
+            Items = contentItems
+        };
+        chatHistory.Add(userMessage);
+
+        return chatHistory;
     }
 }
 

@@ -284,6 +284,21 @@ public class MiChanAutonomousBehavior
                     continue;
                 }
 
+                // Skip posts MiChan already replied to
+                var alreadyReplied = await HasMiChanRepliedAsync(post);
+                if (alreadyReplied)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already replied by MiChan", post.Id);
+                    continue;
+                }
+
+                // Skip posts MiChan already reacted to
+                if (post.ReactionsMade != null && post.ReactionsMade.Any(r => r.Value))
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already reacted by MiChan", post.Id);
+                    continue;
+                }
+
                 // Check if mentioned
                 var isMentioned = ContainsMention(post);
 
@@ -706,14 +721,6 @@ public class MiChanAutonomousBehavior
             if (_config.AutonomousBehavior.DryRun)
             {
                 _logger.LogInformation("[DRY RUN] Would reply to post {PostId} with: {Content}", post.Id, content);
-                return;
-            }
-
-            // Check if MiChan already replied to this post
-            var alreadyReplied = await HasMiChanRepliedAsync(post);
-            if (alreadyReplied)
-            {
-                _logger.LogDebug("Skipping reply on post {PostId} - already replied", post.Id);
                 return;
             }
 
