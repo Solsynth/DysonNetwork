@@ -39,14 +39,14 @@ public class MiChanAutonomousBehavior
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
         _nextInterval = CalculateNextInterval();
-        _mentionRegex = new Regex($"@{Regex.Escape(config.BotAccountId)}\\b|@michan\\b", RegexOptions.IgnoreCase);
+        _mentionRegex = new Regex($"@michan\\b", RegexOptions.IgnoreCase);
     }
 
     [Experimental("SKEXP0050")]
     public async Task InitializeAsync()
     {
         _kernel = _kernelProvider.GetKernel();
-        
+
         // Register plugins (only if not already registered)
         var chatPlugin = _serviceProvider.GetRequiredService<ChatPlugin>();
         var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
@@ -76,16 +76,16 @@ public class MiChanAutonomousBehavior
         try
         {
             _logger.LogInformation("Executing autonomous action...");
-            
+
             // Always check posts first for mentions and interesting content
             await CheckAndInteractWithPostsAsync();
-            
+
             // Then possibly do additional actions
             var availableActions = _config.AutonomousBehavior.Actions;
             if (availableActions.Count > 0 && _random.Next(100) < 30) // 30% chance for extra action
             {
                 var action = availableActions[_random.Next(availableActions.Count)];
-                
+
                 switch (action)
                 {
                     case "create_post":
@@ -113,7 +113,7 @@ public class MiChanAutonomousBehavior
     private async Task CheckAndInteractWithPostsAsync()
     {
         _logger.LogInformation("Autonomous: Checking posts...");
-        
+
         // Get recent posts
         var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/posts?take=30");
         if (posts == null || posts.Count == 0)
@@ -157,18 +157,21 @@ public class MiChanAutonomousBehavior
                     {
                         await ReplyToPostAsync(post, decision.Content);
                     }
+
                     break;
                 case "react":
                     if (!string.IsNullOrEmpty(decision.ReactionSymbol))
                     {
                         await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
                     }
+
                     break;
                 case "pin":
                     if (decision.PinMode.HasValue)
                     {
                         await PinPostAsync(post, decision.PinMode.Value);
                     }
+
                     break;
                 case "ignore":
                 default:
@@ -185,7 +188,8 @@ public class MiChanAutonomousBehavior
         }
     }
 
-    private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality, string mood)
+    private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality,
+        string mood)
     {
         try
         {
@@ -256,7 +260,8 @@ REACT:clap:Positive
 IGNORE";
 
             var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
-            var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
+            var decisionResult =
+                await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
             var decision = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
 
             _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
@@ -273,7 +278,7 @@ IGNORE";
                 _logger.LogInformation("Converting REACT to REPLY for post {PostId} (30% chance)", post.Id);
                 var parts = decision.Substring(6).Split(':');
                 var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "thumb_up";
-                
+
                 // Generate a quick reply based on the reaction type (no emojis)
                 var quickReply = symbol switch
                 {
@@ -285,7 +290,7 @@ IGNORE";
                     "pray" => "Sending good vibes",
                     _ => "Interesting point!"
                 };
-                
+
                 return new PostActionDecision { Action = "reply", Content = quickReply };
             }
 
@@ -294,14 +299,15 @@ IGNORE";
                 var parts = decision.Substring(6).Split(':');
                 var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "thumb_up";
                 var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
-                return new PostActionDecision { Action = "react", ReactionSymbol = symbol, ReactionAttitude = attitude };
+                return new PostActionDecision
+                    { Action = "react", ReactionSymbol = symbol, ReactionAttitude = attitude };
             }
 
             if (decision.StartsWith("PIN:"))
             {
                 var mode = decision.Substring(4).Trim();
-                var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase) 
-                    ? PostPinMode.RealmPage 
+                var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
+                    ? PostPinMode.RealmPage
                     : PostPinMode.PublisherPage;
                 return new PostActionDecision { Action = "pin", PinMode = pinMode };
             }
@@ -357,7 +363,11 @@ IGNORE";
         try
         {
             // Validate symbol
-            var validSymbols = new[] { "thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray", "heart" };
+            var validSymbols = new[]
+            {
+                "thumb_up", "thumb_down", "just_okay", "cry", "confuse", "clap", "laugh", "angry", "party", "pray",
+                "heart"
+            };
             if (!validSymbols.Contains(symbol))
             {
                 symbol = "thumb_up";
@@ -385,7 +395,8 @@ IGNORE";
 
             if (_config.AutonomousBehavior.DryRun)
             {
-                _logger.LogInformation("[DRY RUN] Would react to post {PostId} with {Symbol} ({Attitude})", post.Id, symbol, attitude);
+                _logger.LogInformation("[DRY RUN] Would react to post {PostId} with {Symbol} ({Attitude})", post.Id,
+                    symbol, attitude);
                 return;
             }
 
@@ -396,7 +407,7 @@ IGNORE";
             };
 
             await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/reactions", request);
-            
+
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
                 $"post_{post.Id}",
@@ -423,7 +434,7 @@ IGNORE";
         try
         {
             // Only pin posts from our own publisher
-            if (post.PublisherId?.ToString() != _config.BotPublisherId && post.Publisher?.Name != _config.BotPublisherId)
+            if (post.PublisherId?.ToString() != _config.BotPublisherId)
             {
                 _logger.LogDebug("Cannot pin post {PostId} - not owned by bot", post.Id);
                 return;
@@ -441,7 +452,7 @@ IGNORE";
             };
 
             await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/pin", request);
-            
+
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
                 $"post_{post.Id}",
@@ -479,7 +490,7 @@ IGNORE";
             }
 
             await _apiClient.DeleteAsync("sphere", $"/posts/{post.Id}/pin");
-            
+
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
                 $"post_{post.Id}",
@@ -503,20 +514,9 @@ IGNORE";
     {
         if (_mentionRegex.IsMatch(post.Content ?? ""))
             return true;
-
-        if (post.Mentions != null)
-        {
-            foreach (var mention in post.Mentions)
-            {
-                if (mention.Username?.Equals("michan", StringComparison.OrdinalIgnoreCase) == true ||
-                    mention.Username?.Equals($"@{_config.BotAccountId}", StringComparison.OrdinalIgnoreCase) == true)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        if (post.Mentions == null) return false;
+        return post.Mentions.Any(mention =>
+            mention.Username?.Equals("michan", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     private async Task<bool> HasMiChanRepliedAsync(SnPost post)
@@ -535,8 +535,7 @@ IGNORE";
             foreach (var reply in replies)
             {
                 // Check by publisher ID (most reliable)
-                if (!string.IsNullOrEmpty(botPublisherId) &&
-                    reply.PublisherId?.ToString() == botPublisherId || reply.Publisher?.Name == botPublisherId)
+                if (!string.IsNullOrEmpty(botPublisherId) && reply.PublisherId?.ToString() == botPublisherId)
                 {
                     _logger.LogDebug("Found existing reply from MiChan's publisher {PublisherId} on post {PostId}",
                         botPublisherId, post.Id);
@@ -544,8 +543,7 @@ IGNORE";
                 }
 
                 // Fallback: check by account ID
-                if (!string.IsNullOrEmpty(botAccountId) &&
-                    reply.Publisher?.AccountId?.ToString() == botAccountId ||  reply.Publisher?.Name == botAccountId)
+                if (!string.IsNullOrEmpty(botAccountId) && reply.Publisher?.AccountId?.ToString() == botAccountId)
                 {
                     _logger.LogDebug("Found existing reply from MiChan's account {AccountId} on post {PostId}",
                         botAccountId, post.Id);
@@ -566,27 +564,28 @@ IGNORE";
     private async Task CreateAutonomousPostAsync()
     {
         _logger.LogInformation("Autonomous: Creating a post...");
-        
+
         var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", limit: 10);
         var interests = recentInteractions
-            .SelectMany(i => i.Memory.GetValueOrDefault("topics", new List<string>()) as List<string> ?? new List<string>())
+            .SelectMany(i =>
+                i.Memory.GetValueOrDefault("topics", new List<string>()) as List<string> ?? new List<string>())
             .Distinct()
             .Take(5)
             .ToList();
 
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
         var mood = _config.AutonomousBehavior.PersonalityMood;
-        
+
         var prompt = $"""
-            {personality}
-            
-            Current mood: {mood}
-            Recent interests: {string.Join(", ", interests)}
-            
-            Create a short, casual social media post (1-2 sentences) that reflects your personality and current mood.
-            Share a thought, observation, or question. Be natural and conversational.
-            Do not use emojis.
-            """;
+                      {personality}
+
+                      Current mood: {mood}
+                      Recent interests: {string.Join(", ", interests)}
+
+                      Create a short, casual social media post (1-2 sentences) that reflects your personality and current mood.
+                      Share a thought, observation, or question. Be natural and conversational.
+                      Do not use emojis.
+                      """;
 
         var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
         var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
@@ -602,7 +601,7 @@ IGNORE";
 
             var request = new { content = content, visibility = "public" };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
-            
+
             await _memoryService.StoreInteractionAsync(
                 "autonomous",
                 $"post_{DateTime.UtcNow:yyyyMMdd_HHmmss}",
@@ -664,7 +663,8 @@ IGNORE";
 
                 // Skip if already reposted
                 var repostInteractions = await _memoryService.GetInteractionsByTypeAsync("repost", limit: 100);
-                var alreadyReposted = repostInteractions.Any(i => i.Memory.GetValueOrDefault("post_id")?.ToString() == post.Id.ToString());
+                var alreadyReposted = repostInteractions.Any(i =>
+                    i.Memory.GetValueOrDefault("post_id")?.ToString() == post.Id.ToString());
                 if (alreadyReposted)
                 {
                     _logger.LogDebug("Skipping post {PostId} - already reposted", post.Id);
@@ -693,8 +693,8 @@ IGNORE";
         {
             var author = post.Publisher?.Name ?? "someone";
             var content = post.Content ?? "";
-            var publishedDaysAgo = post.PublishedAt.HasValue 
-                ? (SystemClock.Instance.GetCurrentInstant() - post.PublishedAt.Value).TotalDays 
+            var publishedDaysAgo = post.PublishedAt.HasValue
+                ? (SystemClock.Instance.GetCurrentInstant() - post.PublishedAt.Value).TotalDays
                 : 0;
 
             var prompt = $@"
@@ -719,7 +719,8 @@ Respond with ONLY one word: YES or NO.";
             var decision = result.GetValue<string>()?.Trim().ToUpper() ?? "NO";
 
             var isInteresting = decision.StartsWith("YES");
-            _logger.LogInformation("Post {PostId} very interesting check: {Decision}", post.Id, isInteresting ? "YES" : "NO");
+            _logger.LogInformation("Post {PostId} very interesting check: {Decision}", post.Id,
+                isInteresting ? "YES" : "NO");
 
             return isInteresting;
         }
@@ -771,6 +772,7 @@ Do not use emojis.";
             {
                 request["content"] = comment;
             }
+
             request["forwarded_post_id"] = post.Id.ToString();
             request["visibility"] = "public";
 

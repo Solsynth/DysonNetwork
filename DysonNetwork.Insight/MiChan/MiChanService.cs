@@ -200,16 +200,6 @@ public class MiChanService(
                     case WebSocketPacketType.MessageDelete:
                         // Handle message deletions if needed
                         break;
-                    case "ping":
-                        // Send pong
-                        if (_webSocketHandler != null)
-                        {
-                            await _webSocketHandler.SendPacketAsync(new WebSocketPacket
-                            {
-                                Type = WebSocketPacketType.Pong
-                            });
-                        }
-                        break;
                     default:
                         // Handle other packet types if needed
                         logger.LogDebug("Received WebSocket packet of type: {Type}", packet.Type);
@@ -231,7 +221,7 @@ public class MiChanService(
             if (messageData == null) return;
 
             // Extract message info
-            if (!messageData.TryGetValue("id", out var idElement) ||
+            if (!messageData.TryGetValue("sender", out var senderElement) ||
                 !messageData.TryGetValue("sender_id", out var senderIdElement) ||
                 !messageData.TryGetValue("chat_room_id", out var roomIdElement) ||
                 !messageData.TryGetValue("content", out var contentElement))
@@ -239,17 +229,17 @@ public class MiChanService(
                 return;
             }
 
-            var messageId = idElement.GetGuid();
+            var senderAccountId = senderElement.GetProperty("account_id").GetString();
             var senderId = senderIdElement.GetGuid();
             var roomId = roomIdElement.GetGuid();
             var content = contentElement.GetString();
 
             // Skip if the message is from MiChan herself
-            if (senderId.ToString() == config.BotAccountId)
+            if (senderAccountId == config.BotAccountId)
                 return;
 
             // Check if this is a DM or mentions MiChan
-            var shouldRespond = await ShouldRespondToMessageAsync(roomId, senderId, content);
+            var shouldRespond = await ShouldRespondToMessageAsync(roomId, content);
 
             if (shouldRespond)
             {
@@ -263,15 +253,15 @@ public class MiChanService(
         }
     }
 
-    private async Task<bool> ShouldRespondToMessageAsync(Guid roomId, Guid senderId, string? content)
+    private async Task<bool> ShouldRespondToMessageAsync(Guid roomId, string? content)
     {
-        if (!config.AutoRespond.ToChatMessages && !config.AutoRespond.ToDirectMessages)
+        if (config.AutoRespond is { ToChatMessages: false, ToDirectMessages: false })
             return false;
 
         // Check if this is a DM (direct message with single user)
-        var isDM = await IsDirectMessageAsync(roomId);
+        var isDm = await IsDirectMessageAsync(roomId);
 
-        if (isDM && config.AutoRespond.ToDirectMessages)
+        if (isDm && config.AutoRespond.ToDirectMessages)
             return true;
 
         // Check if MiChan is mentioned in the message
@@ -295,9 +285,7 @@ public class MiChanService(
             );
 
             if (roomInfo != null && roomInfo.TryGetValue("type", out var typeElement))
-            {
-                return typeElement.GetString() == "direct";
-            }
+                return typeElement.GetInt32() == 1;
 
             return false;
         }
@@ -322,13 +310,9 @@ public class MiChanService(
             foreach (var msg in history.TakeLast(10))
             {
                 if (msg.IsFromBot)
-                {
                     chatHistory.AddAssistantMessage(msg.Content);
-                }
                 else
-                {
                     chatHistory.AddUserMessage(msg.Content);
-                }
             }
 
             // Add the current message
@@ -445,9 +429,7 @@ public class MiChanService(
         logger.LogInformation("Stopping MiChan service...");
 
         if (_webSocketHandler != null)
-        {
             await _webSocketHandler.DisposeAsync();
-        }
 
         await base.StopAsync(cancellationToken);
     }
