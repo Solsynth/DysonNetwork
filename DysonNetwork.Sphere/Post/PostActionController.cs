@@ -136,7 +136,7 @@ public class PostActionController(
                     AccountId = repliedPost.Publisher.AccountId.ToString(),
                     RelatedId = accountId.ToString(),
                 });
-                if (relationship.Relationship.Status <= -100) return BadRequest("You cannot reply who blocked you.");
+                if (relationship.Relationship is not null && relationship.Relationship.Status <= -100) return BadRequest("You cannot reply who blocked you.");
             }
             
             post.RepliedPost = repliedPost;
