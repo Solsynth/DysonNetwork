@@ -96,6 +96,15 @@ public class KernelFactory
                 _logger.LogInformation("Kernel configured with Aliyun DashScope model: {Model}", model);
                 break;
 
+            case "bigmodel":
+                var bigmodelClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://open.bigmodel.cn/api/paas/v4/chat/completions") }
+                );
+                builder.AddOpenAIChatCompletion(model!, bigmodelClient);
+                _logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
+                break;
+
             default:
                 throw new InvalidOperationException($"Unknown provider: {providerType}");
         }
@@ -129,7 +138,7 @@ public class KernelFactory
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 Temperature = (float)temp
             },
-            "deepseek" or "openrouter" or "aliyun" => new OpenAIPromptExecutionSettings
+            "deepseek" or "openrouter" or "aliyun" or "bigmodel" => new OpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 ModelId = serviceName,
