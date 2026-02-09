@@ -7,6 +7,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Http;
 using NodaTime;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -388,15 +389,23 @@ public class MiChanAutonomousBehavior
             {
                 if (useVisionModel && imageAttachments.Count > 0)
                 {
-                    // Build vision-enabled chat history with images for mentions
-                    var chatHistory = await BuildVisionChatHistoryAsync(
-                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: true);
-                    var visionKernel = _kernelProvider.GetVisionKernel();
-                    var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
-                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                    var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
-                    var replyContent = reply.Content?.Trim();
-                    return new PostActionDecision { ShouldReply = true, Content = replyContent };
+                    try
+                    {
+                        // Build vision-enabled chat history with images for mentions
+                        var chatHistory = await BuildVisionChatHistoryAsync(
+                            personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: true);
+                        var visionKernel = _kernelProvider.GetVisionKernel();
+                        var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
+                        var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                        var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+                        var replyContent = reply.Content?.Trim();
+                        return new PostActionDecision { ShouldReply = true, Content = replyContent };
+                    }
+                    catch (HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        _logger.LogError(ex, "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}", _config.Vision.VisionThinkingService, post.Id);
+                        throw new InvalidOperationException($"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.", ex);
+                    }
                 }
                 else
                 {
@@ -433,14 +442,22 @@ public class MiChanAutonomousBehavior
 
             if (useVisionModel && imageAttachments.Count > 0)
             {
-                // Build vision-enabled chat history with images for decision making
-                var chatHistory = await BuildVisionChatHistoryAsync(
-                    personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: false);
-                var visionKernel = _kernelProvider.GetVisionKernel();
-                var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
-                var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
-                decisionText = reply.Content?.Trim() ?? "IGNORE";
+                try
+                {
+                    // Build vision-enabled chat history with images for decision making
+                    var chatHistory = await BuildVisionChatHistoryAsync(
+                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: false);
+                    var visionKernel = _kernelProvider.GetVisionKernel();
+                    var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
+                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                    var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+                    decisionText = reply.Content?.Trim() ?? "IGNORE";
+                }
+                catch (HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _logger.LogError(ex, "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}", _config.Vision.VisionThinkingService, post.Id);
+                    throw new InvalidOperationException($"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.", ex);
+                }
             }
             else
             {

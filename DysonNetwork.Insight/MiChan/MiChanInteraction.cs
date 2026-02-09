@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 using Pgvector;
@@ -19,7 +20,7 @@ public class MiChanInteraction : ModelBase
     public Dictionary<string, object> Memory { get; set; } = new();
     
     [Column(TypeName = "vector(1536)")]
-    public Vector? Embedding { get; set; };
+    public Vector? Embedding { get; set; }
     
     public string? EmbeddedContent { get; set; }
 }

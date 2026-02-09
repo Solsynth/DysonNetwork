@@ -54,6 +54,6 @@ public class MiChanMemoryConfig
 
 public class MiChanVisionConfig
 {
-    public string VisionThinkingService { get; set; } = "vision-model";
+    public string VisionThinkingService { get; set; } = "vision-openrouter";
     public bool EnableVisionAnalysis { get; set; } = true;
 }
