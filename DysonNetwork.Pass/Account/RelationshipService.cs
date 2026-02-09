@@ -46,7 +46,9 @@ public class RelationshipService(
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
         var queries = db.AccountRelationships
             .Include(r => r.Account)
+            .ThenInclude(a => a.Profile)
             .Include(r => r.Related)
+            .ThenInclude(a => a.Profile)
             .Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
         if (!ignoreExpired) queries = queries.Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
         if (status is not null) queries = queries.Where(r => r.Status == status);

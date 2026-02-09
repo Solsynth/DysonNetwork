@@ -25,10 +25,10 @@ public class SnAccountRelationship : ModelBase
     {
         AccountId = AccountId.ToString(),
         RelatedId = RelatedId.ToString(),
-        Account = Account.ToProtoValue(),
-        Related = Related.ToProtoValue(),
+        Account = Account?.ToProtoValue(),
+        Related = Related?.ToProtoValue(),
         Status = (int)Status,
-        CreatedAt = CreatedAt.ToTimestamp(),
-        UpdatedAt = UpdatedAt.ToTimestamp()
+        CreatedAt = CreatedAt.ToDateTimeUtc() != default ? CreatedAt.ToTimestamp() : null,
+        UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null
     };
 }

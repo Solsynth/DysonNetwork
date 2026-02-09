@@ -48,20 +48,24 @@ public class SnAccount : ModelBase
             Region = Region,
             ActivatedAt = ActivatedAt?.ToTimestamp(),
             IsSuperuser = IsSuperuser,
-            Profile = Profile.ToProtoValue(),
+            Profile = Profile?.ToProtoValue(),
             PerkSubscription = PerkSubscription?.ToProtoValue(),
-            CreatedAt = CreatedAt.ToTimestamp(),
-            UpdatedAt = UpdatedAt.ToTimestamp(),
+            CreatedAt = CreatedAt.ToDateTimeUtc() != default ? CreatedAt.ToTimestamp() : null,
+            UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null,
             AutomatedId = AutomatedId?.ToString()
         };
 
-        // Add contacts
-        foreach (var contact in Contacts)
-            proto.Contacts.Add(contact.ToProtoValue());
+        if (Contacts != null)
+        {
+            foreach (var contact in Contacts)
+                proto.Contacts.Add(contact.ToProtoValue());
+        }
 
-        // Add badges
-        foreach (var badge in Badges)
-            proto.Badges.Add(badge.ToProtoValue());
+        if (Badges != null)
+        {
+            foreach (var badge in Badges)
+                proto.Badges.Add(badge.ToProtoValue());
+        }
 
         return proto;
     }
@@ -246,8 +250,8 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
             Verification = Verification?.ToProtoValue(),
             ActiveBadge = ActiveBadge?.ToProtoValue(),
             UsernameColor = UsernameColor?.ToProtoValue(),
-            CreatedAt = CreatedAt.ToTimestamp(),
-            UpdatedAt = UpdatedAt.ToTimestamp()
+            CreatedAt = CreatedAt.ToDateTimeUtc() != default ? CreatedAt.ToTimestamp() : null,
+            UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null
         };
 
         if (Links is not null)
@@ -350,8 +354,8 @@ public class SnAccountContact : ModelBase
             IsPrimary = IsPrimary,
             VerifiedAt = VerifiedAt?.ToTimestamp(),
             AccountId = AccountId.ToString(),
-            CreatedAt = CreatedAt.ToTimestamp(),
-            UpdatedAt = UpdatedAt.ToTimestamp()
+            CreatedAt = CreatedAt.ToDateTimeUtc() != default ? CreatedAt.ToTimestamp() : null,
+            UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null
         };
 
         return proto;
