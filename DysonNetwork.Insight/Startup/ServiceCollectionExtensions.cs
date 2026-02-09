@@ -68,6 +68,9 @@ public static class ServiceCollectionExtensions
 
         public IServiceCollection AddThinkingServices(IConfiguration configuration)
         {
+            // Shared kernel factory for AI service creation
+            services.AddSingleton<KernelFactory>();
+            
             services.AddSingleton<ThoughtProvider>();
             services.AddScoped<ThoughtService>();
             services.AddScoped<Reader.WebFeedService>();
@@ -83,6 +86,7 @@ public static class ServiceCollectionExtensions
 
             // Always register MiChan services for dependency injection (needed by ThoughtController)
             // Core services
+            services.AddSingleton<KernelFactory>();
             services.AddSingleton<SolarNetworkApiClient>();
             services.AddSingleton<MiChanKernelProvider>();
             

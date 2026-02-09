@@ -1,12 +1,9 @@
-using System.ClientModel;
 using System.Diagnostics.CodeAnalysis;
+using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.Ollama;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using OpenAI;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
@@ -26,6 +23,7 @@ public class ThoughtProvider
 {
     private readonly PostService.PostServiceClient _postClient;
     private readonly AccountService.AccountServiceClient _accountClient;
+    private readonly KernelFactory _kernelFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
 
@@ -36,6 +34,7 @@ public class ThoughtProvider
 
     [Experimental("SKEXP0050")]
     public ThoughtProvider(
+        KernelFactory kernelFactory,
         IConfiguration configuration,
         PostService.PostServiceClient postServiceClient,
         AccountService.AccountServiceClient accountServiceClient,
@@ -43,6 +42,7 @@ public class ThoughtProvider
     )
     {
         _logger = logger;
+        _kernelFactory = kernelFactory;
         _postClient = postServiceClient;
         _accountClient = accountServiceClient;
         _configuration = configuration;
@@ -67,51 +67,26 @@ public class ThoughtProvider
             var providerType = service.GetValue<string>("Provider")?.ToLower();
             if (providerType is null) continue;
 
-            var kernel = InitializeThinkingService(service);
-            InitializeHelperFunctions(kernel);
+            var kernel = InitializeThinkingService(serviceId);
             _kernels[serviceId] = kernel;
             _serviceProviders[serviceId] = providerType;
         }
     }
 
-    private Kernel InitializeThinkingService(IConfigurationSection serviceConfig)
+    [Experimental("SKEXP0050")]
+    private Kernel InitializeThinkingService(string serviceId)
     {
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var model = serviceConfig.GetValue<string>("Model");
-        var endpoint = serviceConfig.GetValue<string>("Endpoint");
-        var apiKey = serviceConfig.GetValue<string>("ApiKey");
+        // Create base kernel using factory (no embeddings needed for thought provider)
+        var kernel = _kernelFactory.CreateKernel(serviceId, addEmbeddings: false);
 
-        var builder = Kernel.CreateBuilder();
+        // Add Thought-specific plugins (gRPC clients are already injected)
+        kernel.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
+        kernel.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient));
 
-        switch (providerType)
-        {
-            case "ollama":
-                builder.AddOllamaChatCompletion(
-                    model!,
-                    new Uri(endpoint ?? "http://localhost:11434/api")
-                );
-                break;
-            case "deepseek":
-                var client = new OpenAIClient(
-                    new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
-                );
-                builder.AddOpenAIChatCompletion(model!, client);
-                break;
-            default:
-                throw new IndexOutOfRangeException("Unknown thinking provider: " + providerType);
-        }
+        // Add helper functions (web search)
+        InitializeHelperFunctions(kernel);
 
-        // Add gRPC clients for Thought Plugins
-        builder.Services.AddServiceDiscoveryCore();
-        builder.Services.AddServiceDiscovery();
-        builder.Services.AddAccountService();
-        builder.Services.AddSphereService();
-
-        builder.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
-        builder.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient));
-
-        return builder.Build();
+        return kernel;
     }
 
     [Experimental("SKEXP0050")]
@@ -173,19 +148,6 @@ public class ThoughtProvider
     public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null)
     {
         serviceId ??= _defaultServiceId;
-        var providerType = _serviceProviders.GetValueOrDefault(serviceId);
-
-        return providerType switch
-        {
-            "ollama" => new OllamaPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false)
-            },
-            "deepseek" => new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false), ModelId = serviceId
-            },
-            _ => throw new InvalidOperationException("Unknown provider for service: " + serviceId)
-        };
+        return _kernelFactory.CreatePromptExecutionSettings(serviceId);
     }
 }

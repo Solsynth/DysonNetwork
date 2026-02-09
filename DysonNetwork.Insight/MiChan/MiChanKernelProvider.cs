@@ -1,20 +1,16 @@
 #pragma warning disable SKEXP0050
-using System.ClientModel;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.Ollama;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.SemanticKernel.Embeddings;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
-using OpenAI;
 
 namespace DysonNetwork.Insight.MiChan;
 
 public class MiChanKernelProvider
 {
     private readonly MiChanConfig _config;
+    private readonly KernelFactory _kernelFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<MiChanKernelProvider> _logger;
     private Kernel? _kernel;
@@ -22,10 +18,12 @@ public class MiChanKernelProvider
 
     public MiChanKernelProvider(
         MiChanConfig config,
+        KernelFactory kernelFactory,
         IConfiguration configuration,
         ILogger<MiChanKernelProvider> logger)
     {
         _config = config;
+        _kernelFactory = kernelFactory;
         _configuration = configuration;
         _logger = logger;
     }
@@ -36,82 +34,30 @@ public class MiChanKernelProvider
         if (_kernel != null)
             return _kernel;
 
-        var thinkingConfig = _configuration.GetSection("Thinking");
-        var serviceConfig = thinkingConfig.GetSection($"Services:{_config.ThinkingService}");
-        
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var model = serviceConfig.GetValue<string>("Model");
-        var endpoint = serviceConfig.GetValue<string>("Endpoint");
-        var apiKey = serviceConfig.GetValue<string>("ApiKey");
-
-        var builder = Kernel.CreateBuilder();
-
-        switch (providerType)
-        {
-            case "ollama":
-                builder.AddOllamaChatCompletion(
-                    model!,
-                    new Uri(endpoint ?? "http://localhost:11434/api")
-                );
-                // Add Ollama embedding service
-                builder.AddOllamaTextEmbeddingGeneration(
-                    "nomic-embed-text",  // Ollama's good embedding model
-                    new Uri(endpoint ?? "http://localhost:11434/api")
-                );
-                break;
-            case "deepseek":
-                var deepseekClient = new OpenAIClient(
-                    new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.deepseek.com/v1") }
-                );
-                builder.AddOpenAIChatCompletion(model!, deepseekClient);
-                // Note: DeepSeek API does NOT provide embeddings endpoint
-                // OpenRouter will be used as fallback for embeddings if configured
-                break;
-            
-            case "openrouter":
-                var openRouterClient = new OpenAIClient(
-                    new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://openrouter.ai/api/v1") }
-                );
-                builder.AddOpenAIChatCompletion(model!, openRouterClient);
-                // Add OpenRouter embeddings support (e.g., qwen/qwen3-embedding-8b)
-                var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
-                    ?? "qwen/qwen3-embedding-8b";
-                builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
-                _logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
-                break;
-            case "aliyun":
-                var aliyunThinkingClient = new OpenAIClient(
-                    new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://dashscope.aliyuncs.com/compatible-mode/v1") }
-                );
-                builder.AddOpenAIChatCompletion(model!, aliyunThinkingClient);
-                _logger.LogInformation("Main kernel configured with Aliyun DashScope model: {Model}", model);
-                break;
-            default:
-                throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
-        }
-
-        // Try to add OpenRouter embedding service as fallback for providers without native embeddings
-        AddOpenRouterEmbeddingFallback(builder, providerType);
-
-        // Add web search plugins if configured
-        InitializeHelperFunctions(builder);
-
-        _kernel = builder.Build();
+        _kernel = _kernelFactory.CreateKernel(_config.ThinkingService, addEmbeddings: true);
+        InitializeHelperFunctions(_kernel);
         return _kernel;
     }
 
     [Experimental("SKEXP0050")]
-    private void InitializeHelperFunctions(IKernelBuilder builder)
+    public Kernel GetVisionKernel()
+    {
+        if (_visionKernel != null)
+            return _visionKernel;
+
+        _visionKernel = _kernelFactory.CreateKernel(_config.Vision.VisionThinkingService, addEmbeddings: false);
+        return _visionKernel;
+    }
+
+    [Experimental("SKEXP0050")]
+    private void InitializeHelperFunctions(Kernel kernel)
     {
         var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
         if (!string.IsNullOrEmpty(bingApiKey))
         {
             var bingConnector = new BingConnector(bingApiKey);
             var bing = new WebSearchEnginePlugin(bingConnector);
-            builder.Plugins.AddFromObject(bing, "bing");
+            kernel.ImportPluginFromObject(bing, "bing");
         }
 
         var googleApiKey = _configuration.GetValue<string>("Thinking:GoogleApiKey");
@@ -122,172 +68,23 @@ public class MiChanKernelProvider
                 apiKey: googleApiKey,
                 searchEngineId: googleCx);
             var google = new WebSearchEnginePlugin(googleConnector);
-            builder.Plugins.AddFromObject(google, "google");
-        }
-    }
-
-    [Experimental("SKEXP0050")]
-    private void AddOpenRouterEmbeddingFallback(IKernelBuilder builder, string? currentProvider)
-    {
-        // Skip if OpenRouter is already the provider (it handles its own embeddings)
-        if (currentProvider == "openrouter")
-            return;
-
-        // Check if OpenRouter is configured for embedding fallback
-        var openRouterApiKey = _configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
-        if (string.IsNullOrEmpty(openRouterApiKey))
-        {
-            _logger.LogWarning("No OpenRouter API key configured for embedding fallback. Semantic search will be disabled for {Provider}.", currentProvider);
-            return;
-        }
-
-        var openRouterEndpoint = _configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
-            ?? "https://openrouter.ai/api/v1";
-        var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
-            ?? "qwen/qwen3-embedding-8b";
-
-        try
-        {
-            // Add OpenRouter embedding service as fallback
-            var openRouterClient = new OpenAIClient(
-                new ApiKeyCredential(openRouterApiKey),
-                new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
-            );
-            builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
-            _logger.LogInformation("OpenRouter embedding fallback configured with model {Model} for {Provider}", 
-                embeddingModel, currentProvider);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not configure OpenRouter embedding fallback. Semantic search will be disabled.");
+            kernel.ImportPluginFromObject(google, "google");
         }
     }
 
     public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null)
     {
-        var thinkingConfig = _configuration.GetSection("Thinking");
-        var serviceConfig = thinkingConfig.GetSection($"Services:{_config.ThinkingService}");
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        
-        // Default temperature: 0.6 for more conservative, selective responses
-        var temp = temperature ?? 0.6;
-
-        return providerType switch
-        {
-            "ollama" => new OllamaPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                Temperature = (float)temp
-            },
-            "deepseek" or "openrouter" or "aliyun" => new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                ModelId = _config.ThinkingService,
-                Temperature = (float)temp
-            },
-            _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
-        };
-    }
-
-    [Experimental("SKEXP0050")]
-    public Kernel GetVisionKernel()
-    {
-        if (_visionKernel != null)
-            return _visionKernel;
-
-        var thinkingConfig = _configuration.GetSection("Thinking");
-        var serviceConfig = thinkingConfig.GetSection($"Services:{_config.Vision.VisionThinkingService}");
-        
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var model = serviceConfig.GetValue<string>("Model");
-        var endpoint = serviceConfig.GetValue<string>("Endpoint");
-        var apiKey = serviceConfig.GetValue<string>("ApiKey");
-
-        if (string.IsNullOrEmpty(providerType))
-        {
-            throw new InvalidOperationException($"Vision service '{_config.Vision.VisionThinkingService}' not found in Thinking:Services configuration.");
-        }
-
-        var builder = Kernel.CreateBuilder();
-
-        switch (providerType)
-        {
-            case "ollama":
-                builder.AddOllamaChatCompletion(
-                    model!,
-                    new Uri(endpoint ?? "http://localhost:11434/api")
-                );
-                break;
-            case "openrouter":
-                var openRouterClient = new OpenAIClient(
-                    new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://openrouter.ai/api/v1") }
-                );
-                builder.AddOpenAIChatCompletion(model!, openRouterClient);
-                _logger.LogInformation("Vision kernel configured with OpenRouter model: {Model}", model);
-                break;
-            case "aliyun":
-                var aliyunClient = new OpenAIClient(
-                    new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://dashscope.aliyuncs.com/compatible-mode/v1") }
-                );
-                builder.AddOpenAIChatCompletion(model!, aliyunClient);
-                _logger.LogInformation("Vision kernel configured with Aliyun DashScope model: {Model}", model);
-                break;
-            default:
-                throw new InvalidOperationException($"Unknown vision provider: {providerType}. Please configure a valid provider (ollama, openrouter, aliyun).");
-        }
-
-        _visionKernel = builder.Build();
-        return _visionKernel;
+        return _kernelFactory.CreatePromptExecutionSettings(_config.ThinkingService, temperature ?? 0.6);
     }
 
     public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null)
     {
-        var thinkingConfig = _configuration.GetSection("Thinking");
-        var serviceConfig = thinkingConfig.GetSection($"Services:{_config.Vision.VisionThinkingService}");
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        
-        // Default temperature: 0.7 for vision tasks (slightly more focused)
-        var temp = temperature ?? 0.7;
-
-        return providerType switch
-        {
-            "ollama" => new OllamaPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                Temperature = (float)temp
-            },
-            "openrouter" => new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                ModelId = _config.Vision.VisionThinkingService,
-                Temperature = (float)temp
-            },
-            "aliyun" => new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                ModelId = _config.Vision.VisionThinkingService,
-                Temperature = (float)temp
-            },
-            _ => throw new InvalidOperationException($"Unknown vision provider: {providerType}")
-        };
+        return _kernelFactory.CreatePromptExecutionSettings(_config.Vision.VisionThinkingService, temperature ?? 0.7);
     }
 
     public bool IsVisionModelAvailable()
     {
-        try
-        {
-            var thinkingConfig = _configuration.GetSection("Thinking");
-            var serviceConfig = thinkingConfig.GetSection($"Services:{_config.Vision.VisionThinkingService}");
-            
-            // Check if vision service is configured
-            return !string.IsNullOrEmpty(serviceConfig.GetValue<string>("Model"));
-        }
-        catch
-        {
-            return false;
-        }
+        return _kernelFactory.IsServiceAvailable(_config.Vision.VisionThinkingService);
     }
 }
 
