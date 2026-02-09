@@ -287,18 +287,10 @@ public class MiChanAutonomousBehavior
                 // Check if mentioned
                 var isMentioned = ContainsMention(post);
 
-                // Check if MiChan already replied to this post
-                var alreadyReplied = await HasMiChanRepliedAsync(post);
-                if (alreadyReplied)
-                {
-                    _logger.LogDebug("Skipping post {PostId} - already replied", post.Id);
-                    continue;
-                }
-
                 // MiChan decides what to do with this post
                 var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
 
-                // Execute reply if decided
+                // Execute reply if decided (duplicate check happens inside ReplyToPostAsync)
                 if (decision.ShouldReply && !string.IsNullOrEmpty(decision.Content))
                 {
                     await ReplyToPostAsync(post, decision.Content);
@@ -521,12 +513,6 @@ public class MiChanAutonomousBehavior
 
             foreach (var line in lines)
             {
-                if (actionDecision.ShouldReact)
-                {
-                    _logger.LogDebug("Already processed REACT, skipping additional reactions for post {PostId}", post.Id);
-                    break;
-                }
-
                 if (line.StartsWith("REPLY:"))
                 {
                     var replyText = line.Substring(6).Trim();
@@ -535,6 +521,12 @@ public class MiChanAutonomousBehavior
                 }
                 else if (line.StartsWith("REACT:"))
                 {
+                    // Only process the first REACT, skip additional ones
+                    if (actionDecision.ShouldReact)
+                    {
+                        _logger.LogDebug("Already processed REACT, skipping additional reaction for post {PostId}", post.Id);
+                        continue;
+                    }
                     var parts = line.Substring(6).Split(':');
                     var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
                     var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
@@ -714,6 +706,14 @@ public class MiChanAutonomousBehavior
             if (_config.AutonomousBehavior.DryRun)
             {
                 _logger.LogInformation("[DRY RUN] Would reply to post {PostId} with: {Content}", post.Id, content);
+                return;
+            }
+
+            // Check if MiChan already replied to this post
+            var alreadyReplied = await HasMiChanRepliedAsync(post);
+            if (alreadyReplied)
+            {
+                _logger.LogDebug("Skipping reply on post {PostId} - already replied", post.Id);
                 return;
             }
 
