@@ -15,6 +15,7 @@ public class MiChanConfig
     public MiChanAutonomousBehaviorConfig AutonomousBehavior { get; set; } = new();
     public MiChanPostMonitoringConfig PostMonitoring { get; set; } = new();
     public MiChanMemoryConfig Memory { get; set; } = new();
+    public MiChanVisionConfig Vision { get; set; } = new();
 }
 
 public class MiChanAutoRespondConfig
@@ -49,4 +50,10 @@ public class MiChanMemoryConfig
     public double MinSimilarityThreshold { get; set; } = 0.7;
     public int SemanticSearchLimit { get; set; } = 5;
     public TimeSpan? MaxMemoryAge { get; set; }
+}
+
+public class MiChanVisionConfig
+{
+    public string VisionThinkingService { get; set; } = "vision-model";
+    public bool EnableVisionAnalysis { get; set; } = true;
 }

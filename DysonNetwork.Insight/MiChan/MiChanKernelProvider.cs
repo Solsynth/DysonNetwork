@@ -18,6 +18,7 @@ public class MiChanKernelProvider
     private readonly IConfiguration _configuration;
     private readonly ILogger<MiChanKernelProvider> _logger;
     private Kernel? _kernel;
+    private Kernel? _visionKernel;
 
     public MiChanKernelProvider(
         MiChanConfig config,
@@ -178,6 +179,93 @@ public class MiChanKernelProvider
             },
             _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
         };
+    }
+
+    [Experimental("SKEXP0050")]
+    public Kernel GetVisionKernel()
+    {
+        if (_visionKernel != null)
+            return _visionKernel;
+
+        var thinkingConfig = _configuration.GetSection("Thinking");
+        var serviceConfig = thinkingConfig.GetSection($"Services:{_config.Vision.VisionThinkingService}");
+        
+        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        var model = serviceConfig.GetValue<string>("Model");
+        var endpoint = serviceConfig.GetValue<string>("Endpoint");
+        var apiKey = serviceConfig.GetValue<string>("ApiKey");
+
+        if (string.IsNullOrEmpty(providerType))
+        {
+            throw new InvalidOperationException($"Vision service '{_config.Vision.VisionThinkingService}' not found in Thinking:Services configuration.");
+        }
+
+        var builder = Kernel.CreateBuilder();
+
+        switch (providerType)
+        {
+            case "ollama":
+                builder.AddOllamaChatCompletion(
+                    model!,
+                    new Uri(endpoint ?? "http://localhost:11434/api")
+                );
+                break;
+            case "openrouter":
+                var openRouterClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://openrouter.ai/api/v1") }
+                );
+                builder.AddOpenAIChatCompletion(model!, openRouterClient);
+                _logger.LogInformation("Vision kernel configured with OpenRouter model: {Model}", model);
+                break;
+            default:
+                throw new InvalidOperationException($"Unknown vision provider: {providerType}. Please configure a valid provider (ollama, openrouter).");
+        }
+
+        _visionKernel = builder.Build();
+        return _visionKernel;
+    }
+
+    public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null)
+    {
+        var thinkingConfig = _configuration.GetSection("Thinking");
+        var serviceConfig = thinkingConfig.GetSection($"Services:{_config.Vision.VisionThinkingService}");
+        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        
+        // Default temperature: 0.7 for vision tasks (slightly more focused)
+        var temp = temperature ?? 0.7;
+
+        return providerType switch
+        {
+            "ollama" => new OllamaPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
+                Temperature = (float)temp
+            },
+            "openrouter" => new OpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
+                ModelId = _config.Vision.VisionThinkingService,
+                Temperature = (float)temp
+            },
+            _ => throw new InvalidOperationException($"Unknown vision provider: {providerType}")
+        };
+    }
+
+    public bool IsVisionModelAvailable()
+    {
+        try
+        {
+            var thinkingConfig = _configuration.GetSection("Thinking");
+            var serviceConfig = thinkingConfig.GetSection($"Services:{_config.Vision.VisionThinkingService}");
+            
+            // Check if vision service is configured
+            return !string.IsNullOrEmpty(serviceConfig.GetValue<string>("Model"));
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
 

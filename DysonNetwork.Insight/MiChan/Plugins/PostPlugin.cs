@@ -34,7 +34,7 @@ public class PostPlugin
     }
 
     [KernelFunction("create_post")]
-    [Description("Create and publish a new post.")]
+    [Description("Create and publish a new text-only post. MiChan is not capable of posting with attachments/ media.")]
     public async Task<object> CreatePost(
         [Description("The content of the post")]
         string content,

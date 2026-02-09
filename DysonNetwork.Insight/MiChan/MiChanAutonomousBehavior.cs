@@ -1,9 +1,12 @@
 #pragma warning disable SKEXP0050
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 using NodaTime;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -16,6 +19,8 @@ public class MiChanAutonomousBehavior
     private readonly MiChanMemoryService _memoryService;
     private readonly MiChanKernelProvider _kernelProvider;
     private readonly IServiceProvider _serviceProvider;
+    private readonly AccountService.AccountServiceClient _accountClient;
+    private readonly HttpClient _httpClient;
     private Kernel? _kernel;
 
     private readonly Random _random = new();
@@ -24,13 +29,19 @@ public class MiChanAutonomousBehavior
     private readonly HashSet<string> _processedPostIds = new();
     private readonly Regex _mentionRegex;
 
+    // Cache for blocked users list
+    private List<string> _cachedBlockedUsers = new();
+    private DateTime _lastBlockedCacheTime = DateTime.MinValue;
+    private static readonly TimeSpan BlockedCacheDuration = TimeSpan.FromMinutes(5);
+
     public MiChanAutonomousBehavior(
         MiChanConfig config,
         ILogger<MiChanAutonomousBehavior> logger,
         SolarNetworkApiClient apiClient,
         MiChanMemoryService memoryService,
         MiChanKernelProvider kernelProvider,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        AccountService.AccountServiceClient accountClient)
     {
         _config = config;
         _logger = logger;
@@ -38,6 +49,9 @@ public class MiChanAutonomousBehavior
         _memoryService = memoryService;
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
+        _accountClient = accountClient;
+        _httpClient = new HttpClient();
+        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", config.AccessToken);
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex($"@michan\\b", RegexOptions.IgnoreCase);
     }
@@ -109,6 +123,72 @@ public class MiChanAutonomousBehavior
         }
     }
 
+    /// <summary>
+    /// Checks if a post was created by MiChan herself
+    /// </summary>
+    private bool IsOwnPost(SnPost post)
+    {
+        if (post == null)
+            return false;
+
+        // Check by PublisherId
+        if (!string.IsNullOrEmpty(_config.BotPublisherId) &&
+            post.PublisherId?.ToString() == _config.BotPublisherId)
+        {
+            return true;
+        }
+
+        // Check by AccountId through Publisher
+        if (!string.IsNullOrEmpty(_config.BotAccountId) &&
+            post.Publisher?.AccountId?.ToString() == _config.BotAccountId)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Gets the list of users who have blocked MiChan, with caching
+    /// </summary>
+    private async Task<List<string>> GetBlockedByUsersAsync()
+    {
+        // Check if cache is still valid
+        if (DateTime.UtcNow - _lastBlockedCacheTime < BlockedCacheDuration &&
+            _cachedBlockedUsers.Count > 0)
+        {
+            _logger.LogDebug("Using cached blocked users list ({Count} users)", _cachedBlockedUsers.Count);
+            return _cachedBlockedUsers;
+        }
+
+        try
+        {
+            if (string.IsNullOrEmpty(_config.BotAccountId))
+            {
+                _logger.LogWarning("BotAccountId is not configured, cannot fetch blocked users");
+                return new List<string>();
+            }
+
+            var request = new ListRelationshipSimpleRequest
+            {
+                RelatedId = _config.BotAccountId
+            };
+
+            var response = await _accountClient.ListBlockedAsync(request);
+            _cachedBlockedUsers = response.AccountsId.ToList();
+            _lastBlockedCacheTime = DateTime.UtcNow;
+
+            _logger.LogInformation("Fetched blocked users list: {Count} users have blocked MiChan", _cachedBlockedUsers.Count);
+            return _cachedBlockedUsers;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching blocked users list");
+            // Return cached data if available, even if expired
+            return _cachedBlockedUsers;
+        }
+    }
+
     [Experimental("SKEXP0050")]
     private async Task CheckAndInteractWithPostsAsync()
     {
@@ -119,6 +199,9 @@ public class MiChanAutonomousBehavior
         if (posts == null || posts.Count == 0)
             return;
 
+        // Get blocked users list (cached)
+        var blockedUsers = await GetBlockedByUsersAsync();
+
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
         var mood = _config.AutonomousBehavior.PersonalityMood;
 
@@ -126,7 +209,10 @@ public class MiChanAutonomousBehavior
         {
             // Skip already processed posts
             if (!_processedPostIds.Add(post.Id.ToString()))
+            {
+                _logger.LogDebug("Skipping post {PostId} - already processed", post.Id);
                 continue;
+            }
 
             // Keep hash set size manageable
             if (_processedPostIds.Count > 1000)
@@ -134,6 +220,21 @@ public class MiChanAutonomousBehavior
                 var toRemove = _processedPostIds.Take(500).ToList();
                 foreach (var id in toRemove)
                     _processedPostIds.Remove(id);
+            }
+
+            // Skip posts created by MiChan herself
+            if (IsOwnPost(post))
+            {
+                _logger.LogDebug("Skipping post {PostId} - created by MiChan", post.Id);
+                continue;
+            }
+
+            // Skip posts from users who blocked MiChan
+            var authorAccountId = post.Publisher?.AccountId?.ToString();
+            if (!string.IsNullOrEmpty(authorAccountId) && blockedUsers.Contains(authorAccountId))
+            {
+                _logger.LogInformation("Skipping post {PostId} from user {UserId} - user has blocked MiChan", post.Id, authorAccountId);
+                continue;
             }
 
             // Check if mentioned
@@ -196,10 +297,43 @@ public class MiChanAutonomousBehavior
             var author = post.Publisher?.Name ?? "someone";
             var content = post.Content ?? "";
 
+            // Check if post has attachments
+            var hasAttachments = HasAttachments(post);
+
+            // If post has attachments but vision analysis is not available, skip it entirely
+            if (hasAttachments && (!_config.Vision.EnableVisionAnalysis || !_kernelProvider.IsVisionModelAvailable()))
+            {
+                _logger.LogDebug("Skipping post {PostId} - has attachments but vision analysis is not configured", post.Id);
+                return new PostActionDecision { Action = "ignore" };
+            }
+
+            // Check if we should use vision model
+            var useVisionModel = hasAttachments && _config.Vision.EnableVisionAnalysis && _kernelProvider.IsVisionModelAvailable();
+            var imageAttachments = useVisionModel ? GetSupportedImageAttachments(post) : new List<SnCloudFileReferenceObject>();
+
+            if (useVisionModel && imageAttachments.Count > 0)
+            {
+                _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s)", post.Id, imageAttachments.Count);
+            }
+
             // If mentioned, always reply
             if (isMentioned)
             {
-                var prompt = $@"
+                if (useVisionModel && imageAttachments.Count > 0)
+                {
+                    // Build vision-enabled chat history with images for mentions
+                    var chatHistory = await BuildVisionChatHistoryAsync(
+                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, isMentioned: true);
+                    var visionKernel = _kernelProvider.GetVisionKernel();
+                    var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
+                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                    var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+                    var replyContent = reply.Content?.Trim();
+                    return new PostActionDecision { Action = "reply", Content = replyContent };
+                }
+                else
+                {
+                    var prompt = $@"
 {personality}
 
 Current mood: {mood}
@@ -210,15 +344,33 @@ Current mood: {mood}
 Write a friendly, natural reply (1-3 sentences). Be conversational and genuine.
 Do not use emojis.";
 
-                var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-                var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-                var replyContent = result.GetValue<string>()?.Trim();
+                    var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+                    var kernelArgs = new KernelArguments(executionSettings);
+                    var result = await _kernel!.InvokePromptAsync(prompt, kernelArgs);
+                    var replyContent = result.GetValue<string>()?.Trim();
 
-                return new PostActionDecision { Action = "reply", Content = replyContent };
+                    return new PostActionDecision { Action = "reply", Content = replyContent };
+                }
             }
 
             // Otherwise, decide whether to interact
-            var decisionPrompt = $@"
+            string decisionText;
+            
+            if (useVisionModel && imageAttachments.Count > 0)
+            {
+                // Build vision-enabled chat history with images for decision making
+                var chatHistory = await BuildVisionChatHistoryAsync(
+                    personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, isMentioned: false);
+                var visionKernel = _kernelProvider.GetVisionKernel();
+                var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
+                var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+                decisionText = reply.Content?.Trim().ToUpper() ?? "IGNORE";
+            }
+            else
+            {
+                // Use regular text-only prompt
+                var decisionPrompt = $@"
 {personality}
 
 Current mood: {mood}
@@ -258,11 +410,12 @@ REPLY: I completely agree with your point about this.
 REACT:heart:Positive
 REACT:clap:Positive
 IGNORE";
-
-            var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
-            var decisionResult =
-                await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
-            var decision = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
+                var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
+                var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
+                decisionText = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
+            }
+            
+            var decision = decisionText;
 
             _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
 
@@ -307,8 +460,8 @@ IGNORE";
             {
                 var mode = decision.Substring(4).Trim();
                 var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
-                    ? PostPinMode.RealmPage
-                    : PostPinMode.PublisherPage;
+                    ? DysonNetwork.Shared.Models.PostPinMode.RealmPage
+                    : DysonNetwork.Shared.Models.PostPinMode.PublisherPage;
                 return new PostActionDecision { Action = "pin", PinMode = pinMode };
             }
 
@@ -318,6 +471,145 @@ IGNORE";
         {
             _logger.LogError(ex, "Error deciding action for post {PostId}", post.Id);
             return new PostActionDecision { Action = "ignore" };
+        }
+    }
+
+    /// <summary>
+    /// Build a ChatHistory with images for vision analysis
+    /// </summary>
+    private async Task<ChatHistory> BuildVisionChatHistoryAsync(string personality, string mood, string author, string content,
+        List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, bool isMentioned)
+    {
+        var chatHistory = new ChatHistory(personality);
+        chatHistory.AddSystemMessage($"Current mood: {mood}");
+
+        // Build the text part of the message
+        var textBuilder = new StringBuilder();
+        if (isMentioned)
+        {
+            textBuilder.AppendLine($"@{author} mentioned you in their post with {totalAttachmentCount} attachment(s):");
+        }
+        else
+        {
+            textBuilder.AppendLine($"You see a post from @{author} with {totalAttachmentCount} attachment(s):");
+        }
+        textBuilder.AppendLine($"Content: \"{content}\"");
+        textBuilder.AppendLine();
+
+        // Create a collection to hold all content items (text + images)
+        var contentItems = new ChatMessageContentItemCollection();
+        contentItems.Add(new TextContent(textBuilder.ToString()));
+
+        // Download and add images
+        foreach (var attachment in imageAttachments)
+        {
+            try
+            {
+                var imageBytes = await DownloadImageAsync(attachment);
+                if (imageBytes != null && imageBytes.Length > 0)
+                {
+                    contentItems.Add(new ImageContent(imageBytes, attachment.MimeType ?? "image/jpeg"));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to download image {FileId} for vision analysis", attachment.Id);
+            }
+        }
+
+        // Add instruction text after images
+        var instructionText = new StringBuilder();
+        if (imageAttachments.Count > 0)
+        {
+            instructionText.AppendLine();
+            instructionText.AppendLine("Analyze the visual content along with the text to understand the full context.");
+            instructionText.AppendLine();
+        }
+
+        if (isMentioned)
+        {
+            instructionText.AppendLine("Write a friendly, natural reply (1-3 sentences). Be conversational and genuine, considering both the text and any images.");
+            instructionText.AppendLine("Do not use emojis.");
+        }
+        else
+        {
+            instructionText.AppendLine("Choose ONE action:");
+            instructionText.AppendLine();
+            instructionText.AppendLine("**REPLY** - Respond with your thoughts, agreement, question, or perspective. Use this when:");
+            instructionText.AppendLine("- You have ANYTHING to say about the topic");
+            instructionText.AppendLine("- You want to engage in conversation");
+            instructionText.AppendLine("- You agree or disagree with the point");
+            instructionText.AppendLine("- You have a related thought or question");
+            instructionText.AppendLine();
+            instructionText.AppendLine("**REACT** - Quick emoji reaction when you want to acknowledge but have nothing to add. Use this when:");
+            instructionText.AppendLine("- The post is good but you don't have words to contribute");
+            instructionText.AppendLine("- You just want to show appreciation without conversation");
+            instructionText.AppendLine();
+            instructionText.AppendLine("**PIN** - Save this post to your profile (only for truly important content)");
+            instructionText.AppendLine();
+            instructionText.AppendLine("**IGNORE** - Skip this post completely");
+            instructionText.AppendLine();
+            instructionText.AppendLine("REPLY is your default - be conversational and social! Don't be shy about engaging.");
+            instructionText.AppendLine();
+            instructionText.AppendLine("Available reactions if you choose REACT: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+            instructionText.AppendLine();
+            instructionText.AppendLine("Respond with ONLY:");
+            instructionText.AppendLine("- REPLY: your response text here");
+            instructionText.AppendLine("- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive)");
+            instructionText.AppendLine("- PIN:PublisherPage");
+            instructionText.AppendLine("- IGNORE");
+            instructionText.AppendLine();
+            instructionText.AppendLine("Examples:");
+            instructionText.AppendLine("REPLY: That's really interesting! I've been thinking about this too.");
+            instructionText.AppendLine("REPLY: I completely agree with your point about this.");
+            instructionText.AppendLine("REACT:heart:Positive");
+            instructionText.AppendLine("REACT:clap:Positive");
+            instructionText.AppendLine("IGNORE");
+        }
+
+        contentItems.Add(new TextContent(instructionText.ToString()));
+
+        // Create a ChatMessageContent with all items and add it to history
+        var userMessage = new ChatMessageContent
+        {
+            Role = AuthorRole.User,
+            Items = contentItems
+        };
+        chatHistory.Add(userMessage);
+
+        return chatHistory;
+    }
+
+    /// <summary>
+    /// Download image bytes from the drive service
+    /// </summary>
+    private async Task<byte[]?> DownloadImageAsync(SnCloudFileReferenceObject attachment)
+    {
+        try
+        {
+            string url;
+            if (!string.IsNullOrEmpty(attachment.Url))
+            {
+                url = attachment.Url;
+            }
+            else if (!string.IsNullOrEmpty(attachment.Id))
+            {
+                // Build URL from gateway + file ID
+                url = $"{_config.GatewayUrl}/drive/files/{attachment.Id}";
+            }
+            else
+            {
+                return null;
+            }
+
+            var response = await _httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to download image from {Url}", attachment.Url ?? $"/drive/files/{attachment.Id}");
+            return null;
         }
     }
 
@@ -429,7 +721,7 @@ IGNORE";
         }
     }
 
-    private async Task PinPostAsync(SnPost post, PostPinMode mode)
+    private async Task PinPostAsync(SnPost post, DysonNetwork.Shared.Models.PostPinMode mode)
     {
         try
         {
@@ -517,6 +809,31 @@ IGNORE";
         if (post.Mentions == null) return false;
         return post.Mentions.Any(mention =>
             mention.Username?.Equals("michan", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    /// <summary>
+    /// Check if a post has attachments
+    /// </summary>
+    private bool HasAttachments(SnPost post)
+    {
+        return post.Attachments != null && post.Attachments.Count > 0;
+    }
+
+    /// <summary>
+    /// Get supported image attachments for vision analysis
+    /// </summary>
+    private List<SnCloudFileReferenceObject> GetSupportedImageAttachments(SnPost post)
+    {
+        if (post.Attachments == null || post.Attachments.Count == 0)
+            return new List<SnCloudFileReferenceObject>();
+
+        var supportedImageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg" };
+        
+        return post.Attachments
+            .Where(a => !string.IsNullOrEmpty(a.MimeType) && 
+                        supportedImageTypes.Contains(a.MimeType.ToLower()))
+            .Where(a => !string.IsNullOrEmpty(a.Url) || !string.IsNullOrEmpty(a.Id))
+            .ToList();
     }
 
     private async Task<bool> HasMiChanRepliedAsync(SnPost post)
@@ -814,7 +1131,7 @@ Do not use emojis.";
         public string? Content { get; set; } // For replies
         public string? ReactionSymbol { get; set; } // For reactions: thumb_up, heart, etc.
         public string? ReactionAttitude { get; set; } // For reactions: Positive, Negative, Neutral
-        public PostPinMode? PinMode { get; set; } // For pins: ProfilePage, RealmPage
+        public DysonNetwork.Shared.Models.PostPinMode? PinMode { get; set; } // For pins: ProfilePage, RealmPage
     }
 }
 
