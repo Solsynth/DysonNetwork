@@ -81,6 +81,14 @@ public class MiChanKernelProvider
                 builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
                 _logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
                 break;
+            case "aliyun":
+                var aliyunThinkingClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://dashscope.aliyuncs.com/compatible-mode/v1") }
+                );
+                builder.AddOpenAIChatCompletion(model!, aliyunThinkingClient);
+                _logger.LogInformation("Main kernel configured with Aliyun DashScope model: {Model}", model);
+                break;
             default:
                 throw new InvalidOperationException($"Unknown thinking provider: {providerType}");
         }
@@ -171,7 +179,7 @@ public class MiChanKernelProvider
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 Temperature = (float)temp
             },
-            "deepseek" or "openrouter" => new OpenAIPromptExecutionSettings
+            "deepseek" or "openrouter" or "aliyun" => new OpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 ModelId = _config.ThinkingService,
@@ -218,8 +226,16 @@ public class MiChanKernelProvider
                 builder.AddOpenAIChatCompletion(model!, openRouterClient);
                 _logger.LogInformation("Vision kernel configured with OpenRouter model: {Model}", model);
                 break;
+            case "aliyun":
+                var aliyunClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://dashscope.aliyuncs.com/compatible-mode/v1") }
+                );
+                builder.AddOpenAIChatCompletion(model!, aliyunClient);
+                _logger.LogInformation("Vision kernel configured with Aliyun DashScope model: {Model}", model);
+                break;
             default:
-                throw new InvalidOperationException($"Unknown vision provider: {providerType}. Please configure a valid provider (ollama, openrouter).");
+                throw new InvalidOperationException($"Unknown vision provider: {providerType}. Please configure a valid provider (ollama, openrouter, aliyun).");
         }
 
         _visionKernel = builder.Build();
@@ -243,6 +259,12 @@ public class MiChanKernelProvider
                 Temperature = (float)temp
             },
             "openrouter" => new OpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
+                ModelId = _config.Vision.VisionThinkingService,
+                Temperature = (float)temp
+            },
+            "aliyun" => new OpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 ModelId = _config.Vision.VisionThinkingService,
