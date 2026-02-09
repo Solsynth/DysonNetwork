@@ -34,6 +34,12 @@ public class MiChanAutonomousBehavior
     private DateTime _lastBlockedCacheTime = DateTime.MinValue;
     private static readonly TimeSpan BlockedCacheDuration = TimeSpan.FromMinutes(5);
 
+    // Pagination checkpoint tracking
+    private Guid? _checkpointOldestPostId;
+    private int _currentPageIndex = 0;
+    private const int MaxPageIndex = 10;
+    private const int PageSize = 30;
+
     private readonly PostPlugin _postPlugin;
 
     public MiChanAutonomousBehavior(
@@ -198,99 +204,157 @@ public class MiChanAutonomousBehavior
     {
         _logger.LogInformation("Autonomous: Checking posts...");
 
-        // Get recent posts
-        var posts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/posts?take=30");
-        if (posts == null || posts.Count == 0)
-            return;
-
         // Get blocked users list (cached)
         var blockedUsers = await GetBlockedByUsersAsync();
 
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
         var mood = _config.AutonomousBehavior.PersonalityMood;
 
-        foreach (var post in posts.OrderByDescending(p => p.CreatedAt).Take(10))
+        // Reset pagination for each autonomous cycle
+        _currentPageIndex = 0;
+
+        // Paginate through posts
+        while (_currentPageIndex <= MaxPageIndex)
         {
-            // Skip already processed posts
-            if (!_processedPostIds.Add(post.Id.ToString()))
+            _logger.LogInformation("Autonomous: Fetching posts page {PageIndex}/{MaxPages}", _currentPageIndex, MaxPageIndex);
+
+            var offset = _currentPageIndex * PageSize;
+            var posts = await _apiClient.GetAsync<List<SnPost>>(
+                "sphere",
+                $"/posts?take={PageSize}&offset={offset}");
+
+            if (posts == null || posts.Count == 0)
             {
-                _logger.LogDebug("Skipping post {PostId} - already processed", post.Id);
-                continue;
+                _logger.LogDebug("Autonomous: No more posts found on page {PageIndex}", _currentPageIndex);
+                break;
             }
 
-            // Keep hash set size manageable
-            if (_processedPostIds.Count > 1000)
+            // Get the oldest post on this page
+            var oldestPostId = posts.OrderBy(p => p.CreatedAt).First().Id;
+
+            // Check if we've seen this post before (checkpoint reached)
+            if (_checkpointOldestPostId.HasValue)
             {
-                var toRemove = _processedPostIds.Take(500).ToList();
-                foreach (var id in toRemove)
-                    _processedPostIds.Remove(id);
-            }
-
-            // Skip posts created by MiChan herself
-            if (IsOwnPost(post))
-            {
-                _logger.LogDebug("Skipping post {PostId} - created by MiChan", post.Id);
-                continue;
-            }
-
-            // Skip posts from users who blocked MiChan
-            var authorAccountId = post.Publisher?.AccountId?.ToString();
-            if (!string.IsNullOrEmpty(authorAccountId) && blockedUsers.Contains(authorAccountId))
-            {
-                _logger.LogInformation("Skipping post {PostId} from user {UserId} - user has blocked MiChan", post.Id, authorAccountId);
-                continue;
-            }
-
-            // Check if mentioned
-            var isMentioned = ContainsMention(post);
-
-            // Check if MiChan already replied to this post
-            var alreadyReplied = await HasMiChanRepliedAsync(post);
-            if (alreadyReplied)
-            {
-                _logger.LogDebug("Skipping post {PostId} - already replied", post.Id);
-                continue;
-            }
-
-            // MiChan decides what to do with this post
-            var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
-
-            switch (decision.Action)
-            {
-                case "reply":
-                    if (!string.IsNullOrEmpty(decision.Content))
-                    {
-                        await ReplyToPostAsync(post, decision.Content);
-                    }
-
+                var seenCheckpoint = posts.Any(p => p.Id == _checkpointOldestPostId.Value);
+                if (seenCheckpoint)
+                {
+                    _logger.LogInformation("Autonomous: Reached checkpoint at post {PostId}, stopping pagination",
+                        _checkpointOldestPostId.Value);
                     break;
-                case "react":
-                    if (!string.IsNullOrEmpty(decision.ReactionSymbol))
-                    {
-                        await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
-                    }
-
-                    break;
-                case "pin":
-                    if (decision.PinMode.HasValue)
-                    {
-                        await PinPostAsync(post, decision.PinMode.Value);
-                    }
-
-                    break;
-                case "ignore":
-                default:
-                    _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
-                    break;
+                }
             }
 
-            // If mentioned, prioritize and respond
-            if (isMentioned)
+            // Update checkpoint to the oldest post on this page
+            _checkpointOldestPostId = oldestPostId;
+
+            // Process posts on this page
+            var processedCount = 0;
+            var mentionFound = false;
+
+            foreach (var post in posts.OrderByDescending(p => p.CreatedAt))
             {
-                _logger.LogInformation("Autonomous: Detected mention in post {PostId}", post.Id);
-                break; // Only handle one mention per cycle
+                // Skip already processed posts in this cycle
+                if (!_processedPostIds.Add(post.Id.ToString()))
+                {
+                    continue;
+                }
+
+                // Keep hash set size manageable
+                if (_processedPostIds.Count > 1000)
+                {
+                    var toRemove = _processedPostIds.Take(500).ToList();
+                    foreach (var id in toRemove)
+                        _processedPostIds.Remove(id);
+                }
+
+                // Skip posts created by MiChan herself
+                if (IsOwnPost(post))
+                {
+                    _logger.LogDebug("Skipping post {PostId} - created by MiChan", post.Id);
+                    continue;
+                }
+
+                // Skip posts from users who blocked MiChan
+                var authorAccountId = post.Publisher?.AccountId?.ToString();
+                if (!string.IsNullOrEmpty(authorAccountId) && blockedUsers.Contains(authorAccountId))
+                {
+                    _logger.LogInformation("Skipping post {PostId} from user {UserId} - user has blocked MiChan",
+                        post.Id, authorAccountId);
+                    continue;
+                }
+
+                // Check if mentioned
+                var isMentioned = ContainsMention(post);
+
+                // Check if MiChan already replied to this post
+                var alreadyReplied = await HasMiChanRepliedAsync(post);
+                if (alreadyReplied)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already replied", post.Id);
+                    continue;
+                }
+
+                // MiChan decides what to do with this post
+                var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
+
+                switch (decision.Action)
+                {
+                    case "reply":
+                        if (!string.IsNullOrEmpty(decision.Content))
+                        {
+                            await ReplyToPostAsync(post, decision.Content);
+                        }
+                        break;
+                    case "react":
+                        if (!string.IsNullOrEmpty(decision.ReactionSymbol))
+                        {
+                            await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
+                        }
+                        break;
+                    case "pin":
+                        if (decision.PinMode.HasValue)
+                        {
+                            await PinPostAsync(post, decision.PinMode.Value);
+                        }
+                        break;
+                    case "ignore":
+                    default:
+                        _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
+                        break;
+                }
+
+                processedCount++;
+
+                // If mentioned, prioritize and stop processing this page
+                if (isMentioned)
+                {
+                    _logger.LogInformation("Autonomous: Detected mention in post {PostId}", post.Id);
+                    mentionFound = true;
+                    break;
+                }
+            }
+
+            _logger.LogInformation("Autonomous: Page {PageIndex} processed {ProcessedCount} posts",
+                _currentPageIndex, processedCount);
+
+            // Move to next page
+            _currentPageIndex++;
+
+            // If we found a mention, stop pagination early
+            if (mentionFound)
+            {
+                _logger.LogInformation("Autonomous: Stopping pagination due to mention");
+                break;
+            }
+
+            // Add delay between pages to be respectful of API
+            if (_currentPageIndex <= MaxPageIndex)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
             }
         }
+
+        _logger.LogInformation("Autonomous: Finished checking posts across {PageCount} pages", _currentPageIndex);
     }
 
     private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality,
