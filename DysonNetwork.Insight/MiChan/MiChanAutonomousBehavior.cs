@@ -961,8 +961,7 @@ public class MiChanAutonomousBehavior
 
         var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", limit: 10);
         var interests = recentInteractions
-            .SelectMany(i =>
-                i.Memory.GetValueOrDefault("topics", new List<string>()) as List<string> ?? new List<string>())
+            .SelectMany(i => i.GetMemoryValue<List<string>>("topics") ?? new List<string>())
             .Distinct()
             .Take(5)
             .ToList();

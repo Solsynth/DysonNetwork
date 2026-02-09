@@ -13,17 +13,8 @@ namespace DysonNetwork.Insight.MiChan;
 /// Factory for creating Semantic Kernel instances with various AI providers.
 /// Supports Ollama, DeepSeek, OpenRouter, and Aliyun DashScope.
 /// </summary>
-public class KernelFactory
+public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> logger)
 {
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<KernelFactory> _logger;
-
-    public KernelFactory(IConfiguration configuration, ILogger<KernelFactory> logger)
-    {
-        _configuration = configuration;
-        _logger = logger;
-    }
-
     /// <summary>
     /// Creates a kernel for a specific service configured in Thinking:Services
     /// </summary>
@@ -33,7 +24,7 @@ public class KernelFactory
     [Experimental("SKEXP0050")]
     public Kernel CreateKernel(string serviceName, bool addEmbeddings = false)
     {
-        var thinkingConfig = _configuration.GetSection("Thinking");
+        var thinkingConfig = configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
         
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
@@ -57,7 +48,7 @@ public class KernelFactory
                 );
                 if (addEmbeddings)
                 {
-                    builder.AddOllamaTextEmbeddingGeneration(
+                    builder.AddOllamaEmbeddingGenerator(
                         "nomic-embed-text",
                         new Uri(endpoint ?? "http://localhost:11434/api")
                     );
@@ -80,10 +71,10 @@ public class KernelFactory
                 builder.AddOpenAIChatCompletion(model!, openRouterClient);
                 if (addEmbeddings)
                 {
-                    var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
+                    var embeddingModel = configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
                         ?? "qwen/qwen3-embedding-8b";
                     builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
-                    _logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
+                    logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
                 }
                 break;
 
@@ -93,7 +84,7 @@ public class KernelFactory
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://dashscope.aliyuncs.com/compatible-mode/v1") }
                 );
                 builder.AddOpenAIChatCompletion(model!, aliyunClient);
-                _logger.LogInformation("Kernel configured with Aliyun DashScope model: {Model}", model);
+                logger.LogInformation("Kernel configured with Aliyun DashScope model: {Model}", model);
                 break;
 
             case "bigmodel":
@@ -102,7 +93,7 @@ public class KernelFactory
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://open.bigmodel.cn/api/paas/v4/chat/completions") }
                 );
                 builder.AddOpenAIChatCompletion(model!, bigmodelClient);
-                _logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
+                logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
                 break;
 
             default:
@@ -126,7 +117,7 @@ public class KernelFactory
     /// <returns>Configured PromptExecutionSettings</returns>
     public PromptExecutionSettings CreatePromptExecutionSettings(string serviceName, double? temperature = null)
     {
-        var thinkingConfig = _configuration.GetSection("Thinking");
+        var thinkingConfig = configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
         var temp = temperature ?? 0.7;
@@ -151,16 +142,16 @@ public class KernelFactory
     [Experimental("SKEXP0050")]
     private void AddOpenRouterEmbeddingFallback(IKernelBuilder builder, string? currentProvider)
     {
-        var openRouterApiKey = _configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
+        var openRouterApiKey = configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
         if (string.IsNullOrEmpty(openRouterApiKey))
         {
-            _logger.LogWarning("No OpenRouter API key configured for embedding fallback. Semantic search will be disabled for {Provider}.", currentProvider);
+            logger.LogWarning("No OpenRouter API key configured for embedding fallback. Semantic search will be disabled for {Provider}.", currentProvider);
             return;
         }
 
-        var openRouterEndpoint = _configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
+        var openRouterEndpoint = configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
             ?? "https://openrouter.ai/api/v1";
-        var embeddingModel = _configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
+        var embeddingModel = configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
             ?? "qwen/qwen3-embedding-8b";
 
         try
@@ -170,12 +161,12 @@ public class KernelFactory
                 new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
             );
             builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
-            _logger.LogInformation("OpenRouter embedding fallback configured with model {Model} for {Provider}", 
+            logger.LogInformation("OpenRouter embedding fallback configured with model {Model} for {Provider}", 
                 embeddingModel, currentProvider);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not configure OpenRouter embedding fallback. Semantic search will be disabled.");
+            logger.LogWarning(ex, "Could not configure OpenRouter embedding fallback. Semantic search will be disabled.");
         }
     }
 
@@ -186,7 +177,7 @@ public class KernelFactory
     {
         try
         {
-            var thinkingConfig = _configuration.GetSection("Thinking");
+            var thinkingConfig = configuration.GetSection("Thinking");
             var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
             return !string.IsNullOrEmpty(serviceConfig.GetValue<string>("Model"));
         }
