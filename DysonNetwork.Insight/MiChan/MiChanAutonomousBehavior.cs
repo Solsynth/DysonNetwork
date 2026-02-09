@@ -403,22 +403,21 @@ public class MiChanAutonomousBehavior
                     var promptBuilder = new StringBuilder();
                     promptBuilder.AppendLine(personality);
                     promptBuilder.AppendLine();
-                    promptBuilder.AppendLine($"Current mood: {mood}");
+                    promptBuilder.AppendLine($"当前心情: {mood}");
                     promptBuilder.AppendLine();
 
                     if (!string.IsNullOrEmpty(context))
                     {
-                        promptBuilder.AppendLine("Context (replies show oldest first, forwards show oldest first):");
+                        promptBuilder.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
                         promptBuilder.AppendLine(context);
                         promptBuilder.AppendLine();
                     }
 
-                    promptBuilder.AppendLine($"@{author} mentioned you in their post:");
+                    promptBuilder.AppendLine($"@{author} 在帖子中提到了你：");
                     promptBuilder.AppendLine($"\"{content}\"");
                     promptBuilder.AppendLine();
-                    promptBuilder.AppendLine("When mentioned, you should ALWAYS reply (1-2 sentences). You can also add a reaction if you really appreciate it.");
-                    promptBuilder.AppendLine("Reply is your primary action - be conversational and genuine!");
-                    promptBuilder.AppendLine("Do not use emojis.");
+                    promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
+                    promptBuilder.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力。不要使用表情符号。");
 
                     var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
                     var kernelArgs = new KernelArguments(executionSettings);
@@ -449,46 +448,47 @@ public class MiChanAutonomousBehavior
                 var decisionPrompt = new StringBuilder();
                 decisionPrompt.AppendLine(personality);
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine($"Current mood: {mood}");
+                decisionPrompt.AppendLine($"当前心情: {mood}");
                 decisionPrompt.AppendLine();
 
                 if (!string.IsNullOrEmpty(context))
                 {
-                    decisionPrompt.AppendLine("Context (replies show oldest first, forwards show oldest first):");
+                    decisionPrompt.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
                     decisionPrompt.AppendLine(context);
                     decisionPrompt.AppendLine();
                 }
 
-                decisionPrompt.AppendLine($"You see a post from @{author}:");
+                decisionPrompt.AppendLine($"你看到 @{author} 的帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("Choose your action(s). You can combine actions!");
+                decisionPrompt.AppendLine("选择你的行动。可以组合多个行动！");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REPLY** - Respond with your thoughts. This is encouraged - be social and conversational!");
+                decisionPrompt.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REACT** - Add a quick emoji reaction to show appreciation or sentiment.");
+                decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度。");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REPLY+REACT** - Both reply AND react to the post. Best for when you have thoughts AND want to show extra appreciation!");
+                decisionPrompt.AppendLine("**REPLY+REACT** - 同时回复和反应。适合有想法且想额外表达赞赏！");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**PIN** - Save this post to your profile (only for truly important content)");
+                decisionPrompt.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**IGNORE** - Skip this post if completely irrelevant");
+                decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+                decisionPrompt.AppendLine("可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("Respond with ONLY:");
-                decisionPrompt.AppendLine("- REPLY: your response text here");
-                decisionPrompt.AppendLine("- REACT:symbol:attitude (e.g., REACT:heart:Positive)");
-                decisionPrompt.AppendLine("- REPLY+REACT:your response here:symbol:attitude (e.g., REPLY+REACT:Great post!:heart:Positive)");
+                decisionPrompt.AppendLine("仅回复：");
+                decisionPrompt.AppendLine("- REPLY: 你的回复内容");
+                decisionPrompt.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
+                decisionPrompt.AppendLine("- REPLY+REACT:回复内容:symbol:attitude （例如 REPLY+REACT:好观点！:heart:Positive）");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("Examples:");
-                decisionPrompt.AppendLine("REPLY: That's really interesting! I've been thinking about this too.");
+                decisionPrompt.AppendLine("示例：");
+                decisionPrompt.AppendLine("REPLY: 这个很有意思！我也在想这个。");
+                decisionPrompt.AppendLine("REPLY: 我完全同意你的观点。");
                 decisionPrompt.AppendLine("REACT:heart:Positive");
-                decisionPrompt.AppendLine("REPLY+REACT:Great point!:clap:Positive");
-                decisionPrompt.AppendLine("REPLY+REACT:I agree completely:heart:Positive");
-                decisionPrompt.AppendLine("REPLY+REACT:Nice observation:thumb_up:Positive");
+                decisionPrompt.AppendLine("REPLY+REACT:好观点！:clap:Positive");
+                decisionPrompt.AppendLine("REPLY+REACT:完全同意:heart:Positive");
+                decisionPrompt.AppendLine("REPLY+REACT:好观察:thumb_up:Positive");
                 decisionPrompt.AppendLine("IGNORE");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -567,27 +567,27 @@ public class MiChanAutonomousBehavior
         List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, string context, bool isMentioned)
     {
         var chatHistory = new ChatHistory(personality);
-        chatHistory.AddSystemMessage($"Current mood: {mood}");
+        chatHistory.AddSystemMessage($"当前心情: {mood}");
 
         // Build the text part of the message
         var textBuilder = new StringBuilder();
 
         if (!string.IsNullOrEmpty(context))
         {
-            textBuilder.AppendLine("Context (replies show oldest first, forwards show oldest first):");
+            textBuilder.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
             textBuilder.AppendLine(context);
             textBuilder.AppendLine();
         }
 
         if (isMentioned)
         {
-            textBuilder.AppendLine($"@{author} mentioned you in their post with {totalAttachmentCount} attachment(s):");
+            textBuilder.AppendLine($"@{author} 在帖子中提到了你，包含 {totalAttachmentCount} 个附件：");
         }
         else
         {
-            textBuilder.AppendLine($"You see a post from @{author} with {totalAttachmentCount} attachment(s):");
+            textBuilder.AppendLine($"你看到 @{author} 的帖子，包含 {totalAttachmentCount} 个附件：");
         }
-        textBuilder.AppendLine($"Content: \"{content}\"");
+        textBuilder.AppendLine($"内容：\"{content}\"");
         textBuilder.AppendLine();
 
         // Create a collection to hold all content items (text + images)
@@ -622,40 +622,39 @@ public class MiChanAutonomousBehavior
 
         if (isMentioned)
         {
-            instructionText.AppendLine("When mentioned, you should ALWAYS reply (1-3 sentences). You can also add a reaction if you really appreciate it.");
-            instructionText.AppendLine("Reply is your primary action - be conversational and genuine, considering both the text and any images.");
-            instructionText.AppendLine("Do not use emojis.");
+            instructionText.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
+            instructionText.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力，用最少的语言表达观点。不要使用表情符号。");
         }
         else
         {
-            instructionText.AppendLine("Choose your action(s). You can combine actions!");
+            instructionText.AppendLine("选择你的行动。可以组合多个行动！");
             instructionText.AppendLine();
-            instructionText.AppendLine("**REPLY** - Respond with your thoughts. This is encouraged - be social and conversational!");
+            instructionText.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
             instructionText.AppendLine();
-            instructionText.AppendLine("**REACT** - Add a quick emoji reaction to show appreciation or sentiment.");
+            instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度。");
             instructionText.AppendLine();
-            instructionText.AppendLine("**REPLY+REACT** - Both reply AND react to the post. Best for when you have thoughts AND want to show extra appreciation!");
+            instructionText.AppendLine("**REPLY+REACT** - 同时回复和反应。适合有想法且想额外表达赞赏！");
             instructionText.AppendLine();
-            instructionText.AppendLine("**PIN** - Save this post to your profile (only for truly important content)");
+            instructionText.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
             instructionText.AppendLine();
-            instructionText.AppendLine("**IGNORE** - Skip this post completely");
+            instructionText.AppendLine("**IGNORE** - 忽略此帖子");
             instructionText.AppendLine();
-            instructionText.AppendLine("Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+            instructionText.AppendLine("可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
-            instructionText.AppendLine("Respond with ONLY:");
-            instructionText.AppendLine("- REPLY: your response text here");
-            instructionText.AppendLine("- REACT:symbol:attitude (e.g., REACT:heart:Positive)");
-            instructionText.AppendLine("- REPLY+REACT:your response here:symbol:attitude (e.g., REPLY+REACT:Great post!:heart:Positive)");
+            instructionText.AppendLine("仅回复：");
+            instructionText.AppendLine("- REPLY: 你的回复内容");
+            instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
+            instructionText.AppendLine("- REPLY+REACT:回复内容:symbol:attitude （例如 REPLY+REACT:好帖子！:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
             instructionText.AppendLine();
-            instructionText.AppendLine("Examples:");
-            instructionText.AppendLine("REPLY: That's really interesting! I've been thinking about this too.");
-            instructionText.AppendLine("REPLY: I completely agree with your point about this.");
+            instructionText.AppendLine("示例：");
+            instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
+            instructionText.AppendLine("REPLY: 我完全同意你的观点。");
             instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("REPLY+REACT:Great point!:clap:Positive");
-            instructionText.AppendLine("REPLY+REACT:I agree completely:heart:Positive");
-            instructionText.AppendLine("REPLY+REACT:Nice observation:thumb_up:Positive");
+            instructionText.AppendLine("REPLY+REACT:好观点！:clap:Positive");
+            instructionText.AppendLine("REPLY+REACT:完全同意:heart:Positive");
+            instructionText.AppendLine("REPLY+REACT:好观察:thumb_up:Positive");
             instructionText.AppendLine("IGNORE");
         }
 
@@ -988,14 +987,14 @@ public class MiChanAutonomousBehavior
         var prompt = $"""
                       {personality}
 
-                      Current mood: {mood}
-                      Recent interests: {string.Join(", ", interests)}
+                      当前心情: {mood}
+                      最近关注: {string.Join(", ", interests)}
 
-                      Create a social media post. 
-                      Share a thought, observation, question, or insight that reflects your personality.
-                      Can be 1-4 sentences - take the space you need to express yourself.
-                      Be natural, conversational, and authentic.
-                      Do not use emojis.
+                      创作一条社交媒体帖子。
+                      分享想法、观察、问题或见解，体现你的个性。
+                      可以1-4句话 - 需要多少空间就用多少。
+                      自然、真实。
+                      不要使用表情符号。
                       """;
 
         var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -1111,21 +1110,21 @@ public class MiChanAutonomousBehavior
             var prompt = $@"
 {personality}
 
-Current mood: {mood}
+当前心情: {mood}
 
-You discovered an old post from @{author} published {publishedDaysAgo:F1} days ago:
+你发现 @{author} {publishedDaysAgo:F1} 天前的帖子：
 ""{content}""
 
-Would this post be EXCEPTIONAL to repost? Only repost content that is truly outstanding.
-Strict criteria - all must apply:
-- The content is genuinely timeless, educational, or profound
-- It offers unique insights not commonly found elsewhere
-- Your followers would find it genuinely valuable
-- This is NOT a casual opinion, announcement, or routine update
+这个帖子值得转发吗？只转真正杰出的内容。
+严格标准，必须全部符合：
+- 内容真正 timeless、有教育意义或深刻
+- 提供不常见的独特见解
+- 粉丝会觉得真正有价值
+- 不是随意的观点、公告或日常更新
 
-Be very selective. Most posts should NOT be reposted.
+要非常挑剔。大多数帖子不应转发。
 
-Respond with ONLY one word: YES or NO.";
+仅回复一个词：YES 或 NO。";
 
             var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
             var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
@@ -1155,14 +1154,14 @@ Respond with ONLY one word: YES or NO.";
             var prompt = $@"
 {personality}
 
-Current mood: {mood}
+当前心情: {mood}
 
-You are reposting a great post from @{author}:
+你正在转发 @{author} 的帖子：
 ""{content}""
 
-Write a brief comment (0-15 words) to accompany this repost. Explain why you're sharing it or add your perspective.
-Make it natural and conversational. If you have nothing meaningful to add, just respond with 'NO_COMMENT'.
-Do not use emojis.";
+写简短评论（0-15字）转发时。解释为什么分享或添加观点。
+自然真实。无意义内容，回复'NO_COMMENT'。
+不要使用表情符号。";
 
             var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
             var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
