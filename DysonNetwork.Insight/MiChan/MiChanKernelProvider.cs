@@ -161,8 +161,8 @@ public class MiChanKernelProvider
         var serviceConfig = thinkingConfig.GetSection($"Services:{_config.ThinkingService}");
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
         
-        // Default temperature: 0.8 for more creative/conversational responses
-        var temp = temperature ?? 0.8;
+        // Default temperature: 0.6 for more conservative, selective responses
+        var temp = temperature ?? 0.6;
 
         return providerType switch
         {

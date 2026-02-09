@@ -96,7 +96,7 @@ public class MiChanAutonomousBehavior
 
             // Then possibly do additional actions
             var availableActions = _config.AutonomousBehavior.Actions;
-            if (availableActions.Count > 0 && _random.Next(100) < 30) // 30% chance for extra action
+            if (availableActions.Count > 0 && _random.Next(100) < 25) // 25% chance for extra action
             {
                 var action = availableActions[_random.Next(availableActions.Count)];
 
@@ -341,7 +341,8 @@ Current mood: {mood}
 @{author} mentioned you in their post:
 ""{content}""
 
-Write a friendly, natural reply (1-3 sentences). Be conversational and genuine.
+Write a friendly reply (1-2 sentences). Engage naturally when you have any thoughts on the topic.
+Be conversational and genuine. Don't overthink it - if the topic interests you, reply!
 Do not use emojis.";
 
                     var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -378,25 +379,27 @@ Current mood: {mood}
 You see a post from @{author}:
 ""{content}""
 
-Choose ONE action:
+Choose ONE action. Be social and engage with content that interests you!
 
-**REPLY** - Respond with your thoughts, agreement, question, or perspective. Use this when:
-- You have ANYTHING to say about the topic
-- You want to engage in conversation
-- You agree or disagree with the point
+**REPLY** - Respond when you have any thoughts, agreement, question, or perspective. This is your DEFAULT action. Use when:
+- The topic interests you in any way
+- You have something to say about it
+- You agree or disagree
 - You have a related thought or question
+- The post made you think
+Don't be shy - social platforms are for conversation!
 
-**REACT** - Quick emoji reaction when you want to acknowledge but have nothing to add. Use this when:
-- The post is good but you don't have words to contribute
-- You just want to show appreciation without conversation
+**REACT** - Quick emoji reaction when you appreciate the post but have nothing specific to add:
+- You like the content but don't have words
+- Just want to show acknowledgment
 
 **PIN** - Save this post to your profile (only for truly important content)
 
-**IGNORE** - Skip this post completely
+**IGNORE** - Skip this post if it's completely irrelevant or uninteresting
 
-REPLY is your default - be conversational and social! Don't be shy about engaging.
+REPLY is encouraged - be conversational and social!
 
-Available reactions if you choose REACT: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down
+Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down
 
 Respond with ONLY:
 - REPLY: your response text here
@@ -423,28 +426,6 @@ IGNORE";
             {
                 var replyText = decision.Substring(6).Trim();
                 return new PostActionDecision { Action = "reply", Content = replyText };
-            }
-
-            // 30% chance to convert REACT to REPLY to encourage more conversation
-            if (decision.StartsWith("REACT:") && _random.Next(100) < 30)
-            {
-                _logger.LogInformation("Converting REACT to REPLY for post {PostId} (30% chance)", post.Id);
-                var parts = decision.Substring(6).Split(':');
-                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "thumb_up";
-
-                // Generate a quick reply based on the reaction type (no emojis)
-                var quickReply = symbol switch
-                {
-                    "heart" => "Love this!",
-                    "clap" => "Well said!",
-                    "laugh" => "Haha, this is great!",
-                    "thumb_up" => "Totally agree with this!",
-                    "party" => "This is exciting!",
-                    "pray" => "Sending good vibes",
-                    _ => "Interesting point!"
-                };
-
-                return new PostActionDecision { Action = "reply", Content = quickReply };
             }
 
             if (decision.StartsWith("REACT:"))
@@ -899,8 +880,10 @@ IGNORE";
                       Current mood: {mood}
                       Recent interests: {string.Join(", ", interests)}
 
-                      Create a short, casual social media post (1-2 sentences) that reflects your personality and current mood.
-                      Share a thought, observation, or question. Be natural and conversational.
+                      Create a social media post. 
+                      Share a thought, observation, question, or insight that reflects your personality.
+                      Can be 1-4 sentences - take the space you need to express yourself.
+                      Be natural, conversational, and authentic.
                       Do not use emojis.
                       """;
 
@@ -1022,12 +1005,14 @@ Current mood: {mood}
 You discovered an old post from @{author} published {publishedDaysAgo:F1} days ago:
 ""{content}""
 
-Is this post VERY interesting, valuable, or worth sharing with your followers?
-Consider:
-- Is the content timeless or still relevant?
-- Does it provide unique insights or value?
-- Would your followers appreciate seeing this?
-- Is it NOT just a casual update but something meaningful?
+Would this post be EXCEPTIONAL to repost? Only repost content that is truly outstanding.
+Strict criteria - all must apply:
+- The content is genuinely timeless, educational, or profound
+- It offers unique insights not commonly found elsewhere
+- Your followers would find it genuinely valuable
+- This is NOT a casual opinion, announcement, or routine update
+
+Be very selective. Most posts should NOT be reposted.
 
 Respond with ONLY one word: YES or NO.";
 
