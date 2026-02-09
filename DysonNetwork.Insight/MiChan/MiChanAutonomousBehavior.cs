@@ -440,7 +440,7 @@ public class MiChanAutonomousBehavior
                 var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                 var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
                 var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
-                decisionText = reply.Content?.Trim().ToUpper() ?? "IGNORE";
+                decisionText = reply.Content?.Trim() ?? "IGNORE";
             }
             else
             {
@@ -461,13 +461,11 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine($"你看到 @{author} 的帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("选择你的行动。可以组合多个行动！");
+                decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度。");
-                decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REPLY+REACT** - 同时回复和反应。适合有想法且想额外表达赞赏！");
+                decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）。");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
                 decisionPrompt.AppendLine();
@@ -475,10 +473,9 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("仅回复：");
+                decisionPrompt.AppendLine("格式：每行动单独一行：");
                 decisionPrompt.AppendLine("- REPLY: 你的回复内容");
                 decisionPrompt.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
-                decisionPrompt.AppendLine("- REPLY+REACT:回复内容:symbol:attitude （例如 REPLY+REACT:好观点！:heart:Positive）");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
                 decisionPrompt.AppendLine();
@@ -486,72 +483,63 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("REPLY: 这个很有意思！我也在想这个。");
                 decisionPrompt.AppendLine("REPLY: 我完全同意你的观点。");
                 decisionPrompt.AppendLine("REACT:heart:Positive");
-                decisionPrompt.AppendLine("REPLY+REACT:好观点！:clap:Positive");
-                decisionPrompt.AppendLine("REPLY+REACT:完全同意:heart:Positive");
-                decisionPrompt.AppendLine("REPLY+REACT:好观察:thumb_up:Positive");
+                decisionPrompt.AppendLine("REPLY: 这个很有意思！我也在想这个。");
+                decisionPrompt.AppendLine("REACT:heart:Positive");
+                decisionPrompt.AppendLine("REPLY: 我完全同意你的观点。");
+                decisionPrompt.AppendLine("REACT:clap:Positive");
                 decisionPrompt.AppendLine("IGNORE");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
                 var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
-                decisionText = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
+                decisionText = decisionResult.GetValue<string>()?.Trim() ?? "IGNORE";
             }
             
             var decision = decisionText;
 
             _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
 
-            if (decision.StartsWith("REPLY+REACT:"))
+            var actionDecision = new PostActionDecision { };
+
+            var lines = decision.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).ToList();
+
+            foreach (var line in lines)
             {
-                var rest = decision.Substring(12).Trim();
-                var colonIndex = rest.LastIndexOf(':');
-                if (colonIndex > 0)
+                if (actionDecision.ShouldReact)
                 {
-                    var replyText = rest.Substring(0, colonIndex).Trim();
-                    var reactPart = rest.Substring(colonIndex + 1).Trim();
-                    var reactParts = reactPart.Split(':');
-                    var symbol = reactParts.Length > 0 ? reactParts[0].Trim().ToLower() : "heart";
-                    var attitude = reactParts.Length > 1 ? reactParts[1].Trim() : "Positive";
-                    return new PostActionDecision
-                    {
-                        ShouldReply = true,
-                        Content = replyText,
-                        ShouldReact = true,
-                        ReactionSymbol = symbol,
-                        ReactionAttitude = attitude
-                    };
+                    _logger.LogDebug("Already processed REACT, skipping additional reactions for post {PostId}", post.Id);
+                    break;
                 }
-                return new PostActionDecision { ShouldReply = true, Content = rest };
-            }
 
-            if (decision.StartsWith("REPLY:"))
-            {
-                var replyText = decision.Substring(6).Trim();
-                return new PostActionDecision { ShouldReply = true, Content = replyText };
-            }
-
-            if (decision.StartsWith("REACT:"))
-            {
-                var parts = decision.Substring(6).Split(':');
-                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
-                var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
-                return new PostActionDecision
+                if (line.StartsWith("REPLY:"))
                 {
-                    ShouldReact = true,
-                    ReactionSymbol = symbol,
-                    ReactionAttitude = attitude
-                };
+                    var replyText = line.Substring(6).Trim();
+                    actionDecision.ShouldReply = true;
+                    actionDecision.Content = replyText;
+                }
+                else if (line.StartsWith("REACT:"))
+                {
+                    var parts = line.Substring(6).Split(':');
+                    var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
+                    var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
+                    actionDecision.ShouldReact = true;
+                    actionDecision.ReactionSymbol = symbol;
+                    actionDecision.ReactionAttitude = attitude;
+                }
+                else if (line.StartsWith("PIN:"))
+                {
+                    var mode = line.Substring(4).Trim();
+                    var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
+                        ? DysonNetwork.Shared.Models.PostPinMode.RealmPage
+                        : DysonNetwork.Shared.Models.PostPinMode.PublisherPage;
+                    actionDecision.ShouldPin = true;
+                    actionDecision.PinMode = pinMode;
+                }
+                else if (line.Equals("IGNORE", StringComparison.OrdinalIgnoreCase))
+                {
+                }
             }
 
-            if (decision.StartsWith("PIN:"))
-            {
-                var mode = decision.Substring(4).Trim();
-                var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
-                    ? DysonNetwork.Shared.Models.PostPinMode.RealmPage
-                    : DysonNetwork.Shared.Models.PostPinMode.PublisherPage;
-                return new PostActionDecision { ShouldPin = true, PinMode = pinMode };
-            }
-
-            return new PostActionDecision { };
+            return actionDecision;
         }
         catch (Exception ex)
         {
@@ -627,13 +615,11 @@ public class MiChanAutonomousBehavior
         }
         else
         {
-            instructionText.AppendLine("选择你的行动。可以组合多个行动！");
+            instructionText.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
             instructionText.AppendLine();
             instructionText.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
             instructionText.AppendLine();
-            instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度。");
-            instructionText.AppendLine();
-            instructionText.AppendLine("**REPLY+REACT** - 同时回复和反应。适合有想法且想额外表达赞赏！");
+            instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）。");
             instructionText.AppendLine();
             instructionText.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
             instructionText.AppendLine();
@@ -641,10 +627,9 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine();
             instructionText.AppendLine("可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
-            instructionText.AppendLine("仅回复：");
+            instructionText.AppendLine("格式：每行动单独一行：");
             instructionText.AppendLine("- REPLY: 你的回复内容");
             instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
-            instructionText.AppendLine("- REPLY+REACT:回复内容:symbol:attitude （例如 REPLY+REACT:好帖子！:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
             instructionText.AppendLine();
@@ -652,9 +637,10 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
             instructionText.AppendLine("REPLY: 我完全同意你的观点。");
             instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("REPLY+REACT:好观点！:clap:Positive");
-            instructionText.AppendLine("REPLY+REACT:完全同意:heart:Positive");
-            instructionText.AppendLine("REPLY+REACT:好观察:thumb_up:Positive");
+            instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
+            instructionText.AppendLine("REACT:heart:Positive");
+            instructionText.AppendLine("REPLY: 我完全同意你的观点。");
+            instructionText.AppendLine("REACT:clap:Positive");
             instructionText.AppendLine("IGNORE");
         }
 
@@ -1128,9 +1114,9 @@ public class MiChanAutonomousBehavior
 
             var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
             var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-            var decision = result.GetValue<string>()?.Trim().ToUpper() ?? "NO";
+            var decision = result.GetValue<string>()?.Trim() ?? "NO";
 
-            var isInteresting = decision.StartsWith("YES");
+            var isInteresting = decision.StartsWith("YES", StringComparison.OrdinalIgnoreCase);
             _logger.LogInformation("Post {PostId} very interesting check: {Decision}", post.Id,
                 isInteresting ? "YES" : "NO");
 
