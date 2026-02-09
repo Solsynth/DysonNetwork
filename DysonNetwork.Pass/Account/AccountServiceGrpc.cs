@@ -264,7 +264,7 @@ public class AccountServiceGrpc(
         var relationship = await relationships.GetRelationship(
             Guid.Parse(request.AccountId),
             Guid.Parse(request.RelatedId),
-            status: (Shared.Models.RelationshipStatus?)request.Status
+            status: (RelationshipStatus?)request.Status
         );
         return new GetRelationshipResponse
         {

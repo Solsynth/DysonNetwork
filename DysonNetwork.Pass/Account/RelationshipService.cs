@@ -44,7 +44,9 @@ public class RelationshipService(
             throw new ArgumentException("Account IDs cannot be empty.");
 
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var queries = db.AccountRelationships.AsQueryable()
+        var queries = db.AccountRelationships
+            .Include(r => r.Account)
+            .Include(r => r.Related)
             .Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
         if (!ignoreExpired) queries = queries.Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
         if (status is not null) queries = queries.Where(r => r.Status == status);
