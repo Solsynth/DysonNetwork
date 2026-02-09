@@ -128,6 +128,17 @@ public class PostActionController(
                 .FirstOrDefaultAsync();
             if (repliedPost is null)
                 return BadRequest("Post replying to was not found.");
+
+            if (repliedPost.Publisher?.AccountId != null)
+            {
+                var relationship = await accounts.GetRelationshipAsync(new GetRelationshipRequest
+                {
+                    AccountId = repliedPost.Publisher.AccountId.ToString(),
+                    RelatedId = accountId.ToString(),
+                });
+                if (relationship.Relationship.Status <= -100) return BadRequest("You cannot reply who blocked you.");
+            }
+            
             post.RepliedPost = repliedPost;
             post.RepliedPostId = repliedPost.Id;
         }
