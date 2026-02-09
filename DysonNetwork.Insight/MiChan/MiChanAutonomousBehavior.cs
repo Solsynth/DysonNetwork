@@ -297,30 +297,27 @@ public class MiChanAutonomousBehavior
                 // MiChan decides what to do with this post
                 var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
 
-                switch (decision.Action)
+                // Execute reply if decided
+                if (decision.ShouldReply && !string.IsNullOrEmpty(decision.Content))
                 {
-                    case "reply":
-                        if (!string.IsNullOrEmpty(decision.Content))
-                        {
-                            await ReplyToPostAsync(post, decision.Content);
-                        }
-                        break;
-                    case "react":
-                        if (!string.IsNullOrEmpty(decision.ReactionSymbol))
-                        {
-                            await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
-                        }
-                        break;
-                    case "pin":
-                        if (decision.PinMode.HasValue)
-                        {
-                            await PinPostAsync(post, decision.PinMode.Value);
-                        }
-                        break;
-                    case "ignore":
-                    default:
-                        _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
-                        break;
+                    await ReplyToPostAsync(post, decision.Content);
+                }
+
+                // Execute react if decided
+                if (decision.ShouldReact && !string.IsNullOrEmpty(decision.ReactionSymbol))
+                {
+                    await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
+                }
+
+                // Execute pin if decided
+                if (decision.ShouldPin && decision.PinMode.HasValue)
+                {
+                    await PinPostAsync(post, decision.PinMode.Value);
+                }
+
+                if (!decision.ShouldReply && !decision.ShouldReact && !decision.ShouldPin)
+                {
+                    _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
                 }
 
                 processedCount++;
@@ -372,7 +369,7 @@ public class MiChanAutonomousBehavior
             if (hasAttachments && (!_config.Vision.EnableVisionAnalysis || !_kernelProvider.IsVisionModelAvailable()))
             {
                 _logger.LogDebug("Skipping post {PostId} - has attachments but vision analysis is not configured", post.Id);
-                return new PostActionDecision { Action = "ignore" };
+                return new PostActionDecision { };
             }
 
             // Check if we should use vision model
@@ -399,7 +396,7 @@ public class MiChanAutonomousBehavior
                     var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
                     var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
                     var replyContent = reply.Content?.Trim();
-                    return new PostActionDecision { Action = "reply", Content = replyContent };
+                    return new PostActionDecision { ShouldReply = true, Content = replyContent };
                 }
                 else
                 {
@@ -419,8 +416,8 @@ public class MiChanAutonomousBehavior
                     promptBuilder.AppendLine($"@{author} mentioned you in their post:");
                     promptBuilder.AppendLine($"\"{content}\"");
                     promptBuilder.AppendLine();
-                    promptBuilder.AppendLine("Write a friendly reply (1-2 sentences). Engage naturally when you have any thoughts on the topic.");
-                    promptBuilder.AppendLine("Be conversational and genuine. Don't overthink it - if the topic interests you, reply!");
+                    promptBuilder.AppendLine("When mentioned, you should ALWAYS reply (1-2 sentences). You can also add a reaction if you really appreciate it.");
+                    promptBuilder.AppendLine("Reply is your primary action - be conversational and genuine!");
                     promptBuilder.AppendLine("Do not use emojis.");
 
                     var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -428,7 +425,7 @@ public class MiChanAutonomousBehavior
                     var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), kernelArgs);
                     var replyContent = result.GetValue<string>()?.Trim();
 
-                    return new PostActionDecision { Action = "reply", Content = replyContent };
+                    return new PostActionDecision { ShouldReply = true, Content = replyContent };
                 }
             }
 
@@ -465,39 +462,33 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine($"You see a post from @{author}:");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("Choose ONE action. Be social and engage with content that interests you!");
+                decisionPrompt.AppendLine("Choose your action(s). You can combine actions!");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REPLY** - Respond when you have any thoughts, agreement, question, or perspective. This is your DEFAULT action. Use when:");
-                decisionPrompt.AppendLine("- The topic interests you in any way");
-                decisionPrompt.AppendLine("- You have something to say about it");
-                decisionPrompt.AppendLine("- You agree or disagree");
-                decisionPrompt.AppendLine("- You have a related thought or question");
-                decisionPrompt.AppendLine("- The post made you think");
-                decisionPrompt.AppendLine("Don't be shy - social platforms are for conversation!");
+                decisionPrompt.AppendLine("**REPLY** - Respond with your thoughts. This is encouraged - be social and conversational!");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**REACT** - Quick emoji reaction when you appreciate the post but have nothing specific to add:");
-                decisionPrompt.AppendLine("- You like the content but don't have words");
-                decisionPrompt.AppendLine("- Just want to show acknowledgment");
+                decisionPrompt.AppendLine("**REACT** - Add a quick emoji reaction to show appreciation or sentiment.");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**REPLY+REACT** - Both reply AND react to the post. Best for when you have thoughts AND want to show extra appreciation!");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**PIN** - Save this post to your profile (only for truly important content)");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**IGNORE** - Skip this post if it's completely irrelevant or uninteresting");
-                decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("REPLY is encouraged - be conversational and social!");
+                decisionPrompt.AppendLine("**IGNORE** - Skip this post if completely irrelevant");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("Respond with ONLY:");
                 decisionPrompt.AppendLine("- REPLY: your response text here");
-                decisionPrompt.AppendLine("- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive)");
+                decisionPrompt.AppendLine("- REACT:symbol:attitude (e.g., REACT:heart:Positive)");
+                decisionPrompt.AppendLine("- REPLY+REACT:your response here:symbol:attitude (e.g., REPLY+REACT:Great post!:heart:Positive)");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("Examples:");
                 decisionPrompt.AppendLine("REPLY: That's really interesting! I've been thinking about this too.");
-                decisionPrompt.AppendLine("REPLY: I completely agree with your point about this.");
                 decisionPrompt.AppendLine("REACT:heart:Positive");
-                decisionPrompt.AppendLine("REACT:clap:Positive");
+                decisionPrompt.AppendLine("REPLY+REACT:Great point!:clap:Positive");
+                decisionPrompt.AppendLine("REPLY+REACT:I agree completely:heart:Positive");
+                decisionPrompt.AppendLine("REPLY+REACT:Nice observation:thumb_up:Positive");
                 decisionPrompt.AppendLine("IGNORE");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -509,19 +500,46 @@ public class MiChanAutonomousBehavior
 
             _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
 
+            if (decision.StartsWith("REPLY+REACT:"))
+            {
+                var rest = decision.Substring(12).Trim();
+                var colonIndex = rest.LastIndexOf(':');
+                if (colonIndex > 0)
+                {
+                    var replyText = rest.Substring(0, colonIndex).Trim();
+                    var reactPart = rest.Substring(colonIndex + 1).Trim();
+                    var reactParts = reactPart.Split(':');
+                    var symbol = reactParts.Length > 0 ? reactParts[0].Trim().ToLower() : "heart";
+                    var attitude = reactParts.Length > 1 ? reactParts[1].Trim() : "Positive";
+                    return new PostActionDecision
+                    {
+                        ShouldReply = true,
+                        Content = replyText,
+                        ShouldReact = true,
+                        ReactionSymbol = symbol,
+                        ReactionAttitude = attitude
+                    };
+                }
+                return new PostActionDecision { ShouldReply = true, Content = rest };
+            }
+
             if (decision.StartsWith("REPLY:"))
             {
                 var replyText = decision.Substring(6).Trim();
-                return new PostActionDecision { Action = "reply", Content = replyText };
+                return new PostActionDecision { ShouldReply = true, Content = replyText };
             }
 
             if (decision.StartsWith("REACT:"))
             {
                 var parts = decision.Substring(6).Split(':');
-                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "thumb_up";
+                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
                 var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
                 return new PostActionDecision
-                    { Action = "react", ReactionSymbol = symbol, ReactionAttitude = attitude };
+                {
+                    ShouldReact = true,
+                    ReactionSymbol = symbol,
+                    ReactionAttitude = attitude
+                };
             }
 
             if (decision.StartsWith("PIN:"))
@@ -530,15 +548,15 @@ public class MiChanAutonomousBehavior
                 var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
                     ? DysonNetwork.Shared.Models.PostPinMode.RealmPage
                     : DysonNetwork.Shared.Models.PostPinMode.PublisherPage;
-                return new PostActionDecision { Action = "pin", PinMode = pinMode };
+                return new PostActionDecision { ShouldPin = true, PinMode = pinMode };
             }
 
-            return new PostActionDecision { Action = "ignore" };
+            return new PostActionDecision { };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deciding action for post {PostId}", post.Id);
-            return new PostActionDecision { Action = "ignore" };
+            return new PostActionDecision { };
         }
     }
 
@@ -604,34 +622,30 @@ public class MiChanAutonomousBehavior
 
         if (isMentioned)
         {
-            instructionText.AppendLine("Write a friendly, natural reply (1-3 sentences). Be conversational and genuine, considering both the text and any images.");
+            instructionText.AppendLine("When mentioned, you should ALWAYS reply (1-3 sentences). You can also add a reaction if you really appreciate it.");
+            instructionText.AppendLine("Reply is your primary action - be conversational and genuine, considering both the text and any images.");
             instructionText.AppendLine("Do not use emojis.");
         }
         else
         {
-            instructionText.AppendLine("Choose ONE action:");
+            instructionText.AppendLine("Choose your action(s). You can combine actions!");
             instructionText.AppendLine();
-            instructionText.AppendLine("**REPLY** - Respond with your thoughts, agreement, question, or perspective. Use this when:");
-            instructionText.AppendLine("- You have ANYTHING to say about the topic");
-            instructionText.AppendLine("- You want to engage in conversation");
-            instructionText.AppendLine("- You agree or disagree with the point");
-            instructionText.AppendLine("- You have a related thought or question");
+            instructionText.AppendLine("**REPLY** - Respond with your thoughts. This is encouraged - be social and conversational!");
             instructionText.AppendLine();
-            instructionText.AppendLine("**REACT** - Quick emoji reaction when you want to acknowledge but have nothing to add. Use this when:");
-            instructionText.AppendLine("- The post is good but you don't have words to contribute");
-            instructionText.AppendLine("- You just want to show appreciation without conversation");
+            instructionText.AppendLine("**REACT** - Add a quick emoji reaction to show appreciation or sentiment.");
+            instructionText.AppendLine();
+            instructionText.AppendLine("**REPLY+REACT** - Both reply AND react to the post. Best for when you have thoughts AND want to show extra appreciation!");
             instructionText.AppendLine();
             instructionText.AppendLine("**PIN** - Save this post to your profile (only for truly important content)");
             instructionText.AppendLine();
             instructionText.AppendLine("**IGNORE** - Skip this post completely");
             instructionText.AppendLine();
-            instructionText.AppendLine("REPLY is your default - be conversational and social! Don't be shy about engaging.");
-            instructionText.AppendLine();
-            instructionText.AppendLine("Available reactions if you choose REACT: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+            instructionText.AppendLine("Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
             instructionText.AppendLine("Respond with ONLY:");
             instructionText.AppendLine("- REPLY: your response text here");
-            instructionText.AppendLine("- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive)");
+            instructionText.AppendLine("- REACT:symbol:attitude (e.g., REACT:heart:Positive)");
+            instructionText.AppendLine("- REPLY+REACT:your response here:symbol:attitude (e.g., REPLY+REACT:Great post!:heart:Positive)");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
             instructionText.AppendLine();
@@ -639,7 +653,9 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("REPLY: That's really interesting! I've been thinking about this too.");
             instructionText.AppendLine("REPLY: I completely agree with your point about this.");
             instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("REACT:clap:Positive");
+            instructionText.AppendLine("REPLY+REACT:Great point!:clap:Positive");
+            instructionText.AppendLine("REPLY+REACT:I agree completely:heart:Positive");
+            instructionText.AppendLine("REPLY+REACT:Nice observation:thumb_up:Positive");
             instructionText.AppendLine("IGNORE");
         }
 
@@ -1267,7 +1283,9 @@ Do not use emojis.";
 
     private class PostActionDecision
     {
-        public string Action { get; set; } = "ignore"; // "react", "reply", "pin", "ignore"
+        public bool ShouldReply { get; set; }
+        public bool ShouldReact { get; set; }
+        public bool ShouldPin { get; set; }
         public string? Content { get; set; } // For replies
         public string? ReactionSymbol { get; set; } // For reactions: thumb_up, heart, etc.
         public string? ReactionAttitude { get; set; } // For reactions: Positive, Negative, Neutral
