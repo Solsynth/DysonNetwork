@@ -34,6 +34,8 @@ public class MiChanAutonomousBehavior
     private DateTime _lastBlockedCacheTime = DateTime.MinValue;
     private static readonly TimeSpan BlockedCacheDuration = TimeSpan.FromMinutes(5);
 
+    private readonly PostPlugin _postPlugin;
+
     public MiChanAutonomousBehavior(
         MiChanConfig config,
         ILogger<MiChanAutonomousBehavior> logger,
@@ -41,7 +43,8 @@ public class MiChanAutonomousBehavior
         MiChanMemoryService memoryService,
         MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
-        AccountService.AccountServiceClient accountClient)
+        AccountService.AccountServiceClient accountClient,
+        PostPlugin postPlugin)
     {
         _config = config;
         _logger = logger;
@@ -50,6 +53,7 @@ public class MiChanAutonomousBehavior
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
         _accountClient = accountClient;
+        _postPlugin = postPlugin;
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", config.AccessToken);
         _nextInterval = CalculateNextInterval();
@@ -316,6 +320,8 @@ public class MiChanAutonomousBehavior
                 _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s)", post.Id, imageAttachments.Count);
             }
 
+            var context = await GetPostContextChainAsync(post, maxDepth: 3);
+
             // If mentioned, always reply
             if (isMentioned)
             {
@@ -323,7 +329,7 @@ public class MiChanAutonomousBehavior
                 {
                     // Build vision-enabled chat history with images for mentions
                     var chatHistory = await BuildVisionChatHistoryAsync(
-                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, isMentioned: true);
+                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: true);
                     var visionKernel = _kernelProvider.GetVisionKernel();
                     var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                     var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -333,21 +339,29 @@ public class MiChanAutonomousBehavior
                 }
                 else
                 {
-                    var prompt = $@"
-{personality}
+                    var promptBuilder = new StringBuilder();
+                    promptBuilder.AppendLine(personality);
+                    promptBuilder.AppendLine();
+                    promptBuilder.AppendLine($"Current mood: {mood}");
+                    promptBuilder.AppendLine();
 
-Current mood: {mood}
+                    if (!string.IsNullOrEmpty(context))
+                    {
+                        promptBuilder.AppendLine("Context (replies show oldest first, forwards show oldest first):");
+                        promptBuilder.AppendLine(context);
+                        promptBuilder.AppendLine();
+                    }
 
-@{author} mentioned you in their post:
-""{content}""
-
-Write a friendly reply (1-2 sentences). Engage naturally when you have any thoughts on the topic.
-Be conversational and genuine. Don't overthink it - if the topic interests you, reply!
-Do not use emojis.";
+                    promptBuilder.AppendLine($"@{author} mentioned you in their post:");
+                    promptBuilder.AppendLine($"\"{content}\"");
+                    promptBuilder.AppendLine();
+                    promptBuilder.AppendLine("Write a friendly reply (1-2 sentences). Engage naturally when you have any thoughts on the topic.");
+                    promptBuilder.AppendLine("Be conversational and genuine. Don't overthink it - if the topic interests you, reply!");
+                    promptBuilder.AppendLine("Do not use emojis.");
 
                     var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
                     var kernelArgs = new KernelArguments(executionSettings);
-                    var result = await _kernel!.InvokePromptAsync(prompt, kernelArgs);
+                    var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), kernelArgs);
                     var replyContent = result.GetValue<string>()?.Trim();
 
                     return new PostActionDecision { Action = "reply", Content = replyContent };
@@ -356,12 +370,12 @@ Do not use emojis.";
 
             // Otherwise, decide whether to interact
             string decisionText;
-            
+
             if (useVisionModel && imageAttachments.Count > 0)
             {
                 // Build vision-enabled chat history with images for decision making
                 var chatHistory = await BuildVisionChatHistoryAsync(
-                    personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, isMentioned: false);
+                    personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: false);
                 var visionKernel = _kernelProvider.GetVisionKernel();
                 var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                 var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -371,50 +385,59 @@ Do not use emojis.";
             else
             {
                 // Use regular text-only prompt
-                var decisionPrompt = $@"
-{personality}
+                var decisionPrompt = new StringBuilder();
+                decisionPrompt.AppendLine(personality);
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine($"Current mood: {mood}");
+                decisionPrompt.AppendLine();
 
-Current mood: {mood}
+                if (!string.IsNullOrEmpty(context))
+                {
+                    decisionPrompt.AppendLine("Context (replies show oldest first, forwards show oldest first):");
+                    decisionPrompt.AppendLine(context);
+                    decisionPrompt.AppendLine();
+                }
 
-You see a post from @{author}:
-""{content}""
+                decisionPrompt.AppendLine($"You see a post from @{author}:");
+                decisionPrompt.AppendLine($"\"{content}\"");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("Choose ONE action. Be social and engage with content that interests you!");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**REPLY** - Respond when you have any thoughts, agreement, question, or perspective. This is your DEFAULT action. Use when:");
+                decisionPrompt.AppendLine("- The topic interests you in any way");
+                decisionPrompt.AppendLine("- You have something to say about it");
+                decisionPrompt.AppendLine("- You agree or disagree");
+                decisionPrompt.AppendLine("- You have a related thought or question");
+                decisionPrompt.AppendLine("- The post made you think");
+                decisionPrompt.AppendLine("Don't be shy - social platforms are for conversation!");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**REACT** - Quick emoji reaction when you appreciate the post but have nothing specific to add:");
+                decisionPrompt.AppendLine("- You like the content but don't have words");
+                decisionPrompt.AppendLine("- Just want to show acknowledgment");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**PIN** - Save this post to your profile (only for truly important content)");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**IGNORE** - Skip this post if it's completely irrelevant or uninteresting");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("REPLY is encouraged - be conversational and social!");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("Respond with ONLY:");
+                decisionPrompt.AppendLine("- REPLY: your response text here");
+                decisionPrompt.AppendLine("- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive)");
+                decisionPrompt.AppendLine("- PIN:PublisherPage");
+                decisionPrompt.AppendLine("- IGNORE");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("Examples:");
+                decisionPrompt.AppendLine("REPLY: That's really interesting! I've been thinking about this too.");
+                decisionPrompt.AppendLine("REPLY: I completely agree with your point about this.");
+                decisionPrompt.AppendLine("REACT:heart:Positive");
+                decisionPrompt.AppendLine("REACT:clap:Positive");
+                decisionPrompt.AppendLine("IGNORE");
 
-Choose ONE action. Be social and engage with content that interests you!
-
-**REPLY** - Respond when you have any thoughts, agreement, question, or perspective. This is your DEFAULT action. Use when:
-- The topic interests you in any way
-- You have something to say about it
-- You agree or disagree
-- You have a related thought or question
-- The post made you think
-Don't be shy - social platforms are for conversation!
-
-**REACT** - Quick emoji reaction when you appreciate the post but have nothing specific to add:
-- You like the content but don't have words
-- Just want to show acknowledgment
-
-**PIN** - Save this post to your profile (only for truly important content)
-
-**IGNORE** - Skip this post if it's completely irrelevant or uninteresting
-
-REPLY is encouraged - be conversational and social!
-
-Available reactions: thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down
-
-Respond with ONLY:
-- REPLY: your response text here
-- REACT:symbol:attitude (e.g., REACT:thumb_up:Positive)
-- PIN:PublisherPage
-- IGNORE
-
-Examples:
-REPLY: That's really interesting! I've been thinking about this too.
-REPLY: I completely agree with your point about this.
-REACT:heart:Positive
-REACT:clap:Positive
-IGNORE";
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
-                var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt, new KernelArguments(decisionSettings));
+                var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
                 decisionText = decisionResult.GetValue<string>()?.Trim().ToUpper() ?? "IGNORE";
             }
             
@@ -459,13 +482,21 @@ IGNORE";
     /// Build a ChatHistory with images for vision analysis
     /// </summary>
     private async Task<ChatHistory> BuildVisionChatHistoryAsync(string personality, string mood, string author, string content,
-        List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, bool isMentioned)
+        List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, string context, bool isMentioned)
     {
         var chatHistory = new ChatHistory(personality);
         chatHistory.AddSystemMessage($"Current mood: {mood}");
 
         // Build the text part of the message
         var textBuilder = new StringBuilder();
+
+        if (!string.IsNullOrEmpty(context))
+        {
+            textBuilder.AppendLine("Context (replies show oldest first, forwards show oldest first):");
+            textBuilder.AppendLine(context);
+            textBuilder.AppendLine();
+        }
+
         if (isMentioned)
         {
             textBuilder.AppendLine($"@{author} mentioned you in their post with {totalAttachmentCount} attachment(s):");
@@ -1108,6 +1139,66 @@ Do not use emojis.";
         var max = _config.AutonomousBehavior.MaxIntervalMinutes;
         var minutes = _random.Next(min, max + 1);
         return TimeSpan.FromMinutes(minutes);
+    }
+
+    private async Task<string> GetPostContextChainAsync(SnPost post, int maxDepth = 3)
+    {
+        var contextParts = new List<string>();
+
+        await AddRepliedContextAsync(post, contextParts, 0, maxDepth, "replied");
+        await AddForwardedContextAsync(post, contextParts, 0, maxDepth, "forwarded");
+
+        return string.Join("\n\n", contextParts);
+    }
+
+    private async Task AddRepliedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth, string label)
+    {
+        if (currentDepth >= maxDepth || post.RepliedPostId == null)
+            return;
+
+        var parentPost = post.RepliedPost;
+        if (parentPost == null && post.RepliedPostId.HasValue)
+        {
+            parentPost = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
+        }
+
+        if (parentPost == null)
+            return;
+
+        var author = parentPost.Publisher?.Name ?? "unknown";
+        var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
+        var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
+        var content = parentPost.Content ?? "";
+        var indent = new string(' ', currentDepth * 2);
+
+        contextParts.Insert(0, $"{indent}↳ @{author}{title}{description}: {content}");
+
+        await AddRepliedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth, label);
+    }
+
+    private async Task AddForwardedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth, string label)
+    {
+        if (currentDepth >= maxDepth || post.ForwardedPostId == null)
+            return;
+
+        var parentPost = post.ForwardedPost;
+        if (parentPost == null && post.ForwardedPostId.HasValue)
+        {
+            parentPost = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
+        }
+
+        if (parentPost == null)
+            return;
+
+        var author = parentPost.Publisher?.Name ?? "unknown";
+        var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
+        var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
+        var content = parentPost.Content ?? "";
+        var indent = new string(' ', currentDepth * 2);
+
+        contextParts.Add($"{indent}⇢ @{author}{title}{description}: {content}");
+
+        await AddForwardedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth, label);
     }
 
     private class PostActionDecision
