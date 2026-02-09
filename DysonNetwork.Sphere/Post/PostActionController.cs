@@ -32,7 +32,8 @@ public class PostActionController(
     ActionLogService.ActionLogServiceClient als,
     RemotePaymentService remotePayments,
     PollsService polls,
-    RemoteRealmService rs
+    RemoteRealmService rs,
+    ILogger<PostActionController> logger
 ) : ControllerBase
 {
     public class PostRequest
@@ -131,12 +132,20 @@ public class PostActionController(
 
             if (repliedPost.Publisher?.AccountId != null)
             {
-                var relationship = await accounts.GetRelationshipAsync(new GetRelationshipRequest
+                try
                 {
-                    AccountId = repliedPost.Publisher.AccountId.ToString(),
-                    RelatedId = accountId.ToString(),
-                });
-                if (relationship.Relationship is not null && relationship.Relationship.Status <= -100) return BadRequest("You cannot reply who blocked you.");
+                    var relationship = await accounts.GetRelationshipAsync(new GetRelationshipRequest
+                    {
+                        AccountId = repliedPost.Publisher.AccountId.ToString(),
+                        RelatedId = accountId.ToString(),
+                    });
+                    if (relationship.Relationship is not null && relationship.Relationship.Status <= -100)
+                        return BadRequest("You cannot reply who blocked you.");
+                }
+                catch
+                {
+                    logger.LogError("Unable to get relationship status, skipping...");
+                }
             }
             
             post.RepliedPost = repliedPost;
