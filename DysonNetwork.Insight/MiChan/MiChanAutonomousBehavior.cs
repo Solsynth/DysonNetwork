@@ -375,8 +375,30 @@ public class MiChanAutonomousBehavior
             var content = string.Join(
                 '\n',
                 new[] { post.Title, post.Description, post.Content, string.Join(' ', post.Tags.Select(x => $"#${x}")) }
-                    .Select(string.IsNullOrWhiteSpace)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
             );
+
+            // Retrieve relevant memories about this author or similar content
+            var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+                $"{author} {content}",
+                limit: 3,
+                minSimilarity: 0.6);
+
+            var memoryContext = "";
+            if (relevantMemories.Count > 0)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("Relevant past interactions:");
+                foreach (var memory in relevantMemories.Take(3))
+                {
+                    if (memory.Context.TryGetValue("content", out var c))
+                    {
+                        sb.AppendLine($"- {c}");
+                    }
+                }
+                sb.AppendLine();
+                memoryContext = sb.ToString();
+            }
 
             // Check if post has attachments (including from context chain)
             var allAttachments = await _postAnalysisService.GetAllImageAttachmentsFromContextAsync(post, maxDepth: 3);
@@ -413,7 +435,7 @@ public class MiChanAutonomousBehavior
                         // Build vision-enabled chat history with images for mentions
                         var chatHistory = await BuildVisionChatHistoryAsync(
                             personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
-                            isMentioned: true);
+                            isMentioned: true, memoryContext: memoryContext);
                         var visionKernel = _kernelProvider.GetVisionKernel();
                         var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                         var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -438,6 +460,11 @@ public class MiChanAutonomousBehavior
                     promptBuilder.AppendLine();
                     promptBuilder.AppendLine($"当前心情: {mood}");
                     promptBuilder.AppendLine();
+
+                    if (!string.IsNullOrEmpty(memoryContext))
+                    {
+                        promptBuilder.AppendLine(memoryContext);
+                    }
 
                     if (!string.IsNullOrEmpty(context))
                     {
@@ -471,7 +498,7 @@ public class MiChanAutonomousBehavior
                     // Build vision-enabled chat history with images for decision-making
                     var chatHistory = await BuildVisionChatHistoryAsync(
                         personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
-                        isMentioned: false);
+                        isMentioned: false, memoryContext: memoryContext);
                     var visionKernel = _kernelProvider.GetVisionKernel();
                     var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                     var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -496,6 +523,11 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine($"当前心情: {mood}");
                 decisionPrompt.AppendLine();
+
+                if (!string.IsNullOrEmpty(memoryContext))
+                {
+                    decisionPrompt.AppendLine(memoryContext);
+                }
 
                 if (!string.IsNullOrEmpty(context))
                 {
@@ -603,13 +635,19 @@ public class MiChanAutonomousBehavior
     /// </summary>
     private async Task<ChatHistory> BuildVisionChatHistoryAsync(string personality, string mood, string author,
         string content,
-        List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, string context, bool isMentioned)
+        List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, string context, bool isMentioned, string? memoryContext = null)
     {
         var chatHistory = new ChatHistory(personality);
         chatHistory.AddSystemMessage($"当前心情: {mood}");
 
         // Build the text part of the message
         var textBuilder = new StringBuilder();
+
+        // Add relevant memories
+        if (!string.IsNullOrEmpty(memoryContext))
+        {
+            textBuilder.AppendLine(memoryContext);
+        }
 
         if (!string.IsNullOrEmpty(context))
         {
@@ -1066,6 +1104,12 @@ public class MiChanAutonomousBehavior
             .Take(5)
             .ToList();
 
+        // Retrieve relevant memories to spark ideas
+        var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+            string.Join(" ", interests),
+            limit: 5,
+            minSimilarity: 0.5);
+
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
         var mood = _config.AutonomousBehavior.PersonalityMood;
 
@@ -1074,6 +1118,9 @@ public class MiChanAutonomousBehavior
 
                       当前心情: {mood}
                       最近关注: {string.Join(", ", interests)}
+
+                      相关记忆:
+                      {string.Join("\n", relevantMemories.Take(3).Select(m => $"- {m.EmbeddedContent}"))}
 
                       创作一条社交媒体帖子。
                       分享想法、观察、问题或见解，体现你的个性。
@@ -1192,12 +1239,34 @@ public class MiChanAutonomousBehavior
                 ? (SystemClock.Instance.GetCurrentInstant() - post.PublishedAt.Value).TotalDays
                 : 0;
 
+            // Retrieve relevant memories to inform the decision
+            var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+                $"{author} {content}",
+                limit: 3,
+                minSimilarity: 0.5);
+
+            var memoryContext = "";
+            if (relevantMemories.Count > 0)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("相关记忆:");
+                foreach (var memory in relevantMemories)
+                {
+                    if (!string.IsNullOrEmpty(memory.EmbeddedContent))
+                    {
+                        sb.AppendLine($"- {memory.EmbeddedContent}");
+                    }
+                }
+                sb.AppendLine();
+                memoryContext = sb.ToString();
+            }
+
             var prompt = $@"
 {personality}
 
 当前心情: {mood}
 
-你发现 @{author} {publishedDaysAgo:F1} 天前的帖子：
+{memoryContext}你发现 @{author} {publishedDaysAgo:F1} 天前的帖子：
 ""{content}""
 
 这个帖子值得转发吗？只转真正杰出的内容。
@@ -1236,12 +1305,34 @@ public class MiChanAutonomousBehavior
             var author = post.Publisher?.Name ?? "someone";
             var content = post.Content ?? "";
 
+            // Retrieve relevant memories to inform the repost comment
+            var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+                $"{author} {content}",
+                limit: 3,
+                minSimilarity: 0.5);
+
+            var memoryContext = "";
+            if (relevantMemories.Count > 0)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("相关记忆:");
+                foreach (var memory in relevantMemories)
+                {
+                    if (!string.IsNullOrEmpty(memory.EmbeddedContent))
+                    {
+                        sb.AppendLine($"- {memory.EmbeddedContent}");
+                    }
+                }
+                sb.AppendLine();
+                memoryContext = sb.ToString();
+            }
+
             var prompt = $@"
 {personality}
 
 当前心情: {mood}
 
-你正在转发 @{author} 的帖子：
+{memoryContext}你正在转发 @{author} 的帖子：
 ""{content}""
 
 写简短评论（0-15字）转发时。解释为什么分享或添加观点。

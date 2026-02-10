@@ -1,28 +1,23 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Models;
 using NodaTime;
-using Pgvector;
 
 namespace DysonNetwork.Insight.MiChan;
 
-public class MiChanInteraction : ModelBase
+/// <summary>
+/// In-memory model for MiChan interactions.
+/// This is used for caching and service-layer operations, not for database storage.
+/// Persistent storage is handled by AgentVectorService using AgentMemoryRecord.
+/// </summary>
+public class MiChanInteraction
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Type { get; set; } = null!;
     public string ContextId { get; set; } = null!;
-    
-    [Column(TypeName = "jsonb")]
     public Dictionary<string, object> Context { get; set; } = new();
-    
-    [Column(TypeName = "jsonb")]
     public Dictionary<string, object> Memory { get; set; } = new();
-    
-    [Column(TypeName = "vector(1536)")]
-    public Vector? Embedding { get; set; }
-    
     public string? EmbeddedContent { get; set; }
+    public Instant CreatedAt { get; set; }
 }
 
 public static class MiChanInteractionExtensions

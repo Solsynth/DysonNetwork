@@ -20,8 +20,6 @@ public class AppDatabase(
     public DbSet<SnWebArticle> WebArticles { get; set; }
     public DbSet<SnWebFeed> WebFeeds { get; set; }
     public DbSet<SnWebFeedSubscription> WebFeedSubscriptions { get; set; }
-
-    public DbSet<MiChan.MiChanInteraction> MiChanInteractions { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -53,24 +51,6 @@ public class AppDatabase(
         
         // Configure pgvector extension
         modelBuilder.HasPostgresExtension("vector");
-        
-        // Configure MiChanInteraction
-        modelBuilder.Entity<MiChan.MiChanInteraction>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.ContextId);
-            entity.HasIndex(e => e.Type);
-            entity.HasIndex(e => e.CreatedAt);
-            
-            // Configure the embedding column with proper type (qwen/qwen3-embedding-8b uses 4096 dimensions)
-            entity.Property(e => e.Embedding)
-                .HasColumnType("vector(1536)");
-            
-            // Create HNSW index for vector similarity search (fast approximate nearest neighbor)
-            entity.HasIndex(e => e.Embedding)
-                .HasMethod("hnsw")
-                .HasOperators("vector_cosine_ops");
-        });
     }
 }
 

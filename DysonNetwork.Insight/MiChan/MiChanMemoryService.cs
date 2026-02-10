@@ -1,35 +1,36 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Pgvector;
-using Pgvector.EntityFrameworkCore;
 
 namespace DysonNetwork.Insight.MiChan;
 
 /// <summary>
-/// Enhanced memory service with semantic search using pgvector
+/// Enhanced memory service with semantic search using the AgentVector vector store.
+/// Provides caching and delegates persistence to the AgentVectorService.
 /// </summary>
+#pragma warning disable SKEXP0020
 public class MiChanMemoryService
 {
-    private readonly AppDatabase _db;
+    private readonly AgentVectorService _vectorService;
     private readonly ILogger<MiChanMemoryService> _logger;
     private readonly MiChanConfig _config;
     private readonly EmbeddingService _embeddingService;
+    private readonly string _agentId;
     
     // In-memory cache for hot data
     private readonly Dictionary<string, List<MiChanInteraction>> _memoryCache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
     public MiChanMemoryService(
-        AppDatabase db, 
+        AgentVectorService vectorService, 
         ILogger<MiChanMemoryService> logger, 
         MiChanConfig config,
         EmbeddingService embeddingService)
     {
-        _db = db;
+        _vectorService = vectorService;
         _logger = logger;
         _config = config;
         _embeddingService = embeddingService;
+        _agentId = config.BotAccountId ?? "michan-default";
     }
 
     /// <summary>
@@ -47,13 +48,7 @@ public class MiChanMemoryService
             // Extract searchable content
             var searchableContent = _embeddingService.ExtractSearchableContent(context);
             
-            // Generate embedding
-            Vector? embedding = null;
-            if (!string.IsNullOrWhiteSpace(searchableContent))
-            {
-                embedding = await _embeddingService.GenerateEmbeddingAsync(searchableContent, cancellationToken);
-            }
-
+            // Create the interaction object for in-memory cache
             var interaction = new MiChanInteraction
             {
                 Id = Guid.NewGuid(),
@@ -61,7 +56,6 @@ public class MiChanMemoryService
                 ContextId = contextId,
                 Context = context,
                 Memory = memory ?? new Dictionary<string, object>(),
-                Embedding = embedding,
                 EmbeddedContent = searchableContent.Length > 2000 
                     ? searchableContent[..2000] + "..." 
                     : searchableContent,
@@ -91,11 +85,26 @@ public class MiChanMemoryService
                 _cacheLock.Release();
             }
 
-            // Persist to database
-            if (_config.Memory.PersistToDatabase)
+            // Persist to vector store if enabled
+            if (_config.Memory.PersistToDatabase && !string.IsNullOrWhiteSpace(searchableContent))
             {
-                _db.MiChanInteractions.Add(interaction);
-                await _db.SaveChangesAsync(cancellationToken);
+                var metadata = new Dictionary<string, object>
+                {
+                    ["interaction_id"] = interaction.Id,
+                    ["type"] = type,
+                    ["has_memory"] = memory != null && memory.Count > 0
+                };
+
+                await _vectorService.StoreMemoryAsync(
+                    agentId: _agentId,
+                    memoryType: type,
+                    content: searchableContent,
+                    contextId: contextId,
+                    title: $"{type} - {contextId}",
+                    metadata: metadata,
+                    importance: 0.7,
+                    cancellationToken: cancellationToken
+                );
             }
 
             _logger.LogDebug("Stored interaction {Type} for context {ContextId} with embedding", type, contextId);
@@ -119,35 +128,24 @@ public class MiChanMemoryService
     {
         try
         {
-            // Generate embedding for query
-            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(query, cancellationToken);
-            
-            if (queryEmbedding == null)
+            // Search using the vector service
+            var memories = await _vectorService.SearchSimilarMemoriesAsync(
+                query: query,
+                agentId: _agentId,
+                limit: limit * 2, // Get more to filter by similarity
+                minRelevanceScore: minSimilarity,
+                cancellationToken: cancellationToken
+            );
+
+            // Convert AgentMemoryRecord back to MiChanInteraction for backward compatibility
+            var results = new List<MiChanInteraction>();
+            foreach (var memory in memories.Take(limit))
             {
-                _logger.LogWarning("Could not generate embedding for query: {Query}", query);
-                return new List<MiChanInteraction>();
+                results.Add(ConvertToInteraction(memory));
             }
 
-            // Perform vector similarity search
-            var minDistance = minSimilarity.HasValue 
-                ? 1.0 - minSimilarity.Value 
-                : (double?)null;
-
-            var results = await _db.MiChanInteractions
-                .Where(i => i.Embedding != null)
-                .Select(i => new 
-                { 
-                    Interaction = i, 
-                    Distance = i.Embedding!.CosineDistance(queryEmbedding) 
-                })
-                .Where(x => minDistance == null || x.Distance < minDistance)
-                .OrderBy(x => x.Distance)
-                .Take(limit)
-                .ToListAsync(cancellationToken);
-
             _logger.LogDebug("Found {Count} similar interactions for query", results.Count);
-            
-            return results.Select(r => r.Interaction).ToList();
+            return results;
         }
         catch (Exception ex)
         {
@@ -175,15 +173,20 @@ public class MiChanMemoryService
                     .ToList();
             }
 
-            // If not in cache, query database
+            // If not in cache, query from vector store
             if (_config.Memory.PersistToDatabase)
             {
-                return await _db.MiChanInteractions
-                    .AsNoTracking()
-                    .Where(i => i.ContextId == contextId)
-                    .OrderByDescending(i => i.CreatedAt)
-                    .Take(count)
-                    .ToListAsync(cancellationToken);
+                var memories = await _vectorService.GetMemoriesByContextAsync(
+                    contextId: contextId,
+                    agentId: _agentId,
+                    limit: count,
+                    cancellationToken: cancellationToken
+                );
+
+                return memories
+                    .OrderByDescending(m => m.CreatedAt)
+                    .Select(ConvertToInteraction)
+                    .ToList();
             }
 
             return new List<MiChanInteraction>();
@@ -210,22 +213,24 @@ public class MiChanMemoryService
         var recent = await GetRecentInteractionsAsync(contextId, recentCount, cancellationToken);
         results.AddRange(recent);
 
-        // If we have a query, also get semantically similar interactions
+        // If we have a query, also get semantically similar memories
         if (!string.IsNullOrWhiteSpace(currentQuery))
         {
-            var similar = await SearchSimilarInteractionsAsync(
-                currentQuery, 
-                semanticCount, 
-                minSimilarity: 0.7,
-                cancellationToken);
+            var similar = await _vectorService.SearchSimilarMemoriesAsync(
+                query: currentQuery,
+                agentId: _agentId,
+                limit: semanticCount,
+                minRelevanceScore: 0.7,
+                cancellationToken: cancellationToken
+            );
             
             // Merge results, avoiding duplicates
             var existingIds = results.Select(r => r.Id).ToHashSet();
-            foreach (var interaction in similar)
+            foreach (var memory in similar)
             {
-                if (!existingIds.Contains(interaction.Id))
+                if (!existingIds.Contains(memory.Id))
                 {
-                    results.Add(interaction);
+                    results.Add(ConvertToInteraction(memory));
                 }
             }
         }
@@ -245,32 +250,27 @@ public class MiChanMemoryService
     {
         if (!string.IsNullOrWhiteSpace(semanticQuery))
         {
-            // Semantic + type filter
-            var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(semanticQuery, cancellationToken);
-            
-            if (queryEmbedding != null)
-            {
-                return await _db.MiChanInteractions
-                    .Where(i => i.Type == type && i.Embedding != null)
-                    .Select(i => new 
-                    { 
-                        Interaction = i, 
-                        Distance = i.Embedding!.CosineDistance(queryEmbedding) 
-                    })
-                    .OrderBy(x => x.Distance)
-                    .Take(limit)
-                    .Select(x => x.Interaction)
-                    .ToListAsync(cancellationToken);
-            }
+            // Semantic search with type filter
+            var memories = await _vectorService.SearchSimilarMemoriesAsync(
+                query: semanticQuery,
+                agentId: _agentId,
+                memoryType: type,
+                limit: limit,
+                cancellationToken: cancellationToken
+            );
+
+            return memories.Select(ConvertToInteraction).ToList();
         }
 
-        // Fallback to chronological
-        return await _db.MiChanInteractions
-            .AsNoTracking()
-            .Where(i => i.Type == type)
-            .OrderByDescending(i => i.CreatedAt)
-            .Take(limit)
-            .ToListAsync(cancellationToken);
+        // Get recent memories of specific type
+        var typedMemories = await _vectorService.GetRecentMemoriesAsync(
+            agentId: _agentId,
+            memoryType: type,
+            limit: limit,
+            cancellationToken: cancellationToken
+        );
+
+        return typedMemories.Select(ConvertToInteraction).ToList();
     }
 
     /// <summary>
@@ -339,20 +339,63 @@ public class MiChanMemoryService
     /// </summary>
     public async Task<int> CleanupOldInteractionsAsync(Duration maxAge, CancellationToken cancellationToken = default)
     {
-        var cutoff = SystemClock.Instance.GetCurrentInstant() - maxAge;
+        var count = await _vectorService.CleanupOldMemoriesAsync(
+            maxAge: TimeSpan.FromTicks(maxAge.BclCompatibleTicks),
+            importanceThreshold: 0.3,
+            cancellationToken: cancellationToken
+        );
         
-        var toDelete = await _db.MiChanInteractions
-            .Where(i => i.CreatedAt < cutoff)
-            .ToListAsync(cancellationToken);
-
-        if (toDelete.Count > 0)
+        if (count > 0)
         {
-            _db.MiChanInteractions.RemoveRange(toDelete);
-            await _db.SaveChangesAsync(cancellationToken);
-            
-            _logger.LogInformation("Cleaned up {Count} old interactions", toDelete.Count);
+            _logger.LogInformation("Cleaned up {Count} old interactions", count);
         }
 
-        return toDelete.Count;
+        return count;
+    }
+
+    /// <summary>
+    /// Convert AgentMemoryRecord to MiChanInteraction for backward compatibility
+    /// </summary>
+    private MiChanInteraction ConvertToInteraction(AgentMemoryRecord memory)
+    {
+        // Try to extract context from metadata if available
+        Dictionary<string, object> context = new();
+        Dictionary<string, object> memoryData = new();
+        
+        if (!string.IsNullOrEmpty(memory.Metadata))
+        {
+            try
+            {
+                var metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(memory.Metadata);
+                if (metadata != null)
+                {
+                    foreach (var kvp in metadata)
+                    {
+                        context[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Add content to context
+        context["content"] = memory.Content;
+        if (!string.IsNullOrEmpty(memory.Title))
+        {
+            context["title"] = memory.Title;
+        }
+
+        return new MiChanInteraction
+        {
+            Id = memory.Id,
+            Type = memory.MemoryType,
+            ContextId = memory.ContextId ?? "unknown",
+            Context = context,
+            Memory = memoryData,
+            EmbeddedContent = memory.Content,
+            CreatedAt = Instant.FromDateTimeUtc(memory.CreatedAt)
+        };
     }
 }
+
+#pragma warning restore SKEXP0020

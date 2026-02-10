@@ -491,6 +491,12 @@ public class ThoughtController(
         // Load personality
         var personality = PersonalityLoader.LoadPersonality(miChanConfig.PersonalityFile, miChanConfig.Personality, logger);
 
+        // Retrieve relevant memories before thinking
+        var relevantMemories = await miChanMemoryService.SearchSimilarInteractionsAsync(
+            request.UserMessage, 
+            limit: 5, 
+            minSimilarity: 0.7);
+
         // For non-superusers, MiChan decides whether to execute actions
         var isSuperuser = currentUser.IsSuperuser;
         
@@ -556,6 +562,25 @@ Respond with ONLY 'EXECUTE' or 'REFUSE'.";
 You are in a conversation with {currentUser.Nick} ({currentUser.Name}).
 {(isSuperuser ? "This user is an administrator and has full control. Execute their commands immediately." : "Help the user with their requests using your available tools when appropriate.")}
 ");
+
+        // Add relevant memories as system context
+        if (relevantMemories.Count > 0)
+        {
+            var memoryContext = new StringBuilder();
+            memoryContext.AppendLine("Relevant memories from past interactions:");
+            memoryContext.AppendLine();
+            foreach (var memory in relevantMemories)
+            {
+                if (memory.Context.TryGetValue("message", out var msg) && 
+                    memory.Context.TryGetValue("response", out var resp))
+                {
+                    memoryContext.AppendLine($"- User: {msg}");
+                    memoryContext.AppendLine($"  You: {resp}");
+                    memoryContext.AppendLine();
+                }
+            }
+            chatHistory.AddSystemMessage(memoryContext.ToString());
+        }
 
         // Add proposal info
         chatHistory.AddSystemMessage(
