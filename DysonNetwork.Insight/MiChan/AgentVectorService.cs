@@ -51,6 +51,8 @@ public class AgentVectorService : IDisposable
         try
         {
             var sql = $@"
+                CREATE EXTENSION IF NOT EXISTS vector;
+                
                 CREATE TABLE IF NOT EXISTS ""{CollectionName}"" (
                     id UUID PRIMARY KEY,
                     agent_id TEXT NOT NULL,
@@ -233,7 +235,7 @@ public class AgentVectorService : IDisposable
             var sql = $@"
                 SELECT * FROM ""{CollectionName}"" 
                 {whereClause}
-                ORDER BY ""embedding"" <=> @queryEmbedding
+                ORDER BY ""embedding"" <=> @queryEmbedding::vector
                 LIMIT @limit";
 
             await using var cmd = _dataSource.CreateCommand(sql);
