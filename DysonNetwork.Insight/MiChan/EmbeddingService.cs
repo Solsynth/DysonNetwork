@@ -7,27 +7,18 @@ namespace DysonNetwork.Insight.MiChan;
 /// Service for generating text embeddings using Semantic Kernel
 /// </summary>
 #pragma warning disable SKEXP0050
-public class EmbeddingService
+public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<EmbeddingService> logger)
 {
-    private readonly MiChanKernelProvider _kernelProvider;
-    private readonly ILogger<EmbeddingService> _logger;
-
-    public EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<EmbeddingService> logger)
-    {
-        _kernelProvider = kernelProvider;
-        _logger = logger;
-    }
-
     private ITextEmbeddingGenerationService? GetEmbeddingService()
     {
         try
         {
-            var kernel = _kernelProvider.GetKernel();
+            var kernel = kernelProvider.GetKernel();
             return kernel.Services.GetService<ITextEmbeddingGenerationService>();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Embedding service not available. Semantic search will be disabled.");
+            logger.LogWarning(ex, "Embedding service not available. Semantic search will be disabled.");
             return null;
         }
     }
@@ -41,7 +32,7 @@ public class EmbeddingService
         {
             if (string.IsNullOrWhiteSpace(text))
             {
-                _logger.LogWarning("Cannot generate embedding for empty text");
+                logger.LogWarning("Cannot generate embedding for empty text");
                 return null;
             }
 
@@ -56,7 +47,7 @@ public class EmbeddingService
             
             if (embeddings.Count == 0)
             {
-                _logger.LogWarning("No embedding generated for text");
+                logger.LogWarning("No embedding generated for text");
                 return null;
             }
 
@@ -65,7 +56,7 @@ public class EmbeddingService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating embedding for text: {TextPreview}", 
+            logger.LogError(ex, "Error generating embedding for text: {TextPreview}", 
                 text.Length > 50 ? text[..50] + "..." : text);
             return null;
         }
@@ -96,7 +87,7 @@ public class EmbeddingService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating embeddings for {Count} texts", texts.Count);
+            logger.LogError(ex, "Error generating embeddings for {Count} texts", texts.Count);
             return texts.Select(_ => (Vector?)null).ToList();
         }
     }

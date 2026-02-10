@@ -99,6 +99,7 @@ public static class ServiceCollectionExtensions
             // Memory and behavior services
             services.AddSingleton<EmbeddingService>();
             services.AddSingleton<MiChanMemoryService>();
+            services.AddSingleton<PostAnalysisService>();
             services.AddSingleton<MiChanAutonomousBehavior>();
             
             // Only start the hosted service when enabled

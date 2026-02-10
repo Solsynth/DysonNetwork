@@ -21,7 +21,7 @@ public class MiChanAutonomousBehavior
     private readonly MiChanKernelProvider _kernelProvider;
     private readonly IServiceProvider _serviceProvider;
     private readonly AccountService.AccountServiceClient _accountClient;
-    private readonly HttpClient _httpClient;
+    private readonly PostAnalysisService _postAnalysisService;
     private Kernel? _kernel;
 
     private readonly Random _random = new();
@@ -51,7 +51,8 @@ public class MiChanAutonomousBehavior
         MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
         AccountService.AccountServiceClient accountClient,
-        PostPlugin postPlugin)
+        PostPlugin postPlugin,
+        PostAnalysisService postAnalysisService)
     {
         _config = config;
         _logger = logger;
@@ -61,9 +62,7 @@ public class MiChanAutonomousBehavior
         _serviceProvider = serviceProvider;
         _accountClient = accountClient;
         _postPlugin = postPlugin;
-        _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", config.AccessToken);
+        _postAnalysisService = postAnalysisService;
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex($"@michan\\b", RegexOptions.IgnoreCase);
     }
@@ -375,14 +374,16 @@ public class MiChanAutonomousBehavior
                 : $"发布者 @{post.Publisher?.Name ?? "未知"}";
             var content = string.Join(
                 '\n',
-                new[] { post.Title, post.Description, post.Content }.Select(string.IsNullOrWhiteSpace)
+                new[] { post.Title, post.Description, post.Content, string.Join(' ', post.Tags.Select(x => $"#${x}")) }
+                    .Select(string.IsNullOrWhiteSpace)
             );
 
-            // Check if post has attachments
-            var hasAttachments = HasAttachments(post);
+            // Check if post has attachments (including from context chain)
+            var allAttachments = await _postAnalysisService.GetAllImageAttachmentsFromContextAsync(post, maxDepth: 3);
+            var hasAttachments = allAttachments.Count > 0 || _postAnalysisService.HasAttachments(post);
 
             // If post has attachments but vision analysis is not available, skip it entirely
-            if (hasAttachments && (!_config.Vision.EnableVisionAnalysis || !_kernelProvider.IsVisionModelAvailable()))
+            if (hasAttachments && !_postAnalysisService.IsVisionModelAvailable())
             {
                 _logger.LogDebug("Skipping post {PostId} - has attachments but vision analysis is not configured",
                     post.Id);
@@ -390,18 +391,17 @@ public class MiChanAutonomousBehavior
             }
 
             // Check if we should use vision model
-            var useVisionModel = hasAttachments && _config.Vision.EnableVisionAnalysis &&
-                                 _kernelProvider.IsVisionModelAvailable();
+            var useVisionModel = hasAttachments && _postAnalysisService.IsVisionModelAvailable();
             var imageAttachments =
-                useVisionModel ? GetSupportedImageAttachments(post) : new List<SnCloudFileReferenceObject>();
+                useVisionModel ? allAttachments : new List<SnCloudFileReferenceObject>();
 
             if (useVisionModel && imageAttachments.Count > 0)
             {
-                _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s)", post.Id,
+                _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s) from context chain", post.Id,
                     imageAttachments.Count);
             }
 
-            var context = await GetPostContextChainAsync(post, maxDepth: 3);
+            var context = await _postAnalysisService.GetPostContextChainAsync(post, maxDepth: 3);
 
             // If mentioned, always reply
             if (isMentioned)
@@ -468,7 +468,7 @@ public class MiChanAutonomousBehavior
             {
                 try
                 {
-                    // Build vision-enabled chat history with images for decision making
+                    // Build vision-enabled chat history with images for decision-making
                     var chatHistory = await BuildVisionChatHistoryAsync(
                         personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
                         isMentioned: false);
@@ -619,35 +619,28 @@ public class MiChanAutonomousBehavior
         }
 
         if (isMentioned)
-        {
-            textBuilder.AppendLine($"@{author} 在帖子中提到了你，包含 {totalAttachmentCount} 个附件：");
-        }
+            textBuilder.AppendLine($"{author} 在帖子中提到了你，包含 {totalAttachmentCount} 个附件：");
         else
-        {
-            textBuilder.AppendLine($"你看到 @{author} 的帖子，包含 {totalAttachmentCount} 个附件：");
-        }
+            textBuilder.AppendLine($"你看到 {author} 的帖子，包含 {totalAttachmentCount} 个附件：");
 
         textBuilder.AppendLine($"内容：\"{content}\"");
         textBuilder.AppendLine();
 
         // Create a collection to hold all content items (text + images)
-        var contentItems = new ChatMessageContentItemCollection();
-        contentItems.Add(new TextContent(textBuilder.ToString()));
+        var contentItems = new ChatMessageContentItemCollection { new TextContent(textBuilder.ToString()) };
 
         // Download and add images
         foreach (var attachment in imageAttachments)
         {
             try
             {
-                var imageBytes = await DownloadImageAsync(attachment);
-                if (imageBytes != null && imageBytes.Length > 0)
-                {
-                    contentItems.Add(new ImageContent(imageBytes, attachment.MimeType ?? "image/jpeg"));
-                }
+                var imageContext = BuildImageContent(attachment);
+                if (imageContext is not null)
+                    contentItems.Add(imageContext);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to download image {FileId} for vision analysis", attachment.Id);
+                _logger.LogWarning(ex, "Failed to parse image {FileId} for vision analysis", attachment.Id);
             }
         }
 
@@ -656,8 +649,7 @@ public class MiChanAutonomousBehavior
         if (imageAttachments.Count > 0)
         {
             instructionText.AppendLine();
-            instructionText.AppendLine(
-                "Analyze the visual content along with the text to understand the full context.");
+            instructionText.AppendLine("结合文本分析视觉内容，以了解完整的上下文。");
             instructionText.AppendLine();
         }
 
@@ -714,7 +706,7 @@ public class MiChanAutonomousBehavior
     /// <summary>
     /// Download image bytes from the drive service
     /// </summary>
-    private async Task<byte[]?> DownloadImageAsync(SnCloudFileReferenceObject attachment)
+    private ImageContent? BuildImageContent(SnCloudFileReferenceObject attachment)
     {
         try
         {
@@ -733,13 +725,11 @@ public class MiChanAutonomousBehavior
                 return null;
             }
 
-            var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadAsByteArrayAsync();
+            return new ImageContent(new Uri(url));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to download image from {Url}",
+            _logger.LogError(ex, "Failed to create image context from {Url}",
                 attachment.Url ?? $"/drive/files/{attachment.Id}");
             return null;
         }
@@ -952,7 +942,7 @@ public class MiChanAutonomousBehavior
     }
 
     /// <summary>
-    /// Get supported image attachments for vision analysis
+    /// Get supported image attachments for vision analysis from the current post only
     /// </summary>
     private List<SnCloudFileReferenceObject> GetSupportedImageAttachments(SnPost post)
     {
@@ -966,6 +956,61 @@ public class MiChanAutonomousBehavior
                         supportedImageTypes.Contains(a.MimeType.ToLower()))
             .Where(a => !string.IsNullOrEmpty(a.Url) || !string.IsNullOrEmpty(a.Id))
             .ToList();
+    }
+
+    /// <summary>
+    /// Get all supported image attachments from the post and its context chain (replied/forwarded posts)
+    /// </summary>
+    private async Task<List<SnCloudFileReferenceObject>> GetAllImageAttachmentsFromContextAsync(SnPost post, int maxDepth = 3)
+    {
+        var allAttachments = new List<SnCloudFileReferenceObject>();
+        var processedPostIds = new HashSet<Guid>();
+
+        await CollectAttachmentsRecursiveAsync(post, allAttachments, processedPostIds, 0, maxDepth);
+
+        return allAttachments;
+    }
+
+    private async Task CollectAttachmentsRecursiveAsync(SnPost post, List<SnCloudFileReferenceObject> attachments, HashSet<Guid> processedIds, int currentDepth, int maxDepth)
+    {
+        if (currentDepth >= maxDepth || post == null || processedIds.Contains(post.Id))
+            return;
+
+        processedIds.Add(post.Id);
+
+        // Add attachments from current post
+        var postAttachments = GetSupportedImageAttachments(post);
+        attachments.AddRange(postAttachments);
+
+        // Recursively collect from replied post
+        if (post.RepliedPostId.HasValue && post.RepliedPost != null)
+        {
+            await CollectAttachmentsRecursiveAsync(post.RepliedPost, attachments, processedIds, currentDepth + 1, maxDepth);
+        }
+        else if (post.RepliedPostId.HasValue)
+        {
+            // Fetch replied post if not loaded
+            var repliedPost = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
+            if (repliedPost != null)
+            {
+                await CollectAttachmentsRecursiveAsync(repliedPost, attachments, processedIds, currentDepth + 1, maxDepth);
+            }
+        }
+
+        // Recursively collect from forwarded post
+        if (post.ForwardedPostId.HasValue && post.ForwardedPost != null)
+        {
+            await CollectAttachmentsRecursiveAsync(post.ForwardedPost, attachments, processedIds, currentDepth + 1, maxDepth);
+        }
+        else if (post.ForwardedPostId.HasValue)
+        {
+            // Fetch forwarded post if not loaded
+            var forwardedPost = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
+            if (forwardedPost != null)
+            {
+                await CollectAttachmentsRecursiveAsync(forwardedPost, attachments, processedIds, currentDepth + 1, maxDepth);
+            }
+        }
     }
 
     private async Task<bool> HasMiChanRepliedAsync(SnPost post)

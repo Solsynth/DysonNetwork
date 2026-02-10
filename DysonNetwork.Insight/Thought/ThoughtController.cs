@@ -28,7 +28,8 @@ public class ThoughtController(
     MiChanKernelProvider miChanKernelProvider,
     MiChanMemoryService miChanMemoryService,
     SolarNetworkApiClient apiClient,
-    IServiceProvider serviceProvider) : ControllerBase
+    IServiceProvider serviceProvider,
+    PostAnalysisService postAnalysisService) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
     public static readonly List<string> AvailableBots = ["snchan", "michan"];
@@ -38,10 +39,8 @@ public class ThoughtController(
         [Required] 
         public string UserMessage { get; set; } = null!;
         
-        [Required]
         public string Bot { get; set; } = "snchan"; // "snchan" or "michan"
         
-        public string? ServiceId { get; set; }
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
@@ -120,7 +119,7 @@ public class ThoughtController(
 
     private async Task<ActionResult> ThinkWithSnChanAsync(StreamThinkingRequest request, Account currentUser, Guid accountId)
     {
-        var serviceId = provider.GetServiceId(request.ServiceId);
+        var serviceId = provider.GetServiceId();
         var serviceInfo = provider.GetServiceInfo(serviceId);
         if (serviceInfo is null)
         {
@@ -133,7 +132,7 @@ public class ThoughtController(
                 serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
-        var kernel = provider.GetKernel(request.ServiceId);
+        var kernel = provider.GetKernel();
         if (kernel is null)
         {
             return BadRequest("Service not found or configured.");
@@ -299,7 +298,7 @@ public class ThoughtController(
         Response.StatusCode = 200;
 
         var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-        var executionSettings = provider.CreatePromptExecutionSettings(request.ServiceId);
+        var executionSettings = provider.CreatePromptExecutionSettings();
 
         var assistantParts = new List<SnThinkingMessagePart>();
 
@@ -625,11 +624,14 @@ You are in a conversation with {currentUser.Nick} ({currentUser.Name}).
             }
 
             // Analyze images using vision model if posts have attachments and vision is enabled
-            if (postsWithImages.Count > 0 && miChanConfig.Vision.EnableVisionAnalysis && miChanKernelProvider.IsVisionModelAvailable())
+            if (postsWithImages.Count > 0 && postAnalysisService.IsVisionModelAvailable())
             {
                 try
                 {
-                    var visionChatHistory = await BuildVisionChatHistoryForPostsAsync(postsWithImages, request.UserMessage);
+                    var visionChatHistory = await postAnalysisService.BuildVisionChatHistoryForPostsAsync(
+                        postsWithImages, 
+                        request.UserMessage,
+                        "You are an AI assistant analyzing images in social media posts. Describe what you see in the images and relate it to the user's question.");
                     var visionKernel = miChanKernelProvider.GetVisionKernel();
                     var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
                     var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
