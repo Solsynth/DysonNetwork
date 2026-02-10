@@ -1099,7 +1099,7 @@ public class MiChanAutonomousBehavior
 
         var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", limit: 10);
         var interests = recentInteractions
-            .SelectMany(i => i.GetMemoryValue<List<string>>("topics") ?? new List<string>())
+            .SelectMany(i => i.GetMemoryValue<List<string>>("topics") ?? [])
             .Distinct()
             .Take(5)
             .ToList();
@@ -1141,7 +1141,10 @@ public class MiChanAutonomousBehavior
                 return;
             }
 
-            var request = new { content = content, visibility = "public" };
+            var request = new Dictionary<string, object>
+            {
+                ["content"] = content,
+            };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
             await _memoryService.StoreInteractionAsync(
@@ -1362,7 +1365,6 @@ public class MiChanAutonomousBehavior
             }
 
             request["forwarded_post_id"] = post.Id.ToString();
-            request["visibility"] = "public";
 
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 

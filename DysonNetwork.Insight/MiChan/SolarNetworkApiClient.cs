@@ -24,7 +24,8 @@ public class SolarNetworkApiClient
 
     private static string BuildUrl(string serviceName, string path)
     {
-        var normalizedPath = path.StartsWith("/") ? path[1..] : path;
+        // Remove leading slashes and normalize double slashes
+        var normalizedPath = path.TrimStart('/').Replace("//", "/");
         return $"/{serviceName}/{normalizedPath}";
     }
 

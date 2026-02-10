@@ -41,6 +41,48 @@ public class AgentVectorService : IDisposable
 
         // Create the vector store
         _vectorStore = new PostgresVectorStore(_dataSource, ownsDataSource: false);
+
+        // Ensure table exists
+        EnsureTableExistsAsync().GetAwaiter().GetResult();
+    }
+
+    private async Task EnsureTableExistsAsync()
+    {
+        try
+        {
+            var sql = $@"
+                CREATE TABLE IF NOT EXISTS ""{CollectionName}"" (
+                    id UUID PRIMARY KEY,
+                    agent_id TEXT NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    context_id TEXT,
+                    content TEXT NOT NULL,
+                    title TEXT,
+                    metadata TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    last_accessed_at TIMESTAMP WITH TIME ZONE,
+                    importance DOUBLE PRECISION DEFAULT 0.5,
+                    access_count INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT true,
+                    embedding VECTOR(1536)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_agent_memories_agent_id ON ""{CollectionName}""(agent_id);
+                CREATE INDEX IF NOT EXISTS idx_agent_memories_memory_type ON ""{CollectionName}""(memory_type);
+                CREATE INDEX IF NOT EXISTS idx_agent_memories_context_id ON ""{CollectionName}""(context_id);
+                CREATE INDEX IF NOT EXISTS idx_agent_memories_created_at ON ""{CollectionName}""(created_at);
+                
+                CREATE INDEX IF NOT EXISTS idx_agent_memories_embedding 
+                ON ""{CollectionName}"" USING hnsw (embedding vector_cosine_ops);";
+
+            await using var cmd = _dataSource.CreateCommand(sql);
+            await cmd.ExecuteNonQueryAsync();
+            _logger.LogInformation("Agent memories table ensured to exist");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to ensure agent_memories table exists");
+        }
     }
 
     /// <summary>
