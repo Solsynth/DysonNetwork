@@ -591,6 +591,7 @@ public class ThoughtController(
     }
     
     [HttpPost("sequences/{sequenceId:guid}/memorize")]
+    [AskPermission("michan.admin")]
     public async Task<ActionResult> MiChanMemorizeThoughts(Guid sequenceId)
     {
         var sequence = await service.GetSequenceAsync(sequenceId);
