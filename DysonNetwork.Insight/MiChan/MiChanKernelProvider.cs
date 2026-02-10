@@ -73,6 +73,16 @@ public class MiChanKernelProvider(
     {
         return kernelFactory.IsServiceAvailable(config.Vision.VisionThinkingService);
     }
+
+    public string GetGatewayUrl()
+    {
+        return config.GatewayUrl;
+    }
+
+    public string GetAccessToken()
+    {
+        return config.AccessToken;
+    }
 }
 
 #pragma warning restore SKEXP0050
