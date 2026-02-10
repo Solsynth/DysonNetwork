@@ -233,8 +233,8 @@ public class AgentVectorService : IDisposable
             
             // Perform vector search using raw SQL for more control
             var sql = $@"
-                SELECT m.*, m.""embedding"" <=> @queryEmbedding::vector as distance
-                FROM ""{CollectionName}"" m
+                SELECT *, (""embedding"" <=> @queryEmbedding::vector) as distance
+                FROM ""{CollectionName}"" 
                 {whereClause}
                 ORDER BY distance
                 LIMIT @limit";
@@ -249,11 +249,16 @@ public class AgentVectorService : IDisposable
             while (await reader.ReadAsync(cancellationToken))
             {
                 var record = MapFromReader(reader);
-                
+
                 // Calculate similarity score
-                var distance = reader.GetDouble(reader.GetOrdinal("distance"));
+                var distanceOrdinal = reader.GetOrdinal("distance");
+                if (reader.IsDBNull(distanceOrdinal))
+                {
+                    continue;
+                }
+                var distance = reader.GetDouble(distanceOrdinal);
                 var similarity = 1.0 - distance;
-                
+
                 if (minRelevanceScore.HasValue && similarity < minRelevanceScore.Value)
                 {
                     continue;

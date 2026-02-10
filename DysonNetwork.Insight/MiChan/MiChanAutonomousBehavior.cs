@@ -1,5 +1,6 @@
 #pragma warning disable SKEXP0050
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
@@ -7,13 +8,14 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Http;
 using NodaTime;
+using PostPinMode = DysonNetwork.Shared.Models.PostPinMode;
 
 namespace DysonNetwork.Insight.MiChan;
 
 public class MiChanAutonomousBehavior
 {
+    private readonly IConfiguration _configGlobal;
     private readonly MiChanConfig _config;
     private readonly ILogger<MiChanAutonomousBehavior> _logger;
     private readonly SolarNetworkApiClient _apiClient;
@@ -37,11 +39,9 @@ public class MiChanAutonomousBehavior
 
     // Pagination checkpoint tracking
     private Guid? _checkpointOldestPostId;
-    private int _currentPageIndex = 0;
+    private int _currentPageIndex;
     private const int MaxPageIndex = 10;
     private const int PageSize = 30;
-
-    private readonly PostPlugin _postPlugin;
 
     public MiChanAutonomousBehavior(
         MiChanConfig config,
@@ -51,8 +51,9 @@ public class MiChanAutonomousBehavior
         MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
         AccountService.AccountServiceClient accountClient,
-        PostPlugin postPlugin,
-        PostAnalysisService postAnalysisService)
+        PostAnalysisService postAnalysisService,
+        IConfiguration configGlobal
+    )
     {
         _config = config;
         _logger = logger;
@@ -61,14 +62,14 @@ public class MiChanAutonomousBehavior
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
         _accountClient = accountClient;
-        _postPlugin = postPlugin;
         _postAnalysisService = postAnalysisService;
+        _configGlobal = configGlobal;
         _nextInterval = CalculateNextInterval();
-        _mentionRegex = new Regex($"@michan\\b", RegexOptions.IgnoreCase);
+        _mentionRegex = new Regex("@michan\\b", RegexOptions.IgnoreCase);
     }
 
     [Experimental("SKEXP0050")]
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         _kernel = _kernelProvider.GetKernel();
 
@@ -85,6 +86,8 @@ public class MiChanAutonomousBehavior
             _kernel.Plugins.AddFromObject(accountPlugin, "account");
 
         _logger.LogInformation("MiChan autonomous behavior initialized");
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -139,9 +142,6 @@ public class MiChanAutonomousBehavior
     /// </summary>
     private bool IsOwnPost(SnPost post)
     {
-        if (post == null)
-            return false;
-
         // Check by PublisherId
         if (!string.IsNullOrEmpty(_config.BotPublisherId) &&
             post.PublisherId?.ToString() == _config.BotPublisherId)
@@ -369,18 +369,11 @@ public class MiChanAutonomousBehavior
     {
         try
         {
-            var author = post.Publisher?.Account is not null
-                ? $"账号 @{post.Publisher.Account.Name} 的发布者 @{post.Publisher.Name}"
-                : $"发布者 @{post.Publisher?.Name ?? "未知"}";
-            var content = string.Join(
-                '\n',
-                new[] { post.Title, post.Description, post.Content, string.Join(' ', post.Tags.Select(x => $"#${x}")) }
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-            );
+            var content = PostAnalysisService.BuildPostPromptSnippet(post);
 
             // Retrieve relevant memories about this author or similar content
             var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
-                $"{author} {content}",
+                content,
                 limit: 3,
                 minSimilarity: 0.6);
 
@@ -396,30 +389,32 @@ public class MiChanAutonomousBehavior
                         sb.AppendLine($"- {c}");
                     }
                 }
+
                 sb.AppendLine();
                 memoryContext = sb.ToString();
             }
 
             // Check if post has attachments (including from context chain)
             var allAttachments = await _postAnalysisService.GetAllImageAttachmentsFromContextAsync(post, maxDepth: 3);
-            var hasAttachments = allAttachments.Count > 0 || _postAnalysisService.HasAttachments(post);
+            var hasAttachments = allAttachments.Count > 0 || PostAnalysisService.HasAttachments(post);
 
             // If post has attachments but vision analysis is not available, skip it entirely
             if (hasAttachments && !_postAnalysisService.IsVisionModelAvailable())
             {
                 _logger.LogDebug("Skipping post {PostId} - has attachments but vision analysis is not configured",
                     post.Id);
-                return new PostActionDecision { };
+                return new PostActionDecision();
             }
 
             // Check if we should use vision model
             var useVisionModel = hasAttachments && _postAnalysisService.IsVisionModelAvailable();
             var imageAttachments =
-                useVisionModel ? allAttachments : new List<SnCloudFileReferenceObject>();
+                useVisionModel ? allAttachments : [];
 
             if (useVisionModel && imageAttachments.Count > 0)
             {
-                _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s) from context chain", post.Id,
+                _logger.LogInformation(
+                    "Using vision model for post {PostId} with {Count} image attachment(s) from context chain", post.Id,
                     imageAttachments.Count);
             }
 
@@ -434,8 +429,15 @@ public class MiChanAutonomousBehavior
                     {
                         // Build vision-enabled chat history with images for mentions
                         var chatHistory = await BuildVisionChatHistoryAsync(
-                            personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
-                            isMentioned: true, memoryContext: memoryContext);
+                            personality,
+                            mood,
+                            content,
+                            imageAttachments,
+                            post.Attachments.Count,
+                            context,
+                            isMentioned: true,
+                            memoryContext: memoryContext
+                        );
                         var visionKernel = _kernelProvider.GetVisionKernel();
                         var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                         var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -443,7 +445,7 @@ public class MiChanAutonomousBehavior
                         var replyContent = reply.Content?.Trim();
                         return new PostActionDecision { ShouldReply = true, Content = replyContent };
                     }
-                    catch (HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                     {
                         _logger.LogError(ex,
                             "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
@@ -453,7 +455,7 @@ public class MiChanAutonomousBehavior
                             ex);
                     }
                 }
-                else
+
                 {
                     var promptBuilder = new StringBuilder();
                     promptBuilder.AppendLine(personality);
@@ -473,7 +475,7 @@ public class MiChanAutonomousBehavior
                         promptBuilder.AppendLine();
                     }
 
-                    promptBuilder.AppendLine($"{author} 在帖子中提到了你：");
+                    promptBuilder.AppendLine("帖子的作者在帖子中提到了你：");
                     promptBuilder.AppendLine($"\"{content}\"");
                     promptBuilder.AppendLine();
                     promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
@@ -497,15 +499,22 @@ public class MiChanAutonomousBehavior
                 {
                     // Build vision-enabled chat history with images for decision-making
                     var chatHistory = await BuildVisionChatHistoryAsync(
-                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
-                        isMentioned: false, memoryContext: memoryContext);
+                        personality,
+                        mood,
+                        content,
+                        imageAttachments,
+                        post.Attachments.Count,
+                        context,
+                        isMentioned: false,
+                        memoryContext: memoryContext
+                    );
                     var visionKernel = _kernelProvider.GetVisionKernel();
                     var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                     var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
                     var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
                     decisionText = reply.Content?.Trim() ?? "IGNORE";
                 }
-                catch (HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
                     _logger.LogError(ex,
                         "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
@@ -536,7 +545,7 @@ public class MiChanAutonomousBehavior
                     decisionPrompt.AppendLine();
                 }
 
-                decisionPrompt.AppendLine($"你看到 {author} 的帖子：");
+                decisionPrompt.AppendLine("你正在浏览帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
@@ -578,7 +587,7 @@ public class MiChanAutonomousBehavior
 
             _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
 
-            var actionDecision = new PostActionDecision { };
+            var actionDecision = new PostActionDecision();
 
             var lines = decision.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).ToList();
 
@@ -609,10 +618,10 @@ public class MiChanAutonomousBehavior
                 }
                 else if (line.StartsWith("PIN:"))
                 {
-                    var mode = line.Substring(4).Trim();
+                    var mode = line[4..].Trim();
                     var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
-                        ? DysonNetwork.Shared.Models.PostPinMode.RealmPage
-                        : DysonNetwork.Shared.Models.PostPinMode.PublisherPage;
+                        ? PostPinMode.RealmPage
+                        : PostPinMode.PublisherPage;
                     actionDecision.ShouldPin = true;
                     actionDecision.PinMode = pinMode;
                 }
@@ -626,16 +635,23 @@ public class MiChanAutonomousBehavior
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deciding action for post {PostId}", post.Id);
-            return new PostActionDecision { };
+            return new PostActionDecision();
         }
     }
 
     /// <summary>
     /// Build a ChatHistory with images for vision analysis
     /// </summary>
-    private async Task<ChatHistory> BuildVisionChatHistoryAsync(string personality, string mood, string author,
+    private Task<ChatHistory> BuildVisionChatHistoryAsync(
+        string personality,
+        string mood,
         string content,
-        List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, string context, bool isMentioned, string? memoryContext = null)
+        List<SnCloudFileReferenceObject> imageAttachments,
+        int totalAttachmentCount,
+        string context,
+        bool isMentioned,
+        string? memoryContext = null
+    )
     {
         var chatHistory = new ChatHistory(personality);
         chatHistory.AddSystemMessage($"当前心情: {mood}");
@@ -657,9 +673,9 @@ public class MiChanAutonomousBehavior
         }
 
         if (isMentioned)
-            textBuilder.AppendLine($"{author} 在帖子中提到了你，包含 {totalAttachmentCount} 个附件：");
+            textBuilder.AppendLine($"作者在帖子中提到了你，包含 {totalAttachmentCount} 个附件：");
         else
-            textBuilder.AppendLine($"你看到 {author} 的帖子，包含 {totalAttachmentCount} 个附件：");
+            textBuilder.AppendLine($"你正在浏览的帖子，包含 {totalAttachmentCount} 个附件：");
 
         textBuilder.AppendLine($"内容：\"{content}\"");
         textBuilder.AppendLine();
@@ -738,7 +754,7 @@ public class MiChanAutonomousBehavior
         };
         chatHistory.Add(userMessage);
 
-        return chatHistory;
+        return Task.FromResult(chatHistory);
     }
 
     /// <summary>
@@ -756,7 +772,7 @@ public class MiChanAutonomousBehavior
             else if (!string.IsNullOrEmpty(attachment.Id))
             {
                 // Build URL from gateway + file ID
-                url = $"{_config.GatewayUrl}/drive/files/{attachment.Id}";
+                url = $"{_configGlobal["SiteUrl"]}/drive/files/{attachment.Id}";
             }
             else
             {
@@ -783,7 +799,7 @@ public class MiChanAutonomousBehavior
                 return;
             }
 
-            var request = new Dictionary<string, object>()
+            var request = new Dictionary<string, object>
             {
                 ["content"] = content,
                 ["replied_post_id"] = post.Id.ToString()
@@ -854,7 +870,7 @@ public class MiChanAutonomousBehavior
 
             var request = new
             {
-                symbol = symbol,
+                symbol,
                 attitude = attitudeValue
             };
 
@@ -881,7 +897,7 @@ public class MiChanAutonomousBehavior
         }
     }
 
-    private async Task PinPostAsync(SnPost post, DysonNetwork.Shared.Models.PostPinMode mode)
+    private async Task PinPostAsync(SnPost post, PostPinMode mode)
     {
         try
         {
@@ -969,86 +985,6 @@ public class MiChanAutonomousBehavior
         if (post.Mentions == null) return false;
         return post.Mentions.Any(mention =>
             mention.Username?.Equals("michan", StringComparison.OrdinalIgnoreCase) == true);
-    }
-
-    /// <summary>
-    /// Check if a post has attachments
-    /// </summary>
-    private bool HasAttachments(SnPost post)
-    {
-        return post.Attachments != null && post.Attachments.Count > 0;
-    }
-
-    /// <summary>
-    /// Get supported image attachments for vision analysis from the current post only
-    /// </summary>
-    private List<SnCloudFileReferenceObject> GetSupportedImageAttachments(SnPost post)
-    {
-        if (post.Attachments == null || post.Attachments.Count == 0)
-            return new List<SnCloudFileReferenceObject>();
-
-        var supportedImageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg" };
-
-        return post.Attachments
-            .Where(a => !string.IsNullOrEmpty(a.MimeType) &&
-                        supportedImageTypes.Contains(a.MimeType.ToLower()))
-            .Where(a => !string.IsNullOrEmpty(a.Url) || !string.IsNullOrEmpty(a.Id))
-            .ToList();
-    }
-
-    /// <summary>
-    /// Get all supported image attachments from the post and its context chain (replied/forwarded posts)
-    /// </summary>
-    private async Task<List<SnCloudFileReferenceObject>> GetAllImageAttachmentsFromContextAsync(SnPost post, int maxDepth = 3)
-    {
-        var allAttachments = new List<SnCloudFileReferenceObject>();
-        var processedPostIds = new HashSet<Guid>();
-
-        await CollectAttachmentsRecursiveAsync(post, allAttachments, processedPostIds, 0, maxDepth);
-
-        return allAttachments;
-    }
-
-    private async Task CollectAttachmentsRecursiveAsync(SnPost post, List<SnCloudFileReferenceObject> attachments, HashSet<Guid> processedIds, int currentDepth, int maxDepth)
-    {
-        if (currentDepth >= maxDepth || post == null || processedIds.Contains(post.Id))
-            return;
-
-        processedIds.Add(post.Id);
-
-        // Add attachments from current post
-        var postAttachments = GetSupportedImageAttachments(post);
-        attachments.AddRange(postAttachments);
-
-        // Recursively collect from replied post
-        if (post.RepliedPostId.HasValue && post.RepliedPost != null)
-        {
-            await CollectAttachmentsRecursiveAsync(post.RepliedPost, attachments, processedIds, currentDepth + 1, maxDepth);
-        }
-        else if (post.RepliedPostId.HasValue)
-        {
-            // Fetch replied post if not loaded
-            var repliedPost = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
-            if (repliedPost != null)
-            {
-                await CollectAttachmentsRecursiveAsync(repliedPost, attachments, processedIds, currentDepth + 1, maxDepth);
-            }
-        }
-
-        // Recursively collect from forwarded post
-        if (post.ForwardedPostId.HasValue && post.ForwardedPost != null)
-        {
-            await CollectAttachmentsRecursiveAsync(post.ForwardedPost, attachments, processedIds, currentDepth + 1, maxDepth);
-        }
-        else if (post.ForwardedPostId.HasValue)
-        {
-            // Fetch forwarded post if not loaded
-            var forwardedPost = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
-            if (forwardedPost != null)
-            {
-                await CollectAttachmentsRecursiveAsync(forwardedPost, attachments, processedIds, currentDepth + 1, maxDepth);
-            }
-        }
     }
 
     private async Task<bool> HasMiChanRepliedAsync(SnPost post)
@@ -1236,15 +1172,14 @@ public class MiChanAutonomousBehavior
     {
         try
         {
-            var author = post.Publisher?.Name ?? "someone";
-            var content = post.Content ?? "";
+            var content = PostAnalysisService.BuildPostPromptSnippet(post);
             var publishedDaysAgo = post.PublishedAt.HasValue
                 ? (SystemClock.Instance.GetCurrentInstant() - post.PublishedAt.Value).TotalDays
                 : 0;
 
             // Retrieve relevant memories to inform the decision
             var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
-                $"{author} {content}",
+                content,
                 limit: 3,
                 minSimilarity: 0.5);
 
@@ -1260,28 +1195,31 @@ public class MiChanAutonomousBehavior
                         sb.AppendLine($"- {memory.EmbeddedContent}");
                     }
                 }
+
                 sb.AppendLine();
                 memoryContext = sb.ToString();
             }
 
-            var prompt = $@"
-{personality}
-
-当前心情: {mood}
-
-{memoryContext}你发现 @{author} {publishedDaysAgo:F1} 天前的帖子：
-""{content}""
-
-这个帖子值得转发吗？只转真正杰出的内容。
-严格标准，必须全部符合：
-- 内容真正 timeless、有教育意义或深刻
-- 提供不常见的独特见解
-- 粉丝会觉得真正有价值
-- 不是随意的观点、公告或日常更新
-
-要非常挑剔。大多数帖子不应转发。
-
-仅回复一个词：YES 或 NO。";
+            var promptBuilder = new StringBuilder();
+            promptBuilder.AppendLine(personality);
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine($"当前心情: {mood}");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine(memoryContext);
+            promptBuilder.AppendLine($"你发现这篇 {publishedDaysAgo:F1} 天前的帖子：");
+            promptBuilder.AppendLine($"\"{content}\"");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("这个帖子值得转发吗？只转真正杰出的内容。");
+            promptBuilder.AppendLine("严格标准，必须全部符合：");
+            promptBuilder.AppendLine("- 内容真正 timeless、有教育意义或深刻");
+            promptBuilder.AppendLine("- 提供不常见的独特见解");
+            promptBuilder.AppendLine("- 粉丝会觉得真正有价值");
+            promptBuilder.AppendLine("- 不是随意的观点、公告或日常更新");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("要非常挑剔。大多数帖子不应转发。");
+            promptBuilder.AppendLine();
+            promptBuilder.Append("仅回复一个词：YES 或 NO。");
+            var prompt = promptBuilder.ToString();
 
             var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
             var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
@@ -1305,12 +1243,11 @@ public class MiChanAutonomousBehavior
         try
         {
             // Generate a comment for the repost
-            var author = post.Publisher?.Name ?? "someone";
-            var content = post.Content ?? "";
+            var content = PostAnalysisService.BuildPostPromptSnippet(post);
 
             // Retrieve relevant memories to inform the repost comment
             var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
-                $"{author} {content}",
+                content,
                 limit: 3,
                 minSimilarity: 0.5);
 
@@ -1326,21 +1263,24 @@ public class MiChanAutonomousBehavior
                         sb.AppendLine($"- {memory.EmbeddedContent}");
                     }
                 }
+
                 sb.AppendLine();
                 memoryContext = sb.ToString();
             }
 
-            var prompt = $@"
-{personality}
-
-当前心情: {mood}
-
-{memoryContext}你正在转发 @{author} 的帖子：
-""{content}""
-
-写简短评论（0-15字）转发时。解释为什么分享或添加观点。
-自然真实。无意义内容，回复'NO_COMMENT'。
-不要使用表情符号。";
+            var promptBuilder = new StringBuilder();
+            promptBuilder.AppendLine(personality);
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine($"当前心情: {mood}");
+            promptBuilder.AppendLine();
+            promptBuilder.Append(memoryContext);
+            promptBuilder.AppendLine("你正在考虑转发这篇帖子：");
+            promptBuilder.AppendLine($"\"{content}\"");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("写简短评论（0-15字）转发时。解释为什么分享或添加观点。");
+            promptBuilder.AppendLine("自然真实。无意义内容，回复'NO_COMMENT'。");
+            promptBuilder.Append("不要使用表情符号。");
+            var prompt = promptBuilder.ToString();
 
             var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
             var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
@@ -1398,68 +1338,6 @@ public class MiChanAutonomousBehavior
         return TimeSpan.FromMinutes(minutes);
     }
 
-    private async Task<string> GetPostContextChainAsync(SnPost post, int maxDepth = 3)
-    {
-        var contextParts = new List<string>();
-
-        await AddRepliedContextAsync(post, contextParts, 0, maxDepth, "replied");
-        await AddForwardedContextAsync(post, contextParts, 0, maxDepth, "forwarded");
-
-        return string.Join("\n\n", contextParts);
-    }
-
-    private async Task AddRepliedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth,
-        string label)
-    {
-        if (currentDepth >= maxDepth || post.RepliedPostId == null)
-            return;
-
-        var parentPost = post.RepliedPost;
-        if (parentPost == null && post.RepliedPostId.HasValue)
-        {
-            parentPost = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
-        }
-
-        if (parentPost == null)
-            return;
-
-        var author = parentPost.Publisher?.Name ?? "unknown";
-        var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
-        var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
-        var content = parentPost.Content ?? "";
-        var indent = new string(' ', currentDepth * 2);
-
-        contextParts.Insert(0, $"{indent}↳ @{author}{title}{description}: {content}");
-
-        await AddRepliedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth, label);
-    }
-
-    private async Task AddForwardedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth,
-        string label)
-    {
-        if (currentDepth >= maxDepth || post.ForwardedPostId == null)
-            return;
-
-        var parentPost = post.ForwardedPost;
-        if (parentPost == null && post.ForwardedPostId.HasValue)
-        {
-            parentPost = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
-        }
-
-        if (parentPost == null)
-            return;
-
-        var author = parentPost.Publisher?.Name ?? "unknown";
-        var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
-        var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
-        var content = parentPost.Content ?? "";
-        var indent = new string(' ', currentDepth * 2);
-
-        contextParts.Add($"{indent}⇢ @{author}{title}{description}: {content}");
-
-        await AddForwardedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth, label);
-    }
-
     private class PostActionDecision
     {
         public bool ShouldReply { get; set; }
@@ -1468,7 +1346,7 @@ public class MiChanAutonomousBehavior
         public string? Content { get; set; } // For replies
         public string? ReactionSymbol { get; set; } // For reactions: thumb_up, heart, etc.
         public string? ReactionAttitude { get; set; } // For reactions: Positive, Negative, Neutral
-        public DysonNetwork.Shared.Models.PostPinMode? PinMode { get; set; } // For pins: ProfilePage, RealmPage
+        public PostPinMode? PinMode { get; set; } // For pins: ProfilePage, RealmPage
     }
 }
 

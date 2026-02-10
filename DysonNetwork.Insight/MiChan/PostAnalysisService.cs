@@ -36,18 +36,46 @@ public class PostAnalysisService
     /// <summary>
     /// Check if a post has any attachments (images)
     /// </summary>
-    public bool HasAttachments(SnPost post)
+    public static bool HasAttachments(SnPost post)
     {
-        return post.Attachments != null && post.Attachments.Count > 0;
+        return post.Attachments.Count > 0;
+    }
+
+    /// <summary>
+    /// Build a prompt snippet from a post using StringBuilder
+    /// </summary>
+    public static string BuildPostPromptSnippet(SnPost post)
+    {
+        var sb = new StringBuilder();
+
+        // Add author information using existing GetPosterSummary method
+        sb.AppendLine(GetPosterSummary(post));
+
+        if (!string.IsNullOrWhiteSpace(post.Title))
+            sb.AppendLine(post.Title);
+
+        if (!string.IsNullOrWhiteSpace(post.Description))
+            sb.AppendLine(post.Description);
+
+        if (!string.IsNullOrWhiteSpace(post.Content))
+            sb.AppendLine(post.Content);
+
+        if (post.Tags?.Any() == true)
+        {
+            var tags = string.Join(' ', post.Tags.Select(x => $"#${x}"));
+            sb.Append(tags);
+        }
+
+        return sb.ToString().Trim();
     }
 
     /// <summary>
     /// Get supported image attachments from a single post
     /// </summary>
-    public List<SnCloudFileReferenceObject> GetSupportedImageAttachments(SnPost post)
+    private static List<SnCloudFileReferenceObject> GetSupportedImageAttachments(SnPost post)
     {
-        if (post.Attachments == null || post.Attachments.Count == 0)
-            return new List<SnCloudFileReferenceObject>();
+        if (post.Attachments.Count == 0)
+            return [];
 
         var supportedImageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg" };
 
@@ -74,7 +102,7 @@ public class PostAnalysisService
     /// <summary>
     /// Get all image attachments from multiple posts
     /// </summary>
-    public async Task<List<SnCloudFileReferenceObject>> GetAllImageAttachmentsFromPostsAsync(List<SnPost> posts, int maxDepth = 3)
+    private async Task<List<SnCloudFileReferenceObject>> GetAllImageAttachmentsFromPostsAsync(List<SnPost> posts, int maxDepth = 3)
     {
         var allAttachments = new List<SnCloudFileReferenceObject>();
         var processedPostIds = new HashSet<Guid>();
@@ -89,10 +117,8 @@ public class PostAnalysisService
 
     private async Task CollectAttachmentsRecursiveAsync(SnPost post, List<SnCloudFileReferenceObject> attachments, HashSet<Guid> processedIds, int currentDepth, int maxDepth)
     {
-        if (currentDepth >= maxDepth || post == null || processedIds.Contains(post.Id))
+        if (currentDepth >= maxDepth || !processedIds.Add(post.Id))
             return;
-
-        processedIds.Add(post.Id);
 
         // Add attachments from current post
         var postAttachments = GetSupportedImageAttachments(post);
@@ -135,7 +161,7 @@ public class PostAnalysisService
     public async Task<string> GetPostContextChainAsync(SnPost post, int maxDepth = 3)
     {
         var contextParts = new List<string>();
-        
+
         // Add poster information first
         var posterContext = BuildPosterContext(post);
         if (!string.IsNullOrEmpty(posterContext))
@@ -152,29 +178,29 @@ public class PostAnalysisService
     /// <summary>
     /// Build comprehensive poster context including publisher and account details
     /// </summary>
-    public string BuildPosterContext(SnPost post)
+    private static string BuildPosterContext(SnPost post)
     {
         if (post.Publisher == null)
             return string.Empty;
 
         var sb = new StringBuilder();
         var publisher = post.Publisher;
-        
+
         sb.AppendLine("=== 发帖者信息 ===");
-        
+
         // Basic publisher info
         sb.AppendLine($"发布者: @{publisher.Name} ({publisher.Nick})");
-        
+
         // Publisher type
         var pubType = publisher.Type == PublisherType.Individual ? "个人" : "组织";
         sb.AppendLine($"类型: {pubType}");
-        
+
         // Bio/Description
         if (!string.IsNullOrEmpty(publisher.Bio))
         {
             sb.AppendLine($"简介: {publisher.Bio}");
         }
-        
+
         // Verification status - show all fields
         if (publisher.Verification != null)
         {
@@ -194,24 +220,24 @@ public class PostAnalysisService
                 sb.AppendLine($"  - 认证者: {v.VerifiedBy}");
             }
         }
-        
+
         // Account details (if available)
         if (publisher.Account != null)
         {
             var account = publisher.Account;
-            
+
             // Check if bot
             if (account.AutomatedId.HasValue)
             {
                 sb.AppendLine("[机器人/自动化账号]");
             }
-            
+
             // Superuser status
             if (account.IsSuperuser)
             {
                 sb.AppendLine("[超级管理员]");
             }
-            
+
             // Language/Region
             if (!string.IsNullOrEmpty(account.Language))
             {
@@ -221,7 +247,7 @@ public class PostAnalysisService
             {
                 sb.AppendLine($"地区: {account.Region}");
             }
-            
+
             // Account age
             var accountAge = DateTime.UtcNow - account.CreatedAt.ToDateTimeUtc();
             var ageString = accountAge.TotalDays switch
@@ -232,35 +258,28 @@ public class PostAnalysisService
                 _ => $"注册 {accountAge.TotalDays / 365:F1} 年"
             };
             sb.AppendLine($"账号年龄: {ageString}");
-            
+
             // Profile info if available
-            if (account.Profile != null)
+            if (!string.IsNullOrEmpty(account.Profile.Bio))
+                sb.AppendLine($"个人简介: {account.Profile.Bio}");
+
+            if (!string.IsNullOrEmpty(account.Profile.Location))
+                sb.AppendLine($"位置: {account.Profile.Location}");
+
+            // Last seen
+            if (account.Profile.LastSeenAt.HasValue)
             {
-                if (!string.IsNullOrEmpty(account.Profile.Bio))
+                var lastSeen = DateTime.UtcNow - account.Profile.LastSeenAt.Value.ToDateTimeUtc();
+                var lastSeenStr = lastSeen.TotalMinutes switch
                 {
-                    sb.AppendLine($"个人简介: {account.Profile.Bio}");
-                }
-                
-                if (!string.IsNullOrEmpty(account.Profile.Location))
-                {
-                    sb.AppendLine($"位置: {account.Profile.Location}");
-                }
-                
-                // Last seen
-                if (account.Profile.LastSeenAt.HasValue)
-                {
-                    var lastSeen = DateTime.UtcNow - account.Profile.LastSeenAt.Value.ToDateTimeUtc();
-                    var lastSeenStr = lastSeen.TotalMinutes switch
-                    {
-                        < 1 => "刚刚",
-                        < 60 => $"{lastSeen.TotalMinutes:F0}分钟前",
-                        < 1440 => $"{lastSeen.TotalHours:F0}小时前",
-                        _ => $"{lastSeen.TotalDays:F0}天前"
-                    };
-                    sb.AppendLine($"上次活跃: {lastSeenStr}");
-                }
+                    < 1 => "刚刚",
+                    < 60 => $"{lastSeen.TotalMinutes:F0}分钟前",
+                    < 1440 => $"{lastSeen.TotalHours:F0}小时前",
+                    _ => $"{lastSeen.TotalDays:F0}天前"
+                };
+                sb.AppendLine($"上次活跃: {lastSeenStr}");
             }
-            
+
             // Badges
             if (account.Badges?.Any() == true)
             {
@@ -268,50 +287,33 @@ public class PostAnalysisService
                 sb.AppendLine($"徽章: {string.Join(", ", badgeLabels)}");
             }
         }
-        
-        // Additional metadata
-        if (publisher.Meta != null)
-        {
-            if (publisher.Meta.TryGetValue("followers_count", out var followers))
-            {
-                sb.AppendLine($"关注者: {followers}");
-            }
-            if (publisher.Meta.TryGetValue("following_count", out var following))
-            {
-                sb.AppendLine($"关注中: {following}");
-            }
-            if (publisher.Meta.TryGetValue("posts_count", out var postsCount))
-            {
-                sb.AppendLine($"发帖数: {postsCount}");
-            }
-        }
-        
+
         sb.AppendLine("===================");
-        
+
         return sb.ToString();
     }
 
     /// <summary>
     /// Get poster summary for quick context
     /// </summary>
-    public string GetPosterSummary(SnPost post)
+    private static string GetPosterSummary(SnPost post)
     {
         if (post.Publisher == null)
             return "未知发布者";
 
         var publisher = post.Publisher;
         var account = publisher.Account;
-        
+
         var attributes = new List<string>();
-        
+
         // Bot detection
         if (account?.AutomatedId.HasValue == true)
             attributes.Add("BOT");
-        
+
         // Superuser
         if (account?.IsSuperuser == true)
             attributes.Add("ADMIN");
-        
+
         // Verification
         if (publisher.Verification != null)
         {
@@ -322,7 +324,7 @@ public class PostAnalysisService
                 attributes.Add($"{v.Title}");
             }
         }
-        
+
         // Last seen status (if recently active)
         if (account?.Profile?.LastSeenAt.HasValue == true)
         {
@@ -332,7 +334,7 @@ public class PostAnalysisService
                 attributes.Add("ACTIVE");
             }
         }
-        
+
         var attrStr = attributes.Any() ? $" [{string.Join(", ", attributes)}]" : "";
         return $"@{publisher.Name} ({publisher.Nick}){attrStr}";
     }
@@ -351,13 +353,10 @@ public class PostAnalysisService
         if (parentPost == null)
             return;
 
-        var authorSummary = GetPosterSummary(parentPost);
-        var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
-        var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
-        var content = parentPost.Content ?? "";
+        var content = BuildPostPromptSnippet(parentPost);
         var indent = new string(' ', currentDepth * 2);
 
-        contextParts.Insert(0, $"{indent}↳ {authorSummary}{title}{description}: {content}");
+        contextParts.Insert(0, $"{indent}↳ {content}");
 
         await AddRepliedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth);
     }
@@ -423,8 +422,7 @@ public class PostAnalysisService
         textBuilder.AppendLine("Please analyze the images and provide relevant context to help answer the user's question.");
 
         // Create a collection to hold all content items (text + images)
-        var contentItems = new ChatMessageContentItemCollection();
-        contentItems.Add(new TextContent(textBuilder.ToString()));
+        var contentItems = new ChatMessageContentItemCollection { new TextContent(textBuilder.ToString()) };
 
         // Get all image attachments from posts and their context
         var allAttachments = await GetAllImageAttachmentsFromPostsAsync(posts, maxDepth: 3);
@@ -461,7 +459,7 @@ public class PostAnalysisService
     /// Build a ChatHistory with images for MiChan's autonomous behavior decision making
     /// </summary>
     [Experimental("SKEXP0050")]
-    public async Task<ChatHistory> BuildVisionChatHistoryForDecisionAsync(
+    public Task<ChatHistory> BuildVisionChatHistoryForDecisionAsync(
         string personality,
         string mood,
         string author,
@@ -566,7 +564,7 @@ public class PostAnalysisService
         };
         chatHistory.Add(userMessage);
 
-        return chatHistory;
+        return Task.FromResult(chatHistory);
     }
 
     /// <summary>
