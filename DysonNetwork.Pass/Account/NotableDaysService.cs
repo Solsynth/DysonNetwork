@@ -128,6 +128,18 @@ public class NotableDaysService(ICacheService cache)
             Holidays = [NotableHolidayType.Observance]
         };
         globalDays.Add(halloween);
+        
+        // 小年 on 2026 / 吃水饺 Day - Feb 11
+        var littleYear = new NotableDay
+        {
+            Date = Instant.FromDateTimeUtc(new DateTime(2026, 2, 11, 16, 0, 0, DateTimeKind.Utc)),
+            LocalName = "吃水饺日",
+            GlobalName = "吃水饺日",
+            LocalizableKey = "EatDumpling",
+            CountryCode = null,
+            Holidays = [NotableHolidayType.Observance]
+        };
+        globalDays.Add(halloween);
 
         return globalDays;
     }
