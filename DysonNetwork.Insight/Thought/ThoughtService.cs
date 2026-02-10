@@ -20,6 +20,7 @@ public class ThoughtService(
     AppDatabase db,
     ICacheService cache,
     PaymentService.PaymentServiceClient paymentService,
+    AccountService.AccountServiceClient accountClient,
     ThoughtProvider thoughtProvider,
     MiChanKernelProvider miChanKernelProvider,
     MiChanMemoryService miChanMemoryService,
@@ -68,6 +69,24 @@ public class ThoughtService(
                 .OrderBy(t => t.CreatedAt)
                 .ToListAsync();
 
+            // Fetch account information to include username
+            string username = "Unknown";
+            string nickname = "Unknown";
+            try
+            {
+                var accountResponse = await accountClient.GetAccountAsync(
+                    new GetAccountRequest { Id = sequence.AccountId.ToString() });
+                if (accountResponse != null)
+                {
+                    username = accountResponse.Name ?? "Unknown";
+                    nickname = accountResponse.Nick ?? username;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch account info for {AccountId}", sequence.AccountId);
+            }
+
             // Build the conversation content from thoughts
             var conversationContent = new StringBuilder();
             foreach (var thought in thoughts)
@@ -89,6 +108,7 @@ public class ThoughtService(
             // Prepare searchable content that includes the conversation
             var searchableContent = new StringBuilder();
             searchableContent.AppendLine($"Topic: {sequence.Topic ?? "No topic"}");
+            searchableContent.AppendLine($"User: @{username} ({nickname})");
             searchableContent.AppendLine($"Sequence ID: {sequence.Id}");
             searchableContent.AppendLine();
             searchableContent.AppendLine("Conversation:");
@@ -96,8 +116,10 @@ public class ThoughtService(
 
             var memoryContext = new Dictionary<string, object>
             {
-                ["sequence_id"] = sequence.Id,
-                ["account_id"] = sequence.AccountId,
+                ["sequence_id"] = sequence.Id.ToString(),
+                ["account_id"] = sequence.AccountId.ToString(),
+                ["username"] = username,
+                ["nickname"] = nickname,
                 ["topic"] = sequence.Topic ?? "No topic",
                 ["total_tokens"] = sequence.TotalToken,
                 ["paid_tokens"] = sequence.PaidToken,
@@ -122,17 +144,20 @@ public class ThoughtService(
                 context: memoryContext,
                 memory: new Dictionary<string, object>
                 {
-                    ["sequence_id"] = sequence.Id,
+                    ["sequence_id"] = sequence.Id.ToString(),
                     ["topic"] = sequence.Topic ?? "No topic",
-                    ["account_id"] = sequence.AccountId,
+                    ["account_id"] = sequence.AccountId.ToString(),
+                    ["username"] = username,
+                    ["nickname"] = nickname,
                     ["searchable_content"] = searchableContent.ToString()
                 }
             );
 
             logger.LogInformation(
-                "Memorized thought sequence {SequenceId} for account {AccountId} with topic: {Topic} (including {ThoughtCount} thoughts)",
+                "Memorized thought sequence {SequenceId} for user @{Username} ({Nickname}) with topic: {Topic} (including {ThoughtCount} thoughts)",
                 sequence.Id,
-                sequence.AccountId,
+                username,
+                nickname,
                 sequence.Topic ?? "No topic",
                 thoughts.Count
             );

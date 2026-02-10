@@ -93,6 +93,7 @@ public static class ServiceCollectionExtensions
             // Plugins
             services.AddSingleton<PostPlugin>();
             services.AddSingleton<AccountPlugin>();
+            services.AddSingleton<MemoryPlugin>();
             
             // Memory and behavior services
             services.AddSingleton<EmbeddingService>();

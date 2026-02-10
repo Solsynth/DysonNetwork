@@ -76,11 +76,14 @@ public class MiChanAutonomousBehavior
         // Register plugins (only if not already registered)
         var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
         var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
+        var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
 
         if (!_kernel.Plugins.Contains("post"))
             _kernel.Plugins.AddFromObject(postPlugin, "post");
         if (!_kernel.Plugins.Contains("account"))
             _kernel.Plugins.AddFromObject(accountPlugin, "account");
+        if (!_kernel.Plugins.Contains("memory"))
+            _kernel.Plugins.AddFromObject(memoryPlugin, "memory");
 
         _logger.LogInformation("MiChan autonomous behavior initialized");
 
