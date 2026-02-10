@@ -23,6 +23,7 @@ public class ThoughtProvider
 {
     private readonly PostService.PostServiceClient _postClient;
     private readonly AccountService.AccountServiceClient _accountClient;
+    private readonly PublisherService.PublisherServiceClient _publisherClient;
     private readonly KernelFactory _kernelFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
@@ -38,13 +39,15 @@ public class ThoughtProvider
         IConfiguration configuration,
         PostService.PostServiceClient postServiceClient,
         AccountService.AccountServiceClient accountServiceClient,
+        PublisherService.PublisherServiceClient publisherClient,
         ILogger<ThoughtProvider> logger
-    )
+        )
     {
         _logger = logger;
         _kernelFactory = kernelFactory;
         _postClient = postServiceClient;
         _accountClient = accountServiceClient;
+        _publisherClient = publisherClient;
         _configuration = configuration;
 
         var cfg = configuration.GetSection("Thinking");
@@ -81,7 +84,7 @@ public class ThoughtProvider
 
         // Add Thought-specific plugins (gRPC clients are already injected)
         kernel.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
-        kernel.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient));
+        kernel.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient, _publisherClient));
 
         // Add helper functions (web search)
         InitializeHelperFunctions(kernel);
