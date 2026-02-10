@@ -95,7 +95,7 @@ public class MiChanMemoryService
                     ["has_memory"] = memory != null && memory.Count > 0
                 };
 
-                await _vectorService.StoreMemoryAsync(
+                var storedMemory = await _vectorService.StoreMemoryAsync(
                     agentId: _agentId,
                     memoryType: type,
                     content: searchableContent,
@@ -105,9 +105,20 @@ public class MiChanMemoryService
                     importance: 0.7,
                     cancellationToken: cancellationToken
                 );
-            }
 
-            _logger.LogDebug("Stored interaction {Type} for context {ContextId} with embedding", type, contextId);
+                if (storedMemory != null)
+                {
+                    _logger.LogDebug("Stored interaction {Type} for context {ContextId} in vector store", type, contextId);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to store interaction {Type} for context {ContextId} in vector store", type, contextId);
+                }
+            }
+            else
+            {
+                _logger.LogDebug("Stored interaction {Type} for context {ContextId} (memory persistence disabled or empty content)", type, contextId);
+            }
             return interaction;
         }
         catch (Exception ex)

@@ -73,7 +73,7 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Store a new memory with its embedding
     /// </summary>
-    public async Task<AgentMemoryRecord> StoreMemoryAsync(
+    public async Task<AgentMemoryRecord?> StoreMemoryAsync(
         string agentId,
         string memoryType,
         string content,
@@ -85,15 +85,25 @@ public class AgentVectorService : IDisposable
     {
         try
         {
-            // Generate embedding for the content
+            // Generate embedding for the content (optional)
             var embeddingService = GetEmbeddingService();
+            ReadOnlyMemory<float>? embedding = null;
+            
             if (embeddingService == null)
             {
-                _logger.LogError("Embedding service not available");
-                throw new InvalidOperationException("Embedding service not available");
+                _logger.LogWarning("Embedding service not available, storing memory without embedding");
             }
-            
-            var embedding = await embeddingService.GenerateEmbeddingAsync(content, cancellationToken: cancellationToken);
+            else
+            {
+                try
+                {
+                    embedding = await embeddingService.GenerateEmbeddingAsync(content, cancellationToken: cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to generate embedding, storing without embedding");
+                }
+            }
 
             var record = new AgentMemoryRecord
             {
@@ -114,15 +124,15 @@ public class AgentVectorService : IDisposable
             await collection.UpsertAsync(record, cancellationToken: cancellationToken);
 
             _logger.LogDebug(
-                "Stored memory {MemoryId} for agent {AgentId} of type {MemoryType}",
-                record.Id, agentId, memoryType);
+                "Stored memory {MemoryId} for agent {AgentId} of type {MemoryType} (embedding: {HasEmbedding})",
+                record.Id, agentId, memoryType, embedding.HasValue);
 
             return record;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error storing memory for agent {AgentId}", agentId);
-            throw;
+            return null;
         }
     }
 

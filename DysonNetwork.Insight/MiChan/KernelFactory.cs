@@ -11,7 +11,7 @@ namespace DysonNetwork.Insight.MiChan;
 
 /// <summary>
 /// Factory for creating Semantic Kernel instances with various AI providers.
-/// Supports Ollama, DeepSeek, OpenRouter, and Aliyun DashScope.
+/// Supports Ollama, DeepSeek, OpenRouter, Aliyun DashScope, and BigModel.
 /// </summary>
 public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> logger)
 {
@@ -19,7 +19,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     /// Creates a kernel for a specific service configured in Thinking:Services
     /// </summary>
     /// <param name="serviceName">The service ID from configuration</param>
-    /// <param name="addEmbeddings">Whether to add embedding services</param>
+    /// <param name="addEmbeddings">Whether to add embedding services (always uses configured embedding provider)</param>
     /// <returns>A configured Kernel instance</returns>
     [Experimental("SKEXP0050")]
     public Kernel CreateKernel(string serviceName, bool addEmbeddings = false)
@@ -39,6 +39,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
 
         var builder = Kernel.CreateBuilder();
 
+        // Add chat completion service based on provider
         switch (providerType)
         {
             case "ollama":
@@ -46,13 +47,6 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                     model!,
                     new Uri(endpoint ?? "http://localhost:11434/api")
                 );
-                if (addEmbeddings)
-                {
-                    builder.AddOllamaEmbeddingGenerator(
-                        "nomic-embed-text",
-                        new Uri(endpoint ?? "http://localhost:11434/api")
-                    );
-                }
                 break;
 
             case "deepseek":
@@ -69,13 +63,6 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://openrouter.ai/api/v1") }
                 );
                 builder.AddOpenAIChatCompletion(model!, openRouterClient);
-                if (addEmbeddings)
-                {
-                    var embeddingModel = configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
-                        ?? "qwen/qwen3-embedding-8b";
-                    builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
-                    logger.LogInformation("OpenRouter configured with model {Model} and embedding model {EmbeddingModel}", model, embeddingModel);
-                }
                 break;
 
             case "aliyun":
@@ -100,13 +87,137 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 throw new InvalidOperationException($"Unknown provider: {providerType}");
         }
 
-        // Try to add OpenRouter embedding service as fallback for providers without native embeddings
-        if (addEmbeddings && providerType != "openrouter")
+        // Add embedding service - always uses the configured embedding provider (independent of chat provider)
+        if (addEmbeddings)
         {
-            AddOpenRouterEmbeddingFallback(builder, providerType);
+            AddEmbeddingService(builder, providerType);
         }
 
         return builder.Build();
+    }
+
+    /// <summary>
+    /// Adds the configured embedding service to the kernel builder.
+    /// This is independent of the chat completion provider.
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    private void AddEmbeddingService(IKernelBuilder builder, string chatProviderType)
+    {
+        var embeddingConfig = configuration.GetSection("Thinking:Embeddings");
+        var provider = embeddingConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
+        
+        logger.LogInformation("Configuring embedding service with provider: {Provider} (chat provider: {ChatProvider})", 
+            provider, chatProviderType);
+
+        switch (provider)
+        {
+            case "ollama":
+                var ollamaEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
+                    ?? "http://localhost:11434/api";
+                var ollamaModel = embeddingConfig.GetValue<string>("Model") 
+                    ?? "nomic-embed-text";
+                builder.AddOllamaEmbeddingGenerator(
+                    ollamaModel,
+                    new Uri(ollamaEndpoint)
+                );
+                logger.LogInformation("Ollama embedding configured with model {Model} at {Endpoint}", 
+                    ollamaModel, ollamaEndpoint);
+                break;
+
+            case "openrouter":
+                var openRouterApiKey = embeddingConfig.GetValue<string>("ApiKey") 
+                    ?? configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
+                var openRouterEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
+                    ?? configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
+                    ?? "https://openrouter.ai/api/v1";
+                var openRouterModel = embeddingConfig.GetValue<string>("Model") 
+                    ?? configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
+                    ?? "qwen/qwen3-embedding-8b";
+
+                if (string.IsNullOrEmpty(openRouterApiKey))
+                {
+                    logger.LogWarning("OpenRouter API key not configured. Embeddings will not be available.");
+                    break;
+                }
+
+                try
+                {
+                    var openRouterClient = new OpenAIClient(
+                        new ApiKeyCredential(openRouterApiKey),
+                        new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
+                    );
+                    builder.AddOpenAIEmbeddingGenerator(openRouterModel, openRouterClient, dimensions: 1536);
+                    logger.LogInformation("OpenRouter embedding configured with model {Model} for {ChatProvider}", 
+                        openRouterModel, chatProviderType);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not configure OpenRouter embedding service.");
+                }
+                break;
+
+            case "aliyun":
+                var aliyunApiKey = embeddingConfig.GetValue<string>("ApiKey");
+                var aliyunEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
+                    ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
+                var aliyunModel = embeddingConfig.GetValue<string>("Model") 
+                    ?? "text-embedding-v3";
+
+                if (string.IsNullOrEmpty(aliyunApiKey))
+                {
+                    logger.LogWarning("Aliyun API key not configured. Embeddings will not be available.");
+                    break;
+                }
+
+                try
+                {
+                    var aliyunClient = new OpenAIClient(
+                        new ApiKeyCredential(aliyunApiKey),
+                        new OpenAIClientOptions { Endpoint = new Uri(aliyunEndpoint) }
+                    );
+                    builder.AddOpenAIEmbeddingGenerator(aliyunModel, aliyunClient, dimensions: 1536);
+                    logger.LogInformation("Aliyun embedding configured with model {Model} for {ChatProvider}", 
+                        aliyunModel, chatProviderType);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not configure Aliyun embedding service.");
+                }
+                break;
+
+            case "openai":
+                var openaiApiKey = embeddingConfig.GetValue<string>("ApiKey");
+                var openaiEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
+                    ?? "https://api.openai.com/v1";
+                var openaiModel = embeddingConfig.GetValue<string>("Model") 
+                    ?? "text-embedding-3-small";
+
+                if (string.IsNullOrEmpty(openaiApiKey))
+                {
+                    logger.LogWarning("OpenAI API key not configured. Embeddings will not be available.");
+                    break;
+                }
+
+                try
+                {
+                    var openaiClient = new OpenAIClient(
+                        new ApiKeyCredential(openaiApiKey),
+                        new OpenAIClientOptions { Endpoint = new Uri(openaiEndpoint) }
+                    );
+                    builder.AddOpenAIEmbeddingGenerator(openaiModel, openaiClient, dimensions: 1536);
+                    logger.LogInformation("OpenAI embedding configured with model {Model} for {ChatProvider}", 
+                        openaiModel, chatProviderType);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not configure OpenAI embedding service.");
+                }
+                break;
+
+            default:
+                logger.LogWarning("Unknown embedding provider: {Provider}. Embeddings will not be available.", provider);
+                break;
+        }
     }
 
     /// <summary>
@@ -137,37 +248,6 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
             },
             _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
         };
-    }
-
-    [Experimental("SKEXP0050")]
-    private void AddOpenRouterEmbeddingFallback(IKernelBuilder builder, string? currentProvider)
-    {
-        var openRouterApiKey = configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
-        if (string.IsNullOrEmpty(openRouterApiKey))
-        {
-            logger.LogWarning("No OpenRouter API key configured for embedding fallback. Semantic search will be disabled for {Provider}.", currentProvider);
-            return;
-        }
-
-        var openRouterEndpoint = configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
-            ?? "https://openrouter.ai/api/v1";
-        var embeddingModel = configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
-            ?? "qwen/qwen3-embedding-8b";
-
-        try
-        {
-            var openRouterClient = new OpenAIClient(
-                new ApiKeyCredential(openRouterApiKey),
-                new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
-            );
-            builder.AddOpenAIEmbeddingGenerator(embeddingModel, openRouterClient, dimensions: 1536);
-            logger.LogInformation("OpenRouter embedding fallback configured with model {Model} for {Provider}", 
-                embeddingModel, currentProvider);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Could not configure OpenRouter embedding fallback. Semantic search will be disabled.");
-        }
     }
 
     /// <summary>
