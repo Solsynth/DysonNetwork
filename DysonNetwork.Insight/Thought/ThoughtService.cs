@@ -52,6 +52,88 @@ public class ThoughtService(
         }
     }
 
+    /// <summary>
+    /// Memorizes a thought sequence using the embedding service for semantic search.
+    /// </summary>
+    public async Task MemorizeSequenceAsync(
+        SnThinkingSequence sequence,
+        Dictionary<string, object>? additionalContext = null)
+    {
+        try
+        {
+            var memoryContext = new Dictionary<string, object>
+            {
+                ["sequence_id"] = sequence.Id,
+                ["account_id"] = sequence.AccountId,
+                ["topic"] = sequence.Topic ?? "No topic",
+                ["total_tokens"] = sequence.TotalToken,
+                ["paid_tokens"] = sequence.PaidToken,
+                ["created_at"] = sequence.CreatedAt,
+                ["updated_at"] = sequence.UpdatedAt,
+                ["timestamp"] = DateTime.UtcNow
+            };
+
+            // Add any additional context
+            if (additionalContext != null)
+            {
+                foreach (var kvp in additionalContext)
+                {
+                    memoryContext[kvp.Key] = kvp.Value;
+                }
+            }
+
+            await miChanMemoryService.StoreInteractionAsync(
+                type: "thought_sequence",
+                contextId: sequence.Id.ToString(),
+                context: memoryContext,
+                memory: new Dictionary<string, object>
+                {
+                    ["sequence_id"] = sequence.Id,
+                    ["topic"] = sequence.Topic ?? "No topic",
+                    ["account_id"] = sequence.AccountId
+                }
+            );
+
+            logger.LogInformation(
+                "Memorized thought sequence {SequenceId} for account {AccountId} with topic: {Topic}",
+                sequence.Id,
+                sequence.AccountId,
+                sequence.Topic ?? "No topic"
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error memorizing thought sequence {SequenceId}", sequence.Id);
+        }
+    }
+
+    /// <summary>
+    /// Gets or creates a thought sequence and memorizes it using the embedding service.
+    /// Only memorizes if a new sequence was created (not when an existing one is retrieved).
+    /// </summary>
+    public async Task<SnThinkingSequence?> GetOrCreateAndMemorizeSequenceAsync(
+        Guid accountId,
+        Guid? sequenceId = null,
+        string? topic = null,
+        Dictionary<string, object>? additionalContext = null)
+    {
+        // If sequenceId is provided, just retrieve the existing sequence without memorizing
+        if (sequenceId.HasValue)
+        {
+            var existingSequence = await GetOrCreateSequenceAsync(accountId, sequenceId, topic);
+            return existingSequence;
+        }
+
+        // Create a new sequence
+        var newSequence = await GetOrCreateSequenceAsync(accountId, null, topic);
+        if (newSequence != null)
+        {
+            // Only memorize newly created sequences to avoid duplicates
+            await MemorizeSequenceAsync(newSequence, additionalContext);
+        }
+        return newSequence;
+    }
+
     public async Task<SnThinkingSequence?> GetSequenceAsync(Guid sequenceId)
     {
         return await db.ThinkingSequences.FindAsync(sequenceId);
@@ -68,7 +150,8 @@ public class ThoughtService(
         List<SnThinkingMessagePart> parts,
         ThinkingThoughtRole role,
         string? model = null,
-        string? botName = null
+        string? botName = null,
+        bool memorize = false
     )
     {
         // Approximate token count (1 token ≈ 4 characters for GPT-like models)
@@ -98,7 +181,109 @@ public class ThoughtService(
         // Invalidate cache for this sequence's thoughts
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
+        // Memorize the thought if requested
+        if (memorize)
+        {
+            await MemorizeThoughtAsync(thought, sequence);
+        }
+
         return thought;
+    }
+
+    /// <summary>
+    /// Memorizes a thought using the embedding service for semantic search.
+    /// </summary>
+    public async Task MemorizeThoughtAsync(
+        SnThinkingThought thought,
+        SnThinkingSequence? sequence = null,
+        Dictionary<string, object>? additionalContext = null)
+    {
+        try
+        {
+            // Get sequence info if not provided
+            sequence ??= await db.ThinkingSequences.FindAsync(thought.SequenceId);
+            if (sequence == null)
+            {
+                logger.LogWarning("Cannot memorize thought {ThoughtId}: sequence not found", thought.Id);
+                return;
+            }
+
+            // Extract text content from thought parts
+            var textContent = new StringBuilder();
+            foreach (var part in thought.Parts)
+            {
+                switch (part.Type)
+                {
+                    case ThinkingMessagePartType.Text when !string.IsNullOrEmpty(part.Text):
+                        textContent.AppendLine(part.Text);
+                        break;
+                    case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
+                        textContent.AppendLine($"[Function Call: {part.FunctionCall.PluginName}.{part.FunctionCall.Name}]");
+                        if (!string.IsNullOrEmpty(part.FunctionCall.Arguments))
+                            textContent.AppendLine($"Arguments: {part.FunctionCall.Arguments}");
+                        break;
+                    case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
+                        textContent.AppendLine($"[Function Result: {part.FunctionResult.FunctionName}]");
+                        var result = part.FunctionResult.Result?.ToString() ?? "null";
+                        textContent.AppendLine($"Result: {result}");
+                        break;
+                }
+            }
+
+            var content = textContent.ToString().Trim();
+            if (string.IsNullOrEmpty(content))
+            {
+                logger.LogDebug("Thought {ThoughtId} has no text content to memorize", thought.Id);
+                return;
+            }
+
+            var memoryContext = new Dictionary<string, object>
+            {
+                ["thought_id"] = thought.Id,
+                ["sequence_id"] = thought.SequenceId,
+                ["account_id"] = sequence.AccountId,
+                ["role"] = thought.Role.ToString(),
+                ["content"] = content.Length > 2000 ? content[..2000] + "..." : content,
+                ["token_count"] = thought.TokenCount,
+                ["model"] = thought.ModelName ?? "unknown",
+                ["bot_name"] = thought.BotName ?? "unknown",
+                ["created_at"] = thought.CreatedAt,
+                ["timestamp"] = DateTime.UtcNow
+            };
+
+            // Add any additional context
+            if (additionalContext != null)
+            {
+                foreach (var kvp in additionalContext)
+                {
+                    memoryContext[kvp.Key] = kvp.Value;
+                }
+            }
+
+            await miChanMemoryService.StoreInteractionAsync(
+                type: "thought",
+                contextId: thought.SequenceId.ToString(),
+                context: memoryContext,
+                memory: new Dictionary<string, object>
+                {
+                    ["thought_id"] = thought.Id,
+                    ["sequence_id"] = thought.SequenceId,
+                    ["role"] = thought.Role.ToString(),
+                    ["topic"] = sequence.Topic ?? "No topic"
+                }
+            );
+
+            logger.LogDebug(
+                "Memorized thought {ThoughtId} from sequence {SequenceId} with {TokenCount} tokens",
+                thought.Id,
+                thought.SequenceId,
+                thought.TokenCount
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error memorizing thought {ThoughtId}", thought.Id);
+        }
     }
 
     public async Task<List<SnThinkingThought>> GetPreviousThoughtsAsync(SnThinkingSequence sequence)

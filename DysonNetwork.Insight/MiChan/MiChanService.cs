@@ -9,7 +9,8 @@ namespace DysonNetwork.Insight.MiChan;
 public class MiChanService(
     MiChanConfig config,
     ILogger<MiChanService> logger,
-    IServiceProvider serviceProvider)
+    IServiceProvider serviceProvider,
+    Thought.ThoughtService thoughtService)
     : BackgroundService
 {
     private MiChanWebSocketHandler? _webSocketHandler;
@@ -421,6 +422,81 @@ public class MiChanService(
         finally
         {
             _conversationLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Gets or creates a thought sequence and memorizes it using the embedding service.
+    /// </summary>
+    /// <param name="accountId">The account ID for the thought sequence</param>
+    /// <param name="sequenceId">Optional existing sequence ID to retrieve</param>
+    /// <param name="topic">Optional topic for new sequences</param>
+    /// <param name="contextId">The context ID for memory storage (e.g., chat room ID)</param>
+    /// <param name="additionalContext">Optional additional context to store with the memory</param>
+    /// <returns>The thought sequence ID if successful, null otherwise</returns>
+    public async Task<Guid?> GetAndMemorizeThoughtSequenceAsync(
+        Guid accountId,
+        Guid? sequenceId = null,
+        string? topic = null,
+        string? contextId = null,
+        Dictionary<string, object>? additionalContext = null)
+    {
+        try
+        {
+            // Get or create the thought sequence
+            var sequence = await thoughtService.GetOrCreateSequenceAsync(accountId, sequenceId, topic);
+            if (sequence == null)
+            {
+                logger.LogWarning("Failed to get or create thought sequence for account {AccountId}", accountId);
+                return null;
+            }
+
+            // Prepare context for memory storage
+            var memoryContext = new Dictionary<string, object>
+            {
+                ["sequence_id"] = sequence.Id,
+                ["account_id"] = accountId,
+                ["topic"] = topic ?? "No topic",
+                ["total_tokens"] = sequence.TotalToken,
+                ["created_at"] = sequence.CreatedAt,
+                ["timestamp"] = DateTime.UtcNow
+            };
+
+            // Add any additional context provided
+            if (additionalContext != null)
+            {
+                foreach (var kvp in additionalContext)
+                {
+                    memoryContext[kvp.Key] = kvp.Value;
+                }
+            }
+
+            // Store the interaction with embedding using the memory service
+            // This internally uses the EmbeddingService to generate embeddings
+            await _memoryService!.StoreInteractionAsync(
+                type: "thought_sequence",
+                contextId: contextId ?? sequence.Id.ToString(),
+                context: memoryContext,
+                memory: new Dictionary<string, object>
+                {
+                    ["sequence_id"] = sequence.Id,
+                    ["topic"] = topic ?? "No topic"
+                }
+            );
+
+            logger.LogInformation(
+                "Successfully memorized thought sequence {SequenceId} for account {AccountId} with topic: {Topic}",
+                sequence.Id,
+                accountId,
+                topic ?? "No topic"
+            );
+
+            return sequence.Id;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting and memorizing thought sequence for account {AccountId}", accountId);
+            return null;
         }
     }
 

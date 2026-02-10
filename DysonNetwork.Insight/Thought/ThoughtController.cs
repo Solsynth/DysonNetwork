@@ -18,19 +18,19 @@ namespace DysonNetwork.Insight.Thought;
 [Route("/api/thought")]
 public class ThoughtController(
     ThoughtService service,
-    ILogger<ThoughtController> logger,
-    MiChanConfig miChanConfig) : ControllerBase
+    MiChanConfig miChanConfig,
+    MiChanService miChanService
+) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
     public static readonly List<string> AvailableBots = ["snchan", "michan"];
 
     public class StreamThinkingRequest
     {
-        [Required] 
-        public string UserMessage { get; set; } = null!;
-        
+        [Required] public string UserMessage { get; set; } = null!;
+
         public string Bot { get; set; } = "snchan"; // "snchan" or "michan"
-        
+
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
@@ -69,7 +69,7 @@ public class ThoughtController(
             },
             new()
             {
-                Id = "michan", 
+                Id = "michan",
                 Name = "MiChan",
                 Description = "Casual and friendly AI that lives on the Solar Network with API access"
             }
@@ -107,7 +107,8 @@ public class ThoughtController(
         }
     }
 
-    private async Task<ActionResult> ThinkWithSnChanAsync(StreamThinkingRequest request, Account currentUser, Guid accountId)
+    private async Task<ActionResult> ThinkWithSnChanAsync(StreamThinkingRequest request, Account currentUser,
+        Guid accountId)
     {
         var (serviceId, serviceInfo) = service.GetSnChanServiceInfo();
         if (serviceInfo is null)
@@ -138,8 +139,8 @@ public class ThoughtController(
             }
         }
 
-        // Handle sequence
-        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
+        // Handle sequence (creates and memorizes if new)
+        var sequence = await service.GetOrCreateAndMemorizeSequenceAsync(accountId, request.SequenceId, topic);
         if (sequence == null) return Forbid();
 
         // Save user thought with bot identifier
@@ -301,7 +302,8 @@ public class ThoughtController(
         return new EmptyResult();
     }
 
-    private async Task<ActionResult> ThinkWithMiChanAsync(StreamThinkingRequest request, Account currentUser, Guid accountId)
+    private async Task<ActionResult> ThinkWithMiChanAsync(StreamThinkingRequest request, Account currentUser,
+        Guid accountId)
     {
         if (!miChanConfig.Enabled)
         {
@@ -319,8 +321,8 @@ public class ThoughtController(
             }
         }
 
-        // Handle sequence
-        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
+        // Handle sequence (creates and memorizes if new)
+        var sequence = await service.GetOrCreateAndMemorizeSequenceAsync(accountId, request.SequenceId, topic);
         if (sequence == null) return Forbid();
 
         // Save user thought with bot identifier
@@ -366,12 +368,14 @@ public class ThoughtController(
             Response.Headers.Append("Content-Type", "text/event-stream");
             Response.StatusCode = 200;
 
-            var refusalJson = JsonSerializer.Serialize(new { type = "text", data = refusalReason ?? "I cannot do that." });
+            var refusalJson =
+                JsonSerializer.Serialize(new { type = "text", data = refusalReason ?? "I cannot do that." });
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {refusalJson}\n\n"));
             await Response.Body.FlushAsync();
 
             // Save thought reference
-            var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = new { Id = Guid.NewGuid(), Refused = true } });
+            var thoughtJson = JsonSerializer.Serialize(new
+                { type = "thought", data = new { Id = Guid.NewGuid(), Refused = true } });
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
             await Response.Body.FlushAsync();
 
@@ -395,7 +399,7 @@ public class ThoughtController(
             var functionCallBuilder = new FunctionCallContentBuilder();
 
             await foreach (var streamingContent in chatService.GetStreamingChatMessageContentsAsync(
-                chatHistory, executionSettings, kernel))
+                               chatHistory, executionSettings, kernel))
             {
                 authorRole ??= streamingContent.Role;
 
@@ -415,9 +419,9 @@ public class ThoughtController(
             if (!string.IsNullOrEmpty(finalMessageText))
             {
                 assistantParts.Add(new SnThinkingMessagePart
-                { 
-                    Type = ThinkingMessagePartType.Text, 
-                    Text = finalMessageText 
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = finalMessageText
                 });
             }
 
@@ -483,7 +487,8 @@ public class ThoughtController(
                 };
                 assistantParts.Add(resultPart);
 
-                var resultMessageJson = JsonSerializer.Serialize(new { type = "function_result", data = resultPart.FunctionResult });
+                var resultMessageJson = JsonSerializer.Serialize(new
+                    { type = "function_result", data = resultPart.FunctionResult });
                 await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultMessageJson}\n\n"));
                 await Response.Body.FlushAsync();
             }
@@ -583,6 +588,17 @@ public class ThoughtController(
         var thoughts = await service.GetPreviousThoughtsAsync(sequence);
 
         return Ok(thoughts);
+    }
+    
+    [HttpPost("sequences/{sequenceId:guid}/memorize")]
+    public async Task<ActionResult> MiChanMemorizeThoughts(Guid sequenceId)
+    {
+        var sequence = await service.GetSequenceAsync(sequenceId);
+        if (sequence == null) return NotFound();
+
+        await miChanService.GetAndMemorizeThoughtSequenceAsync(sequenceId);
+
+        return Ok();
     }
 }
 
