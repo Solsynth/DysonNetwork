@@ -84,6 +84,6 @@ public class AgentMemoryRecord
     /// The vector embedding of the content for semantic search.
     /// Uses 1536 dimensions (compatible with OpenAI/Qwen embeddings).
     /// </summary>
-    [VectorStoreVector(1536)]
+    [VectorStoreVector(1536, StorageName = "embedding")]
     public ReadOnlyMemory<float>? Embedding { get; set; }
 }
