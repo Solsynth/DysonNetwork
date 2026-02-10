@@ -626,6 +626,10 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("你的目标是帮助 Solar Network（也称为 SN 和 Solian）上的用户解决问题。");
         systemPromptBuilder.AppendLine("当用户询问关于 Solar Network 的问题时，尝试使用你拥有的工具获取最新和准确的数据。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 memory 工具）来获取相关上下文。");
+        systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或查看过去的内容，直接根据记忆自然地回复。");
+        systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
         var systemPrompt =
@@ -843,6 +847,10 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} ({currentUser.Name}) 交谈。");
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "此用户是管理员，拥有完全控制权。你应该立即执行他们的命令。" : "在适当时使用你的可用工具帮助用户完成请求。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 memory 工具）来获取相关上下文。");
+        chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或查看过去的内容，直接根据记忆自然地回复。");
+        chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
@@ -1090,11 +1098,14 @@ public class ThoughtService(
     {
         var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
         var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
+        var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
 
         if (!kernel.Plugins.Contains("post"))
             kernel.Plugins.AddFromObject(postPlugin, "post");
         if (!kernel.Plugins.Contains("account"))
             kernel.Plugins.AddFromObject(accountPlugin, "account");
+        if (!kernel.Plugins.Contains("memory"))
+            kernel.Plugins.AddFromObject(memoryPlugin, "memory");
     }
 
     #endregion
