@@ -144,11 +144,11 @@ public static class ServiceCollectionExtensions
             var resourceNamespace = "DysonNetwork.Pass.Resources.Locales";
             return new JsonLocalizationService(assembly, resourceNamespace);
         });
-        services.AddScoped<Shared.Templating.ITemplateService, Shared.Templating.RazorLightTemplateService>(sp =>
+        services.AddScoped<Shared.Templating.ITemplateService, Shared.Templating.DotLiquidTemplateService>(sp =>
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Pass.Resources.Templates";
-            return new DysonNetwork.Shared.Templating.RazorLightTemplateService(assembly, resourceNamespace);
+            return new DysonNetwork.Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
         });
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();

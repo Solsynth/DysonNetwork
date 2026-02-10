@@ -1,22 +1,7 @@
-@using DysonNetwork.Pass.Mailer
-@using DysonNetwork.Shared.Localization
-@using RazorLight
-@inherits RazorLight.TemplatePage<LandingEmailModel>
-
-@{
-    Layout = "_Layout";
-    
-    var localizer = LocalizationServiceLocator.Service;
-    var name = localizer?.Get("usernameFormat", args: new { name = Model.Name }) ?? $"Dear {Model.Name}";
-    var regConfirmBody = localizer?.Get("regConfirmBody") ?? "We're happy to have you joining our community! Please confirm your registration in order to activate your account to unlock all the features available.";
-    var regConfirmButton = localizer?.Get("regConfirmButton") ?? "Confirm Registration";
-    var alternativeLinkHint = localizer?.Get("alternativeLinkHint") ?? "If you're having trouble clicking the button, copy and paste the following URL into your web browser:";
-}
-
 <div style="display: none">
-    Welcome to the Solar Network!
+    验证码
 </div>
-<div role="article" aria-roledescription="email" aria-label lang="en">
+<div role="article" aria-roledescription="email" aria-label lang="zh-CN">
     <div class="sm-px-4" style="background-color: #f8fafc; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif">
         <table align="center" style="margin: 0 auto" cellpadding="0" cellspacing="0" role="none">
             <tr>
@@ -30,30 +15,28 @@
                                 </a>
                                 <div role="separator" style="line-height: 24px">&zwj;</div>
                                 <h1 style="margin: 0 0 24px; font-size: 24px; line-height: 32px; font-weight: 600; color: #0f172a">
-                                    @name
+                                    {{ name }}
                                 </h1>
                                 <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #475569">
-                                    @regConfirmBody
+                                    有人正在尝试使用邮箱验证因子来授权访问请求。如果这是您本人，请在下方输入验证码继续。
                                 </p>
-                                <div>
-                                    <a href="@Model.Link"
-                                       style="display: inline-block; text-decoration: none; padding: 16px 24px; font-size: 16px; line-height: 1; border-radius: 4px; color: #fffffe; background-color: #020617"
-                                       class="hover-bg-slate-800">
-                                        <span style="mso-text-raise: 16px">@regConfirmButton</span>
-                                    </a>
-                                </div>
+                                <p style="margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: 8px; color: #475569">
+                                    {{ code }}
+                                </p>
                                 <div role="separator" style="line-height: 24px">&zwj;</div>
                                 <p style="margin: 0; font-size: 16px; line-height: 24px; color: #475569">
-                                    Thanks,
+                                    感谢您，
                                     <br>
-                                    <span style="font-weight: 600">Solar Network Team</span>
+                                    <span style="font-weight: 600">Solar Network 团队</span>
                                 </p>
                                 <div role="separator" style="height: 1px; line-height: 1px; background-color: #cbd5e1; margin-top: 24px; margin-bottom: 24px">
                                     &zwj;
                                 </div>
+                                <p class="mso-break-all" style="margin: 0 0 16px; font-size: 12px; line-height: 20px; color: #475569">
+                                    验证码将在 30 分钟后过期。
+                                </p>
                                 <p class="mso-break-all" style="margin: 0; font-size: 12px; line-height: 20px; color: #475569">
-                                    @alternativeLinkHint
-                                    <a href="@Model.Link" style="color: #1e293b; text-decoration: underline">@Model.Link</a>
+                                    如果您未请求此验证码，请忽略此邮件。
                                 </p>
                             </td>
                         </tr>
@@ -62,7 +45,7 @@
                         <tr>
                             <td class="sm-px-6" style="padding: 24px 36px">
                                 <p style="margin: 0; font-size: 12px; color: #64748b">
-                                    &copy; 2025 Solsynth LLC. All rights reserved.
+                                    &copy; 2025 Solsynth LLC. 版权所有。
                                 </p>
                             </td>
                         </tr>

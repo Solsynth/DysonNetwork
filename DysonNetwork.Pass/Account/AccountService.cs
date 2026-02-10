@@ -446,16 +446,12 @@ public class AccountService(
                 }
 
                 await mailer
-                    .SendRazorTemplateEmailAsync(
+                    .SendTemplatedEmailAsync(
                         account.Nick,
                         contact.Content,
                         localizer.Get("codeEmailTitle", account.Language),
                         "FactorCode",
-                        new VerificationEmailModel
-                        {
-                            Name = account.Name,
-                            Code = code
-                        },
+                        new { name = account.Name, code },
                         account.Language
                     );
 

@@ -93,60 +93,44 @@ public class MagicSpellService(
             switch (spell.Type)
             {
                 case MagicSpellType.AccountActivation:
-                    await email.SendRazorTemplateEmailAsync<LandingEmailModel>(
+                    await email.SendTemplatedEmailAsync(
                         contact.Account.Nick,
                         contact.Content,
                         localizer.Get("regConfirmTitle", accountLanguage),
                         "Welcome",
-                        new LandingEmailModel
-                        {
-                            Name = contact.Account.Name,
-                            Link = link
-                        },
+                        new { name = contact.Account.Name, link },
                         accountLanguage
                     );
                     break;
                 case MagicSpellType.AccountRemoval:
-                    await email.SendRazorTemplateEmailAsync<AccountDeletionEmailModel>(
+                    await email.SendTemplatedEmailAsync(
                         contact.Account.Nick,
                         contact.Content,
                         localizer.Get("accountDeletionTitle", accountLanguage),
                         "AccountDeletion",
-                        new AccountDeletionEmailModel
-                        {
-                            Name = contact.Account.Name,
-                            Link = link
-                        },
+                        new { name = contact.Account.Name, link },
                         accountLanguage
                     );
                     break;
                 case MagicSpellType.AuthPasswordReset:
-                    await email.SendRazorTemplateEmailAsync<PasswordResetEmailModel>(
+                    await email.SendTemplatedEmailAsync(
                         contact.Account.Nick,
                         contact.Content,
                         localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
-                        new PasswordResetEmailModel
-                        {
-                            Name = contact.Account.Name,
-                            Link = link
-                        },
+                        new { name = contact.Account.Name, link },
                         accountLanguage
                     );
                     break;
                 case MagicSpellType.ContactVerification:
                     if (spell.Meta["contact_method"] is not string contactMethod)
                         throw new InvalidOperationException("Contact method is not found.");
-                    await email.SendRazorTemplateEmailAsync<ContactVerificationEmailModel>(
+                    await email.SendTemplatedEmailAsync(
                         contact.Account.Nick,
                         contactMethod!,
                         localizer.Get("contractMethodVerificationTitle", accountLanguage),
                         "ContactVerification",
-                        new ContactVerificationEmailModel
-                        {
-                            Name = contact.Account.Name,
-                            Link = link
-                        },
+                        new { name = contact.Account.Name, link },
                         accountLanguage
                     );
                     break;

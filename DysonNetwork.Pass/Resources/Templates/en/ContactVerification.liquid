@@ -1,20 +1,5 @@
-@using DysonNetwork.Pass.Mailer
-@using DysonNetwork.Shared.Localization
-@using RazorLight
-@inherits RazorLight.TemplatePage<PasswordResetEmailModel>
-
-@{
-    Layout = "_Layout";
-    
-    var localizer = LocalizationServiceLocator.Service;
-    var name = localizer?.Get("usernameFormat", args: new { name = Model.Name }) ?? $"Dear {Model.Name}";
-    var passwordResetBody = localizer?.Get("passwordResetBody") ?? "We received a request to reset your Solar Network account password. Click the button below to continue and reset it.";
-    var passwordResetButton = localizer?.Get("passwordResetButton") ?? "Reset Password";
-    var passwordResetHint = localizer?.Get("passwordResetHint") ?? "If you didn't request this, you can ignore this email safely.";
-}
-
 <div style="display: none">
-    Password Reset Request
+    Verify Contact Method
 </div>
 <div role="article" aria-roledescription="email" aria-label lang="en">
     <div class="sm-px-4" style="background-color: #f8fafc; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif">
@@ -30,16 +15,16 @@
                                 </a>
                                 <div role="separator" style="line-height: 24px">&zwj;</div>
                                 <h1 style="margin: 0 0 24px; font-size: 24px; line-height: 32px; font-weight: 600; color: #0f172a">
-                                    @name
+                                    {{ name }}
                                 </h1>
                                 <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px; color: #475569">
-                                    @passwordResetBody
+                                    Thank you for updating your contact method on the Solar Network. To ensure your account security, we need to verify this change. Please click the button below to verify your contact method:
                                 </p>
                                 <div>
-                                    <a href="@Model.Link"
+                                    <a href="{{ link }}"
                                        style="display: inline-block; text-decoration: none; padding: 16px 24px; font-size: 16px; line-height: 1; border-radius: 4px; color: #fffffe; background-color: #020617"
                                        class="hover-bg-slate-800">
-                                        <span style="mso-text-raise: 16px">@passwordResetButton</span>
+                                        <span style="mso-text-raise: 16px">Verify</span>
                                     </a>
                                 </div>
                                 <div role="separator" style="line-height: 24px">&zwj;</div>
@@ -52,7 +37,7 @@
                                     &zwj;
                                 </div>
                                 <p class="mso-break-all" style="margin: 0; font-size: 12px; line-height: 20px; color: #475569">
-                                    @passwordResetHint
+                                    If you didn't request this change, please contact our support team immediately.
                                 </p>
                             </td>
                         </tr>

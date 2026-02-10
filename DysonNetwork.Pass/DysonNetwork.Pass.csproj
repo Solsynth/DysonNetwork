@@ -130,6 +130,6 @@
 
     <ItemGroup>
         <EmbeddedResource Include="Resources\Locales\*.json" />
-        <EmbeddedResource Include="Resources\Templates\**\*.cshtml" />
+        <EmbeddedResource Include="Resources\Templates\**\*.liquid" />
     </ItemGroup>
 </Project>
