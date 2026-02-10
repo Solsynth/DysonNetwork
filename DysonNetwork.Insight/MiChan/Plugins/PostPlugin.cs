@@ -291,7 +291,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
     
     [KernelFunction("list_publisher_posts")]
     [Description("Get the specific publisher's posts.")]
-    public async Task<List<SnPost>?> ListPosts(
+    public async Task<List<SnPost>?> ListPublisherPosts(
         [Description("The name of publisher")] string name,
         [Description("Maximum number of posts")] int limit = 20, 
         [Description("Skip how many posts already saw in recent queries")] int offset = 0

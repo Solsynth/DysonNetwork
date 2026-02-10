@@ -9,7 +9,8 @@ using NodaTime.Text;
 namespace DysonNetwork.Insight.Thought.Plugins;
 
 public class SnPostKernelPlugin(
-    PostService.PostServiceClient postClient
+    PostService.PostServiceClient postClient,
+    PublisherService.PublisherServiceClient publisherClient
 )
 {
     [KernelFunction("get_post")]
@@ -94,5 +95,50 @@ public class SnPostKernelPlugin(
             Posts = response.Posts.Select(SnPost.FromProtoValue).ToList(),
             TotalCount = response.TotalSize,
         };
+    }
+
+    [KernelFunction("list_publisher_posts")]
+    [Description("Get the specific publisher's posts.")]
+    public async Task<KernelPostListResult> ListPublisherPosts(
+        [Description("The id of publisher")] string pubId,
+        int pageSize = 10,
+        int page = 1
+    )
+    {
+        var request = new ListPostsRequest
+        {
+            PublisherId = pubId,
+            PageSize = pageSize,
+            PageToken = ((page - 1) * pageSize).ToString()
+        };
+        var response = await postClient.ListPostsAsync(request);
+        return new KernelPostListResult
+        {
+            Posts = response.Posts.Select(SnPost.FromProtoValue).ToList(),
+            TotalCount = response.TotalSize,
+        };
+    }
+
+    [KernelFunction("get_publisher")]
+    [Description("Get the publisher information.")]
+    public async Task<SnPublisher?> GetPublisher(
+        [Description("The name of publisher")] string name
+    )
+    {
+        var request = new GetPublisherRequest { Name = name };
+        var result = await publisherClient.GetPublisherAsync(request);
+        return result is not null ? SnPublisher.FromProtoValue(result.Publisher) : null;
+    }
+
+    [KernelFunction("get_publisher_by_id")]
+    [Description("Get the publisher information.")]
+    public async Task<SnPublisher?> GetPublisherById(
+        [Description("The id of publisher, must be well formatted GUID")]
+        string id
+    )
+    {
+        var request = new GetPublisherRequest { Id = id };
+        var result = await publisherClient.GetPublisherAsync(request);
+        return result is not null ? SnPublisher.FromProtoValue(result.Publisher) : null;
     }
 }
