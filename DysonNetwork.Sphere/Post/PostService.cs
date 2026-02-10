@@ -267,8 +267,6 @@ public partial class PostService(
                 .Select(id => post.Attachments.First(a => a.Id == id))
                 .ToList();
 
-            foreach (var attachment in post.Attachments)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
         }
 
         if (tags is not null)
@@ -437,8 +435,6 @@ public partial class PostService(
         db.Update(post);
         await db.SaveChangesAsync();
 
-        foreach (var attachment in post.Attachments)
-            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
 
         // Process link preview in the background to avoid delaying post update
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));

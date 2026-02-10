@@ -218,16 +218,12 @@ public class AccountService(
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = pictureId });
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
-
-            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = pictureId });
         }
 
         if (!string.IsNullOrEmpty(backgroundId))
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = backgroundId });
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
-
-            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = backgroundId });
         }
 
         db.Accounts.Add(account);

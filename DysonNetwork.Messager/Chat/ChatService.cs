@@ -198,8 +198,6 @@ public partial class ChatService(
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
 
-        foreach (var attachment in message.Attachments)
-            await filesClient.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
 
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
@@ -667,9 +665,6 @@ public partial class ChatService(
         if (isContentChanged || isAttachmentsChanged)
             message.EditedAt = SystemClock.Instance.GetCurrentInstant();
 
-        if (isAttachmentsChanged)
-            foreach (var attachment in message.Attachments)
-                await filesClient.SetFilePublicAsync(new SetFilePublicRequest { FileId = attachment.Id });
 
         db.Update(message);
         await db.SaveChangesAsync();

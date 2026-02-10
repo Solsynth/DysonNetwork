@@ -46,8 +46,6 @@ public class CustomAppService(
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
 
-            if (request.Status == Shared.Models.CustomAppStatus.Production)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
         if (request.BackgroundId is not null)
         {
@@ -58,8 +56,6 @@ public class CustomAppService(
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
 
-            if (request.Status == Shared.Models.CustomAppStatus.Production)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.CustomApps.Add(app);
@@ -196,8 +192,6 @@ public class CustomAppService(
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
 
-            if (app.Status == Shared.Models.CustomAppStatus.Production)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
         if (request.BackgroundId is not null)
         {
@@ -208,21 +202,12 @@ public class CustomAppService(
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
 
-            if (app.Status == Shared.Models.CustomAppStatus.Production)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.Update(app);
         await db.SaveChangesAsync();
 
-        if (oldStatus != Shared.Models.CustomAppStatus.Production && app.Status == Shared.Models.CustomAppStatus.Production)
-        {
-            if (app.Picture is not null)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = app.Picture.Id });
-            if (app.Background is not null)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = app.Background.Id });
-        }
-        else if (oldStatus == Shared.Models.CustomAppStatus.Production && app.Status != Shared.Models.CustomAppStatus.Production)
+        if (oldStatus == Shared.Models.CustomAppStatus.Production && app.Status != Shared.Models.CustomAppStatus.Production)
         {
             if (app.Picture is not null)
                 await files.UnsetFilePublicAsync(new UnsetFilePublicRequest { FileId = app.Picture.Id });

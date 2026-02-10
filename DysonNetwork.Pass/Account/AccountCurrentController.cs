@@ -137,16 +137,12 @@ public class AccountCurrentController(
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
             profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
-
-            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
             profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
-
-            await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.Update(profile);

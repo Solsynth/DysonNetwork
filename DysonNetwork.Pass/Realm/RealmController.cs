@@ -388,9 +388,6 @@ public class RealmController(
             var pictureResult = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
-
-            if (realm.IsPublic)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
@@ -398,9 +395,6 @@ public class RealmController(
             var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
             if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
-
-            if (realm.IsPublic)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.Realms.Add(realm);
@@ -462,9 +456,6 @@ public class RealmController(
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
-
-            if (realm.IsPublic)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.PictureId });
         }
 
         if (request.BackgroundId is not null)
@@ -473,9 +464,6 @@ public class RealmController(
             if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
 
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
-
-            if (realm.IsPublic)
-                await files.SetFilePublicAsync(new SetFilePublicRequest { FileId = request.BackgroundId });
         }
 
         db.Realms.Update(realm);
