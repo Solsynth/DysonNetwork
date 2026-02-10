@@ -320,12 +320,12 @@ public class MiChanAutonomousBehavior
                 }
 
                 // Execute pin if decided
-                if (decision.ShouldPin && decision.PinMode.HasValue)
+                if (decision is { ShouldPin: true, PinMode: not null })
                 {
                     await PinPostAsync(post, decision.PinMode.Value);
                 }
 
-                if (!decision.ShouldReply && !decision.ShouldReact && !decision.ShouldPin)
+                if (decision is { ShouldReply: false, ShouldReact: false, ShouldPin: false })
                 {
                     _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
                 }

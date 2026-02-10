@@ -233,9 +233,10 @@ public class AgentVectorService : IDisposable
             
             // Perform vector search using raw SQL for more control
             var sql = $@"
-                SELECT * FROM ""{CollectionName}"" 
+                SELECT m.*, m.""embedding"" <=> @queryEmbedding::vector as distance
+                FROM ""{CollectionName}"" m
                 {whereClause}
-                ORDER BY ""embedding"" <=> @queryEmbedding::vector
+                ORDER BY distance
                 LIMIT @limit";
 
             await using var cmd = _dataSource.CreateCommand(sql);
