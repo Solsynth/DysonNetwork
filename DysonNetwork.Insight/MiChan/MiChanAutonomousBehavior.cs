@@ -62,7 +62,8 @@ public class MiChanAutonomousBehavior
         _accountClient = accountClient;
         _postPlugin = postPlugin;
         _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", config.AccessToken);
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", config.AccessToken);
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex($"@michan\\b", RegexOptions.IgnoreCase);
     }
@@ -189,7 +190,8 @@ public class MiChanAutonomousBehavior
             _cachedBlockedUsers = response.AccountsId.ToList();
             _lastBlockedCacheTime = DateTime.UtcNow;
 
-            _logger.LogInformation("Fetched blocked users list: {Count} users have blocked MiChan", _cachedBlockedUsers.Count);
+            _logger.LogInformation("Fetched blocked users list: {Count} users have blocked MiChan",
+                _cachedBlockedUsers.Count);
             return _cachedBlockedUsers;
         }
         catch (Exception ex)
@@ -217,7 +219,8 @@ public class MiChanAutonomousBehavior
         // Paginate through posts
         while (_currentPageIndex <= MaxPageIndex)
         {
-            _logger.LogInformation("Autonomous: Fetching posts page {PageIndex}/{MaxPages}", _currentPageIndex, MaxPageIndex);
+            _logger.LogInformation("Autonomous: Fetching posts page {PageIndex}/{MaxPages}", _currentPageIndex,
+                MaxPageIndex);
 
             var offset = _currentPageIndex * PageSize;
             var posts = await _apiClient.GetAsync<List<SnPost>>(
@@ -367,8 +370,13 @@ public class MiChanAutonomousBehavior
     {
         try
         {
-            var author = post.Publisher?.Name ?? "someone";
-            var content = post.Content ?? "";
+            var author = post.Publisher?.Account is not null
+                ? $"账号 @{post.Publisher.Account.Name} 的发布者 @{post.Publisher.Name}"
+                : $"发布者 @{post.Publisher?.Name ?? "未知"}";
+            var content = string.Join(
+                '\n',
+                new[] { post.Title, post.Description, post.Content }.Select(string.IsNullOrWhiteSpace)
+            );
 
             // Check if post has attachments
             var hasAttachments = HasAttachments(post);
@@ -376,17 +384,21 @@ public class MiChanAutonomousBehavior
             // If post has attachments but vision analysis is not available, skip it entirely
             if (hasAttachments && (!_config.Vision.EnableVisionAnalysis || !_kernelProvider.IsVisionModelAvailable()))
             {
-                _logger.LogDebug("Skipping post {PostId} - has attachments but vision analysis is not configured", post.Id);
+                _logger.LogDebug("Skipping post {PostId} - has attachments but vision analysis is not configured",
+                    post.Id);
                 return new PostActionDecision { };
             }
 
             // Check if we should use vision model
-            var useVisionModel = hasAttachments && _config.Vision.EnableVisionAnalysis && _kernelProvider.IsVisionModelAvailable();
-            var imageAttachments = useVisionModel ? GetSupportedImageAttachments(post) : new List<SnCloudFileReferenceObject>();
+            var useVisionModel = hasAttachments && _config.Vision.EnableVisionAnalysis &&
+                                 _kernelProvider.IsVisionModelAvailable();
+            var imageAttachments =
+                useVisionModel ? GetSupportedImageAttachments(post) : new List<SnCloudFileReferenceObject>();
 
             if (useVisionModel && imageAttachments.Count > 0)
             {
-                _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s)", post.Id, imageAttachments.Count);
+                _logger.LogInformation("Using vision model for post {PostId} with {Count} image attachment(s)", post.Id,
+                    imageAttachments.Count);
             }
 
             var context = await GetPostContextChainAsync(post, maxDepth: 3);
@@ -400,7 +412,8 @@ public class MiChanAutonomousBehavior
                     {
                         // Build vision-enabled chat history with images for mentions
                         var chatHistory = await BuildVisionChatHistoryAsync(
-                            personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: true);
+                            personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
+                            isMentioned: true);
                         var visionKernel = _kernelProvider.GetVisionKernel();
                         var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                         var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -410,8 +423,12 @@ public class MiChanAutonomousBehavior
                     }
                     catch (HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
-                        _logger.LogError(ex, "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}", _config.Vision.VisionThinkingService, post.Id);
-                        throw new InvalidOperationException($"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.", ex);
+                        _logger.LogError(ex,
+                            "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
+                            _config.Vision.VisionThinkingService, post.Id);
+                        throw new InvalidOperationException(
+                            $"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
+                            ex);
                     }
                 }
                 else
@@ -429,7 +446,7 @@ public class MiChanAutonomousBehavior
                         promptBuilder.AppendLine();
                     }
 
-                    promptBuilder.AppendLine($"@{author} 在帖子中提到了你：");
+                    promptBuilder.AppendLine($"{author} 在帖子中提到了你：");
                     promptBuilder.AppendLine($"\"{content}\"");
                     promptBuilder.AppendLine();
                     promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
@@ -453,7 +470,8 @@ public class MiChanAutonomousBehavior
                 {
                     // Build vision-enabled chat history with images for decision making
                     var chatHistory = await BuildVisionChatHistoryAsync(
-                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context, isMentioned: false);
+                        personality, mood, author, content, imageAttachments, post.Attachments?.Count ?? 0, context,
+                        isMentioned: false);
                     var visionKernel = _kernelProvider.GetVisionKernel();
                     var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
                     var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
@@ -462,8 +480,12 @@ public class MiChanAutonomousBehavior
                 }
                 catch (HttpOperationException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    _logger.LogError(ex, "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}", _config.Vision.VisionThinkingService, post.Id);
-                    throw new InvalidOperationException($"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.", ex);
+                    _logger.LogError(ex,
+                        "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
+                        _config.Vision.VisionThinkingService, post.Id);
+                    throw new InvalidOperationException(
+                        $"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
+                        ex);
                 }
             }
             else
@@ -482,7 +504,7 @@ public class MiChanAutonomousBehavior
                     decisionPrompt.AppendLine();
                 }
 
-                decisionPrompt.AppendLine($"你看到 @{author} 的帖子：");
+                decisionPrompt.AppendLine($"你看到 {author} 的帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
@@ -495,7 +517,8 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+                decisionPrompt.AppendLine(
+                    "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("格式：每行动单独一行：");
                 decisionPrompt.AppendLine("- REPLY: 你的回复内容");
@@ -514,10 +537,11 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("IGNORE");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
-                var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
+                var decisionResult =
+                    await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
                 decisionText = decisionResult.GetValue<string>()?.Trim() ?? "IGNORE";
             }
-            
+
             var decision = decisionText;
 
             _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
@@ -539,9 +563,11 @@ public class MiChanAutonomousBehavior
                     // Only process the first REACT, skip additional ones
                     if (actionDecision.ShouldReact)
                     {
-                        _logger.LogDebug("Already processed REACT, skipping additional reaction for post {PostId}", post.Id);
+                        _logger.LogDebug("Already processed REACT, skipping additional reaction for post {PostId}",
+                            post.Id);
                         continue;
                     }
+
                     var parts = line.Substring(6).Split(':');
                     var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
                     var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
@@ -575,7 +601,8 @@ public class MiChanAutonomousBehavior
     /// <summary>
     /// Build a ChatHistory with images for vision analysis
     /// </summary>
-    private async Task<ChatHistory> BuildVisionChatHistoryAsync(string personality, string mood, string author, string content,
+    private async Task<ChatHistory> BuildVisionChatHistoryAsync(string personality, string mood, string author,
+        string content,
         List<SnCloudFileReferenceObject> imageAttachments, int totalAttachmentCount, string context, bool isMentioned)
     {
         var chatHistory = new ChatHistory(personality);
@@ -599,6 +626,7 @@ public class MiChanAutonomousBehavior
         {
             textBuilder.AppendLine($"你看到 @{author} 的帖子，包含 {totalAttachmentCount} 个附件：");
         }
+
         textBuilder.AppendLine($"内容：\"{content}\"");
         textBuilder.AppendLine();
 
@@ -628,7 +656,8 @@ public class MiChanAutonomousBehavior
         if (imageAttachments.Count > 0)
         {
             instructionText.AppendLine();
-            instructionText.AppendLine("Analyze the visual content along with the text to understand the full context.");
+            instructionText.AppendLine(
+                "Analyze the visual content along with the text to understand the full context.");
             instructionText.AppendLine();
         }
 
@@ -649,7 +678,8 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine();
             instructionText.AppendLine("**IGNORE** - 忽略此帖子");
             instructionText.AppendLine();
-            instructionText.AppendLine("可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
+            instructionText.AppendLine(
+                "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
             instructionText.AppendLine("格式：每行动单独一行：");
             instructionText.AppendLine("- REPLY: 你的回复内容");
@@ -709,7 +739,8 @@ public class MiChanAutonomousBehavior
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to download image from {Url}", attachment.Url ?? $"/drive/files/{attachment.Id}");
+            _logger.LogError(ex, "Failed to download image from {Url}",
+                attachment.Url ?? $"/drive/files/{attachment.Id}");
             return null;
         }
     }
@@ -929,9 +960,9 @@ public class MiChanAutonomousBehavior
             return new List<SnCloudFileReferenceObject>();
 
         var supportedImageTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg" };
-        
+
         return post.Attachments
-            .Where(a => !string.IsNullOrEmpty(a.MimeType) && 
+            .Where(a => !string.IsNullOrEmpty(a.MimeType) &&
                         supportedImageTypes.Contains(a.MimeType.ToLower()))
             .Where(a => !string.IsNullOrEmpty(a.Url) || !string.IsNullOrEmpty(a.Id))
             .ToList();
@@ -1239,7 +1270,8 @@ public class MiChanAutonomousBehavior
         return string.Join("\n\n", contextParts);
     }
 
-    private async Task AddRepliedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth, string label)
+    private async Task AddRepliedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth,
+        string label)
     {
         if (currentDepth >= maxDepth || post.RepliedPostId == null)
             return;
@@ -1264,7 +1296,8 @@ public class MiChanAutonomousBehavior
         await AddRepliedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth, label);
     }
 
-    private async Task AddForwardedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth, string label)
+    private async Task AddForwardedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth,
+        string label)
     {
         if (currentDepth >= maxDepth || post.ForwardedPostId == null)
             return;
