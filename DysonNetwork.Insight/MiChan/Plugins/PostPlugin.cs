@@ -4,17 +4,8 @@ using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
-public class PostPlugin
+public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> logger)
 {
-    private readonly SolarNetworkApiClient _apiClient;
-    private readonly ILogger<PostPlugin> _logger;
-
-    public PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> logger)
-    {
-        _apiClient = apiClient;
-        _logger = logger;
-    }
-
     [KernelFunction("get_post")]
     [Description("Get a specific post by its ID.")]
     public async Task<SnPost?> GetPost(
@@ -23,12 +14,12 @@ public class PostPlugin
     {
         try
         {
-            var post = await _apiClient.GetAsync<SnPost>("sphere", $"/posts/{postId}");
+            var post = await apiClient.GetAsync<SnPost>("sphere", $"/posts/{postId}");
             return post;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get post {PostId}", postId);
+            logger.LogError(ex, "Failed to get post {PostId}", postId);
             return null;
         }
     }
@@ -56,14 +47,14 @@ public class PostPlugin
             if (!string.IsNullOrWhiteSpace(description)) request["description"] = description;
             if (!string.IsNullOrWhiteSpace(tags)) request["tags"] = tags.Split(',').Select(x => x.Trim()).ToArray();
 
-            var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
+            var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            _logger.LogInformation("Created new post");
+            logger.LogInformation("Created new post");
             return new { success = true, message = "Post created successfully", data = result };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create post");
+            logger.LogError(ex, "Failed to create post");
             return new { success = false, error = ex.Message };
         }
     }
@@ -110,14 +101,14 @@ public class PostPlugin
                 attitude = attitudeValue
             };
 
-            await _apiClient.PostAsync("sphere", $"/posts/{postId}/reactions", request);
+            await apiClient.PostAsync("sphere", $"/posts/{postId}/reactions", request);
 
-            _logger.LogInformation("Reacted to post {PostId} with {Symbol} ({Attitude})", postId, symbol, attitude);
+            logger.LogInformation("Reacted to post {PostId} with {Symbol} ({Attitude})", postId, symbol, attitude);
             return new { success = true, message = $"Reacted with {symbol} successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to react to post {PostId}", postId);
+            logger.LogError(ex, "Failed to react to post {PostId}", postId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -138,14 +129,14 @@ public class PostPlugin
                 ["mode"] = mode
             };
 
-            await _apiClient.PostAsync("sphere", $"/posts/{postId}/pin", request);
+            await apiClient.PostAsync("sphere", $"/posts/{postId}/pin", request);
 
-            _logger.LogInformation("Pinned post {PostId} to {Mode}", postId, mode);
+            logger.LogInformation("Pinned post {PostId} to {Mode}", postId, mode);
             return new { success = true, message = $"Post pinned to {mode} successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to pin post {PostId}", postId);
+            logger.LogError(ex, "Failed to pin post {PostId}", postId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -159,14 +150,14 @@ public class PostPlugin
     {
         try
         {
-            await _apiClient.DeleteAsync("sphere", $"/posts/{postId}/pin");
+            await apiClient.DeleteAsync("sphere", $"/posts/{postId}/pin");
 
-            _logger.LogInformation("Unpinned post {PostId}", postId);
+            logger.LogInformation("Unpinned post {PostId}", postId);
             return new { success = true, message = "Post unpinned successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to unpin post {PostId}", postId);
+            logger.LogError(ex, "Failed to unpin post {PostId}", postId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -188,14 +179,14 @@ public class PostPlugin
                 replied_post_id = postId
             };
 
-            var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
+            var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            _logger.LogInformation("Replied to post {PostId}", postId);
+            logger.LogInformation("Replied to post {PostId}", postId);
             return new { success = true, message = "Reply created successfully", data = result };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to reply to post {PostId}", postId);
+            logger.LogError(ex, "Failed to reply to post {PostId}", postId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -217,14 +208,14 @@ public class PostPlugin
                 content = comment
             };
 
-            var result = await _apiClient.PostAsync<object>("sphere", "/posts", request);
+            var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            _logger.LogInformation("Reposted post {PostId}", postId);
+            logger.LogInformation("Reposted post {PostId}", postId);
             return new { success = true, message = "Post reposted successfully", data = result };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to repost post {PostId}", postId);
+            logger.LogError(ex, "Failed to repost post {PostId}", postId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -239,7 +230,7 @@ public class PostPlugin
     {
         try
         {
-            var posts = await _apiClient.GetAsync<List<SnPost>>(
+            var posts = await apiClient.GetAsync<List<SnPost>>(
                 "sphere",
                 $"/posts/search?q={Uri.EscapeDataString(query)}&take={limit}"
             );
@@ -248,7 +239,7 @@ public class PostPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to search posts with query: {Query}", query);
+            logger.LogError(ex, "Failed to search posts with query: {Query}", query);
             return null;
         }
     }
@@ -262,7 +253,7 @@ public class PostPlugin
     {
         try
         {
-            var posts = await _apiClient.GetAsync<List<SnPost>>(
+            var posts = await apiClient.GetAsync<List<SnPost>>(
                 "sphere",
                 $"/posts?offset={offset}&take={limit}"
             );
@@ -271,29 +262,73 @@ public class PostPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get recent posts");
+            logger.LogError(ex, "Failed to get recent posts");
             return null;
         }
     }
     
     [KernelFunction("shuffle_posts")]
     [Description("Get the random posts.")]
-    public async Task<List<SnPost>?> ListPosts(
+    public async Task<List<SnPost>?> ShufflePosts(
         [Description("Maximum number of posts")] int limit = 20
     )
     {
         try
         {
-            var posts = await _apiClient.GetAsync<List<SnPost>>(
+            var posts = await apiClient.GetAsync<List<SnPost>>(
                 "sphere",
                 $"/posts?shuffle=true&take={limit}"
             );
 
-            return posts ?? new List<SnPost>();
+            return posts ?? [];
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get shuffled posts");
+            logger.LogError(ex, "Failed to get shuffled posts");
+            return null;
+        }
+    }
+    
+    [KernelFunction("list_publisher_posts")]
+    [Description("Get the specific publisher's posts.")]
+    public async Task<List<SnPost>?> ListPosts(
+        [Description("The name of publisher")] string name,
+        [Description("Maximum number of posts")] int limit = 20, 
+        [Description("Skip how many posts already saw in recent queries")] int offset = 0
+    )
+    {
+        try
+        {
+            var posts = await apiClient.GetAsync<List<SnPost>>(
+                "sphere",
+                $"/posts?offset={offset}&take={limit}&pub={name}"
+            );
+
+            return posts ?? [];
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, $"Failed to get posts of {name}");
+            return null;
+        }
+    }
+
+    [KernelFunction("get_publisher")]
+    [Description("Get the publisher information.")]
+    public async Task<SnPublisher?> GetPublisher(
+        [Description("The name of publisher")] string name
+    )
+    {
+        try
+        {
+            return await apiClient.GetAsync<SnPublisher?>(
+                "sphere",
+                $"/publishers/{name}"
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, $"Failed to get publisher info for @{name}");
             return null;
         }
     }

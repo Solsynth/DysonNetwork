@@ -3,37 +3,24 @@ using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
-public class NotificationPlugin
+public class NotificationPlugin(SolarNetworkApiClient apiClient, ILogger<NotificationPlugin> logger)
 {
-    private readonly SolarNetworkApiClient _apiClient;
-    private readonly ILogger<NotificationPlugin> _logger;
-
-    public NotificationPlugin(SolarNetworkApiClient apiClient, ILogger<NotificationPlugin> logger)
-    {
-        _apiClient = apiClient;
-        _logger = logger;
-    }
-
     [KernelFunction("get_notifications")]
     [Description("Get the bot's notifications.")]
     public async Task<List<object>?> GetNotifications(
-        [Description("Maximum number of notifications to retrieve")] int limit = 50,
-        [Description("Filter by type: all, mention, like, follow, chat_request, etc.")]
- string type = "all"
+        [Description("Maximum number of notifications to retrieve")] int limit = 50
     )
     {
         try
         {
-            var url = type == "all" 
-                ? $"/notifications?take={limit}"
-                : $"/notifications?take={limit}&type={type}";
+            var url = $"/notifications?take={limit}";
                 
-            var notifications = await _apiClient.GetAsync<List<object>>("messager", url);
+            var notifications = await apiClient.GetAsync<List<object>>("messager", url);
             return notifications ?? new List<object>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get notifications");
+            logger.LogError(ex, "Failed to get notifications");
             return null;
         }
     }
@@ -46,14 +33,14 @@ public class NotificationPlugin
     {
         try
         {
-            await _apiClient.PostAsync("messager", $"/chat/rooms/{chatRoomId}/approve", new { });
+            await apiClient.PostAsync("messager", $"/chat/rooms/{chatRoomId}/approve", new { });
             
-            _logger.LogInformation("Approved chat request for room {ChatRoomId}", chatRoomId);
+            logger.LogInformation("Approved chat request for room {ChatRoomId}", chatRoomId);
             return new { success = true, message = "Chat request approved" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to approve chat request for room {ChatRoomId}", chatRoomId);
+            logger.LogError(ex, "Failed to approve chat request for room {ChatRoomId}", chatRoomId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -66,14 +53,14 @@ public class NotificationPlugin
     {
         try
         {
-            await _apiClient.PostAsync("messager", $"/chat/rooms/{chatRoomId}/decline", new { });
+            await apiClient.PostAsync("messager", $"/chat/rooms/{chatRoomId}/decline", new { });
             
-            _logger.LogInformation("Declined chat request for room {ChatRoomId}", chatRoomId);
+            logger.LogInformation("Declined chat request for room {ChatRoomId}", chatRoomId);
             return new { success = true, message = "Chat request declined" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to decline chat request for room {ChatRoomId}", chatRoomId);
+            logger.LogError(ex, "Failed to decline chat request for room {ChatRoomId}", chatRoomId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -88,20 +75,20 @@ public class NotificationPlugin
         {
             if (string.IsNullOrEmpty(notificationId))
             {
-                await _apiClient.PostAsync("messager", "/notifications/mark-all-read", new { });
-                _logger.LogInformation("Marked all notifications as read");
+                await apiClient.PostAsync("messager", "/notifications/mark-all-read", new { });
+                logger.LogInformation("Marked all notifications as read");
             }
             else
             {
-                await _apiClient.PostAsync("messager", $"/notifications/{notificationId}/read", new { });
-                _logger.LogInformation("Marked notification {NotificationId} as read", notificationId);
+                await apiClient.PostAsync("messager", $"/notifications/{notificationId}/read", new { });
+                logger.LogInformation("Marked notification {NotificationId} as read", notificationId);
             }
             
             return new { success = true, message = "Notifications marked as read" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to mark notifications as read");
+            logger.LogError(ex, "Failed to mark notifications as read");
             return new { success = false, error = ex.Message };
         }
     }
@@ -112,12 +99,12 @@ public class NotificationPlugin
     {
         try
         {
-            var result = await _apiClient.GetAsync<dynamic>("messager", "/notifications/count");
+            var result = await apiClient.GetAsync<dynamic>("messager", "/notifications/count");
             return result?.unread_count;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get unread notification count");
+            logger.LogError(ex, "Failed to get unread notification count");
             return null;
         }
     }

@@ -4,17 +4,8 @@ using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
-public class AccountPlugin
+public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugin> logger)
 {
-    private readonly SolarNetworkApiClient _apiClient;
-    private readonly ILogger<AccountPlugin> _logger;
-
-    public AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugin> logger)
-    {
-        _apiClient = apiClient;
-        _logger = logger;
-    }
-
     [KernelFunction("get_account_info")]
     [Description("Get information about a user account.")]
     public async Task<SnAccount?> GetAccountInfo(
@@ -26,12 +17,12 @@ public class AccountPlugin
             // Try to parse as Guid first (ID), otherwise treat as username
             if (Guid.TryParse(accountIdOrUsername, out _))
             {
-                var account = await _apiClient.GetAsync<SnAccount>("pass", $"/accounts/{accountIdOrUsername}");
+                var account = await apiClient.GetAsync<SnAccount>("pass", $"/accounts/{accountIdOrUsername}");
                 return account;
             }
             else
             {
-                var accounts = await _apiClient.GetAsync<List<SnAccount>>(
+                var accounts = await apiClient.GetAsync<List<SnAccount>>(
                     "pass", 
                     $"/accounts/search?q={Uri.EscapeDataString(accountIdOrUsername)}"
                 );
@@ -40,7 +31,7 @@ public class AccountPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get account info for {Account}", accountIdOrUsername);
+            logger.LogError(ex, "Failed to get account info for {Account}", accountIdOrUsername);
             return null;
         }
     }
@@ -54,7 +45,7 @@ public class AccountPlugin
     {
         try
         {
-            var accounts = await _apiClient.GetAsync<List<SnAccount>>(
+            var accounts = await apiClient.GetAsync<List<SnAccount>>(
                 "pass", 
                 $"/accounts/search?q={Uri.EscapeDataString(query)}&take={limit}"
             );
@@ -63,7 +54,7 @@ public class AccountPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to search accounts with query: {Query}", query);
+            logger.LogError(ex, "Failed to search accounts with query: {Query}", query);
             return null;
         }
     }
@@ -76,14 +67,14 @@ public class AccountPlugin
     {
         try
         {
-            await _apiClient.PostAsync("pass", $"/accounts/{accountId}/follow", new { });
+            await apiClient.PostAsync("pass", $"/accounts/{accountId}/follow", new { });
             
-            _logger.LogInformation("Followed account {AccountId}", accountId);
+            logger.LogInformation("Followed account {AccountId}", accountId);
             return new { success = true, message = "Account followed successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to follow account {AccountId}", accountId);
+            logger.LogError(ex, "Failed to follow account {AccountId}", accountId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -96,14 +87,14 @@ public class AccountPlugin
     {
         try
         {
-            await _apiClient.PostAsync("pass", $"/accounts/{accountId}/unfollow", new { });
+            await apiClient.PostAsync("pass", $"/accounts/{accountId}/unfollow", new { });
             
-            _logger.LogInformation("Unfollowed account {AccountId}", accountId);
+            logger.LogInformation("Unfollowed account {AccountId}", accountId);
             return new { success = true, message = "Account unfollowed successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to unfollow account {AccountId}", accountId);
+            logger.LogError(ex, "Failed to unfollow account {AccountId}", accountId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -117,7 +108,7 @@ public class AccountPlugin
     {
         try
         {
-            var followers = await _apiClient.GetAsync<List<SnAccount>>(
+            var followers = await apiClient.GetAsync<List<SnAccount>>(
                 "pass", 
                 $"/accounts/{accountId}/followers?take={limit}"
             );
@@ -126,7 +117,7 @@ public class AccountPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get followers for account {AccountId}", accountId);
+            logger.LogError(ex, "Failed to get followers for account {AccountId}", accountId);
             return null;
         }
     }
@@ -140,7 +131,7 @@ public class AccountPlugin
     {
         try
         {
-            var following = await _apiClient.GetAsync<List<SnAccount>>(
+            var following = await apiClient.GetAsync<List<SnAccount>>(
                 "pass", 
                 $"/accounts/{accountId}/following?take={limit}"
             );
@@ -149,7 +140,7 @@ public class AccountPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get following for account {AccountId}", accountId);
+            logger.LogError(ex, "Failed to get following for account {AccountId}", accountId);
             return null;
         }
     }
@@ -160,12 +151,12 @@ public class AccountPlugin
     {
         try
         {
-            var account = await _apiClient.GetAsync<SnAccount>("pass", "/accounts/me");
+            var account = await apiClient.GetAsync<SnAccount>("pass", "/accounts/me");
             return account;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get bot profile");
+            logger.LogError(ex, "Failed to get bot profile");
             return null;
         }
     }

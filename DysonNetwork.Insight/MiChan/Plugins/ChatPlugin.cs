@@ -4,17 +4,8 @@ using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
-public class ChatPlugin
+public class ChatPlugin(SolarNetworkApiClient apiClient, ILogger<ChatPlugin> logger)
 {
-    private readonly SolarNetworkApiClient _apiClient;
-    private readonly ILogger<ChatPlugin> _logger;
-
-    public ChatPlugin(SolarNetworkApiClient apiClient, ILogger<ChatPlugin> logger)
-    {
-        _apiClient = apiClient;
-        _logger = logger;
-    }
-
     [KernelFunction("send_message")]
     [Description("Send a message to a chat room or user.")]
     public async Task<object> SendMessage(
@@ -32,14 +23,14 @@ public class ChatPlugin
                 nonce = Guid.NewGuid().ToString("N")
             };
 
-            await _apiClient.PostAsync("messager", $"/chat/{chatRoomId}/messages", request);
+            await apiClient.PostAsync("messager", $"/chat/{chatRoomId}/messages", request);
             
-            _logger.LogInformation("Sent message to chat room {ChatRoomId}", chatRoomId);
+            logger.LogInformation("Sent message to chat room {ChatRoomId}", chatRoomId);
             return new { success = true, message = "Message sent successfully" };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send message to chat room {ChatRoomId}", chatRoomId);
+            logger.LogError(ex, "Failed to send message to chat room {ChatRoomId}", chatRoomId);
             return new { success = false, error = ex.Message };
         }
     }
@@ -54,7 +45,7 @@ public class ChatPlugin
     {
         try
         {
-            var messages = await _apiClient.GetAsync<List<SnChatMessage>>(
+            var messages = await apiClient.GetAsync<List<SnChatMessage>>(
                 "messager", 
                 $"/chat/{chatRoomId}/messages?take={count}&offset={offset}"
             );
@@ -63,7 +54,7 @@ public class ChatPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get chat history for room {ChatRoomId}", chatRoomId);
+            logger.LogError(ex, "Failed to get chat history for room {ChatRoomId}", chatRoomId);
             return null;
         }
     }
@@ -76,7 +67,7 @@ public class ChatPlugin
     {
         try
         {
-            var rooms = await _apiClient.GetAsync<List<object>>(
+            var rooms = await apiClient.GetAsync<List<object>>(
                 "messager", 
                 $"/chat/rooms?take={limit}"
             );
@@ -85,7 +76,7 @@ public class ChatPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to list chat rooms");
+            logger.LogError(ex, "Failed to list chat rooms");
             return null;
         }
     }
@@ -98,7 +89,7 @@ public class ChatPlugin
     {
         try
         {
-            var roomInfo = await _apiClient.GetAsync<object>(
+            var roomInfo = await apiClient.GetAsync<object>(
                 "messager", 
                 $"/chat/rooms/{chatRoomId}"
             );
@@ -107,7 +98,7 @@ public class ChatPlugin
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get info for chat room {ChatRoomId}", chatRoomId);
+            logger.LogError(ex, "Failed to get info for chat room {ChatRoomId}", chatRoomId);
             return null;
         }
     }
