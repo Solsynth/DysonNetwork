@@ -96,11 +96,25 @@ public class AgentVectorService : IDisposable
         try
         {
             var kernel = _kernelProvider.GetKernel();
-            return kernel.Services.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
+            var embeddingService = kernel.Services.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
+            
+            if (embeddingService == null)
+            {
+                _logger.LogError("Embedding service (IEmbeddingGenerator<string, Embedding<float>>) is not registered in the kernel. " +
+                    "Please check your Thinking:Embeddings configuration in appsettings.json. " +
+                    "Required: Thinking:Embeddings:Provider, Thinking:Embeddings:ApiKey, Thinking:Embeddings:Model");
+            }
+            else
+            {
+                _logger.LogDebug("Embedding service successfully retrieved from kernel");
+            }
+            
+            return embeddingService;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Embedding service not available in kernel");
+            _logger.LogError(ex, "Error retrieving embedding service from kernel. " +
+                "Embeddings will not be available. Check your configuration.");
             return null;
         }
     }
