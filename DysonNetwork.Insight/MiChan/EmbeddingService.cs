@@ -1,20 +1,23 @@
-using Microsoft.SemanticKernel.Embeddings;
+using Microsoft.Extensions.AI;
 using Pgvector;
 
 namespace DysonNetwork.Insight.MiChan;
 
 /// <summary>
-/// Service for generating text embeddings using Semantic Kernel
+/// Service for generating text embeddings using Microsoft.Extensions.AI
 /// </summary>
-#pragma warning disable SKEXP0050
 public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<EmbeddingService> logger)
 {
-    private ITextEmbeddingGenerationService? GetEmbeddingService()
+    /// <summary>
+    /// Get the embedding generator from the kernel using the new Microsoft.Extensions.AI interface
+    /// </summary>
+    #pragma warning disable SKEXP0050
+    private IEmbeddingGenerator<string, Embedding<float>>? GetEmbeddingGenerator()
     {
         try
         {
             var kernel = kernelProvider.GetKernel();
-            return kernel.Services.GetService<ITextEmbeddingGenerationService>();
+            return kernel.Services.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
         }
         catch (Exception ex)
         {
@@ -22,6 +25,7 @@ public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<Embed
             return null;
         }
     }
+    #pragma warning restore SKEXP0050
 
     /// <summary>
     /// Generate embedding for a single text
@@ -36,22 +40,22 @@ public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<Embed
                 return null;
             }
 
-            var embeddingService = GetEmbeddingService();
-            if (embeddingService == null)
+            var embeddingGenerator = GetEmbeddingGenerator();
+            if (embeddingGenerator == null)
             {
                 return null;
             }
 
-            // Call the service without passing cancellationToken as second parameter
-            var embeddings = await embeddingService.GenerateEmbeddingsAsync([text]);
+            // Use the new Microsoft.Extensions.AI API
+            var result = await embeddingGenerator.GenerateAsync(text, cancellationToken: cancellationToken);
             
-            if (embeddings.Count == 0)
+            if (result == null)
             {
                 logger.LogWarning("No embedding generated for text");
                 return null;
             }
 
-            var embeddingArray = embeddings[0].ToArray();
+            var embeddingArray = result.Vector.ToArray();
             return new Vector(embeddingArray);
         }
         catch (Exception ex)
@@ -74,16 +78,28 @@ public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<Embed
                 return [];
             }
 
-            var embeddingService = GetEmbeddingService();
-            if (embeddingService == null)
+            var embeddingGenerator = GetEmbeddingGenerator();
+            if (embeddingGenerator == null)
             {
                 return texts.Select(_ => (Vector?)null).ToList();
             }
 
-            // Call the service without passing cancellationToken
-            var embeddings = await embeddingService.GenerateEmbeddingsAsync(texts);
+            // Use the new Microsoft.Extensions.AI API
+            var results = new List<Vector?>();
+            foreach (var text in texts)
+            {
+                var result = await embeddingGenerator.GenerateAsync(text, cancellationToken: cancellationToken);
+                if (result != null)
+                {
+                    results.Add(new Vector(result.Vector.ToArray()));
+                }
+                else
+                {
+                    results.Add(null);
+                }
+            }
             
-            return embeddings.Select(e => (Vector?)new Vector(e.ToArray())).ToList();
+            return results;
         }
         catch (Exception ex)
         {
@@ -95,7 +111,7 @@ public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<Embed
     /// <summary>
     /// Check if embedding service is available
     /// </summary>
-    public bool IsAvailable => GetEmbeddingService() != null;
+    public bool IsAvailable => GetEmbeddingGenerator() != null;
 
     /// <summary>
     /// Extract searchable content from interaction context

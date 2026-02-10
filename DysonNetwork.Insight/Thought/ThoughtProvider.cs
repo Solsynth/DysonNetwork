@@ -145,9 +145,11 @@ public class ThoughtProvider
         return _defaultServiceId;
     }
 
+    #pragma warning disable SKEXP0050
     public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null)
     {
         serviceId ??= _defaultServiceId;
         return _kernelFactory.CreatePromptExecutionSettings(serviceId);
     }
+    #pragma warning restore SKEXP0050
 }

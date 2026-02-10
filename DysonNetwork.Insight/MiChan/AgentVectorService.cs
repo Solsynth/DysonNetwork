@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Connectors.PgVector;
-using Microsoft.SemanticKernel.Embeddings;
 using Npgsql;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -10,7 +10,6 @@ namespace DysonNetwork.Insight.MiChan;
 /// Uses a separate pgvector database for storing and retrieving memories via vector similarity search.
 /// </summary>
 #pragma warning disable SKEXP0020
-#pragma warning disable SKEXP0050
 public class AgentVectorService : IDisposable
 {
     private readonly NpgsqlDataSource _dataSource;
@@ -45,14 +44,15 @@ public class AgentVectorService : IDisposable
     }
 
     /// <summary>
-    /// Get the embedding service from the kernel
+    /// Get the embedding service from the kernel using the new Microsoft.Extensions.AI interface
     /// </summary>
-    private ITextEmbeddingGenerationService? GetEmbeddingService()
+    #pragma warning disable SKEXP0050
+    private IEmbeddingGenerator<string, Embedding<float>>? GetEmbeddingService()
     {
         try
         {
             var kernel = _kernelProvider.GetKernel();
-            return kernel.Services.GetService<ITextEmbeddingGenerationService>();
+            return kernel.Services.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
         }
         catch (Exception ex)
         {
@@ -60,6 +60,7 @@ public class AgentVectorService : IDisposable
             return null;
         }
     }
+    #pragma warning restore SKEXP0050
 
     /// <summary>
     /// Get or create the agent memories collection
@@ -86,10 +87,10 @@ public class AgentVectorService : IDisposable
         try
         {
             // Generate embedding for the content (optional)
-            var embeddingService = GetEmbeddingService();
+            var embeddingGenerator = GetEmbeddingService();
             ReadOnlyMemory<float>? embedding = null;
             
-            if (embeddingService == null)
+            if (embeddingGenerator == null)
             {
                 _logger.LogWarning("Embedding service not available, storing memory without embedding");
             }
@@ -97,7 +98,12 @@ public class AgentVectorService : IDisposable
             {
                 try
                 {
-                    embedding = await embeddingService.GenerateEmbeddingAsync(content, cancellationToken: cancellationToken);
+                    // Use the new Microsoft.Extensions.AI API
+                    var result = await embeddingGenerator.GenerateAsync(content, cancellationToken: cancellationToken);
+                    if (result != null)
+                    {
+                        embedding = result.Vector;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -149,14 +155,22 @@ public class AgentVectorService : IDisposable
     {
         try
         {
-            var embeddingService = GetEmbeddingService();
-            if (embeddingService == null)
+            var embeddingGenerator = GetEmbeddingService();
+            if (embeddingGenerator == null)
             {
                 _logger.LogWarning("Embedding service not available");
                 return new List<AgentMemoryRecord>();
             }
             
-            var queryEmbedding = await embeddingService.GenerateEmbeddingAsync(query, cancellationToken: cancellationToken);
+            // Use the new Microsoft.Extensions.AI API
+            var queryResult = await embeddingGenerator.GenerateAsync(query, cancellationToken: cancellationToken);
+            if (queryResult == null)
+            {
+                _logger.LogWarning("Failed to generate query embedding");
+                return new List<AgentMemoryRecord>();
+            }
+            
+            var queryEmbedding = queryResult.Vector;
             var collection = GetCollection();
 
             // Build SQL filter based on parameters
@@ -224,7 +238,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Get memories by context ID
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<List<AgentMemoryRecord>> GetMemoriesByContextAsync(
         string contextId,
         string? agentId = null,
@@ -265,7 +278,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Get a specific memory by ID
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<AgentMemoryRecord?> GetMemoryAsync(
         Guid memoryId,
         CancellationToken cancellationToken = default)
@@ -295,7 +307,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Delete a memory by ID
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<bool> DeleteMemoryAsync(
         Guid memoryId,
         CancellationToken cancellationToken = default)
@@ -318,7 +329,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Archive a memory (soft delete)
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<bool> ArchiveMemoryAsync(
         Guid memoryId,
         CancellationToken cancellationToken = default)
@@ -349,7 +359,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Get recent memories for an agent
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<List<AgentMemoryRecord>> GetRecentMemoriesAsync(
         string agentId,
         string? memoryType = null,
@@ -390,7 +399,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Update memory importance score
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<bool> UpdateImportanceAsync(
         Guid memoryId,
         double newImportance,
@@ -421,7 +429,6 @@ public class AgentVectorService : IDisposable
     /// <summary>
     /// Delete old memories based on age and low importance
     /// </summary>
-    [Experimental("SKEXP0020")]
     public async Task<int> CleanupOldMemoriesAsync(
         TimeSpan maxAge,
         double importanceThreshold = 0.3,
@@ -493,4 +500,3 @@ public class AgentVectorService : IDisposable
     }
 }
 #pragma warning restore SKEXP0020
-#pragma warning restore SKEXP0050

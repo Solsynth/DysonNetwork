@@ -1,10 +1,9 @@
-#pragma warning disable SKEXP0050
 using System.ClientModel;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.SemanticKernel.Embeddings;
 using OpenAI;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -13,6 +12,7 @@ namespace DysonNetwork.Insight.MiChan;
 /// Factory for creating Semantic Kernel instances with various AI providers.
 /// Supports Ollama, DeepSeek, OpenRouter, Aliyun DashScope, and BigModel.
 /// </summary>
+#pragma warning disable SKEXP0010
 public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> logger)
 {
     /// <summary>
@@ -21,7 +21,6 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     /// <param name="serviceName">The service ID from configuration</param>
     /// <param name="addEmbeddings">Whether to add embedding services (always uses configured embedding provider)</param>
     /// <returns>A configured Kernel instance</returns>
-    [Experimental("SKEXP0050")]
     public Kernel CreateKernel(string serviceName, bool addEmbeddings = false)
     {
         var thinkingConfig = configuration.GetSection("Thinking");
@@ -89,9 +88,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
 
         // Add embedding service - always uses the configured embedding provider (independent of chat provider)
         if (addEmbeddings)
-        {
             AddEmbeddingService(builder, providerType);
-        }
 
         return builder.Build();
     }
@@ -100,7 +97,6 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     /// Adds the configured embedding service to the kernel builder.
     /// This is independent of the chat completion provider.
     /// </summary>
-    [Experimental("SKEXP0050")]
     private void AddEmbeddingService(IKernelBuilder builder, string chatProviderType)
     {
         var embeddingConfig = configuration.GetSection("Thinking:Embeddings");
@@ -116,9 +112,10 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                     ?? "http://localhost:11434/api";
                 var ollamaModel = embeddingConfig.GetValue<string>("Model") 
                     ?? "nomic-embed-text";
-                builder.AddOllamaEmbeddingGenerator(
-                    ollamaModel,
-                    new Uri(ollamaEndpoint)
+                // Use builder.Services to register with DI
+                builder.Services.AddOllamaEmbeddingGenerator(
+                    endpoint: new Uri(ollamaEndpoint),
+                    modelId: ollamaModel
                 );
                 logger.LogInformation("Ollama embedding configured with model {Model} at {Endpoint}", 
                     ollamaModel, ollamaEndpoint);
@@ -146,7 +143,12 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                         new ApiKeyCredential(openRouterApiKey),
                         new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
                     );
-                    builder.AddOpenAIEmbeddingGenerator(openRouterModel, openRouterClient, dimensions: 1536);
+                    // Use builder.Services to register with DI - this registers IEmbeddingGenerator<string, Embedding<float>>
+                    builder.Services.AddOpenAIEmbeddingGenerator(
+                        modelId: openRouterModel,
+                        openAIClient: openRouterClient,
+                        dimensions: 1536
+                    );
                     logger.LogInformation("OpenRouter embedding configured with model {Model} for {ChatProvider}", 
                         openRouterModel, chatProviderType);
                 }
@@ -175,7 +177,11 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                         new ApiKeyCredential(aliyunApiKey),
                         new OpenAIClientOptions { Endpoint = new Uri(aliyunEndpoint) }
                     );
-                    builder.AddOpenAIEmbeddingGenerator(aliyunModel, aliyunClient, dimensions: 1536);
+                    builder.Services.AddOpenAIEmbeddingGenerator(
+                        modelId: aliyunModel,
+                        openAIClient: aliyunClient,
+                        dimensions: 1536
+                    );
                     logger.LogInformation("Aliyun embedding configured with model {Model} for {ChatProvider}", 
                         aliyunModel, chatProviderType);
                 }
@@ -204,7 +210,11 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                         new ApiKeyCredential(openaiApiKey),
                         new OpenAIClientOptions { Endpoint = new Uri(openaiEndpoint) }
                     );
-                    builder.AddOpenAIEmbeddingGenerator(openaiModel, openaiClient, dimensions: 1536);
+                    builder.Services.AddOpenAIEmbeddingGenerator(
+                        modelId: openaiModel,
+                        openAIClient: openaiClient,
+                        dimensions: 1536
+                    );
                     logger.LogInformation("OpenAI embedding configured with model {Model} for {ChatProvider}", 
                         openaiModel, chatProviderType);
                 }
@@ -226,6 +236,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     /// <param name="serviceName">The service ID from configuration</param>
     /// <param name="temperature">Optional temperature override</param>
     /// <returns>Configured PromptExecutionSettings</returns>
+    [Experimental("SKEXP0050")]
     public PromptExecutionSettings CreatePromptExecutionSettings(string serviceName, double? temperature = null)
     {
         var thinkingConfig = configuration.GetSection("Thinking");
@@ -267,5 +278,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
         }
     }
 }
+
+#pragma warning restore SKEXP0010
 
 #pragma warning restore SKEXP0050
