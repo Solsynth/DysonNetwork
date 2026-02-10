@@ -54,6 +54,7 @@ public class ThoughtService(
 
     /// <summary>
     /// Memorizes a thought sequence using the embedding service for semantic search.
+    /// Includes the actual conversation content from the thoughts.
     /// </summary>
     public async Task MemorizeSequenceAsync(
         SnThinkingSequence sequence,
@@ -61,6 +62,38 @@ public class ThoughtService(
     {
         try
         {
+            // Fetch the thoughts in this sequence to include their content
+            var thoughts = await db.ThinkingThoughts
+                .Where(t => t.SequenceId == sequence.Id)
+                .OrderBy(t => t.CreatedAt)
+                .ToListAsync();
+
+            // Build the conversation content from thoughts
+            var conversationContent = new StringBuilder();
+            foreach (var thought in thoughts)
+            {
+                var role = thought.Role == ThinkingThoughtRole.User ? "User" : "Assistant";
+                var content = ExtractThoughtContent(thought);
+                if (!string.IsNullOrEmpty(content))
+                {
+                    conversationContent.AppendLine($"{role}: {content}");
+                }
+            }
+
+            var contentText = conversationContent.ToString().Trim();
+            if (string.IsNullOrEmpty(contentText))
+            {
+                contentText = $"Topic: {sequence.Topic ?? "No topic"}";
+            }
+
+            // Prepare searchable content that includes the conversation
+            var searchableContent = new StringBuilder();
+            searchableContent.AppendLine($"Topic: {sequence.Topic ?? "No topic"}");
+            searchableContent.AppendLine($"Sequence ID: {sequence.Id}");
+            searchableContent.AppendLine();
+            searchableContent.AppendLine("Conversation:");
+            searchableContent.AppendLine(contentText);
+
             var memoryContext = new Dictionary<string, object>
             {
                 ["sequence_id"] = sequence.Id,
@@ -70,7 +103,8 @@ public class ThoughtService(
                 ["paid_tokens"] = sequence.PaidToken,
                 ["created_at"] = sequence.CreatedAt,
                 ["updated_at"] = sequence.UpdatedAt,
-                ["timestamp"] = DateTime.UtcNow
+                ["timestamp"] = DateTime.UtcNow,
+                ["content"] = contentText.Length > 2000 ? contentText[..2000] + "..." : contentText
             };
 
             // Add any additional context
@@ -90,21 +124,47 @@ public class ThoughtService(
                 {
                     ["sequence_id"] = sequence.Id,
                     ["topic"] = sequence.Topic ?? "No topic",
-                    ["account_id"] = sequence.AccountId
+                    ["account_id"] = sequence.AccountId,
+                    ["searchable_content"] = searchableContent.ToString()
                 }
             );
 
             logger.LogInformation(
-                "Memorized thought sequence {SequenceId} for account {AccountId} with topic: {Topic}",
+                "Memorized thought sequence {SequenceId} for account {AccountId} with topic: {Topic} (including {ThoughtCount} thoughts)",
                 sequence.Id,
                 sequence.AccountId,
-                sequence.Topic ?? "No topic"
+                sequence.Topic ?? "No topic",
+                thoughts.Count
             );
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error memorizing thought sequence {SequenceId}", sequence.Id);
         }
+    }
+
+    /// <summary>
+    /// Extracts readable text content from a thought.
+    /// </summary>
+    private string ExtractThoughtContent(SnThinkingThought thought)
+    {
+        var content = new StringBuilder();
+        foreach (var part in thought.Parts)
+        {
+            switch (part.Type)
+            {
+                case ThinkingMessagePartType.Text when !string.IsNullOrEmpty(part.Text):
+                    content.Append(part.Text);
+                    break;
+                case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
+                    content.Append($"[Function: {part.FunctionCall.PluginName}.{part.FunctionCall.Name}]");
+                    break;
+                case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
+                    content.Append($"[Result: {part.FunctionResult.FunctionName}]");
+                    break;
+            }
+        }
+        return content.ToString().Trim();
     }
 
     /// <summary>
