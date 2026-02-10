@@ -7,26 +7,13 @@ using Microsoft.SemanticKernel.Plugins.Web.Google;
 
 namespace DysonNetwork.Insight.MiChan;
 
-public class MiChanKernelProvider
+public class MiChanKernelProvider(
+    MiChanConfig config,
+    KernelFactory kernelFactory,
+    IConfiguration configuration)
 {
-    private readonly MiChanConfig _config;
-    private readonly KernelFactory _kernelFactory;
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<MiChanKernelProvider> _logger;
     private Kernel? _kernel;
     private Kernel? _visionKernel;
-
-    public MiChanKernelProvider(
-        MiChanConfig config,
-        KernelFactory kernelFactory,
-        IConfiguration configuration,
-        ILogger<MiChanKernelProvider> logger)
-    {
-        _config = config;
-        _kernelFactory = kernelFactory;
-        _configuration = configuration;
-        _logger = logger;
-    }
 
     [Experimental("SKEXP0050")]
     public Kernel GetKernel()
@@ -34,7 +21,7 @@ public class MiChanKernelProvider
         if (_kernel != null)
             return _kernel;
 
-        _kernel = _kernelFactory.CreateKernel(_config.ThinkingService, addEmbeddings: true);
+        _kernel = kernelFactory.CreateKernel(config.ThinkingService, addEmbeddings: true);
         InitializeHelperFunctions(_kernel);
         return _kernel;
     }
@@ -45,14 +32,14 @@ public class MiChanKernelProvider
         if (_visionKernel != null)
             return _visionKernel;
 
-        _visionKernel = _kernelFactory.CreateKernel(_config.Vision.VisionThinkingService, addEmbeddings: false);
+        _visionKernel = kernelFactory.CreateKernel(config.Vision.VisionThinkingService, addEmbeddings: false);
         return _visionKernel;
     }
 
     [Experimental("SKEXP0050")]
     private void InitializeHelperFunctions(Kernel kernel)
     {
-        var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
+        var bingApiKey = configuration.GetValue<string>("Thinking:BingApiKey");
         if (!string.IsNullOrEmpty(bingApiKey))
         {
             var bingConnector = new BingConnector(bingApiKey);
@@ -60,8 +47,8 @@ public class MiChanKernelProvider
             kernel.ImportPluginFromObject(bing, "bing");
         }
 
-        var googleApiKey = _configuration.GetValue<string>("Thinking:GoogleApiKey");
-        var googleCx = _configuration.GetValue<string>("Thinking:GoogleCx");
+        var googleApiKey = configuration.GetValue<string>("Thinking:GoogleApiKey");
+        var googleCx = configuration.GetValue<string>("Thinking:GoogleCx");
         if (!string.IsNullOrEmpty(googleApiKey) && !string.IsNullOrEmpty(googleCx))
         {
             var googleConnector = new GoogleConnector(
@@ -74,17 +61,17 @@ public class MiChanKernelProvider
 
     public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null)
     {
-        return _kernelFactory.CreatePromptExecutionSettings(_config.ThinkingService, temperature ?? 0.6);
+        return kernelFactory.CreatePromptExecutionSettings(config.ThinkingService, temperature ?? 0.6);
     }
 
     public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null)
     {
-        return _kernelFactory.CreatePromptExecutionSettings(_config.Vision.VisionThinkingService, temperature ?? 0.7);
+        return kernelFactory.CreatePromptExecutionSettings(config.Vision.VisionThinkingService, temperature ?? 0.7);
     }
 
     public bool IsVisionModelAvailable()
     {
-        return _kernelFactory.IsServiceAvailable(_config.Vision.VisionThinkingService);
+        return kernelFactory.IsServiceAvailable(config.Vision.VisionThinkingService);
     }
 }
 

@@ -21,7 +21,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     /// <param name="serviceName">The service ID from configuration</param>
     /// <param name="addEmbeddings">Whether to add embedding services (always uses configured embedding provider)</param>
     /// <returns>A configured Kernel instance</returns>
-    public Kernel CreateKernel(string serviceName, bool addEmbeddings = false)
+    public Kernel CreateKernel(string serviceName, bool addEmbeddings = true)
     {
         var thinkingConfig = configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
@@ -122,13 +122,10 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 break;
 
             case "openrouter":
-                var openRouterApiKey = embeddingConfig.GetValue<string>("ApiKey") 
-                    ?? configuration.GetValue<string>("Thinking:OpenRouter:ApiKey");
+                var openRouterApiKey = embeddingConfig.GetValue<string>("ApiKey");
                 var openRouterEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
-                    ?? configuration.GetValue<string>("Thinking:OpenRouter:Endpoint") 
                     ?? "https://openrouter.ai/api/v1";
                 var openRouterModel = embeddingConfig.GetValue<string>("Model") 
-                    ?? configuration.GetValue<string>("Thinking:OpenRouter:EmbeddingModel") 
                     ?? "qwen/qwen3-embedding-8b";
 
                 if (string.IsNullOrEmpty(openRouterApiKey))
