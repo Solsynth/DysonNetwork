@@ -810,6 +810,23 @@ public class FileService(
         if (existingPermission != null)
             return;
 
+        // Get the file to find its owner
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
+        if (file != null)
+        {
+            // Remove owner-specific permission if exists (revert to default public)
+            var existingOwnerPermission = await db.FilePermissions
+                .FirstOrDefaultAsync(p =>
+                    p.FileId == fileId &&
+                    p.SubjectType == SnFilePermissionType.Someone &&
+                    p.SubjectId == file.AccountId.ToString());
+
+            if (existingOwnerPermission != null)
+            {
+                db.FilePermissions.Remove(existingOwnerPermission);
+            }
+        }
+
         var permission = new SnFilePermission
         {
             Id = Guid.NewGuid(),
@@ -825,16 +842,44 @@ public class FileService(
 
     public async Task UnsetPublicAsync(string fileId)
     {
-        var permission = await db.FilePermissions
+        // Remove the public permission if it exists
+        var publicPermission = await db.FilePermissions
             .FirstOrDefaultAsync(p =>
                 p.FileId == fileId &&
                 p.SubjectType == SnFilePermissionType.Anyone &&
                 p.Permission == SnFilePermissionLevel.Read);
 
-        if (permission == null)
-            return;
+        if (publicPermission != null)
+        {
+            db.FilePermissions.Remove(publicPermission);
+        }
 
-        db.FilePermissions.Remove(permission);
+        // Get the file to find its owner
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId);
+        if (file != null)
+        {
+            // Check if there's already an owner permission
+            var existingOwnerPermission = await db.FilePermissions
+                .FirstOrDefaultAsync(p =>
+                    p.FileId == fileId &&
+                    p.SubjectType == SnFilePermissionType.Someone &&
+                    p.SubjectId == file.AccountId.ToString());
+
+            // Add owner permission if not exists to make file private (owner-only)
+            if (existingOwnerPermission == null)
+            {
+                var ownerPermission = new SnFilePermission
+                {
+                    Id = Guid.NewGuid(),
+                    FileId = fileId,
+                    SubjectType = SnFilePermissionType.Someone,
+                    SubjectId = file.AccountId.ToString(),
+                    Permission = SnFilePermissionLevel.Read
+                };
+                db.FilePermissions.Add(ownerPermission);
+            }
+        }
+
         await db.SaveChangesAsync();
     }
 }

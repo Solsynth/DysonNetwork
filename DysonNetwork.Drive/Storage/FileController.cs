@@ -91,6 +91,10 @@ public class FileController(
             .Where(p => p.FileId == file.Id)
             .ToListAsync();
 
+        // If no permissions exist, default to public (allow read access)
+        if (permissions.Count == 0)
+            return requiredLevel == SnFilePermissionLevel.Read;
+
         foreach (var perm in permissions)
         {
             switch (perm.SubjectType)
