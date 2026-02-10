@@ -1003,17 +1003,11 @@ public class ThoughtService(
 
     public void EnsureMiChanPluginsRegistered(Kernel kernel)
     {
-        var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
         var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-        var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
         var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
 
-        if (!kernel.Plugins.Contains("chat"))
-            kernel.Plugins.AddFromObject(chatPlugin, "chat");
         if (!kernel.Plugins.Contains("post"))
             kernel.Plugins.AddFromObject(postPlugin, "post");
-        if (!kernel.Plugins.Contains("notification"))
-            kernel.Plugins.AddFromObject(notificationPlugin, "notification");
         if (!kernel.Plugins.Contains("account"))
             kernel.Plugins.AddFromObject(accountPlugin, "account");
     }

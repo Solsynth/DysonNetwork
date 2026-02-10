@@ -63,14 +63,10 @@ public class MiChanAdminController(
         if (request.UsePlugins)
         {
             // Register plugins for admin use
-            var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
             var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-            var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
             var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
 
-            kernel.Plugins.AddFromObject(chatPlugin, "chat");
             kernel.Plugins.AddFromObject(postPlugin, "post");
-            kernel.Plugins.AddFromObject(notificationPlugin, "notification");
             kernel.Plugins.AddFromObject(accountPlugin, "account");
         }
 
@@ -153,13 +149,9 @@ public class MiChanAdminController(
             var kernel = kernelProvider.GetKernel();
 
             // Register plugins
-            var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
             var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-            var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
 
-            kernel.Plugins.AddFromObject(chatPlugin, "chat");
             kernel.Plugins.AddFromObject(postPlugin, "post");
-            kernel.Plugins.AddFromObject(notificationPlugin, "notification");
 
             // Execute command
             var personality = PersonalityLoader.LoadPersonality(config.PersonalityFile, config.Personality, logger);

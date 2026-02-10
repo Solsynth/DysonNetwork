@@ -10,7 +10,8 @@ public class MiChanService(
     MiChanConfig config,
     ILogger<MiChanService> logger,
     IServiceProvider serviceProvider,
-    Thought.ThoughtService thoughtService)
+    Thought.ThoughtService thoughtService
+)
     : BackgroundService
 {
     private MiChanWebSocketHandler? _webSocketHandler;
@@ -99,17 +100,11 @@ public class MiChanService(
             _kernel = _kernelProvider.GetKernel();
 
             // Register plugins (only if not already registered)
-            var chatPlugin = serviceProvider.GetRequiredService<ChatPlugin>();
             var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-            var notificationPlugin = serviceProvider.GetRequiredService<NotificationPlugin>();
             var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
 
-            if (!_kernel.Plugins.Contains("chat"))
-                _kernel.Plugins.AddFromObject(chatPlugin, "chat");
             if (!_kernel.Plugins.Contains("post"))
                 _kernel.Plugins.AddFromObject(postPlugin, "post");
-            if (!_kernel.Plugins.Contains("notification"))
-                _kernel.Plugins.AddFromObject(notificationPlugin, "notification");
             if (!_kernel.Plugins.Contains("account"))
                 _kernel.Plugins.AddFromObject(accountPlugin, "account");
 
@@ -138,7 +133,7 @@ public class MiChanService(
             try
             {
                 var executed = await _autonomousBehavior!.TryExecuteAutonomousActionAsync();
-                
+
                 if (executed)
                 {
                     logger.LogInformation("Autonomous action executed successfully");
@@ -387,6 +382,7 @@ public class MiChanService(
             {
                 _conversations[roomId] = new List<MiChanMessage>();
             }
+
             return _conversations[roomId];
         }
         finally

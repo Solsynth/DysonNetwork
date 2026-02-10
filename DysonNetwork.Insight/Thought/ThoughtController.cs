@@ -18,8 +18,7 @@ namespace DysonNetwork.Insight.Thought;
 [Route("/api/thought")]
 public class ThoughtController(
     ThoughtService service,
-    MiChanConfig miChanConfig,
-    MiChanService miChanService
+    MiChanConfig miChanConfig
 ) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
@@ -590,16 +589,19 @@ public class ThoughtController(
         return Ok(thoughts);
     }
     
+    /// <summary>
+    /// Manually trigger memorization of a thought sequence for MiChan.
+    /// </summary>
     [HttpPost("sequences/{sequenceId:guid}/memorize")]
     [AskPermission("michan.admin")]
-    public async Task<ActionResult> MiChanMemorizeThoughts(Guid sequenceId)
+    public async Task<ActionResult> MemorizeSequence(Guid sequenceId)
     {
         var sequence = await service.GetSequenceAsync(sequenceId);
         if (sequence == null) return NotFound();
 
-        await miChanService.GetAndMemorizeThoughtSequenceAsync(sequenceId);
+        await service.MemorizeSequenceAsync(sequence);
 
-        return Ok();
+        return Ok(new { message = "Sequence memorized successfully", sequenceId });
     }
 }
 

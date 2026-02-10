@@ -91,9 +91,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<MiChanKernelProvider>();
             
             // Plugins
-            services.AddSingleton<ChatPlugin>();
             services.AddSingleton<PostPlugin>();
-            services.AddSingleton<NotificationPlugin>();
             services.AddSingleton<AccountPlugin>();
             
             // Memory and behavior services
