@@ -76,7 +76,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
             case "bigmodel":
                 var bigmodelClient = new OpenAIClient(
                     new ApiKeyCredential(apiKey!),
-                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://open.bigmodel.cn/api/paas/v4/chat/completions") }
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://open.bigmodel.cn/api/paas/v4") }
                 );
                 builder.AddOpenAIChatCompletion(model!, bigmodelClient);
                 logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
