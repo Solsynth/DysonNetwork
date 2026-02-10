@@ -9,8 +9,7 @@ public class RazorLightTemplateService : ITemplateService
     private readonly IRazorLightEngine _engine;
     private readonly Assembly _assembly;
     private readonly string _resourceNamespace;
-    private readonly List<string> _availableLocales = new();
-    private readonly object _lock = new();
+    private readonly List<string> _availableLocales = [];
 
     public RazorLightTemplateService(Assembly? assembly = null, string? resourceNamespace = null)
     {
@@ -44,7 +43,7 @@ public class RazorLightTemplateService : ITemplateService
         }
     }
 
-    private string? ExtractLocaleFromResourceName(string resourceName, string prefix, string suffix)
+    private static string? ExtractLocaleFromResourceName(string resourceName, string prefix, string suffix)
     {
         // Resource name format: Namespace.Locale.TemplateName.cshtml
         // We need to extract the locale part
@@ -52,13 +51,9 @@ public class RazorLightTemplateService : ITemplateService
         
         // Split by dot to get locale (first part before template name)
         var parts = contentPart.Split('.');
-        if (parts.Length >= 2)
-        {
+        return parts.Length >= 2 ?
             // First part is locale (e.g., "en", "zh-hans")
-            return parts[0];
-        }
-        
-        return null;
+            parts[0] : null;
     }
 
     public async Task<string> RenderAsync(string templateName, object model, string? locale = null)

@@ -446,7 +446,7 @@ public class AccountService(
                 }
 
                 await mailer
-                    .SendRazorTemplateEmailAsync<VerificationEmailModel>(
+                    .SendRazorTemplateEmailAsync(
                         account.Nick,
                         contact.Content,
                         localizer.Get("codeEmailTitle", account.Language),
