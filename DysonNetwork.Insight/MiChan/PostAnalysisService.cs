@@ -135,11 +135,206 @@ public class PostAnalysisService
     public async Task<string> GetPostContextChainAsync(SnPost post, int maxDepth = 3)
     {
         var contextParts = new List<string>();
+        
+        // Add poster information first
+        var posterContext = BuildPosterContext(post);
+        if (!string.IsNullOrEmpty(posterContext))
+        {
+            contextParts.Add(posterContext);
+        }
 
         await AddRepliedContextAsync(post, contextParts, 0, maxDepth);
         await AddForwardedContextAsync(post, contextParts, 0, maxDepth);
 
         return string.Join("\n\n", contextParts);
+    }
+
+    /// <summary>
+    /// Build comprehensive poster context including publisher and account details
+    /// </summary>
+    public string BuildPosterContext(SnPost post)
+    {
+        if (post.Publisher == null)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        var publisher = post.Publisher;
+        
+        sb.AppendLine("=== 发帖者信息 ===");
+        
+        // Basic publisher info
+        sb.AppendLine($"发布者: @{publisher.Name} ({publisher.Nick})");
+        
+        // Publisher type
+        var pubType = publisher.Type == PublisherType.Individual ? "个人" : "组织";
+        sb.AppendLine($"类型: {pubType}");
+        
+        // Bio/Description
+        if (!string.IsNullOrEmpty(publisher.Bio))
+        {
+            sb.AppendLine($"简介: {publisher.Bio}");
+        }
+        
+        // Verification status - show all fields
+        if (publisher.Verification != null)
+        {
+            var v = publisher.Verification;
+            sb.AppendLine("认证信息:");
+            sb.AppendLine($"  - 类型: {v.Type}");
+            if (!string.IsNullOrEmpty(v.Title))
+            {
+                sb.AppendLine($"  - 标题: {v.Title}");
+            }
+            if (!string.IsNullOrEmpty(v.Description))
+            {
+                sb.AppendLine($"  - 描述: {v.Description}");
+            }
+            if (!string.IsNullOrEmpty(v.VerifiedBy))
+            {
+                sb.AppendLine($"  - 认证者: {v.VerifiedBy}");
+            }
+        }
+        
+        // Account details (if available)
+        if (publisher.Account != null)
+        {
+            var account = publisher.Account;
+            
+            // Check if bot
+            if (account.AutomatedId.HasValue)
+            {
+                sb.AppendLine("[机器人/自动化账号]");
+            }
+            
+            // Superuser status
+            if (account.IsSuperuser)
+            {
+                sb.AppendLine("[超级管理员]");
+            }
+            
+            // Language/Region
+            if (!string.IsNullOrEmpty(account.Language))
+            {
+                sb.AppendLine($"语言: {account.Language}");
+            }
+            if (!string.IsNullOrEmpty(account.Region))
+            {
+                sb.AppendLine($"地区: {account.Region}");
+            }
+            
+            // Account age
+            var accountAge = DateTime.UtcNow - account.CreatedAt.ToDateTimeUtc();
+            var ageString = accountAge.TotalDays switch
+            {
+                < 7 => "新注册（不到一周）",
+                < 30 => $"注册 {accountAge.TotalDays:F0} 天",
+                < 365 => $"注册 {accountAge.TotalDays / 30:F0} 个月",
+                _ => $"注册 {accountAge.TotalDays / 365:F1} 年"
+            };
+            sb.AppendLine($"账号年龄: {ageString}");
+            
+            // Profile info if available
+            if (account.Profile != null)
+            {
+                if (!string.IsNullOrEmpty(account.Profile.Bio))
+                {
+                    sb.AppendLine($"个人简介: {account.Profile.Bio}");
+                }
+                
+                if (!string.IsNullOrEmpty(account.Profile.Location))
+                {
+                    sb.AppendLine($"位置: {account.Profile.Location}");
+                }
+                
+                // Last seen
+                if (account.Profile.LastSeenAt.HasValue)
+                {
+                    var lastSeen = DateTime.UtcNow - account.Profile.LastSeenAt.Value.ToDateTimeUtc();
+                    var lastSeenStr = lastSeen.TotalMinutes switch
+                    {
+                        < 1 => "刚刚",
+                        < 60 => $"{lastSeen.TotalMinutes:F0}分钟前",
+                        < 1440 => $"{lastSeen.TotalHours:F0}小时前",
+                        _ => $"{lastSeen.TotalDays:F0}天前"
+                    };
+                    sb.AppendLine($"上次活跃: {lastSeenStr}");
+                }
+            }
+            
+            // Badges
+            if (account.Badges?.Any() == true)
+            {
+                var badgeLabels = account.Badges.Select(b => b.Label ?? b.Type).ToList();
+                sb.AppendLine($"徽章: {string.Join(", ", badgeLabels)}");
+            }
+        }
+        
+        // Additional metadata
+        if (publisher.Meta != null)
+        {
+            if (publisher.Meta.TryGetValue("followers_count", out var followers))
+            {
+                sb.AppendLine($"关注者: {followers}");
+            }
+            if (publisher.Meta.TryGetValue("following_count", out var following))
+            {
+                sb.AppendLine($"关注中: {following}");
+            }
+            if (publisher.Meta.TryGetValue("posts_count", out var postsCount))
+            {
+                sb.AppendLine($"发帖数: {postsCount}");
+            }
+        }
+        
+        sb.AppendLine("===================");
+        
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Get poster summary for quick context
+    /// </summary>
+    public string GetPosterSummary(SnPost post)
+    {
+        if (post.Publisher == null)
+            return "未知发布者";
+
+        var publisher = post.Publisher;
+        var account = publisher.Account;
+        
+        var attributes = new List<string>();
+        
+        // Bot detection
+        if (account?.AutomatedId.HasValue == true)
+            attributes.Add("BOT");
+        
+        // Superuser
+        if (account?.IsSuperuser == true)
+            attributes.Add("ADMIN");
+        
+        // Verification
+        if (publisher.Verification != null)
+        {
+            var v = publisher.Verification;
+            attributes.Add($"{v.Type}");
+            if (!string.IsNullOrEmpty(v.Title))
+            {
+                attributes.Add($"{v.Title}");
+            }
+        }
+        
+        // Last seen status (if recently active)
+        if (account?.Profile?.LastSeenAt.HasValue == true)
+        {
+            var lastSeen = DateTime.UtcNow - account.Profile.LastSeenAt.Value.ToDateTimeUtc();
+            if (lastSeen.TotalMinutes < 5)
+            {
+                attributes.Add("ACTIVE");
+            }
+        }
+        
+        var attrStr = attributes.Any() ? $" [{string.Join(", ", attributes)}]" : "";
+        return $"@{publisher.Name} ({publisher.Nick}){attrStr}";
     }
 
     private async Task AddRepliedContextAsync(SnPost post, List<string> contextParts, int currentDepth, int maxDepth)
@@ -156,13 +351,13 @@ public class PostAnalysisService
         if (parentPost == null)
             return;
 
-        var author = parentPost.Publisher?.Name ?? "unknown";
+        var authorSummary = GetPosterSummary(parentPost);
         var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
         var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
         var content = parentPost.Content ?? "";
         var indent = new string(' ', currentDepth * 2);
 
-        contextParts.Insert(0, $"{indent}↳ @{author}{title}{description}: {content}");
+        contextParts.Insert(0, $"{indent}↳ {authorSummary}{title}{description}: {content}");
 
         await AddRepliedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth);
     }
@@ -181,13 +376,13 @@ public class PostAnalysisService
         if (parentPost == null)
             return;
 
-        var author = parentPost.Publisher?.Name ?? "unknown";
+        var authorSummary = GetPosterSummary(parentPost);
         var title = !string.IsNullOrEmpty(parentPost.Title) ? $" [{parentPost.Title}]" : "";
         var description = !string.IsNullOrEmpty(parentPost.Description) ? $" | {parentPost.Description}" : "";
         var content = parentPost.Content ?? "";
         var indent = new string(' ', currentDepth * 2);
 
-        contextParts.Add($"{indent}⇢ @{author}{title}{description}: {content}");
+        contextParts.Add($"{indent}⇢ {authorSummary}{title}{description}: {content}");
 
         await AddForwardedContextAsync(parentPost, contextParts, currentDepth + 1, maxDepth);
     }

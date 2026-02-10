@@ -8,30 +8,17 @@ namespace DysonNetwork.Insight.MiChan;
 /// Provides caching and delegates persistence to the AgentVectorService.
 /// </summary>
 #pragma warning disable SKEXP0020
-public class MiChanMemoryService
+public class MiChanMemoryService(
+    AgentVectorService vectorService,
+    ILogger<MiChanMemoryService> logger,
+    MiChanConfig config,
+    EmbeddingService embeddingService)
 {
-    private readonly AgentVectorService _vectorService;
-    private readonly ILogger<MiChanMemoryService> _logger;
-    private readonly MiChanConfig _config;
-    private readonly EmbeddingService _embeddingService;
-    private readonly string _agentId;
+    private readonly string _agentId = config.BotAccountId ?? "michan-default";
     
     // In-memory cache for hot data
     private readonly Dictionary<string, List<MiChanInteraction>> _memoryCache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
-
-    public MiChanMemoryService(
-        AgentVectorService vectorService, 
-        ILogger<MiChanMemoryService> logger, 
-        MiChanConfig config,
-        EmbeddingService embeddingService)
-    {
-        _vectorService = vectorService;
-        _logger = logger;
-        _config = config;
-        _embeddingService = embeddingService;
-        _agentId = config.BotAccountId ?? "michan-default";
-    }
 
     /// <summary>
     /// Store a new interaction with semantic embedding
@@ -46,7 +33,7 @@ public class MiChanMemoryService
         try
         {
             // Extract searchable content
-            var searchableContent = _embeddingService.ExtractSearchableContent(context);
+            var searchableContent = embeddingService.ExtractSearchableContent(context);
             
             // Create the interaction object for in-memory cache
             var interaction = new MiChanInteraction
@@ -73,10 +60,10 @@ public class MiChanMemoryService
                 _memoryCache[contextId].Add(interaction);
 
                 // Trim cache if too large
-                if (_memoryCache[contextId].Count > _config.Memory.MaxContextLength)
+                if (_memoryCache[contextId].Count > config.Memory.MaxContextLength)
                 {
                     _memoryCache[contextId] = _memoryCache[contextId]
-                        .Skip(_memoryCache[contextId].Count - _config.Memory.MaxContextLength)
+                        .Skip(_memoryCache[contextId].Count - config.Memory.MaxContextLength)
                         .ToList();
                 }
             }
@@ -86,7 +73,7 @@ public class MiChanMemoryService
             }
 
             // Persist to vector store if enabled
-            if (_config.Memory.PersistToDatabase && !string.IsNullOrWhiteSpace(searchableContent))
+            if (config.Memory.PersistToDatabase && !string.IsNullOrWhiteSpace(searchableContent))
             {
                 var metadata = new Dictionary<string, object>
                 {
@@ -95,7 +82,7 @@ public class MiChanMemoryService
                     ["has_memory"] = memory != null && memory.Count > 0
                 };
 
-                var storedMemory = await _vectorService.StoreMemoryAsync(
+                var storedMemory = await vectorService.StoreMemoryAsync(
                     agentId: _agentId,
                     memoryType: type,
                     content: searchableContent,
@@ -108,22 +95,22 @@ public class MiChanMemoryService
 
                 if (storedMemory != null)
                 {
-                    _logger.LogDebug("Stored interaction {Type} for context {ContextId} in vector store", type, contextId);
+                    logger.LogDebug("Stored interaction {Type} for context {ContextId} in vector store", type, contextId);
                 }
                 else
                 {
-                    _logger.LogWarning("Failed to store interaction {Type} for context {ContextId} in vector store", type, contextId);
+                    logger.LogWarning("Failed to store interaction {Type} for context {ContextId} in vector store", type, contextId);
                 }
             }
             else
             {
-                _logger.LogDebug("Stored interaction {Type} for context {ContextId} (memory persistence disabled or empty content)", type, contextId);
+                logger.LogDebug("Stored interaction {Type} for context {ContextId} (memory persistence disabled or empty content)", type, contextId);
             }
             return interaction;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error storing interaction");
+            logger.LogError(ex, "Error storing interaction");
             throw;
         }
     }
@@ -140,7 +127,7 @@ public class MiChanMemoryService
         try
         {
             // Search using the vector service
-            var memories = await _vectorService.SearchSimilarMemoriesAsync(
+            var memories = await vectorService.SearchSimilarMemoriesAsync(
                 query: query,
                 agentId: _agentId,
                 limit: limit * 2, // Get more to filter by similarity
@@ -155,12 +142,12 @@ public class MiChanMemoryService
                 results.Add(ConvertToInteraction(memory));
             }
 
-            _logger.LogDebug("Found {Count} similar interactions for query", results.Count);
+            logger.LogDebug("Found {Count} similar interactions for query", results.Count);
             return results;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error searching similar interactions");
+            logger.LogError(ex, "Error searching similar interactions");
             return new List<MiChanInteraction>();
         }
     }
@@ -185,9 +172,9 @@ public class MiChanMemoryService
             }
 
             // If not in cache, query from vector store
-            if (_config.Memory.PersistToDatabase)
+            if (config.Memory.PersistToDatabase)
             {
-                var memories = await _vectorService.GetMemoriesByContextAsync(
+                var memories = await vectorService.GetMemoriesByContextAsync(
                     contextId: contextId,
                     agentId: _agentId,
                     limit: count,
@@ -227,7 +214,7 @@ public class MiChanMemoryService
         // If we have a query, also get semantically similar memories
         if (!string.IsNullOrWhiteSpace(currentQuery))
         {
-            var similar = await _vectorService.SearchSimilarMemoriesAsync(
+            var similar = await vectorService.SearchSimilarMemoriesAsync(
                 query: currentQuery,
                 agentId: _agentId,
                 limit: semanticCount,
@@ -262,7 +249,7 @@ public class MiChanMemoryService
         if (!string.IsNullOrWhiteSpace(semanticQuery))
         {
             // Semantic search with type filter
-            var memories = await _vectorService.SearchSimilarMemoriesAsync(
+            var memories = await vectorService.SearchSimilarMemoriesAsync(
                 query: semanticQuery,
                 agentId: _agentId,
                 memoryType: type,
@@ -274,7 +261,7 @@ public class MiChanMemoryService
         }
 
         // Get recent memories of specific type
-        var typedMemories = await _vectorService.GetRecentMemoriesAsync(
+        var typedMemories = await vectorService.GetRecentMemoriesAsync(
             agentId: _agentId,
             memoryType: type,
             limit: limit,
@@ -305,11 +292,11 @@ public class MiChanMemoryService
                 _cacheLock.Release();
             }
 
-            _logger.LogDebug("Stored memory {Key} for context {ContextId}", key, contextId);
+            logger.LogDebug("Stored memory {Key} for context {ContextId}", key, contextId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error storing memory");
+            logger.LogError(ex, "Error storing memory");
         }
     }
 
@@ -350,7 +337,7 @@ public class MiChanMemoryService
     /// </summary>
     public async Task<int> CleanupOldInteractionsAsync(Duration maxAge, CancellationToken cancellationToken = default)
     {
-        var count = await _vectorService.CleanupOldMemoriesAsync(
+        var count = await vectorService.CleanupOldMemoriesAsync(
             maxAge: TimeSpan.FromTicks(maxAge.BclCompatibleTicks),
             importanceThreshold: 0.3,
             cancellationToken: cancellationToken
@@ -358,7 +345,7 @@ public class MiChanMemoryService
         
         if (count > 0)
         {
-            _logger.LogInformation("Cleaned up {Count} old interactions", count);
+            logger.LogInformation("Cleaned up {Count} old interactions", count);
         }
 
         return count;
