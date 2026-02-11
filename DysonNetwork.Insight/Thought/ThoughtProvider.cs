@@ -205,11 +205,18 @@ public class ThoughtProvider
             }
 
             var personality = PersonalityLoader.LoadPersonality(_miChanConfig.PersonalityFile, _miChanConfig.Personality, _logger);
-            
+
             var conversationBuilder = new StringBuilder();
             conversationBuilder.AppendLine(personality);
             conversationBuilder.AppendLine($"以下是你与用户 {accountId} 对话历史。请阅读并判断有什么重要信息、关键事实或用户偏好值得记住。");
-            conversationBuilder.AppendLine("如果有值得记住的信息，请使用 store_memory 工具保存记忆。");
+            conversationBuilder.AppendLine();
+            conversationBuilder.AppendLine("请用以下格式输出要保存的记忆（每条一行）：");
+            conversationBuilder.AppendLine("STORE:类型:内容");
+            conversationBuilder.AppendLine("类型可以是：fact(事实)、user(用户偏好)、context(上下文)、summary(总结)");
+            conversationBuilder.AppendLine();
+            conversationBuilder.AppendLine("示例：");
+            conversationBuilder.AppendLine("STORE:fact:用户喜欢猫咪");
+            conversationBuilder.AppendLine("STORE:user:用户的工作是程序员");
             conversationBuilder.AppendLine();
             conversationBuilder.AppendLine("=== 对话历史 ===");
             conversationBuilder.AppendLine();
@@ -256,11 +263,52 @@ public class ThoughtProvider
 
             var response = result?.Trim() ?? "";
 
-            _logger.LogInformation(
-                "Memory summarization completed for sequence {SequenceId}. Response: {Response}",
-                sequenceId, response);
+            var memoriesStored = 0;
+            var lines = response.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l));
 
-            return (true, response);
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("STORE:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var storeContent = line.Substring(7).Trim();
+                    var colonIndex = storeContent.IndexOf(':');
+                    if (colonIndex > 0)
+                    {
+                        var type = storeContent.Substring(0, colonIndex).Trim().ToLower();
+                        var content = storeContent.Substring(colonIndex + 1).Trim();
+
+                        if (!string.IsNullOrEmpty(content))
+                        {
+                            try
+                            {
+                                await _memoryService.StoreMemoryAsync(
+                                    type: type,
+                                    content: content,
+                                    confidence: 0.7f,
+                                    accountId: accountId,
+                                    hot: false);
+                                memoriesStored++;
+                                _logger.LogInformation("Stored memory from sequence {SequenceId}: type={Type}, content={Content}",
+                                    sequenceId, type, content[..Math.Min(content.Length, 100)]);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to store memory from sequence {SequenceId}", sequenceId);
+                            }
+                        }
+                    }
+                }
+            }
+
+            var summary = memoriesStored > 0
+                ? $"Stored {memoriesStored} memory(ies). {response}"
+                : response;
+
+            _logger.LogInformation(
+                "Memory summarization completed for sequence {SequenceId}. Stored {Count} memories. Response: {Response}",
+                sequenceId, memoriesStored, response);
+
+            return (true, summary);
         }
         catch (Exception ex)
         {
