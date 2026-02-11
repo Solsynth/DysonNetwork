@@ -1,9 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
-#pragma warning disable SKEXP0050
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -12,7 +12,8 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using PaymentService = DysonNetwork.Shared.Proto.PaymentService;
 using TransactionType = DysonNetwork.Shared.Proto.TransactionType;
-using WalletService = DysonNetwork.Shared.Proto.WalletService;
+
+#pragma warning disable SKEXP0050
 
 namespace DysonNetwork.Insight.Thought;
 
@@ -23,149 +24,27 @@ public class ThoughtService(
     AccountService.AccountServiceClient accountClient,
     ThoughtProvider thoughtProvider,
     MiChanKernelProvider miChanKernelProvider,
-    MiChanMemoryService miChanMemoryService,
     SolarNetworkApiClient apiClient,
     IServiceProvider serviceProvider,
     PostAnalysisService postAnalysisService,
     IConfiguration configuration,
+    MemoryService memoryService,
     ILogger<ThoughtService> logger
 )
 {
-    public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(
-        Guid accountId,
-        Guid? sequenceId,
-        string? topic = null
-    )
-    {
-        if (sequenceId.HasValue)
-        {
-            var seq = await db.ThinkingSequences.FindAsync(sequenceId.Value);
-            if (seq == null || seq.AccountId != accountId)
-                return null;
-            return seq;
-        }
-        else
-        {
-            var seq = new SnThinkingSequence { AccountId = accountId, Topic = topic };
-            db.ThinkingSequences.Add(seq);
-            await db.SaveChangesAsync();
-            return seq;
-        }
-    }
-
     /// <summary>
     /// Memorizes a thought sequence using the embedding service for semantic search.
-    /// Includes the actual conversation content from the thoughts.
+    /// Note: Memory is now only created through agent tool calls, not automatically.
     /// </summary>
     public async Task MemorizeSequenceAsync(
         SnThinkingSequence sequence,
         Dictionary<string, object>? additionalContext = null)
     {
-        try
-        {
-            // Fetch the thoughts in this sequence to include their content
-            var thoughts = await db.ThinkingThoughts
-                .Where(t => t.SequenceId == sequence.Id)
-                .OrderBy(t => t.CreatedAt)
-                .ToListAsync();
-
-            // Fetch account information to include username
-            string username = "Unknown";
-            string nickname = "Unknown";
-            try
-            {
-                var accountResponse = await accountClient.GetAccountAsync(
-                    new GetAccountRequest { Id = sequence.AccountId.ToString() });
-                if (accountResponse != null)
-                {
-                    username = accountResponse.Name ?? "Unknown";
-                    nickname = accountResponse.Nick ?? username;
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to fetch account info for {AccountId}", sequence.AccountId);
-            }
-
-            // Build the conversation content from thoughts
-            var conversationContent = new StringBuilder();
-            foreach (var thought in thoughts)
-            {
-                var role = thought.Role == ThinkingThoughtRole.User ? "User" : "Assistant";
-                var content = ExtractThoughtContent(thought);
-                if (!string.IsNullOrEmpty(content))
-                {
-                    conversationContent.AppendLine($"{role}: {content}");
-                }
-            }
-
-            var contentText = conversationContent.ToString().Trim();
-            if (string.IsNullOrEmpty(contentText))
-            {
-                contentText = $"Topic: {sequence.Topic ?? "No topic"}";
-            }
-
-            // Prepare searchable content that includes the conversation
-            var searchableContent = new StringBuilder();
-            searchableContent.AppendLine($"Topic: {sequence.Topic ?? "No topic"}");
-            searchableContent.AppendLine($"User: @{username} ({nickname})");
-            searchableContent.AppendLine($"Sequence ID: {sequence.Id}");
-            searchableContent.AppendLine();
-            searchableContent.AppendLine("Conversation:");
-            searchableContent.AppendLine(contentText);
-
-            var memoryContext = new Dictionary<string, object>
-            {
-                ["sequence_id"] = sequence.Id.ToString(),
-                ["account_id"] = sequence.AccountId.ToString(),
-                ["username"] = username,
-                ["nickname"] = nickname,
-                ["topic"] = sequence.Topic ?? "No topic",
-                ["total_tokens"] = sequence.TotalToken,
-                ["paid_tokens"] = sequence.PaidToken,
-                ["created_at"] = sequence.CreatedAt,
-                ["updated_at"] = sequence.UpdatedAt,
-                ["timestamp"] = DateTime.UtcNow,
-                ["content"] = contentText.Length > 2000 ? contentText[..2000] + "..." : contentText
-            };
-
-            // Add any additional context
-            if (additionalContext != null)
-            {
-                foreach (var kvp in additionalContext)
-                {
-                    memoryContext[kvp.Key] = kvp.Value;
-                }
-            }
-
-            await miChanMemoryService.StoreInteractionAsync(
-                type: "thought_sequence",
-                contextId: sequence.Id.ToString(),
-                context: memoryContext,
-                memory: new Dictionary<string, object>
-                {
-                    ["sequence_id"] = sequence.Id.ToString(),
-                    ["topic"] = sequence.Topic ?? "No topic",
-                    ["account_id"] = sequence.AccountId.ToString(),
-                    ["username"] = username,
-                    ["nickname"] = nickname,
-                    ["searchable_content"] = searchableContent.ToString()
-                }
-            );
-
-            logger.LogInformation(
-                "Memorized thought sequence {SequenceId} for user @{Username} ({Nickname}) with topic: {Topic} (including {ThoughtCount} thoughts)",
-                sequence.Id,
-                username,
-                nickname,
-                sequence.Topic ?? "No topic",
-                thoughts.Count
-            );
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error memorizing thought sequence {SequenceId}", sequence.Id);
-        }
+        // Memory is now only created through agent tool calls, not automatically
+        logger.LogDebug(
+            "Skipping automatic memory storage for sequence {SequenceId}. Memory should be created through agent tool calls.",
+            sequence.Id);
+        await Task.CompletedTask;
     }
 
     /// <summary>
@@ -189,34 +68,44 @@ public class ThoughtService(
                     break;
             }
         }
+
         return content.ToString().Trim();
     }
 
     /// <summary>
-    /// Gets or creates a thought sequence and memorizes it using the embedding service.
-    /// Only memorizes if a new sequence was created (not when an existing one is retrieved).
+    /// Gets or creates a thought sequence.
+    /// Note: Memory storage should be done by the agent using the memory store tool when necessary.
     /// </summary>
+    public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(
+        Guid accountId,
+        Guid? sequenceId = null,
+        string? topic = null)
+    {
+        if (sequenceId.HasValue)
+        {
+            var existingSequence = await db.ThinkingSequences.FindAsync(sequenceId.Value);
+            if (existingSequence == null || existingSequence.AccountId != accountId)
+                return null;
+            return existingSequence;
+        }
+        else
+        {
+            var seq = new SnThinkingSequence { AccountId = accountId, Topic = topic };
+            db.ThinkingSequences.Add(seq);
+            await db.SaveChangesAsync();
+            return seq;
+        }
+    }
+
     public async Task<SnThinkingSequence?> GetOrCreateAndMemorizeSequenceAsync(
         Guid accountId,
         Guid? sequenceId = null,
         string? topic = null,
         Dictionary<string, object>? additionalContext = null)
     {
-        // If sequenceId is provided, just retrieve the existing sequence without memorizing
-        if (sequenceId.HasValue)
-        {
-            var existingSequence = await GetOrCreateSequenceAsync(accountId, sequenceId, topic);
-            return existingSequence;
-        }
-
-        // Create a new sequence
-        var newSequence = await GetOrCreateSequenceAsync(accountId, null, topic);
-        if (newSequence != null)
-        {
-            // Only memorize newly created sequences to avoid duplicates
-            await MemorizeSequenceAsync(newSequence, additionalContext);
-        }
-        return newSequence;
+        logger.LogDebug(
+            "GetOrCreateAndMemorizeSequenceAsync called - automatic memory storage is disabled. Agent should call memory store tool when necessary.");
+        return await GetOrCreateSequenceAsync(accountId, sequenceId, topic);
     }
 
     public async Task<SnThinkingSequence?> GetSequenceAsync(Guid sequenceId)
@@ -235,9 +124,7 @@ public class ThoughtService(
         List<SnThinkingMessagePart> parts,
         ThinkingThoughtRole role,
         string? model = null,
-        string? botName = null,
-        bool memorize = false
-    )
+        string? botName = null)
     {
         // Approximate token count (1 token ≈ 4 characters for GPT-like models)
         var totalChars = parts.Sum(part =>
@@ -266,109 +153,21 @@ public class ThoughtService(
         // Invalidate cache for this sequence's thoughts
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
-        // Memorize the thought if requested
-        if (memorize)
-        {
-            await MemorizeThoughtAsync(thought, sequence);
-        }
-
         return thought;
     }
 
     /// <summary>
     /// Memorizes a thought using the embedding service for semantic search.
+    /// NOTE: This method is disabled. The agent should call the memory store tool when necessary.
     /// </summary>
     public async Task MemorizeThoughtAsync(
         SnThinkingThought thought,
         SnThinkingSequence? sequence = null,
         Dictionary<string, object>? additionalContext = null)
     {
-        try
-        {
-            // Get sequence info if not provided
-            sequence ??= await db.ThinkingSequences.FindAsync(thought.SequenceId);
-            if (sequence == null)
-            {
-                logger.LogWarning("Cannot memorize thought {ThoughtId}: sequence not found", thought.Id);
-                return;
-            }
-
-            // Extract text content from thought parts
-            var textContent = new StringBuilder();
-            foreach (var part in thought.Parts)
-            {
-                switch (part.Type)
-                {
-                    case ThinkingMessagePartType.Text when !string.IsNullOrEmpty(part.Text):
-                        textContent.AppendLine(part.Text);
-                        break;
-                    case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
-                        textContent.AppendLine($"[Function Call: {part.FunctionCall.PluginName}.{part.FunctionCall.Name}]");
-                        if (!string.IsNullOrEmpty(part.FunctionCall.Arguments))
-                            textContent.AppendLine($"Arguments: {part.FunctionCall.Arguments}");
-                        break;
-                    case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
-                        textContent.AppendLine($"[Function Result: {part.FunctionResult.FunctionName}]");
-                        var result = part.FunctionResult.Result?.ToString() ?? "null";
-                        textContent.AppendLine($"Result: {result}");
-                        break;
-                }
-            }
-
-            var content = textContent.ToString().Trim();
-            if (string.IsNullOrEmpty(content))
-            {
-                logger.LogDebug("Thought {ThoughtId} has no text content to memorize", thought.Id);
-                return;
-            }
-
-            var memoryContext = new Dictionary<string, object>
-            {
-                ["thought_id"] = thought.Id,
-                ["sequence_id"] = thought.SequenceId,
-                ["account_id"] = sequence.AccountId,
-                ["role"] = thought.Role.ToString(),
-                ["content"] = content.Length > 2000 ? content[..2000] + "..." : content,
-                ["token_count"] = thought.TokenCount,
-                ["model"] = thought.ModelName ?? "unknown",
-                ["bot_name"] = thought.BotName ?? "unknown",
-                ["created_at"] = thought.CreatedAt,
-                ["timestamp"] = DateTime.UtcNow
-            };
-
-            // Add any additional context
-            if (additionalContext != null)
-            {
-                foreach (var kvp in additionalContext)
-                {
-                    memoryContext[kvp.Key] = kvp.Value;
-                }
-            }
-
-            await miChanMemoryService.StoreInteractionAsync(
-                type: "thought",
-                contextId: thought.SequenceId.ToString(),
-                context: memoryContext,
-                memory: new Dictionary<string, object>
-                {
-                    ["thought_id"] = thought.Id,
-                    ["sequence_id"] = thought.SequenceId,
-                    ["role"] = thought.Role.ToString(),
-                    ["topic"] = sequence.Topic ?? "No topic"
-                }
-            );
-
-            logger.LogDebug(
-                "Memorized thought {ThoughtId} from sequence {SequenceId} with {TokenCount} tokens",
-                thought.Id,
-                thought.SequenceId,
-                thought.TokenCount
-            );
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error memorizing thought {ThoughtId}", thought.Id);
-        }
+        logger.LogDebug(
+            "MemorizeThoughtAsync called - automatic memory storage is disabled. Agent should call memory store tool when necessary.");
+        await Task.CompletedTask;
     }
 
     public async Task<List<SnThinkingThought>> GetPreviousThoughtsAsync(SnThinkingSequence sequence)
@@ -628,6 +427,7 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("当用户询问关于 Solar Network 的问题时，尝试使用你拥有的工具获取最新和准确的数据。");
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 memory 工具）来获取相关上下文。");
+        systemPromptBuilder.AppendLine("如果用户要求你记住某些信息，或者你觉得有重要信息需要记住，请使用 store_memory 工具来保存记忆。");
         systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或查看过去的内容，直接根据记忆自然地回复。");
         systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
@@ -688,6 +488,7 @@ public class ThoughtService(
                 {
                     postsBuilder.AppendLine(postText);
                 }
+
                 chatHistory.AddUserMessage(postsBuilder.ToString());
             }
         }
@@ -784,8 +585,8 @@ public class ThoughtService(
         string userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
-        List<string> acceptProposals,
-        string contextId)
+        List<string> acceptProposals
+    )
     {
         // Load personality
         var personality = PersonalityLoader.LoadPersonality(
@@ -793,84 +594,41 @@ public class ThoughtService(
             configuration.GetValue<string>("MiChan:Personality") ?? "",
             logger);
 
-        // Retrieve relevant memories before thinking
-        var relevantMemories = await miChanMemoryService.SearchSimilarInteractionsAsync(
+        // Retrieve hot memories for context
+        var hotMemories = await memoryService.GetHotMemory(
+            Guid.Parse(currentUser.Id),
             userMessage,
-            limit: 5,
-            minSimilarity: 0.7);
+            10);
 
         // For non-superusers, MiChan decides whether to execute actions
         var isSuperuser = currentUser.IsSuperuser;
-
-        // Decision gate for non-superusers
-        if (!isSuperuser)
-        {
-            var decisionPromptBuilder = new StringBuilder();
-            decisionPromptBuilder.AppendLine($"用户请求你：\"{userMessage}\"");
-            decisionPromptBuilder.AppendLine();
-            decisionPromptBuilder.AppendLine("你有以下可用工具：");
-            decisionPromptBuilder.AppendLine("- chat: send_message, get_chat_history, list_chat_rooms");
-            decisionPromptBuilder.AppendLine(
-                "- post: get_post, create_post, like_post, reply_to_post, repost_post, search_posts");
-            decisionPromptBuilder.AppendLine(
-                "- notification: get_notifications, approve_chat_request, decline_chat_request");
-            decisionPromptBuilder.AppendLine(
-                "- account: get_account_info, search_accounts, follow_account, unfollow_account");
-            decisionPromptBuilder.AppendLine();
-            decisionPromptBuilder.AppendLine("你应该执行用户的请求吗？考虑：");
-            decisionPromptBuilder.AppendLine("- 这是否安全和适当？");
-            decisionPromptBuilder.AppendLine("- 这是否符合帮助 Solar Network 用户的目标？");
-            decisionPromptBuilder.AppendLine("- 用户是否要求有害或违反平台规则的内容？");
-            decisionPromptBuilder.AppendLine();
-            decisionPromptBuilder.AppendLine("仅回复一个词：EXECUTE 或 REFUSE。");
-
-            var decisionHistory = new ChatHistory(personality);
-            decisionHistory.AddUserMessage(decisionPromptBuilder.ToString());
-
-            var kernel = miChanKernelProvider.GetKernel();
-            var decisionService = kernel.GetRequiredService<IChatCompletionService>();
-            var decisionExecutionSettings = miChanKernelProvider.CreatePromptExecutionSettings();
-            var decisionResult =
-                await decisionService.GetChatMessageContentAsync(decisionHistory, decisionExecutionSettings, kernel);
-            var decision = decisionResult.Content?.Trim().ToUpper();
-
-            if (decision?.Contains("REFUSE") == true)
-            {
-                return (new ChatHistory(), true, "我无法执行这个请求。");
-            }
-        }
 
         // Build chat history using StringBuilder
         var chatHistoryBuilder = new StringBuilder();
         chatHistoryBuilder.AppendLine(personality);
         chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} ({currentUser.Name}) 交谈。");
 
-        chatHistoryBuilder.AppendLine(isSuperuser ? "此用户是管理员，拥有完全控制权。你应该立即执行他们的命令。" : "在适当时使用你的可用工具帮助用户完成请求。");
+        // Add hot memories context
+        if (hotMemories.Count > 0)
+        {
+            chatHistoryBuilder.AppendLine("你的热点记忆：");
+            foreach (var memory in hotMemories.Take(5))
+            {
+                chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
+            }
+            chatHistoryBuilder.AppendLine();
+        }
+
+        chatHistoryBuilder.AppendLine("你正在与 " + currentUser.Nick + " (" + currentUser.Name + ") 交谈。");
+
+        chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 memory 工具）来获取相关上下文。");
+        chatHistoryBuilder.AppendLine("如果用户要求你记住某些信息，或者你觉得有重要信息需要记住，请使用 store_memory 工具来保存记忆。");
         chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或查看过去的内容，直接根据记忆自然地回复。");
         chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
-
-        // Add relevant memories as system context
-        if (relevantMemories.Count > 0)
-        {
-            var memoryContextBuilder = new StringBuilder();
-            memoryContextBuilder.AppendLine("相关过往互动记忆：");
-            memoryContextBuilder.AppendLine();
-            foreach (var memory in relevantMemories)
-            {
-                if (!memory.Context.TryGetValue("message", out var msg) ||
-                    !memory.Context.TryGetValue("response", out var resp)) continue;
-                memoryContextBuilder.AppendLine($"- 用户：{msg}");
-                memoryContextBuilder.AppendLine($"  你：{resp}");
-                memoryContextBuilder.AppendLine();
-            }
-
-            chatHistory.AddSystemMessage(memoryContextBuilder.ToString());
-        }
 
         // Add proposal info using StringBuilder
         var proposalBuilder = new StringBuilder();
@@ -882,28 +640,9 @@ public class ThoughtService(
         proposalBuilder.AppendLine("以下是你可以发出的提案参考，但如果你想发出一个，请确保用户接受它。");
         proposalBuilder.AppendLine("1. post_create：body 接受简单字符串，为用户创建帖子。");
         proposalBuilder.AppendLine();
-        proposalBuilder.AppendLine($"用户当前允许的提案：{string.Join(',', acceptProposals)}");
+        proposalBuilder.AppendLine("用户当前允许的提案：" + string.Join(",", acceptProposals));
 
         chatHistory.AddSystemMessage(proposalBuilder.ToString());
-
-        // Load conversation history from memory using hybrid semantic + recent search
-        var history = await miChanMemoryService.GetRelevantContextAsync(
-            contextId,
-            currentQuery: userMessage,
-            semanticCount: 5,
-            recentCount: 10);
-        foreach (var interaction in history.OrderBy(h => h.CreatedAt))
-        {
-            if (interaction.Context.TryGetValue("message", out var msg))
-            {
-                chatHistory.AddUserMessage(msg?.ToString() ?? "");
-            }
-
-            if (interaction.Context.TryGetValue("response", out var resp))
-            {
-                chatHistory.AddAssistantMessage(resp?.ToString() ?? "");
-            }
-        }
 
         // Add attached posts with image analysis if available
         if (attachedPosts is { Count: > 0 })
@@ -981,17 +720,10 @@ public class ThoughtService(
         string response,
         bool isSuperuser)
     {
-        await miChanMemoryService.StoreInteractionAsync(
-            "thought",
-            contextId,
-            new Dictionary<string, object>
-            {
-                ["message"] = userMessage,
-                ["response"] = response,
-                ["timestamp"] = DateTime.UtcNow,
-                ["is_superuser"] = isSuperuser
-            }
-        );
+        // Memory is now only created through agent tool calls, not automatically
+        logger.LogDebug(
+            "Skipping automatic memory storage for interaction. Memory should be created through agent tool calls.");
+        await Task.CompletedTask;
     }
 
     #endregion

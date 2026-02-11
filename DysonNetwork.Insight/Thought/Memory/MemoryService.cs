@@ -303,4 +303,79 @@ public class MemoryService(
 
         return true;
     }
+
+    /// <summary>
+    /// Get hot memories using semantic search from both global and personal memory DB.
+    /// User's hot memory is always loaded regardless of relevance.
+    /// </summary>
+    public async Task<List<MiChanMemoryRecord>> GetHotMemory(
+        Guid? accountId,
+        string prompt,
+        int limit = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (!embeddingService.IsAvailable)
+        {
+            logger.LogWarning("Embedding service is unavailable for hot memory search");
+            return [];
+        }
+
+        var queryEmbedding = await embeddingService.GenerateEmbeddingAsync(prompt, cancellationToken);
+        if (queryEmbedding == null)
+        {
+            logger.LogWarning("Failed to generate query embedding for hot memory search");
+            return [];
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var allMemories = new List<(MiChanMemoryRecord Record, double Distance)>();
+
+        var hotQuery = database.MemoryRecords
+            .Where(r => r.IsHot && r.IsActive);
+
+        var globalHotMemories = await hotQuery
+            .Where(r => r.AccountId == null)
+            .Select(r => new { Record = r, Distance = r.Embedding!.CosineDistance(queryEmbedding) })
+            .ToListAsync(cancellationToken);
+
+        allMemories.AddRange(globalHotMemories.Select(x => (x.Record, x.Distance)));
+
+        if (accountId.HasValue)
+        {
+            var personalHotMemories = await hotQuery
+                .Where(r => r.AccountId == accountId.Value)
+                .Select(r => new { Record = r, Distance = r.Embedding!.CosineDistance(queryEmbedding) })
+                .ToListAsync(cancellationToken);
+
+            allMemories.AddRange(personalHotMemories.Select(x => (x.Record, x.Distance)));
+        }
+
+        var userHotMemories = allMemories
+            .Where(x => x.Record.AccountId == accountId && x.Record.Type == "user")
+            .Select(x => x.Record)
+            .ToList();
+
+        var otherHotMemories = allMemories
+            .Where(x => !(x.Record.AccountId == accountId && x.Record.Type == "user"))
+            .OrderBy(x => x.Distance)
+            .Take(limit - userHotMemories.Count)
+            .Select(x => x.Record)
+            .ToList();
+
+        var result = userHotMemories.Concat(otherHotMemories).ToList();
+
+        if (result.Count > 0)
+        {
+            var recordIds = result.Select(x => x.Id).ToList();
+            await database.MemoryRecords
+                .Where(r => recordIds.Contains(r.Id))
+                .ExecuteUpdateAsync(x => x.SetProperty(p => p.LastAccessedAt, now), cancellationToken);
+        }
+
+        logger.LogDebug(
+            "Retrieved {TotalCount} hot memories (user hot: {UserCount}, global+personal: {OtherCount}) for account {AccountId}",
+            result.Count, userHotMemories.Count, otherHotMemories.Count, accountId);
+
+        return result;
+    }
 }

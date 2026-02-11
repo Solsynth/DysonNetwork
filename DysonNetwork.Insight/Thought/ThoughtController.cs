@@ -138,8 +138,8 @@ public class ThoughtController(
             }
         }
 
-        // Handle sequence (creates and memorizes if new)
-        var sequence = await service.GetOrCreateAndMemorizeSequenceAsync(accountId, request.SequenceId, topic);
+        // Handle sequence (creates if new)
+        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
         if (sequence == null) return Forbid();
 
         // Save user thought with bot identifier
@@ -320,8 +320,8 @@ public class ThoughtController(
             }
         }
 
-        // Handle sequence (creates and memorizes if new)
-        var sequence = await service.GetOrCreateAndMemorizeSequenceAsync(accountId, request.SequenceId, topic);
+        // Handle sequence (creates if new)
+        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
         if (sequence == null) return Forbid();
 
         // Save user thought with bot identifier
@@ -347,8 +347,7 @@ public class ThoughtController(
             request.UserMessage,
             request.AttachedPosts,
             request.AttachedMessages,
-            request.AcceptProposals,
-            contextId
+            request.AcceptProposals
         );
 
         // Handle refusal

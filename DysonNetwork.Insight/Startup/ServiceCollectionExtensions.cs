@@ -101,7 +101,6 @@ public static class ServiceCollectionExtensions
             // Memory and behavior services
             services.AddSingleton<EmbeddingService>();
             services.AddSingleton<MemoryService>();
-            services.AddSingleton<MiChanMemoryService>();
             services.AddSingleton<PostAnalysisService>();
             services.AddSingleton<MiChanAutonomousBehavior>();
             

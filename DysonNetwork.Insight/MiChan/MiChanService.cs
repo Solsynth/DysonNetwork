@@ -1,6 +1,7 @@
 #pragma warning disable SKEXP0050
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Models;
 using Microsoft.SemanticKernel;
 
@@ -16,7 +17,7 @@ public class MiChanService(
 {
     private MiChanWebSocketHandler? _webSocketHandler;
     private MiChanKernelProvider? _kernelProvider;
-    private MiChanMemoryService? _memoryService;
+    private MemoryService? _memoryService;
     private MiChanAutonomousBehavior? _autonomousBehavior;
     private SolarNetworkApiClient? _apiClient;
     private Kernel? _kernel;
@@ -93,7 +94,7 @@ public class MiChanService(
             _apiClient = serviceProvider.GetRequiredService<SolarNetworkApiClient>();
 
             // Create memory service
-            _memoryService = serviceProvider.GetRequiredService<MiChanMemoryService>();
+            _memoryService = serviceProvider.GetRequiredService<MemoryService>();
 
             // Create kernel provider and get kernel
             _kernelProvider = serviceProvider.GetRequiredService<MiChanKernelProvider>();
@@ -315,15 +316,10 @@ public class MiChanService(
             chatHistory.AddUserMessage(content ?? "");
 
             // Store in memory service
-            await _memoryService!.StoreInteractionAsync(
+            await _memoryService!.StoreMemoryAsync(
                 "chat",
-                roomId.ToString(),
-                new Dictionary<string, object>
-                {
-                    ["sender_id"] = senderId.ToString(),
-                    ["message"] = content ?? "",
-                    ["timestamp"] = DateTime.UtcNow
-                }
+                $"Room {roomId}: {content}",
+                hot: false
             );
 
             // Get response from AI
@@ -341,9 +337,9 @@ public class MiChanService(
 
             // Update memory with response
             await _memoryService.StoreMemoryAsync(
-                roomId.ToString(),
-                "last_response",
-                response
+                "conversation",
+                $"Room {roomId}: {response}",
+                hot: false
             );
 
             // Send response via chat plugin
@@ -467,17 +463,11 @@ public class MiChanService(
                 }
             }
 
-            // Store the interaction with embedding using the memory service
-            // This internally uses the EmbeddingService to generate embeddings
-            await _memoryService!.StoreInteractionAsync(
-                type: "thought_sequence",
-                contextId: contextId ?? sequence.Id.ToString(),
-                context: memoryContext,
-                memory: new Dictionary<string, object>
-                {
-                    ["sequence_id"] = sequence.Id,
-                    ["topic"] = topic ?? "No topic"
-                }
+            // Store in memory service
+            await _memoryService!.StoreMemoryAsync(
+                "thought_sequence",
+                $"Sequence {sequence.Id}: {topic ?? "No topic"} - {memoryContext}",
+                hot: false
             );
 
             logger.LogInformation(

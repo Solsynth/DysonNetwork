@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
@@ -19,11 +20,11 @@ public class MiChanAutonomousBehavior
     private readonly MiChanConfig _config;
     private readonly ILogger<MiChanAutonomousBehavior> _logger;
     private readonly SolarNetworkApiClient _apiClient;
-    private readonly MiChanMemoryService _memoryService;
     private readonly MiChanKernelProvider _kernelProvider;
     private readonly IServiceProvider _serviceProvider;
     private readonly AccountService.AccountServiceClient _accountClient;
     private readonly PostAnalysisService _postAnalysisService;
+    private readonly MemoryService _memoryService;
     private Kernel? _kernel;
 
     private readonly Random _random = new();
@@ -47,23 +48,23 @@ public class MiChanAutonomousBehavior
         MiChanConfig config,
         ILogger<MiChanAutonomousBehavior> logger,
         SolarNetworkApiClient apiClient,
-        MiChanMemoryService memoryService,
         MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
         AccountService.AccountServiceClient accountClient,
         PostAnalysisService postAnalysisService,
-        IConfiguration configGlobal
+        IConfiguration configGlobal,
+        MemoryService memoryService
     )
     {
         _config = config;
         _logger = logger;
         _apiClient = apiClient;
-        _memoryService = memoryService;
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
         _accountClient = accountClient;
         _postAnalysisService = postAnalysisService;
         _configGlobal = configGlobal;
+        _memoryService = memoryService;
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex("@michan\\b", RegexOptions.IgnoreCase);
     }
@@ -372,10 +373,17 @@ public class MiChanAutonomousBehavior
             var content = PostAnalysisService.BuildPostPromptSnippet(post);
 
             // Retrieve relevant memories about this author or similar content
-            var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+            var relevantMemories = await _memoryService.SearchAsync(
                 content,
+                accountId: post.Publisher?.AccountId,
                 limit: 3,
                 minSimilarity: 0.6);
+
+            // Retrieve hot memories for context
+            var hotMemories = await _memoryService.GetHotMemory(
+                accountId: post.Publisher?.AccountId,
+                prompt: content,
+                limit: 5);
 
             var memoryContext = "";
             if (relevantMemories.Count > 0)
@@ -384,14 +392,28 @@ public class MiChanAutonomousBehavior
                 sb.AppendLine("Relevant past interactions:");
                 foreach (var memory in relevantMemories.Take(3))
                 {
-                    if (memory.Context.TryGetValue("content", out var c))
+                    if (!string.IsNullOrEmpty(memory.Content))
                     {
-                        sb.AppendLine($"- {c}");
+                        sb.AppendLine($"- {memory.Content}");
                     }
                 }
 
                 sb.AppendLine();
                 memoryContext = sb.ToString();
+            }
+
+            // Add hot memories to context
+            var hotMemoryContext = "";
+            if (hotMemories.Count > 0)
+            {
+                var hotSb = new StringBuilder();
+                hotSb.AppendLine("Hot memories:");
+                foreach (var memory in hotMemories)
+                {
+                    hotSb.AppendLine($"- {memory.ToPrompt()}");
+                }
+                hotSb.AppendLine();
+                hotMemoryContext = hotSb.ToString();
             }
 
             // Check if post has attachments (including from context chain)
@@ -463,6 +485,11 @@ public class MiChanAutonomousBehavior
                     promptBuilder.AppendLine($"当前心情: {mood}");
                     promptBuilder.AppendLine();
 
+                    if (!string.IsNullOrEmpty(hotMemoryContext))
+                    {
+                        promptBuilder.AppendLine(hotMemoryContext);
+                    }
+
                     if (!string.IsNullOrEmpty(memoryContext))
                     {
                         promptBuilder.AppendLine(memoryContext);
@@ -480,6 +507,8 @@ public class MiChanAutonomousBehavior
                     promptBuilder.AppendLine();
                     promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
                     promptBuilder.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力。不要使用表情符号。");
+                    promptBuilder.AppendLine();
+                    promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。");
 
                     var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
                     var kernelArgs = new KernelArguments(executionSettings);
@@ -533,6 +562,11 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine($"当前心情: {mood}");
                 decisionPrompt.AppendLine();
 
+                if (!string.IsNullOrEmpty(hotMemoryContext))
+                {
+                    decisionPrompt.AppendLine(hotMemoryContext);
+                }
+
                 if (!string.IsNullOrEmpty(memoryContext))
                 {
                     decisionPrompt.AppendLine(memoryContext);
@@ -558,6 +592,8 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子");
                 decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**STORE** - 使用 store_memory 工具保存重要信息到记忆中");
+                decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine(
                     "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
@@ -566,16 +602,17 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
+                decisionPrompt.AppendLine("- STORE: 你想要保存的记忆内容");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("示例：");
-                decisionPrompt.AppendLine("REPLY: 这个很有意思！我也在想这个。");
-                decisionPrompt.AppendLine("REPLY: 我完全同意你的观点。");
-                decisionPrompt.AppendLine("REACT:heart:Positive");
                 decisionPrompt.AppendLine("REPLY: 这个很有意思！我也在想这个。");
                 decisionPrompt.AppendLine("REACT:heart:Positive");
                 decisionPrompt.AppendLine("REPLY: 我完全同意你的观点。");
                 decisionPrompt.AppendLine("REACT:clap:Positive");
                 decisionPrompt.AppendLine("IGNORE");
+                decisionPrompt.AppendLine("STORE: 用户喜欢分享关于AI技术的帖子");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("重要：如果发现重要信息、用户偏好、关键事实，请使用 STORE 行动保存到记忆中。");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
                 var decisionResult =
@@ -711,6 +748,8 @@ public class MiChanAutonomousBehavior
         {
             instructionText.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
             instructionText.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力，用最少的语言表达观点。不要使用表情符号。");
+            instructionText.AppendLine();
+            instructionText.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。");
         }
         else
         {
@@ -724,6 +763,8 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine();
             instructionText.AppendLine("**IGNORE** - 忽略此帖子");
             instructionText.AppendLine();
+            instructionText.AppendLine("**STORE** - 使用 store_memory 工具保存重要信息到记忆中");
+            instructionText.AppendLine();
             instructionText.AppendLine(
                 "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
@@ -732,16 +773,15 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
+            instructionText.AppendLine("- STORE: 你想要保存的记忆内容");
             instructionText.AppendLine();
             instructionText.AppendLine("示例：");
             instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
-            instructionText.AppendLine("REPLY: 我完全同意你的观点。");
             instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
-            instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("REPLY: 我完全同意你的观点。");
-            instructionText.AppendLine("REACT:clap:Positive");
             instructionText.AppendLine("IGNORE");
+            instructionText.AppendLine("STORE: 用户喜欢分享关于AI技术的帖子");
+            instructionText.AppendLine();
+            instructionText.AppendLine("重要：如果发现重要信息、用户偏好、关键事实，请使用 STORE 行动保存到记忆中。");
         }
 
         contentItems.Add(new TextContent(instructionText.ToString()));
@@ -806,17 +846,11 @@ public class MiChanAutonomousBehavior
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            await _memoryService.StoreInteractionAsync(
+            await _memoryService.StoreMemoryAsync(
                 "autonomous",
-                $"post_{post.Id}",
-                new Dictionary<string, object>
-                {
-                    ["action"] = "reply",
-                    ["post_id"] = post.Id.ToString(),
-                    ["content"] = content,
-                    ["timestamp"] = DateTime.UtcNow
-                }
-            );
+                $"post_{post.Id} reply",
+                accountId: post.Publisher?.AccountId,
+                hot: false);
 
             _logger.LogInformation("Autonomous: Replied to post {PostId}", post.Id);
         }
@@ -910,17 +944,11 @@ public class MiChanAutonomousBehavior
 
             await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/pin", request);
 
-            await _memoryService.StoreInteractionAsync(
+            await _memoryService.StoreMemoryAsync(
                 "autonomous",
-                $"post_{post.Id}",
-                new Dictionary<string, object>
-                {
-                    ["action"] = "pin",
-                    ["post_id"] = post.Id.ToString(),
-                    ["mode"] = mode.ToString(),
-                    ["timestamp"] = DateTime.UtcNow
-                }
-            );
+                $"post_{post.Id} pin",
+                accountId: post.Publisher?.AccountId,
+                hot: false);
 
             _logger.LogInformation("Autonomous: Pinned post {PostId} with mode {Mode}", post.Id, mode);
         }
@@ -948,16 +976,10 @@ public class MiChanAutonomousBehavior
 
             await _apiClient.DeleteAsync("sphere", $"/posts/{post.Id}/pin");
 
-            await _memoryService.StoreInteractionAsync(
+            await _memoryService.StoreMemoryAsync(
                 "autonomous",
-                $"post_{post.Id}",
-                new Dictionary<string, object>
-                {
-                    ["action"] = "unpin",
-                    ["post_id"] = post.Id.ToString(),
-                    ["timestamp"] = DateTime.UtcNow
-                }
-            );
+                $"post_{post.Id} unpin",
+                hot: false);
 
             _logger.LogInformation("Autonomous: Unpinned post {PostId}", post.Id);
         }
@@ -1022,15 +1044,23 @@ public class MiChanAutonomousBehavior
     {
         _logger.LogInformation("Autonomous: Creating a post...");
 
-        var recentInteractions = await _memoryService.GetInteractionsByTypeAsync("autonomous", limit: 10);
+        var recentInteractions = await _memoryService.GetByFiltersAsync(
+            type: "autonomous",
+            take: 10,
+            orderBy: "createdAt",
+            descending: true);
+
         var interests = recentInteractions
-            .SelectMany(i => i.GetMemoryValue<List<string>>("topics") ?? [])
+            .SelectMany(m => m.Content.Split('\n'))
+            .Where(line => line.Contains("topics"))
+            .Select(line => line.Split(':').LastOrDefault()?.Trim() ?? "")
+            .Where(topic => !string.IsNullOrEmpty(topic))
             .Distinct()
             .Take(5)
             .ToList();
 
         // Retrieve relevant memories to spark ideas
-        var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+        var relevantMemories = await _memoryService.SearchAsync(
             string.Join(" ", interests),
             limit: 5,
             minSimilarity: 0.5);
@@ -1045,13 +1075,15 @@ public class MiChanAutonomousBehavior
                       最近关注: {string.Join(", ", interests)}
 
                       相关记忆:
-                      {string.Join("\n", relevantMemories.Take(3).Select(m => $"- {m.EmbeddedContent}"))}
+                      {string.Join("\n", relevantMemories.Take(3).Select(m => $"- {m.Content}"))}
 
                       创作一条社交媒体帖子。
                       分享想法、观察、问题或见解，体现你的个性。
                       可以1-4句话 - 需要多少空间就用多少。
                       自然、真实。
                       不要使用表情符号。
+
+                      如果在创作过程中发现重要信息或有趣的话题，请使用 store_memory 工具保存到记忆中。
                       """;
 
         var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
@@ -1072,15 +1104,10 @@ public class MiChanAutonomousBehavior
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            await _memoryService.StoreInteractionAsync(
+            await _memoryService.StoreMemoryAsync(
                 "autonomous",
-                $"post_{DateTime.UtcNow:yyyyMMdd_HHmmss}",
-                new Dictionary<string, object>
-                {
-                    ["action"] = "create_post",
-                    ["content"] = content
-                }
-            );
+                $"post_{DateTime.UtcNow:yyyyMMdd_HHmmss} created",
+                hot: false);
 
             _logger.LogInformation("Autonomous: Created post: {Content}", content);
         }
@@ -1132,9 +1159,13 @@ public class MiChanAutonomousBehavior
                 }
 
                 // Skip if already reposted
-                var repostInteractions = await _memoryService.GetInteractionsByTypeAsync("repost", limit: 100);
+                var repostInteractions = await _memoryService.GetByFiltersAsync(
+                    type: "repost",
+                    take: 100,
+                    orderBy: "createdAt",
+                    descending: true);
                 var alreadyReposted = repostInteractions.Any(i =>
-                    i.Memory.GetValueOrDefault("post_id")?.ToString() == post.Id.ToString());
+                    i.Content.Contains(post.Id.ToString()));
                 if (alreadyReposted)
                 {
                     _logger.LogDebug("Skipping post {PostId} - already reposted", post.Id);
@@ -1167,7 +1198,7 @@ public class MiChanAutonomousBehavior
                 : 0;
 
             // Retrieve relevant memories to inform the decision
-            var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+            var relevantMemories = await _memoryService.SearchAsync(
                 content,
                 limit: 3,
                 minSimilarity: 0.5);
@@ -1179,9 +1210,9 @@ public class MiChanAutonomousBehavior
                 sb.AppendLine("相关记忆:");
                 foreach (var memory in relevantMemories)
                 {
-                    if (!string.IsNullOrEmpty(memory.EmbeddedContent))
+                    if (!string.IsNullOrEmpty(memory.Content))
                     {
-                        sb.AppendLine($"- {memory.EmbeddedContent}");
+                        sb.AppendLine($"- {memory.Content}");
                     }
                 }
 
@@ -1235,7 +1266,7 @@ public class MiChanAutonomousBehavior
             var content = PostAnalysisService.BuildPostPromptSnippet(post);
 
             // Retrieve relevant memories to inform the repost comment
-            var relevantMemories = await _memoryService.SearchSimilarInteractionsAsync(
+            var relevantMemories = await _memoryService.SearchAsync(
                 content,
                 limit: 3,
                 minSimilarity: 0.5);
@@ -1247,9 +1278,9 @@ public class MiChanAutonomousBehavior
                 sb.AppendLine("相关记忆:");
                 foreach (var memory in relevantMemories)
                 {
-                    if (!string.IsNullOrEmpty(memory.EmbeddedContent))
+                    if (!string.IsNullOrEmpty(memory.Content))
                     {
-                        sb.AppendLine($"- {memory.EmbeddedContent}");
+                        sb.AppendLine($"- {memory.Content}");
                     }
                 }
 
@@ -1297,18 +1328,10 @@ public class MiChanAutonomousBehavior
 
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            await _memoryService.StoreInteractionAsync(
+            await _memoryService.StoreMemoryAsync(
                 "repost",
-                $"post_{post.Id}",
-                new Dictionary<string, object>
-                {
-                    ["action"] = "repost",
-                    ["post_id"] = post.Id.ToString(),
-                    ["original_author"] = post.Publisher?.Name ?? "unknown",
-                    ["comment"] = comment ?? "",
-                    ["timestamp"] = DateTime.UtcNow
-                }
-            );
+                $"post_{post.Id} reposted by {post.Publisher?.Name ?? "unknown"}",
+                hot: false);
 
             _logger.LogInformation("Autonomous: Reposted post {PostId} from @{Author} with comment: {Comment}",
                 post.Id, post.Publisher?.Name ?? "unknown", comment ?? "(none)");

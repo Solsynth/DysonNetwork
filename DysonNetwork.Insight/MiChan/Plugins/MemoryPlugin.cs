@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using DysonNetwork.Insight.Thought.Memory;
 using Microsoft.SemanticKernel;
 using System.Text;
 
@@ -8,25 +9,33 @@ namespace DysonNetwork.Insight.MiChan.Plugins;
 /// Plugin for searching and retrieving memories from MiChan's memory database
 /// </summary>
 public class MemoryPlugin(
-    MiChanMemoryService memoryService,
+    MemoryService memoryService,
     ILogger<MemoryPlugin> logger)
 {
     /// <summary>
     /// Search through MiChan's memory for information related to a query
     /// </summary>
     [KernelFunction("search_memory")]
-    [Description("Search MiChan's memory database for past interactions, conversations, or information related to a query. Use this when you need to recall previous conversations or find relevant context.")]
+    [Description(
+        "Search MiChan's memory database for past interactions, conversations, or information related to a query. Use this when you need to recall previous conversations or find relevant context.")]
     public async Task<string> SearchMemoryAsync(
-        [Description("The search query to find relevant memories")] string query,
-        [Description("Optional: Type of memory to search (e.g., 'chat', 'thought', 'thought_sequence', 'autonomous'). Leave empty to search all types.")] string? memoryType = null,
-        [Description("Maximum number of results to return (default: 10)")] int limit = 10)
+        [Description("The search query to find relevant memories")]
+        string query,
+        [Description("Optional: Type of memory to search. Leave empty to search all types.")]
+        string? memoryType = null,
+        [Description("Optional: The account ID of the user, must be Guid. Leave this blank to search global memories.")]
+        Guid? accountId = null,
+        [Description("Maximum number of results to return (default: 10)")]
+        int limit = 10)
     {
         try
         {
             logger.LogInformation("Searching memory for query: {Query}", query);
 
-            var memories = await memoryService.SearchSimilarInteractionsAsync(
-                query,
+            var memories = await memoryService.SearchAsync(
+                query: query,
+                type: memoryType,
+                accountId: accountId,
                 limit: limit,
                 minSimilarity: 0.6);
 
@@ -43,38 +52,7 @@ public class MemoryPlugin(
             {
                 var memory = memories[i];
                 results.AppendLine($"--- Memory {i + 1} ---");
-                results.AppendLine($"Type: {memory.Type}");
-                results.AppendLine($"Context ID: {memory.ContextId}");
-                results.AppendLine($"Created: {memory.CreatedAt}");
-
-                // Try to extract meaningful content based on memory type
-                if (memory.Context.TryGetValue("content", out var content))
-                {
-                    results.AppendLine($"Content: {content}");
-                }
-                else if (memory.Context.TryGetValue("message", out var message))
-                {
-                    results.AppendLine($"Message: {message}");
-                    if (memory.Context.TryGetValue("response", out var response))
-                    {
-                        results.AppendLine($"Response: {response}");
-                    }
-                }
-                else if (memory.Context.TryGetValue("userMessage", out var userMessage))
-                {
-                    results.AppendLine($"User: {userMessage}");
-                    if (memory.Context.TryGetValue("aiResponse", out var aiResponse))
-                    {
-                        results.AppendLine($"Assistant: {aiResponse}");
-                    }
-                }
-
-                // Add embedded content if available
-                if (!string.IsNullOrEmpty(memory.EmbeddedContent))
-                {
-                    results.AppendLine($"Summary: {memory.EmbeddedContent}");
-                }
-
+                results.AppendLine(memory.ToPrompt());
                 results.AppendLine();
             }
 
@@ -89,46 +67,42 @@ public class MemoryPlugin(
     }
 
     /// <summary>
-    /// Get recent memories for a specific context
+    /// Get memories by filters
     /// </summary>
-    [KernelFunction("get_recent_memories")]
-    [Description("Retrieve recent memories for a specific context (like a chat room or conversation). Use this to get the most recent interactions.")]
-    public async Task<string> GetRecentMemoriesAsync(
-        [Description("The context ID (e.g., chat room ID, sequence ID)")] string contextId,
-        [Description("Number of recent memories to retrieve (default: 10)")] int count = 10)
+    [KernelFunction("get_memories_by_filter")]
+    [Description("Retrieve memories by type, account, or other filters. Use this to get specific kinds of memories.")]
+    public async Task<string> GetMemoriesByFilterAsync(
+        [Description("Optional: Type of memory to filter")]
+        string? memoryType = null,
+        [Description("Optional: The account ID of the user, must be Guid. Leave this blank to get global memories.")]
+        string? accountId = null,
+        [Description("Number of memories to retrieve (default: 10)")]
+        int count = 10)
     {
         try
         {
-            logger.LogInformation("Getting recent memories for context: {ContextId}", contextId);
+            logger.LogInformation("Getting memories by filter: type={MemoryType}", memoryType);
 
-            var memories = await memoryService.GetRecentInteractionsAsync(contextId, count);
+            var memories = await memoryService.GetByFiltersAsync(
+                type: memoryType,
+                take: count,
+                orderBy: "createdAt",
+                accountId: accountId is not null ? Guid.Parse(accountId) : Guid.Empty,
+                descending: true
+            );
 
             if (memories.Count == 0)
             {
-                return $"No recent memories found for context '{contextId}'.";
+                return "No memories found matching the specified filters.";
             }
 
             var results = new StringBuilder();
-            results.AppendLine($"Recent memories for context '{contextId}':");
+            results.AppendLine($"Found {memories.Count} memories:");
             results.AppendLine();
 
-            foreach (var memory in memories.OrderBy(m => m.CreatedAt))
+            foreach (var memory in memories)
             {
-                results.AppendLine($"[{memory.CreatedAt}] Type: {memory.Type}");
-
-                if (memory.Context.TryGetValue("message", out var message))
-                {
-                    results.AppendLine($"  Message: {message}");
-                }
-                if (memory.Context.TryGetValue("response", out var response))
-                {
-                    results.AppendLine($"  Response: {response}");
-                }
-                if (memory.Context.TryGetValue("content", out var content))
-                {
-                    results.AppendLine($"  Content: {content}");
-                }
-
+                results.AppendLine(memory.ToPrompt());
                 results.AppendLine();
             }
 
@@ -136,29 +110,52 @@ public class MemoryPlugin(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error getting recent memories for context: {ContextId}", contextId);
+            logger.LogError(ex, "Error getting memories by filter");
             return $"Error retrieving memories: {ex.Message}";
         }
     }
 
     /// <summary>
-    /// Get memories by specific type
+    /// Get memories by specific type (with optional semantic filtering)
     /// </summary>
     [KernelFunction("get_memories_by_type")]
-    [Description("Retrieve memories filtered by type. Use this to find specific kinds of memories like 'thought' for AI thoughts, 'chat' for chat conversations, or 'autonomous' for autonomous actions.")]
+    [Description(
+        "Retrieve memories filtered by type. Use this to find specific kinds of memories like 'thought' for AI thoughts and chat, or 'autonomous' for autonomous actions.")]
     public async Task<string> GetMemoriesByTypeAsync(
-        [Description("The type of memory to retrieve (e.g., 'chat', 'thought', 'thought_sequence', 'autonomous')")] string memoryType,
-        [Description("Optional: A semantic query to filter results further")] string? semanticQuery = null,
-        [Description("Maximum number of results (default: 10)")] int limit = 10)
+        [Description("The type of memory to retrieve")]
+        string memoryType,
+        [Description("Optional: A semantic query to filter results further")]
+        string? semanticQuery = null,
+        [Description("Optional: The account ID of the user, must be Guid. Leave this blank to search global memories.")]
+        Guid? accountId = null,
+        [Description("Maximum number of results (default: 10)")]
+        int limit = 10
+    )
     {
         try
         {
             logger.LogInformation("Getting memories of type: {MemoryType}", memoryType);
 
-            var memories = await memoryService.GetInteractionsByTypeAsync(
-                memoryType,
-                semanticQuery,
-                limit);
+            List<MiChanMemoryRecord> memories;
+
+            if (!string.IsNullOrWhiteSpace(semanticQuery))
+            {
+                memories = await memoryService.SearchAsync(
+                    query: semanticQuery,
+                    type: memoryType,
+                    accountId: accountId,
+                    limit: limit,
+                    minSimilarity: 0.6);
+            }
+            else
+            {
+                memories = await memoryService.GetByFiltersAsync(
+                    type: memoryType,
+                    accountId: accountId,
+                    take: limit,
+                    orderBy: "createdAt",
+                    descending: true);
+            }
 
             if (memories.Count == 0)
             {
@@ -173,15 +170,7 @@ public class MemoryPlugin(
             {
                 var memory = memories[i];
                 results.AppendLine($"--- Memory {i + 1} ---");
-                results.AppendLine($"Context ID: {memory.ContextId}");
-                results.AppendLine($"Created: {memory.CreatedAt}");
-
-                // Try to extract content
-                foreach (var kvp in memory.Context.Where(k => k.Key != "timestamp" && k.Value != null))
-                {
-                    results.AppendLine($"{kvp.Key}: {kvp.Value}");
-                }
-
+                results.AppendLine(memory.ToPrompt());
                 results.AppendLine();
             }
 
@@ -195,88 +184,144 @@ public class MemoryPlugin(
     }
 
     /// <summary>
-    /// Check if there are any memories about a specific topic or entity
+    /// Store a new memory in the database.
+    /// Use this to save important information, facts, or context that should be remembered for future interactions.
     /// </summary>
-    [KernelFunction("has_memories_about")]
-    [Description("Check if MiChan has any memories about a specific topic, person, or entity. Returns true if relevant memories exist, false otherwise.")]
-    public async Task<bool> HasMemoriesAboutAsync(
-        [Description("The topic, person, or entity to check for")] string topic)
+    [KernelFunction("store_memory")]
+    [Description(
+        "Store a new memory or fact in the database. Use this to save important information, user preferences, or context that should be remembered for future interactions. The content should be concise and factual.")]
+    public async Task<string> StoreMemoryAsync(
+        [Description(
+            "The type of memory to store (e.g., 'fact', 'user', 'context', 'summary'). The 'user' will always be loaded in context with the user.")]
+        string type,
+        [Description("The content to store. Keep it concise, factual, and informative.")]
+        string content,
+        [Description("Optional: Confidence level 0-1 (default: 0.7)")]
+        float? confidence = null,
+        [Description(
+            "Optional: Account who owns the memory, leave this blank to create global memory. The 'user' type must provide account ID. Type is Guid")]
+        Guid? accountId = null,
+        [Description("Optional: Mark as hot memory for quick access (default: false)")]
+        bool isHot = false
+    )
     {
         try
         {
-            logger.LogInformation("Checking for memories about: {Topic}", topic);
+            if (string.IsNullOrWhiteSpace(content))
+                return "Error: Content cannot be empty.";
 
-            var memories = await memoryService.SearchSimilarInteractionsAsync(
-                topic,
-                limit: 1,
-                minSimilarity: 0.7);
+            type = type.ToLower();
+            if (string.IsNullOrWhiteSpace(type))
+                type = "fact";
 
-            return memories.Count > 0;
+            if (type == "user" && accountId is null)
+                return "Error: The user type memory must create with the account ID";
+
+            logger.LogInformation("Storing memory of type '{Type}' with content length: {Length}", type,
+                content.Length);
+
+            var record = await memoryService.StoreMemoryAsync(
+                type: type,
+                content: content,
+                confidence: confidence ?? 0.7f,
+                accountId: accountId,
+                hot: isHot
+            );
+
+            logger.LogInformation("Successfully stored memory with ID: {MemoryId}", record.Id);
+
+            return $"Memory stored successfully with ID: {record.Id}";
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error checking memories about: {Topic}", topic);
-            return false;
+            logger.LogError(ex, "Error storing memory of type: {Type}", type);
+            return $"Error storing memory: {ex.Message}";
         }
     }
 
     /// <summary>
-    /// Get a summary of what MiChan remembers about a specific topic
+    /// Update an existing memory in the database.
+    /// Use this to modify content, type, confidence, or hot status of a previously stored memory.
     /// </summary>
-    [KernelFunction("summarize_memories")]
-    [Description("Get a summary of what MiChan remembers about a specific topic or query. This provides a condensed view of relevant memories.")]
-    public async Task<string> SummarizeMemoriesAsync(
-        [Description("The topic or query to summarize memories about")] string topic,
-        [Description("Maximum number of memories to include (default: 5)")] int maxMemories = 5)
+    [KernelFunction("update_memory")]
+    [Description(
+        "Update an existing memory by ID. Use this to correct, expand, or modify previously stored information. Only provide the fields you want to change.")]
+    public async Task<string> UpdateMemoryAsync(
+        [Description("The ID of the memory to update")]
+        string memoryId,
+        [Description("Optional: New content for the memory")]
+        string? content = null,
+        [Description("Optional: New type for the memory")]
+        string? type = null,
+        [Description("Optional: New confidence level 0-1")]
+        float? confidence = null,
+        [Description("Optional: Set hot status (true/false)")]
+        bool? isHot = null)
     {
         try
         {
-            logger.LogInformation("Summarizing memories about: {Topic}", topic);
-
-            var memories = await memoryService.SearchSimilarInteractionsAsync(
-                topic,
-                limit: maxMemories,
-                minSimilarity: 0.6);
-
-            if (memories.Count == 0)
+            if (!Guid.TryParse(memoryId, out var id))
             {
-                return $"I don't have any specific memories about '{topic}'.";
+                return "Error: Invalid memory ID format.";
             }
 
-            var summary = new StringBuilder();
-            summary.AppendLine($"Based on my memories, here's what I know about '{topic}':");
-            summary.AppendLine();
+            logger.LogInformation("Updating memory {MemoryId}", memoryId);
 
-            // Group memories by type for better organization
-            var groupedMemories = memories.GroupBy(m => m.Type).OrderBy(g => g.Key);
+            var record = await memoryService.UpdateAsync(
+                id: id,
+                content: content,
+                type: type,
+                confidence: confidence,
+                isHot: isHot);
 
-            foreach (var group in groupedMemories)
+            if (record == null)
             {
-                summary.AppendLine($"From {group.Key} interactions:");
-
-                foreach (var memory in group.Take(3))
-                {
-                    if (memory.Context.TryGetValue("content", out var content))
-                    {
-                        summary.AppendLine($"  - {content}");
-                    }
-                    else if (memory.Context.TryGetValue("message", out var message))
-                    {
-                        var msg = message?.ToString() ?? "";
-                        if (msg.Length > 100) msg = msg[..100] + "...";
-                        summary.AppendLine($"  - {msg}");
-                    }
-                }
-
-                summary.AppendLine();
+                return $"Memory with ID {memoryId} not found or is inactive.";
             }
 
-            return summary.ToString();
+            logger.LogInformation("Successfully updated memory {MemoryId}", record.Id);
+
+            return $"Memory {record.Id} updated successfully.";
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error summarizing memories about: {Topic}", topic);
-            return $"Error retrieving memory summary: {ex.Message}";
+            logger.LogError(ex, "Error updating memory: {MemoryId}", memoryId);
+            return $"Error updating memory: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Delete a memory from the database (soft delete).
+    /// Use this to remove incorrect or outdated information.
+    /// </summary>
+    [KernelFunction("delete_memory")]
+    [Description(
+        "Delete a memory by ID. Use this to remove incorrect or outdated information from the memory database.")]
+    public async Task<string> DeleteMemoryAsync(
+        [Description("The ID of the memory to delete")]
+        string memoryId
+    )
+    {
+        try
+        {
+            if (!Guid.TryParse(memoryId, out var id))
+                return "Error: Invalid memory ID format.";
+
+            logger.LogInformation("Deleting memory {MemoryId}", memoryId);
+
+            var success = await memoryService.DeleteAsync(id);
+
+            if (!success)
+                return $"Memory with ID {memoryId} not found.";
+
+            logger.LogInformation("Successfully deleted memory {MemoryId}", memoryId);
+
+            return $"Memory {memoryId} deleted successfully.";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error deleting memory: {MemoryId}", memoryId);
+            return $"Error deleting memory: {ex.Message}";
         }
     }
 }
