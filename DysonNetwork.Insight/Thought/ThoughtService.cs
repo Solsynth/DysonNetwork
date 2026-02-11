@@ -10,6 +10,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using NodaTime;
 using PaymentService = DysonNetwork.Shared.Proto.PaymentService;
 using TransactionType = DysonNetwork.Shared.Proto.TransactionType;
 
@@ -353,12 +354,13 @@ public class ThoughtService(
 
     public async Task DeleteSequenceAsync(Guid sequenceId)
     {
-        var sequence = await db.ThinkingSequences.FindAsync(sequenceId);
-        if (sequence != null)
-        {
-            db.ThinkingSequences.Remove(sequence);
-            await db.SaveChangesAsync();
-        }
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await db.ThinkingThoughts
+            .Where(s => s.SequenceId == sequenceId)
+            .ExecuteUpdateAsync(x => x.SetProperty(p => p.DeletedAt, now));
+        await db.ThinkingSequences
+            .Where(s => s.Id == sequenceId)
+            .ExecuteUpdateAsync(x => x.SetProperty(p => p.DeletedAt, now));
     }
 
     #region Topic Generation

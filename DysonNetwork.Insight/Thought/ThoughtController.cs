@@ -592,6 +592,25 @@ public class ThoughtController(
 
         return Ok(thoughts);
     }
+
+    [HttpDelete("sequences/{sequenceId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteSequenceThoughts(Guid sequenceId)
+    {
+        var  sequence = await service.GetSequenceAsync(sequenceId);
+        if (sequence == null) return NotFound();
+        
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        if (sequence.AccountId != accountId)
+            return StatusCode(403);
+        
+        await service.DeleteSequenceAsync(sequenceId);
+        return Ok();
+    }
     
     /// <summary>
     /// Manually trigger memory analysis for a thought sequence.
