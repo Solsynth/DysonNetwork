@@ -5,8 +5,10 @@ using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -29,6 +31,8 @@ public class ThoughtService(
     PostAnalysisService postAnalysisService,
     IConfiguration configuration,
     MemoryService memoryService,
+    RemoteRingService remoteRingService,
+    ILocalizationService localizer,
     ILogger<ThoughtService> logger
 )
 {
@@ -85,7 +89,13 @@ public class ThoughtService(
         }
         else
         {
-            var seq = new SnThinkingSequence { AccountId = accountId, Topic = topic };
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var seq = new SnThinkingSequence 
+            { 
+                AccountId = accountId, 
+                Topic = topic,
+                LastMessageAt = now
+            };
             db.ThinkingSequences.Add(seq);
             await db.SaveChangesAsync();
             return seq;
@@ -128,6 +138,8 @@ public class ThoughtService(
         );
         var tokenCount = totalChars / 4;
 
+        var now = SystemClock.Instance.GetCurrentInstant();
+
         var thought = new SnThinkingThought
         {
             SequenceId = sequence.Id,
@@ -142,6 +154,9 @@ public class ThoughtService(
         // Update sequence total tokens only for assistant responses
         if (role == ThinkingThoughtRole.Assistant)
             sequence.TotalToken += tokenCount;
+
+        // Update LastMessageAt timestamp
+        sequence.LastMessageAt = now;
 
         await db.SaveChangesAsync();
 
@@ -201,7 +216,8 @@ public class ThoughtService(
         var query = db.ThinkingSequences.Where(s => s.AccountId == accountId);
         var totalCount = await query.CountAsync();
         var sequences = await query
-            .OrderByDescending(s => s.CreatedAt)
+            .OrderByDescending(s => s.LastMessageAt != default ? s.LastMessageAt : s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -361,6 +377,126 @@ public class ThoughtService(
         await db.ThinkingSequences
             .Where(s => s.Id == sequenceId)
             .ExecuteUpdateAsync(x => x.SetProperty(p => p.DeletedAt, now));
+    }
+
+    /// <summary>
+    /// Marks a sequence as read by the user.
+    /// </summary>
+    public async Task MarkSequenceAsReadAsync(Guid sequenceId, Guid accountId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await db.ThinkingSequences
+            .Where(s => s.Id == sequenceId && s.AccountId == accountId)
+            .ExecuteUpdateAsync(x => x.SetProperty(p => p.UserLastReadAt, now));
+    }
+
+    /// <summary>
+    /// Creates a new thought sequence initiated by an AI agent.
+    /// This is used when an AI agent wants to start a conversation with the user proactively.
+    /// </summary>
+    /// <param name="accountId">The target account ID</param>
+    /// <param name="initialMessage">The initial message from the agent</param>
+    /// <param name="topic">Optional topic for the conversation</param>
+    /// <param name="locale">User's locale for notification localization (e.g., "en", "zh-hans")</param>
+    /// <param name="botName">The bot name - "michan" or "snchan" (default: "michan")</param>
+    /// <returns>The created sequence, or null if creation failed</returns>
+    public async Task<SnThinkingSequence?> CreateAgentInitiatedSequenceAsync(
+        Guid accountId,
+        string initialMessage,
+        string? topic = null,
+        string? locale = null,
+        string botName = "michan")
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        // Generate a topic if not provided
+        if (string.IsNullOrEmpty(topic))
+        {
+            topic = await GenerateTopicAsync(initialMessage, useMiChan: true);
+            if (string.IsNullOrEmpty(topic))
+            {
+                topic = "New conversation";
+            }
+        }
+
+        // Create the sequence
+        var sequence = new SnThinkingSequence
+        {
+            AccountId = accountId,
+            Topic = topic,
+            AgentInitiated = true,
+            LastMessageAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        db.ThinkingSequences.Add(sequence);
+        await db.SaveChangesAsync();
+
+        // Save the initial message as a thought from the assistant
+        var thought = new SnThinkingThought
+        {
+            SequenceId = sequence.Id,
+            Parts =
+            [
+                new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = initialMessage
+                }
+            ],
+            Role = ThinkingThoughtRole.Assistant,
+            TokenCount = initialMessage.Length / 4,
+            ModelName = botName,
+            BotName = botName,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        db.ThinkingThoughts.Add(thought);
+        sequence.TotalToken += thought.TokenCount;
+        await db.SaveChangesAsync();
+
+        // Send push notification to the user
+        try
+        {
+            var agentNameKey = botName.ToLower() == "snchan" ? "agentNameSnChan" : "agentNameMiChan";
+            var agentName = localizer.Get(agentNameKey, locale);
+            var notificationTitle = localizer.Get("agentConversationStartedTitle", locale, new { agentName });
+            var notificationBody = localizer.Get("agentConversationStartedBody", locale, new { agentName, message = initialMessage });
+
+            // Create meta with sequence ID for deep linking
+            var meta = new Dictionary<string, object?>
+            {
+                ["sequence_id"] = sequence.Id.ToString(),
+                ["type"] = "agent_conversation"
+            };
+            var metaBytes = JsonSerializer.SerializeToUtf8Bytes(meta);
+
+            await remoteRingService.SendPushNotificationToUser(
+                accountId.ToString(),
+                "thought.agent_conversation_started",
+                notificationTitle,
+                "",
+                notificationBody,
+                metaBytes,
+                actionUri: $"/thought/{sequence.Id}",
+                isSilent: false,
+                isSavable: true
+            );
+
+            logger.LogInformation(
+                "Agent-initiated conversation created for account {AccountId} with sequence {SequenceId}. Notification sent.",
+                accountId,
+                sequence.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send notification for agent-initiated sequence {SequenceId}", sequence.Id);
+            // Don't fail the whole operation if notification fails
+        }
+
+        return sequence;
     }
 
     #region Topic Generation

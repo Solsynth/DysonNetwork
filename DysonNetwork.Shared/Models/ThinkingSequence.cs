@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -15,6 +16,21 @@ public class SnThinkingSequence : ModelBase
     public bool IsPublic { get; set; } = false;
 
     public Guid AccountId { get; set; }
+
+    /// <summary>
+    /// Indicates if this sequence was initiated by an AI agent (MiChan) rather than the user
+    /// </summary>
+    public bool AgentInitiated { get; set; } = false;
+
+    /// <summary>
+    /// The timestamp when the user last read this conversation
+    /// </summary>
+    public Instant? UserLastReadAt { get; set; }
+
+    /// <summary>
+    /// The timestamp of the last message in this sequence (for sorting)
+    /// </summary>
+    public Instant LastMessageAt { get; set; }
 }
 
 public enum ThinkingThoughtRole

@@ -1,0 +1,6 @@
+{
+  "agentConversationStartedTitle": "New message from {agentName}",
+  "agentConversationStartedBody": "{agentName}: {message}",
+  "agentNameSnChan": "SN-chan",
+  "agentNameMiChan": "MiChan"
+}

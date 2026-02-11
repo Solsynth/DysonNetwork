@@ -611,7 +611,30 @@ public class ThoughtController(
         await service.DeleteSequenceAsync(sequenceId);
         return Ok();
     }
-    
+
+    /// <summary>
+    /// Marks a thought sequence as read by the user.
+    /// Updates the UserLastReadAt timestamp for agent-initiated conversations.
+    /// </summary>
+    [HttpPost("sequences/{sequenceId:guid}/read")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> MarkSequenceAsRead(Guid sequenceId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var sequence = await service.GetSequenceAsync(sequenceId);
+        if (sequence == null) return NotFound();
+
+        if (sequence.AccountId != accountId)
+            return Forbid();
+
+        await service.MarkSequenceAsReadAsync(sequenceId, accountId);
+        return NoContent();
+    }
+
     /// <summary>
     /// Manually trigger memory analysis for a thought sequence.
     /// MiChan will read the conversation and decide what to memorize.

@@ -6,6 +6,7 @@ using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
@@ -64,6 +65,17 @@ public static class ServiceCollectionExtensions
 
         public IServiceCollection AddAppBusinessServices()
         {
+            // Register localization service
+            services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+            {
+                var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                var resourceNamespace = "DysonNetwork.Insight.Resources.Locales";
+                return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+            });
+
+            // Register Ring service for push notifications
+            services.AddRingService();
+
             return services;
         }
 
@@ -97,7 +109,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<PostPlugin>();
             services.AddSingleton<AccountPlugin>();
             services.AddSingleton<MemoryPlugin>();
-            services.AddSingleton<ScheduledTaskPlugin>();
+            services.AddScoped<ScheduledTaskPlugin>();
             
             // Memory and behavior services
             services.AddSingleton<EmbeddingService>();
