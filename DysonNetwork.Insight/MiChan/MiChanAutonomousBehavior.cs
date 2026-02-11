@@ -365,6 +365,196 @@ public class MiChanAutonomousBehavior
         _logger.LogInformation("Autonomous: Finished checking posts across {PageCount} pages", _currentPageIndex);
     }
 
+    /// <summary>
+    /// Build memory context string from relevant memories
+    /// </summary>
+    private static string BuildMemoryContext(List<MiChanMemoryRecord> memories, string header)
+    {
+        if (memories.Count == 0) return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        foreach (var memory in memories.Where(memory => !string.IsNullOrEmpty(memory.Content)))
+            sb.AppendLine(memory.ToPrompt());
+
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Build hot memory context string from hot memories
+    /// </summary>
+    private static string BuildHotMemoryContext(List<MiChanMemoryRecord> hotMemories)
+    {
+        if (hotMemories.Count == 0) return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Hot memories:");
+        foreach (var memory in hotMemories)
+            sb.AppendLine(memory.ToPrompt());
+
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Build the common prompt sections (personality, mood, memories, context)
+    /// </summary>
+    private static void AppendCommonPromptSections(
+        StringBuilder builder,
+        string personality,
+        string mood,
+        string? hotMemoryContext,
+        string? memoryContext,
+        string? context)
+    {
+        builder.AppendLine(personality);
+        builder.AppendLine();
+        builder.AppendLine($"当前心情: {mood}");
+        builder.AppendLine();
+
+        if (!string.IsNullOrEmpty(hotMemoryContext))
+        {
+            builder.AppendLine(hotMemoryContext);
+        }
+
+        if (!string.IsNullOrEmpty(memoryContext))
+        {
+            builder.AppendLine(memoryContext);
+        }
+
+        if (string.IsNullOrEmpty(context)) return;
+        builder.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
+        builder.AppendLine(context);
+        builder.AppendLine();
+    }
+
+    /// <summary>
+    /// Get vision model response with error handling
+    /// </summary>
+    private async Task<string> GetVisionResponseAsync(
+        ChatHistory chatHistory,
+        Guid postId)
+    {
+        try
+        {
+            var visionKernel = _kernelProvider.GetVisionKernel();
+            var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
+            var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+            var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+            return reply.Content?.Trim() ?? "IGNORE";
+        }
+        catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogError(ex,
+                "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
+                _config.Vision.VisionThinkingService, postId);
+            throw new InvalidOperationException(
+                $"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Represents a STORE action to be processed
+    /// </summary>
+    private record StoreAction(string Type, string Content);
+
+    /// <summary>
+    /// Parse decision text into PostActionDecision and extract store actions
+    /// </summary>
+    private (PostActionDecision Decision, List<StoreAction> StoreActions) ParseDecisionText(string decision, Guid postId)
+    {
+        _logger.LogInformation("AI decision for post {PostId}: {Decision}", postId, decision);
+
+        var actionDecision = new PostActionDecision();
+        var storeActions = new List<StoreAction>();
+        var lines = decision.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).ToList();
+
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("REPLY:"))
+            {
+                var replyText = line[6..].Trim();
+                actionDecision.ShouldReply = true;
+                actionDecision.Content = replyText;
+            }
+            else if (line.StartsWith("REACT:"))
+            {
+                // Only process the first REACT, skip additional ones
+                if (actionDecision.ShouldReact)
+                {
+                    _logger.LogDebug("Already processed REACT, skipping additional reaction for post {PostId}",
+                        postId);
+                    continue;
+                }
+
+                var parts = line[6..].Split(':');
+                var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
+                var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
+                actionDecision.ShouldReact = true;
+                actionDecision.ReactionSymbol = symbol;
+                actionDecision.ReactionAttitude = attitude;
+            }
+            else if (line.StartsWith("PIN:"))
+            {
+                var mode = line[4..].Trim();
+                var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
+                    ? PostPinMode.RealmPage
+                    : PostPinMode.PublisherPage;
+                actionDecision.ShouldPin = true;
+                actionDecision.PinMode = pinMode;
+            }
+            else if (line.StartsWith("STORE:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Parse STORE:type:content format
+                var storeContent = line["STORE:".Length..].Trim();
+                var colonIndex = storeContent.IndexOf(':');
+                if (colonIndex > 0)
+                {
+                    var type = storeContent[..colonIndex].Trim().ToLower();
+                    var content = storeContent[(colonIndex + 1)..].Trim();
+
+                    if (!string.IsNullOrEmpty(type) && !string.IsNullOrEmpty(content))
+                    {
+                        storeActions.Add(new StoreAction(type, content));
+                    }
+                }
+            }
+            else if (line.Equals("IGNORE", StringComparison.OrdinalIgnoreCase))
+            {
+                // IGNORE explicitly means no action
+            }
+        }
+
+        return (actionDecision, storeActions);
+    }
+
+    /// <summary>
+    /// Process store actions by saving them to memory
+    /// </summary>
+    private async Task ProcessStoreActionsAsync(List<StoreAction> storeActions, Guid? accountId)
+    {
+        foreach (var action in storeActions)
+        {
+            try
+            {
+                await _memoryService.StoreMemoryAsync(
+                    type: action.Type,
+                    content: action.Content,
+                    confidence: 0.7f,
+                    accountId: accountId,
+                    hot: false);
+                _logger.LogDebug("Stored memory from decision: type={Type}, content={Content}",
+                    action.Type, action.Content[..Math.Min(action.Content.Length, 100)]);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to store memory from decision: type={Type}", action.Type);
+            }
+        }
+    }
+
     private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality,
         string mood)
     {
@@ -385,37 +575,8 @@ public class MiChanAutonomousBehavior
                 prompt: content,
                 limit: 5);
 
-            var memoryContext = "";
-            if (relevantMemories.Count > 0)
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine("Relevant past interactions:");
-                foreach (var memory in relevantMemories.Take(3))
-                {
-                    if (!string.IsNullOrEmpty(memory.Content))
-                    {
-                        sb.AppendLine($"- {memory.Content}");
-                    }
-                }
-
-                sb.AppendLine();
-                memoryContext = sb.ToString();
-            }
-
-            // Add hot memories to context
-            var hotMemoryContext = "";
-            if (hotMemories.Count > 0)
-            {
-                var hotSb = new StringBuilder();
-                hotSb.AppendLine("Hot memories:");
-                foreach (var memory in hotMemories)
-                {
-                    hotSb.AppendLine($"- {memory.ToPrompt()}");
-                }
-
-                hotSb.AppendLine();
-                hotMemoryContext = hotSb.ToString();
-            }
+            var memoryContext = BuildMemoryContext(relevantMemories, "Relevant past interactions:");
+            var hotMemoryContext = BuildHotMemoryContext(hotMemories);
 
             // Check if post has attachments (including from context chain)
             var allAttachments = await _postAnalysisService.GetAllImageAttachmentsFromContextAsync(post, maxDepth: 3);
@@ -431,8 +592,7 @@ public class MiChanAutonomousBehavior
 
             // Check if we should use vision model
             var useVisionModel = hasAttachments && _postAnalysisService.IsVisionModelAvailable();
-            var imageAttachments =
-                useVisionModel ? allAttachments : [];
+            var imageAttachments = useVisionModel ? allAttachments : [];
 
             if (useVisionModel && imageAttachments.Count > 0)
             {
@@ -448,86 +608,7 @@ public class MiChanAutonomousBehavior
             {
                 if (useVisionModel && imageAttachments.Count > 0)
                 {
-                    try
-                    {
-                        // Build vision-enabled chat history with images for mentions
-                        var chatHistory = await BuildVisionChatHistoryAsync(
-                            personality,
-                            mood,
-                            content,
-                            imageAttachments,
-                            post.Attachments.Count,
-                            context,
-                            isMentioned: true,
-                            memoryContext: memoryContext
-                        );
-                        var visionKernel = _kernelProvider.GetVisionKernel();
-                        var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
-                        var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                        var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
-                        var replyContent = reply.Content?.Trim();
-                        return new PostActionDecision { ShouldReply = true, Content = replyContent };
-                    }
-                    catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-                    {
-                        _logger.LogError(ex,
-                            "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
-                            _config.Vision.VisionThinkingService, post.Id);
-                        throw new InvalidOperationException(
-                            $"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
-                            ex);
-                    }
-                }
-
-                {
-                    var promptBuilder = new StringBuilder();
-                    promptBuilder.AppendLine(personality);
-                    promptBuilder.AppendLine();
-                    promptBuilder.AppendLine($"当前心情: {mood}");
-                    promptBuilder.AppendLine();
-
-                    if (!string.IsNullOrEmpty(hotMemoryContext))
-                    {
-                        promptBuilder.AppendLine(hotMemoryContext);
-                    }
-
-                    if (!string.IsNullOrEmpty(memoryContext))
-                    {
-                        promptBuilder.AppendLine(memoryContext);
-                    }
-
-                    if (!string.IsNullOrEmpty(context))
-                    {
-                        promptBuilder.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
-                        promptBuilder.AppendLine(context);
-                        promptBuilder.AppendLine();
-                    }
-
-                    promptBuilder.AppendLine("帖子的作者在帖子中提到了你：");
-                    promptBuilder.AppendLine($"\"{content}\"");
-                    promptBuilder.AppendLine();
-                    promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
-                    promptBuilder.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力。不要使用表情符号。");
-                    promptBuilder.AppendLine();
-                    promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。");
-
-                    var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-                    var kernelArgs = new KernelArguments(executionSettings);
-                    var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), kernelArgs);
-                    var replyContent = result.GetValue<string>()?.Trim();
-
-                    return new PostActionDecision { ShouldReply = true, Content = replyContent };
-                }
-            }
-
-            // Otherwise, decide whether to interact
-            string decisionText;
-
-            if (useVisionModel && imageAttachments.Count > 0)
-            {
-                try
-                {
-                    // Build vision-enabled chat history with images for decision-making
+                    // Build vision-enabled chat history with images for mentions
                     var chatHistory = await BuildVisionChatHistoryAsync(
                         personality,
                         mood,
@@ -535,64 +616,65 @@ public class MiChanAutonomousBehavior
                         imageAttachments,
                         post.Attachments.Count,
                         context,
-                        isMentioned: false,
+                        isMentioned: true,
                         memoryContext: memoryContext
                     );
-                    var visionKernel = _kernelProvider.GetVisionKernel();
-                    var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
-                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                    var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
-                    decisionText = reply.Content?.Trim() ?? "IGNORE";
+                    var replyContent = await GetVisionResponseAsync(chatHistory, post.Id);
+                    return new PostActionDecision { ShouldReply = true, Content = replyContent };
                 }
-                catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-                {
-                    _logger.LogError(ex,
-                        "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
-                        _config.Vision.VisionThinkingService, post.Id);
-                    throw new InvalidOperationException(
-                        $"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
-                        ex);
-                }
+
+                // Use text-only prompt for mention reply
+                var promptBuilder = new StringBuilder();
+                AppendCommonPromptSections(promptBuilder, personality, mood, hotMemoryContext, memoryContext, context);
+
+                promptBuilder.AppendLine("帖子的作者在帖子中提到了你：");
+                promptBuilder.AppendLine($"\"{content}\"");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
+                promptBuilder.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力。不要使用表情符号。");
+                promptBuilder.AppendLine();
+                promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。");
+
+                var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+                var kernelArgs = new KernelArguments(executionSettings);
+                var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), kernelArgs);
+                var textReplyContent = result.GetValue<string>()?.Trim();
+
+                return new PostActionDecision { ShouldReply = true, Content = textReplyContent };
+            }
+
+            // Otherwise, decide whether to interact
+            string decisionText;
+
+            if (useVisionModel && imageAttachments.Count > 0)
+            {
+                // Build vision-enabled chat history with images for decision-making
+                var chatHistory = await BuildVisionChatHistoryAsync(
+                    personality,
+                    mood,
+                    content,
+                    imageAttachments,
+                    post.Attachments.Count,
+                    context,
+                    isMentioned: false,
+                    memoryContext: memoryContext
+                );
+                decisionText = await GetVisionResponseAsync(chatHistory, post.Id);
             }
             else
             {
                 // Use regular text-only prompt
                 var decisionPrompt = new StringBuilder();
-                decisionPrompt.AppendLine(personality);
-                decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine($"当前心情: {mood}");
-                decisionPrompt.AppendLine();
-
-                if (!string.IsNullOrEmpty(hotMemoryContext))
-                {
-                    decisionPrompt.AppendLine(hotMemoryContext);
-                }
-
-                if (!string.IsNullOrEmpty(memoryContext))
-                {
-                    decisionPrompt.AppendLine(memoryContext);
-                }
-
-                if (!string.IsNullOrEmpty(context))
-                {
-                    decisionPrompt.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
-                    decisionPrompt.AppendLine(context);
-                    decisionPrompt.AppendLine();
-                }
+                AppendCommonPromptSections(decisionPrompt, personality, mood, hotMemoryContext, memoryContext, context);
 
                 decisionPrompt.AppendLine("你正在浏览帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
-                decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
-                decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）。");
-                decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
-                decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子");
-                decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**STORE** - 使用 store_memory 工具保存重要信息到记忆中");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine(
@@ -616,56 +698,16 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("重要：如果发现重要信息、用户偏好、关键事实，请使用 STORE 行动保存到记忆中。");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
-                var decisionResult =
-                    await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
+                var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
                 decisionText = decisionResult.GetValue<string>()?.Trim() ?? "IGNORE";
             }
 
-            var decision = decisionText;
+            var (actionDecision, storeActions) = ParseDecisionText(decisionText, post.Id);
 
-            _logger.LogInformation("AI decision for post {PostId}: {Decision}", post.Id, decision);
-
-            var actionDecision = new PostActionDecision();
-
-            var lines = decision.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).ToList();
-
-            foreach (var line in lines)
+            // Process any STORE actions
+            if (storeActions.Count > 0)
             {
-                if (line.StartsWith("REPLY:"))
-                {
-                    var replyText = line.Substring(6).Trim();
-                    actionDecision.ShouldReply = true;
-                    actionDecision.Content = replyText;
-                }
-                else if (line.StartsWith("REACT:"))
-                {
-                    // Only process the first REACT, skip additional ones
-                    if (actionDecision.ShouldReact)
-                    {
-                        _logger.LogDebug("Already processed REACT, skipping additional reaction for post {PostId}",
-                            post.Id);
-                        continue;
-                    }
-
-                    var parts = line.Substring(6).Split(':');
-                    var symbol = parts.Length > 0 ? parts[0].Trim().ToLower() : "heart";
-                    var attitude = parts.Length > 1 ? parts[1].Trim() : "Positive";
-                    actionDecision.ShouldReact = true;
-                    actionDecision.ReactionSymbol = symbol;
-                    actionDecision.ReactionAttitude = attitude;
-                }
-                else if (line.StartsWith("PIN:"))
-                {
-                    var mode = line[4..].Trim();
-                    var pinMode = mode.Equals("RealmPage", StringComparison.OrdinalIgnoreCase)
-                        ? PostPinMode.RealmPage
-                        : PostPinMode.PublisherPage;
-                    actionDecision.ShouldPin = true;
-                    actionDecision.PinMode = pinMode;
-                }
-                else if (line.Equals("IGNORE", StringComparison.OrdinalIgnoreCase))
-                {
-                }
+                await ProcessStoreActionsAsync(storeActions, post.Publisher?.AccountId);
             }
 
             return actionDecision;
@@ -755,15 +797,10 @@ public class MiChanAutonomousBehavior
         else
         {
             instructionText.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
-            instructionText.AppendLine();
             instructionText.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
-            instructionText.AppendLine();
             instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）。");
-            instructionText.AppendLine();
             instructionText.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
-            instructionText.AppendLine();
             instructionText.AppendLine("**IGNORE** - 忽略此帖子");
-            instructionText.AppendLine();
             instructionText.AppendLine("**STORE** - 使用 store_memory 工具保存重要信息到记忆中");
             instructionText.AppendLine();
             instructionText.AppendLine(
@@ -774,13 +811,13 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
-            instructionText.AppendLine("- STORE: 你想要保存的记忆内容");
+            instructionText.AppendLine("- STORE:类型:你想要保存的记忆内容（类型可以为 user, summary, context 等）");
             instructionText.AppendLine();
             instructionText.AppendLine("示例：");
             instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
             instructionText.AppendLine("REACT:heart:Positive");
             instructionText.AppendLine("IGNORE");
-            instructionText.AppendLine("STORE: 用户喜欢分享关于AI技术的帖子");
+            instructionText.AppendLine("STORE:user:用户喜欢分享关于AI技术的帖子");
             instructionText.AppendLine();
             instructionText.AppendLine("重要：如果发现重要信息、用户偏好、关键事实，请使用 STORE 行动保存到记忆中。");
         }
