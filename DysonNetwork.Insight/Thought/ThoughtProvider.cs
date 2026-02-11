@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Models;
@@ -37,6 +38,8 @@ public class ThoughtProvider
     private readonly ILogger<ThoughtProvider> _logger;
     private readonly AppDatabase _db;
     private readonly MemoryService _memoryService;
+    private readonly MiChanConfig _miChanConfig;
+    private readonly IServiceProvider _serviceProvider;
 
     private readonly Dictionary<string, Kernel> _kernels = new();
     private readonly Dictionary<string, ThoughtServiceModel> _serviceModels = new();
@@ -52,8 +55,7 @@ public class ThoughtProvider
         ILogger<ThoughtProvider> logger,
         AppDatabase db,
         MemoryService memoryService,
-        MiChanKernelProvider miChanKernelProvider
-    )
+        MiChanKernelProvider miChanKernelProvider, IServiceProvider serviceProvider, MiChanConfig miChanConfig)
     {
         _logger = logger;
         _kernelFactory = kernelFactory;
@@ -64,6 +66,8 @@ public class ThoughtProvider
         _db = db;
         _memoryService = memoryService;
         _miChanKernelProvider = miChanKernelProvider;
+        _serviceProvider = serviceProvider;
+        _miChanConfig = miChanConfig;
 
         var cfg = configuration.GetSection("Thinking");
         _defaultServiceId = cfg.GetValue<string>("DefaultService")!;
@@ -200,7 +204,10 @@ public class ThoughtProvider
                 return (false, "Error: No thoughts in sequence");
             }
 
+            var personality = PersonalityLoader.LoadPersonality(_miChanConfig.PersonalityFile, _miChanConfig.Personality, _logger);
+            
             var conversationBuilder = new StringBuilder();
+            conversationBuilder.AppendLine(personality);
             conversationBuilder.AppendLine($"以下是你与用户 {accountId} 对话历史。请阅读并判断有什么重要信息、关键事实或用户偏好值得记住。");
             conversationBuilder.AppendLine("如果有值得记住的信息，请使用 store_memory 工具保存记忆。");
             conversationBuilder.AppendLine();
@@ -227,9 +234,19 @@ public class ThoughtProvider
 
             var kernel = _miChanKernelProvider.GetKernel();
 
-            kernel.Plugins.AddFromObject(new MemoryKernelPlugin(_memoryService, _logger), "memory");
+            // Register plugins (only if not already registered)
+            var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
+            var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
+            var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
 
-            var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.3);
+            if (!kernel.Plugins.Contains("post"))
+                kernel.Plugins.AddFromObject(postPlugin, "post");
+            if (!kernel.Plugins.Contains("account"))
+                kernel.Plugins.AddFromObject(accountPlugin, "account");
+            if  (!kernel.Plugins.Contains("memory"))
+                kernel.Plugins.AddFromObject(memoryPlugin, "memory");
+
+            var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
 
             var result = await kernel.InvokePromptAsync<string>(
                 conversationHistory,
@@ -249,52 +266,6 @@ public class ThoughtProvider
         {
             _logger.LogError(ex, "Error memorizing sequence {SequenceId}", sequenceId);
             return (false, $"Error: {ex.Message}");
-        }
-    }
-
-    private class MemoryKernelPlugin
-    {
-        private readonly MemoryService _memoryService;
-        private readonly ILogger _logger;
-
-        public MemoryKernelPlugin(MemoryService memoryService, ILogger logger)
-        {
-            _memoryService = memoryService;
-            _logger = logger;
-        }
-
-        [KernelFunction("store_memory")]
-        [Description("Store important information, facts, or user preferences into memory for future reference.")]
-        public async Task<string> StoreMemory(
-            [Description("The content to remember. Keep it concise, factual, and informative.")]
-            string content,
-            [Description("Optional: Confidence level 0-1 (default: 0.7)")]
-            float? confidence = 0.7f,
-            [Description("Optional: Account who owns the memory. Leave empty for global memory.")]
-            Guid? accountId = null,
-            [Description("Optional: Mark as hot memory for quick access (default: true)")]
-            bool isHot = true
-        )
-        {
-            try
-            {
-                var record = await _memoryService.StoreMemoryAsync(
-                    "summary",
-                    content,
-                    confidence,
-                    isHot,
-                    accountId
-                );
-
-                _logger.LogInformation("Stored memory {MemoryId} via kernel plugin", record.Id);
-
-                return $"记忆已保存 (ID: {record.Id})";
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error storing memory via kernel plugin");
-                return $"保存记忆失败: {ex.Message}";
-            }
         }
     }
 

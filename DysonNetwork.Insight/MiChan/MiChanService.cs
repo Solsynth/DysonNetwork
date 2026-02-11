@@ -359,7 +359,7 @@ public class MiChanService(
         }
     }
 
-    public string GetPersonality()
+    private string GetPersonality()
     {
         // If personality file is configured, reload it each time (hot reload support)
         if (!string.IsNullOrWhiteSpace(config.PersonalityFile))
