@@ -263,6 +263,8 @@ public class ThoughtProvider
 
             var response = result?.Trim() ?? "";
 
+            _logger.LogDebug("Agent response for memory storage:\n{Response}", response);
+
             var memoriesStored = 0;
             var lines = response.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l));
 
@@ -270,14 +272,14 @@ public class ThoughtProvider
             {
                 if (line.StartsWith("STORE:", StringComparison.OrdinalIgnoreCase))
                 {
-                    var storeContent = line.Substring(7).Trim();
+                    var storeContent = line.Substring("STORE:".Length).Trim();
                     var colonIndex = storeContent.IndexOf(':');
                     if (colonIndex > 0)
                     {
                         var type = storeContent.Substring(0, colonIndex).Trim().ToLower();
                         var content = storeContent.Substring(colonIndex + 1).Trim();
 
-                        if (!string.IsNullOrEmpty(content))
+                        if (!string.IsNullOrEmpty(type) && !string.IsNullOrEmpty(content))
                         {
                             try
                             {
