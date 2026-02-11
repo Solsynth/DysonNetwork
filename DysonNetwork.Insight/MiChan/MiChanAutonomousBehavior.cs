@@ -670,32 +670,40 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("你正在浏览帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
-                decisionPrompt.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
-                decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）。");
-                decisionPrompt.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
-                decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子");
-                decisionPrompt.AppendLine("**STORE** - 使用 store_memory 工具保存重要信息到记忆中");
+                decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。");
+                decisionPrompt.AppendLine("**REPLY** - 回复表达你的想法（谨慎选择，仅在内容与你高度相关或互动性强时才回复）；");
+                decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）；");
+                decisionPrompt.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）；");
+                decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子；");
+                decisionPrompt.AppendLine("**STORE** - 必须保存记忆，记录你从这条帖子中学到的任何信息。");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine(
                     "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("格式：每行动单独一行：");
-                decisionPrompt.AppendLine("- REPLY: 你的回复内容");
+                decisionPrompt.AppendLine("- REPLY: 你的回复内容（回复概率应低于30%，仅当确实想互动时）");
                 decisionPrompt.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
-                decisionPrompt.AppendLine("- STORE: 你想要保存的记忆内容");
+                decisionPrompt.AppendLine("- STORE:类型:你想要保存的记忆内容（这是**强制要求**，每条帖子至少保存一条记忆）");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("STORE 类型说明：");
+                decisionPrompt.AppendLine("- user: 关于用户的信息（兴趣、偏好、习惯、性格等）");
+                decisionPrompt.AppendLine("- topic: 话题或主题信息");
+                decisionPrompt.AppendLine("- fact: 事实或知识点");
+                decisionPrompt.AppendLine("- context: 上下文或背景信息");
+                decisionPrompt.AppendLine("- interaction: 互动模式或社交信息");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("示例：");
-                decisionPrompt.AppendLine("REPLY: 这个很有意思！我也在想这个。");
+                decisionPrompt.AppendLine("REPLY: 这个很有意思！");
                 decisionPrompt.AppendLine("REACT:heart:Positive");
-                decisionPrompt.AppendLine("REPLY: 我完全同意你的观点。");
-                decisionPrompt.AppendLine("REACT:clap:Positive");
+                decisionPrompt.AppendLine("STORE:user:用户喜欢分享关于AI技术的帖子");
+                decisionPrompt.AppendLine("STORE:topic:讨论了最新的GPT模型发布");
                 decisionPrompt.AppendLine("IGNORE");
-                decisionPrompt.AppendLine("STORE: 用户喜欢分享关于AI技术的帖子");
+                decisionPrompt.AppendLine("STORE:fact:某公司在昨日发布了新产品");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("重要：如果发现重要信息、用户偏好、关键事实，请使用 STORE 行动保存到记忆中。");
+                decisionPrompt.AppendLine("**强制要求**：对每一条浏览的帖子，你必须至少保存一条记忆（使用 STORE）。即使只是记录'用户分享了关于XX的内容'或'这是一条普通的生活分享'。");
+                decisionPrompt.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或仅 STORE 即可。");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
                 var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
@@ -796,30 +804,40 @@ public class MiChanAutonomousBehavior
         }
         else
         {
-            instructionText.AppendLine("选择你的行动。每个行动单独一行。可以同时回复和反应！");
-            instructionText.AppendLine("**REPLY** - 回复表达你的想法。鼓励互动交流！");
-            instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）。");
-            instructionText.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）");
-            instructionText.AppendLine("**IGNORE** - 忽略此帖子");
-            instructionText.AppendLine("**STORE** - 使用 store_memory 工具保存重要信息到记忆中");
+            instructionText.AppendLine("选择你的行动。每个行动单独一行。");
+            instructionText.AppendLine("**REPLY** - 回复表达你的想法（谨慎选择，仅在内容与你高度相关或互动性强时才回复）；");
+            instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）；");
+            instructionText.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）；");
+            instructionText.AppendLine("**IGNORE** - 忽略此帖子；");
+            instructionText.AppendLine("**STORE** - 必须保存记忆，记录你从这条帖子中学到的任何信息。");
             instructionText.AppendLine();
             instructionText.AppendLine(
                 "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
             instructionText.AppendLine("格式：每行动单独一行：");
-            instructionText.AppendLine("- REPLY: 你的回复内容");
+            instructionText.AppendLine("- REPLY: 你的回复内容（回复概率应低于30%，仅当确实想互动时）");
             instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
-            instructionText.AppendLine("- STORE:类型:你想要保存的记忆内容（类型可以为 user, summary, context 等）");
+            instructionText.AppendLine("- STORE:类型:你想要保存的记忆内容（这是**强制要求**，每条帖子至少保存一条记忆）");
+            instructionText.AppendLine();
+            instructionText.AppendLine("STORE 类型说明：");
+            instructionText.AppendLine("- user: 关于用户的信息（兴趣、偏好、习惯、性格等）");
+            instructionText.AppendLine("- topic: 话题或主题信息");
+            instructionText.AppendLine("- fact: 事实或知识点");
+            instructionText.AppendLine("- context: 上下文或背景信息");
+            instructionText.AppendLine("- interaction: 互动模式或社交信息");
             instructionText.AppendLine();
             instructionText.AppendLine("示例：");
-            instructionText.AppendLine("REPLY: 这个很有意思！我也在想这个。");
+            instructionText.AppendLine("REPLY: 这个很有意思！");
             instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("IGNORE");
             instructionText.AppendLine("STORE:user:用户喜欢分享关于AI技术的帖子");
+            instructionText.AppendLine("STORE:topic:讨论了最新的GPT模型发布");
+            instructionText.AppendLine("IGNORE");
+            instructionText.AppendLine("STORE:fact:某公司在昨日发布了新产品");
             instructionText.AppendLine();
-            instructionText.AppendLine("重要：如果发现重要信息、用户偏好、关键事实，请使用 STORE 行动保存到记忆中。");
+            instructionText.AppendLine("**强制要求**：对每一条浏览的帖子，你必须至少保存一条记忆（使用 STORE）。即使只是记录'用户分享了关于XX的内容'或'这是一条普通的生活分享'。");
+            instructionText.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或仅 STORE 即可。");
         }
 
         contentItems.Add(new TextContent(instructionText.ToString()));
