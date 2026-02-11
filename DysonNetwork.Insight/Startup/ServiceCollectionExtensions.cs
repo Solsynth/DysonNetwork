@@ -104,11 +104,6 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<PostAnalysisService>();
             services.AddSingleton<MiChanAutonomousBehavior>();
             
-            // Agent Vector Store (separate pgvector database for semantic memory)
-            // This uses the Microsoft.SemanticKernel.Connectors.PgVector connector
-            // The AgentVectorService manages its own NpgsqlDataSource and PostgresVectorStore
-            services.AddSingleton<AgentVectorService>();
-            
             // Only start the hosted service when enabled
             if (miChanConfig.Enabled)
                 services.AddHostedService<MiChanService>();

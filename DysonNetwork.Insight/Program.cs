@@ -8,23 +8,6 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Check for migration command
-if (args.Contains("migrate-michan-data"))
-{
-    Console.WriteLine("Running MiChan data migration...");
-    
-    builder.Services.AddLogging(config => config.AddConsole());
-    var tempApp = builder.Build();
-    
-    using (var scope = tempApp.Services.CreateScope())
-    {
-        await MiChanDataMigrator.MigrateAsync(scope.ServiceProvider);
-    }
-    
-    Console.WriteLine("Migration complete!");
-    return;
-}
-
 builder.AddServiceDefaults();
 
 builder.ConfigureAppKestrel(builder.Configuration);
