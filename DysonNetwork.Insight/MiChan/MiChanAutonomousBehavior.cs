@@ -412,6 +412,7 @@ public class MiChanAutonomousBehavior
                 {
                     hotSb.AppendLine($"- {memory.ToPrompt()}");
                 }
+
                 hotSb.AppendLine();
                 hotMemoryContext = hotSb.ToString();
             }
@@ -846,12 +847,6 @@ public class MiChanAutonomousBehavior
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
-            await _memoryService.StoreMemoryAsync(
-                "autonomous",
-                $"post_{post.Id} reply",
-                accountId: post.Publisher?.AccountId,
-                hot: false);
-
             _logger.LogInformation("Autonomous: Replied to post {PostId}", post.Id);
         }
         catch (Exception ex)
@@ -944,12 +939,6 @@ public class MiChanAutonomousBehavior
 
             await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/pin", request);
 
-            await _memoryService.StoreMemoryAsync(
-                "autonomous",
-                $"post_{post.Id} pin",
-                accountId: post.Publisher?.AccountId,
-                hot: false);
-
             _logger.LogInformation("Autonomous: Pinned post {PostId} with mode {Mode}", post.Id, mode);
         }
         catch (Exception ex)
@@ -975,11 +964,6 @@ public class MiChanAutonomousBehavior
             }
 
             await _apiClient.DeleteAsync("sphere", $"/posts/{post.Id}/pin");
-
-            await _memoryService.StoreMemoryAsync(
-                "autonomous",
-                $"post_{post.Id} unpin",
-                hot: false);
 
             _logger.LogInformation("Autonomous: Unpinned post {PostId}", post.Id);
         }
@@ -1103,11 +1087,6 @@ public class MiChanAutonomousBehavior
                 ["content"] = content,
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
-
-            await _memoryService.StoreMemoryAsync(
-                "autonomous",
-                $"post_{DateTime.UtcNow:yyyyMMdd_HHmmss} created",
-                hot: false);
 
             _logger.LogInformation("Autonomous: Created post: {Content}", content);
         }
@@ -1327,11 +1306,6 @@ public class MiChanAutonomousBehavior
             request["forwarded_post_id"] = post.Id.ToString();
 
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
-
-            await _memoryService.StoreMemoryAsync(
-                "repost",
-                $"post_{post.Id} reposted by {post.Publisher?.Name ?? "unknown"}",
-                hot: false);
 
             _logger.LogInformation("Autonomous: Reposted post {PostId} from @{Author} with comment: {Comment}",
                 post.Id, post.Publisher?.Name ?? "unknown", comment ?? "(none)");
