@@ -32,6 +32,7 @@ public class ThoughtController(
 
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; } = [];
+        public List<string>? AttachedAttachmentIds { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
     }
@@ -158,7 +159,8 @@ public class ThoughtController(
             request.UserMessage,
             request.AttachedPosts,
             request.AttachedMessages,
-            request.AcceptProposals
+            request.AcceptProposals,
+            request.AttachedAttachmentIds
         );
 
         // Set response for streaming
@@ -362,7 +364,8 @@ public class ThoughtController(
             request.UserMessage,
             request.AttachedPosts,
             request.AttachedMessages,
-            request.AcceptProposals
+            request.AcceptProposals,
+            request.AttachedAttachmentIds
         );
 
         if (shouldRefuse)

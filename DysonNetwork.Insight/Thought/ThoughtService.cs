@@ -543,7 +543,8 @@ public class ThoughtService(
         string userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
-        List<string> acceptProposals)
+        List<string> acceptProposals,
+        List<string>? attachmentIds = null)
     {
         // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();
@@ -636,6 +637,49 @@ public class ThoughtService(
             chatHistory.AddUserMessage($"附加的聊天消息数据：{JsonSerializer.Serialize(attachedMessages)}");
         }
 
+        // Handle direct attachments if provided
+        if (attachmentIds is { Count: > 0 })
+        {
+            var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
+            var imageAttachments = attachments
+                .Where(a => !string.IsNullOrEmpty(a.MimeType) &&
+                            (a.MimeType.StartsWith("image/jpeg") ||
+                             a.MimeType.StartsWith("image/png") ||
+                             a.MimeType.StartsWith("image/gif") ||
+                             a.MimeType.StartsWith("image/webp")))
+                .ToList();
+
+            if (imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable())
+            {
+                try
+                {
+                    var visionChatHistory = await BuildVisionChatHistoryWithAttachmentsAsync(
+                        imageAttachments,
+                        userMessage,
+                        "你是分析图片的 AI 助手。描述你在图片中看到的内容，并将其与用户的问题联系起来。");
+                    var visionKernel = miChanKernelProvider.GetVisionKernel();
+                    var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
+                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                    var visionResult = await chatCompletionService.GetChatMessageContentAsync(visionChatHistory, visionSettings);
+
+                    if (!string.IsNullOrEmpty(visionResult.Content))
+                    {
+                        chatHistory.AddSystemMessage($"图片分析：{visionResult.Content}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to analyze attached images");
+                }
+            }
+            else if (attachments.Count > 0)
+            {
+                // Add attachment info for non-image attachments
+                var attachmentInfo = string.Join("\n", attachments.Select(a => $"- {a.Name} ({a.MimeType})"));
+                chatHistory.AddSystemMessage($"用户附加了以下文件（非图片）：\n{attachmentInfo}");
+            }
+        }
+
         // Add previous thoughts
         var previousThoughts = await GetPreviousThoughtsAsync(sequence);
         var count = previousThoughts.Count;
@@ -723,7 +767,8 @@ public class ThoughtService(
         string userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
-        List<string> acceptProposals
+        List<string> acceptProposals,
+        List<string>? attachmentIds = null
     )
     {
         // Load personality
@@ -853,6 +898,49 @@ public class ThoughtService(
             chatHistory.AddUserMessage($"附加的聊天消息：{JsonSerializer.Serialize(attachedMessages)}");
         }
 
+        // Handle direct attachments if provided
+        if (attachmentIds is { Count: > 0 })
+        {
+            var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
+            var imageAttachments = attachments
+                .Where(a => !string.IsNullOrEmpty(a.MimeType) &&
+                            (a.MimeType.StartsWith("image/jpeg") ||
+                             a.MimeType.StartsWith("image/png") ||
+                             a.MimeType.StartsWith("image/gif") ||
+                             a.MimeType.StartsWith("image/webp")))
+                .ToList();
+
+            if (imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable())
+            {
+                try
+                {
+                    var visionChatHistory = await BuildVisionChatHistoryWithAttachmentsAsync(
+                        imageAttachments,
+                        userMessage,
+                        "你是分析图片的 AI 助手。描述你在图片中看到的内容，并将其与用户的问题联系起来。");
+                    var visionKernel = miChanKernelProvider.GetVisionKernel();
+                    var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
+                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+                    var visionResult = await chatCompletionService.GetChatMessageContentAsync(visionChatHistory, visionSettings);
+
+                    if (!string.IsNullOrEmpty(visionResult.Content))
+                    {
+                        chatHistory.AddSystemMessage($"图片分析：{visionResult.Content}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to analyze attached images");
+                }
+            }
+            else if (attachments.Count > 0)
+            {
+                // Add attachment info for non-image attachments
+                var attachmentInfo = string.Join("\n", attachments.Select(a => $"- {a.Name} ({a.MimeType})"));
+                chatHistory.AddSystemMessage($"用户附加了以下文件（非图片）：\n{attachmentInfo}");
+            }
+        }
+
         chatHistory.AddUserMessage(userMessage);
 
         return (chatHistory, false, null);
@@ -873,6 +961,85 @@ public class ThoughtService(
     #endregion
 
     #region Vision Analysis
+
+    /// <summary>
+    /// Fetch file details by IDs from the drive API
+    /// </summary>
+    private async Task<List<SnCloudFileReferenceObject>> GetAttachmentsByIdsAsync(List<string> ids)
+    {
+        var attachments = new List<SnCloudFileReferenceObject>();
+        
+        foreach (var id in ids)
+        {
+            try
+            {
+                if (!Guid.TryParse(id, out var fileGuid)) continue;
+                var file = await apiClient.GetAsync<SnCloudFileReferenceObject>("drive", $"/files/{fileGuid}");
+                if (file != null)
+                {
+                    attachments.Add(file);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch attachment {FileId}", id);
+            }
+        }
+        
+        return attachments;
+    }
+
+    /// <summary>
+    /// Build a ChatHistory with images for vision analysis of direct attachments
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    private async Task<ChatHistory> BuildVisionChatHistoryWithAttachmentsAsync(
+        List<SnCloudFileReferenceObject> attachments,
+        string userQuery,
+        string systemPrompt)
+    {
+        var chatHistory = new ChatHistory(systemPrompt);
+        var gatewayUrl = miChanKernelProvider.GetGatewayUrl();
+
+        // Build the text part of the message
+        var textBuilder = new StringBuilder();
+        textBuilder.AppendLine("用户分享了图片并提出了问题。");
+        textBuilder.AppendLine();
+        textBuilder.AppendLine($"用户的问题：{userQuery}");
+        textBuilder.AppendLine();
+        textBuilder.AppendLine("请分析图片并提供相关上下文以帮助回答用户的问题。");
+
+        // Create a collection to hold all content items (text + images)
+        var contentItems = new ChatMessageContentItemCollection();
+        contentItems.Add(new TextContent(textBuilder.ToString()));
+
+        // Add images using URLs
+        foreach (var attachment in attachments)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(attachment.Id)) continue;
+                
+                // Build URL from gateway + file ID
+                var url = $"{gatewayUrl}/drive/files/{attachment.Id}";
+                contentItems.Add(new ImageContent(new Uri(url)));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to create image content for {FileId}", attachment.Id);
+            }
+        }
+
+        // Create a ChatMessageContent with all items and add it to history
+        var userMessage = new ChatMessageContent
+        {
+            Role = AuthorRole.User,
+            Items = contentItems
+        };
+        chatHistory.Add(userMessage);
+
+        return chatHistory;
+    }
 
     private async Task<ChatHistory> BuildVisionChatHistoryForPostsAsync(
         List<SnPost> posts,

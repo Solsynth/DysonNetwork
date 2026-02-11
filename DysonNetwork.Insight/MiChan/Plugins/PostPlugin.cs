@@ -25,7 +25,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
     }
 
     [KernelFunction("create_post")]
-    [Description("Create and publish a new text-only post. MiChan is not capable of posting with attachments/ media.")]
+    [Description("Create and publish a new post. Supports text, title, description, tags, and optional attachments.")]
     public async Task<object> CreatePost(
         [Description("The content of the post")]
         string content,
@@ -34,7 +34,9 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         [Description("The description of the post, optional")]
         string? description,
         [Description("The tags of the post, splitted by comma, optional")]
-        string? tags
+        string? tags,
+        [Description("List of attachment IDs to include with the post, optional")]
+        List<string>? attachments
     )
     {
         try
@@ -46,6 +48,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
             if (!string.IsNullOrWhiteSpace(title)) request["title"] = title;
             if (!string.IsNullOrWhiteSpace(description)) request["description"] = description;
             if (!string.IsNullOrWhiteSpace(tags)) request["tags"] = tags.Split(',').Select(x => x.Trim()).ToArray();
+            if (attachments is { Count: > 0 }) request["attachment_ids"] = attachments;
 
             var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
 
