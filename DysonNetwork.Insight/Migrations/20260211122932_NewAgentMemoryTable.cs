@@ -21,35 +21,6 @@ namespace DysonNetwork.Insight.Migrations
                 name: "web_feed_subscriptions",
                 newName: "feed_subscriptions");
 
-            migrationBuilder.RenameTable(
-                name: "web_articles",
-                newName: "feed_articles");
-
-            migrationBuilder.RenameIndex(
-                name: "ix_web_feed_subscriptions_feed_id",
-                table: "feed_subscriptions",
-                newName: "ix_feed_subscriptions_feed_id");
-
-            migrationBuilder.RenameIndex(
-                name: "ix_web_articles_feed_id",
-                table: "feed_articles",
-                newName: "ix_feed_articles_feed_id");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "pk_feeds",
-                table: "feeds",
-                column: "id");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "pk_feed_subscriptions",
-                table: "feed_subscriptions",
-                column: "id");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "pk_feed_articles",
-                table: "feed_articles",
-                column: "id");
-
             migrationBuilder.CreateTable(
                 name: "memory_records",
                 columns: table => new
@@ -71,22 +42,6 @@ namespace DysonNetwork.Insight.Migrations
                 {
                     table.PrimaryKey("pk_memory_records", x => x.id);
                 });
-
-            migrationBuilder.AddForeignKey(
-                name: "fk_feed_articles_feeds_feed_id",
-                table: "feed_articles",
-                column: "feed_id",
-                principalTable: "feeds",
-                principalColumn: "id",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
-                name: "fk_feed_subscriptions_feeds_feed_id",
-                table: "feed_subscriptions",
-                column: "feed_id",
-                principalTable: "feeds",
-                principalColumn: "id",
-                onDelete: ReferentialAction.Cascade);
         }
 
         /// <inheritdoc />
