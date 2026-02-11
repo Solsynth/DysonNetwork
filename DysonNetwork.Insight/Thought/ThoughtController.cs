@@ -244,7 +244,7 @@ public class ThoughtController(
                 try
                 {
                     var result = await functionCall.InvokeAsync(kernel);
-                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result);
+                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result?.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -346,11 +346,22 @@ public class ThoughtController(
             }
         ], ThinkingThoughtRole.User, botName: "michan");
 
-        var chatHistory = await service.BuildMiChanChatHistoryAsync(
+        var (chatHistory, shouldRefuse, refusalReason) = await service.BuildMiChanChatHistoryAsync(
             sequence,
+            currentUser,
             request.UserMessage,
-            request.AttachedMessages
+            request.AttachedPosts,
+            request.AttachedMessages,
+            request.AcceptProposals
         );
+
+        if (shouldRefuse)
+        {
+            var refusalJson = JsonSerializer.Serialize(new { type = "text", data = refusalReason ?? "I cannot do that." });
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {refusalJson}\n\n"));
+            await Response.Body.FlushAsync();
+            return new EmptyResult();
+        }
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
@@ -436,7 +447,7 @@ public class ThoughtController(
                 try
                 {
                     var result = await functionCall.InvokeAsync(kernel);
-                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result);
+                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result?.ToString());
                 }
                 catch (Exception ex)
                 {

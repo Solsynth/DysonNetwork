@@ -834,6 +834,39 @@ public class ThoughtService(
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
     }
 
+    public (string serviceId, ThoughtServiceModel? serviceInfo) GetMiChanServiceInfo()
+    {
+        var serviceId = miChanKernelProvider.GetServiceId();
+        var serviceInfo = GetServiceInfoFromConfig(serviceId);
+        return (serviceId, serviceInfo);
+    }
+
+    private ThoughtServiceModel? GetServiceInfoFromConfig(string serviceId)
+    {
+        try
+        {
+            var thinkingConfig = configuration.GetSection("Thinking");
+            var serviceConfig = thinkingConfig.GetSection($"Services:{serviceId}");
+            var provider = serviceConfig.GetValue<string>("Provider");
+            var model = serviceConfig.GetValue<string>("Model");
+            if (string.IsNullOrEmpty(provider) || string.IsNullOrEmpty(model))
+                return null;
+
+            return new ThoughtServiceModel
+            {
+                ServiceId = serviceId,
+                Provider = provider,
+                Model = model,
+                BillingMultiplier = serviceConfig.GetValue<double>("BillingMultiplier"),
+                PerkLevel = serviceConfig.GetValue<int>("PerkLevel")
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     #endregion
 }
 

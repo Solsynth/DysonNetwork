@@ -84,6 +84,11 @@ public class MiChanKernelProvider(
     {
         return config.AccessToken;
     }
+
+    public string GetServiceId()
+    {
+        return config.ThinkingService;
+    }
 }
 
 #pragma warning restore SKEXP0050
