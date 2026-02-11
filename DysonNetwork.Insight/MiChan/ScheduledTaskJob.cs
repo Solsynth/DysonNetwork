@@ -37,14 +37,14 @@ public class ScheduledTaskJob(
             if (context.CancellationToken.IsCancellationRequested)
                 break;
 
-            await ExecuteTaskAsync(task, context.CancellationToken);
+            await ExecuteTaskDirectlyAsync(task, context.CancellationToken);
         }
 
         logger.LogInformation("Scheduled task execution job finished.");
     }
 
     [Experimental("SKEXP0050")]
-    private async Task ExecuteTaskAsync(MiChanScheduledTask task, CancellationToken cancellationToken)
+    public async Task ExecuteTaskDirectlyAsync(MiChanScheduledTask task, CancellationToken cancellationToken)
     {
         logger.LogInformation("Executing scheduled task {TaskId} for account {AccountId}",
             task.Id, task.AccountId);
