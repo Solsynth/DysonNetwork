@@ -245,6 +245,7 @@ public class ThoughtProvider
             var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
             var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
             var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
+            var scheduledTaskPlugin = _serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
 
             if (!kernel.Plugins.Contains("post"))
                 kernel.Plugins.AddFromObject(postPlugin, "post");

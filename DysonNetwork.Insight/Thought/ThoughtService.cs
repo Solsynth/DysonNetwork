@@ -1137,20 +1137,6 @@ public class ThoughtService(
         return miChanKernelProvider.CreatePromptExecutionSettings();
     }
 
-    public void EnsureMiChanPluginsRegistered(Kernel kernel)
-    {
-        var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-        var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
-        var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
-
-        if (!kernel.Plugins.Contains("post"))
-            kernel.Plugins.AddFromObject(postPlugin, "post");
-        if (!kernel.Plugins.Contains("account"))
-            kernel.Plugins.AddFromObject(accountPlugin, "account");
-        if (!kernel.Plugins.Contains("memory"))
-            kernel.Plugins.AddFromObject(memoryPlugin, "memory");
-    }
-
     public (string serviceId, ThoughtServiceModel? serviceInfo) GetMiChanServiceInfo()
     {
         var serviceId = miChanKernelProvider.GetServiceId();

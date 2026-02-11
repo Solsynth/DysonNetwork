@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -18,7 +19,8 @@ namespace DysonNetwork.Insight.Thought;
 [Route("/api/thought")]
 public class ThoughtController(
     ThoughtService service,
-    MiChanConfig miChanConfig
+    MiChanConfig miChanConfig,
+    IServiceProvider serviceProvider
 ) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
@@ -332,10 +334,20 @@ public class ThoughtController(
                 return StatusCode(403, "Not enough perk level");
 
         var kernel = service.GetMiChanKernel();
-        if (kernel is null)
-        {
-            return BadRequest("Service not found or configured.");
-        }
+        
+        var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
+        var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
+        var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
+        var scheduledTaskPlugin = serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
+
+        if (!kernel.Plugins.Contains("post"))
+            kernel.Plugins.AddFromObject(postPlugin, "post");
+        if (!kernel.Plugins.Contains("account"))
+            kernel.Plugins.AddFromObject(accountPlugin, "account");
+        if (!kernel.Plugins.Contains("memory"))
+            kernel.Plugins.AddFromObject(memoryPlugin, "memory");
+        if (!kernel.Plugins.Contains("scheduledTask"))
+            kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTask");
 
         string? topic = null;
         if (!request.SequenceId.HasValue)
