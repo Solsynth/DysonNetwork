@@ -1,3 +1,4 @@
+using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Thought;
 using Quartz;
@@ -32,6 +33,15 @@ public static class ScheduledJobsConfiguration
                 .ForJob("WebFeedVerification")
                 .WithIdentity("WebFeedVerificationTrigger")
                 .WithCronSchedule("0 0 4 * * ?")
+            );
+
+            q.AddJob<ScheduledTaskJob>(opts => opts.WithIdentity("ScheduledTask").StoreDurably());
+            q.AddTrigger(opts => opts
+                .ForJob("ScheduledTask")
+                .WithIdentity("ScheduledTaskTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
+                    .RepeatForever())
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
