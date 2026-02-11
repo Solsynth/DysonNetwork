@@ -244,11 +244,21 @@ public class ThoughtController(
                 try
                 {
                     var result = await functionCall.InvokeAsync(kernel);
-                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result?.ToString());
+                    resultContent = new FunctionResultContent(
+                        callId: functionCall.Id!,
+                        functionName: functionCall.FunctionName,
+                        pluginName: functionCall.PluginName,
+                        result: result.Result?.ToString()
+                    );
                 }
                 catch (Exception ex)
                 {
-                    resultContent = new FunctionResultContent(functionCall.Id!, ex.Message);
+                    resultContent = new FunctionResultContent(
+                        callId: functionCall.Id!,
+                        functionName: functionCall.FunctionName,
+                        pluginName: functionCall.PluginName,
+                        result: ex.Message
+                    );
                 }
 
                 chatHistory.Add(resultContent.ToChatMessage());
@@ -447,11 +457,21 @@ public class ThoughtController(
                 try
                 {
                     var result = await functionCall.InvokeAsync(kernel);
-                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result?.ToString());
+                    resultContent = new FunctionResultContent(
+                        callId: functionCall.Id!,
+                        functionName: functionCall.FunctionName,
+                        pluginName: functionCall.PluginName,
+                        result: result.Result?.ToString()
+                    );
                 }
                 catch (Exception ex)
                 {
-                    resultContent = new FunctionResultContent(functionCall.Id!, ex.Message);
+                    resultContent = new FunctionResultContent(
+                        callId: functionCall.Id!,
+                        functionName: functionCall.FunctionName,
+                        pluginName: functionCall.PluginName,
+                        result: ex.Message
+                    );
                 }
 
                 chatHistory.Add(resultContent.ToChatMessage());
