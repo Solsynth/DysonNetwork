@@ -33,18 +33,13 @@ public class ThoughtService(
 )
 {
     /// <summary>
-    /// Memorizes a thought sequence using the embedding service for semantic search.
-    /// Note: Memory is now only created through agent tool calls, not automatically.
+    /// Have MiChan read the conversation and decide what to memorize using the store_memory tool.
     /// </summary>
-    public async Task MemorizeSequenceAsync(
-        SnThinkingSequence sequence,
-        Dictionary<string, object>? additionalContext = null)
+    public async Task<(bool success, string summary)> MemorizeSequenceAsync(
+        Guid sequenceId,
+        Guid accountId)
     {
-        // Memory is now only created through agent tool calls, not automatically
-        logger.LogDebug(
-            "Skipping automatic memory storage for sequence {SequenceId}. Memory should be created through agent tool calls.",
-            sequence.Id);
-        await Task.CompletedTask;
+        return await thoughtProvider.MemorizeSequenceAsync(sequenceId, accountId);
     }
 
     /// <summary>

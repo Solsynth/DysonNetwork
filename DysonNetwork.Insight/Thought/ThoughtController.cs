@@ -589,18 +589,34 @@ public class ThoughtController(
     }
     
     /// <summary>
-    /// Manually trigger memorization of a thought sequence for MiChan.
+    /// Manually trigger memory analysis for a thought sequence.
+    /// MiChan will read the conversation and decide what to memorize.
     /// </summary>
     [HttpPost("sequences/{sequenceId:guid}/memorize")]
     [AskPermission("michan.admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult> MemorizeSequence(Guid sequenceId)
     {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
         var sequence = await service.GetSequenceAsync(sequenceId);
         if (sequence == null) return NotFound();
 
-        await service.MemorizeSequenceAsync(sequence);
+        if (sequence.AccountId != accountId)
+        {
+            if (!sequence.IsPublic)
+                return Forbid();
+        }
 
-        return Ok(new { message = "Sequence memorized successfully", sequenceId });
+        var (success, summary) = await service.MemorizeSequenceAsync(sequenceId, accountId);
+
+        if (!success)
+        {
+            return BadRequest(new { error = summary });
+        }
+
+        return Ok(new { success, summary, sequenceId });
     }
 }
 

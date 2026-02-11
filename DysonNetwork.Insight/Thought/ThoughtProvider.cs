@@ -1,8 +1,15 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
+using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Thought.Plugins;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Bing;
@@ -27,6 +34,8 @@ public class ThoughtProvider
     private readonly KernelFactory _kernelFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
+    private readonly AppDatabase _db;
+    private readonly MemoryService _memoryService;
 
     private readonly Dictionary<string, Kernel> _kernels = new();
     private readonly Dictionary<string, string> _serviceProviders = new();
@@ -40,7 +49,9 @@ public class ThoughtProvider
         PostService.PostServiceClient postServiceClient,
         AccountService.AccountServiceClient accountServiceClient,
         PublisherService.PublisherServiceClient publisherClient,
-        ILogger<ThoughtProvider> logger
+        ILogger<ThoughtProvider> logger,
+        AppDatabase db,
+        MemoryService memoryService
         )
     {
         _logger = logger;
@@ -49,6 +60,8 @@ public class ThoughtProvider
         _accountClient = accountServiceClient;
         _publisherClient = publisherClient;
         _configuration = configuration;
+        _db = db;
+        _memoryService = memoryService;
 
         var cfg = configuration.GetSection("Thinking");
         _defaultServiceId = cfg.GetValue<string>("DefaultService")!;
@@ -155,4 +168,154 @@ public class ThoughtProvider
         return _kernelFactory.CreatePromptExecutionSettings(serviceId);
     }
     #pragma warning restore SKEXP0050
+
+    [Experimental("SKEXP0050")]
+    public async Task<(bool success, string summary)> MemorizeSequenceAsync(
+        Guid sequenceId,
+        Guid accountId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Starting memory summarization for sequence {SequenceId}", sequenceId);
+
+            var sequence = await _db.ThinkingSequences
+                .FirstOrDefaultAsync(s => s.Id == sequenceId && s.AccountId == accountId, cancellationToken);
+
+            if (sequence == null)
+            {
+                _logger.LogWarning("Sequence {SequenceId} not found for account {AccountId}", sequenceId, accountId);
+                return (false, "Error: Sequence not found");
+            }
+
+            var thoughts = await _db.ThinkingThoughts
+                .Where(t => t.SequenceId == sequenceId)
+                .OrderBy(t => t.CreatedAt)
+                .ToListAsync(cancellationToken);
+
+            if (!thoughts.Any())
+            {
+                _logger.LogWarning("Sequence {SequenceId} has no thoughts to summarize", sequenceId);
+                return (false, "Error: No thoughts in sequence");
+            }
+
+            var conversationBuilder = new StringBuilder();
+            conversationBuilder.AppendLine("以下是对话历史。请阅读并判断有什么重要信息、关键事实或用户偏好值得记住。");
+            conversationBuilder.AppendLine("如果有值得记住的信息，请使用 store_memory 工具保存记忆。");
+            conversationBuilder.AppendLine();
+            conversationBuilder.AppendLine("=== 对话历史 ===");
+            conversationBuilder.AppendLine();
+
+            foreach (var thought in thoughts)
+            {
+                var role = thought.Role switch
+                {
+                    ThinkingThoughtRole.User => "用户",
+                    ThinkingThoughtRole.Assistant => "助手",
+                    _ => thought.Role.ToString()
+                };
+
+                var content = ExtractThoughtContent(thought);
+                if (!string.IsNullOrEmpty(content))
+                {
+                    conversationBuilder.AppendLine($"[{role}]:");
+                    conversationBuilder.AppendLine(content);
+                    conversationBuilder.AppendLine();
+                }
+            }
+
+            var conversationHistory = conversationBuilder.ToString();
+
+            var kernel = _kernelFactory.CreateKernel("michan", addEmbeddings: false);
+
+            kernel.Plugins.AddFromObject(new MemoryKernelPlugin(_memoryService, _logger), "memory");
+
+            var settings = _kernelFactory.CreatePromptExecutionSettings("michan", 0.3);
+
+            var result = await kernel.InvokePromptAsync<string>(
+                conversationHistory,
+                new KernelArguments(settings)
+            );
+
+            var response = result?.Trim() ?? "";
+
+            _logger.LogInformation(
+                "Memory summarization completed for sequence {SequenceId}. Response: {Response}",
+                sequenceId, response);
+
+            return (true, response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error memorizing sequence {SequenceId}", sequenceId);
+            return (false, $"Error: {ex.Message}");
+        }
+    }
+
+    private class MemoryKernelPlugin
+    {
+        private readonly MemoryService _memoryService;
+        private readonly ILogger _logger;
+
+        public MemoryKernelPlugin(MemoryService memoryService, ILogger logger)
+        {
+            _memoryService = memoryService;
+            _logger = logger;
+        }
+
+        [KernelFunction("store_memory")]
+        [Description("Store important information, facts, or user preferences into memory for future reference.")]
+        public async Task<string> StoreMemory(
+            [Description("The content to remember. Keep it concise, factual, and informative.")]
+            string content,
+            [Description("Optional: Confidence level 0-1 (default: 0.7)")]
+            float? confidence = 0.7f,
+            [Description("Optional: Account who owns the memory. Leave empty for global memory.")]
+            Guid? accountId = null,
+            [Description("Optional: Mark as hot memory for quick access (default: true)")]
+            bool isHot = true
+        )
+        {
+            try
+            {
+                var record = await _memoryService.StoreMemoryAsync(
+                    "summary",
+                    content,
+                    confidence,
+                    isHot,
+                    accountId
+                );
+
+                _logger.LogInformation("Stored memory {MemoryId} via kernel plugin", record.Id);
+
+                return $"记忆已保存 (ID: {record.Id})";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error storing memory via kernel plugin");
+                return $"保存记忆失败: {ex.Message}";
+            }
+        }
+    }
+
+    private static string ExtractThoughtContent(SnThinkingThought thought)
+    {
+        var content = new StringBuilder();
+        foreach (var part in thought.Parts)
+        {
+            switch (part.Type)
+            {
+                case ThinkingMessagePartType.Text when !string.IsNullOrEmpty(part.Text):
+                    content.AppendLine(part.Text);
+                    break;
+                case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
+                    content.AppendLine($"[功能调用: {part.FunctionCall.PluginName}.{part.FunctionCall.Name}]");
+                    break;
+                case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
+                    content.AppendLine($"[功能结果: {part.FunctionResult.FunctionName}]");
+                    break;
+            }
+        }
+        return content.ToString().Trim();
+    }
 }
