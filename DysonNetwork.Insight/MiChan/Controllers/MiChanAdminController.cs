@@ -17,9 +17,6 @@ namespace DysonNetwork.Insight.MiChan.Controllers;
 public class MiChanAdminController(
     MiChanConfig config,
     ILogger<MiChanAdminController> logger,
-    MemoryService memoryService,
-    MiChanKernelProvider kernelProvider,
-    IServiceProvider serviceProvider,
     MiChanAutonomousBehavior autonomousBehavior)
     : ControllerBase
 {

@@ -32,13 +32,13 @@ public class ThoughtProvider
     private readonly AccountService.AccountServiceClient _accountClient;
     private readonly PublisherService.PublisherServiceClient _publisherClient;
     private readonly KernelFactory _kernelFactory;
+    private readonly MiChanKernelProvider _miChanKernelProvider;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
     private readonly AppDatabase _db;
     private readonly MemoryService _memoryService;
 
     private readonly Dictionary<string, Kernel> _kernels = new();
-    private readonly Dictionary<string, string> _serviceProviders = new();
     private readonly Dictionary<string, ThoughtServiceModel> _serviceModels = new();
     private readonly string _defaultServiceId;
 
@@ -51,8 +51,9 @@ public class ThoughtProvider
         PublisherService.PublisherServiceClient publisherClient,
         ILogger<ThoughtProvider> logger,
         AppDatabase db,
-        MemoryService memoryService
-        )
+        MemoryService memoryService,
+        MiChanKernelProvider miChanKernelProvider
+    )
     {
         _logger = logger;
         _kernelFactory = kernelFactory;
@@ -62,6 +63,7 @@ public class ThoughtProvider
         _configuration = configuration;
         _db = db;
         _memoryService = memoryService;
+        _miChanKernelProvider = miChanKernelProvider;
 
         var cfg = configuration.GetSection("Thinking");
         _defaultServiceId = cfg.GetValue<string>("DefaultService")!;
@@ -75,17 +77,16 @@ public class ThoughtProvider
                 ServiceId = serviceId,
                 Provider = service.GetValue<string>("Provider"),
                 Model = service.GetValue<string>("Model"),
-                BillingMultiplier = service.GetValue<double>("BillingMultiplier", 1.0),
-                PerkLevel = service.GetValue<int>("PerkLevel", 0)
+                BillingMultiplier = service.GetValue("BillingMultiplier", 1.0),
+                PerkLevel = service.GetValue("PerkLevel", 0)
             };
             _serviceModels[serviceId] = serviceModel;
-            
+
             var providerType = service.GetValue<string>("Provider")?.ToLower();
             if (providerType is null) continue;
 
             var kernel = InitializeThinkingService(serviceId);
             _kernels[serviceId] = kernel;
-            _serviceProviders[serviceId] = providerType;
         }
     }
 
@@ -144,7 +145,7 @@ public class ThoughtProvider
     {
         return _kernels.Keys;
     }
-    
+
     public IEnumerable<ThoughtServiceModel> GetAvailableServicesInfo()
     {
         return _serviceModels.Values;
@@ -161,13 +162,13 @@ public class ThoughtProvider
         return _defaultServiceId;
     }
 
-    #pragma warning disable SKEXP0050
+#pragma warning disable SKEXP0050
     public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null)
     {
         serviceId ??= _defaultServiceId;
         return _kernelFactory.CreatePromptExecutionSettings(serviceId);
     }
-    #pragma warning restore SKEXP0050
+#pragma warning restore SKEXP0050
 
     [Experimental("SKEXP0050")]
     public async Task<(bool success, string summary)> MemorizeSequenceAsync(
@@ -200,7 +201,7 @@ public class ThoughtProvider
             }
 
             var conversationBuilder = new StringBuilder();
-            conversationBuilder.AppendLine("以下是对话历史。请阅读并判断有什么重要信息、关键事实或用户偏好值得记住。");
+            conversationBuilder.AppendLine($"以下是你与用户 {accountId} 对话历史。请阅读并判断有什么重要信息、关键事实或用户偏好值得记住。");
             conversationBuilder.AppendLine("如果有值得记住的信息，请使用 store_memory 工具保存记忆。");
             conversationBuilder.AppendLine();
             conversationBuilder.AppendLine("=== 对话历史 ===");
@@ -216,25 +217,24 @@ public class ThoughtProvider
                 };
 
                 var content = ExtractThoughtContent(thought);
-                if (!string.IsNullOrEmpty(content))
-                {
-                    conversationBuilder.AppendLine($"[{role}]:");
-                    conversationBuilder.AppendLine(content);
-                    conversationBuilder.AppendLine();
-                }
+                if (string.IsNullOrEmpty(content)) continue;
+                conversationBuilder.AppendLine($"[{role}]:");
+                conversationBuilder.AppendLine(content);
+                conversationBuilder.AppendLine();
             }
 
             var conversationHistory = conversationBuilder.ToString();
 
-            var kernel = _kernelFactory.CreateKernel("michan", addEmbeddings: false);
+            var kernel = _miChanKernelProvider.GetKernel();
 
             kernel.Plugins.AddFromObject(new MemoryKernelPlugin(_memoryService, _logger), "memory");
 
-            var settings = _kernelFactory.CreatePromptExecutionSettings("michan", 0.3);
+            var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.3);
 
             var result = await kernel.InvokePromptAsync<string>(
                 conversationHistory,
-                new KernelArguments(settings)
+                new KernelArguments(settings),
+                cancellationToken: cancellationToken
             );
 
             var response = result?.Trim() ?? "";
@@ -316,6 +316,7 @@ public class ThoughtProvider
                     break;
             }
         }
+
         return content.ToString().Trim();
     }
 }

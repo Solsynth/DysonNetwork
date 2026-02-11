@@ -21,7 +21,6 @@ public class ThoughtService(
     AppDatabase db,
     ICacheService cache,
     PaymentService.PaymentServiceClient paymentService,
-    AccountService.AccountServiceClient accountClient,
     ThoughtProvider thoughtProvider,
     MiChanKernelProvider miChanKernelProvider,
     SolarNetworkApiClient apiClient,
