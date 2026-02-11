@@ -10,7 +10,8 @@ namespace DysonNetwork.Insight.MiChan;
 public class MiChanKernelProvider(
     MiChanConfig config,
     KernelFactory kernelFactory,
-    IConfiguration configuration)
+    IConfiguration configuration
+) : IKernelProvider
 {
     private Kernel? _kernel;
     private Kernel? _visionKernel;

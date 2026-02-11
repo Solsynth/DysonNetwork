@@ -4,6 +4,7 @@ using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -89,6 +90,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<KernelFactory>();
             services.AddSingleton<SolarNetworkApiClient>();
             services.AddSingleton<MiChanKernelProvider>();
+            services.AddSingleton<GeneralKernelProvider>();
+            services.AddSingleton<IKernelProvider>(sp => sp.GetRequiredService<GeneralKernelProvider>());
             
             // Plugins
             services.AddSingleton<PostPlugin>();
@@ -97,6 +100,7 @@ public static class ServiceCollectionExtensions
             
             // Memory and behavior services
             services.AddSingleton<EmbeddingService>();
+            services.AddSingleton<MemoryService>();
             services.AddSingleton<MiChanMemoryService>();
             services.AddSingleton<PostAnalysisService>();
             services.AddSingleton<MiChanAutonomousBehavior>();

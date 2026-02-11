@@ -1,12 +1,13 @@
+using DysonNetwork.Insight.MiChan;
 using Microsoft.Extensions.AI;
 using Pgvector;
 
-namespace DysonNetwork.Insight.MiChan;
+namespace DysonNetwork.Insight.Thought.Memory;
 
 /// <summary>
 /// Service for generating text embeddings using Microsoft.Extensions.AI
 /// </summary>
-public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<EmbeddingService> logger)
+public class EmbeddingService(IKernelProvider kernelProvider, ILogger<EmbeddingService> logger)
 {
     /// <summary>
     /// Get the embedding generator from the kernel using the new Microsoft.Extensions.AI interface
@@ -112,62 +113,4 @@ public class EmbeddingService(MiChanKernelProvider kernelProvider, ILogger<Embed
     /// Check if embedding service is available
     /// </summary>
     public bool IsAvailable => GetEmbeddingGenerator() != null;
-
-    /// <summary>
-    /// Extract searchable content from interaction context
-    /// </summary>
-    public string ExtractSearchableContent(Dictionary<string, object> context)
-    {
-        var parts = new List<string>();
-
-        // Try to extract meaningful text from various context fields
-        if (context.TryGetValue("userMessage", out var userMessage))
-        {
-            parts.Add($"User: {userMessage}");
-        }
-        else if (context.TryGetValue("message", out var message))
-        {
-            parts.Add($"Message: {message}");
-        }
-
-        if (context.TryGetValue("aiResponse", out var aiResponse))
-        {
-            parts.Add($"AI: {aiResponse}");
-        }
-        else if (context.TryGetValue("response", out var response))
-        {
-            parts.Add($"Response: {response}");
-        }
-
-        if (context.TryGetValue("content", out var content))
-        {
-            parts.Add($"Content: {content}");
-        }
-
-        if (context.TryGetValue("postContent", out var postContent))
-        {
-            parts.Add($"Post: {postContent}");
-        }
-
-        // If we couldn't extract structured content, dump the whole context
-        if (parts.Count == 0)
-        {
-            try
-            {
-                var json = System.Text.Json.JsonSerializer.Serialize(context);
-                // Limit length to avoid huge embeddings
-                if (json.Length > 2000)
-                {
-                    json = json[..2000] + "...";
-                }
-                return json;
-            }
-            catch
-            {
-                return string.Join(" ", context.Select(kv => $"{kv.Key}: {kv.Value}"));
-            }
-        }
-
-        return string.Join("\n", parts);
-    }
 }

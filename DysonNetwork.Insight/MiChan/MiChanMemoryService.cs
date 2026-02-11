@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Insight.Thought.Memory;
 using NodaTime;
 
 namespace DysonNetwork.Insight.MiChan;
