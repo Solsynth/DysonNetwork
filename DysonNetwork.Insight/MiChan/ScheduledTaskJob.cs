@@ -96,6 +96,12 @@ public class ScheduledTaskJob(
             var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         }
+
+        if (!kernel.Plugins.Contains("tasks"))
+        {
+            var taskPlugin = serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
+            kernel.Plugins.AddFromObject(taskPlugin, "tasks");
+        }
     }
 
     private async Task<string> BuildPromptAsync(MiChanScheduledTask task, CancellationToken cancellationToken)
