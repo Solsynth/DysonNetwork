@@ -17,7 +17,7 @@ using Pgvector;
 namespace DysonNetwork.Insight.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260211104606_NewAgentMemoryTable")]
+    [Migration("20260211122932_NewAgentMemoryTable")]
     partial class NewAgentMemoryTable
     {
         /// <inheritdoc />

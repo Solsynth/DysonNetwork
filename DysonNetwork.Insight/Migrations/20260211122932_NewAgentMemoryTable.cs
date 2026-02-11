@@ -13,26 +13,6 @@ namespace DysonNetwork.Insight.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "fk_web_articles_web_feeds_feed_id",
-                table: "web_articles");
-
-            migrationBuilder.DropForeignKey(
-                name: "fk_web_feed_subscriptions_web_feeds_feed_id",
-                table: "web_feed_subscriptions");
-
-            migrationBuilder.DropPrimaryKey(
-                name: "pk_web_feeds",
-                table: "web_feeds");
-
-            migrationBuilder.DropPrimaryKey(
-                name: "pk_web_feed_subscriptions",
-                table: "web_feed_subscriptions");
-
-            migrationBuilder.DropPrimaryKey(
-                name: "pk_web_articles",
-                table: "web_articles");
-
             migrationBuilder.RenameTable(
                 name: "web_feeds",
                 newName: "feeds");
