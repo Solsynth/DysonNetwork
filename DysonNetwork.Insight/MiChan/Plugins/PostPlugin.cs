@@ -173,10 +173,10 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
     {
         try
         {
-            var request = new
+            var request = new Dictionary<string, object>
             {
-                content = content,
-                replied_post_id = postId
+                ["content"] = content,
+                ["replied_post_id"] = postId
             };
 
             var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
