@@ -169,6 +169,7 @@ public class ThoughtController(
         var executionSettings = service.CreateSnChanExecutionSettings();
 
         var assistantParts = new List<SnThinkingMessagePart>();
+        var fullResponse = new StringBuilder();
 
         while (true)
         {
@@ -186,6 +187,7 @@ public class ThoughtController(
                 if (streamingContent.Content is not null)
                 {
                     textContentBuilder.Append(streamingContent.Content);
+                    fullResponse.Append(streamingContent.Content);
                     var messageJson = JsonSerializer.Serialize(new
                         { type = "text", data = streamingContent.Content });
                     await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
@@ -263,6 +265,167 @@ public class ThoughtController(
                         IsError = resultContent.Result is Exception
                     }
                 };
+                assistantParts.Add(resultPart);
+
+                var resultMessageJson = JsonSerializer.Serialize(new
+                    { type = "function_result", data = resultPart.FunctionResult });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultMessageJson}\n\n"));
+                await Response.Body.FlushAsync();
+            }
+        }
+
+        // Save assistant thought
+        var savedThought = await service.SaveThoughtAsync(
+            sequence,
+            assistantParts,
+            ThinkingThoughtRole.Assistant,
+            miChanConfig.ThinkingService,
+            botName: "snchan"
+        );
+
+        // Write final metadata
+        using (var streamBuilder = new MemoryStream())
+        {
+            await streamBuilder.WriteAsync("\n\n"u8.ToArray());
+            if (topic != null)
+            {
+                var topicJson = JsonSerializer.Serialize(new { type = "topic", data = sequence.Topic ?? "" });
+                await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"topic: {topicJson}\n\n"));
+            }
+
+            var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
+                InfraObjectCoder.SerializerOptions);
+            await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
+            var outputBytes = streamBuilder.ToArray();
+            await Response.Body.WriteAsync(outputBytes);
+            await Response.Body.FlushAsync();
+        }
+
+        return new EmptyResult();
+    }
+
+    private async Task<ActionResult> ThinkWithMiChanAsync(StreamThinkingRequest request, Account currentUser,
+        Guid accountId)
+    {
+        var (serviceId, serviceInfo) = service.GetMiChanServiceInfo();
+        if (serviceInfo is null)
+        {
+            return BadRequest("Service not found or configured.");
+        }
+
+        if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
+            if (currentUser.PerkSubscription is null ||
+                PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier) <
+                serviceInfo.PerkLevel)
+                return StatusCode(403, "Not enough perk level");
+
+        var kernel = service.GetMiChanKernel();
+        if (kernel is null)
+        {
+            return BadRequest("Service not found or configured.");
+        }
+
+        string? topic = null;
+        if (!request.SequenceId.HasValue)
+        {
+            topic = await service.GenerateTopicAsync(request.UserMessage, useMiChan: true);
+            if (topic is null)
+            {
+                return BadRequest("Default service not found or configured.");
+            }
+        }
+
+        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
+        if (sequence == null) return Forbid();
+
+        await service.SaveThoughtAsync(sequence, [
+            new SnThinkingMessagePart
+            {
+                Type = ThinkingMessagePartType.Text,
+                Text = request.UserMessage
+            }
+        ], ThinkingThoughtRole.User, botName: "michan");
+
+        var chatHistory = await service.BuildMiChanChatHistoryAsync(
+            sequence,
+            request.UserMessage,
+            request.AttachedMessages
+        );
+
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.StatusCode = 200;
+
+        var chatService = kernel.GetRequiredService<IChatCompletionService>();
+        var executionSettings = service.CreateMiChanExecutionSettings();
+
+        var assistantParts = new List<SnThinkingMessagePart>();
+        var fullResponse = new StringBuilder();
+
+        var contextId = $"{sequence.Id}-{Guid.NewGuid()}";
+
+        while (true)
+        {
+            var textContentBuilder = new StringBuilder();
+            AuthorRole? authorRole = null;
+            var functionCallBuilder = new FunctionCallContentBuilder();
+
+            await foreach (var streamingContent in chatService.GetStreamingChatMessageContentsAsync(
+                               chatHistory, executionSettings, kernel))
+            {
+                authorRole ??= streamingContent.Role;
+
+                if (streamingContent.Content is not null)
+                {
+                    textContentBuilder.Append(streamingContent.Content);
+                    fullResponse.Append(streamingContent.Content);
+                    var messageJson = JsonSerializer.Serialize(new { type = "text", data = streamingContent.Content });
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {messageJson}\n\n"));
+                    await Response.Body.FlushAsync();
+                }
+
+                functionCallBuilder.Append(streamingContent);
+            }
+
+            var finalMessageText = textContentBuilder.ToString();
+            if (!string.IsNullOrEmpty(finalMessageText))
+            {
+                assistantParts.Add(new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = finalMessageText
+                });
+            }
+
+            var functionCalls = functionCallBuilder.Build()
+                .Where(fc => !string.IsNullOrEmpty(fc.Id)).ToList();
+
+            if (functionCalls.Count == 0)
+                break;
+
+            var assistantMessage = new ChatMessageContent(
+                authorRole ?? AuthorRole.Assistant,
+                string.IsNullOrEmpty(finalMessageText) ? null : finalMessageText
+            );
+            foreach (var functionCall in functionCalls)
+            {
+                assistantMessage.Items.Add(functionCall);
+            }
+
+            chatHistory.Add(assistantMessage);
+
+            foreach (var functionCall in functionCalls)
+            {
+                var part = new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.FunctionCall,
+                    FunctionCall = new SnFunctionCall
+                    {
+                        Id = functionCall.Id!,
+                        PluginName = functionCall.PluginName,
+                        Name = functionCall.FunctionName,
+                        Arguments = JsonSerializer.Serialize(functionCall.Arguments)
+                    }
+                };
                 assistantParts.Add(part);
 
                 var messageJson = JsonSerializer.Serialize(new { type = "function_call", data = part.FunctionCall });
@@ -272,7 +435,8 @@ public class ThoughtController(
                 FunctionResultContent resultContent;
                 try
                 {
-                    resultContent = await functionCall.InvokeAsync(kernel);
+                    var result = await functionCall.InvokeAsync(kernel);
+                    resultContent = new FunctionResultContent(functionCall.Id!, result.Result);
                 }
                 catch (Exception ex)
                 {
