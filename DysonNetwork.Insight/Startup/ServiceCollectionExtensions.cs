@@ -112,7 +112,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ScheduledTaskPlugin>();
             
             // Memory and behavior services
-            services.AddScoped<ScheduledTaskPlugin>();
+            services.AddScoped<ScheduledTaskService>();
             services.AddSingleton<EmbeddingService>();
             services.AddSingleton<MemoryService>();
             services.AddSingleton<PostAnalysisService>();
