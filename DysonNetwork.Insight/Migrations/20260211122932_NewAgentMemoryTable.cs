@@ -13,14 +13,6 @@ namespace DysonNetwork.Insight.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameTable(
-                name: "web_feeds",
-                newName: "feeds");
-
-            migrationBuilder.RenameTable(
-                name: "web_feed_subscriptions",
-                newName: "feed_subscriptions");
-
             migrationBuilder.CreateTable(
                 name: "memory_records",
                 columns: table => new
