@@ -558,9 +558,15 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("你的目标是帮助 Solar Network（也称为 SN 和 Solian）上的用户解决问题。");
         systemPromptBuilder.AppendLine("当用户询问关于 Solar Network 的问题时，尝试使用你拥有的工具获取最新和准确的数据。");
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 memory 工具）来获取相关上下文。");
-        systemPromptBuilder.AppendLine("如果用户要求你记住某些信息，或者你觉得有重要信息需要记住，请使用 store_memory 工具来保存记忆。");
-        systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或查看过去的内容，直接根据记忆自然地回复。");
+        systemPromptBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 search_memory 工具）来获取相关上下文。");
+        systemPromptBuilder.AppendLine("**关键：对于每一次对话，你都应该主动保存至少一条记忆**（使用 store_memory 工具）。记忆内容可以包括：");
+        systemPromptBuilder.AppendLine("  - 用户的兴趣、偏好、习惯、性格特点");
+        systemPromptBuilder.AppendLine("  - 用户提供的事实、信息、知识点");
+        systemPromptBuilder.AppendLine("  - 对话的主题、背景、上下文");
+        systemPromptBuilder.AppendLine("  - 你们之间的互动模式");
+        systemPromptBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
+        systemPromptBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
+        systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
         systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
@@ -755,9 +761,15 @@ public class ThoughtService(
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 memory 工具）来获取相关上下文。");
-        chatHistoryBuilder.AppendLine("如果用户要求你记住某些信息，或者你觉得有重要信息需要记住，请使用 store_memory 工具来保存记忆。");
-        chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或查看过去的内容，直接根据记忆自然地回复。");
+        chatHistoryBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 search_memory 工具）来获取相关上下文。");
+        chatHistoryBuilder.AppendLine("**关键：对于每一次对话，你都应该主动保存至少一条记忆**（使用 store_memory 工具）。记忆内容可以包括：");
+        chatHistoryBuilder.AppendLine("  - 用户的兴趣、偏好、习惯、性格特点");
+        chatHistoryBuilder.AppendLine("  - 用户提供的事实、信息、知识点");
+        chatHistoryBuilder.AppendLine("  - 对话的主题、背景、上下文");
+        chatHistoryBuilder.AppendLine("  - 你们之间的互动模式");
+        chatHistoryBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
+        chatHistoryBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
+        chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
         chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
