@@ -28,12 +28,12 @@ public class WebFeedPublicController(
         var accountId = Guid.Parse(currentUser.Id);
 
         // Check if feed exists
-        var feed = await db.WebFeeds.FindAsync(feedId);
+        var feed = await db.Feeds.FindAsync(feedId);
         if (feed == null)
             return NotFound("Feed not found");
 
         // Check if already subscribed
-        var existingSubscription = await db.WebFeedSubscriptions
+        var existingSubscription = await db.FeedSubscriptions
             .FirstOrDefaultAsync(s => s.FeedId == feedId && s.AccountId == accountId);
 
         if (existingSubscription != null)
@@ -46,7 +46,7 @@ public class WebFeedPublicController(
             AccountId = accountId
         };
 
-        db.WebFeedSubscriptions.Add(subscription);
+        db.FeedSubscriptions.Add(subscription);
         await db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetSubscriptionStatus), new { feedId }, subscription);
@@ -65,13 +65,13 @@ public class WebFeedPublicController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var subscription = await db.WebFeedSubscriptions
+        var subscription = await db.FeedSubscriptions
             .FirstOrDefaultAsync(s => s.FeedId == feedId && s.AccountId == accountId);
 
         if (subscription == null)
             return NoContent();
 
-        db.WebFeedSubscriptions.Remove(subscription);
+        db.FeedSubscriptions.Remove(subscription);
         await db.SaveChangesAsync();
 
         return NoContent();
@@ -91,7 +91,7 @@ public class WebFeedPublicController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var subscription = await db.WebFeedSubscriptions
+        var subscription = await db.FeedSubscriptions
             .Where(s => s.FeedId == feedId && s.AccountId == accountId)
             .FirstOrDefaultAsync();
         if (subscription is null)
@@ -116,7 +116,7 @@ public class WebFeedPublicController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var query = db.WebFeedSubscriptions
+        var query = db.FeedSubscriptions
             .Where(s => s.AccountId == accountId)
             .Include(s => s.Feed)
             .OrderByDescending(s => s.CreatedAt);
@@ -147,12 +147,12 @@ public class WebFeedPublicController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var subscribedFeedIds = await db.WebFeedSubscriptions
+        var subscribedFeedIds = await db.FeedSubscriptions
             .Where(s => s.AccountId == accountId)
             .Select(s => s.FeedId)
             .ToListAsync();
 
-        var query = db.WebFeeds
+        var query = db.Feeds
             .Where(f => subscribedFeedIds.Contains(f.Id))
             .OrderByDescending(f => f.CreatedAt);
 
@@ -198,11 +198,11 @@ public class WebFeedPublicController(
     )
     {
         // Check if feed exists
-        var feedExists = await db.WebFeeds.AnyAsync(f => f.Id == feedId);
+        var feedExists = await db.Feeds.AnyAsync(f => f.Id == feedId);
         if (!feedExists)
             return NotFound("Feed not found");
 
-        var query = db.WebArticles
+        var query = db.FeedArticles
             .Where(a => a.FeedId == feedId)
             .OrderByDescending(a => a.CreatedAt)
             .Include(a => a.Feed);
@@ -233,7 +233,7 @@ public class WebFeedPublicController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var feedsQuery = db.WebFeeds
+        var feedsQuery = db.Feeds
             .OrderByDescending(f => f.CreatedAt)
             .AsQueryable();
 

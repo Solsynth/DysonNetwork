@@ -15,7 +15,7 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
         if (!Guid.TryParse(request.Id, out var id))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid id"));
 
-        var article = await db.WebArticles
+        var article = await db.FeedArticles
             .Include(a => a.Feed)
             .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -37,7 +37,7 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
         if (ids.Count == 0)
             return new GetWebArticleBatchResponse();
 
-        var articles = await db.WebArticles
+        var articles = await db.FeedArticles
             .Include(a => a.Feed)
             .Where(a => ids.Contains(a.Id))
             .ToListAsync();
@@ -55,7 +55,7 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
         if (!Guid.TryParse(request.FeedId, out var feedId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid feed_id"));
 
-        var query = db.WebArticles
+        var query = db.FeedArticles
             .Include(a => a.Feed)
             .Where(a => a.FeedId == feedId);
 
@@ -76,7 +76,7 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
     {
         var limit = request.Limit > 0 ? request.Limit : 20;
 
-        var articles = await db.WebArticles
+        var articles = await db.FeedArticles
             .Include(a => a.Feed)
             .OrderByDescending(a => a.PublishedAt ?? DateTime.MinValue)
             .ThenByDescending(a => a.CreatedAt)

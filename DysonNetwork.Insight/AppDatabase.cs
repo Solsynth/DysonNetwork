@@ -1,10 +1,8 @@
+using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using NodaTime;
-using Pgvector;
-using Pgvector.EntityFrameworkCore;
 
 namespace DysonNetwork.Insight;
 
@@ -17,9 +15,11 @@ public class AppDatabase(
     public DbSet<SnThinkingThought> ThinkingThoughts { get; set; }
     public DbSet<SnUnpaidAccount> UnpaidAccounts { get; set; }
     
-    public DbSet<SnWebArticle> WebArticles { get; set; }
-    public DbSet<SnWebFeed> WebFeeds { get; set; }
-    public DbSet<SnWebFeedSubscription> WebFeedSubscriptions { get; set; }
+    public DbSet<SnWebArticle> FeedArticles { get; set; }
+    public DbSet<SnWebFeed> Feeds { get; set; }
+    public DbSet<SnWebFeedSubscription> FeedSubscriptions { get; set; }
+    
+    public DbSet<MiChanMemoryRecord> MemoryRecords { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -45,12 +45,9 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
         
-        modelBuilder.Ignore<SnAccount>();
+        modelBuilder.HasPostgresExtension("vector");
         
         modelBuilder.ApplySoftDeleteFilters();
-        
-        // Configure pgvector extension
-        modelBuilder.HasPostgresExtension("vector");
     }
 }
 

@@ -23,7 +23,7 @@ public class WebArticleController(AppDatabase db) : ControllerBase
         [FromQuery] Guid? publisherId = null
     )
     {
-        var query = db.WebArticles
+        var query = db.FeedArticles
             .OrderByDescending(a => a.PublishedAt)
             .Include(a => a.Feed)
             .AsQueryable();
@@ -53,7 +53,7 @@ public class WebArticleController(AppDatabase db) : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetArticle(Guid id)
     {
-        var article = await db.WebArticles
+        var article = await db.FeedArticles
             .Include(a => a.Feed)
             .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -71,7 +71,7 @@ public class WebArticleController(AppDatabase db) : ControllerBase
     [HttpGet("random")]
     public async Task<IActionResult> GetRandomArticles([FromQuery] int limit = 5)
     {
-        var articles = await db.WebArticles
+        var articles = await db.FeedArticles
             .OrderBy(_ => EF.Functions.Random())
             .Include(a => a.Feed)
             .Take(limit)

@@ -22,7 +22,7 @@ public class WebFeedGrpcService(WebFeedService service, AppDatabase db)
                     feed = await service.GetFeedAsync(id);
                 break;
             case GetWebFeedRequest.IdentifierOneofCase.Url:
-                feed = await db.WebFeeds.FirstOrDefaultAsync(f => f.Url == request.Url);
+                feed = await db.Feeds.FirstOrDefaultAsync(f => f.Url == request.Url);
                 break;
             case GetWebFeedRequest.IdentifierOneofCase.None:
                 break;

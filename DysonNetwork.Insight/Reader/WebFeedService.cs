@@ -31,7 +31,7 @@ public class WebFeedService(
             Publisher = publisher
         };
 
-        database.WebFeeds.Add(feed);
+        database.Feeds.Add(feed);
         await database.SaveChangesAsync();
 
         return feed;
@@ -51,7 +51,7 @@ public class WebFeedService(
 
     public async Task<SnWebFeed?> GetFeedAsync(Guid id, Guid? publisherId = null)
     {
-        var query = database.WebFeeds
+        var query = database.Feeds
             .Where(a => a.Id == id)
             .AsQueryable();
         if (publisherId.HasValue)
@@ -66,7 +66,7 @@ public class WebFeedService(
 
     public async Task<List<SnWebFeed>> GetFeedsByPublisherAsync(Guid publisherId)
     {
-        var feeds = await database.WebFeeds.Where(a => a.PublisherId == publisherId).ToListAsync();
+        var feeds = await database.Feeds.Where(a => a.PublisherId == publisherId).ToListAsync();
         foreach (var feed in feeds)
         {
             feed.Publisher = await LoadPublisherAsync(feed.PublisherId, CancellationToken.None) ?? new SnPublisher();
@@ -95,13 +95,13 @@ public class WebFeedService(
 
     public async Task<bool> DeleteFeedAsync(Guid id)
     {
-        var feed = await database.WebFeeds.FindAsync(id);
+        var feed = await database.Feeds.FindAsync(id);
         if (feed == null)
         {
             return false;
         }
 
-        database.WebFeeds.Remove(feed);
+        database.Feeds.Remove(feed);
         await database.SaveChangesAsync();
 
         return true;
@@ -161,7 +161,7 @@ public class WebFeedService(
                 Preview = preview,
             };
 
-            database.WebArticles.Add(newArticle);
+            database.FeedArticles.Add(newArticle);
         }
 
         await database.SaveChangesAsync(cancellationToken);
@@ -169,7 +169,7 @@ public class WebFeedService(
 
     public async Task<WebFeedVerificationInitResult> GenerateVerificationCodeAsync(Guid feedId)
     {
-        var feed = await database.WebFeeds.FindAsync(feedId);
+        var feed = await database.Feeds.FindAsync(feedId);
         if (feed == null)
             throw new InvalidOperationException($"Feed with ID {feedId} not found");
 
@@ -190,7 +190,7 @@ public class WebFeedService(
 
     public async Task<WebFeedVerificationResult> VerifyOwnershipAsync(Guid feedId, CancellationToken cancellationToken = default)
     {
-        var feed = await database.WebFeeds.FindAsync(feedId);
+        var feed = await database.Feeds.FindAsync(feedId);
         if (feed == null)
             throw new InvalidOperationException($"Feed with ID {feedId} not found");
 
@@ -277,7 +277,7 @@ public class WebFeedService(
 
     public async Task VerifyAllFeedsAsync(CancellationToken cancellationToken = default)
     {
-        var verifiedFeeds = await database.WebFeeds
+        var verifiedFeeds = await database.Feeds
             .Where(f => f.VerifiedAt.HasValue)
             .ToListAsync(cancellationToken);
 
