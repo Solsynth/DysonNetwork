@@ -100,14 +100,8 @@ public class MiChanService(
             _kernelProvider = serviceProvider.GetRequiredService<MiChanKernelProvider>();
             _kernel = _kernelProvider.GetKernel();
 
-            // Register plugins (only if not already registered)
-            var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-            var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
-
-            if (!_kernel.Plugins.Contains("post"))
-                _kernel.Plugins.AddFromObject(postPlugin, "post");
-            if (!_kernel.Plugins.Contains("account"))
-                _kernel.Plugins.AddFromObject(accountPlugin, "account");
+            // Register plugins using centralized extension method
+            _kernel.AddMiChanPlugins(serviceProvider);
 
             // Create autonomous behavior (includes post checking)
             _autonomousBehavior = serviceProvider.GetRequiredService<MiChanAutonomousBehavior>();

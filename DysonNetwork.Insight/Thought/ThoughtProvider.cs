@@ -101,6 +101,7 @@ public class ThoughtProvider
         var kernel = _kernelFactory.CreateKernel(serviceId, addEmbeddings: false);
 
         // Add Thought-specific plugins (gRPC clients are already injected)
+        // The plugin is specific for SN-chan
         kernel.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
         kernel.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient, _publisherClient));
 
@@ -241,23 +242,8 @@ public class ThoughtProvider
 
             var kernel = _miChanKernelProvider.GetKernel();
 
-            // Register plugins (only if not already registered)
-            var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
-            var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
-            var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
-            var scheduledTaskPlugin = _serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
-            var conversationPlugin = _serviceProvider.GetRequiredService<ConversationPlugin>();
-
-            if (!kernel.Plugins.Contains("post"))
-                kernel.Plugins.AddFromObject(postPlugin, "post");
-            if (!kernel.Plugins.Contains("account"))
-                kernel.Plugins.AddFromObject(accountPlugin, "account");
-            if  (!kernel.Plugins.Contains("memory"))
-                kernel.Plugins.AddFromObject(memoryPlugin, "memory");
-            if (!kernel.Plugins.Contains("scheduledTasks"))
-                kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTasks");
-            if (!kernel.Plugins.Contains("conversation"))
-                kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
+            // Register plugins using centralized extension method
+            kernel.AddMiChanPlugins(_serviceProvider);
 
             var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
 

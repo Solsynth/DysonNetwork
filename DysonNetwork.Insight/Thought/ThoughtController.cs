@@ -334,23 +334,9 @@ public class ThoughtController(
                 return StatusCode(403, "Not enough perk level");
 
         var kernel = service.GetMiChanKernel();
-        
-        var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-        var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
-        var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
-        var scheduledTaskPlugin = serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
-        var conversationPlugin = serviceProvider.GetRequiredService<ConversationPlugin>();
 
-        if (!kernel.Plugins.Contains("post"))
-            kernel.Plugins.AddFromObject(postPlugin, "post");
-        if (!kernel.Plugins.Contains("account"))
-            kernel.Plugins.AddFromObject(accountPlugin, "account");
-        if (!kernel.Plugins.Contains("memory"))
-            kernel.Plugins.AddFromObject(memoryPlugin, "memory");
-        if (!kernel.Plugins.Contains("scheduledTask"))
-            kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTask");
-        if (!kernel.Plugins.Contains("conversation"))
-            kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
+        // Register plugins using centralized extension method
+        kernel.AddMiChanPlugins(serviceProvider);
 
         string? topic = null;
         if (!request.SequenceId.HasValue)

@@ -31,9 +31,19 @@ public class MiChanAutonomousBehaviorConfig
     public bool DryRun { get; set; } = false; // If true, no real posts/actions will be created
     public int MinIntervalMinutes { get; set; } = 10;
     public int MaxIntervalMinutes { get; set; } = 60;
-    public List<string> Actions { get; set; } = ["browse", "react", "create_post", "pin", "repost"];
+    public List<string> Actions { get; set; } = ["browse", "react", "create_post", "pin", "repost", "start_conversation"];
     public string PersonalityMood { get; set; } = "curious, friendly, occasionally philosophical";
     public int MinRepostAgeDays { get; set; } = 3; // Minimum age of post before reposting (days)
+
+    // Settings for proactive conversation behavior
+    public int MaxConversationsPerDay { get; set; } = 3; // Maximum conversations MiChan can initiate per day
+    public int MinHoursSinceLastContact { get; set; } = 24; // Minimum hours between contacting the same user
+    public int ConversationProbability { get; set; } = 10; // % chance to attempt starting a conversation per cycle
+
+    // Action probabilities (% chance when action is selected)
+    public int ReplyProbability { get; set; } = 30; // % chance to reply to a post (when not mentioned)
+    public int RepostProbability { get; set; } = 15; // % chance to check for and repost interesting content
+    public int CreatePostProbability { get; set; } = 20; // % chance to create an autonomous post
 }
 
 public class MiChanPostMonitoringConfig

@@ -116,6 +116,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ScheduledTaskService>();
             services.AddSingleton<EmbeddingService>();
             services.AddSingleton<MemoryService>();
+            services.AddSingleton<InteractiveHistoryService>();
             services.AddSingleton<PostAnalysisService>();
             services.AddSingleton<MiChanAutonomousBehavior>();
             

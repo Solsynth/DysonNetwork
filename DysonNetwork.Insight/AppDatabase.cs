@@ -21,6 +21,7 @@ public class AppDatabase(
     
     public DbSet<MiChanMemoryRecord> MemoryRecords { get; set; }
     public DbSet<MiChanScheduledTask> ScheduledTasks { get; set; }
+    public DbSet<MiChanInteractiveHistory> InteractiveHistories { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

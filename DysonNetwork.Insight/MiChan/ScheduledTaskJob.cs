@@ -79,35 +79,7 @@ public class ScheduledTaskJob(
 
     private void RegisterPlugins(Kernel kernel)
     {
-        if (!kernel.Plugins.Contains("post"))
-        {
-            var postPlugin = serviceProvider.GetRequiredService<PostPlugin>();
-            kernel.Plugins.AddFromObject(postPlugin, "post");
-        }
-
-        if (!kernel.Plugins.Contains("account"))
-        {
-            var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
-            kernel.Plugins.AddFromObject(accountPlugin, "account");
-        }
-
-        if (!kernel.Plugins.Contains("memory"))
-        {
-            var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
-            kernel.Plugins.AddFromObject(memoryPlugin, "memory");
-        }
-
-        if (!kernel.Plugins.Contains("scheduledTasks"))
-        {
-            var taskPlugin = serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
-            kernel.Plugins.AddFromObject(taskPlugin, "scheduledTasks");
-        }
-
-        if (!kernel.Plugins.Contains("conversation"))
-        {
-            var conversationPlugin = serviceProvider.GetRequiredService<ConversationPlugin>();
-            kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
-        }
+        kernel.AddMiChanPlugins(serviceProvider);
     }
 
     private async Task<string> BuildPromptAsync(MiChanScheduledTask task, CancellationToken cancellationToken)

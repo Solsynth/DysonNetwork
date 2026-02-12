@@ -25,6 +25,7 @@ public class MiChanAutonomousBehavior
     private readonly AccountService.AccountServiceClient _accountClient;
     private readonly PostAnalysisService _postAnalysisService;
     private readonly MemoryService _memoryService;
+    private readonly InteractiveHistoryService _interactiveHistoryService;
     private Kernel? _kernel;
 
     private readonly Random _random = new();
@@ -44,6 +45,11 @@ public class MiChanAutonomousBehavior
     private const int MaxPageIndex = 10;
     private const int PageSize = 30;
 
+    // Conversation tracking for proactive outreach
+    private readonly Dictionary<Guid, DateTime> _recentlyContactedUsers = new();
+    private int _todaysConversationCount;
+    private DateTime _lastConversationDate = DateTime.MinValue;
+
     public MiChanAutonomousBehavior(
         MiChanConfig config,
         ILogger<MiChanAutonomousBehavior> logger,
@@ -53,7 +59,8 @@ public class MiChanAutonomousBehavior
         AccountService.AccountServiceClient accountClient,
         PostAnalysisService postAnalysisService,
         IConfiguration configGlobal,
-        MemoryService memoryService
+        MemoryService memoryService,
+        InteractiveHistoryService interactiveHistoryService
     )
     {
         _config = config;
@@ -65,6 +72,7 @@ public class MiChanAutonomousBehavior
         _postAnalysisService = postAnalysisService;
         _configGlobal = configGlobal;
         _memoryService = memoryService;
+        _interactiveHistoryService = interactiveHistoryService;
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex("@michan\\b", RegexOptions.IgnoreCase);
     }
@@ -74,23 +82,8 @@ public class MiChanAutonomousBehavior
     {
         _kernel = _kernelProvider.GetKernel();
 
-        // Register plugins (only if not already registered)
-        var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
-        var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
-        var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
-        var scheduledTaskPlugin = _serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
-        var conversationPlugin = _serviceProvider.GetRequiredService<ConversationPlugin>();
-
-        if (!_kernel.Plugins.Contains("post"))
-            _kernel.Plugins.AddFromObject(postPlugin, "post");
-        if (!_kernel.Plugins.Contains("account"))
-            _kernel.Plugins.AddFromObject(accountPlugin, "account");
-        if (!_kernel.Plugins.Contains("memory"))
-            _kernel.Plugins.AddFromObject(memoryPlugin, "memory");
-        if  (!_kernel.Plugins.Contains("scheduledTasks"))
-            _kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTasks");
-        if (!_kernel.Plugins.Contains("conversation"))
-            _kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
+        // Register plugins using centralized extension method
+        _kernel.AddMiChanPlugins(_serviceProvider);
 
         _logger.LogInformation("MiChan autonomous behavior initialized");
 
@@ -115,6 +108,14 @@ public class MiChanAutonomousBehavior
             // Always check posts first for mentions and interesting content
             await CheckAndInteractWithPostsAsync();
 
+            // Reset daily conversation count if needed
+            var today = DateTime.UtcNow.Date;
+            if (_lastConversationDate.Date != today)
+            {
+                _todaysConversationCount = 0;
+                _lastConversationDate = DateTime.UtcNow;
+            }
+
             // Then possibly do additional actions
             var availableActions = _config.AutonomousBehavior.Actions;
             if (availableActions.Count > 0 && _random.Next(100) < 25) // 25% chance for extra action
@@ -128,6 +129,9 @@ public class MiChanAutonomousBehavior
                         break;
                     case "repost":
                         await CheckAndRepostInterestingContentAsync();
+                        break;
+                    case "start_conversation":
+                        await StartConversationWithUserAsync();
                         break;
                 }
             }
@@ -290,6 +294,15 @@ public class MiChanAutonomousBehavior
                 {
                     _logger.LogInformation("Skipping post {PostId} from user {UserId} - user has blocked MiChan",
                         post.Id, authorAccountId);
+                    continue;
+                }
+
+                // Skip posts MiChan already interacted with (tracked in history)
+                var alreadyInteracted = await _interactiveHistoryService.HasInteractedWithAsync(
+                    post.Id, "post", null);
+                if (alreadyInteracted)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already in interaction history", post.Id);
                     continue;
                 }
 
@@ -686,8 +699,9 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine(
                     "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
                 decisionPrompt.AppendLine();
+                var replyProbability = _config.AutonomousBehavior.ReplyProbability;
                 decisionPrompt.AppendLine("格式：每行动单独一行：");
-                decisionPrompt.AppendLine("- REPLY: 你的回复内容（回复概率应低于30%，仅当确实想互动时）");
+                decisionPrompt.AppendLine($"- REPLY: 你的回复内容（回复概率应低于{replyProbability}%，仅当确实想互动时）");
                 decisionPrompt.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
@@ -810,6 +824,7 @@ public class MiChanAutonomousBehavior
         }
         else
         {
+            var replyProbability = _config.AutonomousBehavior.ReplyProbability;
             instructionText.AppendLine("选择你的行动。每个行动单独一行。");
             instructionText.AppendLine("**REPLY** - 回复表达你的想法（谨慎选择，仅在内容与你高度相关或互动性强时才回复）；");
             instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）；");
@@ -821,7 +836,7 @@ public class MiChanAutonomousBehavior
                 "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
             instructionText.AppendLine();
             instructionText.AppendLine("格式：每行动单独一行：");
-            instructionText.AppendLine("- REPLY: 你的回复内容（回复概率应低于30%，仅当确实想互动时）");
+            instructionText.AppendLine($"- REPLY: 你的回复内容（回复概率应低于{replyProbability}%，仅当确实想互动时）");
             instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
@@ -908,6 +923,10 @@ public class MiChanAutonomousBehavior
             };
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
+            // Record interaction in history
+            await _interactiveHistoryService.RecordInteractionAsync(
+                post.Id, "post", "reply", TimeSpan.FromHours(168));
+
             _logger.LogInformation("Autonomous: Replied to post {PostId}", post.Id);
         }
         catch (Exception ex)
@@ -965,6 +984,10 @@ public class MiChanAutonomousBehavior
             };
 
             await _apiClient.PostAsync("sphere", $"/posts/{post.Id}/reactions", request);
+
+            // Record interaction in history
+            await _interactiveHistoryService.RecordInteractionAsync(
+                post.Id, "post", "react", TimeSpan.FromHours(168));
 
             // Note: Reactions are not stored in memory to avoid cluttering the memory with minor interactions
 
@@ -1087,6 +1110,14 @@ public class MiChanAutonomousBehavior
     [Experimental("SKEXP0050")]
     private async Task CreateAutonomousPostAsync()
     {
+        // Check probability of creating a post
+        var probability = _config.AutonomousBehavior.CreatePostProbability;
+        if (_random.Next(100) >= probability)
+        {
+            _logger.LogDebug("Autonomous: Create post probability check failed ({Probability}%)", probability);
+            return;
+        }
+
         _logger.LogInformation("Autonomous: Creating a post...");
 
         var recentInteractions = await _memoryService.GetByFiltersAsync(
@@ -1156,6 +1187,14 @@ public class MiChanAutonomousBehavior
     [Experimental("SKEXP0050")]
     private async Task CheckAndRepostInterestingContentAsync()
     {
+        // Check probability of checking for reposts
+        var probability = _config.AutonomousBehavior.RepostProbability;
+        if (_random.Next(100) >= probability)
+        {
+            _logger.LogDebug("Autonomous: Repost probability check failed ({Probability}%)", probability);
+            return;
+        }
+
         _logger.LogInformation("Autonomous: Checking for interesting content to repost...");
 
         try
@@ -1198,14 +1237,9 @@ public class MiChanAutonomousBehavior
                     continue;
                 }
 
-                // Skip if already reposted
-                var repostInteractions = await _memoryService.GetByFiltersAsync(
-                    type: "repost",
-                    take: 100,
-                    orderBy: "createdAt",
-                    descending: true);
-                var alreadyReposted = repostInteractions.Any(i =>
-                    i.Content.Contains(post.Id.ToString()));
+                // Skip if already reposted (check interactive history)
+                var alreadyReposted = await _interactiveHistoryService.HasInteractedWithAsync(
+                    post.Id, "post", "repost");
                 if (alreadyReposted)
                 {
                     _logger.LogDebug("Skipping post {PostId} - already reposted", post.Id);
@@ -1368,12 +1402,187 @@ public class MiChanAutonomousBehavior
 
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
+            // Record interaction in history
+            await _interactiveHistoryService.RecordInteractionAsync(
+                post.Id, "post", "repost", TimeSpan.FromHours(168));
+
             _logger.LogInformation("Autonomous: Reposted post {PostId} from @{Author} with comment: {Comment}",
                 post.Id, post.Publisher?.Name ?? "unknown", comment ?? "(none)");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to repost post {PostId}", post.Id);
+        }
+    }
+
+    /// <summary>
+    /// Randomly start a conversation with a user based on stored memories.
+    /// This allows MiChan to proactively reach out to users with personalized messages.
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    private async Task StartConversationWithUserAsync()
+    {
+        try
+        {
+            // Check if we've reached the daily conversation limit
+            if (_todaysConversationCount >= _config.AutonomousBehavior.MaxConversationsPerDay)
+            {
+                _logger.LogDebug("Autonomous: Daily conversation limit reached ({Count}/{Max})",
+                    _todaysConversationCount, _config.AutonomousBehavior.MaxConversationsPerDay);
+                return;
+            }
+
+            // Check probability of starting a conversation
+            var probability = _config.AutonomousBehavior.ConversationProbability;
+            if (_random.Next(100) >= probability)
+            {
+                _logger.LogDebug("Autonomous: Conversation probability check failed ({Probability}%)", probability);
+                return;
+            }
+
+            _logger.LogInformation("Autonomous: Attempting to start a conversation with a user...");
+
+            // Get blocked users list to filter out
+            var blockedUsers = await GetBlockedByUsersAsync();
+
+            // Get all memories with associated account IDs
+            var recentMemories = await _memoryService.GetByFiltersAsync(
+                take: 100,
+                orderBy: "createdAt",
+                descending: true);
+
+            // Group memories by account ID and filter eligible users
+            var userMemoryGroups = recentMemories
+                .Where(m => m.AccountId.HasValue && m.AccountId.Value != Guid.Empty)
+                .GroupBy(m => m.AccountId!.Value)
+                .Where(g =>
+                {
+                    var accountId = g.Key.ToString();
+
+                    // Skip blocked users
+                    if (blockedUsers.Contains(accountId))
+                        return false;
+
+                    // Skip bot's own account
+                    if (accountId == _config.BotAccountId)
+                        return false;
+
+                    // Check cooldown period
+                    if (_recentlyContactedUsers.TryGetValue(g.Key, out var lastContact))
+                    {
+                        var hoursSinceLastContact = (DateTime.UtcNow - lastContact).TotalHours;
+                        if (hoursSinceLastContact < _config.AutonomousBehavior.MinHoursSinceLastContact)
+                            return false;
+                    }
+
+                    return true;
+                })
+                .ToList();
+
+            if (userMemoryGroups.Count == 0)
+            {
+                _logger.LogDebug("Autonomous: No eligible users found for conversation");
+                return;
+            }
+
+            // Weight users by number of memories (more memories = higher chance)
+            // This prioritizes users MiChan has more history with
+            var weightedUsers = userMemoryGroups
+                .SelectMany(g => Enumerable.Repeat(g.Key, Math.Min(g.Count(), 5)))
+                .ToList();
+
+            // Select a random user from weighted list
+            var selectedUserId = weightedUsers[_random.Next(weightedUsers.Count)];
+            var userMemories = userMemoryGroups.First(g => g.Key == selectedUserId).ToList();
+
+            _logger.LogInformation("Autonomous: Selected user {UserId} for conversation (has {MemoryCount} memories)",
+                selectedUserId, userMemories.Count);
+
+            // Load personality and mood
+            var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
+            var mood = _config.AutonomousBehavior.PersonalityMood;
+
+            // Retrieve relevant memories about this user
+            var relevantMemories = await _memoryService.SearchAsync(
+                query: string.Join(" ", userMemories.Take(3).Select(m => m.Content)),
+                accountId: selectedUserId,
+                limit: 5,
+                minSimilarity: 0.5);
+
+            var memoryContext = BuildMemoryContext(relevantMemories, "关于这个用户的记忆:");
+
+            // Generate conversation starter message
+            var promptBuilder = new StringBuilder();
+            AppendCommonPromptSections(promptBuilder, personality, mood, null, memoryContext, null);
+
+            promptBuilder.AppendLine("你想主动和这位用户开启一段对话。基于你对他们的了解，写一个自然、个性化的开场白。");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("要求：");
+            promptBuilder.AppendLine("- 语气友好、自然，就像朋友之间的闲聊");
+            promptBuilder.AppendLine("- 可以参考你们之前的互动或用户的兴趣");
+            promptBuilder.AppendLine("- 可以分享一个想法、提出一个问题，或者跟进之前的话题");
+            promptBuilder.AppendLine("- 长度1-3句话，简洁但有温度");
+            promptBuilder.AppendLine("- 使用简体中文");
+            promptBuilder.AppendLine("- 不要使用表情符号");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine("直接输出你要发送的消息内容，不要添加任何前缀或格式。");
+
+            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
+            var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), new KernelArguments(executionSettings));
+            var message = result.GetValue<string>()?.Trim();
+
+            if (string.IsNullOrEmpty(message))
+            {
+                _logger.LogWarning("Autonomous: Generated empty message for user {UserId}", selectedUserId);
+                return;
+            }
+
+            // Generate a topic for the conversation
+            var topicPrompt = $"""
+                {personality}
+
+                基于以下开场白，为这段对话生成一个简短的标题（2-6个字）：
+                "{message}"
+
+                要求：
+                - 简洁、有吸引力
+                - 反映对话的主题或氛围
+                - 直接输出标题，不要加引号或其他格式
+                """;
+
+            var topicResult = await _kernel!.InvokePromptAsync(topicPrompt, new KernelArguments(executionSettings));
+            var topic = topicResult.GetValue<string>()?.Trim() ?? "闲聊";
+
+            if (_config.AutonomousBehavior.DryRun)
+            {
+                _logger.LogInformation("[DRY RUN] Would start conversation with user {UserId}\nTopic: {Topic}\nMessage: {Message}",
+                    selectedUserId, topic, message);
+                return;
+            }
+
+            // Use the conversation plugin to start the conversation
+            var conversationPlugin = _serviceProvider.GetRequiredService<ConversationPlugin>();
+            var conversationResult = await conversationPlugin.StartConversationAsync(
+                accountId: selectedUserId,
+                message: message,
+                topic: topic
+            );
+
+            // Track the conversation
+            _recentlyContactedUsers[selectedUserId] = DateTime.UtcNow;
+            _todaysConversationCount++;
+
+            // Record interaction in history
+            await _interactiveHistoryService.RecordInteractionAsync(
+                selectedUserId, "user", "conversation",
+                TimeSpan.FromHours(_config.AutonomousBehavior.MinHoursSinceLastContact));
+
+            _logger.LogInformation("Autonomous: Started conversation with user {UserId} - {Result}",
+                selectedUserId, conversationResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error starting conversation with user");
         }
     }
 
