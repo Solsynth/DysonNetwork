@@ -34,7 +34,7 @@ public class ThoughtController(
 
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; } = [];
-        public List<string>? AttachedAttachmentIds { get; set; } = [];
+        public List<string>? AttachedFiles { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
     }
@@ -112,11 +112,12 @@ public class ThoughtController(
     private async Task<ActionResult> ThinkWithSnChanAsync(StreamThinkingRequest request, Account currentUser,
         Guid accountId)
     {
-        var (serviceId, serviceInfo) = service.GetSnChanServiceInfo();
+        var serviceInfo = service.GetSnChanServiceInfo();
         if (serviceInfo is null)
-        {
             return BadRequest("Service not found or configured.");
-        }
+
+        if (request.AttachedFiles is { Count: > 0 })
+            return BadRequest("Sorry, SN-chan currently does not support requests with files attached.");
 
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
             if (currentUser.PerkSubscription is null ||
@@ -162,7 +163,7 @@ public class ThoughtController(
             request.AttachedPosts,
             request.AttachedMessages,
             request.AcceptProposals,
-            request.AttachedAttachmentIds
+            request.AttachedFiles
         );
 
         // Set response for streaming
@@ -321,22 +322,15 @@ public class ThoughtController(
     private async Task<ActionResult> ThinkWithMiChanAsync(StreamThinkingRequest request, Account currentUser,
         Guid accountId)
     {
-        var (serviceId, serviceInfo) = service.GetMiChanServiceInfo();
+        var serviceInfo = service.GetMiChanServiceInfo(request.AttachedFiles is { Count: > 0 });
         if (serviceInfo is null)
-        {
             return BadRequest("Service not found or configured.");
-        }
 
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
             if (currentUser.PerkSubscription is null ||
                 PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier) <
                 serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
-
-        var kernel = service.GetMiChanKernel();
-
-        // Register plugins using centralized extension method
-        kernel.AddMiChanPlugins(serviceProvider);
 
         string? topic = null;
         if (!request.SequenceId.HasValue)
@@ -359,23 +353,20 @@ public class ThoughtController(
             }
         ], ThinkingThoughtRole.User, botName: "michan");
 
-        var (chatHistory, shouldRefuse, refusalReason) = await service.BuildMiChanChatHistoryAsync(
+        var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
             sequence,
             currentUser,
             request.UserMessage,
             request.AttachedPosts,
             request.AttachedMessages,
             request.AcceptProposals,
-            request.AttachedAttachmentIds
+            request.AttachedFiles
         );
+        
+        var kernel = useVisionKernel ? service.GetMiChanVisionKernel() : service.GetMiChanKernel();
 
-        if (shouldRefuse)
-        {
-            var refusalJson = JsonSerializer.Serialize(new { type = "text", data = refusalReason ?? "I cannot do that." });
-            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {refusalJson}\n\n"));
-            await Response.Body.FlushAsync();
-            return new EmptyResult();
-        }
+        // Register plugins using centralized extension method
+        kernel.AddMiChanPlugins(serviceProvider);
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
@@ -603,15 +594,15 @@ public class ThoughtController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> DeleteSequenceThoughts(Guid sequenceId)
     {
-        var  sequence = await service.GetSequenceAsync(sequenceId);
+        var sequence = await service.GetSequenceAsync(sequenceId);
         if (sequence == null) return NotFound();
-        
+
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         if (sequence.AccountId != accountId)
             return StatusCode(403);
-        
+
         await service.DeleteSequenceAsync(sequenceId);
         return Ok();
     }

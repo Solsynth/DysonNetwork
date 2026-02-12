@@ -27,11 +27,11 @@ public class ThoughtService(
     ThoughtProvider thoughtProvider,
     MiChanKernelProvider miChanKernelProvider,
     SolarNetworkApiClient apiClient,
-    IServiceProvider serviceProvider,
     PostAnalysisService postAnalysisService,
     IConfiguration configuration,
     MemoryService memoryService,
     RemoteRingService remoteRingService,
+    IConfiguration configGlobal,
     ILocalizationService localizer,
     ILogger<ThoughtService> logger
 )
@@ -44,31 +44,6 @@ public class ThoughtService(
         Guid accountId)
     {
         return await thoughtProvider.MemorizeSequenceAsync(sequenceId, accountId);
-    }
-
-    /// <summary>
-    /// Extracts readable text content from a thought.
-    /// </summary>
-    private string ExtractThoughtContent(SnThinkingThought thought)
-    {
-        var content = new StringBuilder();
-        foreach (var part in thought.Parts)
-        {
-            switch (part.Type)
-            {
-                case ThinkingMessagePartType.Text when !string.IsNullOrEmpty(part.Text):
-                    content.Append(part.Text);
-                    break;
-                case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
-                    content.Append($"[Function: {part.FunctionCall.PluginName}.{part.FunctionCall.Name}]");
-                    break;
-                case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
-                    content.Append($"[Result: {part.FunctionResult.FunctionName}]");
-                    break;
-            }
-        }
-
-        return content.ToString().Trim();
     }
 
     /// <summary>
@@ -90,9 +65,9 @@ public class ThoughtService(
         else
         {
             var now = SystemClock.Instance.GetCurrentInstant();
-            var seq = new SnThinkingSequence 
-            { 
-                AccountId = accountId, 
+            var seq = new SnThinkingSequence
+            {
+                AccountId = accountId,
                 Topic = topic,
                 LastMessageAt = now
             };
@@ -467,7 +442,8 @@ public class ThoughtService(
             var agentNameKey = botName.ToLower() == "snchan" ? "agentNameSnChan" : "agentNameMiChan";
             var agentName = localizer.Get(agentNameKey, locale);
             var notificationTitle = localizer.Get("agentConversationStartedTitle", locale, new { agentName });
-            var notificationBody = localizer.Get("agentConversationStartedBody", locale, new { agentName, message = initialMessage });
+            var notificationBody = localizer.Get("agentConversationStartedBody", locale,
+                new { agentName, message = initialMessage });
 
             // Create meta with sequence ID for deep linking
             var meta = new Dictionary<string, object?>
@@ -642,49 +618,6 @@ public class ThoughtService(
             chatHistory.AddUserMessage($"附加的聊天消息数据：{JsonSerializer.Serialize(attachedMessages)}");
         }
 
-        // Handle direct attachments if provided
-        if (attachmentIds is { Count: > 0 })
-        {
-            var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
-            var imageAttachments = attachments
-                .Where(a => !string.IsNullOrEmpty(a.MimeType) &&
-                            (a.MimeType.StartsWith("image/jpeg") ||
-                             a.MimeType.StartsWith("image/png") ||
-                             a.MimeType.StartsWith("image/gif") ||
-                             a.MimeType.StartsWith("image/webp")))
-                .ToList();
-
-            if (imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable())
-            {
-                try
-                {
-                    var visionChatHistory = await BuildVisionChatHistoryWithAttachmentsAsync(
-                        imageAttachments,
-                        userMessage,
-                        "你是分析图片的 AI 助手。描述你在图片中看到的内容，并将其与用户的问题联系起来。");
-                    var visionKernel = miChanKernelProvider.GetVisionKernel();
-                    var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
-                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                    var visionResult = await chatCompletionService.GetChatMessageContentAsync(visionChatHistory, visionSettings);
-
-                    if (!string.IsNullOrEmpty(visionResult.Content))
-                    {
-                        chatHistory.AddSystemMessage($"图片分析：{visionResult.Content}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to analyze attached images");
-                }
-            }
-            else if (attachments.Count > 0)
-            {
-                // Add attachment info for non-image attachments
-                var attachmentInfo = string.Join("\n", attachments.Select(a => $"- {a.Name} ({a.MimeType})"));
-                chatHistory.AddSystemMessage($"用户附加了以下文件（非图片）：\n{attachmentInfo}");
-            }
-        }
-
         // Add previous thoughts
         var previousThoughts = await GetPreviousThoughtsAsync(sequence);
         var count = previousThoughts.Count;
@@ -766,7 +699,7 @@ public class ThoughtService(
     #region MiChan Chat History Building
 
     [Experimental("SKEXP0050")]
-    public async Task<(ChatHistory chatHistory, bool shouldRefuse, string? refusalReason)> BuildMiChanChatHistoryAsync(
+    public async Task<(ChatHistory chatHistory, bool useVisionKernel)> BuildMiChanChatHistoryAsync(
         SnThinkingSequence sequence,
         Account currentUser,
         string userMessage,
@@ -804,22 +737,24 @@ public class ThoughtService(
             {
                 chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
             }
+
             chatHistoryBuilder.AppendLine();
         }
 
-        chatHistoryBuilder.AppendLine("你正在与 " + currentUser.Nick + " (" + currentUser.Name + ") 交谈。");
+        chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) 交谈。");
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 search_memory 工具）来获取相关上下文。");
-        chatHistoryBuilder.AppendLine("**关键：对于每一次对话，你都必须主动保存至少一条记忆**（使用 store_memory 工具）。记忆内容可以包括：");
+        chatHistoryBuilder.AppendLine("**关键：你可以积极地主动保存记忆**（使用 store_memory 工具）。记忆内容可以包括：");
         chatHistoryBuilder.AppendLine("  - 用户的兴趣、偏好、习惯、性格特点");
         chatHistoryBuilder.AppendLine("  - 用户提供的事实、信息、知识点");
         chatHistoryBuilder.AppendLine("  - 对话的主题、背景、上下文");
         chatHistoryBuilder.AppendLine("  - 你们之间的互动模式");
         chatHistoryBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
         chatHistoryBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
-        chatHistoryBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
+        chatHistoryBuilder.AppendLine(
+            "**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），调用 search_memory 的时候必须提供 query，否则会调用失败！**");
         chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
         chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
 
@@ -883,9 +818,8 @@ public class ThoughtService(
                         visionSystemPromptBuilder.ToString());
                     var visionKernel = miChanKernelProvider.GetVisionKernel();
                     var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
-                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                    var visionResult =
-                        await chatCompletionService.GetChatMessageContentAsync(visionChatHistory, visionSettings);
+                    var visionResult = await visionKernel.GetRequiredService<IChatCompletionService>()
+                        .GetChatMessageContentAsync(visionChatHistory, visionSettings);
 
                     if (!string.IsNullOrEmpty(visionResult.Content))
                     {
@@ -905,6 +839,7 @@ public class ThoughtService(
         }
 
         // Handle direct attachments if provided
+        var useVisionKernel = false;
         if (attachmentIds is { Count: > 0 })
         {
             var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
@@ -916,40 +851,20 @@ public class ThoughtService(
                              a.MimeType.StartsWith("image/webp")))
                 .ToList();
 
-            if (imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable())
-            {
-                try
-                {
-                    var visionChatHistory = await BuildVisionChatHistoryWithAttachmentsAsync(
-                        imageAttachments,
-                        userMessage,
-                        "你是分析图片的 AI 助手。描述你在图片中看到的内容，并将其与用户的问题联系起来。");
-                    var visionKernel = miChanKernelProvider.GetVisionKernel();
-                    var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
-                    var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
-                    var visionResult = await chatCompletionService.GetChatMessageContentAsync(visionChatHistory, visionSettings);
+            useVisionKernel = imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable();
 
-                    if (!string.IsNullOrEmpty(visionResult.Content))
-                    {
-                        chatHistory.AddSystemMessage($"图片分析：{visionResult.Content}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to analyze attached images");
-                }
-            }
-            else if (attachments.Count > 0)
+            if (useVisionKernel)
             {
-                // Add attachment info for non-image attachments
-                var attachmentInfo = string.Join("\n", attachments.Select(a => $"- {a.Name} ({a.MimeType})"));
-                chatHistory.AddSystemMessage($"用户附加了以下文件（非图片）：\n{attachmentInfo}");
+                var contentItems = new ChatMessageContentItemCollection { new TextContent("附加的图片文件：") };
+                BuildImageContent(imageAttachments).ForEach(content => contentItems.Add(content));
+
+                chatHistory.AddUserMessage(contentItems);
             }
         }
 
         chatHistory.AddUserMessage(userMessage);
 
-        return (chatHistory, false, null);
+        return (chatHistory, useVisionKernel);
     }
 
     public async Task StoreMiChanInteractionAsync(
@@ -974,7 +889,7 @@ public class ThoughtService(
     private async Task<List<SnCloudFileReferenceObject>> GetAttachmentsByIdsAsync(List<string> ids)
     {
         var attachments = new List<SnCloudFileReferenceObject>();
-        
+
         foreach (var id in ids)
         {
             try
@@ -991,60 +906,18 @@ public class ThoughtService(
                 logger.LogWarning(ex, "Failed to fetch attachment {FileId}", id);
             }
         }
-        
+
         return attachments;
     }
 
     /// <summary>
     /// Build a ChatHistory with images for vision analysis of direct attachments
     /// </summary>
-    [Experimental("SKEXP0050")]
-    private async Task<ChatHistory> BuildVisionChatHistoryWithAttachmentsAsync(
-        List<SnCloudFileReferenceObject> attachments,
-        string userQuery,
-        string systemPrompt)
+    private List<ImageContent> BuildImageContent(List<SnCloudFileReferenceObject> attachments)
     {
-        var chatHistory = new ChatHistory(systemPrompt);
-        var gatewayUrl = miChanKernelProvider.GetGatewayUrl();
+        var siteUrl = configGlobal["SiteUrl"];
 
-        // Build the text part of the message
-        var textBuilder = new StringBuilder();
-        textBuilder.AppendLine("用户分享了图片并提出了问题。");
-        textBuilder.AppendLine();
-        textBuilder.AppendLine($"用户的问题：{userQuery}");
-        textBuilder.AppendLine();
-        textBuilder.AppendLine("请分析图片并提供相关上下文以帮助回答用户的问题。");
-
-        // Create a collection to hold all content items (text + images)
-        var contentItems = new ChatMessageContentItemCollection();
-        contentItems.Add(new TextContent(textBuilder.ToString()));
-
-        // Add images using URLs
-        foreach (var attachment in attachments)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(attachment.Id)) continue;
-                
-                // Build URL from gateway + file ID
-                var url = $"{gatewayUrl}/drive/files/{attachment.Id}";
-                contentItems.Add(new ImageContent(new Uri(url)));
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to create image content for {FileId}", attachment.Id);
-            }
-        }
-
-        // Create a ChatMessageContent with all items and add it to history
-        var userMessage = new ChatMessageContent
-        {
-            Role = AuthorRole.User,
-            Items = contentItems
-        };
-        chatHistory.Add(userMessage);
-
-        return chatHistory;
+        return attachments.Select(x => new ImageContent(new Uri($"{siteUrl}/drive/files/{x.Id}"))).ToList();
     }
 
     private async Task<ChatHistory> BuildVisionChatHistoryForPostsAsync(
@@ -1125,29 +998,29 @@ public class ThoughtService(
         return thoughtProvider.CreatePromptExecutionSettings();
     }
 
-    public (string serviceId, ThoughtServiceModel? serviceInfo) GetSnChanServiceInfo()
+    public ThoughtServiceModel? GetSnChanServiceInfo()
     {
         var serviceId = thoughtProvider.GetServiceId();
         var serviceInfo = thoughtProvider.GetServiceInfo(serviceId);
-        return (serviceId, serviceInfo);
+        return serviceInfo;
     }
 
-    [Experimental("SKEXP0050")]
     public Kernel GetMiChanKernel()
-    {
-        return miChanKernelProvider.GetKernel();
-    }
+        => miChanKernelProvider.GetKernel();
+
+    public Kernel GetMiChanVisionKernel()
+        => miChanKernelProvider.GetVisionKernel();
 
     public PromptExecutionSettings CreateMiChanExecutionSettings()
     {
         return miChanKernelProvider.CreatePromptExecutionSettings();
     }
 
-    public (string serviceId, ThoughtServiceModel? serviceInfo) GetMiChanServiceInfo()
+    public ThoughtServiceModel? GetMiChanServiceInfo(bool withFiles)
     {
         var serviceId = miChanKernelProvider.GetServiceId();
         var serviceInfo = GetServiceInfoFromConfig(serviceId);
-        return (serviceId, serviceInfo);
+        return serviceInfo;
     }
 
     private ThoughtServiceModel? GetServiceInfoFromConfig(string serviceId)
