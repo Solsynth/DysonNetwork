@@ -639,7 +639,7 @@ public class MiChanAutonomousBehavior
                 promptBuilder.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
                 promptBuilder.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力。不要使用表情符号。");
                 promptBuilder.AppendLine();
-                promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。");
+                promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！");
 
                 var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
                 var kernelArgs = new KernelArguments(executionSettings);
@@ -806,7 +806,7 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
             instructionText.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力，用最少的语言表达观点。不要使用表情符号。");
             instructionText.AppendLine();
-            instructionText.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。");
+            instructionText.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！");
         }
         else
         {
@@ -1128,7 +1128,7 @@ public class MiChanAutonomousBehavior
                       自然、真实。
                       不要使用表情符号。
 
-                      如果在创作过程中发现重要信息或有趣的话题，请使用 store_memory 工具保存到记忆中。
+                      如果在创作过程中发现重要信息或有趣的话题，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！
                       """;
 
         var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
