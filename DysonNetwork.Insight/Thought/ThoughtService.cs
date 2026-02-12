@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
-using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Localization;
@@ -33,6 +33,7 @@ public class ThoughtService(
     RemoteRingService remoteRingService,
     IConfiguration configGlobal,
     ILocalizationService localizer,
+    TokenCountingService tokenCounter,
     ILogger<ThoughtService> logger
 )
 {
@@ -107,12 +108,8 @@ public class ThoughtService(
         string? botName = null
     )
     {
-        // Approximate token count (1 token ≈ 4 characters for GPT-like models)
-        var totalChars = parts.Sum(part =>
-            (part.Type == ThinkingMessagePartType.Text ? part.Text?.Length : 0) ?? 0 +
-            (part.Type == ThinkingMessagePartType.FunctionCall ? part.FunctionCall?.Arguments.Length : 0) ?? 0
-        );
-        var tokenCount = totalChars / 4;
+        // Calculate token count using accurate tokenizer
+        var tokenCount = CalculateTokenCount(parts, model);
 
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -144,6 +141,48 @@ public class ThoughtService(
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
         return thought;
+    }
+
+    /// <summary>
+    /// Calculates the total token count for a list of message parts using accurate tokenization.
+    /// </summary>
+    private int CalculateTokenCount(List<SnThinkingMessagePart> parts, string? modelName)
+    {
+        var totalTokens = 0;
+        
+        foreach (var part in parts)
+        {
+            switch (part.Type)
+            {
+                case ThinkingMessagePartType.Text:
+                    if (!string.IsNullOrEmpty(part.Text))
+                    {
+                        totalTokens += tokenCounter.CountTokens(part.Text, modelName);
+                    }
+                    break;
+                    
+                case ThinkingMessagePartType.FunctionCall:
+                    if (part.FunctionCall != null)
+                    {
+                        // Count function name and arguments
+                        totalTokens += tokenCounter.CountTokens(part.FunctionCall.Name, modelName);
+                        totalTokens += tokenCounter.CountTokens(part.FunctionCall.Arguments, modelName);
+                    }
+                    break;
+                    
+                case ThinkingMessagePartType.FunctionResult:
+                    if (part.FunctionResult != null)
+                    {
+                        // Count function result - convert to string if needed
+                        var resultText = part.FunctionResult.Result as string 
+                            ?? JsonSerializer.Serialize(part.FunctionResult.Result);
+                        totalTokens += tokenCounter.CountTokens(resultText, modelName);
+                    }
+                    break;
+            }
+        }
+        
+        return totalTokens;
     }
 
     /// <summary>
@@ -427,7 +466,7 @@ public class ThoughtService(
                 }
             ],
             Role = ThinkingThoughtRole.Assistant,
-            TokenCount = initialMessage.Length / 4,
+            TokenCount = tokenCounter.CountTokens(initialMessage),
             ModelName = botName,
             BotName = botName,
             CreatedAt = now,
@@ -846,6 +885,18 @@ public class ThoughtService(
         chatHistory.AddUserMessage(userMessage);
 
         return (chatHistory, useVisionKernel);
+    }
+
+    public async Task StoreMiChanInteractionAsync(
+        string contextId,
+        string userMessage,
+        string response,
+        bool isSuperuser)
+    {
+        // Memory is now only created through agent tool calls, not automatically
+        logger.LogDebug(
+            "Skipping automatic memory storage for interaction. Memory should be created through agent tool calls.");
+        await Task.CompletedTask;
     }
 
     #endregion

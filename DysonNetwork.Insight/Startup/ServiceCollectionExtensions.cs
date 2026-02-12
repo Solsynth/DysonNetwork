@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Insight.Reader;
+using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
@@ -88,6 +89,9 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ThoughtService>();
             services.AddScoped<Reader.WebFeedService>();
             services.AddScoped<Reader.WebReaderService>();
+            
+            // Register token counting service for accurate AI token counting
+            services.AddSingleton<TokenCountingService>();
 
             return services;
         }
