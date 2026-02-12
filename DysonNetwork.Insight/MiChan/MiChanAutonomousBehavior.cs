@@ -322,6 +322,14 @@ public class MiChanAutonomousBehavior
                     continue;
                 }
 
+                // Skip posts already seen (to avoid re-processing in next autonomous cycle)
+                var alreadySeen = await _interactiveHistoryService.HasSeenAsync(post.Id);
+                if (alreadySeen)
+                {
+                    _logger.LogDebug("Skipping post {PostId} - already seen", post.Id);
+                    continue;
+                }
+
                 // Check if mentioned
                 var isMentioned = ContainsMention(post);
 
@@ -350,6 +358,9 @@ public class MiChanAutonomousBehavior
                 {
                     _logger.LogDebug("Autonomous: Ignoring post {PostId}", post.Id);
                 }
+
+                // Mark post as seen after processing to avoid re-processing in next cycle
+                await _interactiveHistoryService.MarkSeenAsync(post.Id);
 
                 processedCount++;
 

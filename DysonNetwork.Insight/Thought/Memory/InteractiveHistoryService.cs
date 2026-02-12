@@ -161,6 +161,58 @@ public class InteractiveHistoryService(
     }
 
     /// <summary>
+    /// Mark a post as "seen" without interacting with it. Used to avoid re-processing seen posts.
+    /// </summary>
+    public async Task MarkSeenAsync(
+        Guid postId,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await database.InteractiveHistories
+            .FirstOrDefaultAsync(h => h.ResourceId == postId && h.ResourceType == "post" && h.Behaviour == "seen", cancellationToken);
+
+        if (existing != null)
+        {
+            existing.CreatedAt = SystemClock.Instance.GetCurrentInstant();
+            logger.LogDebug("Updated seen timestamp for post {PostId}", postId);
+        }
+        else
+        {
+            var record = new MiChanInteractiveHistory
+            {
+                ResourceId = postId,
+                ResourceType = "post",
+                Behaviour = "seen",
+                IsActive = true,
+                ExpiresAt = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24))
+            };
+
+            database.InteractiveHistories.Add(record);
+            logger.LogDebug("Marked post {PostId} as seen", postId);
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Check if a post has already been seen.
+    /// </summary>
+    public async Task<bool> HasSeenAsync(
+        Guid postId,
+        CancellationToken cancellationToken = default)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var hasSeen = await database.InteractiveHistories
+            .AnyAsync(h => h.ResourceId == postId && h.ResourceType == "post" && h.Behaviour == "seen" && h.IsActive && (h.ExpiresAt == null || h.ExpiresAt > now), cancellationToken);
+
+        if (hasSeen)
+        {
+            logger.LogDebug("Post {PostId} was already seen", postId);
+        }
+
+        return hasSeen;
+    }
+
+    /// <summary>
     /// Get interaction statistics for a specific resource.
     /// </summary>
     public async Task<Dictionary<string, int>> GetInteractionStatsAsync(
