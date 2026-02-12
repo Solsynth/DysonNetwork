@@ -1,4 +1,5 @@
 #pragma warning disable SKEXP0050
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
@@ -460,7 +461,13 @@ public class MiChanAutonomousBehavior
             var visionKernel = _kernelProvider.GetVisionKernel();
             var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
             var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+
+            var stopwatch = Stopwatch.StartNew();
             var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+            stopwatch.Stop();
+
+            _logger.LogInformation("Vision model response for post {PostId} completed in {ElapsedMs}ms", postId, stopwatch.ElapsedMilliseconds);
+
             return reply.Content?.Trim() ?? "IGNORE";
         }
         catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
@@ -656,7 +663,13 @@ public class MiChanAutonomousBehavior
 
                 var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
                 var kernelArgs = new KernelArguments(executionSettings);
+
+                var stopwatch = Stopwatch.StartNew();
                 var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), kernelArgs);
+                stopwatch.Stop();
+
+                _logger.LogInformation("AI reply generation for mentioned post {PostId} completed in {ElapsedMs}ms", post.Id, stopwatch.ElapsedMilliseconds);
+
                 var textReplyContent = result.GetValue<string>()?.Trim();
 
                 return new PostActionDecision { ShouldReply = true, Content = textReplyContent };
@@ -726,7 +739,13 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或仅 STORE 即可。");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
+
+                var stopwatch = Stopwatch.StartNew();
                 var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
+                stopwatch.Stop();
+
+                _logger.LogInformation("AI decision generation for post {PostId} completed in {ElapsedMs}ms", post.Id, stopwatch.ElapsedMilliseconds);
+
                 decisionText = decisionResult.GetValue<string>()?.Trim() ?? "IGNORE";
             }
 
