@@ -246,6 +246,7 @@ public class ThoughtProvider
             var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
             var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
             var scheduledTaskPlugin = _serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
+            var conversationPlugin = _serviceProvider.GetRequiredService<ConversationPlugin>();
 
             if (!kernel.Plugins.Contains("post"))
                 kernel.Plugins.AddFromObject(postPlugin, "post");
@@ -253,6 +254,10 @@ public class ThoughtProvider
                 kernel.Plugins.AddFromObject(accountPlugin, "account");
             if  (!kernel.Plugins.Contains("memory"))
                 kernel.Plugins.AddFromObject(memoryPlugin, "memory");
+            if (!kernel.Plugins.Contains("scheduledTasks"))
+                kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTasks");
+            if (!kernel.Plugins.Contains("conversation"))
+                kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
 
             var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
 

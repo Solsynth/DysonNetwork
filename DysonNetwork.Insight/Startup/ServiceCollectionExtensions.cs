@@ -110,6 +110,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<AccountPlugin>();
             services.AddSingleton<MemoryPlugin>();
             services.AddScoped<ScheduledTaskPlugin>();
+            services.AddScoped<ConversationPlugin>();
             
             // Memory and behavior services
             services.AddScoped<ScheduledTaskService>();

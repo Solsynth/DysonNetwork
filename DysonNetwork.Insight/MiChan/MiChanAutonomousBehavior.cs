@@ -78,6 +78,8 @@ public class MiChanAutonomousBehavior
         var postPlugin = _serviceProvider.GetRequiredService<PostPlugin>();
         var accountPlugin = _serviceProvider.GetRequiredService<AccountPlugin>();
         var memoryPlugin = _serviceProvider.GetRequiredService<MemoryPlugin>();
+        var scheduledTaskPlugin = _serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
+        var conversationPlugin = _serviceProvider.GetRequiredService<ConversationPlugin>();
 
         if (!_kernel.Plugins.Contains("post"))
             _kernel.Plugins.AddFromObject(postPlugin, "post");
@@ -85,6 +87,10 @@ public class MiChanAutonomousBehavior
             _kernel.Plugins.AddFromObject(accountPlugin, "account");
         if (!_kernel.Plugins.Contains("memory"))
             _kernel.Plugins.AddFromObject(memoryPlugin, "memory");
+        if  (!_kernel.Plugins.Contains("scheduledTasks"))
+            _kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTasks");
+        if (!_kernel.Plugins.Contains("conversation"))
+            _kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
 
         _logger.LogInformation("MiChan autonomous behavior initialized");
 

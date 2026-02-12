@@ -339,6 +339,7 @@ public class ThoughtController(
         var accountPlugin = serviceProvider.GetRequiredService<AccountPlugin>();
         var memoryPlugin = serviceProvider.GetRequiredService<MemoryPlugin>();
         var scheduledTaskPlugin = serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
+        var conversationPlugin = serviceProvider.GetRequiredService<ConversationPlugin>();
 
         if (!kernel.Plugins.Contains("post"))
             kernel.Plugins.AddFromObject(postPlugin, "post");
@@ -348,6 +349,8 @@ public class ThoughtController(
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         if (!kernel.Plugins.Contains("scheduledTask"))
             kernel.Plugins.AddFromObject(scheduledTaskPlugin, "scheduledTask");
+        if (!kernel.Plugins.Contains("conversation"))
+            kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
 
         string? topic = null;
         if (!request.SequenceId.HasValue)

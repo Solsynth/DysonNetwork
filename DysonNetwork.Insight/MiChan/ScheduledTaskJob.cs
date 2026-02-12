@@ -97,10 +97,16 @@ public class ScheduledTaskJob(
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         }
 
-        if (!kernel.Plugins.Contains("tasks"))
+        if (!kernel.Plugins.Contains("scheduledTasks"))
         {
             var taskPlugin = serviceProvider.GetRequiredService<ScheduledTaskPlugin>();
-            kernel.Plugins.AddFromObject(taskPlugin, "tasks");
+            kernel.Plugins.AddFromObject(taskPlugin, "scheduledTasks");
+        }
+
+        if (!kernel.Plugins.Contains("conversation"))
+        {
+            var conversationPlugin = serviceProvider.GetRequiredService<ConversationPlugin>();
+            kernel.Plugins.AddFromObject(conversationPlugin, "conversation");
         }
     }
 
