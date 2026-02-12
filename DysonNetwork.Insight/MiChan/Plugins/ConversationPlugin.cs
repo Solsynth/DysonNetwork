@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using DysonNetwork.Insight.Thought;
+using DysonNetwork.Shared.Registry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 
@@ -10,7 +11,9 @@ namespace DysonNetwork.Insight.MiChan.Plugins;
 /// </summary>
 public class ConversationPlugin(
     IServiceProvider serviceProvider,
-    ILogger<ConversationPlugin> logger)
+    RemoteAccountService remoteAccountService,
+    ILogger<ConversationPlugin> logger
+)
 {
     /// <summary>
     /// Start a conversation with a user by creating an agent-initiated thought sequence.
@@ -38,10 +41,13 @@ public class ConversationPlugin(
                 return "Error: Message cannot be empty.";
 
             logger.LogInformation("Starting agent-initiated conversation with account {AccountId}", accountId);
+            
+            var accountInfo = await remoteAccountService.GetAccount(accountId);
 
             // Create the agent-initiated sequence
             var sequence = await thoughtService.CreateAgentInitiatedSequenceAsync(
                 accountId: accountId,
+                locale: accountInfo.Language,
                 initialMessage: message,
                 topic: topic
             );

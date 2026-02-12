@@ -77,8 +77,6 @@ public class SnThinkingThought : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Files { get; set; } = [];
-
     [Column(TypeName = "jsonb")] public List<SnThinkingMessagePart> Parts { get; set; } = [];
 
     public ThinkingThoughtRole Role { get; set; }

@@ -37,7 +37,8 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         await ring.PushWebSocketPacketAsync(request);
     }
 
-    public async Task PushWebSocketPacketToUsers(List<string> userIds, string type, byte[] data, string? errorMessage = null)
+    public async Task PushWebSocketPacketToUsers(List<string> userIds, string type, byte[] data,
+        string? errorMessage = null)
     {
         var request = new PushWebSocketPacketToUsersRequest
         {
@@ -55,7 +56,8 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         await ring.PushWebSocketPacketToUsersAsync(request);
     }
 
-    public async Task PushWebSocketPacketToDevice(string deviceId, string type, byte[] data, string? errorMessage = null)
+    public async Task PushWebSocketPacketToDevice(string deviceId, string type, byte[] data,
+        string? errorMessage = null)
     {
         var request = new PushWebSocketPacketToDeviceRequest
         {
@@ -73,7 +75,8 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         await ring.PushWebSocketPacketToDeviceAsync(request);
     }
 
-    public async Task PushWebSocketPacketToDevices(List<string> deviceIds, string type, byte[] data, string? errorMessage = null)
+    public async Task PushWebSocketPacketToDevices(List<string> deviceIds, string type, byte[] data,
+        string? errorMessage = null)
     {
         var request = new PushWebSocketPacketToDevicesRequest
         {
@@ -91,7 +94,17 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         await ring.PushWebSocketPacketToDevicesAsync(request);
     }
 
-    public async Task SendPushNotificationToUser(string userId, string topic, string title, string subtitle, string body, byte[]? meta = null, string? actionUri = null, bool isSilent = false, bool isSavable = false)
+    public async Task SendPushNotificationToUser(
+        string userId,
+        string topic,
+        string title,
+        string? subtitle,
+        string body,
+        byte[]? meta = null,
+        string? actionUri = null,
+        bool isSilent = false,
+        bool isSavable = false
+    )
     {
         var request = new SendPushNotificationToUserRequest
         {
@@ -116,7 +129,8 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         await ring.SendPushNotificationToUserAsync(request);
     }
 
-    public async Task SendPushNotificationToUsers(List<string> userIds, string topic, string title, string subtitle, string body, byte[]? meta = null, string? actionUri = null, bool isSilent = false, bool isSavable = false)
+    public async Task SendPushNotificationToUsers(List<string> userIds, string topic, string title, string subtitle,
+        string body, byte[]? meta = null, string? actionUri = null, bool isSilent = false, bool isSavable = false)
     {
         var request = new SendPushNotificationToUsersRequest
         {

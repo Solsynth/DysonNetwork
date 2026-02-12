@@ -104,7 +104,8 @@ public class ThoughtService(
         List<SnThinkingMessagePart> parts,
         ThinkingThoughtRole role,
         string? model = null,
-        string? botName = null)
+        string? botName = null
+    )
     {
         // Approximate token count (1 token ≈ 4 characters for GPT-like models)
         var totalChars = parts.Sum(part =>
@@ -384,7 +385,8 @@ public class ThoughtService(
         string initialMessage,
         string? topic = null,
         string? locale = null,
-        string botName = "michan")
+        string botName = "michan"
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -439,28 +441,33 @@ public class ThoughtService(
         // Send push notification to the user
         try
         {
-            var agentNameKey = botName.ToLower() == "snchan" ? "agentNameSnChan" : "agentNameMiChan";
-            var agentName = localizer.Get(agentNameKey, locale);
-            var notificationTitle = localizer.Get("agentConversationStartedTitle", locale, new { agentName });
-            var notificationBody = localizer.Get("agentConversationStartedBody", locale,
+            // Use default locale if not provided
+            var effectiveLocale = locale ?? "en";
+
+            var agentNameKey = botName.Equals("snchan", StringComparison.CurrentCultureIgnoreCase)
+                ? "agentNameSnChan"
+                : "agentNameMiChan";
+            var agentName = localizer.Get(agentNameKey, effectiveLocale);
+            var notificationTitle = localizer.Get("agentConversationStartedTitle", effectiveLocale, new { agentName });
+            var notificationBody = localizer.Get("agentConversationStartedBody", effectiveLocale,
                 new { agentName, message = initialMessage });
 
             // Create meta with sequence ID for deep linking
             var meta = new Dictionary<string, object?>
             {
                 ["sequence_id"] = sequence.Id.ToString(),
-                ["type"] = "agent_conversation"
+                ["type"] = "insight.conversations.new"
             };
             var metaBytes = JsonSerializer.SerializeToUtf8Bytes(meta);
 
             await remoteRingService.SendPushNotificationToUser(
                 accountId.ToString(),
-                "thought.agent_conversation_started",
+                "insight.conversations.new",
                 notificationTitle,
-                "",
+                null,
                 notificationBody,
                 metaBytes,
-                actionUri: $"/thought/{sequence.Id}",
+                actionUri: $"/thoughts/{sequence.Id}",
                 isSilent: false,
                 isSavable: true
             );
@@ -578,7 +585,6 @@ public class ThoughtService(
         // Add attached posts with content (similar to MiChan)
         if (attachedPosts is { Count: > 0 })
         {
-            var postsWithImages = new List<SnPost>();
             var postTexts = new List<string>();
 
             foreach (var postId in attachedPosts)
@@ -589,8 +595,6 @@ public class ThoughtService(
                     var post = await apiClient.GetAsync<SnPost>("sphere", $"/posts/{postGuid}");
                     if (post == null) continue;
                     postTexts.Add(PostAnalysisService.BuildPostPromptSnippet(post));
-                    if (post.Attachments.Count > 0)
-                        postsWithImages.Add(post);
                 }
                 catch (Exception ex)
                 {
@@ -774,6 +778,7 @@ public class ThoughtService(
         chatHistory.AddSystemMessage(proposalBuilder.ToString());
 
         // Add attached posts with image analysis if available
+        var useVisionKernel = false;
         if (attachedPosts is { Count: > 0 })
         {
             var postsWithImages = new List<SnPost>();
@@ -805,30 +810,11 @@ public class ThoughtService(
             // Analyze images using vision model if posts have attachments and vision is enabled
             if (postsWithImages.Count > 0 && postAnalysisService.IsVisionModelAvailable())
             {
-                try
-                {
-                    var visionSystemPromptBuilder = new StringBuilder();
-                    visionSystemPromptBuilder.AppendLine("你是分析社交媒体帖子中图片的 AI 助手。");
-                    visionSystemPromptBuilder.AppendLine("描述你在图片中看到的内容，并将其与用户的问题联系起来。");
-
-                    var visionChatHistory = await BuildVisionChatHistoryForPostsAsync(
-                        postsWithImages,
-                        userMessage,
-                        visionSystemPromptBuilder.ToString());
-                    var visionKernel = miChanKernelProvider.GetVisionKernel();
-                    var visionSettings = miChanKernelProvider.CreateVisionPromptExecutionSettings();
-                    var visionResult = await visionKernel.GetRequiredService<IChatCompletionService>()
-                        .GetChatMessageContentAsync(visionChatHistory, visionSettings);
-
-                    if (!string.IsNullOrEmpty(visionResult.Content))
-                    {
-                        chatHistory.AddSystemMessage($"图片分析：{visionResult.Content}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to analyze images in attached posts");
-                }
+                useVisionKernel = true;
+                var contentItems = new ChatMessageContentItemCollection { new TextContent("附加帖子的图片：") };
+                var postsImages = postsWithImages.SelectMany(x => x.Attachments).ToList();
+                BuildImageContent(postsImages).ForEach(content => contentItems.Add(content));
+                chatHistory.AddUserMessage(contentItems);
             }
         }
 
@@ -838,7 +824,6 @@ public class ThoughtService(
         }
 
         // Handle direct attachments if provided
-        var useVisionKernel = false;
         if (attachmentIds is { Count: > 0 })
         {
             var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
@@ -861,18 +846,6 @@ public class ThoughtService(
         chatHistory.AddUserMessage(userMessage);
 
         return (chatHistory, useVisionKernel);
-    }
-
-    public async Task StoreMiChanInteractionAsync(
-        string contextId,
-        string userMessage,
-        string response,
-        bool isSuperuser)
-    {
-        // Memory is now only created through agent tool calls, not automatically
-        logger.LogDebug(
-            "Skipping automatic memory storage for interaction. Memory should be created through agent tool calls.");
-        await Task.CompletedTask;
     }
 
     #endregion
@@ -914,70 +887,6 @@ public class ThoughtService(
         var siteUrl = configGlobal["SiteUrl"];
 
         return attachments.Select(x => new ImageContent(new Uri($"{siteUrl}/drive/files/{x.Id}"))).ToList();
-    }
-
-    private async Task<ChatHistory> BuildVisionChatHistoryForPostsAsync(
-        List<SnPost> posts,
-        string userQuery,
-        string systemPrompt)
-    {
-        var chatHistory = new ChatHistory(systemPrompt);
-
-        // Build the text part of the message using StringBuilder
-        var textBuilder = new StringBuilder();
-        textBuilder.AppendLine("用户分享了带有图片的帖子并提出了问题。");
-        textBuilder.AppendLine();
-        textBuilder.AppendLine("帖子：");
-
-        foreach (var post in posts)
-        {
-            textBuilder.AppendLine($"- @{post.Publisher?.Name} 的帖子：{post.Content}");
-        }
-
-        textBuilder.AppendLine();
-        textBuilder.AppendLine($"用户的问题：{userQuery}");
-        textBuilder.AppendLine();
-        textBuilder.AppendLine("请分析图片并提供相关上下文以帮助回答用户的问题。");
-
-        // Create a collection to hold all content items (text + images)
-        var contentItems = new ChatMessageContentItemCollection();
-        contentItems.Add(new TextContent(textBuilder.ToString()));
-
-        // Download and add images
-        var httpClient = new HttpClient
-        {
-            BaseAddress = new Uri(miChanKernelProvider.GetGatewayUrl())
-        };
-        httpClient.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", miChanKernelProvider.GetAccessToken());
-
-        foreach (var attachment in posts.SelectMany(post => post.Attachments))
-        {
-            try
-            {
-                if (attachment.MimeType?.StartsWith("image/") != true) continue;
-                var imagePath = attachment.Url ?? $"/drive/files/{attachment.Id}";
-                var imageBytes = await httpClient.GetByteArrayAsync(imagePath);
-                if (imageBytes is { Length: > 0 })
-                {
-                    contentItems.Add(new ImageContent(imageBytes, attachment.MimeType));
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to download image {FileId} for vision analysis", attachment.Id);
-            }
-        }
-
-        // Create a ChatMessageContent with all items and add it to history
-        var userMessage = new ChatMessageContent
-        {
-            Role = AuthorRole.User,
-            Items = contentItems
-        };
-        chatHistory.Add(userMessage);
-
-        return chatHistory;
     }
 
     #endregion
