@@ -106,18 +106,19 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         bool isSavable = false
     )
     {
+        var item = new PushNotification
+        {
+            Topic = topic,
+            Title = title,
+            Body = body,
+            IsSilent = isSilent,
+            IsSavable = isSavable
+        };
+        if (subtitle != null) item.Subtitle = subtitle;
         var request = new SendPushNotificationToUserRequest
         {
             UserId = userId,
-            Notification = new PushNotification
-            {
-                Topic = topic,
-                Title = title,
-                Subtitle = subtitle,
-                Body = body,
-                IsSilent = isSilent,
-                IsSavable = isSavable
-            }
+            Notification = item
         };
 
         if (meta != null)
