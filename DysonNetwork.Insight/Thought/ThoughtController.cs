@@ -354,7 +354,8 @@ public class ThoughtController(
         if (sequence == null) return Forbid();
 
         var filesRetrieveRequest = new GetFileBatchRequest();
-        filesRetrieveRequest.Ids.AddRange(request.AttachedFiles);
+        if (request.AttachedFiles is { Count: > 0 })
+            filesRetrieveRequest.Ids.AddRange(request.AttachedFiles);
         var filesData = request.AttachedFiles is { Count: > 0 }
             ? (await files.GetFileBatchAsync(filesRetrieveRequest)).Files.ToList()
             : null;

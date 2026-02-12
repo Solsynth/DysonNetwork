@@ -908,7 +908,6 @@ public class ThoughtService(
     private List<ImageContent> BuildImageContent(List<SnCloudFileReferenceObject> attachments)
     {
         var siteUrl = configGlobal["SiteUrl"];
-
         return attachments.Select(x => new ImageContent(new Uri($"{siteUrl}/drive/files/{x.Id}"))).ToList();
     }
 
