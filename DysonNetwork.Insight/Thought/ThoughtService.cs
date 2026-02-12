@@ -158,6 +158,10 @@ public class ThoughtService(
         // Update LastMessageAt timestamp
         sequence.LastMessageAt = now;
 
+        // Update UserLastReadAt when user sends a message (not for agent messages)
+        if (role == ThinkingThoughtRole.User)
+            sequence.UserLastReadAt = now;
+
         await db.SaveChangesAsync();
 
         // Invalidate cache for this sequence's thoughts
