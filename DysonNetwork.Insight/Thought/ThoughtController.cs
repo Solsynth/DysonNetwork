@@ -66,14 +66,14 @@ public class ThoughtController(
             new()
             {
                 Id = "snchan",
-                Name = "Sn-chan",
-                Description = "Cute and helpful assistant with full access to Solar Network tools via gRPC"
+                Name = "SN Chan",
+                Description = "The helpful assistant who have ability to solve problems for you on the Solar Network."
             },
             new()
             {
                 Id = "michan",
-                Name = "MiChan",
-                Description = "Casual and friendly AI that lives on the Solar Network with API access"
+                Name = "Mi Chan",
+                Description = "A mysterious girl"
             }
         };
 
