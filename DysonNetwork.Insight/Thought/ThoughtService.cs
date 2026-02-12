@@ -843,14 +843,11 @@ public class ThoughtService(
         {
             var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
             var imageAttachments = attachments
-                .Where(a => !string.IsNullOrEmpty(a.MimeType) &&
-                            (a.MimeType.StartsWith("image/jpeg") ||
-                             a.MimeType.StartsWith("image/png") ||
-                             a.MimeType.StartsWith("image/gif") ||
-                             a.MimeType.StartsWith("image/webp")))
+                .Where(a => !string.IsNullOrEmpty(a.MimeType) &&a.MimeType.StartsWith("image/"))
                 .ToList();
 
             useVisionKernel = imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable();
+            logger.LogInformation("Attachments item is not empty, and vision={UseVisionKernel}", useVisionKernel);
 
             if (useVisionKernel)
             {
