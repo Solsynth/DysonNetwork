@@ -114,6 +114,7 @@ public static class ServiceCollectionExtensions
             
             // Memory and behavior services
             services.AddScoped<ScheduledTaskService>();
+            services.AddScoped<ScheduledTaskJob>();
             services.AddSingleton<EmbeddingService>();
             services.AddSingleton<MemoryService>();
             services.AddSingleton<InteractiveHistoryService>();
