@@ -7,7 +7,9 @@ namespace DysonNetwork.Pass.Credit;
 
 public class SocialCreditService(AppDatabase db, ICacheService cache)
 {
-    private const string CacheKeyPrefix = "account:credits:";
+    private const string CacheKeyPrefix = "credits:";
+    private const string CacheGroupPrefix = "account:";
+    private static readonly TimeSpan MinCacheDuration = TimeSpan.FromMinutes(5);
 
     public async Task<SnSocialCreditRecord> AddRecord(
         string reasonType,
@@ -28,53 +30,35 @@ public class SocialCreditService(AppDatabase db, ICacheService cache)
         db.SocialCreditRecords.Add(record);
         await db.SaveChangesAsync();
 
-        await db.AccountProfiles
-            .Where(p => p.AccountId == accountId)
-            .ExecuteUpdateAsync(p => p.SetProperty(v => v.SocialCredits, v => v.SocialCredits + record.Delta));
-
-        await cache.RemoveAsync($"{CacheKeyPrefix}{accountId}");
+        await cache.RemoveGroupAsync($"{CacheGroupPrefix}{accountId}");
 
         return record;
+    }
+
+    public Task InvalidateCache()
+    {
+        return cache.RemoveGroupAsync(CacheKeyPrefix);
     }
 
     private const double BaseSocialCredit = 100;
 
     public async Task<double> GetSocialCredit(Guid accountId)
     {
-        var cached = await cache.GetAsync<double?>($"{CacheKeyPrefix}{accountId}");
+        var cacheKey = $"{CacheKeyPrefix}{accountId}";
+        var cached = await cache.GetAsync<double?>(cacheKey);
         if (cached.HasValue) return cached.Value;
 
-        var records = await db.SocialCreditRecords
-            .Where(x => x.AccountId == accountId && x.Status == SocialCreditRecordStatus.Active)
-            .SumAsync(x => x.Delta);
-        records += BaseSocialCredit;
-
-        await cache.SetAsync($"{CacheKeyPrefix}{accountId}", records);
-        return records;
-    }
-
-    public async Task ValidateSocialCredits()
-    {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var expiredRecords = await db.SocialCreditRecords
-            .Where(r => r.Status == SocialCreditRecordStatus.Active && r.ExpiredAt.HasValue && r.ExpiredAt <= now)
-            .Select(r => new { r.Id, r.AccountId, r.Delta })
+
+        var credits = await db.SocialCreditRecords
+            .Where(r => r.AccountId == accountId && !r.DeletedAt.HasValue)
             .ToListAsync();
 
-        var groupedExpired = expiredRecords.GroupBy(er => er.AccountId)
-            .ToDictionary(g => g.Key, g => g.Sum(er => er.Delta));
+        var total = credits.Sum(r => r.GetEffectiveDelta(now));
+        total += BaseSocialCredit;
 
-        foreach (var (accountId, totalDeltaSubtracted) in groupedExpired)
-        {
-            await db.AccountProfiles
-                .Where(p => p.AccountId == accountId)
-                .ExecuteUpdateAsync(p =>
-                    p.SetProperty(v => v.SocialCredits, v => v.SocialCredits - totalDeltaSubtracted));
-            await cache.RemoveAsync($"{CacheKeyPrefix}{accountId}");
-        }
+        await cache.SetWithGroupsAsync(cacheKey, total, [$"{CacheGroupPrefix}{accountId}"], MinCacheDuration);
 
-        await db.SocialCreditRecords
-            .Where(r => r.Status == SocialCreditRecordStatus.Active && r.ExpiredAt.HasValue && r.ExpiredAt <= now)
-            .ExecuteUpdateAsync(r => r.SetProperty(x => x.Status, SocialCreditRecordStatus.Expired));
+        return total;
     }
 }

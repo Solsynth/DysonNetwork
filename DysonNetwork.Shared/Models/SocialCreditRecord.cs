@@ -22,6 +22,23 @@ public class SnSocialCreditRecord : ModelBase
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
 
+    public double GetEffectiveDelta(Instant now)
+    {
+        if (ExpiredAt.HasValue && ExpiredAt <= now)
+            return 0;
+            
+        if (!ExpiredAt.HasValue)
+            return Delta;
+            
+        var totalDuration = ExpiredAt.Value - CreatedAt;
+        if (totalDuration == Duration.Zero)
+            return Delta;
+            
+        var elapsed = now - CreatedAt;
+        var remainingRatio = 1.0 - (elapsed.TotalSeconds / totalDuration.TotalSeconds);
+        return Delta * Math.Max(0, remainingRatio);
+    }
+
     public Proto.SocialCreditRecord ToProto()
     {
         var proto = new Proto.SocialCreditRecord

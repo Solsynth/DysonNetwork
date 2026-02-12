@@ -250,12 +250,12 @@ public class AccountController(
         return Ok(calendar);
     }
 
-    [HttpPost("credits/validate")]
+    [HttpPost("credits/invalidate-cache")]
     [Authorize]
     [AskPermission("credits.validate.perform")]
-    public async Task<IActionResult> PerformSocialCreditValidation()
+    public async Task<IActionResult> InvalidateSocialCreditCache()
     {
-        await socialCreditService.ValidateSocialCredits();
+        await socialCreditService.InvalidateCache();
         return Ok();
     }
 
