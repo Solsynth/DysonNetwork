@@ -377,7 +377,7 @@ public class ThoughtController(
             request.AttachedPosts,
             request.AttachedMessages,
             request.AcceptProposals,
-            request.AttachedFiles
+            userPart.Files ?? []
         );
 
         var kernel = useVisionKernel ? service.GetMiChanVisionKernel() : service.GetMiChanKernel();

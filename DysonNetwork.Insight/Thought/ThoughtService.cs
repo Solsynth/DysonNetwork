@@ -748,7 +748,7 @@ public class ThoughtService(
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
         List<string> acceptProposals,
-        List<string>? attachmentIds = null
+        List<SnCloudFileReferenceObject> attachments
     )
     {
         // Load personality
@@ -863,9 +863,8 @@ public class ThoughtService(
         }
 
         // Handle direct attachments if provided
-        if (attachmentIds is { Count: > 0 })
+        if (attachments is { Count: > 0 })
         {
-            var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
             var visionAvailable = postAnalysisService.IsVisionModelAvailable();
 
             useVisionKernel = attachments.Count > 0 && visionAvailable;
@@ -902,33 +901,6 @@ public class ThoughtService(
     #endregion
 
     #region Vision Analysis
-
-    /// <summary>
-    /// Fetch file details by IDs from the drive API
-    /// </summary>
-    private async Task<List<SnCloudFileReferenceObject>> GetAttachmentsByIdsAsync(List<string> ids)
-    {
-        var attachments = new List<SnCloudFileReferenceObject>();
-
-        foreach (var id in ids)
-        {
-            try
-            {
-                if (!Guid.TryParse(id, out var fileGuid)) continue;
-                var file = await apiClient.GetAsync<SnCloudFileReferenceObject>("drive", $"/files/{fileGuid}");
-                if (file != null)
-                {
-                    attachments.Add(file);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to fetch attachment {FileId}", id);
-            }
-        }
-
-        return attachments;
-    }
 
     /// <summary>
     /// Build a ChatHistory with images for vision analysis of direct attachments
