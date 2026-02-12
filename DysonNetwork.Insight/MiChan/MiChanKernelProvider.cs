@@ -70,6 +70,11 @@ public class MiChanKernelProvider(
         return kernelFactory.CreatePromptExecutionSettings(config.Vision.VisionThinkingService, temperature ?? 0.7);
     }
 
+    public PromptExecutionSettings CreateScheduledTaskPromptExecutionSettings(double? temperature = null)
+    {
+        return kernelFactory.CreateScheduledTaskPromptExecutionSettings(config.ThinkingService, temperature ?? 0.7);
+    }
+
     public bool IsVisionModelAvailable()
     {
         return kernelFactory.IsServiceAvailable(config.Vision.VisionThinkingService);

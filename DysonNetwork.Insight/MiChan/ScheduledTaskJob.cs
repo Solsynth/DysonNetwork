@@ -58,7 +58,7 @@ public class ScheduledTaskJob(
 
             var prompt = await BuildPromptAsync(task, cancellationToken);
 
-            var settings = kernelProvider.CreatePromptExecutionSettings(0.7);
+            var settings = kernelProvider.CreateScheduledTaskPromptExecutionSettings(0.7);
             var result = await kernel.InvokePromptAsync<string>(
                 prompt,
                 new KernelArguments(settings),

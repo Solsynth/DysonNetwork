@@ -228,6 +228,33 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     }
 
     /// <summary>
+    /// Creates prompt execution settings for scheduled tasks with autoInvoke enabled for tool calls.
+    /// </summary>
+    public PromptExecutionSettings CreateScheduledTaskPromptExecutionSettings(string serviceName, double? temperature = null)
+    {
+        var thinkingConfig = configuration.GetSection("Thinking");
+        var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
+        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        var temp = temperature ?? 0.7;
+
+        return providerType switch
+        {
+            "ollama" => new OllamaPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                Temperature = (float)temp
+            },
+            "deepseek" or "openrouter" or "aliyun" or "bigmodel" => new OpenAIPromptExecutionSettings
+            {
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                ModelId = serviceName,
+                Temperature = (float)temp
+            },
+            _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
+        };
+    }
+
+    /// <summary>
     /// Creates prompt execution settings for a specific service
     /// </summary>
     /// <param name="serviceName">The service ID from configuration</param>
