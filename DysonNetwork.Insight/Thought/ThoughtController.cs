@@ -20,7 +20,8 @@ namespace DysonNetwork.Insight.Thought;
 public class ThoughtController(
     ThoughtService service,
     MiChanConfig miChanConfig,
-    IServiceProvider serviceProvider
+    IServiceProvider serviceProvider,
+    FileService.FileServiceClient files
 ) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
@@ -109,8 +110,11 @@ public class ThoughtController(
         }
     }
 
-    private async Task<ActionResult> ThinkWithSnChanAsync(StreamThinkingRequest request, Account currentUser,
-        Guid accountId)
+    private async Task<ActionResult> ThinkWithSnChanAsync(
+        StreamThinkingRequest request,
+        Account currentUser,
+        Guid accountId
+    )
     {
         var serviceInfo = service.GetSnChanServiceInfo();
         if (serviceInfo is null)
@@ -147,13 +151,15 @@ public class ThoughtController(
         if (sequence == null) return Forbid();
 
         // Save user thought with bot identifier
-        await service.SaveThoughtAsync(sequence, [
-            new SnThinkingMessagePart
-            {
-                Type = ThinkingMessagePartType.Text,
-                Text = request.UserMessage
-            }
-        ], ThinkingThoughtRole.User, botName: "snchan");
+        var userPart = new SnThinkingMessagePart
+        {
+            Type = ThinkingMessagePartType.Text,
+            Metadata = new Dictionary<string, object>(),
+            Text = request.UserMessage
+        };
+        if (request.AttachedMessages is not null) userPart.Metadata.Add("attached_messages", request.AttachedMessages);
+        if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
+        await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "snchan");
 
         // Build chat history using service
         var chatHistory = await service.BuildSnChanChatHistoryAsync(
@@ -162,8 +168,7 @@ public class ThoughtController(
             request.UserMessage,
             request.AttachedPosts,
             request.AttachedMessages,
-            request.AcceptProposals,
-            request.AttachedFiles
+            request.AcceptProposals
         );
 
         // Set response for streaming
@@ -319,8 +324,11 @@ public class ThoughtController(
         return new EmptyResult();
     }
 
-    private async Task<ActionResult> ThinkWithMiChanAsync(StreamThinkingRequest request, Account currentUser,
-        Guid accountId)
+    private async Task<ActionResult> ThinkWithMiChanAsync(
+        StreamThinkingRequest request,
+        Account currentUser,
+        Guid accountId
+    )
     {
         var serviceInfo = service.GetMiChanServiceInfo(request.AttachedFiles is { Count: > 0 });
         if (serviceInfo is null)
@@ -345,13 +353,22 @@ public class ThoughtController(
         var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
         if (sequence == null) return Forbid();
 
-        await service.SaveThoughtAsync(sequence, [
-            new SnThinkingMessagePart
-            {
-                Type = ThinkingMessagePartType.Text,
-                Text = request.UserMessage
-            }
-        ], ThinkingThoughtRole.User, botName: "michan");
+        var filesRetrieveRequest = new GetFileBatchRequest();
+        filesRetrieveRequest.Ids.AddRange(request.AttachedFiles);
+        var filesData = request.AttachedFiles is { Count: > 0 }
+            ? (await files.GetFileBatchAsync(filesRetrieveRequest)).Files.ToList()
+            : null;
+
+        var userPart = new SnThinkingMessagePart
+        {
+            Type = ThinkingMessagePartType.Text,
+            Metadata = new Dictionary<string, object>(),
+            Text = request.UserMessage
+        };
+        if (request.AttachedMessages is not null) userPart.Metadata.Add("attached_messages", request.AttachedMessages);
+        if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
+        if (filesData is not null) userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
+        await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
         var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
             sequence,
@@ -362,7 +379,7 @@ public class ThoughtController(
             request.AcceptProposals,
             request.AttachedFiles
         );
-        
+
         var kernel = useVisionKernel ? service.GetMiChanVisionKernel() : service.GetMiChanKernel();
 
         // Register plugins using centralized extension method
@@ -497,7 +514,7 @@ public class ThoughtController(
             sequence,
             assistantParts,
             ThinkingThoughtRole.Assistant,
-            miChanConfig.ThinkingService,
+            useVisionKernel ? miChanConfig.Vision.VisionThinkingService : miChanConfig.ThinkingService,
             botName: "michan"
         );
 

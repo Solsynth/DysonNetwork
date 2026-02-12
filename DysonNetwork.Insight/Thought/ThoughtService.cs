@@ -523,8 +523,7 @@ public class ThoughtService(
         string userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
-        List<string> acceptProposals,
-        List<string>? attachmentIds = null)
+        List<string> acceptProposals)
     {
         // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();

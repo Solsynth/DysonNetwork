@@ -50,6 +50,8 @@ public class SnThinkingMessagePart
 {
     public ThinkingMessagePartType Type { get; set; }
     public string? Text { get; set; }
+    public Dictionary<string, object>? Metadata { get; set; }
+    public List<SnCloudFileReferenceObject>? Files { get; set; }
     public SnFunctionCall? FunctionCall { get; set; }
     public SnFunctionResult? FunctionResult { get; set; }
 }
