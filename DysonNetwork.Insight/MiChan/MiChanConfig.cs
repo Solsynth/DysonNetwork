@@ -28,7 +28,8 @@ public class MiChanAutoRespondConfig
 public class MiChanAutonomousBehaviorConfig
 {
     public bool Enabled { get; set; } = true;
-    public bool DryRun { get; set; } = false; // If true, no real posts/actions will be created
+    public bool DryRun { get; set; } = false;
+    public int FixedIntervalMinutes { get; set; } = 10; // Fixed interval (0 = use random interval)
     public int MinIntervalMinutes { get; set; } = 10;
     public int MaxIntervalMinutes { get; set; } = 60;
     public List<string> Actions { get; set; } = ["browse", "react", "create_post", "pin", "repost", "start_conversation"];

@@ -100,11 +100,15 @@ public class MiChanAutonomousBehavior
             return false;
 
         if (DateTime.UtcNow - _lastActionTime < _nextInterval)
+        {
+            _logger.LogDebug("Skipping autonomous action - next run at {NextRun:HH:mm:ss}",
+                _lastActionTime.Add(_nextInterval));
             return false;
+        }
 
         try
         {
-            _logger.LogInformation("Executing autonomous action...");
+            _logger.LogInformation("Executing autonomous action (interval: {Interval}m)...", _nextInterval.TotalMinutes);
 
             // Always check posts first for mentions and interesting content
             await CheckAndInteractWithPostsAsync();
@@ -139,6 +143,9 @@ public class MiChanAutonomousBehavior
 
             _lastActionTime = DateTime.UtcNow;
             _nextInterval = CalculateNextInterval();
+            var nextRun = _lastActionTime.Add(_nextInterval);
+            _logger.LogInformation("Autonomous action completed. Next run at {NextRun:HH:mm:ss} (interval: {Interval}m)",
+                nextRun, _nextInterval.TotalMinutes);
 
             return true;
         }
@@ -1618,6 +1625,12 @@ public class MiChanAutonomousBehavior
 
     private TimeSpan CalculateNextInterval()
     {
+        var fixedInterval = _config.AutonomousBehavior.FixedIntervalMinutes;
+        if (fixedInterval > 0)
+        {
+            return TimeSpan.FromMinutes(fixedInterval);
+        }
+
         var min = _config.AutonomousBehavior.MinIntervalMinutes;
         var max = _config.AutonomousBehavior.MaxIntervalMinutes;
         var minutes = _random.Next(min, max + 1);
