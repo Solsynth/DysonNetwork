@@ -842,17 +842,17 @@ public class ThoughtService(
         if (attachmentIds is { Count: > 0 })
         {
             var attachments = await GetAttachmentsByIdsAsync(attachmentIds);
-            var imageAttachments = attachments
-                .Where(a => !string.IsNullOrEmpty(a.MimeType) &&a.MimeType.StartsWith("image/"))
-                .ToList();
+            var visionAvailable = postAnalysisService.IsVisionModelAvailable();
 
-            useVisionKernel = imageAttachments.Count > 0 && postAnalysisService.IsVisionModelAvailable();
-            logger.LogInformation("Attachments item is not empty, and vision={UseVisionKernel}", useVisionKernel);
+            useVisionKernel = attachments.Count > 0 && visionAvailable;
+            logger.LogInformation(
+                "Attachments item is not empty, and vision={UseVisionKernel}, attachmentsCount={AttachmentsCount}, available={VisionAvailable}",
+                useVisionKernel, attachments.Count, visionAvailable);
 
             if (useVisionKernel)
             {
                 var contentItems = new ChatMessageContentItemCollection { new TextContent("附加的图片文件：") };
-                BuildImageContent(imageAttachments).ForEach(content => contentItems.Add(content));
+                BuildImageContent(attachments).ForEach(content => contentItems.Add(content));
 
                 chatHistory.AddUserMessage(contentItems);
             }
