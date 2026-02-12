@@ -149,7 +149,7 @@ public class ThoughtService(
     private int CalculateTokenCount(List<SnThinkingMessagePart> parts, string? modelName)
     {
         var totalTokens = 0;
-        
+
         foreach (var part in parts)
         {
             switch (part.Type)
@@ -159,8 +159,9 @@ public class ThoughtService(
                     {
                         totalTokens += tokenCounter.CountTokens(part.Text, modelName);
                     }
+
                     break;
-                    
+
                 case ThinkingMessagePartType.FunctionCall:
                     if (part.FunctionCall != null)
                     {
@@ -168,20 +169,22 @@ public class ThoughtService(
                         totalTokens += tokenCounter.CountTokens(part.FunctionCall.Name, modelName);
                         totalTokens += tokenCounter.CountTokens(part.FunctionCall.Arguments, modelName);
                     }
+
                     break;
-                    
+
                 case ThinkingMessagePartType.FunctionResult:
                     if (part.FunctionResult != null)
                     {
                         // Count function result - convert to string if needed
-                        var resultText = part.FunctionResult.Result as string 
-                            ?? JsonSerializer.Serialize(part.FunctionResult.Result);
+                        var resultText = part.FunctionResult.Result as string
+                                         ?? JsonSerializer.Serialize(part.FunctionResult.Result);
                         totalTokens += tokenCounter.CountTokens(resultText, modelName);
                     }
+
                     break;
             }
         }
-        
+
         return totalTokens;
     }
 
@@ -796,11 +799,85 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
         chatHistoryBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
         chatHistoryBuilder.AppendLine(
-            "**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），调用 search_memory 的时候必须提供 query，否则会调用失败！**");
+            "**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容）和 type 参数（保存的记忆类型），不能为空！**");
+        chatHistoryBuilder.AppendLine(
+            "**强制要求：调用 search_memory 时必须提供 query 参数，不能为空！**");
         chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
-        chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
+        chatHistoryBuilder.AppendLine("使用查询记忆工具时输出适当的提示，不要输出'让我查看一下记忆'的提示，使用类似'让我想想……'的提示。");
+        chatHistoryBuilder.AppendLine("使用存储记忆工具时输出适当的提示，不要提出'你要保存这个记忆吗'的询问，直接运行即可。");
 
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
+
+        // Add previous thoughts
+        var previousThoughts = await GetPreviousThoughtsAsync(sequence);
+        var count = previousThoughts.Count;
+        for (var i = count - 1; i >= 1; i--)
+        {
+            var thought = previousThoughts[i];
+            var textContent = new StringBuilder();
+            var functionCalls = new List<FunctionCallContent>();
+            var functionResults = new List<FunctionResultContent>();
+
+            foreach (var part in thought.Parts)
+            {
+                switch (part.Type)
+                {
+                    case ThinkingMessagePartType.Text:
+                        textContent.Append(part.Text);
+                        break;
+                    case ThinkingMessagePartType.FunctionCall:
+                        var arguments = !string.IsNullOrEmpty(part.FunctionCall!.Arguments)
+                            ? JsonSerializer.Deserialize<Dictionary<string, object?>>(part.FunctionCall!.Arguments)
+                            : null;
+                        var kernelArgs = arguments is not null ? new KernelArguments(arguments) : null;
+
+                        functionCalls.Add(new FunctionCallContent(
+                            functionName: part.FunctionCall!.Name,
+                            pluginName: part.FunctionCall.PluginName,
+                            id: part.FunctionCall.Id,
+                            arguments: kernelArgs
+                        ));
+                        break;
+                    case ThinkingMessagePartType.FunctionResult:
+                        var resultObject = part.FunctionResult!.Result;
+                        var resultString = resultObject as string ?? JsonSerializer.Serialize(resultObject);
+                        functionResults.Add(new FunctionResultContent(
+                            callId: part.FunctionResult.CallId,
+                            functionName: part.FunctionResult.FunctionName,
+                            pluginName: part.FunctionResult.PluginName,
+                            result: resultString
+                        ));
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            if (thought.Role == ThinkingThoughtRole.User)
+            {
+                chatHistory.AddUserMessage(textContent.ToString());
+            }
+            else
+            {
+                var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, textContent.ToString());
+                if (functionCalls.Count > 0)
+                {
+                    assistantMessage.Items = [];
+                    foreach (var fc in functionCalls)
+                    {
+                        assistantMessage.Items.Add(fc);
+                    }
+                }
+
+                chatHistory.Add(assistantMessage);
+
+                if (functionResults.Count <= 0) continue;
+                foreach (var fr in functionResults)
+                {
+                    chatHistory.Add(fr.ToChatMessage());
+                }
+            }
+        }
 
         // Add proposal info using StringBuilder
         var proposalBuilder = new StringBuilder();

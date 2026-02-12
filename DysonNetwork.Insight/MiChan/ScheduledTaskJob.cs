@@ -32,13 +32,8 @@ public class ScheduledTaskJob(
 
         logger.LogInformation("Found {Count} pending scheduled tasks.", pendingTasks.Count);
 
-        foreach (var task in pendingTasks)
-        {
-            if (context.CancellationToken.IsCancellationRequested)
-                break;
-
+        foreach (var task in pendingTasks.TakeWhile(_ => !context.CancellationToken.IsCancellationRequested))
             await ExecuteTaskDirectlyAsync(task, context.CancellationToken);
-        }
 
         logger.LogInformation("Scheduled task execution job finished.");
     }

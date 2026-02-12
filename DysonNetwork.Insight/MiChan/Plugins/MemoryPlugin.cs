@@ -192,7 +192,7 @@ public class MemoryPlugin(
         "Store a new memory or fact in the database. Use this to save important information, user preferences, or context that should be remembered for future interactions. The content should be concise and factual. REQUIRED: You must provide the 'content' parameter with the memory text to store.")]
     public async Task<string> StoreMemoryAsync(
         [Description(
-            "The type of memory to store (e.g., 'fact', 'user', 'context', 'summary'). The 'user' will always be loaded in context with the user.")]
+            "REQUIRED: The type of memory to store (e.g., 'fact', 'user', 'context', 'summary'). The 'user' will always be loaded in context with the user.")]
         string type,
         [Description("REQUIRED: The content/text to store in the memory. This parameter is mandatory and cannot be empty. Keep it concise, factual, and informative.")]
         string content,
