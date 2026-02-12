@@ -178,4 +178,10 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         var response = await ring.GetWebsocketConnectionStatusBatchAsync(request);
         return response.IsConnected.ToDictionary();
     }
+
+    public async Task<List<string>> GetAllConnectedUserIds()
+    {
+        var response = await ring.GetAllConnectedUserIdsAsync(new Google.Protobuf.WellKnownTypes.Empty());
+        return response.UserIds.ToList();
+    }
 }

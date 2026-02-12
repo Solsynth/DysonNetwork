@@ -76,6 +76,11 @@ public class WebSocketService
         return ActiveConnections.Any(c => c.Key.AccountId == accountId);
     }
 
+    public static List<Guid> GetAllConnectedUserIds()
+    {
+        return ActiveConnections.Keys.Select(c => c.AccountId).Distinct().ToList();
+    }
+
     public static void SendPacketToAccount(Guid accountId, WebSocketPacket packet)
     {
         var connections = ActiveConnections.Where(c => c.Key.AccountId == accountId);

@@ -28,7 +28,8 @@ public partial class PostService(
     Publisher.PublisherService ps,
     RemoteWebReaderService reader,
     AccountService.AccountServiceClient accounts,
-    ActivityPubObjectFactory objFactory
+    ActivityPubObjectFactory objFactory,
+    RemoteRingService ringService
 )
 {
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
@@ -129,6 +130,114 @@ public partial class PostService(
         if (string.IsNullOrWhiteSpace(content))
             content = localizer.Get("postOnlyMedia", locale: locale);
         return (title, content);
+    }
+
+    private async Task BroadcastPostUpdateAsync(SnPost post, string eventType)
+    {
+        try
+        {
+            // Get all connected users
+            var connectedUserIds = await ringService.GetAllConnectedUserIds();
+            if (connectedUserIds.Count == 0)
+                return;
+
+            // Filter users based on visibility
+            List<string> targetUserIds;
+            if (post.Visibility == Shared.Models.PostVisibility.Public)
+            {
+                // Public posts go to all connected users
+                targetUserIds = connectedUserIds;
+            }
+            else
+            {
+                // For non-public posts, we need to filter based on visibility
+                targetUserIds = await FilterUsersByPostVisibility(post, connectedUserIds);
+            }
+
+            if (targetUserIds.Count == 0)
+                return;
+
+            // Serialize the post to JSON
+            var postData = System.Text.Json.JsonSerializer.Serialize(post);
+            var postBytes = System.Text.Encoding.UTF8.GetBytes(postData);
+
+            // Push to all target users
+            await ringService.PushWebSocketPacketToUsers(
+                targetUserIds,
+                eventType,
+                postBytes
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error broadcasting post update for post {PostId}", post.Id);
+        }
+    }
+
+    private async Task<List<string>> FilterUsersByPostVisibility(SnPost post, List<string> connectedUserIds)
+    {
+        var filteredUserIds = new List<string>();
+        var publisherId = post.PublisherId;
+
+        if (publisherId == null)
+            return filteredUserIds;
+
+        // Get publisher members
+        var publisherMembers = await ps.GetPublisherMembers(publisherId.Value);
+        var memberAccountIds = publisherMembers.Select(m => m.AccountId.ToString()).ToHashSet();
+
+        // Get friends if needed for Friends visibility
+        HashSet<string>? friendAccountIds = null;
+        if (post.Visibility == Shared.Models.PostVisibility.Friends)
+        {
+            // Get all accounts that are friends with the publisher
+            var queryRequest = new GetAccountBatchRequest();
+            queryRequest.Id.AddRange(publisherMembers.Where(m => m.AccountId != Guid.Empty).Select(m => m.AccountId.ToString()));
+            var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+            
+            friendAccountIds = new HashSet<string>();
+            foreach (var member in queryResponse.Accounts)
+            {
+                if (member == null) continue;
+                var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest { RelatedId = member.Id });
+                foreach (var friendId in friendsResponse.AccountsId)
+                {
+                    friendAccountIds.Add(friendId);
+                }
+            }
+        }
+
+        foreach (var userId in connectedUserIds)
+        {
+            var guid = Guid.Parse(userId);
+            
+            // Check if user is a member of the publisher
+            var isMember = memberAccountIds.Contains(userId);
+            
+            // Private posts: only members can see
+            if (post.Visibility == Shared.Models.PostVisibility.Private)
+            {
+                if (isMember)
+                    filteredUserIds.Add(userId);
+                continue;
+            }
+
+            // Friends posts: members and friends can see
+            if (post.Visibility == Shared.Models.PostVisibility.Friends)
+            {
+                if (isMember || (friendAccountIds != null && friendAccountIds.Contains(userId)))
+                    filteredUserIds.Add(userId);
+                continue;
+            }
+
+            // Unlisted posts: same as public for real-time updates
+            if (post.Visibility == Shared.Models.PostVisibility.Unlisted)
+            {
+                filteredUserIds.Add(userId);
+            }
+        }
+
+        return filteredUserIds;
     }
 
     private List<string> ExtractMentions(string content)
@@ -372,6 +481,9 @@ public partial class PostService(
             });
         }
 
+        // Broadcast real-time update to connected clients
+        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.created"));
+
         return post;
     }
 
@@ -454,6 +566,9 @@ public partial class PostService(
                     logger.LogError($"Error when sending ActivityPub Update activity: {err.Message}");
                 }
             });
+
+        // Broadcast real-time update to connected clients
+        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.updated"));
 
         return post;
     }
@@ -559,6 +674,9 @@ public partial class PostService(
 
     public async Task DeletePostAsync(SnPost post)
     {
+        // Broadcast deletion before removing from database
+        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.deleted"));
+
         var now = SystemClock.Instance.GetCurrentInstant();
         await using var transaction = await db.Database.BeginTransactionAsync();
         try

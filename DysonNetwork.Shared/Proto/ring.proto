@@ -39,6 +39,8 @@ service RingService {
     rpc GetWebsocketConnectionStatus(GetWebsocketConnectionStatusRequest) returns (GetWebsocketConnectionStatusResponse) {}
 
     rpc GetWebsocketConnectionStatusBatch(GetWebsocketConnectionStatusBatchRequest) returns (GetWebsocketConnectionStatusBatchResponse) {}
+
+    rpc GetAllConnectedUserIds(google.protobuf.Empty) returns (GetAllConnectedUserIdsResponse) {}
 }
 
 // Represents an email message.
@@ -123,6 +125,10 @@ message GetWebsocketConnectionStatusBatchRequest {
 
 message GetWebsocketConnectionStatusBatchResponse {
     map<string, bool> is_connected = 1;
+}
+
+message GetAllConnectedUserIdsResponse {
+    repeated string user_ids = 1;
 }
 
 service RingHandlerService {

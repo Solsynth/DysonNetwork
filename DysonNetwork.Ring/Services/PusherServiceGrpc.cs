@@ -161,4 +161,12 @@ public class RingServiceGrpc(
 
         return Task.FromResult(resp);
     }
+
+    public override Task<GetAllConnectedUserIdsResponse> GetAllConnectedUserIds(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
+    {
+        var userIds = WebSocketService.GetAllConnectedUserIds();
+        var response = new GetAllConnectedUserIdsResponse();
+        response.UserIds.AddRange(userIds.Select(id => id.ToString()));
+        return Task.FromResult(response);
+    }
 }
