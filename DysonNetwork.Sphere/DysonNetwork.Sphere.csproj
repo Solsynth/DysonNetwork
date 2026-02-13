@@ -52,41 +52,17 @@
             <Generator>ResXFileCodeGenerator</Generator>
             <LastGenOutput>AccountEventResource.Designer.cs</LastGenOutput>
         </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\SharedResource.resx">
-            <Generator>ResXFileCodeGenerator</Generator>
-            <LastGenOutput>SharedResource.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
         <EmbeddedResource Update="Resources\Pages\Emails\LandingEmailResource.resx">
             <Generator>ResXFileCodeGenerator</Generator>
             <LastGenOutput>LandingEmail.Designer.cs</LastGenOutput>
         </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\NotificationResource.resx">
-            <Generator>ResXFileCodeGenerator</Generator>
-            <LastGenOutput>NotificationResource.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\SharedResource.zh-hans.resx">
-            <DependentUpon>SharedResource.resx</DependentUpon>
-        </EmbeddedResource>
-        <EmbeddedResource Update="Resources\Localization\NotificationResource.zh-hans.resx">
-            <DependentUpon>NotificationResource.resx</DependentUpon>
-        </EmbeddedResource>
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Update="Resources\Localization\SharedResource.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>SharedResource.resx</DependentUpon>
-        </Compile>
         <Compile Update="Resources\Pages\Emails\LandingEmailResource.Designer.cs">
             <DesignTime>True</DesignTime>
             <AutoGen>True</AutoGen>
             <DependentUpon>LandingEmailResource.resx</DependentUpon>
-        </Compile>
-        <Compile Update="Resources\Localization\NotificationResource.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>NotificationResource.resx</DependentUpon>
         </Compile>
         <Compile Remove="Auth\AppleAuthController.cs" />
     </ItemGroup>
