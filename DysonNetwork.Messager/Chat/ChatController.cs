@@ -553,6 +553,13 @@ public partial class ChatController(
         [Required] public long LastSyncTimestamp { get; set; }
     }
 
+    public class GlobalSyncResponse
+    {
+        public List<SnChatMessage> Messages { get; set; } = [];
+        public long CurrentTimestamp { get; set; }
+        public int TotalCount { get; set; }
+    }
+
     [HttpPost("{roomId:guid}/sync")]
     public async Task<ActionResult<SyncResponse>> GetSyncData([FromBody] SyncRequest request, Guid roomId)
     {
@@ -569,6 +576,50 @@ public partial class ChatController(
         var response = await cs.GetSyncDataAsync(roomId, request.LastSyncTimestamp, 500);
         Response.Headers["X-Total"] = response.TotalCount.ToString();
         return Ok(response);
+    }
+
+    [HttpPost("sync")]
+    [Authorize]
+    public async Task<ActionResult<GlobalSyncResponse>> GetGlobalSyncData([FromBody] SyncRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var memberRoomIds = await db.ChatMembers
+            .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .Select(m => m.ChatRoomId)
+            .ToListAsync();
+
+        var allMessages = new List<SnChatMessage>();
+        var latestTimestamp = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
+
+        foreach (var roomId in memberRoomIds)
+        {
+            var syncData = await cs.GetSyncDataAsync(roomId, request.LastSyncTimestamp, 500);
+            allMessages.AddRange(syncData.Messages);
+
+            if (syncData.Messages.Count > 0)
+            {
+                var lastMessageTimestamp = syncData.Messages.Last().CreatedAt;
+                if (lastMessageTimestamp > latestTimestamp)
+                {
+                    latestTimestamp = lastMessageTimestamp;
+                }
+            }
+        }
+
+        allMessages = allMessages
+            .OrderBy(m => m.CreatedAt)
+            .ToList();
+
+        return Ok(new GlobalSyncResponse
+        {
+            Messages = allMessages,
+            CurrentTimestamp = latestTimestamp.ToUnixTimeMilliseconds(),
+            TotalCount = allMessages.Count
+        });
     }
 
 
