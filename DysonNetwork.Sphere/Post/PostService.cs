@@ -175,7 +175,54 @@ public partial class PostService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error broadcasting post update for post {PostId}", post.Id);
+            logger.LogError(ex, "Error broadcasting post update for post {PostId}", post.Id.ToString());
+        }
+    }
+
+    private async Task BroadcastReactionUpdateAsync(SnPostReaction reaction, string eventType)
+    {
+        try
+        {
+            // Get all connected users
+            var connectedUserIds = await ringService.GetAllConnectedUserIds();
+            if (connectedUserIds.Count == 0)
+                return;
+
+            // Get the post to check visibility
+            var post = await db.Posts.FindAsync(reaction.PostId);
+            if (post == null)
+                return;
+
+            // Filter users based on visibility
+            List<string> targetUserIds;
+            if (post.Visibility == Shared.Models.PostVisibility.Public)
+            {
+                // Public posts go to all connected users
+                targetUserIds = connectedUserIds;
+            }
+            else
+            {
+                // For non-public posts, we need to filter based on visibility
+                targetUserIds = await FilterUsersByPostVisibility(post, connectedUserIds);
+            }
+
+            if (targetUserIds.Count == 0)
+                return;
+
+            // Serialize the reaction to JSON
+            var reactionData = JsonSerializer.Serialize(reaction, InfraObjectCoder.SerializerOptions);
+            var reactionBytes = System.Text.Encoding.UTF8.GetBytes(reactionData);
+
+            // Push to all target users
+            await ringService.PushWebSocketPacketToUsers(
+                targetUserIds,
+                eventType,
+                reactionBytes
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error broadcasting reaction update for post {PostId}", reaction.PostId.ToString());
         }
     }
 
@@ -837,6 +884,9 @@ public partial class PostService(
         }
 
         await db.SaveChangesAsync();
+
+        // Broadcast reaction update to connected clients
+        _ = Task.Run(async () => await BroadcastReactionUpdateAsync(reaction, isRemoving ? "post.reaction.removed" : "post.reaction.added"));
 
         if (isSelfReact) return isRemoving;
 
