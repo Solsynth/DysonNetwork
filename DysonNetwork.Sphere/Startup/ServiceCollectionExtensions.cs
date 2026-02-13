@@ -8,7 +8,6 @@ using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Autocompletion;
-using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -44,11 +43,6 @@ public static class ServiceCollectionExtensions
                         JsonNamingPolicy.SnakeCaseLower;
 
                     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-                })
-                .AddDataAnnotationsLocalization(options =>
-                {
-                    options.DataAnnotationLocalizerProvider = (type, factory) =>
-                        factory.Create(typeof(SharedResource));
                 });
             services.AddRazorPages();
 

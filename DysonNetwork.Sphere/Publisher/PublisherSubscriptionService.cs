@@ -1,9 +1,7 @@
-using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Localization;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 

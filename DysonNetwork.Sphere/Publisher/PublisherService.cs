@@ -1,5 +1,6 @@
 using System.Globalization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -25,6 +26,7 @@ public class PublisherService(
     SocialCreditService.SocialCreditServiceClient socialCredits,
     ExperienceService.ExperienceServiceClient experiences,
     ICacheService cache,
+    ILocalizationService localization,
     RemoteAccountService remoteAccounts,
     ActivityPubKeyService keyService,
     IConfiguration configuration
@@ -587,7 +589,8 @@ public class PublisherService(
             {
                 await experiences.AddRecordAsync(new AddExperienceRecordRequest
                 {
-                    Reason = $"Publishing Reward on {date} for @{publisherName}",
+                    Reason = localization.Get("publishingRewardTitle", receiver.Language,
+                        new { publisher = $"@{publisherName}", date }),
                     ReasonType = "publishers.rewards",
                     AccountId = receiver.Id.ToString(),
                     Delta = totalExperience,
@@ -620,7 +623,8 @@ public class PublisherService(
             {
                 await socialCredits.AddRecordAsync(new AddSocialCreditRecordRequest
                 {
-                    Reason = $"Publishing Reward on {date} for @{publisherName}",
+                    Reason = localization.Get("publishingRewardTitle", receiver.Language,
+                        new { publisher = $"@{publisherName}", date }),
                     ReasonType = "publishers.rewards",
                     AccountId = receiver.Id.ToString(),
                     Delta = socialCreditDelta,
@@ -639,7 +643,8 @@ public class PublisherService(
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < PublisherMemberRole.Manager)
-            throw new UnauthorizedAccessException("You need at least Manager role to enable fediverse for this publisher");
+            throw new UnauthorizedAccessException(
+                "You need at least Manager role to enable fediverse for this publisher");
 
         var existingActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
@@ -708,7 +713,8 @@ public class PublisherService(
             .FirstOrDefaultAsync();
 
         if (member == null || member.Role < PublisherMemberRole.Manager)
-            throw new UnauthorizedAccessException("You need at least Manager role to disable fediverse for this publisher");
+            throw new UnauthorizedAccessException(
+                "You need at least Manager role to disable fediverse for this publisher");
 
         var actor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
