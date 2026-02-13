@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
@@ -16,6 +17,12 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
     public Instant? EditedAt { get; set; }
     
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = []; 
+
+    [NotMapped]
+    public Dictionary<string, int> ReactionsCount { get; set; } = new();
+
+    [NotMapped]
+    public Dictionary<string, bool>? ReactionsMade { get; set; }
 
     public List<SnChatReaction> Reactions { get; set; } = new();
 
@@ -76,4 +83,14 @@ public class SnChatReaction : ModelBase
 
     [MaxLength(256)] public string Symbol { get; set; } = null!;
     public MessageReactionAttitude Attitude { get; set; }
+}
+
+public class ChatReaction
+{
+    public string Id { get; set; } = null!;
+    public string Symbol { get; set; } = null!;
+    public int Attitude { get; set; }
+    public string MessageId { get; set; } = null!;
+    public string SenderId { get; set; } = null!;
+    public Account? Sender { get; set; }
 }

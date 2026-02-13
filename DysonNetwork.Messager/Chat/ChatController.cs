@@ -548,6 +548,103 @@ public partial class ChatController(
         return Ok();
     }
 
+    public class MessageReactionRequest
+    {
+        [MaxLength(256)] public string Symbol { get; set; } = null!;
+        public MessageReactionAttitude Attitude { get; set; }
+    }
+
+    public static readonly List<string> ReactionsAllowedDefault =
+    [
+        "thumb_up",
+        "thumb_down",
+        "just_okay",
+        "cry",
+        "confuse",
+        "clap",
+        "laugh",
+        "angry",
+        "party",
+        "pray",
+        "heart",
+    ];
+
+    [HttpPost("{roomId:guid}/messages/{messageId:guid}/reactions")]
+    [Authorize]
+    public async Task<ActionResult<SnChatReaction>> ReactMessage(
+        Guid roomId,
+        Guid messageId,
+        [FromBody] MessageReactionRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        if (!ReactionsAllowedDefault.Contains(request.Symbol))
+            if (currentUser.PerkSubscription is null)
+                return BadRequest("You need subscription to send custom reactions");
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member is null)
+            return StatusCode(403, "You need to be a member to react to messages here.");
+
+        var message = await db.ChatMessages
+            .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
+            .FirstOrDefaultAsync();
+
+        if (message is null)
+            return NotFound();
+
+        var existingReaction = await db.ChatReactions
+            .Where(r => r.MessageId == messageId && r.SenderId == member.Id && r.Symbol == request.Symbol)
+            .FirstOrDefaultAsync();
+
+        if (existingReaction is not null)
+        {
+            await cs.RemoveReactionAsync(message, request.Symbol, member);
+            return NoContent();
+        }
+
+        var reaction = new SnChatReaction
+        {
+            Symbol = request.Symbol,
+            Attitude = request.Attitude,
+        };
+
+        var result = await cs.AddReactionAsync(message, reaction, member);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("{roomId:guid}/messages/{messageId:guid}/reactions/{symbol}")]
+    [Authorize]
+    public async Task<ActionResult> RemoveReactionMessage(
+        Guid roomId,
+        Guid messageId,
+        string symbol
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member is null)
+            return StatusCode(403, "You need to be a member to remove reaction from messages here.");
+
+        var message = await db.ChatMessages
+            .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
+            .FirstOrDefaultAsync();
+
+        if (message is null)
+            return NotFound();
+
+        await cs.RemoveReactionAsync(message, symbol, member);
+
+        return NoContent();
+    }
+
     public class SyncRequest
     {
         [Required] public long LastSyncTimestamp { get; set; }

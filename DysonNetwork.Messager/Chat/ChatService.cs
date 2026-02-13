@@ -762,6 +762,124 @@ public partial class ChatService(
             notify: false
         );
     }
+
+    public async Task<SnChatReaction> AddReactionAsync(
+        SnChatMessage message,
+        SnChatReaction reaction,
+        SnChatMember sender
+    )
+    {
+        reaction.MessageId = message.Id;
+        reaction.SenderId = sender.Id;
+        reaction.Sender = sender;
+
+        db.ChatReactions.Add(reaction);
+        
+        if (message.ReactionsCount.TryGetValue(reaction.Symbol, out var count))
+            message.ReactionsCount[reaction.Symbol] = count + 1;
+        else
+            message.ReactionsCount[reaction.Symbol] = 1;
+
+        await db.SaveChangesAsync();
+
+        var syncMessage = new SnChatMessage
+        {
+            Type = WebSocketPacketType.MessageReactionAdded,
+            ChatRoomId = message.ChatRoomId,
+            SenderId = sender.Id,
+            Nonce = Guid.NewGuid().ToString(),
+            Meta = new Dictionary<string, object>
+            {
+                ["message_id"] = message.Id,
+                ["reaction"] = new ChatReaction
+                {
+                    Id = reaction.Id.ToString(),
+                    Symbol = reaction.Symbol,
+                    Attitude = (int)reaction.Attitude,
+                    MessageId = message.Id.ToString(),
+                    SenderId = sender.Id.ToString(),
+                    Sender = sender.Account?.ToProtoValue()
+                }
+            },
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        db.ChatMessages.Add(syncMessage);
+        await db.SaveChangesAsync();
+
+        if (sender.Account is null)
+            sender = await crs.LoadMemberAccount(sender);
+
+        syncMessage.Sender = sender;
+        syncMessage.ChatRoom = message.ChatRoom;
+
+        await DeliverMessageAsync(
+            syncMessage,
+            syncMessage.Sender,
+            syncMessage.ChatRoom,
+            notify: false
+        );
+
+        return reaction;
+    }
+
+    public async Task RemoveReactionAsync(
+        SnChatMessage message,
+        string symbol,
+        SnChatMember sender
+    )
+    {
+        var reaction = await db.ChatReactions
+            .Where(r => r.MessageId == message.Id && r.SenderId == sender.Id && r.Symbol == symbol)
+            .FirstOrDefaultAsync();
+
+        if (reaction is null)
+            return;
+
+        db.ChatReactions.Remove(reaction);
+
+        if (message.ReactionsCount.TryGetValue(symbol, out var count))
+        {
+            if (count > 1)
+                message.ReactionsCount[symbol] = count - 1;
+            else
+                message.ReactionsCount.Remove(symbol);
+        }
+
+        await db.SaveChangesAsync();
+
+        var syncMessage = new SnChatMessage
+        {
+            Type = WebSocketPacketType.MessageReactionRemoved,
+            ChatRoomId = message.ChatRoomId,
+            SenderId = sender.Id,
+            Nonce = Guid.NewGuid().ToString(),
+            Meta = new Dictionary<string, object>
+            {
+                ["message_id"] = message.Id,
+                ["symbol"] = symbol
+            },
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        db.ChatMessages.Add(syncMessage);
+        await db.SaveChangesAsync();
+
+        if (sender.Account is null)
+            sender = await crs.LoadMemberAccount(sender);
+
+        syncMessage.Sender = sender;
+        syncMessage.ChatRoom = message.ChatRoom;
+
+        await DeliverMessageAsync(
+            syncMessage,
+            syncMessage.Sender,
+            syncMessage.ChatRoom,
+            notify: false
+        );
+    }
 }
 
 public class SyncResponse
