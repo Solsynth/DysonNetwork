@@ -1,6 +1,7 @@
 {
-  "agentConversationStartedTitle": "来自 {agentName} 的新消息",
-  "agentConversationStartedBody": "{agentName}: {message}",
-  "agentNameSnChan": "SN 酱",
-  "agentNameMiChan": "咩酱"
+    "agentConversationStartedTitle": "来自 {agentName} 的新消息",
+    "agentConversationStartedBody": "{agentName}: {message}",
+    "agentNameSnChan": "SN 酱",
+    "agentNameMiChan": "咩酱",
+    "agentBillName": "寻思费"
 }

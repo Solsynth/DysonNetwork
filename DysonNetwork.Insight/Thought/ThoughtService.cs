@@ -34,7 +34,8 @@ public class ThoughtService(
     IConfiguration configGlobal,
     ILocalizationService localizer,
     TokenCountingService tokenCounter,
-    ILogger<ThoughtService> logger
+    ILogger<ThoughtService> logger,
+    RemoteAccountService accounts
 )
 {
     /// <summary>
@@ -280,14 +281,14 @@ public class ThoughtService(
 
             try
             {
-                var date = DateTime.Now.ToString("yyyy-MM-dd");
+                var accountInfo = await accounts.GetAccount(accountId);
                 await paymentService.CreateTransactionWithAccountAsync(
                     new CreateTransactionWithAccountRequest
                     {
                         PayerAccountId = accountId.ToString(),
                         Currency = WalletCurrency.SourcePoint,
                         Amount = cost.ToString(),
-                        Remarks = $"Wage for SN-chan on {date}",
+                        Remarks = localizer.Get("agentBillName", accountInfo.Language),
                         Type = TransactionType.System,
                     }
                 );
@@ -355,14 +356,14 @@ public class ThoughtService(
 
         try
         {
-            var date = DateTime.Now.ToString("yyyy-MM-dd");
+            var accountInfo = await accounts.GetAccount(accountId);
             await paymentService.CreateTransactionWithAccountAsync(
                 new CreateTransactionWithAccountRequest
                 {
                     PayerAccountId = accountId.ToString(),
                     Currency = WalletCurrency.SourcePoint,
                     Amount = cost.ToString(),
-                    Remarks = $"Wage for SN-chan on {date} (Retry)",
+                    Remarks = localizer.Get("agentBillName", accountInfo.Language),
                     Type = TransactionType.System,
                 }
             );
