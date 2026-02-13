@@ -192,9 +192,9 @@ public class MemoryPlugin(
         "Store a new memory or fact in the database. Use this to save important information, user preferences, or context that should be remembered for future interactions. The content should be concise and factual. REQUIRED: You must provide the 'content' parameter with the memory text to store.")]
     public async Task<string> StoreMemoryAsync(
         [Description(
-            "REQUIRED: The type of memory to store (e.g., 'fact', 'user', 'context', 'summary'). The 'user' will always be loaded in context with the user.")]
+            "REQUIRED. The type of memory to store (e.g., 'fact', 'user', 'context', 'summary'). Must not be empty.")]
         string type,
-        [Description("REQUIRED: The content/text to store in the memory. This parameter is mandatory and cannot be empty. Keep it concise, factual, and informative.")]
+        [Description("REQUIRED. The content/text to store in the memory. Must be non-empty plain text. Do NOT call this function without providing this field.")]
         string content,
         [Description("Optional: Confidence level 0-1 (default: 0.7)")]
         float? confidence = null,
@@ -202,7 +202,7 @@ public class MemoryPlugin(
             "Optional: Account who owns the memory, leave this blank to create global memory. The 'user' type must provide account ID. Type is Guid")]
         Guid? accountId = null,
         [Description("Optional: Mark as hot memory for quick access (default: false)")]
-        bool isHot = false
+        bool? isHot = null
     )
     {
         try
@@ -210,9 +210,10 @@ public class MemoryPlugin(
             if (string.IsNullOrWhiteSpace(content))
                 return "Error: Content cannot be empty.";
 
-            type = type.ToLower();
             if (string.IsNullOrWhiteSpace(type))
-                type = "fact";
+                return "Error: Type cannot be empty.";
+
+            type = type.ToLower();
 
             if (type == "user" && accountId is null)
                 return "Error: The user type memory must create with the account ID";
@@ -225,7 +226,7 @@ public class MemoryPlugin(
                 content: content,
                 confidence: confidence ?? 0.7f,
                 accountId: accountId,
-                hot: isHot
+                hot: isHot ?? false
             );
 
             logger.LogInformation("Successfully stored memory with ID: {MemoryId}", record.Id);

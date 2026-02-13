@@ -790,21 +790,20 @@ public class ThoughtService(
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 search_memory 工具）来获取相关上下文。");
-        chatHistoryBuilder.AppendLine("**关键：你可以积极地主动保存记忆**（使用 store_memory 工具）。记忆内容可以包括：");
-        chatHistoryBuilder.AppendLine("  - 用户的兴趣、偏好、习惯、性格特点");
-        chatHistoryBuilder.AppendLine("  - 用户提供的事实、信息、知识点");
-        chatHistoryBuilder.AppendLine("  - 对话的主题、背景、上下文");
-        chatHistoryBuilder.AppendLine("  - 你们之间的互动模式");
-        chatHistoryBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
-        chatHistoryBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
-        chatHistoryBuilder.AppendLine(
-            "**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容）和 type 参数（保存的记忆类型），不能为空！**");
-        chatHistoryBuilder.AppendLine(
-            "**强制要求：调用 search_memory 时必须提供 query 参数，不能为空！**");
-        chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
-        chatHistoryBuilder.AppendLine("使用查询记忆工具时输出适当的提示，不要输出'让我查看一下记忆'的提示，使用类似'让我想想……'的提示。");
-        chatHistoryBuilder.AppendLine("使用存储记忆工具时输出适当的提示，不要提出'你要保存这个记忆吗'的询问，直接运行即可。");
+        chatHistoryBuilder.AppendLine("在调用任何工具之前，你必须先确认自己拥有所有必需参数。");
+        chatHistoryBuilder.AppendLine("如果缺少必需参数（例如 content、type 或 query），不要调用工具。应向用户提问以获取必要信息。");
+        chatHistoryBuilder.AppendLine("严禁使用 null、空字符串或占位值调用工具。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");
+        chatHistoryBuilder.AppendLine("调用 store_memory 时：");
+        chatHistoryBuilder.AppendLine("  - 必须提供 content（非空字符串）");
+        chatHistoryBuilder.AppendLine("  - 必须提供 type（非空字符串，例如 fact、user、context、summary）");
+        chatHistoryBuilder.AppendLine("  - 如果无法确定 type，请先自行判断合理类型；若仍不确定，不要调用工具。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("当需要历史上下文时，你可以调用 search_memory 工具。");
+        chatHistoryBuilder.AppendLine("调用 search_memory 时必须提供非空 query。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("不要向用户显式说明你正在调用工具。自然地整合工具结果到回复中。");
 
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
