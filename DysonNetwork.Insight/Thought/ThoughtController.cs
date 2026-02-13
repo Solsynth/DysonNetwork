@@ -29,7 +29,7 @@ public class ThoughtController(
 
     public class StreamThinkingRequest
     {
-        [Required] public string UserMessage { get; set; } = null!;
+        public string? UserMessage { get; set; }
 
         public string Bot { get; set; } = "snchan"; // "snchan" or "michan"
 
@@ -92,22 +92,20 @@ public class ThoughtController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        // Validate bot selection
-        if (!AvailableBots.Contains(request.Bot.ToLower()))
-            return BadRequest($"Invalid bot. Available bots: {string.Join(", ", AvailableBots)}");
+        if ((request.AttachedFiles is null || request.AttachedFiles.Count == 0) &&
+            string.IsNullOrWhiteSpace(request.UserMessage))
+            return BadRequest("You cannot send empty messages.");
 
         if (request.AcceptProposals.Any(e => !AvailableProposals.Contains(e)))
             return BadRequest("Request contains unavailable proposal");
 
-        // Route to appropriate bot
-        if (request.Bot.ToLower() == "michan")
+        return request.Bot.ToLower() switch
         {
-            return await ThinkWithMiChanAsync(request, currentUser, accountId);
-        }
-        else
-        {
-            return await ThinkWithSnChanAsync(request, currentUser, accountId);
-        }
+            // Route to appropriate bot
+            "michan" => await ThinkWithMiChanAsync(request, currentUser, accountId),
+            "snchan" => await ThinkWithSnChanAsync(request, currentUser, accountId),
+            _ => BadRequest($"Invalid bot. Available bots: {string.Join(", ", AvailableBots)}" )
+        };
     }
 
     private async Task<ActionResult> ThinkWithSnChanAsync(
@@ -368,7 +366,8 @@ public class ThoughtController(
         };
         if (request.AttachedMessages is not null) userPart.Metadata.Add("attached_messages", request.AttachedMessages);
         if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
-        if (filesData is not null) userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
+        if (filesData is not null)
+            userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
         await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
         var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
@@ -517,14 +516,6 @@ public class ThoughtController(
             ThinkingThoughtRole.Assistant,
             useVisionKernel ? miChanConfig.Vision.VisionThinkingService : miChanConfig.ThinkingService,
             botName: "michan"
-        );
-
-        // Store in MiChan memory
-        await service.StoreMiChanInteractionAsync(
-            contextId,
-            request.UserMessage,
-            fullResponse.ToString(),
-            currentUser.IsSuperuser
         );
 
         // Write final metadata

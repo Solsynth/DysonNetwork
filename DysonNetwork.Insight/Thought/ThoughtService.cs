@@ -569,7 +569,7 @@ public class ThoughtService(
     public async Task<ChatHistory> BuildSnChanChatHistoryAsync(
         SnThinkingSequence sequence,
         Account currentUser,
-        string userMessage,
+        string? userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
         List<string> acceptProposals)
@@ -734,7 +734,7 @@ public class ThoughtService(
             }
         }
 
-        chatHistory.AddUserMessage(userMessage);
+        chatHistory.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
 
         return chatHistory;
     }
@@ -747,7 +747,7 @@ public class ThoughtService(
     public async Task<(ChatHistory chatHistory, bool useVisionKernel)> BuildMiChanChatHistoryAsync(
         SnThinkingSequence sequence,
         Account currentUser,
-        string userMessage,
+        string? userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
         List<string> acceptProposals,
@@ -763,7 +763,7 @@ public class ThoughtService(
         // Retrieve hot memories for context
         var hotMemories = await memoryService.GetHotMemory(
             Guid.Parse(currentUser.Id),
-            userMessage,
+            userMessage ?? "",
             10);
 
         // For non-superusers, MiChan decides whether to execute actions
@@ -957,21 +957,9 @@ public class ThoughtService(
             }
         }
 
-        chatHistory.AddUserMessage(userMessage);
+        chatHistory.AddUserMessage(userMessage ?? "用户只添加了图片没有文字说明。");
 
         return (chatHistory, useVisionKernel);
-    }
-
-    public async Task StoreMiChanInteractionAsync(
-        string contextId,
-        string userMessage,
-        string response,
-        bool isSuperuser)
-    {
-        // Memory is now only created through agent tool calls, not automatically
-        logger.LogDebug(
-            "Skipping automatic memory storage for interaction. Memory should be created through agent tool calls.");
-        await Task.CompletedTask;
     }
 
     #endregion
