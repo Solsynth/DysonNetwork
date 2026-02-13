@@ -249,6 +249,18 @@ public class AccountController(
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
     }
+    
+    [HttpGet("{name}/punishments")]
+    public async Task<ActionResult<List<DailyEventResponse>>> GetPunishments(string name)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
+        if (account is null) return NotFound();
+
+        var punishments = await db.Punishments
+            .Where(a => a.AccountId == account.Id)
+            .ToListAsync();
+        return Ok(punishments);
+    }
 
     [HttpPost("credits/invalidate-cache")]
     [Authorize]
