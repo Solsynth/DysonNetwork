@@ -653,7 +653,7 @@ public partial class ChatController(
     public class GlobalSyncResponse
     {
         public List<SnChatMessage> Messages { get; set; } = [];
-        public long CurrentTimestamp { get; set; }
+        public Instant CurrentTimestamp { get; set; }
         public int TotalCount { get; set; }
     }
 
@@ -683,39 +683,41 @@ public partial class ChatController(
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
+        var lastSyncInstant = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
 
         var memberRoomIds = await db.ChatMembers
             .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
 
-        var allMessages = new List<SnChatMessage>();
-        var latestTimestamp = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
+        var messages = await db.ChatMessages
+            .Where(m => memberRoomIds.Contains(m.ChatRoomId) && m.CreatedAt > lastSyncInstant)
+            .OrderBy(m => m.CreatedAt)
+            .Take(500)
+            .Include(m => m.Sender)
+            .ToListAsync();
 
-        foreach (var roomId in memberRoomIds)
+        var senders = messages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
+        senders = await crs.LoadMemberAccounts(senders);
+
+        foreach (var message in messages)
         {
-            var syncData = await cs.GetSyncDataAsync(roomId, request.LastSyncTimestamp, 500);
-            allMessages.AddRange(syncData.Messages);
-
-            if (syncData.Messages.Count > 0)
+            var sender = senders.FirstOrDefault(s => s.Id == message.SenderId);
+            if (sender != null)
             {
-                var lastMessageTimestamp = syncData.Messages.Last().CreatedAt;
-                if (lastMessageTimestamp > latestTimestamp)
-                {
-                    latestTimestamp = lastMessageTimestamp;
-                }
+                message.Sender = sender;
             }
         }
 
-        allMessages = allMessages
-            .OrderBy(m => m.CreatedAt)
-            .ToList();
+        var latestTimestamp = messages.Count > 0
+            ? messages.Last().CreatedAt
+            : SystemClock.Instance.GetCurrentInstant();
 
         return Ok(new GlobalSyncResponse
         {
-            Messages = allMessages,
-            CurrentTimestamp = latestTimestamp.ToUnixTimeMilliseconds(),
-            TotalCount = allMessages.Count
+            Messages = messages,
+            CurrentTimestamp = latestTimestamp,
+            TotalCount = messages.Count
         });
     }
 
