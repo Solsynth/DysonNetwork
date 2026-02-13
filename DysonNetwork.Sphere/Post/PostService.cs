@@ -1,10 +1,8 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Localization;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +19,7 @@ namespace DysonNetwork.Sphere.Post;
 
 public partial class PostService(
     AppDatabase db,
+    IServiceProvider serviceProvider,
     ILocalizationService localizer,
     IServiceScopeFactory factory,
     FlushBufferService flushBuffer,
@@ -136,10 +135,14 @@ public partial class PostService(
 
     private async Task BroadcastPostUpdateAsync(SnPost post, string eventType)
     {
+        using var scope = serviceProvider.CreateScope();
+        var scopedRing = scope.ServiceProvider.GetRequiredService<RemoteRingService>();
+        var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
+        
         try
         {
             // Get all connected users
-            var connectedUserIds = await ringService.GetAllConnectedUserIds();
+            var connectedUserIds = await scopedRing.GetAllConnectedUserIds();
             if (connectedUserIds.Count == 0)
                 return;
 
@@ -153,21 +156,21 @@ public partial class PostService(
             else
             {
                 // For non-public posts, we need to filter based on visibility
-                targetUserIds = await FilterUsersByPostVisibility(post, connectedUserIds);
+                targetUserIds = await scopedPost.FilterUsersByPostVisibility(post, connectedUserIds);
             }
 
             if (targetUserIds.Count == 0)
                 return;
 
             // Preload necessary post data
-            post = await LoadPostInfo(post);
+            post = await scopedPost.LoadPostInfo(post);
 
             // Serialize the post to JSON
             var postData = JsonSerializer.Serialize(post, InfraObjectCoder.SerializerOptions);
             var postBytes = System.Text.Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
-            await ringService.PushWebSocketPacketToUsers(
+            await scopedRing.PushWebSocketPacketToUsers(
                 targetUserIds,
                 eventType,
                 postBytes
@@ -181,15 +184,20 @@ public partial class PostService(
 
     private async Task BroadcastReactionUpdateAsync(SnPostReaction reaction, string eventType)
     {
+        using var scope = serviceProvider.CreateScope();
+        var scopedRing = scope.ServiceProvider.GetRequiredService<RemoteRingService>();
+        var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
+        var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        
         try
         {
             // Get all connected users
-            var connectedUserIds = await ringService.GetAllConnectedUserIds();
-            if (connectedUserIds.Count == 0)
+            var onlineUsers = await scopedRing.GetAllConnectedUserIds();
+            if (onlineUsers.Count == 0)
                 return;
 
             // Get the post to check visibility
-            var post = await db.Posts.FindAsync(reaction.PostId);
+            var post = await scopedDb.Posts.FindAsync(reaction.PostId);
             if (post == null)
                 return;
 
@@ -198,12 +206,12 @@ public partial class PostService(
             if (post.Visibility == Shared.Models.PostVisibility.Public)
             {
                 // Public posts go to all connected users
-                targetUserIds = connectedUserIds;
+                targetUserIds = onlineUsers;
             }
             else
             {
                 // For non-public posts, we need to filter based on visibility
-                targetUserIds = await FilterUsersByPostVisibility(post, connectedUserIds);
+                targetUserIds = await scopedPost.FilterUsersByPostVisibility(post, onlineUsers);
             }
 
             if (targetUserIds.Count == 0)
@@ -214,7 +222,7 @@ public partial class PostService(
             var reactionBytes = System.Text.Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
-            await ringService.PushWebSocketPacketToUsers(
+            await scopedRing.PushWebSocketPacketToUsers(
                 targetUserIds,
                 eventType,
                 reactionBytes

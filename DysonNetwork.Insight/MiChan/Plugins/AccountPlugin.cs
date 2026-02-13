@@ -47,14 +47,100 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         {
             var accounts = await apiClient.GetAsync<List<SnAccount>>(
                 "pass", 
-                $"/accounts/search?query={Uri.EscapeDataString(query)}&take={limit}"
+                $"/accounts/search?q={Uri.EscapeDataString(query)}&take={limit}"
             );
             
-            return accounts ?? [];
+            return accounts ?? new List<SnAccount>();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to search accounts with query: {Query}", query);
+            return null;
+        }
+    }
+
+    [KernelFunction("follow_account")]
+    [Description("Follow another user account.")]
+    public async Task<object> FollowAccount(
+        [Description("The ID of the account to follow")] string accountId
+    )
+    {
+        try
+        {
+            await apiClient.PostAsync("pass", $"/accounts/{accountId}/follow", new { });
+            
+            logger.LogInformation("Followed account {AccountId}", accountId);
+            return new { success = true, message = "Account followed successfully" };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to follow account {AccountId}", accountId);
+            return new { success = false, error = ex.Message };
+        }
+    }
+
+    [KernelFunction("unfollow_account")]
+    [Description("Unfollow another user account.")]
+    public async Task<object> UnfollowAccount(
+        [Description("The ID of the account to unfollow")] string accountId
+    )
+    {
+        try
+        {
+            await apiClient.PostAsync("pass", $"/accounts/{accountId}/unfollow", new { });
+            
+            logger.LogInformation("Unfollowed account {AccountId}", accountId);
+            return new { success = true, message = "Account unfollowed successfully" };
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to unfollow account {AccountId}", accountId);
+            return new { success = false, error = ex.Message };
+        }
+    }
+
+    [KernelFunction("get_followers")]
+    [Description("Get the list of followers for an account.")]
+    public async Task<List<SnAccount>?> GetFollowers(
+        [Description("The ID of the account")] string accountId,
+        [Description("Maximum number of results")] int limit = 50
+    )
+    {
+        try
+        {
+            var followers = await apiClient.GetAsync<List<SnAccount>>(
+                "pass", 
+                $"/accounts/{accountId}/followers?take={limit}"
+            );
+            
+            return followers ?? new List<SnAccount>();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get followers for account {AccountId}", accountId);
+            return null;
+        }
+    }
+
+    [KernelFunction("get_following")]
+    [Description("Get the list of accounts that a user is following.")]
+    public async Task<List<SnAccount>?> GetFollowing(
+        [Description("The ID of the account")] string accountId,
+        [Description("Maximum number of results")] int limit = 50
+    )
+    {
+        try
+        {
+            var following = await apiClient.GetAsync<List<SnAccount>>(
+                "pass", 
+                $"/accounts/{accountId}/following?take={limit}"
+            );
+            
+            return following ?? new List<SnAccount>();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get following for account {AccountId}", accountId);
             return null;
         }
     }
