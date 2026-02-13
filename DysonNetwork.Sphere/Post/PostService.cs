@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
@@ -11,6 +12,7 @@ using DysonNetwork.Shared.Localization;
 using NodaTime;
 using Markdig;
 using AngleSharp.Html.Parser;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using PostContentType = DysonNetwork.Shared.Models.PostContentType;
@@ -157,8 +159,11 @@ public partial class PostService(
             if (targetUserIds.Count == 0)
                 return;
 
+            // Preload necessary post data
+            post = await LoadPostInfo(post);
+
             // Serialize the post to JSON
-            var postData = System.Text.Json.JsonSerializer.Serialize(post);
+            var postData = JsonSerializer.Serialize(post, InfraObjectCoder.SerializerOptions);
             var postBytes = System.Text.Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
