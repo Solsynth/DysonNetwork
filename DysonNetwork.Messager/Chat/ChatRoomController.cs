@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
@@ -24,7 +25,8 @@ public class ChatRoomController(
     FileService.FileServiceClient files,
     ActionLogService.ActionLogServiceClient als,
     RingService.RingServiceClient pusher,
-    RemoteAccountService remoteAccountsHelper
+    RemoteAccountService remoteAccountsHelper,
+    ILocalizationService localization
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -1007,10 +1009,12 @@ public class ChatRoomController(
     private async Task SendInviteNotify(SnChatMember member, Account sender)
     {
         var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
-        var title = "Chat Invite";
+        var locale = account.Language;
+        
+        var title = localization.Get("chatInviteTitle", locale);
         var body = member.ChatRoom.Type == ChatRoomType.DirectMessage
-            ? $"{sender.Nick} sent you a direct message"
-            : $"You have been invited to {member.ChatRoom.Name ?? "Unnamed"}";
+            ? localization.Get("chatInviteBodyDirectMessage", locale, new { senderNick = sender.Nick })
+            : localization.Get("chatInviteBodyGroupInvite", locale, new { roomName = member.ChatRoom.Name ?? "Unnamed" });
 
 
         await pusher.SendPushNotificationToUserAsync(

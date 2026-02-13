@@ -1,0 +1,5 @@
+{
+    "chatInviteTitle": "Chat Invite",
+    "chatInviteBodyDirectMessage": "{senderNick} sent you a direct message",
+    "chatInviteBodyGroupInvite": "You have been invited to {roomName}"
+}

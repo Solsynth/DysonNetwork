@@ -37,10 +37,7 @@ public static class ServiceCollectionExtensions
                     options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
                 });
 
-            services.AddGrpc(options =>
-            {
-                options.EnableDetailedErrors = true;
-            });
+            services.AddGrpc(options => { options.EnableDetailedErrors = true; });
             services.AddGrpcReflection();
 
             return services;
@@ -55,6 +52,15 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddAppBusinessServices(IConfiguration configuration
         )
         {
+            _ = services
+                .AddSingleton<Shared.Localization.ILocalizationService,
+                    Shared.Localization.JsonLocalizationService>(sp =>
+                {
+                    var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                    const string resourceNamespace = "DysonNetwork.Messager.Resources.Locales";
+                    return new Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
+                });
+
             services.AddScoped<ChatRoomService>();
             services.AddScoped<ChatService>();
             services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
@@ -110,15 +116,8 @@ public static class ServiceCollectionExtensions
                     async (evt, ctx) =>
                     {
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-                        var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
 
                         logger.LogDebug("Handling websocket packet...");
-
-                        if (evt.PacketBytes == null)
-                        {
-                            logger.LogWarning("Received WebSocketPacketEvent with null PacketBytes for account {AccountId}", evt.AccountId);
-                            return;
-                        }
 
                         var packet = WebSocketPacket.FromBytes(evt.PacketBytes);
                         logger.LogInformation("Handling websocket packet... {Type}", packet.Type);
@@ -168,7 +167,7 @@ public static class ServiceCollectionExtensions
                                 .ToList();
 
                             if (subscribedUsers.Count == 0) continue;
-                            
+
                             var packet = new WebSocketPacket
                             {
                                 Type = "accounts.status.update",
@@ -187,7 +186,8 @@ public static class ServiceCollectionExtensions
 
                             await pusher.PushWebSocketPacketToUsersAsync(request);
 
-                            logger.LogInformation("Sent status update for room {roomId} to {count} subscribed users", roomId,
+                            logger.LogInformation("Sent status update for room {roomId} to {count} subscribed users",
+                                roomId,
                                 subscribedUsers.Count);
                         }
                     }
@@ -208,7 +208,7 @@ public static class ServiceCollectionExtensions
                 return;
             }
 
-            var requestData = packet.GetData<Chat.ChatController.MarkMessageReadRequest>();
+            var requestData = packet.GetData<ChatController.MarkMessageReadRequest>();
             if (requestData == null)
             {
                 await SendErrorResponse(evt, "Invalid request data", pusher);
@@ -225,7 +225,8 @@ public static class ServiceCollectionExtensions
             await cs.ReadChatRoomAsync(requestData.ChatRoomId, evt.AccountId);
         }
 
-        private static async Task HandleMessageTyping(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
+        private static async Task HandleMessageTyping(WebSocketPacketEvent evt, WebSocketPacket packet,
+            EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
             var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
@@ -279,7 +280,8 @@ public static class ServiceCollectionExtensions
             }
         }
 
-        private static async Task HandleMessageSubscribe(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
+        private static async Task HandleMessageSubscribe(WebSocketPacketEvent evt, WebSocketPacket packet,
+            EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
             var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
@@ -307,7 +309,8 @@ public static class ServiceCollectionExtensions
             await crs.SubscribeChatRoom(sender);
         }
 
-        private static async Task HandleMessageUnsubscribe(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
+        private static async Task HandleMessageUnsubscribe(WebSocketPacketEvent evt, WebSocketPacket packet,
+            EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
             var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
@@ -335,7 +338,8 @@ public static class ServiceCollectionExtensions
             await crs.UnsubscribeChatRoom(sender);
         }
 
-        private static async Task SendErrorResponse(WebSocketPacketEvent evt, string message, RingService.RingServiceClient pusher)
+        private static async Task SendErrorResponse(WebSocketPacketEvent evt, string message,
+            RingService.RingServiceClient pusher)
         {
             await pusher.PushWebSocketPacketToDeviceAsync(new PushWebSocketPacketToDeviceRequest
             {

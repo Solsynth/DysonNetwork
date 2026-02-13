@@ -35,5 +35,8 @@
     <ItemGroup>
         <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\Locales\*.json" />
+    </ItemGroup>
 
 </Project>

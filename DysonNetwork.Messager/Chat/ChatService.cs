@@ -14,7 +14,6 @@ namespace DysonNetwork.Messager.Chat;
 public partial class ChatService(
     AppDatabase db,
     ChatRoomService crs,
-    FileService.FileServiceClient filesClient,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
     ILogger<ChatService> logger,
