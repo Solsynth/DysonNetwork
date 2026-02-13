@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth;
-using DysonNetwork.Pass.Credit;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
@@ -20,7 +19,6 @@ public class AccountController(
     AuthService auth,
     AccountService accounts,
     AccountEventService events,
-    SocialCreditService socialCreditService,
     AffiliationSpellService ars,
     GeoService geo
 ) : ControllerBase
@@ -35,7 +33,7 @@ public class AccountController(
         ]
         public string Name { get; set; } = string.Empty;
 
-        [Required][MaxLength(256)] public string Nick { get; set; } = string.Empty;
+        [Required] [MaxLength(256)] public string Nick { get; set; } = string.Empty;
 
         [EmailAddress]
         [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
@@ -248,37 +246,5 @@ public class AccountController(
 
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
-    }
-    
-    [HttpGet("{name}/punishments")]
-    public async Task<ActionResult<List<DailyEventResponse>>> GetPunishments(string name)
-    {
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
-        if (account is null) return NotFound();
-
-        var punishments = await db.Punishments
-            .Where(a => a.AccountId == account.Id)
-            .ToListAsync();
-        return Ok(punishments);
-    }
-
-    [HttpPost("credits/invalidate-cache")]
-    [Authorize]
-    [AskPermission("credits.validate.perform")]
-    public async Task<IActionResult> InvalidateSocialCreditCache()
-    {
-        await socialCreditService.InvalidateCache();
-        return Ok();
-    }
-
-    [HttpDelete("{name}")]
-    [Authorize]
-    [AskPermission("accounts.deletion")]
-    public async Task<IActionResult> AdminDeleteAccount(string name)
-    {
-        var account = await accounts.LookupAccount(name);
-        if (account is null) return NotFound();
-        await accounts.DeleteAccount(account);
-        return Ok();
     }
 }
