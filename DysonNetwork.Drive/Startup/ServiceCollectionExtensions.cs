@@ -150,6 +150,13 @@ public static class ServiceCollectionExtensions
             var pool = await fs.GetPoolAsync(evt.RemoteId);
             if (pool is null) return;
 
+            if (!File.Exists(evt.ProcessingFilePath))
+            {
+                logger.LogError("Processing file not found: {FilePath}. FileId: {FileId}. Skipping upload.",
+                    evt.ProcessingFilePath, evt.FileId);
+                return;
+            }
+
             var uploads = new List<(string FilePath, string Suffix, string ContentType, bool SelfDestruct)>();
             var newMimeType = evt.ContentType ?? "application/octet-stream";
             var hasCompression = false;
@@ -303,6 +310,14 @@ public static class ServiceCollectionExtensions
             }
 
             logger.LogInformation("Optimized file {FileId}, now uploading...", evt.FileId);
+
+            var missingFiles = uploads.Where(u => !File.Exists(u.FilePath)).ToList();
+            if (missingFiles.Any())
+            {
+                logger.LogError("Missing temp files for file {FileId}: {Files}. Skipping upload.",
+                    evt.FileId, string.Join(", ", missingFiles.Select(f => f.FilePath)));
+                uploads = uploads.Except(missingFiles).ToList();
+            }
 
             if (uploads.Count > 0)
             {
