@@ -144,7 +144,7 @@ public class WalletController(
             .ToListAsync();
 
         var accountsRequiresLoad = transactions
-            .Select(t => t.PayerWallet?.AccountId ?? t.PayeeWallet?.AccountId)
+            .SelectMany(t => new[] { t.PayerWallet?.AccountId, t.PayeeWallet?.AccountId })
             .Where(w => w != null)
             .Select(w => w!.Value)
             .Distinct()
@@ -161,7 +161,7 @@ public class WalletController(
                 if (account != null)
                     transaction.PayerWallet.Account = SnAccount.FromProtoValue(account);
             }
-            
+
             if (transaction.PayeeWallet?.AccountId != null)
             {
                 var accountId = transaction.PayeeWallet.AccountId;
@@ -366,7 +366,7 @@ public class WalletController(
             .Select(r => r.RecipientAccountId)
             .Distinct()
             .ToList();
-        
+
         var accounts = await remoteAccounts.GetAccountBatch(recipientAccountIds);
 
         // Assign account data to recipients
