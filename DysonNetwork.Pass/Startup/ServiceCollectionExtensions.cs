@@ -20,6 +20,7 @@ using DysonNetwork.Pass.Mailer;
 using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Rewind;
 using DysonNetwork.Pass.Safety;
+using DysonNetwork.Pass.Ticket;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -180,6 +181,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
+        services.AddScoped<TicketService>();
 
         services.AddEventBus()
             .AddListener<WebSocketConnectedEvent>(async (evt, ctx) =>
