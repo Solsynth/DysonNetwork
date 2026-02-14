@@ -48,7 +48,7 @@ public class MemoryPlugin(
             results.AppendLine($"Found {memories.Count} relevant memories:");
             results.AppendLine();
 
-            for (int i = 0; i < memories.Count; i++)
+            for (var i = 0; i < memories.Count; i++)
             {
                 var memory = memories[i];
                 results.AppendLine($"--- Memory {i + 1} ---");

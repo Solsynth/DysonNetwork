@@ -599,6 +599,7 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
         systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
         systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
+        systemPromptBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
         var systemPrompt =
@@ -780,14 +781,12 @@ public class ThoughtService(
         {
             chatHistoryBuilder.AppendLine("你的热点记忆：");
             foreach (var memory in hotMemories.Take(5))
-            {
                 chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
-            }
 
             chatHistoryBuilder.AppendLine();
         }
 
-        chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) 交谈。");
+        chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) ID 为 {currentUser.Id} 交谈。");
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
@@ -801,11 +800,13 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("  - 必须提供 type（非空字符串，例如 fact、user、context、summary）");
         chatHistoryBuilder.AppendLine("  - 如果无法确定 type，请先自行判断合理类型；若仍不确定，不要调用工具。");
         chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("当需要历史上下文时，你可以调用 search_memory 工具。");
-        chatHistoryBuilder.AppendLine("调用 search_memory 时必须提供非空 query。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("不要向用户显式说明你正在调用工具。自然地整合工具结果到回复中。");
-
+        chatHistoryBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
+        chatHistoryBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
+        chatHistoryBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
+        chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
+        chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
+        chatHistoryBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
+        
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
         // Add previous thoughts
