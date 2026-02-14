@@ -148,7 +148,7 @@ public class PaymentService(
                     throw new InvalidOperationException("Insufficient funds");
 
             await db.WalletPockets
-                .Where(p => p.Id == payerPocket.Id && p.Amount >= amount)
+                .Where(p => p.Id == payerPocket.Id)
                 .ExecuteUpdateAsync(s =>
                     s.SetProperty(p => p.Amount, p => p.Amount - amount));
         }
