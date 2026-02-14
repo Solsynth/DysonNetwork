@@ -127,12 +127,10 @@ public class SubscriptionService(
         }
 
         var subscriptionTemplate = SubscriptionTypeData
-            .SubscriptionDict.TryGetValue(subscriptionIdentifier, out var template)
-            ? template
-            : null;
+            .SubscriptionDict.GetValueOrDefault(subscriptionIdentifier);
         if (subscriptionTemplate is null)
             throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier),
-                $@"Subscription {subscriptionIdentifier} was not found.");
+                $"Subscription {subscriptionIdentifier} was not found.");
 
         SnAccount? account = null;
         if (!string.IsNullOrEmpty(provider))

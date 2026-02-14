@@ -282,6 +282,9 @@ service AccountService {
 
     // Badge Operations
     rpc ListBadges(ListBadgesRequest) returns (ListBadgesResponse) {}
+    rpc GrantBadge(GrantBadgeRequest) returns (GrantBadgeResponse) {}
+    rpc GetBadge(GetBadgeRequest) returns (GetBadgeResponse) {}
+    rpc UpdateBadge(UpdateBadgeRequest) returns (UpdateBadgeResponse) {}
 
     // Authentication Factor Operations
     rpc ListAuthFactors(ListAuthFactorsRequest) returns (ListAuthFactorsResponse) {}
@@ -442,6 +445,35 @@ message ListBadgesRequest {
 
 message ListBadgesResponse {
     repeated AccountBadge badges = 1;  // List of badges
+}
+
+message GrantBadgeRequest {
+    string account_id = 1;  // Account ID to grant badge to
+    AccountBadge badge = 2;  // Badge to grant
+}
+
+message GrantBadgeResponse {
+    AccountBadge badge = 1;  // Granted badge
+}
+
+message GetBadgeRequest {
+    string account_id = 1;  // Account ID to get badge for
+    string badge_id = 2;    // Badge ID to retrieve
+}
+
+message GetBadgeResponse {
+    AccountBadge badge = 1;  // Retrieved badge
+}
+
+message UpdateBadgeRequest {
+    string account_id = 1;  // Account ID the badge belongs to
+    string badge_id = 2;    // Badge ID to update
+    AccountBadge badge = 3; // Updated badge data
+    google.protobuf.FieldMask update_mask = 4;  // Fields to update
+}
+
+message UpdateBadgeResponse {
+    AccountBadge badge = 1;  // Updated badge
 }
 
 message ListAuthFactorsRequest {

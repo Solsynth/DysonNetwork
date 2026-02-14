@@ -30,9 +30,7 @@ public class AccountService(
     ILocalizationService localizer,
     ICacheService cache,
     ILogger<AccountService> logger,
-    RemoteSubscriptionService remoteSubscription,
-    INatsConnection nats,
-    DysonNetwork.Shared.EventBus.IEventBus eventBus
+    Shared.EventBus.IEventBus eventBus
 )
 {
     public const string AccountCachePrefix = "account:";

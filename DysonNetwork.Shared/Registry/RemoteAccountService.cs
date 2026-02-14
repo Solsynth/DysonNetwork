@@ -51,4 +51,44 @@ public class RemoteAccountService(AccountService.AccountServiceClient accounts)
             .Select(SnAccountStatus.FromProtoValue)
             .ToDictionary(s => s.AccountId, s => s);
     }
+
+    public async Task<AccountBadge> GrantBadge(Guid accountId, AccountBadge badge)
+    {
+        var request = new GrantBadgeRequest
+        {
+            AccountId = accountId.ToString(),
+            Badge = badge
+        };
+        var response = await accounts.GrantBadgeAsync(request);
+        return response.Badge;
+    }
+
+    public async Task<AccountBadge> GetBadge(Guid accountId, Guid badgeId)
+    {
+        var request = new GetBadgeRequest
+        {
+            AccountId = accountId.ToString(),
+            BadgeId = badgeId.ToString()
+        };
+        var response = await accounts.GetBadgeAsync(request);
+        return response.Badge;
+    }
+
+    public async Task<AccountBadge> UpdateBadge(Guid accountId, Guid badgeId, AccountBadge badge, Google.Protobuf.WellKnownTypes.FieldMask? updateMask = null)
+    {
+        var request = new UpdateBadgeRequest
+        {
+            AccountId = accountId.ToString(),
+            BadgeId = badgeId.ToString(),
+            Badge = badge
+        };
+        
+        if (updateMask != null && updateMask.Paths.Count > 0)
+        {
+            request.UpdateMask = updateMask;
+        }
+        
+        var response = await accounts.UpdateBadgeAsync(request);
+        return response.Badge;
+    }
 }

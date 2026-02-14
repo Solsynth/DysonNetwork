@@ -13,11 +13,13 @@ public class AccountServiceGrpc(
     AccountEventService accountEvents,
     RelationshipService relationships,
     RemoteSubscriptionService remoteSubscription,
+    AccountService accountService,
     ILogger<AccountServiceGrpc> logger
 )
     : Shared.Proto.AccountService.AccountServiceBase
 {
     private readonly AppDatabase _db = db ?? throw new ArgumentNullException(nameof(db));
+    private readonly AccountService _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
 
     private readonly ILogger<AccountServiceGrpc>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -287,6 +289,118 @@ public class AccountServiceGrpc(
                 (Shared.Models.RelationshipStatus)request.Status
             );
         return new BoolValue { Value = hasRelationship };
+    }
+
+    public override async Task<GrantBadgeResponse> GrantBadge(GrantBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var account = await _db.Accounts
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.Id == accountId);
+
+        if (account == null)
+            throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.AccountId} not found"));
+
+        // Convert the proto badge to the domain model
+        var badge = SnAccountBadge.FromProtoValue(request.Badge);
+        
+        // Use the AccountService to grant the badge
+        var grantedBadge = await _accountService.GrantBadge(account, badge);
+
+        return new GrantBadgeResponse
+        {
+            Badge = grantedBadge.ToProtoValue()
+        };
+    }
+
+    public override async Task<GetBadgeResponse> GetBadge(GetBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.BadgeId, out var badgeId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid badge ID format"));
+
+        var badge = await _db.Badges
+            .Where(b => b.AccountId == accountId && b.Id == badgeId)
+            .FirstOrDefaultAsync();
+
+        if (badge == null)
+            throw new RpcException(new Status(StatusCode.NotFound, $"Badge {request.BadgeId} not found for account {request.AccountId}"));
+
+        return new GetBadgeResponse
+        {
+            Badge = badge.ToProtoValue()
+        };
+    }
+
+    public override async Task<UpdateBadgeResponse> UpdateBadge(UpdateBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.BadgeId, out var badgeId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid badge ID format"));
+
+        var badge = await _db.Badges
+            .Where(b => b.AccountId == accountId && b.Id == badgeId)
+            .FirstOrDefaultAsync();
+
+        if (badge == null)
+            throw new RpcException(new Status(StatusCode.NotFound, $"Badge {request.BadgeId} not found for account {request.AccountId}"));
+
+        // Convert the proto badge to the domain model
+        var updatedBadge = SnAccountBadge.FromProtoValue(request.Badge);
+        
+        // Apply the updates based on the field mask
+        if (request.UpdateMask != null && request.UpdateMask.Paths.Count > 0)
+        {
+            foreach (var path in request.UpdateMask.Paths)
+            {
+                switch (path.ToLower())
+                {
+                    case "type":
+                        badge.Type = updatedBadge.Type;
+                        break;
+                    case "label":
+                        badge.Label = updatedBadge.Label;
+                        break;
+                    case "caption":
+                        badge.Caption = updatedBadge.Caption;
+                        break;
+                    case "meta":
+                        badge.Meta = updatedBadge.Meta;
+                        break;
+                    case "activated_at":
+                        badge.ActivatedAt = updatedBadge.ActivatedAt;
+                        break;
+                    case "expired_at":
+                        badge.ExpiredAt = updatedBadge.ExpiredAt;
+                        break;
+                }
+            }
+        }
+        else
+        {
+            // If no field mask is provided, update all fields
+            badge.Type = updatedBadge.Type;
+            badge.Label = updatedBadge.Label;
+            badge.Caption = updatedBadge.Caption;
+            badge.Meta = updatedBadge.Meta;
+            badge.ActivatedAt = updatedBadge.ActivatedAt;
+            badge.ExpiredAt = updatedBadge.ExpiredAt;
+        }
+
+        badge.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        _db.Badges.Update(badge);
+        await _db.SaveChangesAsync();
+
+        return new UpdateBadgeResponse
+        {
+            Badge = badge.ToProtoValue()
+        };
     }
 
     /// <summary>
