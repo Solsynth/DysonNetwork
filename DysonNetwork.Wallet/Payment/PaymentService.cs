@@ -116,7 +116,8 @@ public class PaymentService(
         string? remarks = null,
         Shared.Models.TransactionType type = Shared.Models.TransactionType.System,
         bool silent = false,
-        bool autoSave = true
+        bool autoSave = true,
+        bool force = false
     )
     {
         if (payerWalletId == null && payeeWalletId == null)
@@ -142,8 +143,9 @@ public class PaymentService(
             var (payerPocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payerWalletId.Value, currency);
 
-            if (isNewlyCreated || payerPocket.Amount < amount)
-                throw new InvalidOperationException("Insufficient funds");
+            if (!force)
+                if (isNewlyCreated || payerPocket.Amount < amount)
+                    throw new InvalidOperationException("Insufficient funds");
 
             await db.WalletPockets
                 .Where(p => p.Id == payerPocket.Id && p.Amount >= amount)
@@ -182,7 +184,7 @@ public class PaymentService(
         {
             var accountInfo = await remoteAccounts.GetAccount(payerWallet.AccountId);
             var locale = accountInfo.Language;
-            
+
             // Due to ID is uuid, it longer than 8 words for sure
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
@@ -195,7 +197,7 @@ public class PaymentService(
                     {
                         Topic = "wallets.transactions",
                         Title = localizer.Get("transactionNewTitle", locale: locale),
-                        Subtitle =readableTransactionRemark,
+                        Subtitle = readableTransactionRemark,
                         Body = transaction.Amount > 0
                             ? localizer.Get("transactionNewBodyMinus", locale: locale, args: new
                             {
@@ -217,7 +219,7 @@ public class PaymentService(
         {
             var accountInfo = await remoteAccounts.GetAccount(payeeWallet.AccountId);
             var locale = accountInfo.Language;
-            
+
             // Due to ID is uuid, it longer than 8 words for sure
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
@@ -230,7 +232,7 @@ public class PaymentService(
                     {
                         Topic = "wallets.transactions",
                         Title = localizer.Get("transactionNewTitle", locale: locale),
-                        Subtitle =readableTransactionRemark,
+                        Subtitle = readableTransactionRemark,
                         Body = transaction.Amount > 0
                             ? localizer.Get("transactionNewBodyPlus", locale: locale, args: new
                             {

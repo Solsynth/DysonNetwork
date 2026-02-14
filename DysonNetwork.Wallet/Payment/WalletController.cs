@@ -209,7 +209,14 @@ public class WalletController(
         public string? Remark { get; set; }
         [Required] public decimal Amount { get; set; }
         [Required] public string Currency { get; set; } = null!;
-        [Required] public Guid AccountId { get; set; }
+
+        public Guid? AccountId { get; set; }
+        public Guid? WalletId { get; set; }
+
+        /// <summary>
+        /// When force operation is enabled, the wallet will ignore insufficent balance
+        /// </summary>
+        public bool ForceOperation { get; set; } = false;
     }
 
     public class WalletTransferRequest
@@ -226,7 +233,12 @@ public class WalletController(
     [AskPermission("wallets.balance.modify")]
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
     {
-        var wallet = await ws.GetAccountWalletAsync(request.AccountId);
+        if (request.WalletId is null && request.AccountId is null)
+            return BadRequest("You must specify either WalletId or AccountId.");
+
+        var wallet = request.AccountId is not null
+            ? await ws.GetAccountWalletAsync(request.AccountId.Value)
+            : await ws.GetWalletAsync(request.WalletId!.Value);
         if (wallet is null) return NotFound("Wallet was not found.");
 
         var transaction = request.Amount >= 0
@@ -235,14 +247,16 @@ public class WalletController(
                 payeeWalletId: wallet.Id,
                 currency: request.Currency,
                 amount: request.Amount,
-                remarks: request.Remark
+                remarks: request.Remark,
+                force: request.ForceOperation
             )
             : await payment.CreateTransactionAsync(
                 payerWalletId: wallet.Id,
                 payeeWalletId: null,
                 currency: request.Currency,
                 amount: -request.Amount,
-                remarks: request.Remark
+                remarks: request.Remark,
+                force: request.ForceOperation
             );
 
         return Ok(transaction);
