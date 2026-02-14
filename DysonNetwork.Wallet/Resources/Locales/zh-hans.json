@@ -12,7 +12,7 @@
     "giftClaimedBody": "您的 {subscription} 礼物已被 {user} 领取",
     "transferRemark": "{payer} 向 {payee} 转账",
     "transferFeeRemark": "转账交易 #{id} 的手续费",
-    "stellarProgramPerkGoldenPoints": "恒星计划 GDP 补充包",
+    "stellarProgramPerkGoldenPoints": "恒星计划 金太阳点 补充包",
     "currencyPoints": "数据位元",
     "currencyGolds": "金太阳点"
 }
