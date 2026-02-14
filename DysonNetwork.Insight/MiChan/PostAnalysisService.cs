@@ -44,6 +44,9 @@ public class PostAnalysisService
     public static string BuildPostPromptSnippet(SnPost post)
     {
         var sb = new StringBuilder();
+        
+        sb.AppendLine($"Post #{post.Id}:");
+        sb.AppendLine();
 
         // Add author information using existing GetPosterSummary method
         sb.AppendLine(GetPosterSummary(post));

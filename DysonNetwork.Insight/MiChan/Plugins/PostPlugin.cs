@@ -225,7 +225,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
 
     [KernelFunction("search_posts")]
     [Description("Search for posts containing specific content.")]
-    public async Task<List<SnPost>?> SearchPosts(
+    public async Task<string?> SearchPosts(
         [Description("Search query")] string query,
         [Description("Maximum number of results")]
         int limit = 20
@@ -238,7 +238,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
                 $"/posts/search?q={Uri.EscapeDataString(query)}&take={limit}"
             );
 
-            return posts ?? new List<SnPost>();
+            return posts is null ? null : string.Join("\n\n", posts.Select(PostAnalysisService.BuildPostPromptSnippet));
         }
         catch (Exception ex)
         {
@@ -250,8 +250,10 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
     [KernelFunction("list_posts")]
     [Description("Get the newest posts.")]
     public async Task<List<SnPost>?> ListPosts(
-        [Description("Maximum number of posts")] int limit = 20, 
-        [Description("Skip how many posts already saw in recent queries")] int offset = 0
+        [Description("Maximum number of posts")]
+        int limit = 20,
+        [Description("Skip how many posts already saw in recent queries")]
+        int offset = 0
     )
     {
         try
@@ -269,11 +271,12 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
             return null;
         }
     }
-    
+
     [KernelFunction("shuffle_posts")]
     [Description("Get the random posts.")]
-    public async Task<List<SnPost>?> ShufflePosts(
-        [Description("Maximum number of posts")] int limit = 20
+    public async Task<string?> ShufflePosts(
+        [Description("Maximum number of posts")]
+        int limit = 20
     )
     {
         try
@@ -283,7 +286,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
                 $"/posts?shuffle=true&take={limit}"
             );
 
-            return posts ?? [];
+            return posts is null ? null : string.Join("\n\n", posts.Select(PostAnalysisService.BuildPostPromptSnippet));
         }
         catch (Exception ex)
         {
@@ -291,13 +294,15 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
             return null;
         }
     }
-    
+
     [KernelFunction("list_publisher_posts")]
     [Description("Get the specific publisher's posts.")]
-    public async Task<List<SnPost>?> ListPublisherPosts(
+    public async Task<string?> ListPublisherPosts(
         [Description("The name of publisher")] string name,
-        [Description("Maximum number of posts")] int limit = 20, 
-        [Description("Skip how many posts already saw in recent queries")] int offset = 0
+        [Description("Maximum number of posts")]
+        int limit = 20,
+        [Description("Skip how many posts already saw in recent queries")]
+        int offset = 0
     )
     {
         try
@@ -307,7 +312,7 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
                 $"/posts?offset={offset}&take={limit}&pub={name}"
             );
 
-            return posts ?? [];
+            return posts is null ? null : string.Join("\n\n", posts.Select(PostAnalysisService.BuildPostPromptSnippet));
         }
         catch (Exception ex)
         {
