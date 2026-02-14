@@ -34,7 +34,7 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
     public Guid SenderId { get; set; }
     public SnChatMember Sender { get; set; } = null!;
     public Guid ChatRoomId { get; set; }
-    [JsonIgnore] public SnChatRoom ChatRoom { get; set; } = null!;
+    public SnChatRoom ChatRoom { get; set; } = null!;
 
     public string ResourceIdentifier => $"message:{Id}";
 
