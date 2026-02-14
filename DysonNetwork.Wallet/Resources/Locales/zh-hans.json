@@ -3,13 +3,16 @@
     "transactionNewBodyMinus": "您花费了 {amount} {currency}",
     "transactionNewBodyPlus": "您收到了 {amount} {currency}",
     "orderPaidTitle": "订单已支付",
-    "orderPaidBody": "支付了 {amount} {currency} 用于 {remark}",
+    "orderPaidBody": "支付了 {amount} {currency}",
     "orderReceivedTitle": "订单已接收",
-    "orderReceivedBody": "收到了 {amount} {currency} 用于 {remark}",
+    "orderReceivedBody": "收到了 {amount} {currency}",
     "subscriptionAppliedTitle": "订阅已应用",
     "subscriptionAppliedBody": "您的 {duration} 天 {subscription} 订阅已应用",
     "giftClaimedTitle": "礼物已领取",
     "giftClaimedBody": "您的 {subscription} 礼物已被 {user} 领取",
     "transferRemark": "{payer} 向 {payee} 转账",
-    "transferFeeRemark": "转账交易 #{id} 的手续费"
+    "transferFeeRemark": "转账交易 #{id} 的手续费",
+    "stellarProgramPerkGoldenPoints": "恒星计划 GDP 补充包",
+    "currencyPoints": "数据位元",
+    "currencyGolds": "金太阳点"
 }

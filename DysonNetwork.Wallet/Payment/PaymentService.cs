@@ -202,12 +202,12 @@ public class PaymentService(
                             ? localizer.Get("transactionNewBodyMinus", locale: locale, args: new
                             {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                currency = transaction.Currency
+                                currency = GetTranslationForCurrency(transaction.Currency, locale)
                             })
                             : localizer.Get("transactionNewBodyPlus", locale: locale, args: new
                             {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                currency = transaction.Currency
+                                currency = GetTranslationForCurrency(transaction.Currency, locale)
                             }),
                         IsSavable = true
                     }
@@ -237,12 +237,12 @@ public class PaymentService(
                             ? localizer.Get("transactionNewBodyPlus", locale: locale, args: new
                             {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                currency = transaction.Currency
+                                currency = GetTranslationForCurrency(transaction.Currency, locale)
                             })
                             : localizer.Get("transactionNewBodyMinus", locale: locale, args: new
                             {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
-                                currency = transaction.Currency
+                                currency = GetTranslationForCurrency(transaction.Currency, locale)
                             }),
                         IsSavable = true
                     }
@@ -321,10 +321,12 @@ public class PaymentService(
     {
         if (payerWallet is not null)
         {
+            var accountInfo = await remoteAccounts.GetAccount(payerWallet.AccountId);
+            var locale = accountInfo.Language;
+
             // Due to ID is uuid, it longer than 8 words for sure
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
-
 
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
@@ -334,11 +336,11 @@ public class PaymentService(
                     {
                         Topic = "wallets.orders.paid",
                         Title = localizer.Get("orderPaidTitle", args: new { orderId = $"#{readableOrderId}" }),
+                        Subtitle = readableOrderRemark,
                         Body = localizer.Get("orderPaidBody", args: new
                         {
                             amount = order.Amount.ToString(CultureInfo.InvariantCulture),
-                            currency = order.Currency,
-                            remark = readableOrderRemark
+                            currency = GetTranslationForCurrency(order.Currency, locale)
                         }),
                         IsSavable = true
                     }
@@ -348,36 +350,10 @@ public class PaymentService(
 
         if (payeeWallet is not null)
         {
-            // Due to ID is uuid, it longer than 8 words for sure
-            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
-            var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
-            var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
+            var accountInfo = await remoteAccounts.GetAccount(payeeWallet.AccountId);
+            var locale = accountInfo.Language;
 
-            await pusher.SendPushNotificationToUserAsync(
-                new SendPushNotificationToUserRequest
-                {
-                    UserId = payerWallet.AccountId.ToString(),
-                    Notification = new PushNotification
-                    {
-                        Topic = "wallets.orders.paid",
-                        Title = localizer.Get("orderPaidTitle", locale: locale,
-                            args: new { orderId = $"#{readableOrderId}" }),
-                        Body = localizer.Get("orderPaidBody", locale: locale, args: new
-                        {
-                            amount = order.Amount.ToString(CultureInfo.InvariantCulture),
-                            currency = order.Currency,
-                            remark = readableOrderRemark
-                        }),
-                        IsSavable = true
-                    }
-                }
-            );
-        }
-
-        if (payeeWallet is not null)
-        {
             // Due to ID is uuid, it longer than 8 words for sure
-            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
@@ -387,14 +363,14 @@ public class PaymentService(
                     UserId = payeeWallet.AccountId.ToString(),
                     Notification = new PushNotification
                     {
-                        Topic = "wallets.orders.received",
-                        Title = localizer.Get("orderReceivedTitle", locale: locale,
+                        Topic = "wallets.orders.paid",
+                        Title = localizer.Get("orderPaidTitle", locale: locale,
                             args: new { orderId = $"#{readableOrderId}" }),
-                        Body = localizer.Get("orderReceivedBody", locale: locale, args: new
+                        Subtitle = readableOrderRemark,
+                        Body = localizer.Get("orderPaidBody", locale: locale, args: new
                         {
                             amount = order.Amount.ToString(CultureInfo.InvariantCulture),
-                            currency = order.Currency,
-                            remark = readableOrderRemark
+                            currency = GetTranslationForCurrency(order.Currency, locale),
                         }),
                         IsSavable = true
                     }
@@ -883,6 +859,19 @@ public class PaymentService(
         overview.NetTotal = overview.TotalIncome - overview.TotalSpending;
 
         return overview;
+    }
+
+    private string GetTranslationForCurrency(string currency, string locale)
+    {
+        switch (currency)
+        {
+            case WalletCurrency.SourcePoint:
+                return localizer.Get("currencyPoints", locale);
+            case WalletCurrency.GoldenPoint:
+                return localizer.Get("currencyGolds", locale);
+        }
+
+        return "unknown";
     }
 }
 

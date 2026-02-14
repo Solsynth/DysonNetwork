@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
@@ -10,8 +11,12 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
+using Google.Protobuf.Collections;
+using Google.Protobuf.WellKnownTypes;
 using NodaTime;
 using Duration = NodaTime.Duration;
+using GiftStatus = DysonNetwork.Shared.Models.GiftStatus;
+using SubscriptionStatus = DysonNetwork.Shared.Models.SubscriptionStatus;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -63,7 +68,8 @@ public class SubscriptionService(
 
         // Batch database queries for coupon and free trial check
         var prevFreeTrialTask = isFreeTrial
-            ? db.WalletSubscriptions.FirstOrDefaultAsync(s => s.AccountId == accountId && s.Identifier == identifier && s.IsFreeTrial)
+            ? db.WalletSubscriptions.FirstOrDefaultAsync(s =>
+                s.AccountId == accountId && s.Identifier == identifier && s.IsFreeTrial)
             : Task.FromResult((SnWalletSubscription?)null);
 
         Guid couponGuidId = Guid.TryParse(coupon ?? "", out var parsedId) ? parsedId : Guid.Empty;
@@ -167,7 +173,7 @@ public class SubscriptionService(
             existingSubscription.PaymentDetails.OrderId = order.Id;
             existingSubscription.EndedAt = order.BegunAt.Plus(cycleDuration);
             existingSubscription.RenewalAt = order.BegunAt.Plus(cycleDuration);
-            existingSubscription.Status = Shared.Models.SubscriptionStatus.Active;
+            existingSubscription.Status = SubscriptionStatus.Active;
 
             db.Update(existingSubscription);
             await db.SaveChangesAsync();
@@ -180,10 +186,10 @@ public class SubscriptionService(
             BegunAt = order.BegunAt,
             EndedAt = order.BegunAt.Plus(cycleDuration),
             IsActive = true,
-            Status = Shared.Models.SubscriptionStatus.Active,
+            Status = SubscriptionStatus.Active,
             Identifier = subscriptionIdentifier,
             PaymentMethod = provider,
-            PaymentDetails = new Shared.Models.SnPaymentDetails
+            PaymentDetails = new SnPaymentDetails
             {
                 Currency = currency,
                 OrderId = order.Id,
@@ -197,6 +203,9 @@ public class SubscriptionService(
         await db.SaveChangesAsync();
 
         await NotifySubscriptionBegun(subscription);
+
+        await HandleSponsorCurrencyUpdateAsync(subscription);
+        await HandleSponsorBadgeSubscriptionAsync(subscription);
 
         return subscription;
     }
@@ -213,7 +222,7 @@ public class SubscriptionService(
         var subscription = await GetSubscriptionAsync(accountId, identifier);
         if (subscription is null)
             throw new InvalidOperationException($"Subscription with identifier {identifier} was not found.");
-        if (subscription.Status != Shared.Models.SubscriptionStatus.Active)
+        if (subscription.Status != SubscriptionStatus.Active)
             throw new InvalidOperationException("Subscription is already cancelled.");
         if (subscription.RenewalAt is null)
             throw new InvalidOperationException("Subscription is no need to be cancelled.");
@@ -308,7 +317,8 @@ public class SubscriptionService(
 
     public async Task<SnWalletSubscription> HandleSubscriptionOrder(SnWalletOrder order)
     {
-        if (order.Status != Shared.Models.OrderStatus.Paid || order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
+        if (order.Status != Shared.Models.OrderStatus.Paid ||
+            order.Meta?["subscription_id"] is not JsonElement subscriptionIdJson)
             throw new InvalidOperationException("Invalid order.");
 
         var subscriptionId = Guid.TryParse(subscriptionIdJson.ToString(), out var parsedSubscriptionId)
@@ -328,7 +338,9 @@ public class SubscriptionService(
             // Calculate original cycle duration and extend from the current ended date
             Duration originalCycle = subscription.EndedAt.Value - subscription.BegunAt;
 
-            subscription.RenewalAt = subscription.RenewalAt.HasValue ? subscription.RenewalAt.Value.Plus(originalCycle) : subscription.EndedAt.Value.Plus(originalCycle);
+            subscription.RenewalAt = subscription.RenewalAt.HasValue
+                ? subscription.RenewalAt.Value.Plus(originalCycle)
+                : subscription.EndedAt.Value.Plus(originalCycle);
             subscription.EndedAt = subscription.EndedAt.Value.Plus(originalCycle);
         }
 
@@ -423,8 +435,10 @@ public class SubscriptionService(
         var notification = new PushNotification
         {
             Topic = "subscriptions.begun",
-            Title = localizer.Get("subscriptionAppliedTitle", locale: locale, args: new { subscriptionName = humanReadableName }),
-            Body = localizer.Get("subscriptionAppliedBody", locale: locale, args: new { duration, subscription = humanReadableName }),
+            Title = localizer.Get("subscriptionAppliedTitle", locale: locale,
+                args: new { subscriptionName = humanReadableName }),
+            Body = localizer.Get("subscriptionAppliedBody", locale: locale,
+                args: new { duration, subscription = humanReadableName }),
             Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["subscription_id"] = subscription.Id.ToString()
@@ -596,7 +610,8 @@ public class SubscriptionService(
         Account? recipient = null;
         if (recipientId.HasValue)
         {
-            var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
+            var accountProto =
+                await accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
             if (accountProto != null)
                 recipient = accountProto;
             if (recipient is null)
@@ -851,10 +866,10 @@ public class SubscriptionService(
         if (gift is null)
             throw new InvalidOperationException("Gift not found or access denied.");
 
-        if (gift.Status != DysonNetwork.Shared.Models.GiftStatus.Created)
+        if (gift.Status != GiftStatus.Created)
             throw new InvalidOperationException("Gift cannot be marked as sent.");
 
-        gift.Status = DysonNetwork.Shared.Models.GiftStatus.Sent;
+        gift.Status = GiftStatus.Sent;
         gift.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
 
         await db.SaveChangesAsync();
@@ -870,7 +885,8 @@ public class SubscriptionService(
         if (gift is null)
             throw new InvalidOperationException("Gift not found or access denied.");
 
-        if (gift.Status != DysonNetwork.Shared.Models.GiftStatus.Created && gift.Status != DysonNetwork.Shared.Models.GiftStatus.Sent)
+        if (gift.Status != DysonNetwork.Shared.Models.GiftStatus.Created &&
+            gift.Status != DysonNetwork.Shared.Models.GiftStatus.Sent)
             throw new InvalidOperationException("Gift cannot be cancelled.");
 
         gift.Status = DysonNetwork.Shared.Models.GiftStatus.Cancelled;
@@ -907,10 +923,12 @@ public class SubscriptionService(
         {
             result[i] = chars[Random.Shared.Next(chars.Length)];
         }
+
         return new string(result);
     }
 
-    private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId, Account redeemer)
+    private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId,
+        Account redeemer)
     {
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
@@ -922,7 +940,8 @@ public class SubscriptionService(
         {
             Topic = "gifts.claimed",
             Title = localizer.Get("giftClaimedTitle", locale: locale),
-            Body = localizer.Get("giftClaimedBody", locale: locale, args: new { subscription = humanReadableName, user = redeemer.Name }),
+            Body = localizer.Get("giftClaimedBody", locale: locale,
+                args: new { subscription = humanReadableName, user = redeemer.Name }),
             Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["gift_id"] = gift.Id.ToString(),
@@ -939,5 +958,92 @@ public class SubscriptionService(
                 Notification = notification
             }
         );
+    }
+
+    private async Task HandleSponsorCurrencyUpdateAsync(SnWalletSubscription subscription)
+    {
+        var amount = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(subscription.Identifier) * 10;
+
+        try
+        {
+            await payment.CreateTransactionWithAccountAsync(
+                null,
+                subscription.AccountId,
+                WalletCurrency.GoldenPoint,
+                amount,
+                remarks: localizer.Get("stellarProgramPerkGoldenPoints")
+            );
+        }
+        catch (Exception err)
+        {
+            logger.LogWarning("Unable to send golden points to member: {Error}", err);
+        }
+    }
+
+    /// <summary>
+    /// Handles sponsor page subscription by incrementing the sponsor badge level.
+    /// </summary>
+    /// <param name="subscription">The sponsor page subscription that was created.</param>
+    private async Task HandleSponsorBadgeSubscriptionAsync(SnWalletSubscription subscription)
+    {
+        try
+        {
+            // Get the account's existing sponsor badges using the AccountService
+            var listBadgesRequest = new ListBadgesRequest
+            {
+                AccountId = subscription.AccountId.ToString(),
+                Type = "sponsor",
+                ActiveOnly = false
+            };
+
+            var listBadgesResponse = await accounts.ListBadgesAsync(listBadgesRequest);
+            var sponsorBadges = listBadgesResponse.Badges
+                .Where(b => b.Type == "sponsor")
+                .OrderByDescending(b => b.ActivatedAt)
+                .ToList();
+
+            var newLevel = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(subscription.Identifier);
+            if (sponsorBadges.Count > 0)
+            {
+                // Increment the level from the existing badge
+                var latestBadge = sponsorBadges.First();
+                if (latestBadge.Meta != null && latestBadge.Meta.TryGetValue("level", out var levelValue))
+                {
+                    if (int.TryParse(levelValue?.ToString(), out var currentLevel))
+                        newLevel = currentLevel + 1;
+                }
+            }
+
+            // Create new sponsor badge
+            var newBadge = new AccountBadge
+            {
+                Type = "sponsor",
+                Label = "Sponsor",
+                Caption = $"Level {newLevel}",
+                AccountId = subscription.AccountId.ToString()
+            };
+
+            // Add metadata
+            newBadge.Meta.Add("level", new Value { StringValue = newLevel.ToString() });
+            newBadge.Meta.Add("subscription_id", new Value { StringValue = subscription.Id.ToString() });
+
+            // Grant the new badge using the AccountService
+            var grantBadgeRequest = new GrantBadgeRequest
+            {
+                AccountId = subscription.AccountId.ToString(),
+                Badge = newBadge
+            };
+
+            await accounts.GrantBadgeAsync(grantBadgeRequest);
+
+            // Log the badge update
+            logger.LogInformation("Sponsor badge updated for account {AccountId}: Level {Level}",
+                subscription.AccountId, newLevel);
+        }
+        catch (Exception ex)
+        {
+            // Log the error but don't fail the subscription creation
+            logger.LogError(ex, "Failed to update sponsor badge for subscription {SubscriptionId}", subscription.Id);
+        }
     }
 }

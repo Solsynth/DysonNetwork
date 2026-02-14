@@ -3,13 +3,16 @@
     "transactionNewBodyMinus": "You spent {amount} {currency}",
     "transactionNewBodyPlus": "You received {amount} {currency}",
     "orderPaidTitle": "Order Paid",
-    "orderPaidBody": "Paid {amount} {currency} for {remark}",
+    "orderPaidBody": "Paid {amount} {currency}",
     "orderReceivedTitle": "Order Received",
-    "orderReceivedBody": "Received {amount} {currency} for {remark}",
+    "orderReceivedBody": "Received {amount} {currency}",
     "subscriptionAppliedTitle": "Subscription Applied",
     "subscriptionAppliedBody": "Your subscription for {duration} days of {subscription} has been applied",
     "giftClaimedTitle": "Gift Claimed",
     "giftClaimedBody": "Your gift of {subscription} has been claimed by {user}",
     "transferRemark": "Transfer from {payer} to {payee}",
-    "transferFeeRemark": "Transfer fee of #{id}"
+    "transferFeeRemark": "Transfer fee of #{id}",
+    "stellarProgramPerkGoldenPoints": "Stellar Program Golden Points",
+    "currencyPoints": "Bits",
+    "currencyGolds": "Golds"
 }
