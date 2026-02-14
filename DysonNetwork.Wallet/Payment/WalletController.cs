@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ public class WalletController(
     AppDatabase db,
     WalletService ws,
     PaymentService payment,
+    RemoteAccountService remoteAccounts,
     ICacheService cache,
     ILogger<WalletController> logger
 ) : ControllerBase
@@ -122,7 +124,8 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var accountWallet = await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
+        var accountWallet =
+            await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
 
         var query = db.PaymentTransactions
@@ -140,6 +143,34 @@ public class WalletController(
             .Include(t => t.PayeeWallet)
             .ToListAsync();
 
+        var accountsRequiresLoad = transactions
+            .Select(t => t.PayerWallet?.AccountId ?? t.PayeeWallet?.AccountId)
+            .Where(w => w != null)
+            .Select(w => w!.Value)
+            .Distinct()
+            .ToList();
+        var accounts = await remoteAccounts.GetAccountBatch(accountsRequiresLoad);
+
+        // Assign account data back to wallet properties
+        foreach (var transaction in transactions)
+        {
+            if (transaction.PayerWallet?.AccountId != null)
+            {
+                var accountId = transaction.PayerWallet.AccountId;
+                var account = accounts.FirstOrDefault(a => a.Id == accountId.ToString());
+                if (account != null)
+                    transaction.PayerWallet.Account = SnAccount.FromProtoValue(account);
+            }
+            
+            if (transaction.PayeeWallet?.AccountId != null)
+            {
+                var accountId = transaction.PayeeWallet.AccountId;
+                var account = accounts.FirstOrDefault(a => a.Id == accountId.ToString());
+                if (account != null)
+                    transaction.PayeeWallet.Account = SnAccount.FromProtoValue(account);
+            }
+        }
+
         return Ok(transactions);
     }
 
@@ -151,7 +182,8 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var accountWallet = await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
+        var accountWallet =
+            await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
         if (accountWallet is null) return NotFound();
 
         var query = db.PaymentOrders.AsQueryable()
@@ -328,6 +360,22 @@ public class WalletController(
 
         if (fund is null)
             return NotFound("Fund not found");
+
+        // Load recipient account data
+        var recipientAccountIds = fund.Recipients
+            .Select(r => r.RecipientAccountId)
+            .Distinct()
+            .ToList();
+        
+        var accounts = await remoteAccounts.GetAccountBatch(recipientAccountIds);
+
+        // Assign account data to recipients
+        foreach (var recipient in fund.Recipients)
+        {
+            var account = accounts.FirstOrDefault(a => a.Id == recipient.RecipientAccountId.ToString());
+            if (account != null)
+                recipient.RecipientAccount = SnAccount.FromProtoValue(account);
+        }
 
         return Ok(fund);
     }
