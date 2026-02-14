@@ -338,7 +338,7 @@ public class ThoughtService(
         }
 
         var totalUnpaidTokens = sequences.Sum(s => s.TotalToken - s.PaidToken);
-        var cost = (long)Math.Ceiling(totalUnpaidTokens / 10.0);
+        var cost = (long)Math.Ceiling(totalUnpaidTokens / 100.0);
 
         if (cost == 0)
         {
