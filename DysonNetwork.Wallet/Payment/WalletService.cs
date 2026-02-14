@@ -5,7 +5,7 @@ namespace DysonNetwork.Wallet.Payment;
 
 public class WalletService(AppDatabase db)
 {
-    public async Task<SnWallet?> GetWalletAsync(Guid accountId)
+    public async Task<SnWallet?> GetAccountWalletAsync(Guid accountId)
     {
         return await db.Wallets
             .Include(w => w.Pockets)

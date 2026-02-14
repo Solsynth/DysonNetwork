@@ -45,7 +45,7 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var wallet = await ws.GetWalletAsync(Guid.Parse(currentUser.Id));
+        var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
         return Ok(wallet);
     }
@@ -69,7 +69,7 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var wallet = await ws.GetWalletAsync(Guid.Parse(currentUser.Id));
+        var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
 
         var periodEnd = SystemClock.Instance.GetCurrentInstant();
@@ -226,7 +226,7 @@ public class WalletController(
     [AskPermission("wallets.balance.modify")]
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
     {
-        var wallet = await ws.GetWalletAsync(request.AccountId);
+        var wallet = await ws.GetAccountWalletAsync(request.AccountId);
         if (wallet is null) return NotFound("Wallet was not found.");
 
         var transaction = request.Amount >= 0

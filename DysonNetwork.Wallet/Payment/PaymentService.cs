@@ -180,9 +180,11 @@ public class PaymentService(
     {
         if (payerWallet is not null)
         {
+            var accountInfo = await remoteAccounts.GetAccount(payerWallet.AccountId);
+            var locale = accountInfo.Language;
+            
             // Due to ID is uuid, it longer than 8 words for sure
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
-            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
             await pusher.SendPushNotificationToUserAsync(
@@ -192,8 +194,8 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer.Get("transactionNewTitle", locale: locale,
-                            args: new { remark = readableTransactionRemark }),
+                        Title = localizer.Get("transactionNewTitle", locale: locale),
+                        Subtitle =readableTransactionRemark,
                         Body = transaction.Amount > 0
                             ? localizer.Get("transactionNewBodyMinus", locale: locale, args: new
                             {
@@ -213,8 +215,10 @@ public class PaymentService(
 
         if (payeeWallet is not null)
         {
+            var accountInfo = await remoteAccounts.GetAccount(payeeWallet.AccountId);
+            var locale = accountInfo.Language;
+            
             // Due to ID is uuid, it longer than 8 words for sure
-            var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
@@ -225,8 +229,8 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer.Get("transactionNewTitle", locale: locale,
-                            args: new { remark = readableTransactionRemark }),
+                        Title = localizer.Get("transactionNewTitle", locale: locale),
+                        Subtitle =readableTransactionRemark,
                         Body = transaction.Amount > 0
                             ? localizer.Get("transactionNewBodyPlus", locale: locale, args: new
                             {
@@ -446,13 +450,13 @@ public class PaymentService(
     public async Task<SnWalletTransaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency,
         decimal amount)
     {
-        var payerWallet = await wat.GetWalletAsync(payerAccountId);
+        var payerWallet = await wat.GetAccountWalletAsync(payerAccountId);
         if (payerWallet == null)
         {
             throw new InvalidOperationException($"Payer wallet not found for account {payerAccountId}");
         }
 
-        var payeeWallet = await wat.GetWalletAsync(payeeAccountId);
+        var payeeWallet = await wat.GetAccountWalletAsync(payeeAccountId);
         if (payeeWallet == null)
         {
             throw new InvalidOperationException($"Payee wallet not found for account {payeeAccountId}");
@@ -509,14 +513,14 @@ public class PaymentService(
             throw new ArgumentException("Total amount must be positive");
 
         // Check creator has sufficient funds
-        var creatorWallet = await wat.GetWalletAsync(creatorAccountId);
+        var creatorWallet = await wat.GetAccountWalletAsync(creatorAccountId);
         if (creatorWallet == null)
             throw new InvalidOperationException($"Creator wallet not found for account {creatorAccountId}");
 
         // Validate all recipient accounts exist and have wallets
         foreach (var accountId in recipientAccountIds)
         {
-            var wallet = await wat.GetWalletAsync(accountId);
+            var wallet = await wat.GetAccountWalletAsync(accountId);
             if (wallet == null)
                 throw new InvalidOperationException($"Wallet not found for recipient account {accountId}");
         }
@@ -703,7 +707,7 @@ public class PaymentService(
             if (recipient.IsReceived)
                 throw new InvalidOperationException("You have already received this fund");
 
-            var recipientWallet = await wat.GetWalletAsync(recipientAccountId);
+            var recipientWallet = await wat.GetAccountWalletAsync(recipientAccountId);
             if (recipientWallet == null)
                 throw new InvalidOperationException("Recipient wallet not found");
 
@@ -771,7 +775,7 @@ public class PaymentService(
             if (unclaimedAmount > 0)
             {
                 // Refund to creator
-                var creatorWallet = await wat.GetWalletAsync(fund.CreatorAccountId);
+                var creatorWallet = await wat.GetAccountWalletAsync(fund.CreatorAccountId);
                 if (creatorWallet != null)
                 {
                     await CreateTransactionAsync(
@@ -804,7 +808,7 @@ public class PaymentService(
     public async Task<WalletOverview> GetWalletOverviewAsync(Guid accountId, DateTime? startDate = null,
         DateTime? endDate = null)
     {
-        var wallet = await wat.GetWalletAsync(accountId);
+        var wallet = await wat.GetAccountWalletAsync(accountId);
         if (wallet == null)
             throw new InvalidOperationException("Wallet not found");
 

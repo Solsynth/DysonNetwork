@@ -84,7 +84,7 @@ public class SubscriptionRenewalJob(
                 {
                     try
                     {
-                        var wallet = await walletService.GetWalletAsync(subscription.AccountId);
+                        var wallet = await walletService.GetAccountWalletAsync(subscription.AccountId);
                         if (wallet is null) continue;
 
                         // Process automatic payment from wallet
