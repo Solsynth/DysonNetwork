@@ -19,8 +19,8 @@ public class PaymentService(
     WalletService wat,
     RingService.RingServiceClient pusher,
     ILocalizationService localizer,
-    INatsConnection nats,
-    DysonNetwork.Shared.EventBus.IEventBus eventBus
+    Shared.EventBus.IEventBus eventBus,
+    RemoteAccountService remoteAccounts
 )
 {
     public async Task<SnWalletOrder> CreateOrderAsync(
@@ -184,7 +184,7 @@ public class PaymentService(
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
- 
+
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -192,13 +192,16 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer.Get("transactionNewTitle", locale: locale, args: new { remark = readableTransactionRemark }),
+                        Title = localizer.Get("transactionNewTitle", locale: locale,
+                            args: new { remark = readableTransactionRemark }),
                         Body = transaction.Amount > 0
-                            ? localizer.Get("transactionNewBodyMinus", locale: locale, args: new {
+                            ? localizer.Get("transactionNewBodyMinus", locale: locale, args: new
+                            {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             })
-                            : localizer.Get("transactionNewBodyPlus", locale: locale, args: new {
+                            : localizer.Get("transactionNewBodyPlus", locale: locale, args: new
+                            {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             }),
@@ -214,7 +217,7 @@ public class PaymentService(
             var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableTransactionId = transaction.Id.ToString().Replace("-", "")[..8];
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
- 
+
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -222,13 +225,16 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.transactions",
-                        Title = localizer.Get("transactionNewTitle", locale: locale, args: new { remark = readableTransactionRemark }),
+                        Title = localizer.Get("transactionNewTitle", locale: locale,
+                            args: new { remark = readableTransactionRemark }),
                         Body = transaction.Amount > 0
-                            ? localizer.Get("transactionNewBodyPlus", locale: locale, args: new {
+                            ? localizer.Get("transactionNewBodyPlus", locale: locale, args: new
+                            {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             })
-                            : localizer.Get("transactionNewBodyMinus", locale: locale, args: new {
+                            : localizer.Get("transactionNewBodyMinus", locale: locale, args: new
+                            {
                                 amount = transaction.Amount.ToString(CultureInfo.InvariantCulture),
                                 currency = transaction.Currency
                             }),
@@ -322,7 +328,8 @@ public class PaymentService(
                     {
                         Topic = "wallets.orders.paid",
                         Title = localizer.Get("orderPaidTitle", args: new { orderId = $"#{readableOrderId}" }),
-                        Body = localizer.Get("orderPaidBody", args: new {
+                        Body = localizer.Get("orderPaidBody", args: new
+                        {
                             amount = order.Amount.ToString(CultureInfo.InvariantCulture),
                             currency = order.Currency,
                             remark = readableOrderRemark
@@ -339,7 +346,7 @@ public class PaymentService(
             var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
- 
+
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -347,8 +354,10 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.paid",
-                        Title = localizer.Get("orderPaidTitle", locale: locale, args: new { orderId = $"#{readableOrderId}" }),
-                        Body = localizer.Get("orderPaidBody", locale: locale, args: new {
+                        Title = localizer.Get("orderPaidTitle", locale: locale,
+                            args: new { orderId = $"#{readableOrderId}" }),
+                        Body = localizer.Get("orderPaidBody", locale: locale, args: new
+                        {
                             amount = order.Amount.ToString(CultureInfo.InvariantCulture),
                             currency = order.Currency,
                             remark = readableOrderRemark
@@ -365,7 +374,7 @@ public class PaymentService(
             var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
             var readableOrderId = order.Id.ToString().Replace("-", "")[..8];
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
- 
+
             await pusher.SendPushNotificationToUserAsync(
                 new SendPushNotificationToUserRequest
                 {
@@ -373,8 +382,10 @@ public class PaymentService(
                     Notification = new PushNotification
                     {
                         Topic = "wallets.orders.received",
-                        Title = localizer.Get("orderReceivedTitle", locale: locale, args: new { orderId = $"#{readableOrderId}" }),
-                        Body = localizer.Get("orderReceivedBody", locale: locale, args: new {
+                        Title = localizer.Get("orderReceivedTitle", locale: locale,
+                            args: new { orderId = $"#{readableOrderId}" }),
+                        Body = localizer.Get("orderReceivedBody", locale: locale, args: new
+                        {
                             amount = order.Amount.ToString(CultureInfo.InvariantCulture),
                             currency = order.Currency,
                             remark = readableOrderRemark
@@ -458,14 +469,19 @@ public class PaymentService(
         if (isNewlyCreated || payerPocket.Amount < finalCost)
             throw new InvalidOperationException("Insufficient funds");
 
+        var payeeAccount = await remoteAccounts.GetAccount(payeeAccountId);
+        var payerAccount = await remoteAccounts.GetAccount(payerAccountId);
+
         // Create main transfer transaction
         var transaction = await CreateTransactionAsync(
             payerWallet.Id,
             payeeWallet.Id,
             currency,
             amount,
-            $"Transfer from account {payerAccountId} to {payeeAccountId}",
-            Shared.Models.TransactionType.Transfer);
+            localizer.Get("transferRemark", payeeAccount.Language,
+                new { payer = $"@{payerAccount.Name}", payee = $"@{payeeAccount.Name}" }),
+            Shared.Models.TransactionType.Transfer
+        );
 
         // Create fee transaction (to system)
         await CreateTransactionAsync(
@@ -473,7 +489,8 @@ public class PaymentService(
             null,
             currency,
             fee,
-            $"Transfer fee for transaction #{transaction.Id}");
+            localizer.Get("transferFeeRemark", payerAccount.Language, new { id = transaction.Id.ToString()[..8] })
+        );
 
         return transaction;
     }

@@ -241,7 +241,7 @@ public class WalletController(
                 payerWalletId: wallet.Id,
                 payeeWalletId: null,
                 currency: request.Currency,
-                amount: request.Amount,
+                amount: -request.Amount,
                 remarks: request.Remark
             );
 
