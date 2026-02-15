@@ -591,6 +591,7 @@ public partial class ChatController(
 
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
+            .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
 
         if (message is null)
@@ -602,7 +603,7 @@ public partial class ChatController(
 
         if (existingReaction is not null)
         {
-            await cs.RemoveReactionAsync(message, request.Symbol, member);
+            await cs.RemoveReactionAsync(message.ChatRoom, message, request.Symbol, member);
             return NoContent();
         }
 
@@ -612,7 +613,7 @@ public partial class ChatController(
             Attitude = request.Attitude,
         };
 
-        var result = await cs.AddReactionAsync(message, reaction, member);
+        var result = await cs.AddReactionAsync(message.ChatRoom, message, reaction, member);
 
         return Ok(result);
     }
@@ -635,12 +636,13 @@ public partial class ChatController(
 
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
+            .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
 
         if (message is null)
             return NotFound();
 
-        await cs.RemoveReactionAsync(message, symbol, member);
+        await cs.RemoveReactionAsync(message.ChatRoom, message, symbol, member);
 
         return NoContent();
     }

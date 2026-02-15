@@ -764,6 +764,7 @@ public partial class ChatService(
     }
 
     public async Task<SnChatReaction> AddReactionAsync(
+        SnChatRoom room,
         SnChatMessage message,
         SnChatReaction reaction,
         SnChatMember sender
@@ -801,7 +802,7 @@ public partial class ChatService(
             sender = await crs.LoadMemberAccount(sender);
 
         syncMessage.Sender = sender;
-        syncMessage.ChatRoom = message.ChatRoom;
+        syncMessage.ChatRoom = room;
 
         await DeliverMessageAsync(
             syncMessage,
@@ -814,6 +815,7 @@ public partial class ChatService(
     }
 
     public async Task RemoveReactionAsync(
+        SnChatRoom room,
         SnChatMessage message,
         string symbol,
         SnChatMember sender
@@ -853,12 +855,19 @@ public partial class ChatService(
 
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
-
+        
         if (sender.Account is null)
             sender = await crs.LoadMemberAccount(sender);
 
         syncMessage.Sender = sender;
-        syncMessage.ChatRoom = message.ChatRoom;
+        syncMessage.ChatRoom = room;
+
+        // Ensure both sender and chat room are not null before delivering
+        if (syncMessage.Sender == null || syncMessage.ChatRoom == null)
+        {
+            logger.LogWarning("Cannot deliver reaction removal message: sender or chat room is null for message {MessageId}", message.Id);
+            return;
+        }
 
         await DeliverMessageAsync(
             syncMessage,
