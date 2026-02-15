@@ -58,9 +58,16 @@ public class PostAnalysisService
             sb.AppendLine(post.Description);
 
         if (!string.IsNullOrWhiteSpace(post.Content))
-            sb.AppendLine(post.Content);
+        {
+            // Truncate content to prevent excessive token costs
+            var maxContentLength = 2000;
+            var truncatedContent = post.Content.Length > maxContentLength 
+                ? post.Content[..maxContentLength] + "..." 
+                : post.Content;
+            sb.AppendLine(truncatedContent);
+        }
 
-        if (post.Tags?.Any() == true)
+        if (post.Tags.Count != 0)
         {
             var tags = string.Join(' ', post.Tags.Select(x => $"#${x}"));
             sb.Append(tags);
