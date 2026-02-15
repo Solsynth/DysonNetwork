@@ -187,9 +187,9 @@ public class SnPublisherMember : ModelBase
                 Proto.PublisherMemberRole.Editor => PublisherMemberRole.Editor,
                 _ => PublisherMemberRole.Viewer
             },
-            JoinedAt = proto.JoinedAt?.ToDateTimeOffset().ToInstant(),
-            CreatedAt = proto.CreatedAt.ToDateTimeOffset().ToInstant(),
-            UpdatedAt = proto.UpdatedAt.ToDateTimeOffset().ToInstant()
+            JoinedAt = proto.JoinedAt?.ToInstant(),
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
         };
     }
 }

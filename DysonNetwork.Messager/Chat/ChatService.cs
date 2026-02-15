@@ -771,7 +771,6 @@ public partial class ChatService(
     {
         reaction.MessageId = message.Id;
         reaction.SenderId = sender.Id;
-        reaction.Sender = sender;
 
         db.ChatReactions.Add(reaction);
         
@@ -781,7 +780,7 @@ public partial class ChatService(
             message.ReactionsCount[reaction.Symbol] = 1;
 
         await db.SaveChangesAsync();
-
+        
         var syncMessage = new SnChatMessage
         {
             Type = WebSocketPacketType.MessageReactionAdded,
@@ -791,18 +790,8 @@ public partial class ChatService(
             Meta = new Dictionary<string, object>
             {
                 ["message_id"] = message.Id,
-                ["reaction"] = new ChatReaction
-                {
-                    Id = reaction.Id.ToString(),
-                    Symbol = reaction.Symbol,
-                    Attitude = (int)reaction.Attitude,
-                    MessageId = message.Id.ToString(),
-                    SenderId = sender.Id.ToString(),
-                    Sender = sender.Account?.ToProtoValue()
-                }
+                ["symbol"] = reaction.Symbol
             },
-            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
         };
 
         db.ChatMessages.Add(syncMessage);
@@ -860,8 +849,6 @@ public partial class ChatService(
                 ["message_id"] = message.Id,
                 ["symbol"] = symbol
             },
-            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
         };
 
         db.ChatMessages.Add(syncMessage);

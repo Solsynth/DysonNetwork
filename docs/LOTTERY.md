@@ -1,4 +1,4 @@
-:bug# Lottery System API Documentation
+# Lottery System API Documentation
 
 ## Overview
 
