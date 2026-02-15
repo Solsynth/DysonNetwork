@@ -1,7 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +14,10 @@ namespace DysonNetwork.Pass.Ticket;
 [Route("/api/tickets")]
 public class TicketController(
     TicketService ticketService,
-    PermissionService permissionService
+    PermissionService permissionService,
+    RemoteRingService ringService,
+    ILocalizationService localizationService,
+    AccountService accountService
 ) : ControllerBase
 {
     public class CreateTicketRequest
@@ -70,6 +76,113 @@ public class TicketController(
         return (isAdmin, currentUser);
     }
 
+    private async Task NotifyTicketStatusChangedAsync(SnTicket ticket, TicketStatus oldStatus, TicketStatus newStatus, SnAccount updater)
+    {
+        var superusers = await accountService.GetAllSuperusersAsync();
+        var otherSuperusers = superusers.Where(s => s.Id != updater.Id).ToList();
+
+        var ticketCreator = ticket.Creator;
+        var ticketAssignee = ticket.Assignee;
+
+        var interestedUsers = new List<SnAccount>();
+        if (ticketCreator.Id != updater.Id) interestedUsers.Add(ticketCreator);
+        if (ticketAssignee != null && ticketAssignee.Id != updater.Id) interestedUsers.Add(ticketAssignee);
+        if (!updater.IsSuperuser) interestedUsers.AddRange(otherSuperusers);
+
+        var uniqueUsers = interestedUsers.DistinctBy(u => u.Id).ToList();
+
+        foreach (var user in uniqueUsers)
+        {
+            var locale = user.Language;
+            var title = localizationService.Get("ticketStatusUpdatedTitle", locale);
+            var body = localizationService.Get("ticketStatusUpdatedBody", locale, new
+            {
+                ticketTitle = ticket.Title,
+                oldStatus = oldStatus.ToString(),
+                newStatus = newStatus.ToString(),
+                updaterName = updater.Nick
+            });
+
+            _ = ringService.SendPushNotificationToUser(user.Id.ToString(), "ticket.status", title, null, body);
+        }
+    }
+
+    private async Task NotifyTicketAssignedAsync(SnTicket ticket, SnAccount? oldAssignee, SnAccount newAssignee, SnAccount assigner)
+    {
+        var superusers = await accountService.GetAllSuperusersAsync();
+        var otherSuperusers = superusers.Where(s => s.Id != assigner.Id).ToList();
+
+        var ticketCreator = ticket.Creator;
+
+        var interestedUsers = new List<SnAccount>();
+        if (ticketCreator.Id != assigner.Id) interestedUsers.Add(ticketCreator);
+        if (oldAssignee != null && oldAssignee.Id != assigner.Id) interestedUsers.Add(oldAssignee);
+        if (!assigner.IsSuperuser) interestedUsers.AddRange(otherSuperusers);
+
+        var uniqueUsers = interestedUsers.DistinctBy(u => u.Id).ToList();
+
+        foreach (var user in uniqueUsers)
+        {
+            var locale = user.Language;
+            var title = localizationService.Get("ticketAssignedTitle", locale);
+            var body = localizationService.Get("ticketAssignedBody", locale, new
+            {
+                ticketTitle = ticket.Title,
+                assigneeName = newAssignee.Nick,
+                assignerName = assigner.Nick
+            });
+
+            _ = ringService.SendPushNotificationToUser(user.Id.ToString(), "ticket.assign", title, null, body);
+        }
+    }
+
+    private async Task NotifyTicketNewMessageAsync(SnTicket ticket, SnAccount sender)
+    {
+        var superusers = await accountService.GetAllSuperusersAsync();
+        var otherSuperusers = superusers.Where(s => s.Id != sender.Id).ToList();
+
+        var ticketCreator = ticket.Creator;
+        var ticketAssignee = ticket.Assignee;
+
+        var interestedUsers = new List<SnAccount>();
+        if (ticketCreator.Id != sender.Id) interestedUsers.Add(ticketCreator);
+        if (ticketAssignee != null && ticketAssignee.Id != sender.Id) interestedUsers.Add(ticketAssignee);
+        if (!sender.IsSuperuser) interestedUsers.AddRange(otherSuperusers);
+
+        var uniqueUsers = interestedUsers.DistinctBy(u => u.Id).ToList();
+
+        foreach (var user in uniqueUsers)
+        {
+            var locale = user.Language;
+            var title = localizationService.Get("ticketNewMessageTitle", locale);
+            var body = localizationService.Get("ticketNewMessageBody", locale, new
+            {
+                senderName = sender.Nick,
+                ticketTitle = ticket.Title
+            });
+
+            _ = ringService.SendPushNotificationToUser(user.Id.ToString(), "ticket.message", title, null, body);
+        }
+    }
+
+    private async Task NotifyTicketCreatedAsync(SnTicket ticket)
+    {
+        var superusers = await accountService.GetAllSuperusersAsync();
+
+        foreach (var superuser in superusers)
+        {
+            var locale = superuser.Language;
+            var title = localizationService.Get("ticketCreatedTitle", locale);
+            var body = localizationService.Get("ticketCreatedBody", locale, new
+            {
+                creatorName = ticket.Creator.Nick,
+                ticketTitle = ticket.Title
+            });
+
+            _ = ringService.SendPushNotificationToUser(superuser.Id.ToString(), "ticket.created", title, null, body);
+        }
+    }
+
     [HttpPost("")]
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
@@ -88,6 +201,8 @@ public class TicketController(
                 currentUser.Id,
                 request.FileIds
             );
+
+            _ = NotifyTicketCreatedAsync(ticket);
 
             return Ok(ticket);
         }
@@ -233,7 +348,13 @@ public class TicketController(
 
         try
         {
+            var ticket = await ticketService.GetTicketByIdAsync(id);
+            if (ticket == null) return NotFound();
+
             var message = await ticketService.AddMessageAsync(id, currentUser!.Id, request.Content, request.FileIds);
+            
+            await NotifyTicketNewMessageAsync(ticket, currentUser);
+            
             return Ok(message);
         }
         catch (KeyNotFoundException)
@@ -253,12 +374,22 @@ public class TicketController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicket>> UpdateStatus(Guid id, [FromBody] UpdateStatusRequest request)
     {
-        var (isAdmin, _) = await GetCurrentUserAsync();
+        var (isAdmin, currentUser) = await GetCurrentUserAsync();
         if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to update ticket status");
 
         try
         {
+            var existingTicket = await ticketService.GetTicketByIdAsync(id);
+            if (existingTicket == null) return NotFound();
+
+            var oldStatus = existingTicket.Status;
             var ticket = await ticketService.UpdateStatusAsync(id, request.Status);
+
+            if (oldStatus != request.Status)
+            {
+                await NotifyTicketStatusChangedAsync(ticket, oldStatus, request.Status, currentUser!);
+            }
+
             return Ok(ticket);
         }
         catch (KeyNotFoundException)
@@ -278,12 +409,22 @@ public class TicketController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicket>> Assign(Guid id, [FromBody] AssignRequest request)
     {
-        var (isAdmin, _) = await GetCurrentUserAsync();
+        var (isAdmin, currentUser) = await GetCurrentUserAsync();
         if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to assign tickets");
 
         try
         {
+            var existingTicket = await ticketService.GetTicketByIdAsync(id);
+            if (existingTicket == null) return NotFound();
+
+            var oldAssignee = existingTicket.Assignee;
             var ticket = await ticketService.AssignAsync(id, request.AssigneeId);
+
+            if (request.AssigneeId.HasValue && ticket.Assignee != null)
+            {
+                await NotifyTicketAssignedAsync(ticket, oldAssignee, ticket.Assignee, currentUser!);
+            }
+
             return Ok(ticket);
         }
         catch (KeyNotFoundException)

@@ -114,5 +114,13 @@
   "fortuneTipNegativeTitle14": "Color grading",
   "fortuneTipNegativeContent14": "Crummy screen now",
   "fortuneTipNegativeTitle15": "Washing film",
-  "fortuneTipNegativeContent15": "Why is there still something in the box？"
+  "fortuneTipNegativeContent15": "Why is there still something in the box？",
+  "ticketStatusUpdatedTitle": "Ticket Status Updated",
+  "ticketStatusUpdatedBody": "Ticket \"{ticketTitle}\" status changed from {oldStatus} to {newStatus} by {updaterName}",
+  "ticketAssignedTitle": "Ticket Assigned",
+  "ticketAssignedBody": "Ticket \"{ticketTitle}\" has been assigned to {assigneeName} by {assignerName}",
+  "ticketNewMessageTitle": "New Ticket Reply",
+  "ticketNewMessageBody": "{senderName} replied to ticket \"{ticketTitle}\"",
+  "ticketCreatedTitle": "New Ticket Created",
+  "ticketCreatedBody": "{creatorName} created a new ticket \"{ticketTitle}\""
 }

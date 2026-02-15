@@ -40,6 +40,13 @@ public class AccountService(
         await cache.RemoveGroupAsync($"{AccountCachePrefix}{account.Id}");
     }
 
+    public async Task<List<SnAccount>> GetAllSuperusersAsync()
+    {
+        return await db.Accounts
+            .Where(a => a.IsSuperuser)
+            .ToListAsync();
+    }
+
     public async Task<SnAccount?> GetAccount(Guid id)
     {
         return await db.Accounts

@@ -114,5 +114,13 @@
   "fortuneTipNegativeTitle14": "调色",
   "fortuneTipNegativeContent14": "屏幕现在很烂",
   "fortuneTipNegativeTitle15": "洗胶片",
-  "fortuneTipNegativeContent15": "为什么盒子里还有东西？"
+  "fortuneTipNegativeContent15": "为什么盒子里还有东西？",
+  "ticketStatusUpdatedTitle": "工单状态已更新",
+  "ticketStatusUpdatedBody": "工单 \"{ticketTitle}\" 状态已从 {oldStatus} 变更为 {newStatus}，由 {updaterName} 操作",
+  "ticketAssignedTitle": "工单已分配",
+  "ticketAssignedBody": "工单 \"{ticketTitle}\" 已分配给 {assigneeName}，由 {assignerName} 操作",
+  "ticketNewMessageTitle": "新工单回复",
+  "ticketNewMessageBody": "{senderName} 回复了工单 \"{ticketTitle}\"",
+  "ticketCreatedTitle": "新工单已创建",
+  "ticketCreatedBody": "{creatorName} 创建了新工单 \"{ticketTitle}\""
 }
