@@ -7,7 +7,7 @@ The Ticket system allows users to create and manage support tickets with message
 ## Base URL
 
 ```
-/api/tickets
+/pass/tickets
 ```
 
 ## Enums

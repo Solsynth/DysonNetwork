@@ -10,7 +10,8 @@ namespace DysonNetwork.Pass.Ticket;
 [ApiController]
 [Route("/api/tickets")]
 public class TicketController(
-    TicketService ticketService
+    TicketService ticketService,
+    PermissionService permissionService
 ) : ControllerBase
 {
     public class CreateTicketRequest
@@ -60,6 +61,15 @@ public class TicketController(
         [Required] public TicketStatus Status { get; set; }
     }
 
+    private async Task<(bool IsAdmin, SnAccount? User)> GetCurrentUserAsync()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return (false, null);
+
+        var isAdmin = await permissionService.HasPermissionAsync(currentUser.Id.ToString(), "tickets.admin");
+        return (isAdmin, currentUser);
+    }
+
     [HttpPost("")]
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
@@ -90,6 +100,7 @@ public class TicketController(
     [HttpGet]
     [Authorize]
     [ProducesResponseType<List<SnTicket>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<List<SnTicket>>> GetTickets(
         [FromQuery] Guid? creatorId = null,
         [FromQuery] Guid? assigneeId = null,
@@ -100,6 +111,9 @@ public class TicketController(
         [FromQuery] int take = 20
     )
     {
+        var (isAdmin, _) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view all tickets");
+
         var tickets = await ticketService.GetTicketsAsync(
             creatorId,
             assigneeId,
@@ -138,18 +152,29 @@ public class TicketController(
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicket>> GetTicketById(Guid id)
     {
         var ticket = await ticketService.GetTicketByIdAsync(id);
-        return ticket == null ? NotFound() : Ok(ticket);
+        if (ticket == null) return NotFound();
+
+        var (isAdmin, currentUser) = await GetCurrentUserAsync();
+        if (!isAdmin && ticket.CreatorId != currentUser?.Id && ticket.AssigneeId != currentUser?.Id)
+            return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view this ticket");
+
+        return Ok(ticket);
     }
 
     [HttpPut("{id}")]
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicket>> UpdateTicket(Guid id, [FromBody] UpdateTicketRequest request)
     {
+        var (isAdmin, _) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to update tickets");
+
         try
         {
             var ticket = await ticketService.UpdateAsync(
@@ -175,8 +200,12 @@ public class TicketController(
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> DeleteTicket(Guid id)
     {
+        var (isAdmin, _) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to delete tickets");
+
         try
         {
             await ticketService.DeleteTicketAsync(id);
@@ -196,13 +225,15 @@ public class TicketController(
     [Authorize]
     [ProducesResponseType<SnTicketMessage>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicketMessage>> AddMessage(Guid id, [FromBody] AddMessageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var (isAdmin, currentUser) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to reply to tickets");
 
         try
         {
-            var message = await ticketService.AddMessageAsync(id, currentUser.Id, request.Content, request.FileIds);
+            var message = await ticketService.AddMessageAsync(id, currentUser!.Id, request.Content, request.FileIds);
             return Ok(message);
         }
         catch (KeyNotFoundException)
@@ -219,8 +250,12 @@ public class TicketController(
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicket>> UpdateStatus(Guid id, [FromBody] UpdateStatusRequest request)
     {
+        var (isAdmin, _) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to update ticket status");
+
         try
         {
             var ticket = await ticketService.UpdateStatusAsync(id, request.Status);
@@ -240,8 +275,12 @@ public class TicketController(
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<SnTicket>> Assign(Guid id, [FromBody] AssignRequest request)
     {
+        var (isAdmin, _) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to assign tickets");
+
         try
         {
             var ticket = await ticketService.AssignAsync(id, request.AssigneeId);
@@ -260,12 +299,16 @@ public class TicketController(
     [HttpGet("count")]
     [Authorize]
     [ProducesResponseType<object>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<object>> GetTicketsCount(
         [FromQuery] Guid? creatorId = null,
         [FromQuery] Guid? assigneeId = null,
         [FromQuery] TicketStatus? status = null
     )
     {
+        var (isAdmin, _) = await GetCurrentUserAsync();
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view ticket count");
+
         var count = await ticketService.CountTicketsAsync(creatorId, assigneeId, status);
         return Ok(new { count });
     }
