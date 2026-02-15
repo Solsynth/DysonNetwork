@@ -45,6 +45,8 @@ public class TicketService(
                 {
                     Content = content,
                     Files = fileDataParsed,
+                    SenderId = creatorId,
+                    Sender = creator,
                 }
             ]
         };
