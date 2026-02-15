@@ -565,12 +565,13 @@ public class PaymentService(
         var amounts = new List<decimal>();
 
         // Generate random amounts that sum to total
-        decimal remaining = totalAmount;
-        for (int i = 0; i < recipientCount - 1; i++)
+        var remaining = totalAmount;
+        for (var i = 0; i < recipientCount - 1; i++)
         {
-            // Ensure each recipient gets at least 0.01 and leave enough for remaining recipients
-            var maxAmount = remaining - (recipientCount - i - 1) * 0.01m;
-            var minAmount = 0.01m;
+            // Ensure each recipient gets at least 50% of the split evenly amount
+            var evenSplit = remaining / recipientCount;
+            var minAmount = evenSplit * 0.5m;
+            var maxAmount = remaining - (recipientCount - i - 1) * minAmount;
             var amount = Math.Round((decimal)random.NextDouble() * (maxAmount - minAmount) + minAmount, 2);
             amounts.Add(amount);
             remaining -= amount;
@@ -637,35 +638,37 @@ public class PaymentService(
 
             var recipient = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
 
-            // Handle open mode fund - create recipient if not exists
-            if (recipient is null && fund.IsOpen)
+            switch (recipient)
             {
-                // Check if recipient has already claimed from this fund
-                var existingClaim = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
-                if (existingClaim != null)
-                    throw new InvalidOperationException("You have already claimed from this fund");
-
-                // Calculate amount for new recipient
-                var amount = CalculateDynamicAmount(fund);
-                if (amount <= 0)
-                    throw new InvalidOperationException("No funds remaining to claim");
-
-                // Create new recipient
-                recipient = new SnWalletFundRecipient
+                // Handle open mode fund - create recipient if not exists
+                case null when fund.IsOpen:
                 {
-                    RecipientAccountId = recipientAccountId,
-                    Amount = amount,
-                    IsReceived = false,
-                    FundId = fund.Id,
-                };
-                db.WalletFundRecipients.Add(recipient);
-                await db.SaveChangesAsync();
+                    // Check if recipient has already claimed from this fund
+                    var existingClaim = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == recipientAccountId);
+                    if (existingClaim != null)
+                        throw new InvalidOperationException("You have already claimed from this fund");
 
-                fund.RemainingAmount -= amount;
-            }
-            else if (recipient is null)
-            {
-                throw new InvalidOperationException("You are not a recipient of this fund");
+                    // Calculate amount for new recipient
+                    var amount = CalculateDynamicAmount(fund);
+                    if (amount <= 0)
+                        throw new InvalidOperationException("No funds remaining to claim");
+
+                    // Create new recipient
+                    recipient = new SnWalletFundRecipient
+                    {
+                        RecipientAccountId = recipientAccountId,
+                        Amount = amount,
+                        IsReceived = false,
+                        FundId = fund.Id,
+                    };
+                    db.WalletFundRecipients.Add(recipient);
+                    await db.SaveChangesAsync();
+
+                    fund.RemainingAmount -= amount;
+                    break;
+                }
+                case null:
+                    throw new InvalidOperationException("You are not a recipient of this fund");
             }
 
             // For closed mode funds, calculate amount dynamically if not already set

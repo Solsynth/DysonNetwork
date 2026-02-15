@@ -344,8 +344,7 @@ public class WalletController(
         var currentUserId = Guid.Parse(currentUser.Id);
         var query = db.WalletFunds
             .Include(f => f.Recipients)
-            .Where(f => f.CreatorAccountId == currentUserId ||
-                        f.Recipients.Any(r => r.RecipientAccountId == currentUserId))
+            .Where(f => f.CreatorAccountId == currentUserId)
             .AsQueryable();
 
         if (status.HasValue)
