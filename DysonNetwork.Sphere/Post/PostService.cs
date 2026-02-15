@@ -166,7 +166,7 @@ public partial class PostService(
             post = await scopedPost.LoadPostInfo(post);
 
             // Serialize the post to JSON
-            var postData = JsonSerializer.Serialize(post, InfraObjectCoder.SerializerOptions);
+            var postData = JsonSerializer.Serialize(post, InfraObjectCoder.SerializerOptionsWithoutIgnore);
             var postBytes = System.Text.Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
@@ -218,7 +218,7 @@ public partial class PostService(
                 return;
 
             // Serialize the reaction to JSON
-            var reactionData = JsonSerializer.Serialize(reaction, InfraObjectCoder.SerializerOptions);
+            var reactionData = JsonSerializer.Serialize(reaction, InfraObjectCoder.SerializerOptionsWithoutIgnore);
             var reactionBytes = System.Text.Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
