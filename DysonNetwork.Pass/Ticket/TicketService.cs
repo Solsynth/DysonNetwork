@@ -16,40 +16,40 @@ public class TicketService(
 {
     public async Task<SnTicket> CreateTicketAsync(
         string title,
-        string? description,
+        string content,
         TicketType type,
         TicketPriority priority,
         Guid creatorId,
         List<string>? fileIds = null
     )
     {
-        var creator = await accounts.GetAccount(creatorId) 
-            ?? throw new InvalidOperationException("Creator not found");
+        var creator = await accounts.GetAccount(creatorId)
+                      ?? throw new InvalidOperationException("Creator not found");
+
+        var fileRequestDataRequest = new GetFileBatchRequest();
+        fileRequestDataRequest.Ids.AddRange(fileIds ?? []);
+        var fileData = await files.GetFileBatchAsync(fileRequestDataRequest);
+        var fileDataParsed = fileData.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
 
         var ticket = new SnTicket
         {
             Title = title,
-            Description = description,
             Type = type,
             Priority = priority,
             CreatorId = creatorId,
             Creator = creator,
-            Status = TicketStatus.Open
+            Status = TicketStatus.Open,
+            Messages =
+            [
+                new SnTicketMessage
+                {
+                    Content = content,
+                    Files = fileDataParsed,
+                }
+            ]
         };
 
         db.Tickets.Add(ticket);
-
-        if (fileIds != null && fileIds.Count > 0)
-        {
-            foreach (var fileId in fileIds)
-            {
-                ticket.Files.Add(new SnTicketFile
-                {
-                    TicketId = ticket.Id,
-                    FileId = fileId
-                });
-            }
-        }
 
         await db.SaveChangesAsync();
 
@@ -65,8 +65,7 @@ public class TicketService(
             .Include(t => t.Creator)
             .Include(t => t.Assignee)
             .Include(t => t.Messages)
-                .ThenInclude(m => m.Sender)
-            .Include(t => t.Files)
+            .ThenInclude(m => m.Sender)
             .FirstOrDefaultAsync();
     }
 
@@ -83,7 +82,6 @@ public class TicketService(
         var query = db.Tickets
             .Include(t => t.Creator)
             .Include(t => t.Assignee)
-            .Include(t => t.Files)
             .AsQueryable();
 
         if (creatorId.HasValue)
@@ -109,20 +107,31 @@ public class TicketService(
             .ToListAsync();
     }
 
-    public async Task<SnTicketMessage> AddMessageAsync(Guid ticketId, Guid senderId, string content)
+    public async Task<SnTicketMessage> AddMessageAsync(
+        Guid ticketId,
+        Guid senderId,
+        string content,
+        List<string>? fileIds
+    )
     {
-        var ticket = await db.Tickets.FindAsync(ticketId)
+        _ = await db.Tickets.FindAsync(ticketId)
             ?? throw new KeyNotFoundException("Ticket not found");
 
         var sender = await accounts.GetAccount(senderId)
-            ?? throw new InvalidOperationException("Sender not found");
+                     ?? throw new InvalidOperationException("Sender not found");
+
+        var fileRequestDataRequest = new GetFileBatchRequest();
+        fileRequestDataRequest.Ids.AddRange(fileIds ?? []);
+        var fileData = await files.GetFileBatchAsync(fileRequestDataRequest);
+        var fileDataParsed = fileData.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
 
         var message = new SnTicketMessage
         {
             TicketId = ticketId,
             SenderId = senderId,
             Sender = sender,
-            Content = content
+            Content = content,
+            Files = fileDataParsed,
         };
 
         db.TicketMessages.Add(message);
@@ -133,33 +142,10 @@ public class TicketService(
         return message;
     }
 
-    public async Task<SnTicketFile> AddFileAsync(Guid ticketId, string fileId)
-    {
-        var ticket = await db.Tickets.FindAsync(ticketId)
-            ?? throw new KeyNotFoundException("Ticket not found");
-
-        var file = await files.GetFileAsync(new Shared.Proto.GetFileRequest { Id = fileId });
-        if (file == null)
-            throw new InvalidOperationException("File not found in Drive service");
-
-        var ticketFile = new SnTicketFile
-        {
-            TicketId = ticketId,
-            FileId = fileId
-        };
-
-        db.TicketFiles.Add(ticketFile);
-        await db.SaveChangesAsync();
-
-        logger.LogInformation("File {FileId} added to ticket {TicketId}", fileId, ticketId);
-
-        return ticketFile;
-    }
-
     public async Task<SnTicket> UpdateStatusAsync(Guid ticketId, TicketStatus newStatus)
     {
         var ticket = await db.Tickets.FindAsync(ticketId)
-            ?? throw new KeyNotFoundException("Ticket not found");
+                     ?? throw new KeyNotFoundException("Ticket not found");
 
         ticket.Status = newStatus;
 
@@ -178,12 +164,12 @@ public class TicketService(
     public async Task<SnTicket> AssignAsync(Guid ticketId, Guid? assigneeId)
     {
         var ticket = await db.Tickets.FindAsync(ticketId)
-            ?? throw new KeyNotFoundException("Ticket not found");
+                     ?? throw new KeyNotFoundException("Ticket not found");
 
         if (assigneeId.HasValue)
         {
             var assignee = await accounts.GetAccount(assigneeId.Value)
-                ?? throw new InvalidOperationException("Assignee not found");
+                           ?? throw new InvalidOperationException("Assignee not found");
             ticket.Assignee = assignee;
         }
 
@@ -199,16 +185,14 @@ public class TicketService(
     public async Task<SnTicket> UpdateAsync(
         Guid ticketId,
         string? title = null,
-        string? description = null,
         TicketType? type = null,
         TicketPriority? priority = null
     )
     {
         var ticket = await db.Tickets.FindAsync(ticketId)
-            ?? throw new KeyNotFoundException("Ticket not found");
+                     ?? throw new KeyNotFoundException("Ticket not found");
 
         if (title != null) ticket.Title = title;
-        if (description != null) ticket.Description = description;
         if (type.HasValue) ticket.Type = type.Value;
         if (priority.HasValue) ticket.Priority = priority.Value;
 
@@ -222,7 +206,7 @@ public class TicketService(
     public async Task DeleteTicketAsync(Guid ticketId)
     {
         var ticket = await db.Tickets.FindAsync(ticketId)
-            ?? throw new KeyNotFoundException("Ticket not found");
+                     ?? throw new KeyNotFoundException("Ticket not found");
 
         db.Tickets.Remove(ticket);
         await db.SaveChangesAsync();

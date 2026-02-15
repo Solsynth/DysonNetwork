@@ -20,8 +20,8 @@ public class TicketController(
         [MaxLength(256)]
         public string Title { get; set; } = null!;
 
-        [MaxLength(8192)]
-        public string? Description { get; set; }
+        [MaxLength(16384)]
+        public string? Content { get; set; }
 
         [Required] public TicketType Type { get; set; }
 
@@ -36,9 +36,6 @@ public class TicketController(
         [MaxLength(256)]
         public string? Title { get; set; }
 
-        [MaxLength(8192)]
-        public string? Description { get; set; }
-
         public TicketType? Type { get; set; }
 
         public TicketPriority? Priority { get; set; }
@@ -47,16 +44,10 @@ public class TicketController(
     public class AddMessageRequest
     {
         [Required]
-        [MinLength(1)]
         [MaxLength(16384)]
         public string Content { get; set; } = null!;
-    }
-
-    public class AddFileRequest
-    {
-        [Required]
-        [MaxLength(32)]
-        public string FileId { get; set; } = null!;
+        
+        public List<string>? FileIds { get; set; }
     }
 
     public class AssignRequest
@@ -81,7 +72,7 @@ public class TicketController(
         {
             var ticket = await ticketService.CreateTicketAsync(
                 request.Title,
-                request.Description,
+                request.Content,
                 request.Type,
                 request.Priority,
                 currentUser.Id,
@@ -96,7 +87,7 @@ public class TicketController(
         }
     }
 
-    [HttpGet("")]
+    [HttpGet]
     [Authorize]
     [ProducesResponseType<List<SnTicket>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SnTicket>>> GetTickets(
@@ -164,7 +155,6 @@ public class TicketController(
             var ticket = await ticketService.UpdateAsync(
                 id,
                 request.Title,
-                request.Description,
                 request.Type,
                 request.Priority
             );
@@ -202,7 +192,7 @@ public class TicketController(
         }
     }
 
-    [HttpPost("{id}/messages")]
+    [HttpPost("{id:guid}/messages")]
     [Authorize]
     [ProducesResponseType<SnTicketMessage>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -212,7 +202,7 @@ public class TicketController(
 
         try
         {
-            var message = await ticketService.AddMessageAsync(id, currentUser.Id, request.Content);
+            var message = await ticketService.AddMessageAsync(id, currentUser.Id, request.Content, request.FileIds);
             return Ok(message);
         }
         catch (KeyNotFoundException)
@@ -225,28 +215,7 @@ public class TicketController(
         }
     }
 
-    [HttpPost("{id}/files")]
-    [Authorize]
-    [ProducesResponseType<SnTicketFile>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<SnTicketFile>> AddFile(Guid id, [FromBody] AddFileRequest request)
-    {
-        try
-        {
-            var ticketFile = await ticketService.AddFileAsync(id, request.FileId);
-            return Ok(ticketFile);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpPost("{id}/status")]
+    [HttpPost("{id:guid}/status")]
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -267,7 +236,7 @@ public class TicketController(
         }
     }
 
-    [HttpPost("{id}/assign")]
+    [HttpPost("{id:guid}/assign")]
     [Authorize]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

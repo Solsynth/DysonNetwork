@@ -68,7 +68,6 @@ public class AppDatabase(
 
     public DbSet<SnTicket> Tickets { get; set; } = null!;
     public DbSet<SnTicketMessage> TicketMessages { get; set; } = null!;
-    public DbSet<SnTicketFile> TicketFiles { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
