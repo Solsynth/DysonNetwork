@@ -135,15 +135,15 @@ public class AccountService(
                 }
             ],
             AuthFactors = password is not null
-                ? new List<SnAccountAuthFactor>
-                {
+                ?
+                [
                     new SnAccountAuthFactor
                     {
                         Type = Shared.Models.AccountAuthFactorType.Password,
                         Secret = password,
                         EnabledAt = SystemClock.Instance.GetCurrentInstant()
                     }.HashSecret()
-                }
+                ]
                 : [],
             Profile = new SnAccountProfile()
         };
@@ -204,8 +204,12 @@ public class AccountService(
         );
     }
 
-    public async Task<SnAccount> CreateBotAccount(SnAccount account, Guid automatedId, string? pictureId,
-        string? backgroundId)
+    public async Task<SnAccount> CreateBotAccount(
+        SnAccount account,
+        Guid automatedId,
+        string? pictureId,
+        string? backgroundId
+    )
     {
         var dupeAutomateCount = await db.Accounts.Where(a => a.AutomatedId == automatedId).CountAsync();
         if (dupeAutomateCount > 0)
@@ -229,6 +233,16 @@ public class AccountService(
         {
             var file = await files.GetFileAsync(new GetFileRequest { Id = backgroundId });
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+
+        var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
+        if (defaultGroup is not null)
+        {
+            db.PermissionGroupMembers.Add(new SnPermissionGroupMember
+            {
+                Actor = account.Id.ToString(),
+                Group = defaultGroup
+            });
         }
 
         db.Accounts.Add(account);
@@ -540,7 +554,7 @@ public class AccountService(
         {
             if (!await IsDeviceActive(session.ClientId.Value))
                 await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
-                { DeviceId = session.Client!.DeviceId }
+                    { DeviceId = session.Client!.DeviceId }
                 );
         }
 
@@ -729,7 +743,7 @@ public class AccountService(
     public async Task DeleteAccount(SnAccount account)
     {
         logger.LogWarning("Deleting account {AccountId}", account.Id);
-        var now =  SystemClock.Instance.GetCurrentInstant();
+        var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Where(s => s.AccountId == account.Id)
             .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, now));
