@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
@@ -29,7 +30,7 @@ public class SnTicketMessage : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TicketId { get; set; }
-    public SnTicket Ticket { get; set; } = null!;
+    [JsonIgnore] public SnTicket Ticket { get; set; } = null!;
     public Guid SenderId { get; set; }
     public SnAccount Sender { get; set; } = null!;
     [MaxLength(16384)] public string Content { get; set; } = null!;
