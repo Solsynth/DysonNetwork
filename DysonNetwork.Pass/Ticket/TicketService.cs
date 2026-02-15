@@ -65,9 +65,12 @@ public class TicketService(
         return await db.Tickets
             .Where(t => t.Id == id)
             .Include(t => t.Creator)
+            .ThenInclude(a => a.Profile)
             .Include(t => t.Assignee)
+            .ThenInclude(a => a.Profile)
             .Include(t => t.Messages)
             .ThenInclude(m => m.Sender)
+            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync();
     }
 
@@ -83,7 +86,9 @@ public class TicketService(
     {
         var query = db.Tickets
             .Include(t => t.Creator)
+            .ThenInclude(a => a.Profile)
             .Include(t => t.Assignee)
+            .ThenInclude(a => a.Profile)
             .AsQueryable();
 
         if (creatorId.HasValue)

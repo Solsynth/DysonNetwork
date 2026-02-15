@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Account;
 using DysonNetwork.Pass.Permission;
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
