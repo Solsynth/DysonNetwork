@@ -70,7 +70,7 @@ public class TicketController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return (false, null);
-
+        if (currentUser.IsSuperuser) return (true, currentUser);
         var isAdmin = await permissionService.HasPermissionAsync(currentUser.Id.ToString(), "tickets.admin");
         return (isAdmin, currentUser);
     }
