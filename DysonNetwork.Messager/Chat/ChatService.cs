@@ -87,23 +87,13 @@ public partial class ChatService(
 
                     using var syncScope = scopeFactory.CreateScope();
 
-        await DeliverMessageAsync(
-            syncMessage,
-            syncMessage.Sender,
-            syncMessage.ChatRoom,
-            notify: false
-        );
-
-        message.Sender = sender;
-        message.ChatRoom = room;
-        await DeliverMessageAsync(
-            message,
-            sender,
-            room,
-            type: WebSocketPacketType.MessageUpdate,
-            notify: false
-        );
-    }
+                    await DeliverMessageAsync(
+                        syncMessage,
+                        syncMessage.Sender,
+                        syncMessage.ChatRoom,
+                        notify: false
+                    );
+                }
             }
         }
         catch (Exception ex)
