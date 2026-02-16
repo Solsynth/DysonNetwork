@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Proto;
+using Livekit.Server.Sdk.Dotnet;
 
 namespace DysonNetwork.Messager.Chat.Realtime;
 
@@ -35,15 +36,26 @@ public interface IRealtimeService
     /// <param name="isAdmin">The user is the admin of session</param>
     /// <returns>User-specific token for the session</returns>
     string GetUserToken(Account account, string sessionId, bool isAdmin = false);
-    
+
     /// <summary>
-    /// Processes incoming webhook requests from the realtime service provider
+    /// Kicks a participant from the session
     /// </summary>
-    /// <param name="body">The webhook request body content</param>
-    /// <param name="authHeader">The authentication header value</param>
-    /// <returns>Task representing the asynchronous operation</returns>
-    Task ReceiveWebhook(string body, string authHeader);
-    
+    Task KickParticipantAsync(string sessionId, string identity);
+
+    /// <summary>
+    /// Mutes or unmutes a participant's track
+    /// </summary>
+    Task MuteParticipantAsync(string sessionId, string identity, string trackSid, bool muted);
+
+    /// <summary>
+    /// Gets a participant's info from the session
+    /// </summary>
+    Task<ParticipantInfo?> GetParticipantAsync(string sessionId, string identity);
+
+    /// <summary>
+    /// Syncs all participants from the provider to cache and returns them
+    /// </summary>
+    Task<List<ParticipantCacheItem>> SyncParticipantsAsync(string sessionId);
 }
 
 /// <summary>
@@ -60,4 +72,15 @@ public class RealtimeSessionConfig
     /// Additional provider-specific configuration parameters
     /// </summary>
     public Dictionary<string, object> Parameters { get; set; } = new();
+}
+
+public class ParticipantCacheItem
+{
+    public string Identity { get; set; } = null!;
+    public string Name { get; set; } = null!;
+    public Guid? AccountId { get; set; }
+    public ParticipantInfo.Types.State State { get; set; }
+    public Dictionary<string, string> Metadata { get; set; } = new();
+    public DateTime JoinedAt { get; set; }
+    public string? TrackSid { get; set; }
 }

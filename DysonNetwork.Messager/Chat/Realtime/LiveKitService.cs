@@ -1,15 +1,10 @@
 using Livekit.Server.Sdk.Dotnet;
-using Microsoft.EntityFrameworkCore;
-using NodaTime;
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Messager.Chat.Realtime;
 
-/// <summary>
-/// LiveKit implementation of the real-time communication service
-/// </summary>
 public class LiveKitRealtimeService : IRealtimeService
 {
     private readonly AppDatabase _db;
@@ -18,7 +13,6 @@ public class LiveKitRealtimeService : IRealtimeService
     private readonly ILogger<LiveKitRealtimeService> _logger;
     private readonly RoomServiceClient _roomService;
     private readonly AccessToken _accessToken;
-    private readonly WebhookReceiver _webhookReceiver;
 
     public LiveKitRealtimeService(
         IConfiguration configuration,
@@ -29,7 +23,6 @@ public class LiveKitRealtimeService : IRealtimeService
     {
         _logger = logger;
 
-        // Get LiveKit configuration from appsettings
         var host = configuration["RealtimeChat:Endpoint"] ??
                    throw new ArgumentNullException("Endpoint configuration is required");
         var apiKey = configuration["RealtimeChat:ApiKey"] ??
@@ -39,38 +32,32 @@ public class LiveKitRealtimeService : IRealtimeService
 
         _roomService = new RoomServiceClient(host, apiKey, apiSecret);
         _accessToken = new AccessToken(apiKey, apiSecret);
-        _webhookReceiver = new WebhookReceiver(apiKey, apiSecret);
 
         _db = db;
         _cache = cache;
     }
 
-    /// <inheritdoc />
     public string ProviderName => "LiveKit";
 
-    /// <inheritdoc />
     public async Task<RealtimeSessionConfig> CreateSessionAsync(Guid roomId, Dictionary<string, object> metadata)
     {
         try
         {
             var roomName = $"Call_{roomId.ToString().Replace("-", "")}";
 
-            // Convert metadata to a string dictionary for LiveKit
             var roomMetadata = new Dictionary<string, string>();
             foreach (var item in metadata)
             {
                 roomMetadata[item.Key] = item.Value?.ToString() ?? string.Empty;
             }
 
-            // Create room in LiveKit
             var room = await _roomService.CreateRoom(new CreateRoomRequest
             {
                 Name = roomName,
-                EmptyTimeout = 300, // 5 minutes
+                EmptyTimeout = 300,
                 Metadata = JsonSerializer.Serialize(roomMetadata)
             });
 
-            // Return session config
             return new RealtimeSessionConfig
             {
                 SessionId = room.Name,
@@ -89,12 +76,10 @@ public class LiveKitRealtimeService : IRealtimeService
         }
     }
 
-    /// <inheritdoc />
     public async Task EndSessionAsync(string sessionId, RealtimeSessionConfig config)
     {
         try
         {
-            // Delete the room in LiveKit
             await _roomService.DeleteRoom(new DeleteRoomRequest
             {
                 Room = sessionId
@@ -107,7 +92,6 @@ public class LiveKitRealtimeService : IRealtimeService
         }
     }
 
-    /// <inheritdoc />
     public string GetUserToken(Account account, string sessionId, bool isAdmin = false)
     {
         var token = _accessToken.WithIdentity(account.Name)
@@ -128,174 +112,133 @@ public class LiveKitRealtimeService : IRealtimeService
         return token.ToJwt();
     }
 
-    public async Task ReceiveWebhook(string body, string authHeader)
+    public async Task KickParticipantAsync(string sessionId, string identity)
     {
-        var evt = _webhookReceiver.Receive(body, authHeader);
-        if (evt is null) return;
-
-        switch (evt.Event)
+        try
         {
-            case "room_finished":
-                var now = SystemClock.Instance.GetCurrentInstant();
-                await _db.ChatRealtimeCall
-                    .Where(c => c.SessionId == evt.Room.Name)
-                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.EndedAt, now)
-                    );
+            await _roomService.RemoveParticipant(new RoomParticipantIdentity
+            {
+                Room = sessionId,
+                Identity = identity
+            });
+            _logger.LogInformation("Kicked participant {Identity} from room {SessionId}", identity, sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to kick participant {Identity} from room {SessionId}", identity, sessionId);
+            throw;
+        }
+    }
 
-                // Also clean up participants list when the room is finished
-                await _cache.RemoveAsync(_GetParticipantsKey(evt.Room.Name));
-                break;
+    public async Task MuteParticipantAsync(string sessionId, string identity, string trackSid, bool muted)
+    {
+        try
+        {
+            await _roomService.MutePublishedTrack(new MuteRoomTrackRequest
+            {
+                Room = sessionId,
+                Identity = identity,
+                TrackSid = trackSid,
+                Muted = muted
+            });
+            _logger.LogInformation("Mute state changed for participant {Identity}: {Muted}, track {TrackSid}", identity, muted, trackSid);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to mute participant {Identity} in room {SessionId}", identity, sessionId);
+            throw;
+        }
+    }
 
-            case "participant_joined":
-                if (evt.Participant != null)
-                {
-                    // Add the participant to cache
-                    await _AddParticipantToCache(evt.Room.Name, evt.Participant);
-                    _logger.LogInformation(
-                        "Participant joined room: {RoomName}, Participant: {ParticipantIdentity}",
-                        evt.Room.Name, evt.Participant.Identity);
+    public async Task<ParticipantInfo?> GetParticipantAsync(string sessionId, string identity)
+    {
+        try
+        {
+            var response = await _roomService.GetParticipant(new RoomParticipantIdentity
+            {
+                Room = sessionId,
+                Identity = identity
+            });
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get participant {Identity} from room {SessionId}", identity, sessionId);
+            return null;
+        }
+    }
 
-                    // Broadcast participant list update to all participants
-                    // await _BroadcastParticipantUpdate(evt.Room.Name);
-                }
+    public async Task<List<ParticipantCacheItem>> SyncParticipantsAsync(string sessionId)
+    {
+        try
+        {
+            var response = await _roomService.ListParticipants(new ListParticipantsRequest
+            {
+                Room = sessionId
+            });
 
-                break;
+            var participants = new List<ParticipantCacheItem>();
+            foreach (var p in response.Participants)
+            {
+                participants.Add(CreateParticipantCacheItem(p));
+            }
 
-            case "participant_left":
-                if (evt.Participant != null)
-                {
-                    // Remove the participant from cache
-                    await _RemoveParticipantFromCache(evt.Room.Name, evt.Participant);
-                    _logger.LogInformation(
-                        "Participant left room: {RoomName}, Participant: {ParticipantIdentity}",
-                        evt.Room.Name, evt.Participant.Identity);
+            var participantsKey = _GetParticipantsKey(sessionId);
+            await using var lockObj = await _cache.AcquireLockAsync(
+                $"{participantsKey}_lock",
+                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(5));
 
-                    // Broadcast participant list update to all participants
-                    // await _BroadcastParticipantUpdate(evt.Room.Name);
-                }
+            if (lockObj == null)
+            {
+                _logger.LogWarning("Failed to acquire lock for syncing participants in room: {SessionId}", sessionId);
+                return participants;
+            }
 
-                break;
+            await _cache.SetAsync(participantsKey, participants, TimeSpan.FromHours(6));
+            _logger.LogInformation("Synced {Count} participants for room {SessionId}", participants.Count, sessionId);
+
+            return participants;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sync participants for room {SessionId}", sessionId);
+            throw;
         }
     }
 
     private static string _GetParticipantsKey(string roomName)
         => $"RoomParticipants_{roomName}";
 
-    private async Task _AddParticipantToCache(string roomName, ParticipantInfo participant)
-    {
-        var participantsKey = _GetParticipantsKey(roomName);
-
-        // Try to acquire a lock to prevent race conditions when updating the participants list
-        await using var lockObj = await _cache.AcquireLockAsync(
-            $"{participantsKey}_lock",
-            TimeSpan.FromSeconds(10),
-            TimeSpan.FromSeconds(5));
-
-        if (lockObj == null)
-        {
-            _logger.LogWarning("Failed to acquire lock for updating participants list in room: {RoomName}", roomName);
-            return;
-        }
-
-        // Get the current participants list
-        var participants = await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ??
-                           [];
-
-        // Check if the participant already exists
-        var existingIndex = participants.FindIndex(p => p.Identity == participant.Identity);
-        if (existingIndex >= 0)
-        {
-            // Update existing participant
-            participants[existingIndex] = CreateParticipantCacheItem(participant);
-        }
-        else
-        {
-            // Add new participant
-            participants.Add(CreateParticipantCacheItem(participant));
-        }
-
-        // Update cache with new list
-        await _cache.SetAsync(participantsKey, participants, TimeSpan.FromHours(6));
-
-        // Also add to a room group in cache for easy cleanup
-        await _cache.AddToGroupAsync(participantsKey, $"Room_{roomName}");
-    }
-
-    private async Task _RemoveParticipantFromCache(string roomName, ParticipantInfo participant)
-    {
-        var participantsKey = _GetParticipantsKey(roomName);
-
-        // Try to acquire a lock to prevent race conditions when updating the participants list
-        await using var lockObj = await _cache.AcquireLockAsync(
-            $"{participantsKey}_lock",
-            TimeSpan.FromSeconds(10),
-            TimeSpan.FromSeconds(5));
-
-        if (lockObj == null)
-        {
-            _logger.LogWarning("Failed to acquire lock for updating participants list in room: {RoomName}", roomName);
-            return;
-        }
-
-        // Get current participants list
-        var participants = await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey);
-        if (participants == null || !participants.Any())
-            return;
-
-        // Remove participant
-        participants.RemoveAll(p => p.Identity == participant.Identity);
-
-        // Update cache with new list
-        await _cache.SetAsync(participantsKey, participants, TimeSpan.FromHours(6));
-    }
-
-    // Helper method to get participants in a room
     public async Task<List<ParticipantCacheItem>> GetRoomParticipantsAsync(string roomName)
     {
         var participantsKey = _GetParticipantsKey(roomName);
         return await _cache.GetAsync<List<ParticipantCacheItem>>(participantsKey) ?? [];
     }
 
-    // Class to represent a participant in the cache
-    public class ParticipantCacheItem
-    {
-        public string Identity { get; set; } = null!;
-        public string Name { get; set; } = null!;
-        public Guid? AccountId { get; set; }
-        public ParticipantInfo.Types.State State { get; set; }
-        public Dictionary<string, string> Metadata { get; set; } = new();
-        public DateTime JoinedAt { get; set; }
-    }
-
     private ParticipantCacheItem CreateParticipantCacheItem(ParticipantInfo participant)
     {
-        // Try to parse account ID from metadata
         Guid? accountId = null;
         var metadata = new Dictionary<string, string>();
 
-        if (string.IsNullOrEmpty(participant.Metadata))
-            return new ParticipantCacheItem
+        if (!string.IsNullOrEmpty(participant.Metadata))
+        {
+            try
             {
-                Identity = participant.Identity,
-                Name = participant.Name,
-                AccountId = accountId,
-                State = participant.State,
-                Metadata = metadata,
-                JoinedAt = DateTime.UtcNow
-            };
-        try
-        {
-            metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(participant.Metadata) ??
-                       new Dictionary<string, string>();
+                metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(participant.Metadata) ??
+                           new Dictionary<string, string>();
 
-            if (metadata.TryGetValue("account_id", out var accountIdStr))
-                if (Guid.TryParse(accountIdStr, out var parsedId))
-                    accountId = parsedId;
+                if (metadata.TryGetValue("account_id", out var accountIdStr))
+                    if (Guid.TryParse(accountIdStr, out var parsedId))
+                        accountId = parsedId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to parse participant metadata");
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to parse participant metadata");
-        }
+
+        var trackSid = participant.Tracks.FirstOrDefault()?.Sid;
 
         return new ParticipantCacheItem
         {
@@ -304,7 +247,8 @@ public class LiveKitRealtimeService : IRealtimeService
             AccountId = accountId,
             State = participant.State,
             Metadata = metadata,
-            JoinedAt = DateTime.UtcNow
+            JoinedAt = DateTime.UtcNow,
+            TrackSid = trackSid
         };
     }
 }

@@ -27,22 +27,165 @@ public class RealtimeCallController(
     private readonly RealtimeChatConfiguration _config =
         configuration.GetSection("RealtimeChat").Get<RealtimeChatConfiguration>()!;
 
-    /// <summary>
-    /// This endpoint is especially designed for livekit webhooks,
-    /// for update the call participates and more.
-    /// Learn more at: https://docs.livekit.io/home/server/webhooks/
-    /// </summary>
-    [HttpPost("webhook")]
-    [SwaggerIgnore]
-    public async Task<IActionResult> WebhookReceiver()
+    [HttpGet("{roomId:guid}/participants")]
+    [Authorize]
+    public async Task<ActionResult<List<CallParticipant>>> GetParticipants(Guid roomId)
     {
-        using var reader = new StreamReader(Request.Body);
-        var postData = await reader.ReadToEndAsync();
-        var authHeader = Request.Headers.Authorization.ToString();
-        
-        await realtime.ReceiveWebhook(postData, authHeader);
-    
-        return Ok();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (member == null)
+            return StatusCode(403, "You need to be a member to view participants.");
+
+        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
+        if (ongoingCall is null || string.IsNullOrEmpty(ongoingCall.SessionId))
+            return NotFound("There is no ongoing call in this room.");
+
+        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
+        var participants = new List<CallParticipant>();
+
+        if (realtime is LiveKitRealtimeService livekitService)
+        {
+            var roomParticipants = await livekitService.SyncParticipantsAsync(ongoingCall.SessionId);
+            
+            foreach (var p in roomParticipants)
+            {
+                var participant = new CallParticipant
+                {
+                    Identity = p.Identity,
+                    Name = p.Name,
+                    AccountId = p.AccountId,
+                    JoinedAt = p.JoinedAt,
+                    TrackSid = p.TrackSid
+                };
+
+                if (p.AccountId.HasValue)
+                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
+
+                participants.Add(participant);
+            }
+        }
+
+        return Ok(participants);
+    }
+
+    [HttpPost("{roomId:guid}/kick/{targetAccountId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> KickParticipant(Guid roomId, Guid targetAccountId, [FromBody] KickParticipantRequest? request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (member == null)
+            return StatusCode(403, "You need to be a member.");
+
+        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
+        if (ongoingCall is null || string.IsNullOrEmpty(ongoingCall.SessionId))
+            return NotFound("There is no ongoing call in this room.");
+
+        var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
+        if (!isAdmin)
+            return StatusCode(403, "Only room admin can kick participants.");
+
+        var targetMember = await db.ChatMembers
+            .Where(m => m.AccountId == targetAccountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (targetMember == null)
+            return NotFound("Target member not found.");
+
+        if (targetMember.AccountId == ongoingCall.Room.AccountId)
+            return BadRequest("Cannot kick the room owner.");
+
+        if (realtime is LiveKitRealtimeService livekitService)
+        {
+            var participants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
+            var targetParticipant = participants.FirstOrDefault(p => p.AccountId == targetAccountId);
+
+            if (targetParticipant != null)
+            {
+                await livekitService.KickParticipantAsync(ongoingCall.SessionId, targetParticipant.Identity);
+            }
+        }
+
+        if (request?.BanDurationMinutes > 0)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            targetMember.TimeoutUntil = now.Plus(Duration.FromMinutes(request.BanDurationMinutes.Value));
+            targetMember.TimeoutCause = new ChatTimeoutCause
+            {
+                Type = ChatTimeoutCauseType.ByModerator,
+                Reason = request.Reason ?? "Kicked from call",
+                SenderId = accountId,
+                Since = now
+            };
+            await db.SaveChangesAsync();
+        }
+
+        return NoContent();
+    }
+
+    [HttpPost("{roomId:guid}/mute/{targetAccountId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> MuteParticipant(Guid roomId, Guid targetAccountId)
+    {
+        return await _ToggleMuteParticipant(roomId, targetAccountId, true);
+    }
+
+    [HttpPost("{roomId:guid}/unmute/{targetAccountId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> UnmuteParticipant(Guid roomId, Guid targetAccountId)
+    {
+        return await _ToggleMuteParticipant(roomId, targetAccountId, false);
+    }
+
+    private async Task<IActionResult> _ToggleMuteParticipant(Guid roomId, Guid targetAccountId, bool mute)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (member == null)
+            return StatusCode(403, "You need to be a member.");
+
+        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
+        if (ongoingCall is null || string.IsNullOrEmpty(ongoingCall.SessionId))
+            return NotFound("There is no ongoing call in this room.");
+
+        var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
+        if (!isAdmin)
+            return StatusCode(403, "Only room admin can mute participants.");
+
+        if (realtime is LiveKitRealtimeService livekitService)
+        {
+            var participants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
+            var targetParticipant = participants.FirstOrDefault(p => p.AccountId == targetAccountId);
+
+            if (targetParticipant == null)
+                return NotFound("Target participant not found in call.");
+
+            if (string.IsNullOrEmpty(targetParticipant.TrackSid))
+                return BadRequest("No track available to mute.");
+
+            await livekitService.MuteParticipantAsync(
+                ongoingCall.SessionId,
+                targetParticipant.Identity,
+                targetParticipant.TrackSid,
+                mute);
+        }
+
+        return NoContent();
     }
 
     [HttpGet("{roomId:guid}")]
@@ -111,7 +254,7 @@ public class RealtimeCallController(
         var participants = new List<CallParticipant>();
         if (realtime is LiveKitRealtimeService livekitService)
         {
-            var roomParticipants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
+            var roomParticipants = await livekitService.SyncParticipantsAsync(ongoingCall.SessionId);
             participants = [];
             
             foreach (var p in roomParticipants)
@@ -121,7 +264,8 @@ public class RealtimeCallController(
                     Identity = p.Identity,
                     Name = p.Name,
                     AccountId = p.AccountId,
-                    JoinedAt = p.JoinedAt
+                    JoinedAt = p.JoinedAt,
+                    TrackSid = p.TrackSid
                 };
             
                 // Fetch the ChatMember profile if we have an account ID
@@ -264,4 +408,15 @@ public class CallParticipant
     /// When the participant joined the call
     /// </summary>
     public DateTime JoinedAt { get; set; }
+
+    /// <summary>
+    /// The participant's track SID (for muting)
+    /// </summary>
+    public string? TrackSid { get; set; }
+}
+
+public class KickParticipantRequest
+{
+    public int? BanDurationMinutes { get; set; }
+    public string? Reason { get; set; }
 }
