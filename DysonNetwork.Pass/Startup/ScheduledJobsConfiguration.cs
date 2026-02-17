@@ -36,6 +36,14 @@ public static class ScheduledJobsConfiguration
                     .RepeatForever())
             );
 
+            q.AddJob<SocialCreditValidationJob>(opts => opts.WithIdentity("SocialCreditValidation"));
+            q.AddTrigger(opts => opts
+                .ForJob("SocialCreditValidation")
+                .WithIdentity("SocialCreditValidationTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(5)
+                    .RepeatForever()));
+
             // Presence update jobs for different user stages
             q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity("ActivePresenceUpdate"));
             q.AddTrigger(opts => opts
