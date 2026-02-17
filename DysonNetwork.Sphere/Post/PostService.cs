@@ -1,18 +1,18 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
-using DysonNetwork.Sphere.Publisher;
-using DysonNetwork.Sphere.ActivityPub;
-using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Shared.Localization;
-using NodaTime;
-using Markdig;
 using AngleSharp.Html.Parser;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.Publisher;
+using Markdig;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
 using PostContentType = DysonNetwork.Shared.Models.PostContentType;
 
 namespace DysonNetwork.Sphere.Post;
@@ -29,8 +29,7 @@ public partial class PostService(
     Publisher.PublisherService ps,
     RemoteWebReaderService reader,
     AccountService.AccountServiceClient accounts,
-    ActivityPubObjectFactory objFactory,
-    RemoteRingService ringService
+    ActivityPubObjectFactory objFactory
 )
 {
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
@@ -122,11 +121,14 @@ public partial class PostService(
     {
         var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
         var content = !string.IsNullOrEmpty(post.Description)
-            ? post.Description?.Length >= 40 ? post.Description[..37] + "..." : post.Description
+            ? post.Description?.Length >= 40
+                ? post.Description[..37] + "..."
+                : post.Description
             : post.Content?.Length >= 100
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
                 : post.Content;
-        var title = post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
+        var title =
+            post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
         title ??= localizer.Get("postOnlyMedia", locale: locale);
         if (string.IsNullOrWhiteSpace(content))
             content = localizer.Get("postOnlyMedia", locale: locale);
@@ -138,7 +140,7 @@ public partial class PostService(
         using var scope = serviceProvider.CreateScope();
         var scopedRing = scope.ServiceProvider.GetRequiredService<RemoteRingService>();
         var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
-        
+
         try
         {
             // Get all connected users
@@ -156,7 +158,10 @@ public partial class PostService(
             else
             {
                 // For non-public posts, we need to filter based on visibility
-                targetUserIds = await scopedPost.FilterUsersByPostVisibility(post, connectedUserIds);
+                targetUserIds = await scopedPost.FilterUsersByPostVisibility(
+                    post,
+                    connectedUserIds
+                );
             }
 
             if (targetUserIds.Count == 0)
@@ -166,19 +171,22 @@ public partial class PostService(
             post = await scopedPost.LoadPostInfo(post);
 
             // Serialize the post to JSON
-            var postData = JsonSerializer.Serialize(post, InfraObjectCoder.SerializerOptionsWithoutIgnore);
+            var postData = JsonSerializer.Serialize(
+                post,
+                InfraObjectCoder.SerializerOptionsWithoutIgnore
+            );
             var postBytes = System.Text.Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
-            await scopedRing.PushWebSocketPacketToUsers(
-                targetUserIds,
-                eventType,
-                postBytes
-            );
+            await scopedRing.PushWebSocketPacketToUsers(targetUserIds, eventType, postBytes);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error broadcasting post update for post {PostId}", post.Id.ToString());
+            logger.LogError(
+                ex,
+                "Error broadcasting post update for post {PostId}",
+                post.Id.ToString()
+            );
         }
     }
 
@@ -188,7 +196,7 @@ public partial class PostService(
         var scopedRing = scope.ServiceProvider.GetRequiredService<RemoteRingService>();
         var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        
+
         try
         {
             // Get all connected users
@@ -218,23 +226,29 @@ public partial class PostService(
                 return;
 
             // Serialize the reaction to JSON
-            var reactionData = JsonSerializer.Serialize(reaction, InfraObjectCoder.SerializerOptionsWithoutIgnore);
+            var reactionData = JsonSerializer.Serialize(
+                reaction,
+                InfraObjectCoder.SerializerOptionsWithoutIgnore
+            );
             var reactionBytes = System.Text.Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
-            await scopedRing.PushWebSocketPacketToUsers(
-                targetUserIds,
-                eventType,
-                reactionBytes
-            );
+            await scopedRing.PushWebSocketPacketToUsers(targetUserIds, eventType, reactionBytes);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error broadcasting reaction update for post {PostId}", reaction.PostId.ToString());
+            logger.LogError(
+                ex,
+                "Error broadcasting reaction update for post {PostId}",
+                reaction.PostId.ToString()
+            );
         }
     }
 
-    private async Task<List<string>> FilterUsersByPostVisibility(SnPost post, List<string> connectedUserIds)
+    private async Task<List<string>> FilterUsersByPostVisibility(
+        SnPost post,
+        List<string> connectedUserIds
+    )
     {
         var filteredUserIds = new List<string>();
         var publisherId = post.PublisherId;
@@ -252,14 +266,21 @@ public partial class PostService(
         {
             // Get all accounts that are friends with the publisher
             var queryRequest = new GetAccountBatchRequest();
-            queryRequest.Id.AddRange(publisherMembers.Where(m => m.AccountId != Guid.Empty).Select(m => m.AccountId.ToString()));
+            queryRequest.Id.AddRange(
+                publisherMembers
+                    .Where(m => m.AccountId != Guid.Empty)
+                    .Select(m => m.AccountId.ToString())
+            );
             var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
-            
+
             friendAccountIds = new HashSet<string>();
             foreach (var member in queryResponse.Accounts)
             {
-                if (member == null) continue;
-                var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest { RelatedId = member.Id });
+                if (member == null)
+                    continue;
+                var friendsResponse = await accounts.ListFriendsAsync(
+                    new ListRelationshipSimpleRequest { RelatedId = member.Id }
+                );
                 foreach (var friendId in friendsResponse.AccountsId)
                 {
                     friendAccountIds.Add(friendId);
@@ -270,10 +291,10 @@ public partial class PostService(
         foreach (var userId in connectedUserIds)
         {
             var guid = Guid.Parse(userId);
-            
+
             // Check if user is a member of the publisher
             var isMember = memberAccountIds.Contains(userId);
-            
+
             // Private posts: only members can see
             if (post.Visibility == Shared.Models.PostVisibility.Private)
             {
@@ -311,7 +332,10 @@ public partial class PostService(
         foreach (Match match in matches)
         {
             var username = match.Groups[1].Value;
-            if (!string.IsNullOrEmpty(username) && !mentions.Contains(username, StringComparer.OrdinalIgnoreCase))
+            if (
+                !string.IsNullOrEmpty(username)
+                && !mentions.Contains(username, StringComparer.OrdinalIgnoreCase)
+            )
             {
                 mentions.Add(username);
             }
@@ -334,13 +358,18 @@ public partial class PostService(
             // Limit to 16 mentions maximum
             if (mentions.Count > 16)
             {
-                logger.LogWarning("Post {PostId} has {MentionCount} mentions, limiting to 16", post.Id, mentions.Count);
+                logger.LogWarning(
+                    "Post {PostId} has {MentionCount} mentions, limiting to 16",
+                    post.Id,
+                    mentions.Count
+                );
                 mentions = mentions.Take(16).ToList();
             }
 
             using var scope = factory.CreateScope();
             var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
-            var accountsClient = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+            var accountsClient =
+                scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
 
             var sender = post.Publisher;
 
@@ -349,15 +378,17 @@ public partial class PostService(
                 try
                 {
                     // Find publisher by name/username
-                    var mentionedPublisher = await db.Publishers
-                        .Include(p => p.Members)
+                    var mentionedPublisher = await db
+                        .Publishers.Include(p => p.Members)
                         .FirstOrDefaultAsync(p => p.Name == username);
 
                     if (mentionedPublisher == null)
                         continue;
 
                     // Get all member accounts of the mentioned publisher
-                    var memberIds = mentionedPublisher.Members.Select(m => m.AccountId.ToString()).ToList();
+                    var memberIds = mentionedPublisher
+                        .Members.Select(m => m.AccountId.ToString())
+                        .ToList();
                     if (memberIds.Count == 0)
                         continue;
 
@@ -380,27 +411,48 @@ public partial class PostService(
                                 Notification = new PushNotification
                                 {
                                     Topic = "posts.mentions.new",
-                                    Title = localizer.Get("postMentionTitle", locale: member.Language, args: new { user = sender!.Nick }),
-                                    Body = localizer.Get("postMentionBody", locale: member.Language, args: new { user = sender!.Nick, content = body }),
+                                    Title = localizer.Get(
+                                        "postMentionTitle",
+                                        locale: member.Language,
+                                        args: new { user = sender!.Nick }
+                                    ),
+                                    Body = localizer.Get(
+                                        "postMentionBody",
+                                        locale: member.Language,
+                                        args: new { user = sender!.Nick, content = body }
+                                    ),
                                     IsSavable = true,
-                                    ActionUri = $"/posts/{post.Id}"
-                                }
+                                    ActionUri = $"/posts/{post.Id}",
+                                },
                             }
                         );
                     }
 
-                    logger.LogInformation("Sent mention notification for post {PostId} to publisher {PublisherName} ({MemberCount} members)",
-                        post.Id, username, memberIds.Count);
+                    logger.LogInformation(
+                        "Sent mention notification for post {PostId} to publisher {PublisherName} ({MemberCount} members)",
+                        post.Id,
+                        username,
+                        memberIds.Count
+                    );
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error sending mention notification to {Username} for post {PostId}", username, post.Id);
+                    logger.LogError(
+                        ex,
+                        "Error sending mention notification to {Username} for post {PostId}",
+                        username,
+                        post.Id
+                    );
                 }
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error processing mention notifications for post {PostId}", post.Id);
+            logger.LogError(
+                ex,
+                "Error processing mention notifications for post {PostId}",
+                post.Id
+            );
         }
     }
 
@@ -417,7 +469,9 @@ public partial class PostService(
         if (post.PublishedAt is not null)
         {
             if (post.PublishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
-                throw new InvalidOperationException("Cannot create the post which published in the past.");
+                throw new InvalidOperationException(
+                    "Cannot create the post which published in the past."
+                );
         }
         else
         {
@@ -430,12 +484,13 @@ public partial class PostService(
             queryRequest.Ids.AddRange(attachments);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
-            post.Attachments = queryResponse.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
+            post.Attachments = queryResponse
+                .Files.Select(SnCloudFileReferenceObject.FromProtoValue)
+                .ToList();
             // Re-order the list to match the id list places
             post.Attachments = attachments
                 .Select(id => post.Attachments.First(a => a.Id == id))
                 .ToList();
-
         }
 
         if (tags is not null)
@@ -458,24 +513,35 @@ public partial class PostService(
 
         if (categories is not null)
         {
-            post.Categories = await db.PostCategories.Where(e => categories.Contains(e.Slug)).ToListAsync();
+            post.Categories = await db
+                .PostCategories.Where(e => categories.Contains(e.Slug))
+                .ToListAsync();
             if (post.Categories.Count != categories.Distinct().Count())
-                throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
+                throw new InvalidOperationException(
+                    "Categories contains one or more categories that wasn't exists."
+                );
         }
 
         db.Posts.Add(post);
         await db.SaveChangesAsync();
 
-        if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow)
+        if (
+            post.PublishedAt is not null
+            && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
+        )
             _ = Task.Run(async () =>
             {
                 using var scope = factory.CreateScope();
-                var pubSub = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+                var pubSub =
+                    scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
                 await pubSub.NotifySubscriberPost(post);
             });
 
-        if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow &&
-            post.RepliedPost is not null)
+        if (
+            post.PublishedAt is not null
+            && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
+            && post.RepliedPost is not null
+        )
         {
             _ = Task.Run(async () =>
             {
@@ -483,16 +549,20 @@ public partial class PostService(
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
                 var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
-                var notifyTargets = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+                var notifyTargets =
+                    scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
                 try
                 {
-                    var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId!.Value);
+                    var members = await pub.GetPublisherMembers(
+                        post.RepliedPost.PublisherId!.Value
+                    );
                     var queryRequest = new GetAccountBatchRequest();
                     queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                     var queryResponse = await notifyTargets.GetAccountBatchAsync(queryRequest);
                     foreach (var member in queryResponse.Accounts)
                     {
-                        if (member is null) continue;
+                        if (member is null)
+                            continue;
                         await nty.SendPushNotificationToUserAsync(
                             new SendPushNotificationToUserRequest
                             {
@@ -500,18 +570,24 @@ public partial class PostService(
                                 Notification = new PushNotification
                                 {
                                     Topic = "post.replies",
-                                    Title = localizer.Get("postReplyTitle", locale: member.Language, args: new { user = sender!.Nick }),
+                                    Title = localizer.Get(
+                                        "postReplyTitle",
+                                        locale: member.Language,
+                                        args: new { user = sender!.Nick }
+                                    ),
                                     Body = ChopPostForNotification(post).content,
                                     IsSavable = true,
-                                    ActionUri = $"/posts/{post.Id}"
-                                }
+                                    ActionUri = $"/posts/{post.Id}",
+                                },
                             }
                         );
                     }
                 }
                 catch (Exception err)
                 {
-                    logger.LogError($"Error when sending post reactions notification: {err.Message} {err.StackTrace}");
+                    logger.LogError(
+                        $"Error when sending post reactions notification: {err.Message} {err.StackTrace}"
+                    );
                 }
             });
         }
@@ -523,20 +599,26 @@ public partial class PostService(
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
         // Send ActivityPub Create activity in background for public posts
-        if (post.PublishedAt is not null && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow &&
-            post.Visibility == Shared.Models.PostVisibility.Public)
+        if (
+            post.PublishedAt is not null
+            && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
+            && post.Visibility == Shared.Models.PostVisibility.Public
+        )
         {
             _ = Task.Run(async () =>
             {
                 try
                 {
                     using var scope = factory.CreateScope();
-                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    var deliveryService =
+                        scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
                     await deliveryService.SendCreateActivityAsync(post);
                 }
                 catch (Exception err)
                 {
-                    logger.LogError($"Error when sending ActivityPub Create activity: {err.Message}");
+                    logger.LogError(
+                        $"Error when sending ActivityPub Create activity: {err.Message}"
+                    );
                 }
             });
         }
@@ -576,7 +658,9 @@ public partial class PostService(
             queryRequest.Ids.AddRange(attachments);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
-            post.Attachments = queryResponse.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
+            post.Attachments = queryResponse
+                .Files.Select(SnCloudFileReferenceObject.FromProtoValue)
+                .ToList();
         }
 
         if (tags is not null)
@@ -599,14 +683,17 @@ public partial class PostService(
 
         if (categories is not null)
         {
-            post.Categories = await db.PostCategories.Where(e => categories.Contains(e.Slug)).ToListAsync();
+            post.Categories = await db
+                .PostCategories.Where(e => categories.Contains(e.Slug))
+                .ToListAsync();
             if (post.Categories.Count != categories.Distinct().Count())
-                throw new InvalidOperationException("Categories contains one or more categories that wasn't exists.");
+                throw new InvalidOperationException(
+                    "Categories contains one or more categories that wasn't exists."
+                );
         }
 
         db.Update(post);
         await db.SaveChangesAsync();
-
 
         // Process link preview in the background to avoid delaying post update
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
@@ -618,12 +705,15 @@ public partial class PostService(
                 try
                 {
                     using var scope = factory.CreateScope();
-                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    var deliveryService =
+                        scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
                     await deliveryService.SendUpdateActivityAsync(post);
                 }
                 catch (Exception err)
                 {
-                    logger.LogError($"Error when sending ActivityPub Update activity: {err.Message}");
+                    logger.LogError(
+                        $"Error when sending ActivityPub Update activity: {err.Message}"
+                    );
                 }
             });
 
@@ -641,7 +731,8 @@ public partial class PostService(
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
-        if (item.Type != Shared.Models.PostType.Moment || string.IsNullOrEmpty(item.Content)) return item;
+        if (item.Type != Shared.Models.PostType.Moment || string.IsNullOrEmpty(item.Content))
+            return item;
 
         // Find all URLs in the content
         var matches = GetLinkRegex().Matches(item.Content);
@@ -651,7 +742,10 @@ public partial class PostService(
 
         // Initialize meta dictionary if null
         item.Metadata ??= new Dictionary<string, object>();
-        if (!item.Metadata.TryGetValue("embeds", out var existingEmbeds) || existingEmbeds is not List<EmbeddableBase>)
+        if (
+            !item.Metadata.TryGetValue("embeds", out var existingEmbeds)
+            || existingEmbeds is not List<EmbeddableBase>
+        )
             item.Metadata["embeds"] = new List<Dictionary<string, object>>();
         var embeds = (List<Dictionary<string, object>>)item.Metadata["embeds"];
 
@@ -669,7 +763,8 @@ public partial class PostService(
             {
                 // Check if this URL is already in the embed list
                 var urlAlreadyEmbedded = embeds.Any(e =>
-                    e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url);
+                    e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url
+                );
                 if (urlAlreadyEmbedded)
                     continue;
 
@@ -705,9 +800,11 @@ public partial class PostService(
             var updatedPost = await PreviewPostLinkAsync(post);
 
             // If embeds were added, update the post in the database
-            if (updatedPost.Metadata != null &&
-                updatedPost.Metadata.TryGetValue("embeds", out var embeds) &&
-                embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList)
+            if (
+                updatedPost.Metadata != null
+                && updatedPost.Metadata.TryGetValue("embeds", out var embeds)
+                && embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList
+            )
             {
                 // Get a fresh copy of the post from the database
                 var dbPost = await dbContext.Posts.FindAsync(post.Id);
@@ -721,7 +818,11 @@ public partial class PostService(
                     dbContext.Update(dbPost);
                     await dbContext.SaveChangesAsync();
 
-                    logger.LogDebug("Updated post {PostId} with {EmbedCount} link previews", post.Id, embedsList.Count);
+                    logger.LogDebug(
+                        "Updated post {PostId} with {EmbedCount} link previews",
+                        post.Id,
+                        embedsList.Count
+                    );
                 }
             }
         }
@@ -741,14 +842,14 @@ public partial class PostService(
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
-            await db.PostReactions
-                .Where(r => r.PostId == post.Id)
+            await db
+                .PostReactions.Where(r => r.PostId == post.Id)
                 .ExecuteUpdateAsync(p => p.SetProperty(x => x.DeletedAt, now));
-            await db.Posts
-                .Where(p => p.RepliedPostId == post.Id)
+            await db
+                .Posts.Where(p => p.RepliedPostId == post.Id)
                 .ExecuteUpdateAsync(p => p.SetProperty(x => x.RepliedGone, true));
-            await db.Posts
-                .Where(p => p.ForwardedPostId == post.Id)
+            await db
+                .Posts.Where(p => p.ForwardedPostId == post.Id)
                 .ExecuteUpdateAsync(p => p.SetProperty(x => x.ForwardedGone, true));
 
             db.Posts.Remove(post);
@@ -770,36 +871,59 @@ public partial class PostService(
                 try
                 {
                     using var scope = factory.CreateScope();
-                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    var deliveryService =
+                        scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
                     await deliveryService.SendDeleteActivityAsync(post);
                 }
                 catch (Exception err)
                 {
-                    logger.LogError($"Error when sending ActivityPub Delete activity: {err.Message}");
+                    logger.LogError(
+                        $"Error when sending ActivityPub Delete activity: {err.Message}"
+                    );
                 }
             });
         }
     }
 
-    public async Task<SnPost> PinPostAsync(SnPost post, Account currentUser, Shared.Models.PostPinMode pinMode)
+    public async Task<SnPost> PinPostAsync(
+        SnPost post,
+        Account currentUser,
+        Shared.Models.PostPinMode pinMode
+    )
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
         {
             if (pinMode != Shared.Models.PostPinMode.ReplyPage)
-                throw new InvalidOperationException("Replies can only be pinned in the reply page.");
-            if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
+                throw new InvalidOperationException(
+                    "Replies can only be pinned in the reply page."
+                );
+            if (post.RepliedPost == null)
+                throw new ArgumentNullException(nameof(post.RepliedPost));
 
-            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId!.Value, accountId,
-                    Shared.Models.PublisherMemberRole.Editor))
-                throw new InvalidOperationException("Only editors of original post can pin replies.");
+            if (
+                !await ps.IsMemberWithRole(
+                    post.RepliedPost.PublisherId!.Value,
+                    accountId,
+                    Shared.Models.PublisherMemberRole.Editor
+                )
+            )
+                throw new InvalidOperationException(
+                    "Only editors of original post can pin replies."
+                );
 
             post.PinMode = pinMode;
         }
         else
         {
-            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId,
-                    Shared.Models.PublisherMemberRole.Editor))
+            if (
+                post.PublisherId == null
+                || !await ps.IsMemberWithRole(
+                    post.PublisherId.Value,
+                    accountId,
+                    Shared.Models.PublisherMemberRole.Editor
+                )
+            )
                 throw new InvalidOperationException("Only editors can pin replies.");
 
             post.PinMode = pinMode;
@@ -816,16 +940,30 @@ public partial class PostService(
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
         {
-            if (post.RepliedPost == null) throw new ArgumentNullException(nameof(post.RepliedPost));
+            if (post.RepliedPost == null)
+                throw new ArgumentNullException(nameof(post.RepliedPost));
 
-            if (!await ps.IsMemberWithRole(post.RepliedPost.PublisherId!.Value, accountId,
-                    Shared.Models.PublisherMemberRole.Editor))
-                throw new InvalidOperationException("Only editors of original post can unpin replies.");
+            if (
+                !await ps.IsMemberWithRole(
+                    post.RepliedPost.PublisherId!.Value,
+                    accountId,
+                    Shared.Models.PublisherMemberRole.Editor
+                )
+            )
+                throw new InvalidOperationException(
+                    "Only editors of original post can unpin replies."
+                );
         }
         else
         {
-            if (post.PublisherId == null || !await ps.IsMemberWithRole(post.PublisherId.Value, accountId,
-                    Shared.Models.PublisherMemberRole.Editor))
+            if (
+                post.PublisherId == null
+                || !await ps.IsMemberWithRole(
+                    post.PublisherId.Value,
+                    accountId,
+                    Shared.Models.PublisherMemberRole.Editor
+                )
+            )
                 throw new InvalidOperationException("Only editors can unpin posts.");
         }
 
@@ -854,14 +992,19 @@ public partial class PostService(
         bool isSelfReact
     )
     {
-        var isExistingReaction = reaction.AccountId.HasValue &&
-                                 await db.Set<SnPostReaction>()
-                                     .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId.Value);
+        var isExistingReaction =
+            reaction.AccountId.HasValue
+            && await db.Set<SnPostReaction>()
+                .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId.Value);
 
         if (isRemoving)
-            await db.PostReactions
-                .Where(r => r.PostId == post.Id && r.Symbol == reaction.Symbol &&
-                            reaction.AccountId.HasValue && r.AccountId == reaction.AccountId.Value)
+            await db
+                .PostReactions.Where(r =>
+                    r.PostId == post.Id
+                    && r.Symbol == reaction.Symbol
+                    && reaction.AccountId.HasValue
+                    && r.AccountId == reaction.AccountId.Value
+                )
                 .ExecuteDeleteAsync();
         else
             db.PostReactions.Add(reaction);
@@ -882,36 +1025,49 @@ public partial class PostService(
         switch (reaction.Attitude)
         {
             case Shared.Models.PostReactionAttitude.Positive:
-                if (isRemoving) post.Upvotes--;
-                else post.Upvotes++;
+                if (isRemoving)
+                    post.Upvotes--;
+                else
+                    post.Upvotes++;
                 break;
             case Shared.Models.PostReactionAttitude.Negative:
-                if (isRemoving) post.Downvotes--;
-                else post.Downvotes++;
+                if (isRemoving)
+                    post.Downvotes--;
+                else
+                    post.Downvotes++;
                 break;
         }
 
         await db.SaveChangesAsync();
 
         // Broadcast reaction update to connected clients
-        _ = Task.Run(async () => await BroadcastReactionUpdateAsync(reaction, isRemoving ? "post.reaction.removed" : "post.reaction.added"));
+        _ = Task.Run(async () =>
+            await BroadcastReactionUpdateAsync(
+                reaction,
+                isRemoving ? "post.reaction.removed" : "post.reaction.added"
+            )
+        );
 
-        if (isSelfReact) return isRemoving;
+        if (isSelfReact)
+            return isRemoving;
 
         // Send ActivityPub Like/Undo activities if post's publisher has actor
         if (post.PublisherId.HasValue)
         {
             var accountId = Guid.Parse(sender.Id);
-            var accountPublisher = await db.Publishers
-                .Where(p => p.Members.Any(m => m.AccountId == accountId))
+            var accountPublisher = await db
+                .Publishers.Where(p => p.Members.Any(m => m.AccountId == accountId))
                 .FirstOrDefaultAsync();
             var accountActor = accountPublisher is null
                 ? null
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);
             var publisherActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
 
-            if (accountActor != null && publisherActor != null &&
-                reaction.Attitude == Shared.Models.PostReactionAttitude.Positive)
+            if (
+                accountActor != null
+                && publisherActor != null
+                && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive
+            )
             {
                 if (!isRemoving)
                 {
@@ -921,8 +1077,8 @@ public partial class PostService(
                         try
                         {
                             using var scope = factory.CreateScope();
-                            var deliveryService = scope.ServiceProvider
-                                .GetRequiredService<ActivityPubDeliveryService>();
+                            var deliveryService =
+                                scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
                             await deliveryService.SendLikeActivityToLocalPostAsync(
                                 accountActor,
                                 post.Id,
@@ -943,8 +1099,8 @@ public partial class PostService(
                         try
                         {
                             using var scope = factory.CreateScope();
-                            var deliveryService = scope.ServiceProvider
-                                .GetRequiredService<ActivityPubDeliveryService>();
+                            var deliveryService =
+                                scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
                             await deliveryService.SendUndoLikeActivityAsync(
                                 accountActor,
                                 post.Id,
@@ -960,8 +1116,10 @@ public partial class PostService(
             }
             else
             {
-                logger.LogWarning("Seems {PublisherName} didn't enable actor, skipping delivery of Like activity...",
-                    accountPublisher?.Name);
+                logger.LogWarning(
+                    "Seems {PublisherName} didn't enable actor, skipping delivery of Like activity...",
+                    accountPublisher?.Name
+                );
             }
         }
 
@@ -970,17 +1128,20 @@ public partial class PostService(
             using var scope = factory.CreateScope();
             var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
-            var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+            var accounts =
+                scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
             try
             {
-                if (post.PublisherId == null) return;
+                if (post.PublisherId == null)
+                    return;
                 var members = await pub.GetPublisherMembers(post.PublisherId.Value);
                 var queryRequest = new GetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
                 foreach (var member in queryResponse.Accounts)
                 {
-                    if (member is null) continue;
+                    if (member is null)
+                        continue;
 
                     await nty.SendPushNotificationToUserAsync(
                         new SendPushNotificationToUserRequest
@@ -989,20 +1150,39 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.reactions.new",
-                                Title = localizer.Get("postReactTitle", locale: member.Language, args: new { user = sender.Nick }),
+                                Title = localizer.Get(
+                                    "postReactTitle",
+                                    locale: member.Language,
+                                    args: new { user = sender.Nick }
+                                ),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer.Get("postReactBody", locale: member.Language, args: new { user = sender.Nick, reaction = reaction.Symbol })
-                                    : localizer.Get("postReactContentBody", locale: member.Language, args: new { user = sender.Nick, reaction = reaction.Symbol, title = post.Title }),
+                                    ? localizer.Get(
+                                        "postReactBody",
+                                        locale: member.Language,
+                                        args: new { user = sender.Nick, reaction = reaction.Symbol }
+                                    )
+                                    : localizer.Get(
+                                        "postReactContentBody",
+                                        locale: member.Language,
+                                        args: new
+                                        {
+                                            user = sender.Nick,
+                                            reaction = reaction.Symbol,
+                                            title = post.Title,
+                                        }
+                                    ),
                                 IsSavable = true,
-                                ActionUri = $"/posts/{post.Id}"
-                            }
+                                ActionUri = $"/posts/{post.Id}",
+                            },
                         }
                     );
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError($"Error when sending post reactions notification: {ex.Message} {ex.StackTrace}");
+                logger.LogError(
+                    $"Error when sending post reactions notification: {ex.Message} {ex.StackTrace}"
+                );
             }
         });
 
@@ -1014,29 +1194,26 @@ public partial class PostService(
         return await db.Set<SnPostReaction>()
             .Where(r => r.PostId == postId)
             .GroupBy(r => r.Symbol)
-            .ToDictionaryAsync(
-                g => g.Key,
-                g => g.Count()
-            );
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
     }
 
-    public async Task<Dictionary<Guid, Dictionary<string, int>>> GetPostReactionMapBatch(List<Guid> postIds)
+    public async Task<Dictionary<Guid, Dictionary<string, int>>> GetPostReactionMapBatch(
+        List<Guid> postIds
+    )
     {
         return await db.Set<SnPostReaction>()
             .Where(r => postIds.Contains(r.PostId))
             .GroupBy(r => r.PostId)
             .ToDictionaryAsync(
                 g => g.Key,
-                g => g.GroupBy(r => r.Symbol)
-                    .ToDictionary(
-                        sg => sg.Key,
-                        sg => sg.Count()
-                    )
+                g => g.GroupBy(r => r.Symbol).ToDictionary(sg => sg.Key, sg => sg.Count())
             );
     }
 
-    private async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(List<Guid> postIds,
-        Guid accountId)
+    private async Task<Dictionary<Guid, Dictionary<string, bool>>> GetPostReactionMadeMapBatch(
+        List<Guid> postIds,
+        Guid accountId
+    )
     {
         var reactions = await db.Set<SnPostReaction>()
             .Where(r => postIds.Contains(r.PostId) && r.AccountId == accountId)
@@ -1045,12 +1222,8 @@ public partial class PostService(
 
         return postIds.ToDictionary(
             postId => postId,
-            postId => reactions
-                .Where(r => r.PostId == postId)
-                .ToDictionary(
-                    r => r.Symbol,
-                    _ => true
-                )
+            postId =>
+                reactions.Where(r => r.PostId == postId).ToDictionary(r => r.Symbol, _ => true)
         );
     }
 
@@ -1080,69 +1253,83 @@ public partial class PostService(
         }
 
         // Add view info to flush buffer
-        flushBuffer.Enqueue(new PostViewInfo
-        {
-            PostId = postId,
-            ViewerId = viewerId,
-            ViewedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
-        });
+        flushBuffer.Enqueue(
+            new PostViewInfo
+            {
+                PostId = postId,
+                ViewerId = viewerId,
+                ViewedAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
+            }
+        );
     }
 
     private async Task<List<SnPost>> LoadPubsAndActors(List<SnPost> posts)
     {
         var publisherIds = posts
             .SelectMany<SnPost, Guid?>(e =>
-            [
-                e.PublisherId,
-                e.RepliedPost?.PublisherId,
-                e.ForwardedPost?.PublisherId
-            ])
+                [e.PublisherId, e.RepliedPost?.PublisherId, e.ForwardedPost?.PublisherId]
+            )
             .Where(e => e != null)
             .Distinct()
             .ToList();
         var actorIds = posts
             .SelectMany<SnPost, Guid?>(e =>
-            [
-                e.ActorId,
-                e.RepliedPost?.ActorId,
-                e.ForwardedPost?.ActorId
-            ])
+                [e.ActorId, e.RepliedPost?.ActorId, e.ForwardedPost?.ActorId]
+            )
             .Where(e => e != null)
             .Distinct()
             .ToList();
-        if (publisherIds.Count == 0 && actorIds.Count == 0) return posts;
+        if (publisherIds.Count == 0 && actorIds.Count == 0)
+            return posts;
 
-        var publishers = await db.Publishers
-            .Where(e => publisherIds.Contains(e.Id))
+        var publishers = await db
+            .Publishers.Where(e => publisherIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
-        var actors = await db.FediverseActors
-            .Include(e => e.Instance)
+        var actors = await db
+            .FediverseActors.Include(e => e.Instance)
             .Where(e => actorIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
         foreach (var post in posts)
         {
-            if (post.PublisherId.HasValue && publishers.TryGetValue(post.PublisherId.Value, out var publisher))
+            if (
+                post.PublisherId.HasValue
+                && publishers.TryGetValue(post.PublisherId.Value, out var publisher)
+            )
                 post.Publisher = publisher;
 
             if (post.ActorId.HasValue && actors.TryGetValue(post.ActorId.Value, out var actor))
                 post.Actor = actor;
 
-            if (post.RepliedPost?.PublisherId != null &&
-                publishers.TryGetValue(post.RepliedPost.PublisherId.Value, out var repliedPublisher))
+            if (
+                post.RepliedPost?.PublisherId != null
+                && publishers.TryGetValue(
+                    post.RepliedPost.PublisherId.Value,
+                    out var repliedPublisher
+                )
+            )
                 post.RepliedPost.Publisher = repliedPublisher;
 
-            if (post.RepliedPost?.ActorId != null &&
-                actors.TryGetValue(post.RepliedPost.ActorId.Value, out var repliedActor))
+            if (
+                post.RepliedPost?.ActorId != null
+                && actors.TryGetValue(post.RepliedPost.ActorId.Value, out var repliedActor)
+            )
                 post.RepliedPost.Actor = repliedActor;
 
-            if (post.ForwardedPost?.PublisherId != null &&
-                publishers.TryGetValue(post.ForwardedPost.PublisherId.Value, out var forwardedPublisher))
+            if (
+                post.ForwardedPost?.PublisherId != null
+                && publishers.TryGetValue(
+                    post.ForwardedPost.PublisherId.Value,
+                    out var forwardedPublisher
+                )
+            )
                 post.ForwardedPost.Publisher = forwardedPublisher;
 
-            if (post.ForwardedPost?.ActorId != null &&
-                actors.TryGetValue(post.ForwardedPost.ActorId.Value, out var forwardedActor))
+            if (
+                post.ForwardedPost?.ActorId != null
+                && actors.TryGetValue(post.ForwardedPost.ActorId.Value, out var forwardedActor)
+            )
                 post.ForwardedPost.Actor = forwardedActor;
         }
 
@@ -1151,9 +1338,13 @@ public partial class PostService(
         return posts;
     }
 
-    private async Task<List<SnPost>> LoadInteractive(List<SnPost> posts, Account? currentUser = null)
+    private async Task<List<SnPost>> LoadInteractive(
+        List<SnPost> posts,
+        Account? currentUser = null
+    )
     {
-        if (posts.Count == 0) return posts;
+        if (posts.Count == 0)
+            return posts;
 
         var postsId = posts.Select(e => e.Id).ToList();
 
@@ -1168,8 +1359,9 @@ public partial class PostService(
         List<Guid> userFriends = [];
         if (currentUser is not null)
         {
-            var friendsResponse = await accounts.ListFriendsAsync(new ListRelationshipSimpleRequest
-            { AccountId = currentUser.Id });
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new ListRelationshipSimpleRequest { AccountId = currentUser.Id }
+            );
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
             publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
         }
@@ -1182,9 +1374,7 @@ public partial class PostService(
                 : new Dictionary<string, int>();
 
             // Set reaction made status
-            post.ReactionsMade = reactionMadeMap.TryGetValue(post.Id, out var made)
-                ? made
-                : [];
+            post.ReactionsMade = reactionMadeMap.TryGetValue(post.Id, out var made) ? made : [];
 
             // Set reply count
             post.RepliesCount = repliesCountMap.GetValueOrDefault(post.Id, 0);
@@ -1219,7 +1409,12 @@ public partial class PostService(
         return posts;
     }
 
-    private bool CanViewPost(SnPost post, Account? currentUser, List<SnPublisher> publishers, List<Guid> userFriends)
+    private bool CanViewPost(
+        SnPost post,
+        Account? currentUser,
+        List<SnPublisher> publishers,
+        List<Guid> userFriends
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var publishersId = publishers.Select(e => e.Id).ToList();
@@ -1231,8 +1426,9 @@ public partial class PostService(
         if (currentUser is null)
         {
             // Anonymous user can only view public posts that are published
-            return post.PublishedAt != null && now >= post.PublishedAt &&
-                   post.Visibility == Shared.Models.PostVisibility.Public;
+            return post.PublishedAt != null
+                && now >= post.PublishedAt
+                && post.Visibility == Shared.Models.PostVisibility.Public;
         }
 
         // Check publication status - either published or user is member
@@ -1245,8 +1441,15 @@ public partial class PostService(
         if (post.Visibility == Shared.Models.PostVisibility.Private && !isMember)
             return false;
 
-        if (post.Visibility == Shared.Models.PostVisibility.Friends &&
-            !(post.Publisher is not null && post.Publisher.AccountId.HasValue && userFriends.Contains(post.Publisher.AccountId.Value) || isMember))
+        if (
+            post.Visibility == Shared.Models.PostVisibility.Friends
+            && !(
+                post.Publisher is not null
+                    && post.Publisher.AccountId.HasValue
+                    && userFriends.Contains(post.Publisher.AccountId.Value)
+                || isMember
+            )
+        )
             return false;
 
         // Public and Unlisted are allowed
@@ -1255,13 +1458,10 @@ public partial class PostService(
 
     private async Task<Dictionary<Guid, int>> GetPostRepliesCountBatch(List<Guid> postIds)
     {
-        return await db.Posts
-            .Where(p => p.RepliedPostId != null && postIds.Contains(p.RepliedPostId.Value))
+        return await db
+            .Posts.Where(p => p.RepliedPostId != null && postIds.Contains(p.RepliedPostId.Value))
             .GroupBy(p => p.RepliedPostId!.Value)
-            .ToDictionaryAsync(
-                g => g.Key,
-                g => g.Count()
-            );
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
     }
 
     public async Task<List<SnPost>> LoadPostInfo(
@@ -1270,7 +1470,8 @@ public partial class PostService(
         bool truncate = false
     )
     {
-        if (posts.Count == 0) return posts;
+        if (posts.Count == 0)
+            return posts;
 
         posts = await LoadPubsAndActors(posts);
         posts = await LoadInteractive(posts, currentUser);
@@ -1281,7 +1482,11 @@ public partial class PostService(
         return posts;
     }
 
-    public async Task<SnPost> LoadPostInfo(SnPost post, Account? currentUser = null, bool truncate = false)
+    public async Task<SnPost> LoadPostInfo(
+        SnPost post,
+        Account? currentUser = null,
+        bool truncate = false
+    )
     {
         // Convert single post to list, process it, then return the single post
         var posts = await LoadPostInfo([post], currentUser, truncate);
@@ -1299,48 +1504,55 @@ public partial class PostService(
         {
             // The previous day the highest rated posts
             var today = SystemClock.Instance.GetCurrentInstant();
-            var periodStart = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant()
+            var periodStart = today
+                .InUtc()
+                .Date.AtStartOfDayInZone(DateTimeZone.Utc)
+                .ToInstant()
                 .Minus(Duration.FromDays(1));
             var periodEnd = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
 
-            var postsInPeriod = await db.Posts
-                .Where(e => e.Visibility == Shared.Models.PostVisibility.Public)
+            var postsInPeriod = await db
+                .Posts.Where(e => e.Visibility == Shared.Models.PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.FediverseUri == null)
                 .Select(e => e.Id)
                 .ToListAsync();
 
-            var reactionScores = await db.PostReactions
-                .Where(e => postsInPeriod.Contains(e.PostId))
+            var reactionScores = await db
+                .PostReactions.Where(e => postsInPeriod.Contains(e.PostId))
                 .GroupBy(e => e.PostId)
                 .Select(e => new
                 {
                     PostId = e.Key,
-                    Score = e.Sum(r => r.Attitude == Shared.Models.PostReactionAttitude.Positive ? 1 : -1)
+                    Score = e.Sum(r =>
+                        r.Attitude == Shared.Models.PostReactionAttitude.Positive ? 1 : -1
+                    ),
                 })
                 .ToDictionaryAsync(e => e.PostId, e => e.Score);
 
-            var repliesCounts = await db.Posts
-                .Where(p => p.RepliedPostId != null && postsInPeriod.Contains(p.RepliedPostId.Value))
+            var repliesCounts = await db
+                .Posts.Where(p =>
+                    p.RepliedPostId != null && postsInPeriod.Contains(p.RepliedPostId.Value)
+                )
                 .GroupBy(p => p.RepliedPostId!.Value)
-                .ToDictionaryAsync(
-                    g => g.Key,
-                    g => g.Count()
-                );
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
 
             // Load awardsScores for postsInPeriod
-            var awardsScores = await db.Posts
-                .Where(p => postsInPeriod.Contains(p.Id))
+            var awardsScores = await db
+                .Posts.Where(p => postsInPeriod.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id, p => p.AwardedScore);
 
             var reactSocialPoints = postsInPeriod
                 .Select(postId => new
                 {
                     PostId = postId,
-                    Count =
-                        (reactionScores.GetValueOrDefault(postId, 0))
+                    Count = (reactionScores.GetValueOrDefault(postId, 0))
                         + (repliesCounts.GetValueOrDefault(postId, 0))
-                        + (awardsScores.TryGetValue(postId, out var awardScore) ? (int)(awardScore / 10) : 0)
+                        + (
+                            awardsScores.TryGetValue(postId, out var awardScore)
+                                ? (int)(awardScore / 10)
+                                : 0
+                        ),
                 })
                 .OrderByDescending(e => e.Count)
                 .Take(5)
@@ -1351,18 +1563,15 @@ public partial class PostService(
             await cache.SetAsync(FeaturedPostCacheKey, featuredIds, TimeSpan.FromHours(4));
 
             // Create featured record
-            var existingFeaturedPostIds = await db.PostFeaturedRecords
-                .Where(r => featuredIds.Contains(r.PostId))
+            var existingFeaturedPostIds = await db
+                .PostFeaturedRecords.Where(r => featuredIds.Contains(r.PostId))
                 .Select(r => r.PostId)
                 .ToListAsync();
 
             var records = reactSocialPoints
                 .Where(p => !existingFeaturedPostIds.Contains(p.Key))
-                .Select(e => new SnPostFeaturedRecord
-                {
-                    PostId = e.Key,
-                    SocialCredits = e.Value
-                }).ToList();
+                .Select(e => new SnPostFeaturedRecord { PostId = e.Key, SocialCredits = e.Value })
+                .ToList();
 
             if (records.Count != 0)
             {
@@ -1371,8 +1580,8 @@ public partial class PostService(
             }
         }
 
-        var posts = await db.Posts
-            .Where(e => featuredIds.Contains(e.Id))
+        var posts = await db
+            .Posts.Where(e => featuredIds.Contains(e.Id))
             .Include(e => e.ForwardedPost)
             .Include(e => e.RepliedPost)
             .Include(e => e.Categories)
@@ -1395,7 +1604,8 @@ public partial class PostService(
     )
     {
         var post = await db.Posts.Where(p => p.Id == postId).FirstOrDefaultAsync();
-        if (post is null) throw new InvalidOperationException("Post not found");
+        if (post is null)
+            throw new InvalidOperationException("Post not found");
 
         var award = new SnPostAward
         {
@@ -1403,36 +1613,43 @@ public partial class PostService(
             Attitude = attitude,
             Message = message,
             PostId = postId,
-            AccountId = accountId
+            AccountId = accountId,
         };
 
         db.PostAwards.Add(award);
         await db.SaveChangesAsync();
 
-        var delta = award.Attitude == Shared.Models.PostReactionAttitude.Positive ? amount : -amount;
+        var delta =
+            award.Attitude == Shared.Models.PostReactionAttitude.Positive ? amount : -amount;
 
-        await db.Posts.Where(p => p.Id == postId)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.AwardedScore, p => p.AwardedScore + delta));
+        await db
+            .Posts.Where(p => p.Id == postId)
+            .ExecuteUpdateAsync(s =>
+                s.SetProperty(p => p.AwardedScore, p => p.AwardedScore + delta)
+            );
 
         _ = Task.Run(async () =>
         {
             using var scope = factory.CreateScope();
             var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
-            var accounts = scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+            var accounts =
+                scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
             var accountsHelper = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
             try
             {
                 var sender = await accountsHelper.GetAccount(accountId);
 
-                if (post.PublisherId == null) return;
+                if (post.PublisherId == null)
+                    return;
                 var members = await pub.GetPublisherMembers(post.PublisherId.Value);
                 var queryRequest = new GetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
                 foreach (var member in queryResponse.Accounts)
                 {
-                    if (member is null) continue;
+                    if (member is null)
+                        continue;
 
                     await nty.SendPushNotificationToUserAsync(
                         new SendPushNotificationToUserRequest
@@ -1441,20 +1658,39 @@ public partial class PostService(
                             Notification = new PushNotification
                             {
                                 Topic = "posts.awards.new",
-                                Title = localizer.Get("postAwardedTitle", locale: member.Language, args: new { user = sender.Nick }),
+                                Title = localizer.Get(
+                                    "postAwardedTitle",
+                                    locale: member.Language,
+                                    args: new { user = sender.Nick }
+                                ),
                                 Body = string.IsNullOrWhiteSpace(post.Title)
-                                    ? localizer.Get("postAwardedBody", locale: member.Language, args: new { user = sender.Nick, amount })
-                                    : localizer.Get("postAwardedContentBody", locale: member.Language, args: new { user = sender.Nick, amount, title = post.Title }),
+                                    ? localizer.Get(
+                                        "postAwardedBody",
+                                        locale: member.Language,
+                                        args: new { user = sender.Nick, amount }
+                                    )
+                                    : localizer.Get(
+                                        "postAwardedContentBody",
+                                        locale: member.Language,
+                                        args: new
+                                        {
+                                            user = sender.Nick,
+                                            amount,
+                                            title = post.Title,
+                                        }
+                                    ),
                                 IsSavable = true,
-                                ActionUri = $"/posts/{post.Id}"
-                            }
+                                ActionUri = $"/posts/{post.Id}",
+                            },
                         }
                     );
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError($"Error when sending post awarded notification: {ex.Message} {ex.StackTrace}");
+                logger.LogError(
+                    $"Error when sending post awarded notification: {ex.Message} {ex.StackTrace}"
+                );
             }
         });
 
@@ -1478,10 +1714,11 @@ public static class PostQueryExtensions
         source = isListing switch
         {
             true when currentUser is not null => source.Where(e =>
-                e.Visibility != Shared.Models.PostVisibility.Unlisted ||
-                (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))),
+                e.Visibility != Shared.Models.PostVisibility.Unlisted
+                || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))
+            ),
             true => source.Where(e => e.Visibility != Shared.Models.PostVisibility.Unlisted),
-            _ => source
+            _ => source,
         };
 
         if (currentUser is null)
@@ -1490,12 +1727,21 @@ public static class PostQueryExtensions
                 .Where(e => e.Visibility == Shared.Models.PostVisibility.Public);
 
         return source
-            .Where(e => (e.PublishedAt != null && now >= e.PublishedAt) ||
-                        (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value)))
-            .Where(e => e.Visibility != Shared.Models.PostVisibility.Private ||
-                        publishersId.Contains(e.PublisherId!.Value))
-            .Where(e => e.Visibility != Shared.Models.PostVisibility.Friends ||
-                        (e.Publisher!.AccountId != null && userFriends.Contains(e.Publisher.AccountId.Value)) ||
-                        publishersId.Contains(e.PublisherId!.Value));
+            .Where(e =>
+                (e.PublishedAt != null && now >= e.PublishedAt)
+                || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))
+            )
+            .Where(e =>
+                e.Visibility != Shared.Models.PostVisibility.Private
+                || publishersId.Contains(e.PublisherId!.Value)
+            )
+            .Where(e =>
+                e.Visibility != Shared.Models.PostVisibility.Friends
+                || (
+                    e.Publisher!.AccountId != null
+                    && userFriends.Contains(e.Publisher.AccountId.Value)
+                )
+                || publishersId.Contains(e.PublisherId!.Value)
+            );
     }
 }

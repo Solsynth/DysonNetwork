@@ -599,17 +599,17 @@ public class PublisherService(
         }
 
         // Foreach loop through publishers to set social credit
-        var expiredAt = now.InZone(DateTimeZone.Utc).Date.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc)
+        var expiredAt = now.InZone(DateTimeZone.Utc).Date.PlusDays(30).AtStartOfDayInZone(DateTimeZone.Utc)
             .Minus(Duration.FromMilliseconds(1)).ToInstant();
         foreach (var (publisherId, value) in publisherStats)
         {
             var upvotes = value.Upvotes;
             var downvotes = value.Downvotes;
-            var awardScore = value.AwardScore; // Fetch or calculate here
+            var awardScore = value.AwardScore;
 
             var netVotes = upvotes - downvotes;
             var points = netVotes + awardScore * 0.1;
-            var socialCreditDelta = (int)(points * 10);
+            var socialCreditDelta = (int)(points);
 
             if (socialCreditDelta == 0) continue;
 
