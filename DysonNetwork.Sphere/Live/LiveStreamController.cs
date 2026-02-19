@@ -76,6 +76,7 @@ public class LiveStreamController(
         {
             SanitizeForPublic(stream);
         }
+
         return Ok(liveStreams);
     }
 
@@ -89,6 +90,7 @@ public class LiveStreamController(
         {
             SanitizeForPublic(stream);
         }
+
         return Ok(liveStreams);
     }
 
@@ -106,7 +108,8 @@ public class LiveStreamController(
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
-            isAuthorized = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor);
+            isAuthorized = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor);
         }
 
         if (!isAuthorized)
@@ -118,7 +121,7 @@ public class LiveStreamController(
     }
 
     [HttpGet("{id:guid}/token")]
-    public async Task<IActionResult> GetToken(Guid id, [FromQuery] string? identity = null)
+    public async Task<IActionResult> GetToken(Guid id, [FromQuery(Name = "streamer")] bool isStreamer = false)
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -127,48 +130,36 @@ public class LiveStreamController(
         if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
             return BadRequest(new { error = "LiveStream is not active" });
 
-        var isStreamer = false;
-        string finalIdentity;
+        string identity;
 
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
-            var isEditor = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor);
-            
-            if (isEditor)
+            var isEditor =
+                await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor);
+
+            if (isEditor && isStreamer)
             {
                 // Streamer is trying to get a token - check if they're already streaming
                 // If they are, give them a viewer identity to avoid kicking themselves
-                var streamerIdentity = $"streamer_{accountId:N}";
-                if (identity == streamerIdentity || string.IsNullOrEmpty(identity))
-                {
-                    // User is the streamer trying to watch their own stream
-                    // Give them a viewer identity instead
-                    isStreamer = false;
-                    finalIdentity = $"viewer_{accountId:N}";
-                }
-                else
-                {
-                    // User provided a different identity, use it as streamer
-                    isStreamer = true;
-                    finalIdentity = identity;
-                }
+                isStreamer = true;
+                identity = $"streamer_{accountId:N}";
             }
             else
             {
                 // Regular viewer
-                finalIdentity = identity ?? $"viewer_{accountId:N}";
+                identity = $"viewer_{accountId:N}";
             }
         }
         else
         {
             // Anonymous user
-            finalIdentity = identity ?? $"viewer_{Guid.NewGuid():N}";
+            identity = $"viewer_{Guid.NewGuid():N}";
         }
 
         var token = liveKitService.GenerateToken(
             liveStream.RoomName,
-            finalIdentity,
+            identity,
             canPublish: isStreamer,
             canSubscribe: true,
             metadata: new Dictionary<string, string>
@@ -183,7 +174,7 @@ public class LiveStreamController(
             liveStream.RoomName,
             Url = liveKitService.Host.Replace("http", "ws"),
             IsStreamer = isStreamer,
-            Identity = finalIdentity
+            Identity = identity
         });
     }
 
@@ -244,7 +235,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
@@ -270,7 +262,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
@@ -293,7 +286,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
@@ -312,7 +306,7 @@ public class LiveStreamController(
 
         var hlsBaseUrl = request?.HlsBaseUrl ?? $"https://{Request.Host}/hls";
         var playlistUrl = $"{hlsBaseUrl}/{liveStream.Id}/{playlistName}";
-        
+
         liveStream.HlsPlaylistUrl = playlistUrl;
         await db.SaveChangesAsync();
 
@@ -337,7 +331,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
@@ -360,7 +355,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to end the live stream.");
         }
@@ -383,7 +379,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to update the live stream.");
         }
@@ -424,7 +421,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to delete the live stream.");
         }
@@ -470,7 +468,8 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
+                Shared.Models.PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to update the thumbnail.");
         }
