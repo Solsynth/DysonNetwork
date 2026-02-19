@@ -173,8 +173,8 @@ public class LiveStreamController(
         return Ok(new
         {
             Token = token,
-            RoomName = liveStream.RoomName,
-            Url = liveKitService.Host.Replace("http", "wss"),
+            liveStream.RoomName,
+            Url = liveKitService.Host.Replace("http", "ws"),
             IsStreamer = isStreamer,
             Identity = finalIdentity
         });
