@@ -126,18 +126,36 @@ public class LiveStreamController(
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
-            if (await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+            var isEditor = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor);
+            
+            if (isEditor)
             {
-                isStreamer = true;
-                finalIdentity = identity ?? $"streamer_{accountId:N}";
+                // Streamer is trying to get a token - check if they're already streaming
+                // If they are, give them a viewer identity to avoid kicking themselves
+                var streamerIdentity = $"streamer_{accountId:N}";
+                if (identity == streamerIdentity || string.IsNullOrEmpty(identity))
+                {
+                    // User is the streamer trying to watch their own stream
+                    // Give them a viewer identity instead
+                    isStreamer = false;
+                    finalIdentity = $"viewer_{accountId:N}";
+                }
+                else
+                {
+                    // User provided a different identity, use it as streamer
+                    isStreamer = true;
+                    finalIdentity = identity;
+                }
             }
             else
             {
+                // Regular viewer
                 finalIdentity = identity ?? $"viewer_{accountId:N}";
             }
         }
         else
         {
+            // Anonymous user
             finalIdentity = identity ?? $"viewer_{Guid.NewGuid():N}";
         }
 
@@ -155,8 +173,10 @@ public class LiveStreamController(
         return Ok(new
         {
             Token = token,
-            liveStream.RoomName,
-            Url = liveKitService.Host.Replace("http", "ws"),
+            RoomName = liveStream.RoomName,
+            Url = liveKitService.Host.Replace("http", "wss"),
+            IsStreamer = isStreamer,
+            Identity = finalIdentity
         });
     }
 
@@ -186,8 +206,8 @@ public class LiveStreamController(
         return Ok(new
         {
             RtmpUrl = ingressResult.Url,
-            ingressResult.StreamKey,
-            liveStream.RoomName,
+            StreamKey = ingressResult.StreamKey,
+            RoomName = liveStream.RoomName,
         });
     }
 
