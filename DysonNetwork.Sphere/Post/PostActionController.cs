@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Wallet;
+using DysonNetwork.Sphere.Live;
 
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -33,6 +34,7 @@ public class PostActionController(
     RemotePaymentService remotePayments,
     PollsService polls,
     RemoteRealmService rs,
+    LiveStreamService liveStreams,
     ILogger<PostActionController> logger
 ) : ControllerBase
 {
@@ -63,6 +65,7 @@ public class PostActionController(
 
         public Guid? PollId { get; set; }
         public Guid? FundId { get; set; }
+        public Guid? LiveStreamId { get; set; }
         public string? ThumbnailId { get; set; }
     }
 
@@ -227,6 +230,35 @@ public class PostActionController(
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
             {
                 return BadRequest("Invalid fund ID.");
+            }
+        }
+
+        if (request.LiveStreamId.HasValue)
+        {
+            try
+            {
+                var liveStream = await liveStreams.GetByIdAsync(request.LiveStreamId.Value);
+                if (liveStream == null)
+                    return BadRequest("The specified live stream does not exist.");
+
+                // Check if the live stream belongs to the current user's publisher
+                if (liveStream.PublisherId != publisher.Id)
+                    return BadRequest("You can only share live streams from your own publisher.");
+
+                var liveStreamEmbed = new LiveStreamEmbed { Id = request.LiveStreamId.Value };
+                post.Metadata ??= new Dictionary<string, object>();
+                if (
+                    !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
+                    post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+                embeds.Add(EmbeddableBase.ToDictionary(liveStreamEmbed));
+                post.Metadata["embeds"] = embeds;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Error attaching live stream: {ex.Message}");
             }
         }
 
@@ -730,6 +762,52 @@ public class PostActionController(
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old fund embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "fund");
+        }
+
+        // Handle live stream embeds
+        if (request.LiveStreamId.HasValue)
+        {
+            try
+            {
+                var liveStream = await liveStreams.GetByIdAsync(request.LiveStreamId.Value);
+                if (liveStream == null)
+                    return BadRequest("The specified live stream does not exist.");
+
+                // Check if the live stream belongs to the current user's publisher
+                if (liveStream.PublisherId != post.PublisherId)
+                    return BadRequest("You can only share live streams from your own publisher.");
+
+                var liveStreamEmbed = new LiveStreamEmbed { Id = request.LiveStreamId.Value };
+                post.Metadata ??= new Dictionary<string, object>();
+                if (
+                    !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                    || existingEmbeds is not List<EmbeddableBase>
+                )
+                    post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+                var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+                // Remove all old live stream embeds
+                embeds.RemoveAll(e =>
+                    e.TryGetValue("type", out var type) && type.ToString() == "livestream"
+                );
+                embeds.Add(EmbeddableBase.ToDictionary(liveStreamEmbed));
+                post.Metadata["embeds"] = embeds;
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Error attaching live stream: {ex.Message}");
+            }
+        }
+        else
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            // Remove all old live stream embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "livestream");
         }
 
         if (request.ThumbnailId is not null)

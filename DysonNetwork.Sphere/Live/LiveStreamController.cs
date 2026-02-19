@@ -1,207 +1,113 @@
-using System.Security.Claims;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Live;
 
 [ApiController]
 [Route("api/livestreams")]
-public class LiveStreamController : ControllerBase
+public class LiveStreamController(
+    AppDatabase db,
+    LiveStreamService liveStreamService,
+    LiveKitLivestreamService liveKitService,
+    PublisherService pub
+)
+    : ControllerBase
 {
-    private readonly LiveStreamService _liveStreamService;
-    private readonly LiveKitLivestreamService _liveKitService;
-    private readonly ILogger<LiveStreamController> _logger;
-
-    public LiveStreamController(
-        LiveStreamService liveStreamService,
-        LiveKitLivestreamService liveKitService,
-        ILogger<LiveStreamController> logger)
-    {
-        _liveStreamService = liveStreamService;
-        _liveKitService = liveKitService;
-        _logger = logger;
-    }
-
-    private Guid? GetPublisherId()
-    {
-        var publisherIdClaim = User.FindFirstValue("publisher_id");
-        if (publisherIdClaim != null && Guid.TryParse(publisherIdClaim, out var publisherId))
-        {
-            return publisherId;
-        }
-        return null;
-    }
-
-    private Guid? GetAccountId()
-    {
-        var accountIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (accountIdClaim != null && Guid.TryParse(accountIdClaim, out var accountId))
-        {
-            return accountId;
-        }
-        return null;
-    }
-
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateLiveStreamRequest request)
     {
-        var publisherId = GetPublisherId();
-        if (publisherId == null)
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+        if (userPublishers.Count == 0)
         {
-            return Unauthorized(new { error = "Publisher ID not found in token" });
+            return BadRequest("You need to be a member of a publisher to create live streams.");
         }
 
-        var liveStream = await _liveStreamService.CreateAsync(
-            publisherId.Value,
+        var publisherId = userPublishers.First().Id;
+
+        var liveStream = await liveStreamService.CreateAsync(
+            publisherId,
             request.Title,
             request.Description,
             request.Slug,
-            request.Type ?? LiveStreamType.Regular,
-            request.Visibility ?? LiveStreamVisibility.Public,
+            request.Type ?? Shared.Models.LiveStreamType.Regular,
+            request.Visibility ?? Shared.Models.LiveStreamVisibility.Public,
             request.Metadata);
 
-        return Ok(new CreateLiveStreamResponse
-        {
-            Id = liveStream.Id,
-            RoomName = liveStream.RoomName,
-            Title = liveStream.Title,
-            Description = liveStream.Description,
-            Slug = liveStream.Slug,
-            Type = liveStream.Type,
-            Visibility = liveStream.Visibility,
-            Status = liveStream.Status,
-            CreatedAt = liveStream.CreatedAt,
-        });
+        return Ok(liveStream);
     }
 
     [HttpGet]
     public async Task<IActionResult> GetActive([FromQuery] int limit = 50, [FromQuery] int offset = 0)
     {
-        var liveStreams = await _liveStreamService.GetActiveAsync(limit, offset);
-
-        return Ok(liveStreams.Select(ls => new LiveStreamResponse
-        {
-            Id = ls.Id,
-            Title = ls.Title,
-            Description = ls.Description,
-            Slug = ls.Slug,
-            RoomName = ls.RoomName,
-            Type = ls.Type,
-            Visibility = ls.Visibility,
-            Status = ls.Status,
-            ViewerCount = ls.ViewerCount,
-            PeakViewerCount = ls.PeakViewerCount,
-            StartedAt = ls.StartedAt,
-            CreatedAt = ls.CreatedAt,
-            Publisher = ls.Publisher != null ? new PublisherInfo
-            {
-                Id = ls.Publisher.Id,
-                Name = ls.Publisher.Name,
-                Nick = ls.Publisher.Nick,
-                Picture = ls.Publisher.Picture,
-            } : null,
-        }));
+        var liveStreams = await liveStreamService.GetActiveAsync(limit, offset);
+        return Ok(liveStreams);
     }
 
     [HttpGet("publisher/{publisherId:guid}")]
-    public async Task<IActionResult> GetByPublisher(Guid publisherId, [FromQuery] int limit = 20, [FromQuery] int offset = 0)
+    public async Task<IActionResult> GetByPublisher(Guid publisherId, [FromQuery] int limit = 20,
+        [FromQuery] int offset = 0)
     {
-        var liveStreams = await _liveStreamService.GetByPublisherAsync(publisherId, limit, offset);
-
-        return Ok(liveStreams.Select(ls => new LiveStreamResponse
-        {
-            Id = ls.Id,
-            Title = ls.Title,
-            Description = ls.Description,
-            Slug = ls.Slug,
-            RoomName = ls.RoomName,
-            Type = ls.Type,
-            Visibility = ls.Visibility,
-            Status = ls.Status,
-            ViewerCount = ls.ViewerCount,
-            PeakViewerCount = ls.PeakViewerCount,
-            StartedAt = ls.StartedAt,
-            EndedAt = ls.EndedAt,
-            CreatedAt = ls.CreatedAt,
-        }));
+        var liveStreams = await liveStreamService.GetByPublisherAsync(publisherId, limit, offset);
+        return Ok(liveStreams);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound();
         }
 
-        return Ok(new LiveStreamDetailResponse
-        {
-            Id = liveStream.Id,
-            Title = liveStream.Title,
-            Description = liveStream.Description,
-            Slug = liveStream.Slug,
-            RoomName = liveStream.RoomName,
-            Type = liveStream.Type,
-            Visibility = liveStream.Visibility,
-            Status = liveStream.Status,
-            ViewerCount = liveStream.ViewerCount,
-            PeakViewerCount = liveStream.PeakViewerCount,
-            StartedAt = liveStream.StartedAt,
-            EndedAt = liveStream.EndedAt,
-            CreatedAt = liveStream.CreatedAt,
-            RtmpUrl = liveStream.Status == LiveStreamStatus.Active ? $"rtmp://{_liveKitService.GetType().GetProperty("Host")}" : null,
-            Publisher = liveStream.Publisher != null ? new PublisherInfo
-            {
-                Id = liveStream.Publisher.Id,
-                Name = liveStream.Publisher.Name,
-                Nick = liveStream.Publisher.Nick,
-                Picture = liveStream.Publisher.Picture,
-            } : null,
-        });
+        return Ok(liveStream);
     }
 
     [HttpGet("{id:guid}/token")]
     public async Task<IActionResult> GetToken(Guid id, [FromQuery] string? identity = null)
     {
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.Status != LiveStreamStatus.Active)
+        if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
         {
             return BadRequest(new { error = "LiveStream is not active" });
         }
 
         var isStreamer = false;
-        if (identity == null)
+        string finalIdentity;
+
+        if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
-            var accountId = GetAccountId();
-            var publisherId = GetPublisherId();
-            
-            if (publisherId.HasValue && liveStream.PublisherId == publisherId.Value)
+            var accountId = Guid.Parse(currentUser.Id);
+            if (await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
             {
                 isStreamer = true;
-                identity = $"streamer_{accountId ?? Guid.NewGuid():N}";
+                finalIdentity = identity ?? $"streamer_{accountId:N}";
             }
             else
             {
-                identity = $"viewer_{accountId ?? Guid.NewGuid():N}";
+                finalIdentity = identity ?? $"viewer_{accountId:N}";
             }
         }
         else
         {
-            isStreamer = identity.StartsWith("streamer_");
+            finalIdentity = identity ?? $"viewer_{Guid.NewGuid():N}";
         }
 
-        var token = _liveKitService.GenerateToken(
+        var token = liveKitService.GenerateToken(
             liveStream.RoomName,
-            identity,
+            finalIdentity,
             canPublish: isStreamer,
             canSubscribe: true,
             metadata: new Dictionary<string, string>
@@ -210,11 +116,11 @@ public class LiveStreamController : ControllerBase
                 { "is_streamer", isStreamer.ToString().ToLower() }
             });
 
-        return Ok(new GetTokenResponse
+        return Ok(new
         {
             Token = token,
             RoomName = liveStream.RoomName,
-            Url = _liveKitService.Host.Replace("http", "wss"),
+            Url = liveKitService.Host.Replace("http", "wss"),
         });
     }
 
@@ -222,26 +128,26 @@ public class LiveStreamController : ControllerBase
     [Authorize]
     public async Task<IActionResult> StartStreaming(Guid id, [FromBody] StartStreamingRequest request)
     {
-        var publisherId = GetPublisherId();
-        var accountId = GetAccountId();
-        
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.PublisherId != publisherId)
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
         {
-            return Forbid();
+            return StatusCode(403, "You need to be an editor of this publisher to start the live stream.");
         }
 
-        var identity = $"streamer_{accountId ?? Guid.NewGuid():N}";
+        var identity = $"streamer_{accountId:N}";
         var name = liveStream.Publisher?.Nick ?? "Streamer";
 
-        var ingressResult = await _liveStreamService.StartStreamingAsync(id, identity, name);
+        var ingressResult = await liveStreamService.StartStreamingAsync(id, identity, name);
 
-        return Ok(new StartStreamingResponse
+        return Ok(new
         {
             RtmpUrl = ingressResult.Url,
             StreamKey = ingressResult.StreamKey,
@@ -253,48 +159,47 @@ public class LiveStreamController : ControllerBase
     [Authorize]
     public async Task<IActionResult> StartEgress(Guid id, [FromBody] StartEgressRequest request)
     {
-        var publisherId = GetPublisherId();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.PublisherId != publisherId)
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
         {
-            return Forbid();
+            return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
 
-        var egressResult = await _liveStreamService.StartEgressAsync(
+        var egressResult = await liveStreamService.StartEgressAsync(
             id,
             request.RtmpUrls,
             request.FilePath);
 
-        return Ok(new StartEgressResponse
-        {
-            EgressId = egressResult!.EgressId,
-        });
+        return Ok(new { EgressId = egressResult!.EgressId });
     }
 
     [HttpPost("{id:guid}/egress/stop")]
     [Authorize]
     public async Task<IActionResult> StopEgress(Guid id)
     {
-        var publisherId = GetPublisherId();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.PublisherId != publisherId)
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
         {
-            return Forbid();
+            return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
 
-        await _liveStreamService.StopEgressAsync(id);
+        await liveStreamService.StopEgressAsync(id);
 
         return Ok();
     }
@@ -303,20 +208,21 @@ public class LiveStreamController : ControllerBase
     [Authorize]
     public async Task<IActionResult> End(Guid id)
     {
-        var publisherId = GetPublisherId();
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.PublisherId != publisherId)
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
         {
-            return Forbid();
+            return StatusCode(403, "You need to be an editor of this publisher to end the live stream.");
         }
 
-        await _liveStreamService.EndAsync(id);
+        await liveStreamService.EndAsync(id);
 
         return Ok();
     }
@@ -324,19 +230,19 @@ public class LiveStreamController : ControllerBase
     [HttpGet("{id:guid}/details")]
     public async Task<IActionResult> GetRoomDetails(Guid id)
     {
-        var liveStream = await _liveStreamService.GetByIdAsync(id);
+        var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
             return NotFound();
         }
 
-        var details = await _liveKitService.GetRoomDetailsAsync(liveStream.RoomName);
+        var details = await liveKitService.GetRoomDetailsAsync(liveStream.RoomName);
         if (details == null)
         {
             return NotFound();
         }
 
-        return Ok(new RoomDetailsResponse
+        return Ok(new
         {
             ParticipantCount = details.ParticipantCount,
             ViewerCount = liveStream.ViewerCount,
@@ -355,83 +261,13 @@ public record CreateLiveStreamRequest
     public Dictionary<string, object>? Metadata { get; init; }
 }
 
-public record CreateLiveStreamResponse
-{
-    public Guid Id { get; init; }
-    public string RoomName { get; init; } = null!;
-    public string? Title { get; init; }
-    public string? Description { get; init; }
-    public string? Slug { get; init; }
-    public LiveStreamType Type { get; init; }
-    public LiveStreamVisibility Visibility { get; init; }
-    public LiveStreamStatus Status { get; init; }
-    public Instant CreatedAt { get; init; }
-}
-
-public record LiveStreamResponse
-{
-    public Guid Id { get; init; }
-    public string? Title { get; init; }
-    public string? Description { get; init; }
-    public string? Slug { get; init; }
-    public string RoomName { get; init; } = null!;
-    public LiveStreamType Type { get; init; }
-    public LiveStreamVisibility Visibility { get; init; }
-    public LiveStreamStatus Status { get; init; }
-    public int ViewerCount { get; init; }
-    public int PeakViewerCount { get; init; }
-    public Instant? StartedAt { get; init; }
-    public Instant? EndedAt { get; init; }
-    public Instant CreatedAt { get; init; }
-    public PublisherInfo? Publisher { get; init; }
-}
-
-public record LiveStreamDetailResponse : LiveStreamResponse
-{
-    public string? RtmpUrl { get; init; }
-}
-
-public record PublisherInfo
-{
-    public Guid Id { get; init; }
-    public string Name { get; init; } = null!;
-    public string Nick { get; init; } = null!;
-    public SnCloudFileReferenceObject? Picture { get; init; }
-}
-
 public record StartStreamingRequest
 {
     public string? ParticipantName { get; init; }
-}
-
-public record StartStreamingResponse
-{
-    public string RtmpUrl { get; init; } = null!;
-    public string StreamKey { get; init; } = null!;
-    public string RoomName { get; init; } = null!;
 }
 
 public record StartEgressRequest
 {
     public List<string>? RtmpUrls { get; init; }
     public string? FilePath { get; init; }
-}
-
-public record StartEgressResponse
-{
-    public string EgressId { get; init; } = null!;
-}
-
-public record GetTokenResponse
-{
-    public string Token { get; init; } = null!;
-    public string RoomName { get; init; } = null!;
-    public string Url { get; init; } = null!;
-}
-
-public record RoomDetailsResponse
-{
-    public int ParticipantCount { get; init; }
-    public int ViewerCount { get; init; }
-    public int PeakViewerCount { get; init; }
 }
