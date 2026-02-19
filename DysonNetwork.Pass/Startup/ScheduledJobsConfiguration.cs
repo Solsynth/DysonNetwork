@@ -41,7 +41,7 @@ public static class ScheduledJobsConfiguration
                 .ForJob("SocialCreditValidation")
                 .WithIdentity("SocialCreditValidationTrigger")
                 .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(5)
+                    .WithIntervalInMinutes(60)
                     .RepeatForever()));
 
             // Presence update jobs for different user stages
