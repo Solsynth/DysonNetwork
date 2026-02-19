@@ -115,7 +115,7 @@ public class LiveStreamController(
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.Status != LiveStreamStatus.Active)
+        if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
         {
             return BadRequest(new { error = "LiveStream is not active" });
         }
@@ -126,7 +126,7 @@ public class LiveStreamController(
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
-            if (await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
             {
                 isStreamer = true;
                 finalIdentity = identity ?? $"streamer_{accountId:N}";
