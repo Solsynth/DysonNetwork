@@ -68,6 +68,7 @@ Content-Type: application/json
   "title": "My Awesome Stream",
   "description": "Streaming some cool stuff",
   "slug": "awesome-stream-2026",
+  "thumbnail_id": "file-uuid-here",
   "type": "Regular",
   "visibility": "Public"
 }
@@ -78,9 +79,17 @@ Response 200 OK:
   "room_name": "livestream_abc123",
   "title": "My Awesome Stream",
   "description": "Streaming some cool stuff",
+  "slug": "awesome-stream-2026",
   "type": "Regular",
   "visibility": "Public",
   "status": "Pending",
+  "thumbnail": {
+    "id": "file-uuid-here",
+    "name": "thumbnail.jpg",
+    "url": "https://...",
+    "mime_type": "image/jpeg",
+    "size": 12345
+  },
   "publisher_id": "uuid",
   "publisher": {
     "id": "uuid",
@@ -94,6 +103,8 @@ Response 200 OK:
 ```
 
 **Authorization:** Requires authentication and membership in at least one publisher.
+
+**Thumbnail:** The `thumbnail_id` should be a file ID from the file service. The thumbnail is stored as a `SnCloudFileReferenceObject` in the jsonb column.
 
 #### Start Streaming (Get RTMP Info)
 
@@ -296,6 +307,50 @@ Stops the egress (external streaming). Requires Editor role on the publisher.
 ```http
 POST /api/livestreams/{id}/egress/stop
 Authorization: Bearer {token}
+
+Response 200 OK
+```
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+#### Update Thumbnail
+
+Updates or removes the live stream thumbnail. Requires Editor role on the publisher.
+
+```http
+PATCH /api/livestreams/{id}/thumbnail
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "thumbnail_id": "new-file-uuid-here"
+}
+
+Response 200 OK:
+{
+  "id": "uuid",
+  "title": "My Awesome Stream",
+  "thumbnail": {
+    "id": "new-file-uuid-here",
+    "name": "new-thumbnail.jpg",
+    "url": "https://...",
+    "mime_type": "image/jpeg",
+    "size": 23456
+  },
+  "updated_at": "2026-02-19T15:30:00Z"
+}
+```
+
+To remove the thumbnail, send `null`:
+
+```http
+PATCH /api/livestreams/{id}/thumbnail
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "thumbnail_id": null
+}
 
 Response 200 OK
 ```

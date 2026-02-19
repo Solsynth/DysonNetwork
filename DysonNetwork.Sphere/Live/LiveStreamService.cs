@@ -27,7 +27,8 @@ public class LiveStreamService
         string? slug,
         LiveStreamType type = LiveStreamType.Regular,
         LiveStreamVisibility visibility = LiveStreamVisibility.Public,
-        Dictionary<string, object>? metadata = null)
+        Dictionary<string, object>? metadata = null,
+        SnCloudFileReferenceObject? thumbnail = null)
     {
         var roomName = $"livestream_{Guid.NewGuid():N}";
         
@@ -45,6 +46,7 @@ public class LiveStreamService
             RoomName = roomName,
             PublisherId = publisherId,
             Metadata = metadata,
+            Thumbnail = thumbnail,
         };
 
         _db.LiveStreams.Add(liveStream);

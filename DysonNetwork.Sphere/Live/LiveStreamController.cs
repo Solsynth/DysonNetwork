@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
+using FileService = DysonNetwork.Shared.Proto.FileService;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -13,7 +14,8 @@ public class LiveStreamController(
     AppDatabase db,
     LiveStreamService liveStreamService,
     LiveKitLivestreamService liveKitService,
-    PublisherService pub
+    PublisherService pub,
+    FileService.FileServiceClient files
 )
     : ControllerBase
 {
@@ -43,6 +45,15 @@ public class LiveStreamController(
 
         var publisherId = userPublishers.First().Id;
 
+        SnCloudFileReferenceObject? thumbnail = null;
+        if (request.ThumbnailId is not null)
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.ThumbnailId });
+            if (file is null)
+                return BadRequest("Thumbnail not found.");
+            thumbnail = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+
         var liveStream = await liveStreamService.CreateAsync(
             publisherId,
             request.Title,
@@ -50,7 +61,8 @@ public class LiveStreamController(
             request.Slug,
             request.Type ?? Shared.Models.LiveStreamType.Regular,
             request.Visibility ?? Shared.Models.LiveStreamVisibility.Public,
-            request.Metadata);
+            request.Metadata,
+            thumbnail);
 
         return Ok(liveStream);
     }
@@ -304,6 +316,42 @@ public class LiveStreamController(
             PeakViewerCount = liveStream.PeakViewerCount,
         });
     }
+
+    [HttpPatch("{id:guid}/thumbnail")]
+    [Authorize]
+    public async Task<IActionResult> UpdateThumbnail(Guid id, [FromBody] UpdateThumbnailRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+        {
+            return NotFound();
+        }
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to update the thumbnail.");
+        }
+
+        if (request.ThumbnailId is not null)
+        {
+            var file = await files.GetFileAsync(new GetFileRequest { Id = request.ThumbnailId });
+            if (file is null)
+                return BadRequest("Thumbnail not found.");
+
+            liveStream.Thumbnail = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+        else
+        {
+            liveStream.Thumbnail = null;
+        }
+
+        await db.SaveChangesAsync();
+
+        return Ok(liveStream);
+    }
 }
 
 public record CreateLiveStreamRequest
@@ -311,9 +359,15 @@ public record CreateLiveStreamRequest
     public string? Title { get; init; }
     public string? Description { get; init; }
     public string? Slug { get; init; }
+    public string? ThumbnailId { get; init; }
     public Shared.Models.LiveStreamType? Type { get; init; }
     public Shared.Models.LiveStreamVisibility? Visibility { get; init; }
     public Dictionary<string, object>? Metadata { get; init; }
+}
+
+public record UpdateThumbnailRequest
+{
+    public string? ThumbnailId { get; init; }
 }
 
 public record StartStreamingRequest
