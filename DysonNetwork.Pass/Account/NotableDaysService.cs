@@ -29,8 +29,13 @@ public class NotableDaysService(ICacheService cache)
 
         // Add global holidays that are available for all regions
         var globalDays = GetGlobalHolidays(year.Value);
-        foreach (var globalDay in globalDays.Where(globalDay =>
-                     !days.Any(d => d.Date.Equals(globalDay.Date) && d.GlobalName == globalDay.GlobalName)))
+        foreach (
+            var globalDay in globalDays.Where(globalDay =>
+                !days.Any(d =>
+                    d.Date.Equals(globalDay.Date) && d.GlobalName == globalDay.GlobalName
+                )
+            )
+        )
         {
             days.Add(globalDay);
         }
@@ -53,7 +58,7 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "Christmas",
             LocalizableKey = "Christmas",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Public]
+            Holidays = [NotableHolidayType.Public],
         };
         globalDays.Add(christmas);
 
@@ -65,7 +70,7 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "New Year's Day",
             LocalizableKey = "NewYear",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Public]
+            Holidays = [NotableHolidayType.Public],
         };
         globalDays.Add(newYear);
 
@@ -77,7 +82,7 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "April Fools' Day",
             LocalizableKey = "AprilFoolsDay",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Observance]
+            Holidays = [NotableHolidayType.Observance],
         };
         globalDays.Add(aprilFools);
 
@@ -89,7 +94,7 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "International Workers' Day",
             LocalizableKey = "WorkersDay",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Public]
+            Holidays = [NotableHolidayType.Public],
         };
         globalDays.Add(workersDay);
 
@@ -101,7 +106,7 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "Children's Day",
             LocalizableKey = "ChildrenDay",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Public]
+            Holidays = [NotableHolidayType.Public],
         };
         globalDays.Add(childrenDay);
 
@@ -113,7 +118,7 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "World Environment Day",
             LocalizableKey = "EnvironmentDay",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Observance]
+            Holidays = [NotableHolidayType.Observance],
         };
         globalDays.Add(environmentDay);
 
@@ -125,21 +130,23 @@ public class NotableDaysService(ICacheService cache)
             GlobalName = "Halloween",
             LocalizableKey = "Halloween",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Observance]
+            Holidays = [NotableHolidayType.Observance],
         };
         globalDays.Add(halloween);
-        
-        // 小年 on 2026 / 吃水饺 Day - Feb 11
-        var littleYear = new NotableDay
+
+        var anniversaryNumber = year - 2024;
+        var anniversaryNumberSuffixes = new[] { "st", "nd", "rd" };
+        var anniversaryNumberSuffix = anniversaryNumberSuffixes.ElementAtOrDefault(anniversaryNumber % 10 + 1);
+        var anniversary = new NotableDay
         {
-            Date = Instant.FromDateTimeUtc(new DateTime(2026, 2, 11, 16, 0, 0, DateTimeKind.Utc)),
-            LocalName = "吃水饺日",
-            GlobalName = "吃水饺日",
-            LocalizableKey = "EatDumpling",
+            Date = Instant.FromDateTimeUtc(new DateTime(year, 3, 16, 0, 0, 0, DateTimeKind.Utc)),
+            LocalName = $"Solar Network {anniversaryNumber} 周年",
+            GlobalName = $"Solar Network {anniversaryNumber}{anniversaryNumberSuffix ?? "th"} anniversary",
+            LocalizableKey = "Anniversary",
             CountryCode = null,
-            Holidays = [NotableHolidayType.Observance]
+            Holidays = [],
         };
-        globalDays.Add(halloween);
+        globalDays.Add(anniversary);
 
         return globalDays;
     }
@@ -172,8 +179,9 @@ public class NotableDaysService(ICacheService cache)
         var currentYearHolidays = await GetNotableDays(currentYear, regionCode);
 
         // Find the holiday that is today
-        var todayHoliday = currentYearHolidays
-            .FirstOrDefault(day => day.Date.InUtc().Date == currentDate.InUtc().Date);
+        var todayHoliday = currentYearHolidays.FirstOrDefault(day =>
+            day.Date.InUtc().Date == currentDate.InUtc().Date
+        );
 
         return todayHoliday;
     }
