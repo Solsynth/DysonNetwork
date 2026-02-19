@@ -250,6 +250,63 @@ Response 200 OK:
 
 **Authorization:** Public, no authentication required.
 
+#### Update Live Stream
+
+Updates a live stream's metadata (title, description, slug, type, visibility, metadata). Requires Editor role on the publisher.
+
+```http
+PATCH /api/livestreams/{id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "title": "Updated Stream Title",
+  "description": "Updated description",
+  "slug": "updated-slug-2026",
+  "type": "Interactive",
+  "visibility": "Unlisted",
+  "metadata": {
+    "category": "gaming",
+    "tags": ["fps", "competitive"]
+  }
+}
+
+Response 200 OK:
+{
+  "id": "uuid",
+  "title": "Updated Stream Title",
+  "description": "Updated description",
+  "slug": "updated-slug-2026",
+  "type": "Interactive",
+  "visibility": "Unlisted",
+  "metadata": {
+    "category": "gaming",
+    "tags": ["fps", "competitive"]
+  },
+  "updated_at": "2026-02-19T16:00:00Z",
+  ...
+}
+```
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+**Note:** Only provided fields are updated. Omit fields to keep existing values. Cannot update while stream is active (end stream first, then update).
+
+#### Delete Live Stream
+
+Permanently deletes a live stream and all associated resources. If the stream is active, it will be stopped first. Requires Editor role on the publisher.
+
+```http
+DELETE /api/livestreams/{id}
+Authorization: Bearer {token}
+
+Response 200 OK
+```
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+**Warning:** This action cannot be undone. All stream data, including HLS segments and recordings, will be permanently deleted.
+
 #### Join Stream (Get Token)
 
 Generates a LiveKit token for joining the stream. Automatically detects if the user should be a streamer (if they have Editor role on the publisher).
@@ -596,12 +653,15 @@ Response 200 OK:
 ### For Streamers
 
 1. **Create Stream** → `POST /api/livestreams`
-2. **Start Streaming** → `POST /api/livestreams/{id}/start` (get RTMP URL)
-3. **Configure OBS** → Set RTMP URL and stream key
-4. **Go Live** → Start streaming in OBS
-5. **Optional: Start HLS Egress** → Enable HLS playback for viewers
-6. **Optional: Start RTMP Egress** → Push to YouTube/Bilibili
-7. **End Stream** → `POST /api/livestreams/{id}/end`
+2. **(Optional) Update Stream** → `PATCH /api/livestreams/{id}` (before starting)
+3. **Start Streaming** → `POST /api/livestreams/{id}/start` (get RTMP URL)
+4. **Configure OBS** → Set RTMP URL and stream key
+5. **Go Live** → Start streaming in OBS
+6. **Optional: Start HLS Egress** → Enable HLS playback for viewers
+7. **Optional: Start RTMP Egress** → Push to YouTube/Bilibili
+8. **End Stream** → `POST /api/livestreams/{id}/end`
+9. **(Optional) Update Stream** → `PATCH /api/livestreams/{id}` (after ending)
+10. **(Optional) Delete Stream** → `DELETE /api/livestreams/{id}`
 
 **HLS Playback Flow:**
 1. **Start HLS Egress** → `POST /api/livestreams/{id}/hls`
@@ -664,6 +724,19 @@ Table: `live_streams`
 - Check that `Status` is `Active` (not `Pending`)
 - Verify OBS is connected and streaming
 - Check LiveKit server logs for ingress issues
+
+### Cannot Update Stream
+
+- Stream must be in `Pending` or `Ended` status to update metadata
+- If stream is `Active`, you must end it first: `POST /api/livestreams/{id}/end`
+- Then update: `PATCH /api/livestreams/{id}`
+- Verify you have Editor role on the publisher
+
+### Delete Fails
+
+- Verify you have Editor role on the publisher
+- Check LiveKit server is accessible (required to clean up resources)
+- If LiveKit is down, you may need to manually clean up in the database
 
 ### Token Expired
 

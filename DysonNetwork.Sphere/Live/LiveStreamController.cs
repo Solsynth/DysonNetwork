@@ -361,6 +361,70 @@ public class LiveStreamController(
         return Ok();
     }
 
+    [HttpPatch("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateLiveStreamRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+        {
+            return NotFound(new { error = "LiveStream not found" });
+        }
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to update the live stream.");
+        }
+
+        if (request.Title is not null)
+            liveStream.Title = request.Title;
+
+        if (request.Description is not null)
+            liveStream.Description = request.Description;
+
+        if (request.Slug is not null)
+            liveStream.Slug = request.Slug;
+
+        if (request.Type.HasValue)
+            liveStream.Type = request.Type.Value;
+
+        if (request.Visibility.HasValue)
+            liveStream.Visibility = request.Visibility.Value;
+
+        if (request.Metadata is not null)
+            liveStream.Metadata = request.Metadata;
+
+        await db.SaveChangesAsync();
+
+        return Ok(liveStream);
+    }
+
+    [HttpDelete("{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+        {
+            return NotFound(new { error = "LiveStream not found" });
+        }
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to delete the live stream.");
+        }
+
+        await liveStreamService.DeleteAsync(id);
+
+        return Ok();
+    }
+
     [HttpGet("{id:guid}/details")]
     public async Task<IActionResult> GetRoomDetails(Guid id)
     {
@@ -427,6 +491,16 @@ public record CreateLiveStreamRequest
     public string? Description { get; init; }
     public string? Slug { get; init; }
     public string? ThumbnailId { get; init; }
+    public Shared.Models.LiveStreamType? Type { get; init; }
+    public Shared.Models.LiveStreamVisibility? Visibility { get; init; }
+    public Dictionary<string, object>? Metadata { get; init; }
+}
+
+public record UpdateLiveStreamRequest
+{
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? Slug { get; init; }
     public Shared.Models.LiveStreamType? Type { get; init; }
     public Shared.Models.LiveStreamVisibility? Visibility { get; init; }
     public Dictionary<string, object>? Metadata { get; init; }

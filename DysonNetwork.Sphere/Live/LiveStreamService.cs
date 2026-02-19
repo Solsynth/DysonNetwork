@@ -270,4 +270,36 @@ public class LiveStreamService
         liveStream.Status = status;
         await _db.SaveChangesAsync();
     }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var liveStream = await _db.LiveStreams.FindAsync(id)
+            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+
+        // Clean up LiveKit resources if stream is active
+        if (liveStream.Status == LiveStreamStatus.Active)
+        {
+            if (!string.IsNullOrEmpty(liveStream.IngressId))
+            {
+                await _liveKitService.DeleteIngressAsync(liveStream.IngressId);
+            }
+
+            if (!string.IsNullOrEmpty(liveStream.EgressId))
+            {
+                await _liveKitService.StopEgressAsync(liveStream.EgressId);
+            }
+
+            if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
+            {
+                await _liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            }
+
+            await _liveKitService.DeleteRoomAsync(liveStream.RoomName);
+        }
+
+        _db.LiveStreams.Remove(liveStream);
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Deleted LiveStream: {Id}", id);
+    }
 }
