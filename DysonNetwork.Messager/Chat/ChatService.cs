@@ -482,6 +482,8 @@ public partial class ChatService(
         foreach (var message in messages)
             message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
 
+        await HydrateMessageReactionsAsync(messages.Values.OfType<SnChatMessage>().ToList(), userId);
+
         return messages;
     }
 
@@ -583,7 +585,7 @@ public partial class ChatService(
             .FirstOrDefaultAsync();
     }
 
-    public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, long lastSyncTimestamp, int limit = 500)
+    public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, Guid? accountId, long lastSyncTimestamp, int limit = 500)
     {
         var lastSyncInstant = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
 
@@ -621,6 +623,8 @@ public partial class ChatService(
                 }
             }
         }
+
+        await HydrateMessageReactionsAsync(syncMessages, accountId);
 
         var latestTimestamp = syncMessages.Count > 0
             ? syncMessages.Last().CreatedAt
@@ -811,6 +815,8 @@ public partial class ChatService(
             notify: false
         );
 
+        await HydrateMessageReactionsAsync([message], sender.AccountId);
+
         message.Sender = sender;
         message.ChatRoom = room;
         await DeliverMessageAsync(
@@ -886,6 +892,8 @@ public partial class ChatService(
             notify: false
         );
 
+        await HydrateMessageReactionsAsync([message], sender.AccountId);
+
         message.Sender = sender;
         message.ChatRoom = room;
         await DeliverMessageAsync(
@@ -895,6 +903,49 @@ public partial class ChatService(
             type: WebSocketPacketType.MessageUpdate,
             notify: false
         );
+    }
+
+    public async Task HydrateMessageReactionsAsync(List<SnChatMessage> messages, Guid? accountId = null)
+    {
+        if (messages.Count == 0)
+            return;
+
+        var messageIds = messages.Select(m => m.Id).Distinct().ToList();
+
+        var reactionMaps = await db.ChatReactions
+            .Where(r => messageIds.Contains(r.MessageId))
+            .GroupBy(r => r.MessageId)
+            .ToDictionaryAsync(
+                g => g.Key,
+                g => g.GroupBy(r => r.Symbol).ToDictionary(sg => sg.Key, sg => sg.Count())
+            );
+
+        Dictionary<Guid, Dictionary<string, bool>> reactionMadeMap = new();
+        if (accountId.HasValue)
+        {
+            var reactionsMade = await db.ChatReactions
+                .Where(r => messageIds.Contains(r.MessageId) && r.Sender.AccountId == accountId.Value)
+                .Select(r => new { r.MessageId, r.Symbol })
+                .ToListAsync();
+
+            reactionMadeMap = reactionsMade
+                .GroupBy(r => r.MessageId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.ToDictionary(r => r.Symbol, _ => true)
+                );
+        }
+
+        foreach (var message in messages)
+        {
+            message.ReactionsCount = reactionMaps.TryGetValue(message.Id, out var reactionsCount)
+                ? reactionsCount
+                : new Dictionary<string, int>();
+
+            message.ReactionsMade = accountId.HasValue
+                ? reactionMadeMap.GetValueOrDefault(message.Id, [])
+                : null;
+        }
     }
 }
 

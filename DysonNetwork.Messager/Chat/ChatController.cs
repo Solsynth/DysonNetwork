@@ -98,6 +98,7 @@ public partial class ChatController(
         [FromQuery] int take = 20)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
@@ -132,6 +133,8 @@ public partial class ChatController(
         foreach (var message in messages)
             message.Sender = members.First(x => x.Id == message.SenderId);
 
+        await cs.HydrateMessageReactionsAsync(messages, currentUserId);
+
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return Ok(messages);
@@ -141,6 +144,7 @@ public partial class ChatController(
     public async Task<ActionResult<SnChatMessage>> GetMessage(Guid roomId, Guid messageId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
@@ -166,6 +170,7 @@ public partial class ChatController(
         if (message is null) return NotFound();
 
         message.Sender = await crs.LoadMemberAccount(message.Sender);
+        await cs.HydrateMessageReactionsAsync([message], currentUserId);
 
         return Ok(message);
     }
@@ -672,7 +677,7 @@ public partial class ChatController(
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 
-        var response = await cs.GetSyncDataAsync(roomId, request.LastSyncTimestamp, 500);
+        var response = await cs.GetSyncDataAsync(roomId, accountId, request.LastSyncTimestamp, 500);
         Response.Headers["X-Total"] = response.TotalCount.ToString();
         return Ok(response);
     }
@@ -710,6 +715,8 @@ public partial class ChatController(
                 message.Sender = sender;
             }
         }
+
+        await cs.HydrateMessageReactionsAsync(messages, accountId);
 
         var latestTimestamp = messages.Count > 0
             ? messages.Last().CreatedAt
