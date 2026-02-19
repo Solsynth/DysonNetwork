@@ -58,6 +58,13 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
     [MaxLength(256)]
     public string? EgressId { get; set; }
 
+    [MaxLength(256)]
+    public string? HlsEgressId { get; set; }
+
+    public string? HlsPlaylistUrl { get; set; }
+
+    public Instant? HlsStartedAt { get; set; }
+
     public Instant? StartedAt { get; set; }
     public Instant? EndedAt { get; set; }
 
@@ -103,6 +110,15 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
 
         if (!string.IsNullOrEmpty(EgressId))
             proto.EgressId = EgressId;
+
+        if (!string.IsNullOrEmpty(HlsEgressId))
+            proto.HlsEgressId = HlsEgressId;
+
+        if (!string.IsNullOrEmpty(HlsPlaylistUrl))
+            proto.HlsPlaylistUrl = HlsPlaylistUrl;
+
+        if (HlsStartedAt.HasValue)
+            proto.HlsStartedAt = Timestamp.FromDateTimeOffset(HlsStartedAt.Value.ToDateTimeOffset());
 
         if (StartedAt.HasValue)
             proto.StartedAt = Timestamp.FromDateTimeOffset(StartedAt.Value.ToDateTimeOffset());
@@ -150,6 +166,15 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
 
         if (!string.IsNullOrEmpty(proto.EgressId))
             liveStream.EgressId = proto.EgressId;
+
+        if (!string.IsNullOrEmpty(proto.HlsEgressId))
+            liveStream.HlsEgressId = proto.HlsEgressId;
+
+        if (!string.IsNullOrEmpty(proto.HlsPlaylistUrl))
+            liveStream.HlsPlaylistUrl = proto.HlsPlaylistUrl;
+
+        if (proto.HlsStartedAt != null)
+            liveStream.HlsStartedAt = Instant.FromDateTimeOffset(proto.HlsStartedAt.ToDateTimeOffset());
 
         if (proto.StartedAt != null)
             liveStream.StartedAt = Instant.FromDateTimeOffset(proto.StartedAt.ToDateTimeOffset());

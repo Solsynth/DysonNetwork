@@ -271,6 +271,73 @@ public class LiveStreamController(
         return Ok();
     }
 
+    [HttpPost("{id:guid}/hls")]
+    [Authorize]
+    public async Task<IActionResult> StartHlsEgress(Guid id, [FromBody] StartHlsEgressRequest? request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+        {
+            return NotFound(new { error = "LiveStream not found" });
+        }
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
+        }
+
+        var playlistName = request?.PlaylistName ?? "playlist.m3u8";
+        var segmentDuration = request?.SegmentDuration ?? 6;
+        var segmentCount = request?.SegmentCount ?? 0;
+        var layout = request?.Layout;
+
+        var egressResult = await liveStreamService.StartHlsEgressAsync(
+            id,
+            playlistName,
+            segmentDuration,
+            segmentCount,
+            layout);
+
+        var hlsBaseUrl = request?.HlsBaseUrl ?? $"https://{Request.Host}/hls";
+        var playlistUrl = $"{hlsBaseUrl}/{liveStream.Id}/{playlistName}";
+        
+        liveStream.HlsPlaylistUrl = playlistUrl;
+        await db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            EgressId = egressResult.EgressId,
+            PlaylistUrl = playlistUrl,
+            PlaylistName = playlistName,
+        });
+    }
+
+    [HttpPost("{id:guid}/hls/stop")]
+    [Authorize]
+    public async Task<IActionResult> StopHlsEgress(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+        {
+            return NotFound(new { error = "LiveStream not found" });
+        }
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
+        }
+
+        await liveStreamService.StopHlsEgressAsync(id);
+
+        return Ok();
+    }
+
     [HttpPost("{id:guid}/end")]
     [Authorize]
     public async Task<IActionResult> End(Guid id)
@@ -379,4 +446,32 @@ public record StartEgressRequest
 {
     public List<string>? RtmpUrls { get; init; }
     public string? FilePath { get; init; }
+}
+
+public record StartHlsEgressRequest
+{
+    /// <summary>
+    /// The name of the HLS playlist file (default: "playlist.m3u8")
+    /// </summary>
+    public string? PlaylistName { get; init; }
+
+    /// <summary>
+    /// Duration of each segment in seconds (default: 6)
+    /// </summary>
+    public uint SegmentDuration { get; init; } = 6;
+
+    /// <summary>
+    /// Number of segments to keep (0 = unlimited, keep all)
+    /// </summary>
+    public int SegmentCount { get; init; } = 0;
+
+    /// <summary>
+    /// Layout for video composition (default: "default")
+    /// </summary>
+    public string? Layout { get; init; }
+
+    /// <summary>
+    /// Base URL for HLS playback (default: "https://{host}/hls")
+    /// </summary>
+    public string? HlsBaseUrl { get; init; }
 }

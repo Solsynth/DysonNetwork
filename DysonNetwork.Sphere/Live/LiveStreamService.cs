@@ -144,6 +144,62 @@ public class LiveStreamService
         return egressResult;
     }
 
+    public async Task<LiveKitHlsEgressResult> StartHlsEgressAsync(
+        Guid id,
+        string playlistName = "playlist.m3u8",
+        uint segmentDuration = 6,
+        int segmentCount = 0,
+        string? layout = null)
+    {
+        var liveStream = await _db.LiveStreams.FindAsync(id)
+            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+
+        if (liveStream.Status != LiveStreamStatus.Active)
+        {
+            throw new InvalidOperationException($"LiveStream is not active: {liveStream.Status}");
+        }
+
+        if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
+        {
+            throw new InvalidOperationException("HLS egress is already active for this stream");
+        }
+
+        var filePath = $"hls/{liveStream.Id}/{playlistName}";
+        var egressResult = await _liveKitService.StartRoomCompositeHlsEgressAsync(
+            liveStream.RoomName,
+            playlistName,
+            filePath,
+            segmentDuration,
+            segmentCount,
+            layout);
+
+        liveStream.HlsEgressId = egressResult.EgressId;
+        liveStream.HlsStartedAt = SystemClock.Instance.GetCurrentInstant();
+        
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Started HLS egress for LiveStream: {Id}, egressId: {EgressId}", id, egressResult.EgressId);
+
+        return egressResult;
+    }
+
+    public async Task StopHlsEgressAsync(Guid id)
+    {
+        var liveStream = await _db.LiveStreams.FindAsync(id)
+            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+
+        if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
+        {
+            await _liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            liveStream.HlsEgressId = null;
+            liveStream.HlsPlaylistUrl = null;
+        }
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Stopped HLS egress for LiveStream: {Id}", id);
+    }
+
     public async Task StopEgressAsync(Guid id)
     {
         var liveStream = await _db.LiveStreams.FindAsync(id)
@@ -175,6 +231,13 @@ public class LiveStreamService
         {
             await _liveKitService.StopEgressAsync(liveStream.EgressId);
             liveStream.EgressId = null;
+        }
+
+        if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
+        {
+            await _liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            liveStream.HlsEgressId = null;
+            liveStream.HlsPlaylistUrl = null;
         }
 
         liveStream.Status = LiveStreamStatus.Ended;

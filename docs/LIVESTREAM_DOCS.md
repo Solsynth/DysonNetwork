@@ -7,6 +7,7 @@ The Live Stream feature enables users to create and broadcast live video streams
 - Create live streams with metadata
 - Stream via RTMP (using OBS or similar software)
 - Allow viewers to join via WebRTC (Flutter/Web clients)
+- Enable HLS playback for broader platform compatibility
 - Push streams to external platforms (YouTube, Bilibili, etc.) via Egress
 - Track viewer counts and stream statistics
 - When using with the Gateway, the base url is `/sphere/livestreams` instead of `/api/livestreams`
@@ -18,7 +19,8 @@ The Live Stream feature enables users to create and broadcast live video streams
 1. **LiveKit Infrastructure**
     - **Room**: WebRTC room for each live stream session
     - **Ingress**: RTMP input endpoint for streamers (OBS → LiveKit)
-    - **Egress**: RTMP output to external platforms
+    - **Egress (RTMP)**: RTMP output to external platforms
+    - **Egress (HLS)**: HLS segment generation for playback
 
 2. **Sphere API** (DysonNetwork.Sphere)
     - RESTful API for stream management
@@ -313,6 +315,120 @@ Response 200 OK
 
 **Authorization:** Requires authentication and Editor role on the stream's publisher.
 
+### HLS Egress (Playback Support)
+
+HLS (HTTP Live Streaming) egress allows viewers to watch the stream using standard HLS players (e.g., HTML5 video player, VLC, iOS native player) instead of WebRTC. This is useful for:
+
+- Better compatibility across platforms
+- Fallback when WebRTC is not supported
+- Recording for later playback
+- Reducing server load for large audiences
+
+#### Start HLS Egress
+
+Starts generating HLS segments and playlist from the live stream. Requires Editor role on the publisher.
+
+```http
+POST /api/livestreams/{id}/hls
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "playlist_name": "playlist.m3u8",
+  "segment_duration": 6,
+  "segment_count": 0,
+  "layout": "default",
+  "hls_base_url": "https://your-cdn.com/hls"
+}
+
+Response 200 OK:
+{
+  "egress_id": "EG_xxx",
+  "playlist_url": "https://your-cdn.com/hls/{stream-id}/playlist.m3u8",
+  "playlist_name": "playlist.m3u8"
+}
+```
+
+**Request Body Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `playlist_name` | string | "playlist.m3u8" | Name of the HLS playlist file |
+| `segment_duration` | uint | 6 | Duration of each segment in seconds |
+| `segment_count` | int | 0 | Number of segments to keep (0 = unlimited) |
+| `layout` | string | "default" | Video composition layout |
+| `hls_base_url` | string | Auto | Base URL for HLS playback (defaults to `https://{host}/hls`) |
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+**Notes:**
+- Only one HLS egress can be active per stream. Call stop first if you want to restart.
+- The `playlist_url` is stored in the live stream and returned in GET responses (visible to all viewers).
+- Segments are stored in `{filename_prefix}` location configured in LiveKit.
+
+#### Stop HLS Egress
+
+Stops the HLS egress generation.
+
+```http
+POST /api/livestreams/{id}/hls/stop
+Authorization: Bearer {token}
+
+Response 200 OK
+```
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+#### HLS Playback
+
+Once HLS egress is started, the playlist URL is available in the stream response:
+
+```http
+GET /api/livestreams/{id}
+
+Response 200 OK:
+{
+  "id": "uuid",
+  "title": "My Awesome Stream",
+  "status": "Active",
+  "hls_egress_id": "EG_xxx",
+  "hls_playlist_url": "https://your-cdn.com/hls/{stream-id}/playlist.m3u8",
+  "hls_started_at": "2026-02-19T15:30:00Z",
+  ...
+}
+```
+
+**HTML5 Video Player Example:**
+
+```html
+<video controls autoplay>
+  <source src="https://your-cdn.com/hls/{stream-id}/playlist.m3u8" type="application/x-mpegURL">
+</video>
+```
+
+**HLS.js Example (for browsers without native HLS support):**
+
+```javascript
+import Hls from 'hls.js';
+
+const video = document.getElementById('video');
+const hlsUrl = 'https://your-cdn.com/hls/{stream-id}/playlist.m3u8';
+
+if (Hls.isSupported()) {
+  const hls = new Hls();
+  hls.loadSource(hlsUrl);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.MANIFEST_PARSED, () => {
+    video.play();
+  });
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  video.src = hlsUrl;
+  video.addEventListener('loadedmetadata', () => {
+    video.play();
+  });
+}
+```
+
 #### Update Thumbnail
 
 Updates or removes the live stream thumbnail. Requires Editor role on the publisher.
@@ -483,8 +599,15 @@ Response 200 OK:
 2. **Start Streaming** → `POST /api/livestreams/{id}/start` (get RTMP URL)
 3. **Configure OBS** → Set RTMP URL and stream key
 4. **Go Live** → Start streaming in OBS
-5. **Optional: Start Egress** → Push to YouTube/Bilibili
-6. **End Stream** → `POST /api/livestreams/{id}/end`
+5. **Optional: Start HLS Egress** → Enable HLS playback for viewers
+6. **Optional: Start RTMP Egress** → Push to YouTube/Bilibili
+7. **End Stream** → `POST /api/livestreams/{id}/end`
+
+**HLS Playback Flow:**
+1. **Start HLS Egress** → `POST /api/livestreams/{id}/hls`
+2. **Get Playlist URL** → Returned in response or `GET /api/livestreams/{id}`
+3. **Distribute URL** → Share with viewers for HLS playback
+4. **Stop HLS** → `POST /api/livestreams/{id}/hls/stop` (auto-stops on stream end)
 
 ### For Viewers
 
@@ -509,7 +632,10 @@ Table: `live_streams`
 | `room_name`          | varchar(256)  | LiveKit room name                             |
 | `ingress_id`         | varchar(256)  | LiveKit ingress ID                            |
 | `ingress_stream_key` | varchar(256)  | RTMP stream key                               |
-| `egress_id`          | varchar(256)  | LiveKit egress ID                             |
+| `egress_id`          | varchar(256)  | LiveKit egress ID (RTMP)                      |
+| `hls_egress_id`      | varchar(256)  | LiveKit HLS egress ID                         |
+| `hls_playlist_url`   | text          | Public HLS playlist URL                       |
+| `hls_started_at`     | timestamptz   | When HLS egress started                       |
 | `started_at`         | timestamptz   | When stream started                           |
 | `ended_at`           | timestamptz   | When stream ended                             |
 | `viewer_count`       | integer       | Current viewer count                          |
@@ -549,6 +675,20 @@ Table: `live_streams`
 - Ensure egress service is running
 - Verify RTMP URLs are valid
 - Check Redis connectivity (required for egress)
+
+### HLS Playback Issues
+
+- **Playlist not accessible**: Ensure the `hls_base_url` is publicly accessible or configure a CDN
+- **Segments 404**: Verify LiveKit egress has write access to the storage location
+- **Buffering/Latency**: Increase `segment_duration` for more stable playback (trade-off: higher latency)
+- **Old segments not deleted**: Set `segment_count` to limit storage usage (e.g., 20 for ~2 minutes of history)
+
+### HLS Egress Already Active
+
+If you get "HLS egress is already active for this stream":
+1. Stop the existing HLS egress: `POST /api/livestreams/{id}/hls/stop`
+2. Wait a few seconds for cleanup
+3. Start again: `POST /api/livestreams/{id}/hls`
 
 ## Related Files
 

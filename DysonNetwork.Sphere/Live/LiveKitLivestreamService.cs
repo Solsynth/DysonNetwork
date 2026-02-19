@@ -189,6 +189,49 @@ public class LiveKitLivestreamService
         }
     }
 
+    public async Task<LiveKitHlsEgressResult> StartRoomCompositeHlsEgressAsync(
+        string roomName,
+        string playlistName,
+        string filePath,
+        uint segmentDuration = 6,
+        int segmentCount = 0,
+        string? layout = null)
+    {
+        try
+        {
+            var request = new RoomCompositeEgressRequest
+            {
+                RoomName = roomName,
+                Layout = layout ?? "default",
+            };
+
+            var segmentOutput = new SegmentedFileOutput
+            {
+                PlaylistName = playlistName,
+                FilenamePrefix = filePath,
+                SegmentDuration = segmentDuration,
+            };
+
+            request.SegmentOutputs.Add(segmentOutput);
+
+            var egress = await _egressService.StartRoomCompositeEgress(request);
+            _logger.LogInformation("Started HLS egress for room: {RoomName}, egressId: {EgressId}", roomName,
+                egress.EgressId);
+
+            return new LiveKitHlsEgressResult
+            {
+                EgressId = egress.EgressId,
+                PlaylistName = playlistName,
+                FilenamePrefix = filePath,
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start HLS egress for room: {RoomName}", roomName);
+            throw;
+        }
+    }
+
     public async Task StopEgressAsync(string egressId)
     {
         try
@@ -309,4 +352,11 @@ public record ParticipantInfo
     public string Identity { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public string State { get; init; } = string.Empty;
+}
+
+public record LiveKitHlsEgressResult
+{
+    public string EgressId { get; init; } = string.Empty;
+    public string PlaylistName { get; init; } = string.Empty;
+    public string FilenamePrefix { get; init; } = string.Empty;
 }
