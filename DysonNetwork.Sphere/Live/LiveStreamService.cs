@@ -4,22 +4,12 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Live;
 
-public class LiveStreamService
+public class LiveStreamService(
+    AppDatabase db,
+    LiveKitLivestreamService liveKitService,
+    ILogger<LiveStreamService> logger
+)
 {
-    private readonly AppDatabase _db;
-    private readonly LiveKitLivestreamService _liveKitService;
-    private readonly ILogger<LiveStreamService> _logger;
-
-    public LiveStreamService(
-        AppDatabase db,
-        LiveKitLivestreamService liveKitService,
-        ILogger<LiveStreamService> logger)
-    {
-        _db = db;
-        _liveKitService = liveKitService;
-        _logger = logger;
-    }
-
     public async Task<SnLiveStream> CreateAsync(
         Guid publisherId,
         string? title,
@@ -31,8 +21,8 @@ public class LiveStreamService
         SnCloudFileReferenceObject? thumbnail = null)
     {
         var roomName = $"livestream_{Guid.NewGuid():N}";
-        
-        await _liveKitService.CreateRoomAsync(roomName);
+
+        await liveKitService.CreateRoomAsync(roomName);
 
         var liveStream = new SnLiveStream
         {
@@ -49,31 +39,31 @@ public class LiveStreamService
             Thumbnail = thumbnail,
         };
 
-        _db.LiveStreams.Add(liveStream);
-        await _db.SaveChangesAsync();
+        db.LiveStreams.Add(liveStream);
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Created LiveStream: {Id} for publisher: {PublisherId}", liveStream.Id, publisherId);
+        logger.LogInformation("Created LiveStream: {Id} for publisher: {PublisherId}", liveStream.Id, publisherId);
 
         return liveStream;
     }
 
     public async Task<SnLiveStream?> GetByIdAsync(Guid id)
     {
-        return await _db.LiveStreams
+        return await db.LiveStreams
             .Include(ls => ls.Publisher)
             .FirstOrDefaultAsync(ls => ls.Id == id);
     }
 
     public async Task<SnLiveStream?> GetActiveByPublisherAsync(Guid publisherId)
     {
-        return await _db.LiveStreams
+        return await db.LiveStreams
             .Include(ls => ls.Publisher)
             .FirstOrDefaultAsync(ls => ls.PublisherId == publisherId && ls.Status == LiveStreamStatus.Active);
     }
 
     public async Task<List<SnLiveStream>> GetActiveAsync(int limit = 50, int offset = 0)
     {
-        return await _db.LiveStreams
+        return await db.LiveStreams
             .Include(ls => ls.Publisher)
             .Where(ls => ls.Status == LiveStreamStatus.Active && ls.Visibility == LiveStreamVisibility.Public)
             .OrderByDescending(ls => ls.StartedAt)
@@ -84,7 +74,7 @@ public class LiveStreamService
 
     public async Task<List<SnLiveStream>> GetByPublisherAsync(Guid publisherId, int limit = 20, int offset = 0)
     {
-        return await _db.LiveStreams
+        return await db.LiveStreams
             .Include(ls => ls.Publisher)
             .Where(ls => ls.PublisherId == publisherId)
             .OrderByDescending(ls => ls.CreatedAt)
@@ -93,19 +83,20 @@ public class LiveStreamService
             .ToListAsync();
     }
 
-    public async Task<LiveKitIngressResult?> StartStreamingAsync(Guid id, string participantIdentity, string? participantName)
+    public async Task<LiveKitIngressResult?> StartStreamingAsync(Guid id, string participantIdentity,
+        string? participantName)
     {
         return await StartStreamingAsync(id, participantIdentity, participantName, createIngress: true);
     }
 
     public async Task<LiveKitIngressResult?> StartStreamingAsync(
-        Guid id, 
-        string participantIdentity, 
+        Guid id,
+        string participantIdentity,
         string? participantName,
         bool createIngress = true)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
         {
@@ -116,7 +107,7 @@ public class LiveStreamService
 
         if (createIngress)
         {
-            ingressResult = await _liveKitService.CreateIngressAsync(
+            ingressResult = await liveKitService.CreateIngressAsync(
                 liveStream.RoomName,
                 participantIdentity,
                 participantName,
@@ -129,17 +120,17 @@ public class LiveStreamService
         liveStream.Status = LiveStreamStatus.Active;
         liveStream.StartedAt = SystemClock.Instance.GetCurrentInstant();
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress})", id, createIngress);
+        logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress})", id, createIngress);
 
         return ingressResult;
     }
 
     public async Task StartInAppStreamingAsync(Guid id)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
         {
@@ -149,30 +140,31 @@ public class LiveStreamService
         liveStream.Status = LiveStreamStatus.Active;
         liveStream.StartedAt = SystemClock.Instance.GetCurrentInstant();
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Started in-app streaming for LiveStream: {Id}", id);
+        logger.LogInformation("Started in-app streaming for LiveStream: {Id}", id);
     }
 
-    public async Task<LiveKitEgressResult?> StartEgressAsync(Guid id, List<string>? rtmpUrls = null, string? filePath = null)
+    public async Task<LiveKitEgressResult?> StartEgressAsync(Guid id, List<string>? rtmpUrls = null,
+        string? filePath = null)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Active)
         {
             throw new InvalidOperationException($"LiveStream is not active: {liveStream.Status}");
         }
 
-        var egressResult = await _liveKitService.StartRoomCompositeEgressAsync(
+        var egressResult = await liveKitService.StartRoomCompositeEgressAsync(
             liveStream.RoomName,
             rtmpUrls,
             filePath);
 
         liveStream.EgressId = egressResult.EgressId;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Started egress for LiveStream: {Id}, egressId: {EgressId}", id, egressResult.EgressId);
+        logger.LogInformation("Started egress for LiveStream: {Id}, egressId: {EgressId}", id, egressResult.EgressId);
 
         return egressResult;
     }
@@ -184,8 +176,8 @@ public class LiveStreamService
         int segmentCount = 0,
         string? layout = null)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Active)
         {
@@ -198,7 +190,7 @@ public class LiveStreamService
         }
 
         var filePath = $"hls/{liveStream.Id}/{playlistName}";
-        var egressResult = await _liveKitService.StartRoomCompositeHlsEgressAsync(
+        var egressResult = await liveKitService.StartRoomCompositeHlsEgressAsync(
             liveStream.RoomName,
             playlistName,
             filePath,
@@ -208,67 +200,68 @@ public class LiveStreamService
 
         liveStream.HlsEgressId = egressResult.EgressId;
         liveStream.HlsStartedAt = SystemClock.Instance.GetCurrentInstant();
-        
-        await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Started HLS egress for LiveStream: {Id}, egressId: {EgressId}", id, egressResult.EgressId);
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Started HLS egress for LiveStream: {Id}, egressId: {EgressId}", id,
+            egressResult.EgressId);
 
         return egressResult;
     }
 
     public async Task StopHlsEgressAsync(Guid id)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
         {
-            await _liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
             liveStream.HlsEgressId = null;
             liveStream.HlsPlaylistUrl = null;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Stopped HLS egress for LiveStream: {Id}", id);
+        logger.LogInformation("Stopped HLS egress for LiveStream: {Id}", id);
     }
 
     public async Task StopEgressAsync(Guid id)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (!string.IsNullOrEmpty(liveStream.EgressId))
         {
-            await _liveKitService.StopEgressAsync(liveStream.EgressId);
+            await liveKitService.StopEgressAsync(liveStream.EgressId);
             liveStream.EgressId = null;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Stopped egress for LiveStream: {Id}", id);
+        logger.LogInformation("Stopped egress for LiveStream: {Id}", id);
     }
 
     public async Task EndAsync(Guid id)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (!string.IsNullOrEmpty(liveStream.IngressId))
         {
-            await _liveKitService.DeleteIngressAsync(liveStream.IngressId);
+            await liveKitService.DeleteIngressAsync(liveStream.IngressId);
             liveStream.IngressId = null;
         }
 
         if (!string.IsNullOrEmpty(liveStream.EgressId))
         {
-            await _liveKitService.StopEgressAsync(liveStream.EgressId);
+            await liveKitService.StopEgressAsync(liveStream.EgressId);
             liveStream.EgressId = null;
         }
 
         if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
         {
-            await _liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
             liveStream.HlsEgressId = null;
             liveStream.HlsPlaylistUrl = null;
         }
@@ -276,14 +269,14 @@ public class LiveStreamService
         liveStream.Status = LiveStreamStatus.Ended;
         liveStream.EndedAt = SystemClock.Instance.GetCurrentInstant();
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Ended LiveStream: {Id}", id);
+        logger.LogInformation("Ended LiveStream: {Id}", id);
     }
 
     public async Task UpdateViewerCountAsync(Guid id, int count)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id);
+        var liveStream = await db.LiveStreams.FindAsync(id);
         if (liveStream == null) return;
 
         liveStream.ViewerCount = count;
@@ -292,47 +285,47 @@ public class LiveStreamService
             liveStream.PeakViewerCount = count;
         }
 
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task UpdateStatusAsync(Guid id, LiveStreamStatus status)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id);
+        var liveStream = await db.LiveStreams.FindAsync(id);
         if (liveStream == null) return;
 
         liveStream.Status = status;
-        await _db.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        var liveStream = await _db.LiveStreams.FindAsync(id)
-            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+        var liveStream = await db.LiveStreams.FindAsync(id)
+                         ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         // Clean up LiveKit resources if stream is active
         if (liveStream.Status == LiveStreamStatus.Active)
         {
             if (!string.IsNullOrEmpty(liveStream.IngressId))
             {
-                await _liveKitService.DeleteIngressAsync(liveStream.IngressId);
+                await liveKitService.DeleteIngressAsync(liveStream.IngressId);
             }
 
             if (!string.IsNullOrEmpty(liveStream.EgressId))
             {
-                await _liveKitService.StopEgressAsync(liveStream.EgressId);
+                await liveKitService.StopEgressAsync(liveStream.EgressId);
             }
 
             if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
             {
-                await _liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+                await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
             }
 
-            await _liveKitService.DeleteRoomAsync(liveStream.RoomName);
+            await liveKitService.DeleteRoomAsync(liveStream.RoomName);
         }
 
-        _db.LiveStreams.Remove(liveStream);
-        await _db.SaveChangesAsync();
+        db.LiveStreams.Remove(liveStream);
+        await db.SaveChangesAsync();
 
-        _logger.LogInformation("Deleted LiveStream: {Id}", id);
+        logger.LogInformation("Deleted LiveStream: {Id}", id);
     }
 }

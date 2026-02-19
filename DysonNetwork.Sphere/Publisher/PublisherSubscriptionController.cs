@@ -86,10 +86,10 @@ public class PublisherSubscriptionController(
     /// <summary>
     /// Get all subscriptions for the current user
     /// </summary>
-    /// <returns>List of active subscriptions</returns>
+    /// <returns>List of active subscriptions with IsLive flag</returns>
     [HttpGet("subscriptions")]
     [Authorize]
-    public async Task<ActionResult<List<SnPublisherSubscription>>> GetCurrentSubscriptions(
+    public async Task<ActionResult<List<SubscriptionWithLiveStatus>>> GetCurrentSubscriptions(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20
     )
@@ -97,21 +97,41 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var pubQuery = db.PublisherSubscriptions
+        var subscriptions = await db.PublisherSubscriptions
             .Include(ps => ps.Publisher)
             .Where(ps => ps.AccountId == accountId)
             .OrderByDescending(ps => ps.CreatedAt)
-            .AsQueryable();
-
-        var totalCount = await pubQuery.CountAsync();
-        var subscriptions = await pubQuery
-            .Take(take)
             .Skip(offset)
+            .Take(take)
             .ToListAsync();
+
+        var totalCount = await db.PublisherSubscriptions
+            .CountAsync(ps => ps.AccountId == accountId);
+
+        var publisherIds = subscriptions.Select(s => s.PublisherId).ToList();
+
+        var livePublisherIds = await db.LiveStreams
+            .Where(ls => publisherIds.Contains(ls.PublisherId ?? Guid.Empty)
+                      && ls.Status == Shared.Models.LiveStreamStatus.Active)
+            .Select(ls => ls.PublisherId)
+            .Distinct()
+            .ToListAsync();
+
+        var result = subscriptions.Select(ps => new SubscriptionWithLiveStatus
+        {
+            Subscription = ps,
+            IsLive = livePublisherIds.Contains(ps.PublisherId)
+        }).ToList();
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
-        return Ok(subscriptions);
+        return Ok(result);
+    }
+
+    public class SubscriptionWithLiveStatus
+    {
+        public SnPublisherSubscription Subscription { get; set; } = null!;
+        public bool IsLive { get; set; }
     }
 
     /// <summary>
