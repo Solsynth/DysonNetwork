@@ -113,4 +113,43 @@ public class PublisherSubscriptionController(
 
         return Ok(subscriptions);
     }
+
+    /// <summary>
+    /// Get active live streams from publishers the current user is subscribed to
+    /// </summary>
+    /// <returns>List of active live streams from subscribed publishers</returns>
+    [HttpGet("subscriptions/live")]
+    [Authorize]
+    public async Task<ActionResult<List<SnLiveStream>>> GetSubscribedPublisherLiveStreams(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        // Get subscribed publisher IDs
+        var subscribedPublisherIds = await db.PublisherSubscriptions
+            .Where(ps => ps.AccountId == accountId)
+            .Select(ps => ps.PublisherId)
+            .ToListAsync();
+
+        if (!subscribedPublisherIds.Any())
+        {
+            return Ok(new List<SnLiveStream>());
+        }
+
+        // Get active live streams from subscribed publishers
+        var liveStreams = await db.LiveStreams
+            .Include(ls => ls.Publisher)
+            .Where(ls => subscribedPublisherIds.Contains(ls.PublisherId ?? Guid.Empty) 
+                      && ls.Status == Shared.Models.LiveStreamStatus.Active
+                      && ls.Visibility == Shared.Models.LiveStreamVisibility.Public)
+            .OrderByDescending(ls => ls.StartedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(liveStreams);
+    }
 }
