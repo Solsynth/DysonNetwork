@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Live;
@@ -17,6 +18,18 @@ public class LiveStreamController(
 )
     : ControllerBase
 {
+    /// <summary>
+    /// Sanitizes a live stream by removing sensitive fields (ingress/egress keys)
+    /// that should only be visible to the stream owner
+    /// </summary>
+    private static SnLiveStream SanitizeForPublic(SnLiveStream liveStream)
+    {
+        liveStream.IngressStreamKey = null;
+        liveStream.IngressId = null;
+        liveStream.EgressId = null;
+        return liveStream;
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create([FromBody] CreateLiveStreamRequest request)
@@ -47,6 +60,11 @@ public class LiveStreamController(
     public async Task<IActionResult> GetActive([FromQuery] int limit = 50, [FromQuery] int offset = 0)
     {
         var liveStreams = await liveStreamService.GetActiveAsync(limit, offset);
+        // Sanitize all streams for public viewing
+        foreach (var stream in liveStreams)
+        {
+            SanitizeForPublic(stream);
+        }
         return Ok(liveStreams);
     }
 
@@ -55,6 +73,11 @@ public class LiveStreamController(
         [FromQuery] int offset = 0)
     {
         var liveStreams = await liveStreamService.GetByPublisherAsync(publisherId, limit, offset);
+        // Sanitize all streams for public viewing
+        foreach (var stream in liveStreams)
+        {
+            SanitizeForPublic(stream);
+        }
         return Ok(liveStreams);
     }
 
@@ -65,6 +88,19 @@ public class LiveStreamController(
         if (liveStream == null)
         {
             return NotFound();
+        }
+
+        // Check if current user is authorized to see sensitive data
+        bool isAuthorized = false;
+        if (HttpContext.Items["CurrentUser"] is Account currentUser)
+        {
+            var accountId = Guid.Parse(currentUser.Id);
+            isAuthorized = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor);
+        }
+
+        if (!isAuthorized)
+        {
+            SanitizeForPublic(liveStream);
         }
 
         return Ok(liveStream);
@@ -79,7 +115,7 @@ public class LiveStreamController(
             return NotFound(new { error = "LiveStream not found" });
         }
 
-        if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
+        if (liveStream.Status != LiveStreamStatus.Active)
         {
             return BadRequest(new { error = "LiveStream is not active" });
         }
@@ -119,8 +155,8 @@ public class LiveStreamController(
         return Ok(new
         {
             Token = token,
-            RoomName = liveStream.RoomName,
-            Url = liveKitService.Host.Replace("http", "wss"),
+            liveStream.RoomName,
+            Url = liveKitService.Host.Replace("http", "ws"),
         });
     }
 
@@ -137,7 +173,7 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to start the live stream.");
         }
@@ -150,8 +186,8 @@ public class LiveStreamController(
         return Ok(new
         {
             RtmpUrl = ingressResult.Url,
-            StreamKey = ingressResult.StreamKey,
-            RoomName = liveStream.RoomName,
+            ingressResult.StreamKey,
+            liveStream.RoomName,
         });
     }
 

@@ -49,7 +49,9 @@ Or use the existing `RealtimeChat` config as fallback.
 
 ## API Endpoints
 
-**Note:** All endpoints that return live stream data return the full `SnLiveStream` database object directly (not DTOs), including related `Publisher` objects. Only specific endpoints like token generation return custom anonymous objects.
+**Note:** All endpoints that return live stream data return the `SnLiveStream` database object directly (not DTOs), including related `Publisher` objects. Only specific endpoints like token generation return custom anonymous objects.
+
+**Security:** Sensitive fields (`ingress_id`, `ingress_stream_key`, `egress_id`) are automatically removed from public responses. These fields are only visible to users who have Editor role on the stream's publisher. The `Start Streaming` endpoint returns the RTMP credentials only to authorized users.
 
 ### Stream Management
 
