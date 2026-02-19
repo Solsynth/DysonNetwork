@@ -256,8 +256,8 @@ public record CreateLiveStreamRequest
     public string? Title { get; init; }
     public string? Description { get; init; }
     public string? Slug { get; init; }
-    public LiveStreamType? Type { get; init; }
-    public LiveStreamVisibility? Visibility { get; init; }
+    public Shared.Models.LiveStreamType? Type { get; init; }
+    public Shared.Models.LiveStreamVisibility? Visibility { get; init; }
     public Dictionary<string, object>? Metadata { get; init; }
 }
 
