@@ -14,6 +14,7 @@ using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
+using DysonNetwork.Sphere.Live;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -196,6 +197,8 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ActivityPubDiscoveryService>();
             services.AddScoped<ActivityPubObjectFactory>();
             services.AddSingleton<ActivityPubQueueService>();
+            services.AddScoped<LiveStreamService>();
+            services.AddSingleton<LiveKitLivestreamService>();
 
             var translationProvider = configuration["Translation:Provider"]?.ToLower();
             switch (translationProvider)

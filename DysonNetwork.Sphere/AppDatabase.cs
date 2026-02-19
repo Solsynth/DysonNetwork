@@ -40,6 +40,8 @@ public class AppDatabase(
     public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
 
+    public DbSet<SnLiveStream> LiveStreams { get; set; } = null!;
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

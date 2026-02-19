@@ -14,6 +14,7 @@
         <PackageReference Include="AngleSharp" Version="1.4.0" />
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.76.0" />
         <PackageReference Include="jieba.NET" Version="0.42.2" />
+        <PackageReference Include="Livekit.Server.Sdk.Dotnet" Version="1.2.0" />
         <PackageReference Include="Markdig" Version="0.44.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
