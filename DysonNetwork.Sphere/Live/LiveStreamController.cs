@@ -122,14 +122,10 @@ public class LiveStreamController(
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-        {
             return NotFound(new { error = "LiveStream not found" });
-        }
 
         if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
-        {
             return BadRequest(new { error = "LiveStream is not active" });
-        }
 
         var isStreamer = false;
         string finalIdentity;
@@ -137,7 +133,7 @@ public class LiveStreamController(
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
-            var isEditor = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, Shared.Models.PublisherMemberRole.Editor);
+            var isEditor = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor);
             
             if (isEditor)
             {
@@ -199,9 +195,7 @@ public class LiveStreamController(
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-        {
             return NotFound(new { error = "LiveStream not found" });
-        }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
@@ -210,16 +204,31 @@ public class LiveStreamController(
         }
 
         var identity = $"streamer_{accountId:N}";
-        var name = liveStream.Publisher?.Nick ?? "Streamer";
+        var name = request.ParticipantName ?? liveStream.Publisher?.Nick ?? "Streamer";
 
-        var ingressResult = await liveStreamService.StartStreamingAsync(id, identity, name);
+        var noIngress = request.NoIngress ?? false;
 
-        return Ok(new
+        if (noIngress)
         {
-            RtmpUrl = ingressResult.Url,
-            StreamKey = ingressResult.StreamKey,
-            RoomName = liveStream.RoomName,
-        });
+            await liveStreamService.StartInAppStreamingAsync(id);
+
+            return Ok(new
+            {
+                liveStream.RoomName,
+                Url = liveKitService.Host.Replace("http", "ws"),
+            });
+        }
+        else
+        {
+            var ingressResult = await liveStreamService.StartStreamingAsync(id, identity, name, createIngress: true);
+
+            return Ok(new
+            {
+                RtmpUrl = ingressResult!.Url,
+                StreamKey = ingressResult.StreamKey,
+                liveStream.RoomName,
+            });
+        }
     }
 
     [HttpPost("{id:guid}/egress")]
@@ -514,6 +523,7 @@ public record UpdateThumbnailRequest
 public record StartStreamingRequest
 {
     public string? ParticipantName { get; init; }
+    public bool? NoIngress { get; set; }
 }
 
 public record StartEgressRequest

@@ -93,7 +93,16 @@ public class LiveStreamService
             .ToListAsync();
     }
 
-    public async Task<LiveKitIngressResult> StartStreamingAsync(Guid id, string participantIdentity, string? participantName)
+    public async Task<LiveKitIngressResult?> StartStreamingAsync(Guid id, string participantIdentity, string? participantName)
+    {
+        return await StartStreamingAsync(id, participantIdentity, participantName, createIngress: true);
+    }
+
+    public async Task<LiveKitIngressResult?> StartStreamingAsync(
+        Guid id, 
+        string participantIdentity, 
+        string? participantName,
+        bool createIngress = true)
     {
         var liveStream = await _db.LiveStreams.FindAsync(id)
             ?? throw new InvalidOperationException($"LiveStream not found: {id}");
@@ -103,22 +112,46 @@ public class LiveStreamService
             throw new InvalidOperationException($"LiveStream is not in a startable state: {liveStream.Status}");
         }
 
-        var ingressResult = await _liveKitService.CreateIngressAsync(
-            liveStream.RoomName,
-            participantIdentity,
-            participantName,
-            liveStream.Title);
+        LiveKitIngressResult? ingressResult = null;
 
-        liveStream.IngressId = ingressResult.IngressId;
-        liveStream.IngressStreamKey = ingressResult.StreamKey;
+        if (createIngress)
+        {
+            ingressResult = await _liveKitService.CreateIngressAsync(
+                liveStream.RoomName,
+                participantIdentity,
+                participantName,
+                liveStream.Title);
+
+            liveStream.IngressId = ingressResult.IngressId;
+            liveStream.IngressStreamKey = ingressResult.StreamKey;
+        }
+
         liveStream.Status = LiveStreamStatus.Active;
         liveStream.StartedAt = SystemClock.Instance.GetCurrentInstant();
 
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Started streaming for LiveStream: {Id}", id);
+        _logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress})", id, createIngress);
 
         return ingressResult;
+    }
+
+    public async Task StartInAppStreamingAsync(Guid id)
+    {
+        var liveStream = await _db.LiveStreams.FindAsync(id)
+            ?? throw new InvalidOperationException($"LiveStream not found: {id}");
+
+        if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
+        {
+            throw new InvalidOperationException($"LiveStream is not in a startable state: {liveStream.Status}");
+        }
+
+        liveStream.Status = LiveStreamStatus.Active;
+        liveStream.StartedAt = SystemClock.Instance.GetCurrentInstant();
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Started in-app streaming for LiveStream: {Id}", id);
     }
 
     public async Task<LiveKitEgressResult?> StartEgressAsync(Guid id, List<string>? rtmpUrls = null, string? filePath = null)

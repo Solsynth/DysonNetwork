@@ -108,13 +108,20 @@ Response 200 OK:
 
 **Thumbnail:** The `thumbnail_id` should be a file ID from the file service. The thumbnail is stored as a `SnCloudFileReferenceObject` in the jsonb column.
 
-#### Start Streaming (Get RTMP Info)
+#### Start Streaming
 
-Starts the live stream and returns RTMP connection details. Requires Editor role on the publisher.
+Starts the live stream. Use `no_ingress: true` for in-app streaming, or omit it for RTMP (OBS) streaming. Requires Editor role on the publisher.
+
+**RTMP Streaming (OBS):**
 
 ```http
 POST /api/livestreams/{id}/start
 Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "participant_name": "Streamer Name"
+}
 
 Response 200 OK:
 {
@@ -124,13 +131,43 @@ Response 200 OK:
 }
 ```
 
+**In-App Streaming (Mobile/Web):**
+
+```http
+POST /api/livestreams/{id}/start
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "participant_name": "Streamer Name",
+  "no_ingress": true
+}
+
+Response 200 OK:
+{
+  "room_name": "livestream_abc123",
+  "url": "wss://your-livekit-server.com"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `participant_name` | string | Optional display name for the streamer |
+| `no_ingress` | boolean | If `true`, skips RTMP ingress creation (for in-app streaming) |
+
 **Authorization:** Requires authentication and Editor role on the stream's publisher.
 
-**OBS Configuration:**
+**OBS Configuration (when no_ingress is false):**
 
 - Service: Custom
 - Server: `{rtmp_url}`
 - Stream Key: `{stream_key}`
+
+**In-App Usage (when no_ingress is true):**
+1. Get a token with streamer identity via `GET /api/livestreams/{id}/token?identity=streamer_{userId}`
+2. Use the LiveKit SDK to connect and publish audio/video
 
 #### End Live Stream
 
@@ -652,16 +689,22 @@ Response 200 OK:
 
 ### For Streamers
 
+**RTMP Streaming (OBS):**
 1. **Create Stream** → `POST /api/livestreams`
-2. **(Optional) Update Stream** → `PATCH /api/livestreams/{id}` (before starting)
-3. **Start Streaming** → `POST /api/livestreams/{id}/start` (get RTMP URL)
-4. **Configure OBS** → Set RTMP URL and stream key
-5. **Go Live** → Start streaming in OBS
-6. **Optional: Start HLS Egress** → Enable HLS playback for viewers
-7. **Optional: Start RTMP Egress** → Push to YouTube/Bilibili
-8. **End Stream** → `POST /api/livestreams/{id}/end`
-9. **(Optional) Update Stream** → `PATCH /api/livestreams/{id}` (after ending)
-10. **(Optional) Delete Stream** → `DELETE /api/livestreams/{id}`
+2. **Start Streaming** → `POST /api/livestreams/{id}/start` (returns RTMP URL)
+3. **Configure OBS** → Set RTMP URL and stream key
+4. **Go Live** → Start streaming in OBS
+5. **Optional: Start HLS Egress** → Enable HLS playback for viewers
+6. **Optional: Start RTMP Egress** → Push to YouTube/Bilibili
+7. **End Stream** → `POST /api/livestreams/{id}/end`
+
+**In-App Streaming (Mobile/Web):**
+1. **Create Stream** → `POST /api/livestreams`
+2. **Start Streaming** → `POST /api/livestreams/{id}/start` with `{"no_ingress": true}`
+3. **Get Token** → `GET /api/livestreams/{id}/token?identity=streamer_{userId}`
+4. **Connect & Publish** → Use LiveKit SDK to broadcast
+5. **Optional: Start HLS Egress** → Enable HLS playback for viewers
+6. **End Stream** → `POST /api/livestreams/{id}/end`
 
 **HLS Playback Flow:**
 1. **Start HLS Egress** → `POST /api/livestreams/{id}/hls`
