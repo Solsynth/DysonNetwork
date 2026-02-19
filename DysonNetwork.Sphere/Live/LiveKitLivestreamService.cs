@@ -85,7 +85,11 @@ public class LiveKitLivestreamService
         }
     }
 
-    public async Task<LiveKitIngressResult> CreateIngressAsync(string roomName, string participantIdentity, string? participantName = null, string? title = null)
+    public async Task<LiveKitIngressResult> CreateIngressAsync(string roomName,
+        string participantIdentity,
+        string? participantName = null,
+        string? title = null,
+        bool enableTranscoding = true)
     {
         try
         {
@@ -95,6 +99,7 @@ public class LiveKitLivestreamService
                 Name = title ?? roomName,
                 RoomName = roomName,
                 ParticipantIdentity = participantIdentity,
+                EnableTranscoding = enableTranscoding,
             };
 
             if (!string.IsNullOrEmpty(participantName))
@@ -103,7 +108,8 @@ public class LiveKitLivestreamService
             }
 
             var ingress = await _ingressService.CreateIngress(request);
-            _logger.LogInformation("Created ingress for room: {RoomName}, ingressId: {IngressId}", roomName, ingress.IngressId);
+            _logger.LogInformation("Created ingress for room: {RoomName}, ingressId: {IngressId}", roomName,
+                ingress.IngressId);
 
             return new LiveKitIngressResult
             {
@@ -168,7 +174,8 @@ public class LiveKitLivestreamService
             }
 
             var egress = await _egressService.StartRoomCompositeEgress(request);
-            _logger.LogInformation("Started egress for room: {RoomName}, egressId: {EgressId}", roomName, egress.EgressId);
+            _logger.LogInformation("Started egress for room: {RoomName}, egressId: {EgressId}", roomName,
+                egress.EgressId);
 
             return new LiveKitEgressResult
             {
