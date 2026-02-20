@@ -42,7 +42,8 @@ Add to `appsettings.json`:
     "LiveStream": {
         "Endpoint": "wss://your-livekit-server.com",
         "ApiKey": "your-api-key",
-        "ApiSecret": "your-api-secret"
+        "ApiSecret": "your-api-secret",
+        "PlaybackUrl": "https://your-cdn.com/hls"
     }
 }
 ```
@@ -492,7 +493,7 @@ Response 200 OK:
 | `layout` | string | "default" | Video composition layout |
 | `hls_base_url` | string | Auto | Base URL for HLS playback (defaults to `https://{host}/hls`) |
 
-**Authorization:** Requires authentication and Editor role on the stream's publisher.
+**Authorization:** Requires authentication and Admin (IsSuperuser) role on the stream's publisher.
 
 **Notes:**
 - Only one HLS egress can be active per stream. Call stop first if you want to restart.
@@ -501,7 +502,7 @@ Response 200 OK:
 
 #### Stop HLS Egress
 
-Stops the HLS egress generation.
+Stops the HLS egress generation. Note: The HLS playlist URL is **preserved** after stopping so viewers can still playback the recorded content.
 
 ```http
 POST /api/livestreams/{id}/hls/stop
@@ -525,7 +526,7 @@ Response 200 OK:
   "title": "My Awesome Stream",
   "status": "Active",
   "hls_egress_id": "EG_xxx",
-  "hls_playlist_url": "https://your-cdn.com/hls/{stream-id}/playlist.m3u8",
+  "hls_playlist_path": "streams/{stream-id}/playlist.m3u8",
   "hls_started_at": "2026-02-19T15:30:00Z",
   ...
 }
@@ -749,7 +750,7 @@ Response 200 OK:
 1. **Start HLS Egress** → `POST /api/livestreams/{id}/hls`
 2. **Get Playlist URL** → Returned in response or `GET /api/livestreams/{id}`
 3. **Distribute URL** → Share with viewers for HLS playback
-4. **Stop HLS** → `POST /api/livestreams/{id}/hls/stop` (auto-stops on stream end)
+4. **Stop HLS** → `POST /api/livestreams/{id}/hls/stop` (URL is preserved for playback after stream ends)
 
 ### For Viewers
 
@@ -776,7 +777,7 @@ Table: `live_streams`
 | `ingress_stream_key` | varchar(256)  | RTMP stream key                               |
 | `egress_id`          | varchar(256)  | LiveKit egress ID (RTMP)                      |
 | `hls_egress_id`      | varchar(256)  | LiveKit HLS egress ID                         |
-| `hls_playlist_url`   | text          | Public HLS playlist URL                       |
+| `hls_playlist_path` | text          | HLS playlist path (full URL built from config) |
 | `hls_started_at`     | timestamptz   | When HLS egress started                       |
 | `started_at`         | timestamptz   | When stream started                           |
 | `ended_at`           | timestamptz   | When stream ended                             |
@@ -791,7 +792,8 @@ Table: `live_streams`
 1. **Authentication**: Uses Sphere's standard authentication pattern via `HttpContext.Items["CurrentUser"]`
 2. **Authorization**: Uses role-based permissions:
    - **Create**: Requires membership in any publisher
-   - **Manage** (start, stop, egress): Requires `Editor` role in the stream's publisher
+   - **Manage** (start, stop): Requires `Editor` role in the stream's publisher
+   - **Egress / HLS**: Requires `Editor` role **AND** `IsSuperuser` (Admin) on the account
 3. **Token Expiry**: Generated tokens expire after 4 hours by default
 4. **Visibility**:
    - `Public`: Anyone can view and join
