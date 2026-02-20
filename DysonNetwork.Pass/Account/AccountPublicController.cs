@@ -20,12 +20,19 @@ public class AccountPublicController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SnAccount?>> GetByName(string name)
     {
-        var account = await db.Accounts
+        var accountQuery = db.Accounts
             .Include(e => e.Badges)
             .Include(e => e.Profile)
             .Include(e => e.Contacts.Where(c => c.IsPublic))
-            .Where(a => EF.Functions.Like(a.Name, name))
-            .FirstOrDefaultAsync();
+            .AsQueryable();
+        
+        if (Guid.TryParse(name, out var guid))
+            accountQuery = accountQuery.Where(a => a.Id == guid);
+        else
+            accountQuery = accountQuery
+                .Where(a => EF.Functions.Like(a.Name, name));
+        
+        var account = await accountQuery.FirstOrDefaultAsync();
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
 
         // Populate PerkSubscription from Wallet service via gRPC
