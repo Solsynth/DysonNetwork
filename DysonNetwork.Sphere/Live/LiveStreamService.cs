@@ -9,6 +9,7 @@ public class LiveStreamService(
     AppDatabase db,
     LiveKitLivestreamService liveKitService,
     PublisherSubscriptionService publisherSubscriptionService,
+    IServiceProvider serviceProvider,
     ILogger<LiveStreamService> logger
 )
 {
@@ -148,7 +149,9 @@ public class LiveStreamService(
         {
             try
             {
-                await publisherSubscriptionService.NotifySubscriberLiveStream(liveStream);
+                using var scope = serviceProvider.CreateScope();
+                var scopedSubsService = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+                await scopedSubsService.NotifySubscriberLiveStream(liveStream);
             }
             catch (Exception ex)
             {
@@ -182,7 +185,9 @@ public class LiveStreamService(
         {
             try
             {
-                await publisherSubscriptionService.NotifySubscriberLiveStream(liveStream);
+                using var scope = serviceProvider.CreateScope();
+                var scopedSubsService = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+                await scopedSubsService.NotifySubscriberLiveStream(liveStream);
             }
             catch (Exception ex)
             {

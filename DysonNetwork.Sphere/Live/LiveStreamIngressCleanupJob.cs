@@ -39,14 +39,28 @@ public class LiveStreamIngressCleanupJob : IJob
             return;
         }
 
-        _logger.LogInformation("Found {Count} stale livestreams with unused ingress", staleStreams.Count);
+        _logger.LogInformation("Found {Count} livestreams with ingress older than 5 minutes", staleStreams.Count);
+
+        var cleanedCount = 0;
 
         foreach (var stream in staleStreams)
         {
             try
             {
+                var roomDetails = await _liveKitService.GetRoomDetailsAsync(stream.RoomName);
+                var hasParticipants = roomDetails != null && roomDetails.ParticipantCount > 0;
+
+                if (hasParticipants)
+                {
+                    _logger.LogDebug(
+                        "Livestream {Id} has {Count} participants, skipping cleanup",
+                        stream.Id,
+                        roomDetails!.ParticipantCount);
+                    continue;
+                }
+
                 _logger.LogInformation(
-                    "Marking livestream {Id} as ended - ingress created but not used within 5 minutes",
+                    "Marking livestream {Id} as ended - no participants in room after 5 minutes",
                     stream.Id);
 
                 stream.Status = LiveStreamStatus.Ended;
@@ -69,14 +83,15 @@ public class LiveStreamIngressCleanupJob : IJob
 
                 stream.IngressId = null;
                 stream.IngressStreamKey = null;
+                cleanedCount++;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to mark livestream {Id} as ended", stream.Id);
+                _logger.LogError(ex, "Failed to process livestream {Id}", stream.Id);
             }
         }
 
         await _db.SaveChangesAsync();
-        _logger.LogInformation("Cleaned up {Count} stale livestreams", staleStreams.Count);
+        _logger.LogInformation("Cleaned up {Count} stale livestreams", cleanedCount);
     }
 }
