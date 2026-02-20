@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 
@@ -48,6 +49,15 @@ public static class ScheduledJobsConfiguration
                 .ForJob("ActivityPubDeliveryCleanup")
                 .WithIdentity("ActivityPubDeliveryCleanupTrigger")
                 .WithCronSchedule("0 0 3 * * ?")
+            );
+
+            q.AddJob<LiveStreamIngressCleanupJob>(opts => opts.WithIdentity("LiveStreamIngressCleanup"));
+            q.AddTrigger(opts => opts
+                .ForJob("LiveStreamIngressCleanup")
+                .WithIdentity("LiveStreamIngressCleanupTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(5)
+                    .RepeatForever())
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
