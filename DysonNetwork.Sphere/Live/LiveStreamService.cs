@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -7,6 +8,7 @@ namespace DysonNetwork.Sphere.Live;
 public class LiveStreamService(
     AppDatabase db,
     LiveKitLivestreamService liveKitService,
+    PublisherSubscriptionService publisherSubscriptionService,
     ILogger<LiveStreamService> logger
 )
 {
@@ -97,7 +99,9 @@ public class LiveStreamService(
         bool enableTranscoding = true,
         bool useWhipIngress = false)
     {
-        var liveStream = await db.LiveStreams.FindAsync(id)
+        var liveStream = await db.LiveStreams
+            .Include(ls => ls.Publisher)
+            .FirstOrDefaultAsync(ls => ls.Id == id)
                          ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
@@ -140,12 +144,26 @@ public class LiveStreamService(
         logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress}, whip: {UseWhip})", 
             id, createIngress, useWhipIngress);
 
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await publisherSubscriptionService.NotifySubscriberLiveStream(liveStream);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to notify subscribers about live stream {Id}", id);
+            }
+        });
+
         return ingressResult;
     }
 
     public async Task StartInAppStreamingAsync(Guid id)
     {
-        var liveStream = await db.LiveStreams.FindAsync(id)
+        var liveStream = await db.LiveStreams
+            .Include(ls => ls.Publisher)
+            .FirstOrDefaultAsync(ls => ls.Id == id)
                          ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
@@ -159,6 +177,18 @@ public class LiveStreamService(
         await db.SaveChangesAsync();
 
         logger.LogInformation("Started in-app streaming for LiveStream: {Id}", id);
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await publisherSubscriptionService.NotifySubscriberLiveStream(liveStream);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to notify subscribers about live stream {Id}", id);
+            }
+        });
     }
 
     public async Task<LiveKitEgressResult?> StartEgressAsync(Guid id, List<string>? rtmpUrls = null,

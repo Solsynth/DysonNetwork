@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Sphere.Live;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 
@@ -131,6 +132,71 @@ public class PublisherSubscriptionService(
             {
                 // Log the error but continue with other notifications
                 // We don't want one failed notification to stop the others
+            }
+        }
+
+        return notifiedCount;
+    }
+
+    /// <summary>
+    /// Notifies all subscribers when a live stream goes live
+    /// </summary>
+    /// <param name="liveStream">The live stream that went live</param>
+    /// <returns>The number of subscribers notified</returns>
+    public async Task<int> NotifySubscriberLiveStream(SnLiveStream liveStream)
+    {
+        if (!liveStream.PublisherId.HasValue || liveStream.Publisher is null)
+            return 0;
+        if (liveStream.Visibility != Shared.Models.LiveStreamVisibility.Public)
+            return 0;
+
+        var title = liveStream.Title ?? "Live Stream";
+        var publisherName = liveStream.Publisher.Nick ?? "Publisher";
+
+        var data = new Dictionary<string, object>
+        {
+            ["livestream_id"] = liveStream.Id.ToString(),
+            ["publisher_id"] = liveStream.PublisherId.Value.ToString()
+        };
+
+        if (liveStream.Thumbnail is not null)
+            data["image"] = liveStream.Thumbnail.Id;
+
+        if (liveStream.Publisher.Picture is not null)
+            data["pfp"] = liveStream.Publisher.Picture.Id;
+
+        var subscribers = await db.PublisherSubscriptions
+            .Where(p => p.PublisherId == liveStream.PublisherId)
+            .ToListAsync();
+
+        if (subscribers.Count == 0)
+            return 0;
+
+        var queryRequest = new GetAccountBatchRequest();
+        queryRequest.Id.AddRange(subscribers.Select(x => x.AccountId.ToString()));
+        var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+
+        var notifiedCount = 0;
+        foreach (var target in queryResponse.Accounts.GroupBy(x => x.Language))
+        {
+            try
+            {
+                var notification = new PushNotification
+                {
+                    Topic = "livestream.started",
+                    Title = localizer.Get("liveStreamStartedTitle", locale: target.Key, args: new { publisher = publisherName }),
+                    Body = title,
+                    Meta = InfraObjectCoder.ConvertObjectToByteString(data),
+                    IsSavable = true,
+                    ActionUri = $"/livestreams/{liveStream.Id}"
+                };
+                var request = new SendPushNotificationToUsersRequest { Notification = notification };
+                request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
+                await pusher.SendPushNotificationToUsersAsync(request);
+                notifiedCount++;
+            }
+            catch (Exception)
+            {
             }
         }
 

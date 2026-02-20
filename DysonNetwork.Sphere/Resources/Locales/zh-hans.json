@@ -12,5 +12,6 @@
     "postSubscriptionTitle": "{publisher} 发布了帖子 {title}",
     "postReplyBody": "{user} 回复：{content}",
     "postReplyContentBody": "{user} 回复了帖子 \"{title}\"：{content}",
-    "publishingRewardTitle": "发布者 {publisher} 于 {date} 的成就"
+    "publishingRewardTitle": "发布者 {publisher} 于 {date} 的成就",
+    "liveStreamStartedTitle": "{publisher} 正在直播"
 }

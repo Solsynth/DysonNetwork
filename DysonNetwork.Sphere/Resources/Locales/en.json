@@ -12,5 +12,6 @@
     "postSubscriptionTitle": "{publisher} posted {title}",
     "postReplyBody": "{user} replied: {content}",
     "postReplyContentBody": "{user} replied to post \"{title}\": {content}",
-    "publishingRewardTitle": "Achievement for publisher {publisher} on {date}"
+    "publishingRewardTitle": "Achievement for publisher {publisher} on {date}",
+    "liveStreamStartedTitle": "{publisher} is now live"
 }
