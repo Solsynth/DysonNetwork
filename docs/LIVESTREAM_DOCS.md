@@ -515,7 +515,7 @@ Response 200 OK
 
 #### HLS Playback
 
-Once HLS egress is started, the playlist URL is available in the stream response:
+Once HLS egress is started, the full playlist URL is automatically built and available in the stream response (combined from `HlsPlaylistPath` + `PlaybackUrl` config):
 
 ```http
 GET /api/livestreams/{id}
@@ -526,7 +526,7 @@ Response 200 OK:
   "title": "My Awesome Stream",
   "status": "Active",
   "hls_egress_id": "EG_xxx",
-  "hls_playlist_path": "streams/{stream-id}/playlist.m3u8",
+  "hls_playlist_path": "https://your-cdn.com/hls/{stream-id}/playlist.m3u8",
   "hls_started_at": "2026-02-19T15:30:00Z",
   ...
 }

@@ -23,8 +23,13 @@ public class LiveStreamController(
     /// Sanitizes a live stream by removing sensitive fields (ingress/egress keys)
     /// that should only be visible to the stream owner
     /// </summary>
-    private static SnLiveStream SanitizeForPublic(SnLiveStream liveStream)
+    private SnLiveStream SanitizeForPublic(SnLiveStream liveStream)
     {
+        if (!string.IsNullOrEmpty(liveStream.HlsPlaylistPath))
+        {
+            liveStream.HlsPlaylistPath = liveKitService.BuildHlsPlaylistUrl(liveStream.HlsPlaylistPath);
+        }
+
         liveStream.IngressStreamKey = null;
         liveStream.IngressId = null;
         liveStream.EgressId = null;
@@ -439,7 +444,7 @@ public class LiveStreamController(
 
         await db.SaveChangesAsync();
 
-        return Ok(liveStream);
+        return Ok(SanitizeForPublic(liveStream));
     }
 
     [HttpDelete("{id:guid}")]
@@ -523,7 +528,7 @@ public class LiveStreamController(
 
         await db.SaveChangesAsync();
 
-        return Ok(liveStream);
+        return Ok(SanitizeForPublic(liveStream));
     }
 }
 
