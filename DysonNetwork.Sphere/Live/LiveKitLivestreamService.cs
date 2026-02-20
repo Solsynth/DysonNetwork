@@ -265,7 +265,7 @@ public class LiveKitLivestreamService
         string? name = null,
         bool canPublish = false,
         bool canSubscribe = true,
-        bool canPublishData = false,
+        bool canPublishData = true,
         Dictionary<string, string>? metadata = null,
         TimeSpan? ttl = null)
     {
@@ -288,19 +288,12 @@ public class LiveKitLivestreamService
 
         token = token.WithGrants(grants);
 
-        if (metadata != null && metadata.Count > 0)
+        if (metadata is { Count: > 0 })
         {
             token = token.WithMetadata(JsonSerializer.Serialize(metadata));
         }
 
-        if (ttl.HasValue)
-        {
-            token = token.WithTtl(ttl.Value);
-        }
-        else
-        {
-            token = token.WithTtl(TimeSpan.FromHours(4));
-        }
+        token = token.WithTtl(ttl ?? TimeSpan.FromHours(4));
 
         return token.ToJwt();
     }
