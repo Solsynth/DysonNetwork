@@ -116,7 +116,7 @@ Response 200 OK:
 
 #### Start Streaming
 
-Starts the live stream. Use `no_ingress: true` for in-app streaming, or omit it for RTMP (OBS) streaming. Requires Editor role on the publisher.
+Starts the live stream. Use `no_ingress: true` for in-app streaming (no ingress), or specify ingress type (RTMP/WHIP) for external streaming. Requires Editor role on the publisher.
 
 **RTMP Streaming (OBS):**
 
@@ -131,7 +131,28 @@ Content-Type: application/json
 
 Response 200 OK:
 {
-  "rtmp_url": "rtmp://your-livekit-server.com/live",
+  "url": "rtmp://your-livekit-server.com/live",
+  "stream_key": "live_xxx",
+  "room_name": "livestream_abc123"
+}
+```
+
+**WHIP Streaming (WebRTC Ingest):**
+
+```http
+POST /api/livestreams/{id}/start
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "participant_name": "Streamer Name",
+  "use_whip": true,
+  "enable_transcoding": false
+}
+
+Response 200 OK:
+{
+  "url": "whip://your-livekit-server.com/live",
   "stream_key": "live_xxx",
   "room_name": "livestream_abc123"
 }
@@ -161,17 +182,29 @@ Response 200 OK:
 | Field | Type | Description |
 |-------|------|-------------|
 | `participant_name` | string | Optional display name for the streamer |
-| `no_ingress` | boolean | If `true`, skips RTMP ingress creation (for in-app streaming) |
+| `no_ingress` | boolean | If `true`, skips ingress creation entirely (for in-app WebRTC publishing) |
+| `use_whip` | boolean | If `true`, creates WHIP ingress instead of RTMP (default: false) |
+| `enable_transcoding` | boolean | Enable transcoding for the ingress (default: true, ignored for WHIP if not supported) |
 
 **Authorization:** Requires authentication and Editor role on the stream's publisher.
 
-**OBS Configuration (when no_ingress is false):**
+**Ingress Types:**
+
+- **RTMP** (`use_whip: false`): Traditional RTMP ingress for OBS or other RTMP encoders
+- **WHIP** (`use_whip: true`): WebRTC HTTP Ingest Protocol for browser-based streaming
+- **None** (`no_ingress: true`): No ingress - streamer publishes directly via WebRTC
+
+**OBS Configuration (RTMP):**
 
 - Service: Custom
-- Server: `{rtmp_url}`
+- Server: `{url}`
 - Stream Key: `{stream_key}`
 
-**In-App Usage (when no_ingress is true):**
+**WHIP Usage:**
+- Use the `url` as the WHIP endpoint
+- Typically used for browser-based streaming with WebRTC
+
+**In-App Usage (`no_ingress: true`):**
 1. Get a token with streamer identity via `GET /api/livestreams/{id}/token?identity=streamer_{userId}`
 2. Use the LiveKit SDK to connect and publish audio/video
 

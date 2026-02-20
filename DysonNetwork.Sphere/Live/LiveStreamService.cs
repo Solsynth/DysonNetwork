@@ -93,7 +93,9 @@ public class LiveStreamService(
         Guid id,
         string participantIdentity,
         string? participantName,
-        bool createIngress = true)
+        bool createIngress = true,
+        bool enableTranscoding = true,
+        bool useWhipIngress = false)
     {
         var liveStream = await db.LiveStreams.FindAsync(id)
                          ?? throw new InvalidOperationException($"LiveStream not found: {id}");
@@ -107,11 +109,24 @@ public class LiveStreamService(
 
         if (createIngress)
         {
-            ingressResult = await liveKitService.CreateIngressAsync(
-                liveStream.RoomName,
-                participantIdentity,
-                participantName,
-                liveStream.Title);
+            if (useWhipIngress)
+            {
+                ingressResult = await liveKitService.CreateWhipIngressAsync(
+                    liveStream.RoomName,
+                    participantIdentity,
+                    participantName,
+                    liveStream.Title,
+                    enableTranscoding);
+            }
+            else
+            {
+                ingressResult = await liveKitService.CreateIngressAsync(
+                    liveStream.RoomName,
+                    participantIdentity,
+                    participantName,
+                    liveStream.Title,
+                    enableTranscoding);
+            }
 
             liveStream.IngressId = ingressResult.IngressId;
             liveStream.IngressStreamKey = ingressResult.StreamKey;
@@ -122,7 +137,8 @@ public class LiveStreamService(
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress})", id, createIngress);
+        logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress}, whip: {UseWhip})", 
+            id, createIngress, useWhipIngress);
 
         return ingressResult;
     }

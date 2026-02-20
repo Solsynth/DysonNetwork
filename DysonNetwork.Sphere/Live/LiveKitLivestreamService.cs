@@ -89,13 +89,14 @@ public class LiveKitLivestreamService
         string participantIdentity,
         string? participantName = null,
         string? title = null,
-        bool enableTranscoding = true)
+        bool enableTranscoding = true,
+        IngressInput inputType = IngressInput.RtmpInput)
     {
         try
         {
             var request = new CreateIngressRequest
             {
-                InputType = IngressInput.RtmpInput,
+                InputType = inputType,
                 Name = title ?? roomName,
                 RoomName = roomName,
                 ParticipantIdentity = participantIdentity,
@@ -108,8 +109,8 @@ public class LiveKitLivestreamService
             }
 
             var ingress = await _ingressService.CreateIngress(request);
-            _logger.LogInformation("Created ingress for room: {RoomName}, ingressId: {IngressId}", roomName,
-                ingress.IngressId);
+            _logger.LogInformation("Created ingress for room: {RoomName}, ingressId: {IngressId}, inputType: {InputType}", 
+                roomName, ingress.IngressId, inputType);
 
             return new LiveKitIngressResult
             {
@@ -123,6 +124,15 @@ public class LiveKitLivestreamService
             _logger.LogError(ex, "Failed to create ingress for room: {RoomName}", roomName);
             throw;
         }
+    }
+
+    public async Task<LiveKitIngressResult> CreateWhipIngressAsync(string roomName,
+        string participantIdentity,
+        string? participantName = null,
+        string? title = null,
+        bool enableTranscoding = false)
+    {
+        return await CreateIngressAsync(roomName, participantIdentity, participantName, title, enableTranscoding, IngressInput.WhipInput);
     }
 
     public async Task DeleteIngressAsync(string ingressId)

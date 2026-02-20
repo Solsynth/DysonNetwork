@@ -214,6 +214,8 @@ public class LiveStreamController(
         var name = request.ParticipantName ?? liveStream.Publisher?.Nick ?? "Streamer";
 
         var noIngress = request.NoIngress ?? false;
+        var useWhip = request.UseWhip ?? false;
+        var enableTranscoding = request.EnableTranscoding ?? true;
 
         if (noIngress)
         {
@@ -227,11 +229,17 @@ public class LiveStreamController(
         }
         else
         {
-            var ingressResult = await liveStreamService.StartStreamingAsync(id, identity, name, createIngress: true);
+            var ingressResult = await liveStreamService.StartStreamingAsync(
+                id, 
+                identity, 
+                name, 
+                createIngress: true,
+                enableTranscoding: enableTranscoding,
+                useWhipIngress: useWhip);
 
             return Ok(new
             {
-                RtmpUrl = ingressResult!.Url,
+                Url = ingressResult!.Url,
                 StreamKey = ingressResult.StreamKey,
                 liveStream.RoomName,
             });
@@ -539,6 +547,8 @@ public record StartStreamingRequest
 {
     public string? ParticipantName { get; init; }
     public bool? NoIngress { get; set; }
+    public bool? UseWhip { get; init; }
+    public bool? EnableTranscoding { get; init; }
 }
 
 public record StartEgressRequest
