@@ -59,10 +59,10 @@ Or use the existing `RealtimeChat` config as fallback.
 
 #### Create Live Stream
 
-Creates a new live stream for the user's publisher.
+Creates a new live stream for the specified publisher. If no publisher is specified, uses the user's first personal publisher.
 
 ```http
-POST /api/livestreams
+POST /api/livestreams?pub=mypublisher
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -95,8 +95,8 @@ Response 200 OK:
   "publisher_id": "uuid",
   "publisher": {
     "id": "uuid",
-    "name": "channel",
-    "nick": "Channel Name",
+    "name": "mypublisher",
+    "nick": "My Publisher",
     "picture": {...}
   },
   "created_at": "2026-02-19T15:00:00Z",
@@ -104,7 +104,13 @@ Response 200 OK:
 }
 ```
 
-**Authorization:** Requires authentication and membership in at least one publisher.
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pub` | string | Optional publisher name. If not specified, uses the user's first personal publisher. |
+
+**Authorization:** Requires authentication and membership in at least one publisher. If `pub` is specified, requires at least Editor role on that publisher.
 
 **Thumbnail:** The `thumbnail_id` should be a file ID from the file service. The thumbnail is stored as a `SnCloudFileReferenceObject` in the jsonb column.
 

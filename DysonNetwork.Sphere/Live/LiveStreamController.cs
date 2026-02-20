@@ -33,17 +33,33 @@ public class LiveStreamController(
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> Create([FromBody] CreateLiveStreamRequest request)
+    public async Task<IActionResult> Create(
+        [FromBody] CreateLiveStreamRequest request,
+        [FromQuery(Name = "pub")] string? pubName
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
-        var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
-        if (userPublishers.Count == 0)
-        {
-            return BadRequest("You need to be a member of a publisher to create live streams.");
-        }
+        var accountId = Guid.Parse(currentUser.Id);
 
-        var publisherId = userPublishers.First().Id;
+        SnPublisher? publisher;
+        if (string.IsNullOrWhiteSpace(pubName))
+        {
+            var userPublishers = await pub.GetUserPublishers(accountId);
+            if (userPublishers.Count == 0)
+            {
+                return BadRequest("You need to be a member of a publisher to create live streams.");
+            }
+            publisher = userPublishers.First();
+        }
+        else
+        {
+            publisher = await pub.GetPublisherByName(pubName);
+            if (publisher is null)
+                return BadRequest("Publisher not found.");
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+                return StatusCode(403, "You need at least be an editor to create live streams for this publisher.");
+        }
 
         SnCloudFileReferenceObject? thumbnail = null;
         if (request.ThumbnailId is not null)
@@ -55,7 +71,7 @@ public class LiveStreamController(
         }
 
         var liveStream = await liveStreamService.CreateAsync(
-            publisherId,
+            publisher.Id,
             request.Title,
             request.Description,
             request.Slug,
