@@ -15,6 +15,9 @@ public class LiveKitLivestreamService
     private readonly string _host;
     public string Host => _host;
 
+    private readonly string? _playbackUrl;
+    public string? PlaybackUrl => _playbackUrl;
+
     public LiveKitLivestreamService(IConfiguration configuration, ILogger<LiveKitLivestreamService> logger)
     {
         _logger = logger;
@@ -30,10 +33,22 @@ public class LiveKitLivestreamService
                         throw new ArgumentNullException("LiveStream:ApiSecret configuration is required");
 
         _host = host;
+        _playbackUrl = configuration["LiveStream:PlaybackUrl"];
         _roomService = new RoomServiceClient(host, apiKey, apiSecret);
         _ingressService = new IngressServiceClient(host, apiKey, apiSecret);
         _egressService = new EgressServiceClient(host, apiKey, apiSecret);
         _accessToken = new AccessToken(apiKey, apiSecret);
+    }
+
+    public string? BuildHlsPlaylistUrl(string? playlistPath)
+    {
+        if (string.IsNullOrEmpty(playlistPath))
+            return null;
+
+        if (string.IsNullOrEmpty(_playbackUrl))
+            return null;
+
+        return $"{_playbackUrl.TrimEnd('/')}/{playlistPath.TrimStart('/')}";
     }
 
     public async Task<LiveKitRoomResult> CreateRoomAsync(string roomName, Dictionary<string, string>? metadata = null)

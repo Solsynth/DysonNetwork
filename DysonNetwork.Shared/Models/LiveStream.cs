@@ -61,7 +61,8 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
     [MaxLength(256)]
     public string? HlsEgressId { get; set; }
 
-    public string? HlsPlaylistUrl { get; set; }
+    [MaxLength(512)]
+    public string? HlsPlaylistPath { get; set; }
 
     public Instant? HlsStartedAt { get; set; }
 
@@ -114,8 +115,8 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
         if (!string.IsNullOrEmpty(HlsEgressId))
             proto.HlsEgressId = HlsEgressId;
 
-        if (!string.IsNullOrEmpty(HlsPlaylistUrl))
-            proto.HlsPlaylistUrl = HlsPlaylistUrl;
+        if (!string.IsNullOrEmpty(HlsPlaylistPath))
+            proto.HlsPlaylistUrl = HlsPlaylistPath;
 
         if (HlsStartedAt.HasValue)
             proto.HlsStartedAt = Timestamp.FromDateTimeOffset(HlsStartedAt.Value.ToDateTimeOffset());
@@ -171,7 +172,7 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
             liveStream.HlsEgressId = proto.HlsEgressId;
 
         if (!string.IsNullOrEmpty(proto.HlsPlaylistUrl))
-            liveStream.HlsPlaylistUrl = proto.HlsPlaylistUrl;
+            liveStream.HlsPlaylistPath = proto.HlsPlaylistUrl;
 
         if (proto.HlsStartedAt != null)
             liveStream.HlsStartedAt = Instant.FromDateTimeOffset(proto.HlsStartedAt.ToDateTimeOffset());

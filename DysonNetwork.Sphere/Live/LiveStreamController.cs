@@ -265,6 +265,11 @@ public class LiveStreamController(
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
 
+        if (!currentUser.IsSuperuser)
+        {
+            return StatusCode(403, "Egress settings can only be configured by administrators.");
+        }
+
         var egressResult = await liveStreamService.StartEgressAsync(
             id,
             request.RtmpUrls,
@@ -316,6 +321,11 @@ public class LiveStreamController(
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
 
+        if (!currentUser.IsSuperuser)
+        {
+            return StatusCode(403, "HLS egress settings can only be configured by administrators.");
+        }
+
         var playlistName = request?.PlaylistName ?? "playlist.m3u8";
         var segmentDuration = request?.SegmentDuration ?? 6;
         var segmentCount = request?.SegmentCount ?? 0;
@@ -328,11 +338,11 @@ public class LiveStreamController(
             segmentCount,
             layout);
 
-        var hlsBaseUrl = request?.HlsBaseUrl ?? $"https://{Request.Host}/hls";
-        var playlistUrl = $"{hlsBaseUrl}/{liveStream.Id}/{playlistName}";
-
-        liveStream.HlsPlaylistUrl = playlistUrl;
+        var playlistPath = $"{liveStream.Id}/{playlistName}";
+        liveStream.HlsPlaylistPath = playlistPath;
         await db.SaveChangesAsync();
+
+        var playlistUrl = liveKitService.BuildHlsPlaylistUrl(playlistPath);
 
         return Ok(new
         {

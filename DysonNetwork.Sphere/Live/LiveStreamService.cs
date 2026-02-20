@@ -276,7 +276,6 @@ public class LiveStreamService(
                 logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway", liveStream.HlsEgressId);
             }
             liveStream.HlsEgressId = null;
-            liveStream.HlsPlaylistUrl = null;
         }
 
         await db.SaveChangesAsync();
@@ -349,7 +348,6 @@ public class LiveStreamService(
                 logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway", liveStream.HlsEgressId);
             }
             liveStream.HlsEgressId = null;
-            liveStream.HlsPlaylistUrl = null;
         }
 
         liveStream.Status = LiveStreamStatus.Ended;
