@@ -232,7 +232,14 @@ public class LiveStreamService(
 
         if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
         {
-            await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            try
+            {
+                await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway", liveStream.HlsEgressId);
+            }
             liveStream.HlsEgressId = null;
             liveStream.HlsPlaylistUrl = null;
         }
@@ -249,7 +256,14 @@ public class LiveStreamService(
 
         if (!string.IsNullOrEmpty(liveStream.EgressId))
         {
-            await liveKitService.StopEgressAsync(liveStream.EgressId);
+            try
+            {
+                await liveKitService.StopEgressAsync(liveStream.EgressId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to stop egress {EgressId}, marking as stopped anyway", liveStream.EgressId);
+            }
             liveStream.EgressId = null;
         }
 
@@ -265,19 +279,40 @@ public class LiveStreamService(
 
         if (!string.IsNullOrEmpty(liveStream.IngressId))
         {
-            await liveKitService.DeleteIngressAsync(liveStream.IngressId);
+            try
+            {
+                await liveKitService.DeleteIngressAsync(liveStream.IngressId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to delete ingress {IngressId}, marking as deleted anyway", liveStream.IngressId);
+            }
             liveStream.IngressId = null;
         }
 
         if (!string.IsNullOrEmpty(liveStream.EgressId))
         {
-            await liveKitService.StopEgressAsync(liveStream.EgressId);
+            try
+            {
+                await liveKitService.StopEgressAsync(liveStream.EgressId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to stop egress {EgressId}, marking as stopped anyway", liveStream.EgressId);
+            }
             liveStream.EgressId = null;
         }
 
         if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
         {
-            await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            try
+            {
+                await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway", liveStream.HlsEgressId);
+            }
             liveStream.HlsEgressId = null;
             liveStream.HlsPlaylistUrl = null;
         }
@@ -323,20 +358,48 @@ public class LiveStreamService(
         {
             if (!string.IsNullOrEmpty(liveStream.IngressId))
             {
-                await liveKitService.DeleteIngressAsync(liveStream.IngressId);
+                try
+                {
+                    await liveKitService.DeleteIngressAsync(liveStream.IngressId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to delete ingress {IngressId} during stream deletion", liveStream.IngressId);
+                }
             }
 
             if (!string.IsNullOrEmpty(liveStream.EgressId))
             {
-                await liveKitService.StopEgressAsync(liveStream.EgressId);
+                try
+                {
+                    await liveKitService.StopEgressAsync(liveStream.EgressId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to stop egress {EgressId} during stream deletion", liveStream.EgressId);
+                }
             }
 
             if (!string.IsNullOrEmpty(liveStream.HlsEgressId))
             {
-                await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+                try
+                {
+                    await liveKitService.StopEgressAsync(liveStream.HlsEgressId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to stop HLS egress {EgressId} during stream deletion", liveStream.HlsEgressId);
+                }
             }
 
-            await liveKitService.DeleteRoomAsync(liveStream.RoomName);
+            try
+            {
+                await liveKitService.DeleteRoomAsync(liveStream.RoomName);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to delete room {RoomName} during stream deletion", liveStream.RoomName);
+            }
         }
 
         db.LiveStreams.Remove(liveStream);
