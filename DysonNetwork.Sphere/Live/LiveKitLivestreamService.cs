@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Livekit.Server.Sdk.Dotnet;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
@@ -431,7 +432,7 @@ public class LiveKitLivestreamService
                 }
             }
 
-            var json = JsonSerializer.Serialize(payload);
+            var json = JsonSerializer.Serialize(payload, InfraObjectCoder.SerializerOptions);
             var bytes = System.Text.Encoding.UTF8.GetBytes(json);
 
             await SendDataAsync(roomName, bytes);

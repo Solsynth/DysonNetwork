@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -614,7 +616,7 @@ public class LiveStreamController(
         var senderAccount = await remoteAccounts.GetAccount(accountId);
         message.Sender = SnAccount.FromProtoValue(senderAccount);
 
-        var json = System.Text.Json.JsonSerializer.Serialize(message);
+        var json = JsonSerializer.Serialize(message, InfraObjectCoder.SerializerOptions);
         var data = System.Text.Encoding.UTF8.GetBytes(json);
 
         await liveKitService.SendDataAsync(liveStream.RoomName, data);
@@ -677,7 +679,7 @@ public class LiveStreamController(
             durationMinutes = durationMinutes,
         };
 
-        var json = System.Text.Json.JsonSerializer.Serialize(timeoutData);
+        var json = JsonSerializer.Serialize(timeoutData, InfraObjectCoder.SerializerOptions);
         var data = System.Text.Encoding.UTF8.GetBytes(json);
 
         await liveKitService.SendDataAsync(liveStream.RoomName, data);
