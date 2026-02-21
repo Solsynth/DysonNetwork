@@ -342,6 +342,26 @@ public class LiveKitLivestreamService
     {
         try
         {
+            try
+            {
+                var participants = await _roomService.ListParticipants(new ListParticipantsRequest { Room = roomName });
+                _logger.LogInformation("Room {RoomName} has {Count} participants: {Identities}", 
+                    roomName, 
+                    participants.Participants.Count,
+                    string.Join(", ", participants.Participants.Select(p => p.Identity)));
+                
+                if (participants.Participants.Count == 0)
+                {
+                    _logger.LogDebug("Room {RoomName} has no participants, skipping send data", roomName);
+                    return;
+                }
+            }
+            catch
+            {
+                _logger.LogDebug("Room {RoomName} does not exist or error checking participants, skipping send data", roomName);
+                return;
+            }
+
             var request = new SendDataRequest
             {
                 Room = roomName,
@@ -349,12 +369,26 @@ public class LiveKitLivestreamService
                 Kind = reliable ? DataPacket.Types.Kind.Reliable : DataPacket.Types.Kind.Lossy,
             };
 
-            await _roomService.SendData(request);
-            _logger.LogDebug("Sent data to room: {RoomName}, size: {Size} bytes", roomName, data.Length);
+            _logger.LogInformation("Sending data to room {RoomName}: {Data}", roomName, System.Text.Encoding.UTF8.GetString(data));
+
+            for (int i = 0; i < 3; i++)
+            {
+                try
+                {
+                    await _roomService.SendData(request);
+                    _logger.LogDebug("Sent data to room: {RoomName}, size: {Size} bytes", roomName, data.Length);
+                    return;
+                }
+                catch (Exception ex) when (i < 2)
+                {
+                    _logger.LogWarning(ex, "Retry {Attempt} sending data to room: {RoomName}", i + 1, roomName);
+                    await Task.Delay(100 * (i + 1));
+                }
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to send data to room: {RoomName} (room may not exist)", roomName);
+            _logger.LogWarning(ex, "Failed to send data to room after retries: {RoomName}", roomName);
         }
     }
 
