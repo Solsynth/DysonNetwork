@@ -725,6 +725,124 @@ Response 200 OK:
 
 **Authorization:** Requires authentication.
 
+### Live Stream Chat
+
+Live stream chat allows viewers to send messages that are broadcast to all participants in real-time via LiveKit data packets, and also stored in the database for history.
+
+#### Get Chat Messages
+
+Returns chat message history for a live stream.
+
+```http
+GET /api/livestreams/{id}/chat?limit=50&offset=0
+Authorization: Bearer {token}
+
+Response 200 OK:
+[
+  {
+    "id": "uuid",
+    "live_stream_id": "uuid",
+    "sender_id": "uuid",
+    "sender_name": "User123",
+    "content": "Hello everyone!",
+    "created_at": "2026-02-19T15:35:00Z",
+    "deleted_at": null,
+    "timeout_until": null
+  }
+]
+```
+
+**Authorization:** Requires authentication.
+
+#### Send Chat Message
+
+Sends a chat message to the live stream. The message is saved to the database and broadcast to all participants via LiveKit.
+
+```http
+POST /api/livestreams/{id}/chat
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "content": "Hello everyone!"
+}
+
+Response 200 OK:
+{
+  "id": "uuid",
+  "live_stream_id": "uuid",
+  "sender_id": "uuid",
+  "sender_name": "User123",
+  "content": "Hello everyone!",
+  "created_at": "2026-02-19T15:35:00Z",
+  "deleted_at": null,
+  "timeout_until": null
+}
+```
+
+**Authorization:** Requires authentication. The stream must be active.
+
+**Real-time Broadcast:** When a message is sent, it's also broadcast to all connected participants via LiveKit data packets. Clients should listen for incoming data messages to display real-time chat.
+
+**Client-side handling (Flutter example):**
+```dart
+room.onDataReceived = (data) {
+  final message = jsonDecode(utf8.decode(data));
+  if (message['senderId'] != null) {
+    // Chat message received
+    addToChatList(ChatMessage(
+      id: message['id'],
+      senderId: message['senderId'],
+      senderName: message['senderName'],
+      content: message['content'],
+      createdAt: DateTime.parse(message['createdAt']),
+    ));
+  } else if (message['type'] == 'timeout') {
+    // User was timed out
+    showMessage('You have been muted for ${message['durationMinutes']} minutes');
+  }
+};
+```
+
+#### Delete Chat Message
+
+Deletes a chat message (soft delete). Requires Editor role on the publisher.
+
+```http
+DELETE /api/livestreams/{id}/chat/{messageId}
+Authorization: Bearer {token}
+
+Response 200 OK
+```
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+#### Timeout User
+
+Temporarily mutes a user from sending chat messages. Requires Editor role on the publisher.
+
+```http
+POST /api/livestreams/{id}/chat/{messageId}/timeout
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "duration_minutes": 10
+}
+
+Response 200 OK
+```
+
+**Request Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `duration_minutes` | integer | 10 | Duration of timeout in minutes |
+
+**Authorization:** Requires authentication and Editor role on the stream's publisher.
+
+**Broadcast:** When a user is timed out, a timeout notification is broadcast to all participants.
+
 ## Usage Flow
 
 ### For Streamers
@@ -787,6 +905,19 @@ Table: `live_streams`
 | `metadata`           | jsonb         | Additional metadata                           |
 | `publisher_id`       | uuid          | Foreign key to publishers                     |
 
+Table: `live_stream_chat_messages`
+
+| Column            | Type          | Description                           |
+| ----------------- | ------------- | ------------------------------------- |
+| `id`              | uuid          | Primary key                           |
+| `live_stream_id`  | uuid          | Foreign key to live_streams          |
+| `sender_id`       | uuid          | Sender account ID                    |
+| `sender_name`     | varchar(128)  | Sender display name                   |
+| `content`         | varchar(4096) | Message content                       |
+| `created_at`      | timestamptz   | When message was sent                 |
+| `deleted_at`      | timestamptz   | Soft delete timestamp                |
+| `timeout_until`   | timestamptz   | Timeout expiration (if timed out)    |
+
 ## Security Considerations
 
 1. **Authentication**: Uses Sphere's standard authentication pattern via `HttpContext.Items["CurrentUser"]`
@@ -794,6 +925,8 @@ Table: `live_streams`
    - **Create**: Requires membership in any publisher
    - **Manage** (start, stop): Requires `Editor` role in the stream's publisher
    - **Egress / HLS**: Requires `Editor` role **AND** `IsSuperuser` (Admin) on the account
+   - **Chat** (send/read): Requires authentication and stream must be active
+   - **Chat** (delete/timeout): Requires `Editor` role on the stream's publisher
 3. **Token Expiry**: Generated tokens expire after 4 hours by default
 4. **Visibility**:
    - `Public`: Anyone can view and join

@@ -339,6 +339,49 @@ public class LiveKitLivestreamService
             return null;
         }
     }
+
+    public async Task SendDataAsync(string roomName, byte[] data, bool reliable = true)
+    {
+        try
+        {
+            var request = new SendDataRequest
+            {
+                Room = roomName,
+                Data = Google.Protobuf.ByteString.CopyFrom(data),
+                Kind = reliable ? DataPacket.Types.Kind.Reliable : DataPacket.Types.Kind.Lossy,
+            };
+
+            await _roomService.SendData(request);
+            _logger.LogDebug("Sent data to room: {RoomName}, size: {Size} bytes", roomName, data.Length);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send data to room: {RoomName}", roomName);
+            throw;
+        }
+    }
+
+    public async Task SendDataToParticipantAsync(string roomName, string identity, byte[] data, bool reliable = true)
+    {
+        try
+        {
+            var request = new SendDataRequest
+            {
+                Room = roomName,
+                Data = Google.Protobuf.ByteString.CopyFrom(data),
+                Kind = reliable ? DataPacket.Types.Kind.Reliable : DataPacket.Types.Kind.Lossy,
+                DestinationIdentities = { identity },
+            };
+
+            await _roomService.SendData(request);
+            _logger.LogDebug("Sent data to participant {Identity} in room: {RoomName}", identity, roomName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send data to participant {Identity} in room: {RoomName}", identity, roomName);
+            throw;
+        }
+    }
 }
 
 public record LiveKitRoomResult

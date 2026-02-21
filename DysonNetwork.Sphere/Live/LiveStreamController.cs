@@ -2,6 +2,8 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 using FileService = DysonNetwork.Shared.Proto.FileService;
@@ -152,6 +154,7 @@ public class LiveStreamController(
             return BadRequest(new { error = "LiveStream is not active" });
 
         string identity;
+        string? name = null;
 
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
@@ -161,32 +164,28 @@ public class LiveStreamController(
 
             if (isEditor && isStreamer)
             {
-                // Streamer is trying to get a token - check if they're already streaming
-                // If they are, give them a viewer identity to avoid kicking themselves
                 isStreamer = true;
-                identity = $"streamer_{accountId:N}";
             }
-            else
-            {
-                // Regular viewer
-                identity = $"viewer_{accountId:N}";
-            }
+
+            identity = currentUser.Name ?? $"user_{accountId:N}";
+            name = currentUser.Nick;
         }
         else
         {
-            // Anonymous user
-            identity = $"viewer_{Guid.NewGuid():N}";
+            identity = $"guest_{Guid.NewGuid():N}";
         }
 
         var token = liveKitService.GenerateToken(
             liveStream.RoomName,
             identity,
+            name,
             canPublish: isStreamer,
             canSubscribe: true,
             metadata: new Dictionary<string, string>
             {
                 { "livestream_id", id.ToString() },
-                { "is_streamer", isStreamer.ToString().ToLower() }
+                { "is_streamer", isStreamer.ToString().ToLower() },
+                { "account_id", currentUser.Id }
             });
 
         return Ok(new
@@ -530,6 +529,140 @@ public class LiveStreamController(
 
         return Ok(SanitizeForPublic(liveStream));
     }
+
+    [HttpGet("{id:guid}/chat")]
+    [Authorize]
+    public async Task<IActionResult> GetChatMessages(Guid id, [FromQuery] int limit = 50, [FromQuery] int offset = 0)
+    {
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var messages = await db.LiveStreamChatMessages
+            .Where(m => m.LiveStreamId == id && m.DeletedAt == null)
+            .OrderByDescending(m => m.CreatedAt)
+            .Skip(offset)
+            .Take(limit)
+            .ToListAsync();
+
+        return Ok(messages);
+    }
+
+    [HttpPost("{id:guid}/chat")]
+    [Authorize]
+    public async Task<IActionResult> SendChatMessage(Guid id, [FromBody] SendChatMessageRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
+            return BadRequest(new { error = "Stream is not active" });
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var isTimeout = await db.LiveStreamChatMessages
+            .AnyAsync(m => m.LiveStreamId == id && m.SenderId == accountId && m.TimeoutUntil > SystemClock.Instance.GetCurrentInstant());
+
+        if (isTimeout)
+        {
+            return StatusCode(403, new { error = "You are temporarily muted" });
+        }
+
+        var message = new SnLiveStreamChatMessage
+        {
+            LiveStreamId = id,
+            SenderId = accountId,
+            SenderName = currentUser.Nick ?? currentUser.Username ?? "Anonymous",
+            Content = request.Content,
+        };
+
+        db.LiveStreamChatMessages.Add(message);
+        await db.SaveChangesAsync();
+
+        var chatData = new
+        {
+            id = message.Id.ToString(),
+            senderId = message.SenderId.ToString(),
+            senderName = message.SenderName,
+            content = message.Content,
+            createdAt = message.CreatedAt.ToString("O"),
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(chatData);
+        var data = System.Text.Encoding.UTF8.GetBytes(json);
+
+        await liveKitService.SendDataAsync(liveStream.RoomName, data);
+
+        return Ok(message);
+    }
+
+    [HttpDelete("{id:guid}/chat/{messageId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteChatMessage(Guid id, Guid messageId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to moderate chat.");
+        }
+
+        var message = await db.LiveStreamChatMessages.FindAsync(messageId);
+        if (message == null || message.LiveStreamId != id)
+            return NotFound(new { error = "Message not found" });
+
+        message.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+
+        return Ok();
+    }
+
+    [HttpPost("{id:guid}/chat/{messageId:guid}/timeout")]
+    [Authorize]
+    public async Task<IActionResult> TimeoutUser(Guid id, Guid messageId, [FromBody] TimeoutRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+        {
+            return StatusCode(403, "You need to be an editor of this publisher to timeout users.");
+        }
+
+        var message = await db.LiveStreamChatMessages.FindAsync(messageId);
+        if (message == null || message.LiveStreamId != id)
+            return NotFound(new { not found" });
+
+        var durationMinutes error = "Message = request.DurationMinutes ?? 10;
+        message.TimeoutUntil = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromMinutes(durationMinutes));
+        await db.SaveChangesAsync();
+
+        var timeoutData = new
+        {
+            type = "timeout",
+            senderId = message.SenderId.ToString(),
+            durationMinutes = durationMinutes,
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(timeoutData);
+        var data = System.Text.Encoding.UTF8.GetBytes(json);
+
+        await liveKitService.SendDataAsync(liveStream.RoomName, data);
+
+        return Ok();
+    }
 }
 
 public record CreateLiveStreamRequest
@@ -598,4 +731,14 @@ public record StartHlsEgressRequest
     /// Base URL for HLS playback (default: "https://{host}/hls")
     /// </summary>
     public string? HlsBaseUrl { get; init; }
+}
+
+public record SendChatMessageRequest
+{
+    public required string Content { get; init; }
+}
+
+public record TimeoutRequest
+{
+    public int? DurationMinutes { get; init; }
 }
