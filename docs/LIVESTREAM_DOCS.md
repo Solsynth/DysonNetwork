@@ -760,10 +760,18 @@ Response 200 OK:
     "content": "Hello everyone!",
     "created_at": "2026-02-19T15:35:00Z",
     "deleted_at": null,
-    "timeout_until": null
+    "timeout_until": null,
+    "sender": {
+      "id": "uuid",
+      "name": "username",
+      "nick": "Display Name",
+      "picture": {...}
+    }
   }
 ]
 ```
+
+**Note:** The `sender` field contains preloaded account data (not stored in DB).
 
 **Authorization:** Requires authentication.
 
@@ -1067,6 +1075,14 @@ Table: `live_stream_chat_messages`
 | `created_at`      | timestamptz   | When message was sent                 |
 | `deleted_at`      | timestamptz   | Soft delete timestamp                |
 | `timeout_until`   | timestamptz   | Timeout expiration (if timed out)    |
+
+**Computed Fields (not stored in DB):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sender` | object | Preloaded sender account data (Account) |
+
+**Note:** The `sender` field is preloaded via batch query and not stored in the database.
 
 **Computed Fields (not stored in DB):**
 

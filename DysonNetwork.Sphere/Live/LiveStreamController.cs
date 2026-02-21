@@ -20,7 +20,8 @@ public class LiveStreamController(
     PublisherService pub,
     FileService.FileServiceClient files,
     RemotePaymentService remotePayments,
-    ActionLogService.ActionLogServiceClient als
+    ActionLogService.ActionLogServiceClient als,
+    RemoteAccountService remoteAccounts
 )
     : ControllerBase
 {
@@ -557,6 +558,18 @@ public class LiveStreamController(
             .Skip(offset)
             .Take(limit)
             .ToListAsync();
+
+        var senderIds = messages.Select(m => m.SenderId).Distinct().ToList();
+        var senders = await remoteAccounts.GetAccountBatch(senderIds);
+        var sendersDict = senders.ToDictionary(a => Guid.Parse(a.Id));
+
+        foreach (var message in messages)
+        {
+            if (sendersDict.TryGetValue(message.SenderId, out var sender))
+            {
+                message.Sender = sender;
+            }
+        }
 
         return Ok(messages);
     }
