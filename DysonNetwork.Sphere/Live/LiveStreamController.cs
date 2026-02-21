@@ -722,11 +722,10 @@ public class LiveStreamController(
 
         var leaderboard = await db.LiveStreamAwards
             .Where(a => a.LiveStreamId == id)
-            .GroupBy(a => new { a.AccountId, a.SenderName })
+            .GroupBy(a => a.AccountId)
             .Select(g => new
             {
-                AccountId = g.Key.AccountId,
-                SenderName = g.Key.SenderName,
+                AccountId = g.Key,
                 TotalAmount = g.Sum(a => a.Amount),
                 AwardCount = g.Count()
             })
@@ -742,10 +741,9 @@ public class LiveStreamController(
         {
             Rank = index + 1,
             AccountId = item.AccountId,
-            SenderName = item.SenderName,
             TotalAmount = item.TotalAmount,
             AwardCount = item.AwardCount,
-            Account = accountsDict.GetValueOrDefault(item.AccountId)
+            Account = accountsDict.TryGetValue(item.AccountId, out var acc) ? SnAccount.FromProtoValue(acc) : null
         }).ToList();
 
         return Ok(result);
@@ -795,8 +793,7 @@ public class LiveStreamController(
                     ["account_id"] = accountId,
                     ["livestream_id"] = liveStream.Id,
                     ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
-                    ["message"] = request.Message,
-                    ["sender_name"] = currentUser.Nick ?? currentUser.Name
+                    ["message"] = request.Message
                 }
             ).ToByteArray()
         );

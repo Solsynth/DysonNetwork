@@ -13,6 +13,7 @@ public class LiveStreamService(
     LiveKitLivestreamService liveKitService,
     PublisherSubscriptionService publisherSubscriptionService,
     RemotePaymentService paymentService,
+    RemoteAccountService accountService,
     ILocalizationService localizer,
     IServiceScopeFactory scopeFactory,
     ILogger<LiveStreamService> logger
@@ -492,8 +493,7 @@ public class LiveStreamService(
         logger.LogInformation("Deleted LiveStream: {Id}", id);
     }
 
-    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount,
-        string? message, string? senderName = null)
+    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount, string? message)
     {
         var liveStream = await db.LiveStreams.FindAsync(liveStreamId);
         if (liveStream == null)
@@ -502,6 +502,9 @@ public class LiveStreamService(
             return;
         }
 
+        var account = await accountService.GetAccount(accountId);
+        var senderName = account.Nick ?? account.Name ?? "Anonymous";
+
         var award = new SnLiveStreamAward
         {
             LiveStreamId = liveStreamId,
@@ -509,7 +512,7 @@ public class LiveStreamService(
             Amount = amount,
             Attitude = LiveStreamAwardAttitude.Positive,
             Message = message,
-            SenderName = senderName ?? "Anonymous"
+            SenderName = senderName
         };
 
         db.LiveStreamAwards.Add(award);
@@ -527,7 +530,7 @@ public class LiveStreamService(
             {
                 { "livestream_id", liveStreamId.ToString() },
                 { "sender_id", accountId.ToString() },
-                { "sender_name", senderName ?? "Anonymous" },
+                { "sender_name", senderName },
                 { "amount", amount.ToString() },
                 { "message", message ?? "" }
             });
