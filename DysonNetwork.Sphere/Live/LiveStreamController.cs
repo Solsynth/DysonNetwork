@@ -609,16 +609,11 @@ public class LiveStreamController(
         db.LiveStreamChatMessages.Add(message);
         await db.SaveChangesAsync();
 
-        var chatData = new
-        {
-            id = message.Id.ToString(),
-            senderId = message.SenderId.ToString(),
-            senderName = message.SenderName,
-            content = message.Content,
-            createdAt = message.CreatedAt.ToString("%O", System.Globalization.CultureInfo.InvariantCulture)
-        };
+        // Load the sender account via remote service and convert to SnAccount
+        var senderAccount = await remoteAccounts.GetAccount(accountId);
+        message.Sender = SnAccount.FromProtoValue(senderAccount);
 
-        var json = System.Text.Json.JsonSerializer.Serialize(chatData);
+        var json = System.Text.Json.JsonSerializer.Serialize(message);
         var data = System.Text.Encoding.UTF8.GetBytes(json);
 
         await liveKitService.SendDataAsync(liveStream.RoomName, data);
@@ -638,9 +633,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
-        {
             return StatusCode(403, "You need to be an editor of this publisher to moderate chat.");
-        }
 
         var message = await db.LiveStreamChatMessages.FindAsync(messageId);
         if (message == null || message.LiveStreamId != id)
