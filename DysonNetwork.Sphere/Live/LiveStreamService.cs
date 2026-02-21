@@ -14,7 +14,7 @@ public class LiveStreamService(
     PublisherSubscriptionService publisherSubscriptionService,
     RemotePaymentService paymentService,
     ILocalizationService localizer,
-    IServiceProvider serviceProvider,
+    IServiceScopeFactory scopeFactory,
     ILogger<LiveStreamService> logger
 )
 {
@@ -160,7 +160,7 @@ public class LiveStreamService(
         {
             try
             {
-                using var scope = serviceProvider.CreateScope();
+                using var scope = scopeFactory.CreateScope();
                 var scopedSubsService = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
                 await scopedSubsService.NotifySubscriberLiveStream(liveStream);
             }
@@ -206,7 +206,7 @@ public class LiveStreamService(
         {
             try
             {
-                using var scope = serviceProvider.CreateScope();
+                using var scope = scopeFactory.CreateScope();
                 var scopedSubsService = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
                 await scopedSubsService.NotifySubscriberLiveStream(liveStream);
             }
@@ -493,7 +493,7 @@ public class LiveStreamService(
     }
 
     public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount,
-        LiveStreamAwardAttitude attitude, string? message)
+        LiveStreamAwardAttitude attitude, string? message, string? senderName = null)
     {
         var liveStream = await db.LiveStreams.FindAsync(liveStreamId);
         if (liveStream == null)
@@ -509,6 +509,7 @@ public class LiveStreamService(
             Amount = amount,
             Attitude = attitude,
             Message = message,
+            SenderName = senderName ?? "Anonymous"
         };
 
         db.LiveStreamAwards.Add(award);
@@ -533,8 +534,11 @@ public class LiveStreamService(
             new Dictionary<string, object>
             {
                 { "livestream_id", liveStreamId.ToString() },
+                { "sender_id", accountId.ToString() },
+                { "sender_name", senderName ?? "Anonymous" },
                 { "amount", amount.ToString() },
-                { "attitude", attitude.ToString() }
+                { "attitude", attitude.ToString() },
+                { "message", message ?? "" }
             });
     }
 

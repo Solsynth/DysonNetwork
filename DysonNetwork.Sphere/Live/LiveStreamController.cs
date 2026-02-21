@@ -759,7 +759,8 @@ public class LiveStreamController(
                     ["livestream_id"] = liveStream.Id,
                     ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
                     ["message"] = request.Message,
-                    ["attitude"] = request.Attitude
+                    ["attitude"] = request.Attitude,
+                    ["sender_name"] = currentUser.Nick ?? currentUser.Name
                 }
             ).ToByteArray()
         );

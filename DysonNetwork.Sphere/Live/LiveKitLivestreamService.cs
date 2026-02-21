@@ -354,8 +354,7 @@ public class LiveKitLivestreamService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send data to room: {RoomName}", roomName);
-            throw;
+            _logger.LogWarning(ex, "Failed to send data to room: {RoomName} (room may not exist)", roomName);
         }
     }
 

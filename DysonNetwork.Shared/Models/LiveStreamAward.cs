@@ -26,6 +26,9 @@ public class SnLiveStreamAward : ModelBase
 
     public Guid AccountId { get; set; }
 
+    [MaxLength(128)]
+    public string SenderName { get; set; } = null!;
+
     public LiveStreamAward ToProtoValue()
     {
         var proto = new LiveStreamAward

@@ -75,6 +75,7 @@ message LiveStreamAward {
   string message = 4;
   string live_stream_id = 5;
   string account_id = 6;
+  string sender_name = 9;
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
 }
