@@ -992,10 +992,41 @@ Response 200 OK:
 | Field | Type | Description |
 |-------|------|-------------|
 | `amount` | decimal | Amount of points to award |
-| `attitude` | enum | Positive or Negative |
 | `message` | string | Optional message |
 
 **Authorization:** Requires authentication.
+
+**Discovery Ranking:** Livestreams are ranked by `(TotalAwardScore * 10) + ViewerCount`, so awarded streams appear higher in discovery.
+
+**Real-time Notification:** When a livestream receives an award, all participants receive a `stream_awarded` event via LiveKit data packets.
+
+#### Get Award Leaderboard
+
+Returns the top contributors for a livestream.
+
+```http
+GET /api/livestreams/{id}/awards/leaderboard?limit=10
+Authorization: Bearer {token}
+
+Response 200 OK:
+[
+  {
+    "rank": 1,
+    "account_id": "uuid",
+    "sender_name": "TopFan",
+    "total_amount": 500.00,
+    "award_count": 5,
+    "account": {
+      "id": "uuid",
+      "name": "username",
+      "nick": "Display Name",
+      "picture": {...}
+    }
+  }
+]
+```
+
+**Authorization:** Public, no authentication required.
 
 **Discovery Ranking:** Livestreams are ranked by `(TotalAwardScore * 10) + ViewerCount`, so awarded streams appear higher in discovery.
 

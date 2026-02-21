@@ -710,6 +710,47 @@ public class LiveStreamController(
         return Ok(awards);
     }
 
+    [HttpGet("{id:guid}/awards/leaderboard")]
+    public async Task<IActionResult> GetLiveStreamAwardLeaderboard(
+        Guid id,
+        [FromQuery] int limit = 10
+    )
+    {
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var leaderboard = await db.LiveStreamAwards
+            .Where(a => a.LiveStreamId == id)
+            .GroupBy(a => new { a.AccountId, a.SenderName })
+            .Select(g => new
+            {
+                AccountId = g.Key.AccountId,
+                SenderName = g.Key.SenderName,
+                TotalAmount = g.Sum(a => a.Amount),
+                AwardCount = g.Count()
+            })
+            .OrderByDescending(x => x.TotalAmount)
+            .Take(limit)
+            .ToListAsync();
+
+        var accountIds = leaderboard.Select(x => x.AccountId).ToList();
+        var accounts = await remoteAccounts.GetAccountBatch(accountIds);
+        var accountsDict = accounts.ToDictionary(a => Guid.Parse(a.Id));
+
+        var result = leaderboard.Select((item, index) => new
+        {
+            Rank = index + 1,
+            AccountId = item.AccountId,
+            SenderName = item.SenderName,
+            TotalAmount = item.TotalAmount,
+            AwardCount = item.AwardCount,
+            Account = accountsDict.GetValueOrDefault(item.AccountId)
+        }).ToList();
+
+        return Ok(result);
+    }
+
     public class LiveStreamAwardRequest
     {
         public decimal Amount { get; init; }
