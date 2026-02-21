@@ -30,6 +30,13 @@ enum LiveStreamStatus {
   ERROR = 4;
 }
 
+enum LiveStreamAwardAttitude {
+  LIVE_STREAM_AWARD_ATTITUDE_UNSPECIFIED = 0;
+  LIVE_STREAM_AWARD_POSITIVE = 1;
+  LIVE_STREAM_AWARD_NEUTRAL = 2;
+  LIVE_STREAM_AWARD_NEGATIVE = 3;
+}
+
 message LiveStream {
   string id = 1;
   string title = 2;
@@ -64,7 +71,7 @@ message LiveStream {
 message LiveStreamAward {
   string id = 1;
   double amount = 2;
-  PostReactionAttitude attitude = 3;
+  LiveStreamAwardAttitude attitude = 3;
   string message = 4;
   string live_stream_id = 5;
   string account_id = 6;

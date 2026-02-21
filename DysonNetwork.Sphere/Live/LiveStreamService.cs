@@ -2,7 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using PostReactionAttitude = DysonNetwork.Shared.Models.PostReactionAttitude;
+using LiveStreamAwardAttitude = DysonNetwork.Shared.Models.LiveStreamAwardAttitude;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -478,7 +478,7 @@ public class LiveStreamService(
         logger.LogInformation("Deleted LiveStream: {Id}", id);
     }
 
-    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount, PostReactionAttitude attitude, string? message)
+    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount, LiveStreamAwardAttitude attitude, string? message)
     {
         var liveStream = await db.LiveStreams.FindAsync(liveStreamId);
         if (liveStream == null)
@@ -500,8 +500,8 @@ public class LiveStreamService(
 
         var score = attitude switch
         {
-            PostReactionAttitude.Positive => amount,
-            PostReactionAttitude.Negative => -amount,
+            LiveStreamAwardAttitude.Positive => amount,
+            LiveStreamAwardAttitude.Negative => -amount,
             _ => 0
         };
 

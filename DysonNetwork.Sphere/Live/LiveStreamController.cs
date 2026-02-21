@@ -8,7 +8,6 @@ using NodaTime;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 using FileService = DysonNetwork.Shared.Proto.FileService;
-using Grpc.Core;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -176,9 +175,9 @@ public class LiveStreamController(
         }
         else
         {
-            identity = $"guest_{Guid.NewGuid():N}";
+            return Unauthorized();
         }
-
+        
         var token = liveKitService.GenerateToken(
             liveStream.RoomName,
             identity,
@@ -589,7 +588,7 @@ public class LiveStreamController(
         {
             LiveStreamId = id,
             SenderId = accountId,
-            SenderName = currentUser.Nick ?? currentUser.Username ?? "Anonymous",
+            SenderName = currentUser.Nick ?? currentUser.Name ?? "Anonymous",
             Content = request.Content,
         };
 
@@ -602,7 +601,7 @@ public class LiveStreamController(
             senderId = message.SenderId.ToString(),
             senderName = message.SenderName,
             content = message.Content,
-            createdAt = message.CreatedAt.ToString("O"),
+            createdAt = message.CreatedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(chatData);
@@ -657,9 +656,9 @@ public class LiveStreamController(
 
         var message = await db.LiveStreamChatMessages.FindAsync(messageId);
         if (message == null || message.LiveStreamId != id)
-            return NotFound(new { not found" });
+            return NotFound(new { error = "Message not found" });
 
-        var durationMinutes error = "Message = request.DurationMinutes ?? 10;
+        var durationMinutes = request.DurationMinutes ?? 10;
         message.TimeoutUntil = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromMinutes(durationMinutes));
         await db.SaveChangesAsync();
 
@@ -706,7 +705,7 @@ public class LiveStreamController(
     public class LiveStreamAwardRequest
     {
         public decimal Amount { get; init; }
-        public Shared.Models.PostReactionAttitude Attitude { get; init; }
+        public Shared.Models.LiveStreamAwardAttitude Attitude { get; init; }
         [System.ComponentModel.DataAnnotations.MaxLength(4096)]
         public string? Message { get; init; }
     }
@@ -726,7 +725,7 @@ public class LiveStreamController(
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
 
-        if (request.Attitude == Shared.Models.PostReactionAttitude.Neutral)
+        if (request.Attitude == Shared.Models.LiveStreamAwardAttitude.Neutral)
             return BadRequest("You cannot create a neutral live stream award");
 
         var liveStream = await liveStreamService.GetByIdAsync(id);

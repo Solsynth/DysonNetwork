@@ -72,7 +72,8 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
     public long TotalDurationSeconds { get; set; }
 
     [NotMapped]
-    public Duration? Duration
+    [JsonIgnore]
+    public NodaTime.Duration? CurrentSessionDuration
     {
         get
         {
@@ -84,14 +85,14 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
 
     [NotMapped]
     [JsonIgnore]
-    public Duration? TotalDuration
+    public NodaTime.Duration? TotalDuration
     {
         get
         {
-            var currentDuration = Duration;
-            if (currentDuration == null)
-                return Duration.FromSeconds(TotalDurationSeconds);
-            return currentDuration + Duration.FromSeconds(TotalDurationSeconds);
+            var sessionDur = CurrentSessionDuration;
+            if (sessionDur == null)
+                return NodaTime.Duration.FromSeconds(TotalDurationSeconds);
+            return sessionDur + NodaTime.Duration.FromSeconds(TotalDurationSeconds);
         }
     }
 
@@ -172,8 +173,8 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
         if (EndedAt.HasValue)
             proto.EndedAt = Timestamp.FromDateTimeOffset(EndedAt.Value.ToDateTimeOffset());
 
-        if (Duration.HasValue)
-            proto.DurationSeconds = (long)Duration.Value.TotalSeconds;
+        if (CurrentSessionDuration.HasValue)
+            proto.DurationSeconds = (long)CurrentSessionDuration.Value.TotalSeconds;
 
         if (TotalDurationSeconds > 0)
             proto.TotalDurationSeconds = TotalDurationSeconds;

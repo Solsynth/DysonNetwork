@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime;
+using LiveStreamAwardAttitude = DysonNetwork.Shared.Models.LiveStreamAwardAttitude;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -13,7 +14,7 @@ public class SnLiveStreamAward : ModelBase
 
     public decimal Amount { get; set; }
 
-    public PostReactionAttitude Attitude { get; set; }
+    public LiveStreamAwardAttitude Attitude { get; set; }
 
     [MaxLength(4096)]
     public string? Message { get; set; }
@@ -31,7 +32,7 @@ public class SnLiveStreamAward : ModelBase
         {
             Id = Id.ToString(),
             Amount = (double)Amount,
-            Attitude = (Proto.PostReactionAttitude)((int)Attitude + 1),
+            Attitude = (Proto.LiveStreamAwardAttitude)((int)Attitude + 1),
             LiveStreamId = LiveStreamId.ToString(),
             AccountId = AccountId.ToString(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
