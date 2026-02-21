@@ -984,6 +984,7 @@ Table: `live_streams`
 | `hls_started_at`     | timestamptz   | When HLS egress started                       |
 | `started_at`         | timestamptz   | When stream started                           |
 | `ended_at`           | timestamptz   | When stream ended                             |
+| `total_duration_seconds` | bigint     | Total duration in seconds (cumulative)         |
 | `viewer_count`       | integer       | Current viewer count                          |
 | `peak_viewer_count`  | integer       | Peak viewer count                             |
 | `thumbnail`          | jsonb         | Thumbnail image reference                     |
@@ -1002,6 +1003,16 @@ Table: `live_stream_chat_messages`
 | `created_at`      | timestamptz   | When message was sent                 |
 | `deleted_at`      | timestamptz   | Soft delete timestamp                |
 | `timeout_until`   | timestamptz   | Timeout expiration (if timed out)    |
+
+**Computed Fields (not stored in DB):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `duration` | int64 | Duration of current session in seconds (EndedAt - StartedAt) |
+| `total_duration` | int64 | Total duration in seconds (cumulative across all sessions) |
+| `duration_formatted` | string | Human-readable duration (e.g., "1:30:45") |
+
+**Note:** When a stream is ended and reused (started again), the durations are accumulated in `total_duration_seconds`.
 
 ## Security Considerations
 

@@ -373,6 +373,12 @@ public class LiveStreamService(
         liveStream.Status = LiveStreamStatus.Ended;
         liveStream.EndedAt = SystemClock.Instance.GetCurrentInstant();
 
+        if (liveStream.StartedAt.HasValue && liveStream.EndedAt.HasValue)
+        {
+            var sessionDuration = liveStream.EndedAt.Value - liveStream.StartedAt.Value;
+            liveStream.TotalDurationSeconds += (long)sessionDuration.TotalSeconds;
+        }
+
         await db.SaveChangesAsync();
 
         await liveKitService.BroadcastLivestreamUpdateAsync(

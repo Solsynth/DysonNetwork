@@ -56,4 +56,6 @@ message LiveStream {
   google.protobuf.Timestamp created_at = 23;
   google.protobuf.Timestamp updated_at = 24;
   google.protobuf.Timestamp deleted_at = 25;
+  int64 duration_seconds = 26;
+  int64 total_duration_seconds = 27;
 }

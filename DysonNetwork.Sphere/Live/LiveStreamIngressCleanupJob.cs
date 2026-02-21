@@ -66,6 +66,12 @@ public class LiveStreamIngressCleanupJob : IJob
                 stream.Status = LiveStreamStatus.Ended;
                 stream.EndedAt = now;
 
+                if (stream.StartedAt.HasValue)
+                {
+                    var sessionDuration = now - stream.StartedAt.Value;
+                    stream.TotalDurationSeconds += (long)sessionDuration.TotalSeconds;
+                }
+
                 _ = _liveKitService.BroadcastLivestreamUpdateAsync(
                     stream.RoomName,
                     "stream_ended",

@@ -69,6 +69,48 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
     public Instant? StartedAt { get; set; }
     public Instant? EndedAt { get; set; }
 
+    public long TotalDurationSeconds { get; set; }
+
+    [NotMapped]
+    public Duration? Duration
+    {
+        get
+        {
+            if (!StartedAt.HasValue || !EndedAt.HasValue)
+                return null;
+            return EndedAt.Value - StartedAt.Value;
+        }
+    }
+
+    [NotMapped]
+    [JsonIgnore]
+    public Duration? TotalDuration
+    {
+        get
+        {
+            var currentDuration = Duration;
+            if (currentDuration == null)
+                return Duration.FromSeconds(TotalDurationSeconds);
+            return currentDuration + Duration.FromSeconds(TotalDurationSeconds);
+        }
+    }
+
+    [NotMapped]
+    [JsonIgnore]
+    public string? DurationFormatted
+    {
+        get
+        {
+            var totalDur = TotalDuration;
+            if (!totalDur.HasValue)
+                return null;
+            var d = totalDur.Value;
+            if (d.TotalHours >= 1)
+                return $"{(int)d.TotalHours}:{d.Minutes:D2}:{d.Seconds:D2}";
+            return $"{d.Minutes}:{d.Seconds:D2}";
+        }
+    }
+
     public int ViewerCount { get; set; }
     public int PeakViewerCount { get; set; }
 
@@ -126,6 +168,12 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
 
         if (EndedAt.HasValue)
             proto.EndedAt = Timestamp.FromDateTimeOffset(EndedAt.Value.ToDateTimeOffset());
+
+        if (Duration.HasValue)
+            proto.DurationSeconds = (long)Duration.Value.TotalSeconds;
+
+        if (TotalDurationSeconds > 0)
+            proto.TotalDurationSeconds = TotalDurationSeconds;
 
         if (Thumbnail != null)
             proto.Thumbnail = Thumbnail.ToProtoValue();
