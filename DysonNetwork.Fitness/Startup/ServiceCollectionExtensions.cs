@@ -3,6 +3,10 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Fitness.ExerciseLibrary;
+using DysonNetwork.Fitness.Goals;
+using DysonNetwork.Fitness.Metrics;
+using DysonNetwork.Fitness.Workouts;
 
 namespace DysonNetwork.Fitness.Startup;
 
@@ -44,8 +48,11 @@ public static class ServiceCollectionExtensions
         // Add distributed cache (Redis)
         services.AddDistributedMemoryCache();
         
-        // Add scheduled jobs services here
-        // services.AddScoped<IScheduledJobService, ScheduledJobService>();
+        // Add fitness services
+        services.AddScoped<WorkoutService>();
+        services.AddScoped<MetricService>();
+        services.AddScoped<GoalService>();
+        services.AddScoped<ExerciseLibraryService>();
 
         return services;
     }
