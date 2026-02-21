@@ -42,6 +42,7 @@ public class AppDatabase(
 
     public DbSet<SnLiveStream> LiveStreams { get; set; } = null!;
     public DbSet<SnLiveStreamChatMessage> LiveStreamChatMessages { get; set; } = null!;
+    public DbSet<SnLiveStreamAward> LiveStreamAwards { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

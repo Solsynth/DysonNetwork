@@ -928,6 +928,69 @@ room.onDataReceived = (data) {
 }
 ```
 
+### Live Stream Awards
+
+Viewers can award livestreams with points to show support. Awards contribute to the stream's ranking in discovery.
+
+#### Get Awards
+
+Returns award history for a livestream.
+
+```http
+GET /api/livestreams/{id}/awards?limit=20&offset=0
+Authorization: Bearer {token}
+
+Response 200 OK:
+[
+  {
+    "id": "uuid",
+    "amount": 100.00,
+    "attitude": "Positive",
+    "message": "Great stream!",
+    "live_stream_id": "uuid",
+    "account_id": "uuid",
+    "created_at": "2026-02-19T15:35:00Z"
+  }
+]
+```
+
+**Authorization:** Public, no authentication required.
+
+#### Award Livestream
+
+Awards a livestream (creates payment order).
+
+```http
+POST /api/livestreams/{id}/awards
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "amount": 100,
+  "attitude": "Positive",
+  "message": "Great stream!"
+}
+
+Response 200 OK:
+{
+  "order_id": "uuid"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `amount` | decimal | Amount of points to award |
+| `attitude` | enum | Positive or Negative |
+| `message` | string | Optional message |
+
+**Authorization:** Requires authentication.
+
+**Discovery Ranking:** Livestreams are ranked by `(TotalAwardScore * 10) + ViewerCount`, so awarded streams appear higher in discovery.
+
+**Real-time Notification:** When a livestream receives an award, all participants receive a `stream_awarded` event via LiveKit data packets.
+
 ## Usage Flow
 
 ### For Streamers
@@ -985,8 +1048,9 @@ Table: `live_streams`
 | `started_at`         | timestamptz   | When stream started                           |
 | `ended_at`           | timestamptz   | When stream ended                             |
 | `total_duration_seconds` | bigint     | Total duration in seconds (cumulative)         |
-| `viewer_count`       | integer       | Current viewer count                          |
-| `peak_viewer_count`  | integer       | Peak viewer count                             |
+| `total_award_score`      | numeric    | Total award score (positive - negative)       |
+| `viewer_count`           | integer    | Current viewer count                          |
+| `peak_viewer_count`      | integer    | Peak viewer count                             |
 | `thumbnail`          | jsonb         | Thumbnail image reference                     |
 | `metadata`           | jsonb         | Additional metadata                           |
 | `publisher_id`       | uuid          | Foreign key to publishers                     |
@@ -1013,6 +1077,19 @@ Table: `live_stream_chat_messages`
 | `duration_formatted` | string | Human-readable duration (e.g., "1:30:45") |
 
 **Note:** When a stream is ended and reused (started again), the durations are accumulated in `total_duration_seconds`.
+
+Table: `live_stream_awards`
+
+| Column            | Type          | Description                           |
+| ----------------- | ------------- | ------------------------------------- |
+| `id`              | uuid          | Primary key                           |
+| `amount`          | numeric       | Amount of points                      |
+| `attitude`        | integer       | Positive (1) or Negative (2)         |
+| `message`         | varchar(4096) | Optional message                      |
+| `live_stream_id`  | uuid          | Foreign key to live_streams          |
+| `account_id`      | uuid          | Awarder account ID                    |
+| `created_at`      | timestamptz   | When award was given                  |
+| `updated_at`      | timestamptz   | Last update                           |
 
 ## Security Considerations
 

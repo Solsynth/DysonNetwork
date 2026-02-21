@@ -58,4 +58,16 @@ message LiveStream {
   google.protobuf.Timestamp deleted_at = 25;
   int64 duration_seconds = 26;
   int64 total_duration_seconds = 27;
+  double total_award_score = 28;
+}
+
+message LiveStreamAward {
+  string id = 1;
+  double amount = 2;
+  PostReactionAttitude attitude = 3;
+  string message = 4;
+  string live_stream_id = 5;
+  string account_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
 }

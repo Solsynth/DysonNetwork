@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using NodaTime;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 using FileService = DysonNetwork.Shared.Proto.FileService;
+using Grpc.Core;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -17,7 +19,9 @@ public class LiveStreamController(
     LiveStreamService liveStreamService,
     LiveKitLivestreamService liveKitService,
     PublisherService pub,
-    FileService.FileServiceClient files
+    FileService.FileServiceClient files,
+    RemotePaymentService remotePayments,
+    ActionLogService.ActionLogServiceClient als
 )
     : ControllerBase
 {
@@ -672,6 +676,87 @@ public class LiveStreamController(
         await liveKitService.SendDataAsync(liveStream.RoomName, data);
 
         return Ok();
+    }
+
+    [HttpGet("{id:guid}/awards")]
+    public async Task<IActionResult> GetLiveStreamAwards(
+        Guid id,
+        [FromQuery] int limit = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var query = db.LiveStreamAwards.Where(a => a.LiveStreamId == id);
+
+        var totalCount = await query.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        var awards = await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Skip(offset)
+            .Take(limit)
+            .ToListAsync();
+
+        return Ok(awards);
+    }
+
+    public class LiveStreamAwardRequest
+    {
+        public decimal Amount { get; init; }
+        public Shared.Models.PostReactionAttitude Attitude { get; init; }
+        [System.ComponentModel.DataAnnotations.MaxLength(4096)]
+        public string? Message { get; init; }
+    }
+
+    public class LiveStreamAwardResponse
+    {
+        public Guid OrderId { get; set; }
+    }
+
+    [HttpPost("{id:guid}/awards")]
+    [Authorize]
+    public async Task<IActionResult> AwardLiveStream(
+        Guid id,
+        [FromBody] LiveStreamAwardRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+            return Unauthorized();
+
+        if (request.Attitude == Shared.Models.PostReactionAttitude.Neutral)
+            return BadRequest("You cannot create a neutral live stream award");
+
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var orderRemark = string.IsNullOrWhiteSpace(liveStream.Title)
+            ? "from @" + liveStream.Publisher?.Name
+            : liveStream.Title;
+
+        var order = await remotePayments.CreateOrder(
+            currency: "points",
+            amount: request.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            productIdentifier: "livestreams.award",
+            remarks: $"Award livestream {orderRemark}",
+            meta: DysonNetwork.Shared.Data.InfraObjectCoder.ConvertObjectToByteString(
+                new Dictionary<string, object?>
+                {
+                    ["account_id"] = accountId,
+                    ["livestream_id"] = liveStream.Id,
+                    ["amount"] = request.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["message"] = request.Message,
+                    ["attitude"] = request.Attitude,
+                }
+            ).ToByteArray()
+        );
+
+        return Ok(new LiveStreamAwardResponse { OrderId = Guid.Parse(order.Id) });
     }
 }
 

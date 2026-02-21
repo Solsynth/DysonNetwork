@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using PostReactionAttitude = DysonNetwork.Shared.Models.PostReactionAttitude;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -69,7 +70,8 @@ public class LiveStreamService(
         return await db.LiveStreams
             .Include(ls => ls.Publisher)
             .Where(ls => ls.Status == LiveStreamStatus.Active && ls.Visibility == LiveStreamVisibility.Public)
-            .OrderByDescending(ls => ls.StartedAt)
+            .OrderByDescending(ls => ls.TotalAwardScore * 10 + ls.ViewerCount)
+            .ThenByDescending(ls => ls.StartedAt)
             .Skip(offset)
             .Take(limit)
             .ToListAsync();
@@ -474,5 +476,49 @@ public class LiveStreamService(
         await db.SaveChangesAsync();
 
         logger.LogInformation("Deleted LiveStream: {Id}", id);
+    }
+
+    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount, PostReactionAttitude attitude, string? message)
+    {
+        var liveStream = await db.LiveStreams.FindAsync(liveStreamId);
+        if (liveStream == null)
+        {
+            logger.LogWarning("Cannot confirm award: LiveStream {Id} not found", liveStreamId);
+            return;
+        }
+
+        var award = new SnLiveStreamAward
+        {
+            LiveStreamId = liveStreamId,
+            AccountId = accountId,
+            Amount = amount,
+            Attitude = attitude,
+            Message = message,
+        };
+
+        db.LiveStreamAwards.Add(award);
+
+        var score = attitude switch
+        {
+            PostReactionAttitude.Positive => amount,
+            PostReactionAttitude.Negative => -amount,
+            _ => 0
+        };
+
+        liveStream.TotalAwardScore += score;
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount} ({Attitude})", liveStreamId, amount, attitude);
+
+        await liveKitService.BroadcastLivestreamUpdateAsync(
+            liveStream.RoomName,
+            "stream_awarded",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStreamId.ToString() },
+                { "amount", amount.ToString() },
+                { "attitude", attitude.ToString() }
+            });
     }
 }
