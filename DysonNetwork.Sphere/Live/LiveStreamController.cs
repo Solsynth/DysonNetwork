@@ -443,6 +443,16 @@ public class LiveStreamController(
 
         await db.SaveChangesAsync();
 
+        await liveKitService.BroadcastLivestreamUpdateAsync(
+            liveStream.RoomName,
+            "stream_updated",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "title", liveStream.Title ?? "" },
+                { "description", liveStream.Description ?? "" }
+            });
+
         return Ok(SanitizeForPublic(liveStream));
     }
 

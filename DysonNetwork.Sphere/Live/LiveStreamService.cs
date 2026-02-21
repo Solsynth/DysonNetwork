@@ -142,6 +142,16 @@ public class LiveStreamService(
 
         await db.SaveChangesAsync();
 
+        await liveKitService.BroadcastLivestreamUpdateAsync(
+            liveStream.RoomName,
+            "stream_started",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "title", liveStream.Title ?? "" },
+                { "started_at", liveStream.StartedAt.ToString() }
+            });
+
         logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress}, whip: {UseWhip})", 
             id, createIngress, useWhipIngress);
 
@@ -178,6 +188,16 @@ public class LiveStreamService(
         liveStream.StartedAt = SystemClock.Instance.GetCurrentInstant();
 
         await db.SaveChangesAsync();
+
+        await liveKitService.BroadcastLivestreamUpdateAsync(
+            liveStream.RoomName,
+            "stream_started",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "title", liveStream.Title ?? "" },
+                { "started_at", liveStream.StartedAt.ToString() }
+            });
 
         logger.LogInformation("Started in-app streaming for LiveStream: {Id}", id);
 
@@ -354,6 +374,15 @@ public class LiveStreamService(
         liveStream.EndedAt = SystemClock.Instance.GetCurrentInstant();
 
         await db.SaveChangesAsync();
+
+        await liveKitService.BroadcastLivestreamUpdateAsync(
+            liveStream.RoomName,
+            "stream_ended",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "ended_at", liveStream.EndedAt.ToString() }
+            });
 
         logger.LogInformation("Ended LiveStream: {Id}", id);
     }

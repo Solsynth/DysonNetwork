@@ -280,7 +280,7 @@ public class LiveKitLivestreamService
         string? name = null,
         bool canPublish = false,
         bool canSubscribe = true,
-        bool canPublishData = true,
+        bool canPublishData = false,
         Dictionary<string, string>? metadata = null,
         TimeSpan? ttl = null)
     {
@@ -380,6 +380,35 @@ public class LiveKitLivestreamService
         {
             _logger.LogError(ex, "Failed to send data to participant {Identity} in room: {RoomName}", identity, roomName);
             throw;
+        }
+    }
+
+    public async Task BroadcastLivestreamUpdateAsync(string roomName, string eventType, Dictionary<string, object>? data = null)
+    {
+        try
+        {
+            var payload = new Dictionary<string, object>
+            {
+                { "type", eventType }
+            };
+
+            if (data != null)
+            {
+                foreach (var item in data)
+                {
+                    payload[item.Key] = item.Value;
+                }
+            }
+
+            var json = JsonSerializer.Serialize(payload);
+            var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+
+            await SendDataAsync(roomName, bytes);
+            _logger.LogInformation("Broadcast livestream update: {EventType} to room: {RoomName}", eventType, roomName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast livestream update to room: {RoomName}", roomName);
         }
     }
 }

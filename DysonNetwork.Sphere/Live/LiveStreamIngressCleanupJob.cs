@@ -66,6 +66,15 @@ public class LiveStreamIngressCleanupJob : IJob
                 stream.Status = LiveStreamStatus.Ended;
                 stream.EndedAt = now;
 
+                _ = _liveKitService.BroadcastLivestreamUpdateAsync(
+                    stream.RoomName,
+                    "stream_ended",
+                    new Dictionary<string, object>
+                    {
+                        { "livestream_id", stream.Id.ToString() },
+                        { "ended_at", now.ToString() }
+                    });
+
                 if (!string.IsNullOrEmpty(stream.IngressId))
                 {
                     try

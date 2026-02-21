@@ -856,6 +856,78 @@ Response 200 OK
 
 **Broadcast:** When a user is timed out, a timeout notification is broadcast to all participants.
 
+### Real-time Stream Updates
+
+Livestream events (started, ended, updated) are broadcast to all connected participants via LiveKit data packets. Clients should listen for these events to update the UI in real-time.
+
+#### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `stream_started` | Stream has started |
+| `stream_ended` | Stream has ended |
+| `stream_updated` | Stream metadata (title, description) was updated |
+
+#### Client-side handling (Flutter example):
+
+```dart
+room.onDataReceived = (data) {
+  final payload = jsonDecode(utf8.decode(data));
+  
+  switch (payload['type']) {
+    case 'stream_started':
+      showNotification('${payload['title']} is now live!');
+      break;
+    case 'stream_ended':
+      showNotification('Stream has ended');
+      break;
+    case 'stream_updated':
+      updateStreamInfo(
+        title: payload['title'],
+        description: payload['description'],
+      );
+      break;
+    case 'chat_message':
+      // Handle chat message (see Chat section)
+      break;
+    case 'timeout':
+      // Handle timeout (see Chat section)
+      break;
+  }
+};
+```
+
+#### Event Payloads
+
+**stream_started:**
+```json
+{
+  "type": "stream_started",
+  "livestream_id": "uuid",
+  "title": "Stream Title",
+  "started_at": "2026-02-19T15:30:00Z"
+}
+```
+
+**stream_ended:**
+```json
+{
+  "type": "stream_ended",
+  "livestream_id": "uuid",
+  "ended_at": "2026-02-19T16:00:00Z"
+}
+```
+
+**stream_updated:**
+```json
+{
+  "type": "stream_updated",
+  "livestream_id": "uuid",
+  "title": "New Title",
+  "description": "New description"
+}
+```
+
 ## Usage Flow
 
 ### For Streamers
