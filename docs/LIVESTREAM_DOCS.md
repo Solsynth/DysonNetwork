@@ -1032,6 +1032,42 @@ Response 200 OK:
 
 **Real-time Notification:** When a livestream receives an award, all participants receive a `stream_awarded` event via LiveKit data packets.
 
+#### Get Active Awards
+
+Returns awards with remaining highlight duration for a livestream. An award becomes active when the streamer highlights it (1 point = 2 seconds of highlight time).
+
+```http
+GET /api/livestreams/{id}/awards/active
+Authorization: Bearer {token}
+
+Response 200 OK:
+[
+  {
+    "id": "uuid",
+    "amount": 100.00,
+    "attitude": "Positive",
+    "message": "Great stream!",
+    "live_stream_id": "uuid",
+    "account_id": "uuid",
+    "sender_name": "FanUser",
+    "created_at": "2026-02-19T15:35:00Z",
+    "highlight_duration_seconds": 200,
+    "highlight_started_at": "2026-02-19T15:40:00Z",
+    "highlight_ends_at": "2026-02-19T15:43:20Z",
+    "account": {
+      "id": "uuid",
+      "name": "username",
+      "nick": "Display Name",
+      "picture": {...}
+    }
+  }
+]
+```
+
+**Note:** The `highlight_duration_seconds` is calculated at highlight time (amount × 2 seconds), not stored in DB. The `highlight_ends_at` is computed from `highlight_started_at` + duration.
+
+**Authorization:** Public, no authentication required.
+
 ## Usage Flow
 
 ### For Streamers
