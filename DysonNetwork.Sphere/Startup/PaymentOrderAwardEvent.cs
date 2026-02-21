@@ -29,7 +29,6 @@ public class PaymentOrderLiveStreamAwardMeta
     [JsonPropertyName("account_id")] public Guid AccountId { get; set; }
     [JsonPropertyName("livestream_id")] public Guid LiveStreamId { get; set; }
     [JsonPropertyName("amount")] public string Amount { get; set; } = null!;
-    [JsonPropertyName("attitude")] public LiveStreamAwardAttitude Attitude { get; set; }
     [JsonPropertyName("message")] public string? Message { get; set; }
     [JsonPropertyName("sender_name")] public string? SenderName { get; set; }
 }

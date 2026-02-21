@@ -113,7 +113,7 @@ public static class ServiceCollectionExtensions
                                 var lss = ctx.ServiceProvider.GetRequiredService<LiveStreamService>();
                                 var amountNum = decimal.Parse(meta.Amount);
 
-                                await lss.ConfirmAwardAsync(meta.LiveStreamId, meta.AccountId, amountNum, meta.Attitude, meta.Message, meta.SenderName);
+                                await lss.ConfirmAwardAsync(meta.LiveStreamId, meta.AccountId, amountNum, meta.Message, meta.SenderName);
 
                                 logger.LogInformation("Livestream award for order {OrderId} handled successfully.",
                                     evt.OrderId);

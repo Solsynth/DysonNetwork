@@ -713,7 +713,6 @@ public class LiveStreamController(
     public class LiveStreamAwardRequest
     {
         public decimal Amount { get; init; }
-        public Shared.Models.LiveStreamAwardAttitude Attitude { get; init; }
 
         [System.ComponentModel.DataAnnotations.MaxLength(4096)]
         public string? Message { get; init; }
@@ -733,9 +732,6 @@ public class LiveStreamController(
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser)
             return Unauthorized();
-
-        if (request.Attitude == Shared.Models.LiveStreamAwardAttitude.Neutral)
-            return BadRequest("You cannot create a neutral live stream award");
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -759,7 +755,6 @@ public class LiveStreamController(
                     ["livestream_id"] = liveStream.Id,
                     ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
                     ["message"] = request.Message,
-                    ["attitude"] = request.Attitude,
                     ["sender_name"] = currentUser.Nick ?? currentUser.Name
                 }
             ).ToByteArray()

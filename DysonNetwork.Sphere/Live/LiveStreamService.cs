@@ -493,7 +493,7 @@ public class LiveStreamService(
     }
 
     public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount,
-        LiveStreamAwardAttitude attitude, string? message, string? senderName = null)
+        string? message, string? senderName = null)
     {
         var liveStream = await db.LiveStreams.FindAsync(liveStreamId);
         if (liveStream == null)
@@ -507,26 +507,18 @@ public class LiveStreamService(
             LiveStreamId = liveStreamId,
             AccountId = accountId,
             Amount = amount,
-            Attitude = attitude,
+            Attitude = LiveStreamAwardAttitude.Positive,
             Message = message,
             SenderName = senderName ?? "Anonymous"
         };
 
         db.LiveStreamAwards.Add(award);
 
-        var score = attitude switch
-        {
-            LiveStreamAwardAttitude.Positive => amount,
-            LiveStreamAwardAttitude.Negative => -amount,
-            _ => 0
-        };
-
-        liveStream.TotalAwardScore += score;
+        liveStream.TotalAwardScore += amount;
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount} ({Attitude})", liveStreamId, amount,
-            attitude);
+        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount}", liveStreamId, amount);
 
         await liveKitService.BroadcastLivestreamUpdateAsync(
             liveStream.RoomName,
@@ -537,7 +529,6 @@ public class LiveStreamService(
                 { "sender_id", accountId.ToString() },
                 { "sender_name", senderName ?? "Anonymous" },
                 { "amount", amount.ToString() },
-                { "attitude", attitude.ToString() },
                 { "message", message ?? "" }
             });
     }
