@@ -389,18 +389,31 @@ Response 200 OK
 Generates a LiveKit token for joining the stream. Automatically detects if the user should be a streamer (if they have Editor role on the publisher).
 
 ```http
-GET /api/livestreams/{id}/token?identity=viewer_123
+GET /api/livestreams/{id}/token?streamer=false
 Authorization: Bearer {token} (optional for public streams)
 
 Response 200 OK:
 {
   "token": "jwt-token-here",
   "room_name": "livestream_abc123",
-  "url": "wss://your-livekit-server.com"
+  "url": "wss://your-livekit-server.com",
+  "isStreamer": false,
+  "identity": "username"
 }
 ```
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `streamer` | boolean | false | If true and user has Editor role, grants streamer permissions |
+
 **Authorization:** Public, authentication optional. If authenticated and user has Editor role on the publisher, they will receive streamer permissions (can publish audio/video). Otherwise, they receive viewer permissions (can only subscribe).
+
+**Token Identity:** 
+- Authenticated users: `account.Name` (or `user_{accountId}` if Name is null)
+- Anonymous users: `guest_{uuid}`
+- Token metadata includes: `livestream_id`, `is_streamer`, `account_id`
 
 Use this token with the LiveKit Flutter SDK:
 
