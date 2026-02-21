@@ -61,6 +61,7 @@ public class LiveStreamController(
             {
                 return BadRequest("You need to be a member of a publisher to create live streams.");
             }
+
             publisher = userPublishers.First();
         }
         else
@@ -158,18 +159,19 @@ public class LiveStreamController(
             return BadRequest(new { error = "LiveStream is not active" });
 
         string identity;
-        string? name = null;
+        string? name;
 
         if (HttpContext.Items["CurrentUser"] is Account currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
-            var isEditor =
-                await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor);
+            var isEditor = await pub.IsMemberWithRole(
+                liveStream.PublisherId!.Value,
+                accountId,
+                PublisherMemberRole.Editor
+            );
 
             if (isEditor && isStreamer)
-            {
                 isStreamer = true;
-            }
 
             identity = currentUser.Name ?? $"user_{accountId:N}";
             name = currentUser.Nick;
@@ -178,7 +180,7 @@ public class LiveStreamController(
         {
             return Unauthorized();
         }
-        
+
         var token = liveKitService.GenerateToken(
             liveStream.RoomName,
             identity,
@@ -238,9 +240,9 @@ public class LiveStreamController(
         else
         {
             var ingressResult = await liveStreamService.StartStreamingAsync(
-                id, 
-                identity, 
-                name, 
+                id,
+                identity,
+                name,
                 createIngress: true,
                 enableTranscoding: enableTranscoding,
                 useWhipIngress: useWhip);
@@ -587,7 +589,9 @@ public class LiveStreamController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var isTimeout = await db.LiveStreamChatMessages
-            .AnyAsync(m => m.LiveStreamId == id && m.SenderId == accountId && m.TimeoutUntil > SystemClock.Instance.GetCurrentInstant());
+            .AnyAsync(m =>
+                m.LiveStreamId == id && m.SenderId == accountId &&
+                m.TimeoutUntil > SystemClock.Instance.GetCurrentInstant());
 
         if (isTimeout)
         {
@@ -611,7 +615,7 @@ public class LiveStreamController(
             senderId = message.SenderId.ToString(),
             senderName = message.SenderName,
             content = message.Content,
-            createdAt = message.CreatedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            createdAt = message.CreatedAt.ToString("%O", System.Globalization.CultureInfo.InvariantCulture)
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(chatData);
@@ -716,6 +720,7 @@ public class LiveStreamController(
     {
         public decimal Amount { get; init; }
         public Shared.Models.LiveStreamAwardAttitude Attitude { get; init; }
+
         [System.ComponentModel.DataAnnotations.MaxLength(4096)]
         public string? Message { get; init; }
     }

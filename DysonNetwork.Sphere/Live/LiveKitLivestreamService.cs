@@ -304,9 +304,7 @@ public class LiveKitLivestreamService
         token = token.WithGrants(grants);
 
         if (metadata is { Count: > 0 })
-        {
             token = token.WithMetadata(JsonSerializer.Serialize(metadata));
-        }
 
         token = token.WithTtl(ttl ?? TimeSpan.FromHours(4));
 
