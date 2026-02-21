@@ -41,8 +41,8 @@ public class PublicationSiteManager(
     private async Task EnsureSiteDirectory(Guid siteId)
     {
         var site = await publicationSiteService.GetSiteById(siteId);
-        if (site is not { Mode: PublicationSiteMode.SelfManaged })
-            throw new InvalidOperationException("Site not found or not self-managed");
+        if (site == null)
+            throw new InvalidOperationException("Site not found");
         var dir = Path.Combine(_basePath, siteId.ToString());
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);

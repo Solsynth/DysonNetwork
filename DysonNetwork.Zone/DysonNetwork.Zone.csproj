@@ -12,6 +12,7 @@
     </ItemGroup>
     
     <ItemGroup>
+        <PackageReference Include="DotLiquid" Version="2.2.508" />
         <PackageReference Include="Markdig" Version="0.44.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">

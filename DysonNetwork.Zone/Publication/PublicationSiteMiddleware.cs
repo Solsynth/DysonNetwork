@@ -1,16 +1,4 @@
-using System.Text.Json;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
-using DysonNetwork.Zone.Customization;
-using DysonNetwork.Zone.Pages.Dynamic;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Mvc.Razor;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,23 +11,21 @@ public class PublicationSiteMiddleware(RequestDelegate next)
     public async Task InvokeAsync(
         HttpContext context,
         AppDatabase db,
-        PublicationSiteManager psm,
-        IRazorViewEngine viewEngine,
-        ITempDataProvider tempData
+        PublicationSiteManager siteManager,
+        TemplateSiteRenderer templateRenderer
     )
     {
         var siteNameValue = context.Request.Headers["X-SiteName"].ToString();
-        var currentPath = context.Request.Path.Value ?? "";
+        var currentPath = context.Request.Path.Value ?? "/";
 
-        if (string.IsNullOrEmpty(siteNameValue))
+        if (string.IsNullOrWhiteSpace(siteNameValue))
         {
             await next(context);
             return;
         }
 
         var site = await db.PublicationSites
-            .FirstOrDefaultAsync(s => EF.Functions.ILike(s.Slug, siteNameValue)
-            );
+            .FirstOrDefaultAsync(s => EF.Functions.ILike(s.Slug, siteNameValue));
         if (site == null)
         {
             await next(context);
@@ -48,59 +34,32 @@ public class PublicationSiteMiddleware(RequestDelegate next)
 
         context.Items[SiteContextKey] = site;
 
-        var page = await db.PublicationPages
-            .FirstOrDefaultAsync(p => p.SiteId == site.Id && p.Path == currentPath);
-        if (page != null)
+        if (site.Mode == PublicationSiteMode.FullyManaged)
         {
-            switch (page.Type)
+            var renderResult = await templateRenderer.RenderAsync(context, site);
+            if (renderResult.Handled)
             {
-                case PublicationPageType.HtmlPage
-                    when page.Config.TryGetValue("html", out var html) && html is JsonElement content:
-                    if (site.Mode == PublicationSiteMode.FullyManaged)
-                    {
-                        context.Items["PublicationHtmlContent"] = content.ToString();
-                        var layoutedHtml = await RenderViewAsync(
-                            context,
-                            viewEngine,
-                            tempData,
-                            "/Pages/Dynamic/DynamicPage.cshtml",
-                            new DynamicPage { Html = content.ToString() }
-                        );
-                        context.Response.ContentType = "text/html";
-                        await context.Response.WriteAsync(layoutedHtml);
-                    }
-                    else
-                    {
-                        context.Response.ContentType = "text/html";
-                        await context.Response.WriteAsync(content.ToString());
-                    }
+                context.Response.StatusCode = renderResult.StatusCode;
+                context.Response.ContentType = renderResult.ContentType;
+
+                if (!string.IsNullOrWhiteSpace(renderResult.StaticFilePath))
+                {
+                    await context.Response.SendFileAsync(renderResult.StaticFilePath);
                     return;
-                case PublicationPageType.Redirect
-                    when page.Config.TryGetValue("target", out var tgt) && tgt is JsonElement redirectUrl:
-                    context.Response.Redirect(redirectUrl.ToString());
+                }
+
+                if (renderResult.Content is not null)
+                {
+                    await context.Response.WriteAsync(renderResult.Content);
                     return;
-                case PublicationPageType.PostPage:
-                    PostPageFilterConfig? filterConfig = null;
-                    if (page.Config.TryGetValue("filter", out var filter) && filter is JsonElement filterJson)
-                         filterConfig = filterJson.Deserialize<PostPageFilterConfig>(InfraObjectCoder.SerializerOptions);
-                    PostPageLayoutConfig? layoutConfig = null;
-                    if (page.Config.TryGetValue("layout", out var layout) && layout is JsonElement layoutJson)
-                        layoutConfig = layoutJson.Deserialize<PostPageLayoutConfig>(InfraObjectCoder.SerializerOptions);
-                    context.Items["PostPage_LayoutConfig"] = layoutConfig;
-                    context.Items["PostPage_FilterConfig"] = filterConfig;
-                    context.Request.Path = "/Posts";
-                    await next(context);
-                    return;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                }
             }
         }
 
-        // If the site is enabled the self-managed mode, try lookup the files then
         if (site.Mode == PublicationSiteMode.SelfManaged)
         {
             var provider = new FileExtensionContentTypeProvider();
-            var hostedFilePath = psm.GetValidatedFullPath(site.Id, currentPath);
+            var hostedFilePath = siteManager.GetValidatedFullPath(site.Id, currentPath);
             if (File.Exists(hostedFilePath))
             {
                 if (!provider.TryGetContentType(hostedFilePath, out var mimeType))
@@ -122,62 +81,16 @@ public class PublicationSiteMiddleware(RequestDelegate next)
                 }
             }
 
-            var hostedNotFoundPath = psm.GetValidatedFullPath(site.Id, "404.html");
+            var hostedNotFoundPath = siteManager.GetValidatedFullPath(site.Id, "404.html");
             if (File.Exists(hostedNotFoundPath))
             {
                 context.Response.ContentType = "text/html";
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
                 await context.Response.SendFileAsync(hostedNotFoundPath);
                 return;
             }
         }
 
         await next(context);
-    }
-
-    private async Task<string> RenderViewAsync(
-        HttpContext context,
-        IRazorViewEngine engine,
-        ITempDataProvider tempDataProvider,
-        string viewPath,
-        object model)
-    {
-        var endpointFeature = context.Features.Get<IEndpointFeature>();
-        var endpoint = endpointFeature?.Endpoint;
-
-        var routeData = context.GetRouteData();
-
-        var actionContext = new ActionContext(
-            context,
-            routeData,
-            new ActionDescriptor()
-        );
-
-        await using var sw = new StringWriter();
-
-        var viewResult = engine.GetView(null, viewPath, true);
-
-        if (!viewResult.Success)
-            throw new FileNotFoundException($"View '{viewPath}' not found.");
-
-        var viewData = new ViewDataDictionary(
-            new EmptyModelMetadataProvider(),
-            new ModelStateDictionary())
-        {
-            Model = model
-        };
-
-        var tempData = new TempDataDictionary(context, tempDataProvider);
-
-        var viewContext = new ViewContext(
-            actionContext,
-            viewResult.View,
-            viewData,
-            tempData,
-            sw,
-            new HtmlHelperOptions()
-        );
-
-        await viewResult.View.RenderAsync(viewContext);
-        return sw.ToString();
     }
 }

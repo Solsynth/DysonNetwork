@@ -19,8 +19,8 @@ public class SiteManagerController(
     private async Task<ActionResult?> CheckAccess(Guid siteId)
     {
         var site = await publicationSiteService.GetSiteById(siteId);
-        if (site is not { Mode: PublicationSiteMode.SelfManaged })
-            return NotFound("Site not found or not self-managed");
+        if (site == null)
+            return NotFound("Site not found");
 
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 

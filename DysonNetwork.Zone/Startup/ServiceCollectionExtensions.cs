@@ -97,6 +97,10 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<PublicationSiteService>();
         services.AddScoped<PublicationSiteManager>();
+        services.AddScoped<TemplateRouteResolver>();
+        services.AddScoped<TemplateContextBuilder>();
+        services.AddScoped<TemplateSiteRenderer>();
+        services.AddMemoryCache();
 
         return services;
     }
