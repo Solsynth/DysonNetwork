@@ -98,6 +98,27 @@ public static class ServiceCollectionExtensions
                                     evt.OrderId);
                                 break;
                             }
+                            case "livestreams.award":
+                            {
+                                var awardEvt = JsonSerializer.Deserialize<PaymentOrderLiveStreamAwardEvent>(
+                                    JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions),
+                                    InfraObjectCoder.SerializerOptions
+                                );
+                                if (awardEvt?.Meta == null) throw new ArgumentNullException(nameof(awardEvt));
+
+                                var meta = awardEvt.Meta;
+
+                                logger.LogInformation("Handling livestream award order: {OrderId}", evt.OrderId);
+
+                                var lss = ctx.ServiceProvider.GetRequiredService<LiveStreamService>();
+                                var amountNum = decimal.Parse(meta.Amount);
+
+                                await lss.ConfirmAwardAsync(meta.LiveStreamId, meta.AccountId, amountNum, meta.Attitude, meta.Message);
+
+                                logger.LogInformation("Livestream award for order {OrderId} handled successfully.",
+                                    evt.OrderId);
+                                break;
+                            }
                         }
                     },
                     opts =>

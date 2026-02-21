@@ -1,3 +1,4 @@
+using System.Globalization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -748,7 +749,7 @@ public class LiveStreamController(
 
         var order = await remotePayments.CreateOrder(
             currency: "points",
-            amount: request.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            amount: request.Amount.ToString(CultureInfo.InvariantCulture),
             productIdentifier: "livestreams.award",
             remarks: $"Award livestream {orderRemark}",
             meta: DysonNetwork.Shared.Data.InfraObjectCoder.ConvertObjectToByteString(
@@ -756,9 +757,9 @@ public class LiveStreamController(
                 {
                     ["account_id"] = accountId,
                     ["livestream_id"] = liveStream.Id,
-                    ["amount"] = request.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["amount"] = request.Amount.ToString(CultureInfo.InvariantCulture),
                     ["message"] = request.Message,
-                    ["attitude"] = request.Attitude,
+                    ["attitude"] = request.Attitude
                 }
             ).ToByteArray()
         );
