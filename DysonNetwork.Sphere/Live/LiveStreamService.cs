@@ -92,23 +92,18 @@ public class LiveStreamService(
             .ToListAsync();
     }
 
-    public async Task<LiveKitIngressResult?> StartStreamingAsync(Guid id, string participantIdentity,
-        string? participantName)
-    {
-        return await StartStreamingAsync(id, participantIdentity, participantName, createIngress: true);
-    }
-
     public async Task<LiveKitIngressResult?> StartStreamingAsync(
         Guid id,
         string participantIdentity,
         string? participantName,
         bool createIngress = true,
         bool enableTranscoding = true,
-        bool useWhipIngress = false)
+        bool useWhipIngress = false
+    )
     {
         var liveStream = await db.LiveStreams
-            .Include(ls => ls.Publisher)
-            .FirstOrDefaultAsync(ls => ls.Id == id)
+                             .Include(ls => ls.Publisher)
+                             .FirstOrDefaultAsync(ls => ls.Id == id)
                          ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
@@ -158,7 +153,7 @@ public class LiveStreamService(
                 { "started_at", liveStream.StartedAt.ToString() }
             });
 
-        logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress}, whip: {UseWhip})", 
+        logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress}, whip: {UseWhip})",
             id, createIngress, useWhipIngress);
 
         _ = Task.Run(async () =>
@@ -181,8 +176,8 @@ public class LiveStreamService(
     public async Task StartInAppStreamingAsync(Guid id)
     {
         var liveStream = await db.LiveStreams
-            .Include(ls => ls.Publisher)
-            .FirstOrDefaultAsync(ls => ls.Id == id)
+                             .Include(ls => ls.Publisher)
+                             .FirstOrDefaultAsync(ls => ls.Id == id)
                          ?? throw new InvalidOperationException($"LiveStream not found: {id}");
 
         if (liveStream.Status != LiveStreamStatus.Pending && liveStream.Status != LiveStreamStatus.Ended)
@@ -299,8 +294,10 @@ public class LiveStreamService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway", liveStream.HlsEgressId);
+                logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway",
+                    liveStream.HlsEgressId);
             }
+
             liveStream.HlsEgressId = null;
         }
 
@@ -322,8 +319,10 @@ public class LiveStreamService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to stop egress {EgressId}, marking as stopped anyway", liveStream.EgressId);
+                logger.LogWarning(ex, "Failed to stop egress {EgressId}, marking as stopped anyway",
+                    liveStream.EgressId);
             }
+
             liveStream.EgressId = null;
         }
 
@@ -345,8 +344,10 @@ public class LiveStreamService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to delete ingress {IngressId}, marking as deleted anyway", liveStream.IngressId);
+                logger.LogWarning(ex, "Failed to delete ingress {IngressId}, marking as deleted anyway",
+                    liveStream.IngressId);
             }
+
             liveStream.IngressId = null;
         }
 
@@ -358,8 +359,10 @@ public class LiveStreamService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to stop egress {EgressId}, marking as stopped anyway", liveStream.EgressId);
+                logger.LogWarning(ex, "Failed to stop egress {EgressId}, marking as stopped anyway",
+                    liveStream.EgressId);
             }
+
             liveStream.EgressId = null;
         }
 
@@ -371,8 +374,10 @@ public class LiveStreamService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway", liveStream.HlsEgressId);
+                logger.LogWarning(ex, "Failed to stop HLS egress {EgressId}, marking as stopped anyway",
+                    liveStream.HlsEgressId);
             }
+
             liveStream.HlsEgressId = null;
         }
 
@@ -440,7 +445,8 @@ public class LiveStreamService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to delete ingress {IngressId} during stream deletion", liveStream.IngressId);
+                    logger.LogWarning(ex, "Failed to delete ingress {IngressId} during stream deletion",
+                        liveStream.IngressId);
                 }
             }
 
@@ -452,7 +458,8 @@ public class LiveStreamService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to stop egress {EgressId} during stream deletion", liveStream.EgressId);
+                    logger.LogWarning(ex, "Failed to stop egress {EgressId} during stream deletion",
+                        liveStream.EgressId);
                 }
             }
 
@@ -464,7 +471,8 @@ public class LiveStreamService(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to stop HLS egress {EgressId} during stream deletion", liveStream.HlsEgressId);
+                    logger.LogWarning(ex, "Failed to stop HLS egress {EgressId} during stream deletion",
+                        liveStream.HlsEgressId);
                 }
             }
 
@@ -484,7 +492,8 @@ public class LiveStreamService(
         logger.LogInformation("Deleted LiveStream: {Id}", id);
     }
 
-    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount, LiveStreamAwardAttitude attitude, string? message)
+    public async Task ConfirmAwardAsync(Guid liveStreamId, Guid accountId, decimal amount,
+        LiveStreamAwardAttitude attitude, string? message)
     {
         var liveStream = await db.LiveStreams.FindAsync(liveStreamId);
         if (liveStream == null)
@@ -515,7 +524,8 @@ public class LiveStreamService(
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount} ({Attitude})", liveStreamId, amount, attitude);
+        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount} ({Attitude})", liveStreamId, amount,
+            attitude);
 
         await liveKitService.BroadcastLivestreamUpdateAsync(
             liveStream.RoomName,
@@ -559,7 +569,8 @@ public class LiveStreamService(
 
         try
         {
-            var remarks = localizer.Get("livestreams.award.distribution", args: new { Title = liveStream.Title ?? liveStream.Id.ToString() });
+            var remarks = localizer.Get("livestreams.award.distribution",
+                args: new { Title = liveStream.Title ?? liveStream.Id.ToString() });
             await paymentService.CreateTransactionWithAccount(
                 payerAccountId: null,
                 payeeAccountId: streamerAccountId.ToString(),

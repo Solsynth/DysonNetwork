@@ -218,8 +218,8 @@ public class LiveStreamController(
             return StatusCode(403, "You need to be an editor of this publisher to start the live stream.");
         }
 
-        var identity = $"streamer_{accountId:N}";
-        var name = request.ParticipantName ?? liveStream.Publisher?.Nick ?? "Streamer";
+        var identity = $"streamer_{accountId:N}_ingress";
+        var name = request.ParticipantName ?? liveStream.Publisher?.Nick ?? "streamer";
 
         var noIngress = request.NoIngress ?? false;
         var useWhip = request.UseWhip ?? false;
