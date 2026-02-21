@@ -1,4 +1,6 @@
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -10,6 +12,8 @@ public class LiveStreamService(
     AppDatabase db,
     LiveKitLivestreamService liveKitService,
     PublisherSubscriptionService publisherSubscriptionService,
+    RemotePaymentService paymentService,
+    ILocalizationService localizer,
     IServiceProvider serviceProvider,
     ILogger<LiveStreamService> logger
 )
@@ -383,6 +387,8 @@ public class LiveStreamService(
 
         await db.SaveChangesAsync();
 
+        await DistributeAwardsAsync(liveStream);
+
         await liveKitService.BroadcastLivestreamUpdateAsync(
             liveStream.RoomName,
             "stream_ended",
@@ -520,5 +526,56 @@ public class LiveStreamService(
                 { "amount", amount.ToString() },
                 { "attitude", attitude.ToString() }
             });
+    }
+
+    private async Task DistributeAwardsAsync(SnLiveStream liveStream)
+    {
+        if (liveStream.PublisherId == null)
+        {
+            logger.LogWarning("Cannot distribute awards: LiveStream {Id} has no publisher", liveStream.Id);
+            return;
+        }
+
+        var publisher = await db.Publishers.FindAsync(liveStream.PublisherId);
+        if (publisher == null || publisher.AccountId == null)
+        {
+            logger.LogWarning("Cannot distribute awards: Publisher not found for LiveStream {Id}", liveStream.Id);
+            return;
+        }
+
+        var streamerAccountId = publisher.AccountId.Value;
+
+        var totalPositiveAwards = await db.LiveStreamAwards
+            .Where(a => a.LiveStreamId == liveStream.Id && a.Attitude == LiveStreamAwardAttitude.Positive)
+            .SumAsync(a => a.Amount);
+
+        if (totalPositiveAwards <= 0)
+        {
+            logger.LogDebug("No positive awards to distribute for LiveStream {Id}", liveStream.Id);
+            return;
+        }
+
+        var streamerShare = totalPositiveAwards * 0.9m;
+
+        try
+        {
+            var remarks = localizer.Get("livestreams.award.distribution", args: new { Title = liveStream.Title ?? liveStream.Id.ToString() });
+            await paymentService.CreateTransactionWithAccount(
+                payerAccountId: null,
+                payeeAccountId: streamerAccountId.ToString(),
+                currency: "points",
+                amount: streamerShare.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                remarks: remarks,
+                DysonNetwork.Shared.Proto.TransactionType.System
+            );
+
+            logger.LogInformation(
+                "Distributed {Amount} points (90% of {Total}) to streamer {AccountId} for LiveStream {Id}",
+                streamerShare, totalPositiveAwards, streamerAccountId, liveStream.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to distribute awards for LiveStream {Id}", liveStream.Id);
+        }
     }
 }

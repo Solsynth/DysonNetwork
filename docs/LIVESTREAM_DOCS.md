@@ -940,6 +940,8 @@ room.onDataReceived = (data) {
 
 Viewers can award livestreams with points to show support. Awards contribute to the stream's ranking in discovery.
 
+**Award Distribution:** When a livestream ends, 90% of the total positive awards are distributed to the streamer's wallet. Negative awards are not counted towards distribution.
+
 #### Get Awards
 
 Returns award history for a livestream.

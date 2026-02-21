@@ -267,8 +267,7 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
