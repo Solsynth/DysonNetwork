@@ -723,10 +723,14 @@ public class LiveStreamController(
 
         var now = SystemClock.Instance.GetCurrentInstant();
 
-        var activeAwards = await db.LiveStreamAwards
-            .Where(a => a.LiveStreamId == id && a.CreatedAt.Plus(Duration.FromSeconds((long)(a.Amount * 2))) > now)
+        var allAwards = await db.LiveStreamAwards
+            .Where(a => a.LiveStreamId == id)
             .OrderByDescending(a => a.Amount)
             .ToListAsync();
+
+        var activeAwards = allAwards
+            .Where(a => a.CreatedAt.Plus(Duration.FromSeconds((long)(a.Amount * 2))) > now)
+            .ToList();
 
         var accountIds = activeAwards.Select(a => a.AccountId).Distinct().ToList();
         var accounts = await remoteAccounts.GetAccountBatch(accountIds);
