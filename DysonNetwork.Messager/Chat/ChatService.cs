@@ -297,6 +297,67 @@ public partial class ChatService(
         logger.LogInformation("Delivered message to {count} accounts.", accountsToNotify.Count);
     }
 
+    private async Task SendReactionNotificationAsync(
+        SnChatMessage message,
+        SnChatMember reactor,
+        SnChatRoom room,
+        bool isAdded
+    )
+    {
+        using var scope = scopeFactory.CreateScope();
+        var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+
+        var messageAuthor = await db.ChatMembers
+            .Where(m => m.Id == message.SenderId && m.ChatRoomId == room.Id)
+            .FirstOrDefaultAsync();
+
+        if (messageAuthor is null)
+            return;
+
+        if (messageAuthor.AccountId == reactor.AccountId)
+            return;
+
+        if (messageAuthor.Notify == ChatMemberNotify.None)
+            return;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (messageAuthor.BreakUntil is not null && messageAuthor.BreakUntil > now)
+            return;
+
+        messageAuthor = await scopedCrs.LoadMemberAccount(messageAuthor);
+        if (messageAuthor.Account is null)
+            return;
+
+        var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
+            room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
+
+        var symbol = message.Meta is not null && message.Meta.TryGetValue("symbol", out var s) ? s?.ToString() : null;
+        var notification = new PushNotification
+        {
+            Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
+            Title = $"{reactor.Nick ?? reactor.Account?.Nick} reacted to your message ({roomSubject})",
+            Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+            {
+                ["user_id"] = reactor.AccountId,
+                ["reactor_id"] = reactor.Id,
+                ["reactor_name"] = reactor.Nick ?? reactor.Account?.Nick,
+                ["message_id"] = message.Id,
+                ["room_id"] = room.Id,
+                ["symbol"] = symbol ?? ""
+            }),
+            ActionUri = $"/chat/{room.Id}",
+            IsSavable = false,
+            Body = isAdded ? $"Reacted with {symbol}" : "Removed reaction"
+        };
+
+        var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
+        ntyRequest.UserIds.Add(messageAuthor.AccountId.ToString());
+        await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
+
+        logger.LogInformation("Sent reaction notification to message author {AuthorId}", messageAuthor.AccountId);
+    }
+
     private PushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
         string roomSubject,
         string type)
@@ -827,6 +888,8 @@ public partial class ChatService(
             notify: false
         );
 
+        _ = SendReactionNotificationAsync(message, sender, room, isAdded: true);
+
         return reaction;
     }
 
@@ -903,6 +966,8 @@ public partial class ChatService(
             type: WebSocketPacketType.MessageUpdate,
             notify: false
         );
+
+        _ = SendReactionNotificationAsync(message, sender, room, isAdded: false);
     }
 
     public async Task HydrateMessageReactionsAsync(List<SnChatMessage> messages, Guid? accountId = null)

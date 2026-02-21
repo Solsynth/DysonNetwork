@@ -566,9 +566,7 @@ public class LiveStreamController(
         foreach (var message in messages)
         {
             if (sendersDict.TryGetValue(message.SenderId, out var sender))
-            {
-                message.Sender = sender;
-            }
+                message.Sender = SnAccount.FromProtoValue(sender);
         }
 
         return Ok(messages);
