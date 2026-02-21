@@ -32,6 +32,10 @@ public class SnLiveStreamAward : ModelBase
 
     [NotMapped]
     [JsonIgnore]
+    public SnAccount? Sender { get; set; }
+
+    [NotMapped]
+    [JsonIgnore]
     public int HighlightDurationSeconds => (int)(Amount * 2);
 
     [NotMapped]

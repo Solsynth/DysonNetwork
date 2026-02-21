@@ -515,9 +515,7 @@ public class LiveStreamService(
             Amount = amount,
             Attitude = LiveStreamAwardAttitude.Positive,
             Message = message,
-            SenderName = senderName,
-            HighlightDurationSeconds = highlightDurationSeconds,
-            HighlightedUntil = highlightedUntil
+            SenderName = senderName
         };
 
         db.LiveStreamAwards.Add(award);
