@@ -505,6 +505,9 @@ public class LiveStreamService(
         var account = await accountService.GetAccount(accountId);
         var senderName = account.Nick ?? account.Name ?? "Anonymous";
 
+        var highlightDurationSeconds = (int)(amount * 2);
+        var highlightedUntil = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromSeconds(highlightDurationSeconds));
+
         var award = new SnLiveStreamAward
         {
             LiveStreamId = liveStreamId,
@@ -512,7 +515,9 @@ public class LiveStreamService(
             Amount = amount,
             Attitude = LiveStreamAwardAttitude.Positive,
             Message = message,
-            SenderName = senderName
+            SenderName = senderName,
+            HighlightDurationSeconds = highlightDurationSeconds,
+            HighlightedUntil = highlightedUntil
         };
 
         db.LiveStreamAwards.Add(award);
@@ -521,7 +526,7 @@ public class LiveStreamService(
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount}", liveStreamId, amount);
+        logger.LogInformation("Confirmed award for LiveStream {Id}: {Amount}, highlight for {Seconds} seconds", liveStreamId, amount, highlightDurationSeconds);
 
         await liveKitService.BroadcastLivestreamUpdateAsync(
             liveStream.RoomName,
@@ -532,6 +537,7 @@ public class LiveStreamService(
                 { "sender_id", accountId.ToString() },
                 { "sender_name", senderName },
                 { "amount", amount.ToString() },
+                { "highlight_seconds", highlightDurationSeconds },
                 { "message", message ?? "" }
             });
     }

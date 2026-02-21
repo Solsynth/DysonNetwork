@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime;
+using Duration = NodaTime.Duration;
 using LiveStreamAwardAttitude = DysonNetwork.Shared.Models.LiveStreamAwardAttitude;
 
 namespace DysonNetwork.Shared.Models;
@@ -28,6 +29,14 @@ public class SnLiveStreamAward : ModelBase
 
     [MaxLength(128)]
     public string SenderName { get; set; } = null!;
+
+    [NotMapped]
+    [JsonIgnore]
+    public int HighlightDurationSeconds => (int)(Amount * 2);
+
+    [NotMapped]
+    [JsonIgnore]
+    public Instant? HighlightedUntil => CreatedAt.Plus(Duration.FromSeconds(HighlightDurationSeconds));
 
     public LiveStreamAward ToProtoValue()
     {

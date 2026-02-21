@@ -712,6 +712,35 @@ public class LiveStreamController(
         return Ok(awards);
     }
 
+    [HttpGet("{id:guid}/awards/active")]
+    public async Task<IActionResult> GetActiveAwards(
+        Guid id
+    )
+    {
+        var liveStream = await liveStreamService.GetByIdAsync(id);
+        if (liveStream == null)
+            return NotFound(new { error = "LiveStream not found" });
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var activeAwards = await db.LiveStreamAwards
+            .Where(a => a.LiveStreamId == id && a.CreatedAt.Plus(Duration.FromSeconds((long)(a.Amount * 2))) > now)
+            .OrderByDescending(a => a.Amount)
+            .ToListAsync();
+
+        var accountIds = activeAwards.Select(a => a.AccountId).Distinct().ToList();
+        var accounts = await remoteAccounts.GetAccountBatch(accountIds);
+        var accountsDict = accounts.ToDictionary(a => Guid.Parse(a.Id));
+
+        foreach (var award in activeAwards)
+        {
+            if (accountsDict.TryGetValue(award.AccountId, out var account))
+                award.Sender = SnAccount.FromProtoValue(account);
+        }
+
+        return Ok(activeAwards);
+    }
+
     [HttpGet("{id:guid}/awards/leaderboard")]
     public async Task<IActionResult> GetLiveStreamAwardLeaderboard(
         Guid id,
