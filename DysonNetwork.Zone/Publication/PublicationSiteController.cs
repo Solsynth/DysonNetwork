@@ -79,6 +79,8 @@ public class PublicationSiteController(
             Config = request.Config ?? new PublicationSiteConfig(),
             AccountId = accountId
         };
+        if (request.Rss != null)
+            site.Config.Rss = request.Rss;
 
         try
         {
@@ -117,6 +119,8 @@ public class PublicationSiteController(
         site.Name = request.Name;
         site.Description = request.Description ?? site.Description;
         site.Config = request.Config ?? site.Config;
+        if (request.Rss != null)
+            site.Config.Rss = request.Rss;
 
         try
         {
@@ -278,6 +282,7 @@ public class PublicationSiteController(
         [MaxLength(4096)] public string Name { get; set; } = null!;
         [MaxLength(8192)] public string? Description { get; set; }
         public PublicationSiteConfig? Config { get; set; }
+        public PublicationSiteRssConfig? Rss { get; set; }
     }
 
     public class PublicationPageRequest
