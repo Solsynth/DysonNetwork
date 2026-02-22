@@ -55,6 +55,9 @@ public class TemplateContextBuilder(
         var publisherPictureUrl = publisher.Picture is { Id: { Length: > 0 } pictureId }
             ? $"/drive/files/{pictureId}"
             : null;
+        var publisherBackgroundUrl = publisher.Background is { Id: { Length: > 0 } backgroundId }
+            ? $"/drive/files/{backgroundId}"
+            : null;
 
         var theme = BuildDefaultTheme();
 
@@ -70,6 +73,8 @@ public class TemplateContextBuilder(
                 ["publisher_id"] = site.PublisherId.ToString(),
                 ["publisher_picutre_url"] = publisherPictureUrl,
                 ["publisher_picture_url"] = publisherPictureUrl,
+                ["publisher_backgound_url"] = publisherBackgroundUrl,
+                ["publisher_background_url"] = publisherBackgroundUrl,
                 ["config"] = site.Config,
             },
             ["publisher"] = publisher,
