@@ -3,6 +3,7 @@ using DotLiquid.Tags;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Caching.Memory;
+using System.Collections;
 
 namespace DysonNetwork.Zone.Publication;
 
@@ -115,13 +116,59 @@ public class TemplateSiteRenderer
     )
     {
         var template = await GetTemplateFromCacheAsync(siteId, relativePath, fullPath);
-        var hash = Hash.FromDictionary(contextData);
+        var hash = Hash.FromDictionary(ToLiquidDictionary(contextData));
 
         lock (RenderSync)
         {
             Template.FileSystem = new TemplateFileSystem(siteDirectory);
             return template.Render(hash);
         }
+    }
+
+    private static Dictionary<string, object> ToLiquidDictionary(IDictionary<string, object?> source)
+    {
+        var result = new Dictionary<string, object>(StringComparer.Ordinal);
+        foreach (var pair in source)
+        {
+            result[pair.Key] = ToLiquidValue(pair.Value);
+        }
+        return result;
+    }
+
+    private static object ToLiquidValue(object? value)
+    {
+        if (value is null)
+            return string.Empty;
+
+        if (value is DateTimeOffset dto)
+            return dto.UtcDateTime;
+
+        if (value is IDictionary<string, object?> dictNullable)
+            return Hash.FromDictionary(ToLiquidDictionary(dictNullable));
+
+        if (value is IDictionary<string, object> dict)
+            return Hash.FromDictionary(ToLiquidDictionary(dict.ToDictionary(x => x.Key, x => (object?)x.Value)));
+
+        if (value is IDictionary nonGenericDict)
+        {
+            var converted = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (DictionaryEntry entry in nonGenericDict)
+            {
+                if (entry.Key is string key)
+                    converted[key] = entry.Value;
+            }
+            return Hash.FromDictionary(ToLiquidDictionary(converted));
+        }
+
+        if (value is IEnumerable enumerable and not string)
+        {
+            var items = new List<object>();
+            foreach (var item in enumerable)
+                items.Add(ToLiquidValue(item));
+            return items;
+        }
+
+        return value;
     }
 
     private async Task<Template> GetTemplateFromCacheAsync(Guid siteId, string relativePath, string fullPath)

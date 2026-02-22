@@ -352,7 +352,7 @@ public class TemplateContextBuilder(
         if (string.IsNullOrWhiteSpace(value))
             return 0;
 
-        return Regex.Matches(value, @"\\b\\w+\\b").Count;
+        return Regex.Matches(value, @"\b\w+\b").Count;
     }
 
     private static string StripHtml(string input)
