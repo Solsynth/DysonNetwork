@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -358,6 +359,12 @@ public class TemplateContextBuilder(
                 ["is_image"] = a.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false,
             })
             .ToList();
+        var thumbnailId = ResolveMetadataThumbnailId(post.Metadata);
+        var thumbnailUrl = !string.IsNullOrWhiteSpace(thumbnailId)
+            ? $"/drive/files/{thumbnailId}"
+            : post.Type == DysonNetwork.Shared.Models.PostType.Article
+                ? photos.FirstOrDefault()
+                : null;
 
         return new Dictionary<string, object?>
         {
@@ -374,6 +381,8 @@ public class TemplateContextBuilder(
             ["url"] = path,
             ["photos"] = photos,
             ["attachments"] = attachments,
+            ["thumbnail_id"] = thumbnailId,
+            ["thumbnail_url"] = thumbnailUrl,
             ["word_count"] = CountWords(plainText),
             ["date"] = publishedAt.UtcDateTime,
             ["published_at"] = publishedAt.UtcDateTime,
@@ -394,6 +403,22 @@ public class TemplateContextBuilder(
                 ["name"] = t.Name,
                 ["path"] = $"/tags/{t.Slug}",
             }).ToList(),
+        };
+    }
+
+    private static string? ResolveMetadataThumbnailId(Dictionary<string, object>? metadata)
+    {
+        if (metadata is null)
+            return null;
+
+        if (!metadata.TryGetValue("thumbnail", out var raw) || raw is null)
+            return null;
+
+        return raw switch
+        {
+            string s when !string.IsNullOrWhiteSpace(s) => s.Trim(),
+            JsonElement { ValueKind: JsonValueKind.String } e => e.GetString()?.Trim(),
+            _ => null
         };
     }
 
