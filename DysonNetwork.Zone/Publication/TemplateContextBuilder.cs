@@ -52,6 +52,9 @@ public class TemplateContextBuilder(
         var scheme = httpContext.Request.Scheme;
         var host = httpContext.Request.Host.Value;
         var baseUrl = $"{scheme}://{host}";
+        var publisherPictureUrl = publisher.Picture is { Id: { Length: > 0 } pictureId }
+            ? $"/drive/files/{pictureId}"
+            : null;
 
         var theme = BuildDefaultTheme();
 
@@ -65,6 +68,8 @@ public class TemplateContextBuilder(
                 ["description"] = site.Description,
                 ["mode"] = site.Mode.ToString(),
                 ["publisher_id"] = site.PublisherId.ToString(),
+                ["publisher_picutre_url"] = publisherPictureUrl,
+                ["publisher_picture_url"] = publisherPictureUrl,
                 ["config"] = site.Config,
             },
             ["publisher"] = publisher,
