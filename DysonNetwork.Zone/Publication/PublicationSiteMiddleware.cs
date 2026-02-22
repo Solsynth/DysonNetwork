@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Zone.SEO;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,8 @@ public class PublicationSiteMiddleware(RequestDelegate next)
         HttpContext context,
         AppDatabase db,
         PublicationSiteManager siteManager,
-        TemplateSiteRenderer templateRenderer
+        TemplateSiteRenderer templateRenderer,
+        SiteRssService rssService
     )
     {
         var siteNameValue = context.Request.Headers["X-SiteName"].ToString();
@@ -36,6 +38,15 @@ public class PublicationSiteMiddleware(RequestDelegate next)
 
         if (site.Mode == PublicationSiteMode.FullyManaged)
         {
+            var rssContent = await rssService.RenderRssIfMatched(context, site);
+            if (rssContent is not null)
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "application/rss+xml; charset=utf-8";
+                await context.Response.WriteAsync(rssContent);
+                return;
+            }
+
             var renderResult = await templateRenderer.RenderAsync(context, site);
             if (renderResult.Handled)
             {

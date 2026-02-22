@@ -6,6 +6,7 @@ using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Zone.Publication;
+using DysonNetwork.Zone.SEO;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -100,6 +101,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<TemplateRouteResolver>();
         services.AddScoped<TemplateContextBuilder>();
         services.AddScoped<TemplateSiteRenderer>();
+        services.AddScoped<SiteRssService>();
         services.AddMemoryCache();
 
         return services;

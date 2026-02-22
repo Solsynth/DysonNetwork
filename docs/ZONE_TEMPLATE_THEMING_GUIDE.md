@@ -1,0 +1,269 @@
+# DysonNetwork.Zone Template & Theming Guide
+
+This guide explains how to build template-based sites for `FullyManaged` mode in DysonNetwork.Zone.
+
+## 1. Overview
+In `FullyManaged`, Zone renders `.liquid` files from your site file storage at request time.
+
+- `.liquid` files: rendered by DotLiquid
+- non-`.liquid` files: served as static files (css/js/images/fonts/etc.)
+
+## 2. Upload and manage files
+Use file APIs under:
+- `GET /api/sites/{siteId}/files`
+- `POST /api/sites/{siteId}/files/upload`
+- `POST /api/sites/{siteId}/files/folder`
+- `PUT /api/sites/{siteId}/files/edit/{**relativePath}`
+- `DELETE /api/sites/{siteId}/files/delete/{**relativePath}`
+- `POST /api/sites/{siteId}/files/deploy` (zip deploy)
+
+Create folder example:
+
+```http
+POST /api/sites/{siteId}/files/folder
+Content-Type: application/json
+
+{
+  "path": "templates/partials"
+}
+```
+
+## 3. Route resolution rules
+Zone resolves routes in this order:
+
+1. Convention lookup
+- `/` -> `index.html.liquid`
+- `/foo` -> `foo.html.liquid`
+- `/foo` -> `foo/index.html.liquid`
+- same checks also under `templates/`
+
+2. Optional manifest lookup
+- `routes.json` or `templates/routes.json`
+
+3. Fallback 404 template
+- `404.html.liquid` or `templates/404.html.liquid`
+
+If no template/static file matches, request falls through to app default routing.
+
+## 4. Layout and partials
+### Layout
+If current template is not `layout.html.liquid`, Zone will look for:
+- `layout.html.liquid`, then
+- `templates/layout.html.liquid`
+
+If found, rendered page content is injected into `content_for_layout`.
+
+Example layout usage:
+
+```liquid
+<!doctype html>
+<html>
+  <body>
+    {{ content_for_layout }}
+  </body>
+</html>
+```
+
+### Partials
+Your theme can use Shopify-style `render`:
+
+```liquid
+{% render 'head' %}
+{% render 'article', post: post %}
+```
+
+Zone registers `render` to DotLiquid include behavior and resolves candidates like:
+- `templates/head.html.liquid`
+- `templates/head.liquid`
+- `head.html.liquid`
+- `head.liquid`
+
+## 5. `routes.json` format
+Place at root or `templates/routes.json`.
+
+```json
+{
+  "routes": [
+    {
+      "path": "/",
+      "template": "templates/index.html.liquid",
+      "page_type": "home",
+      "data": {
+        "mode": "posts_list",
+        "order_by": "published_at",
+        "order_desc": true,
+        "page_size": 10,
+        "types": ["article"]
+      }
+    },
+    {
+      "path": "/posts/{slug}",
+      "template": "templates/post.html.liquid",
+      "page_type": "post",
+      "data": {
+        "mode": "post_detail",
+        "slug_param": "slug"
+      }
+    }
+  ]
+}
+```
+
+Supported route fields:
+- `path` (supports `{param}` segment placeholders)
+- `template`
+- `page_type` (optional)
+- `data.mode`: `posts_list` | `post_detail` | `none`
+- `data.order_by`, `data.order_desc`, `data.page_size`, `data.types`, `data.slug_param`
+- `query_defaults` is accepted in schema but currently not applied at runtime.
+
+## 6. Template variables available
+Top-level variables injected by Zone:
+- `site`
+- `publisher`
+- `route`
+- `page`
+- `posts`
+- `post`
+- `page_type`
+- `asset_url`
+- `base_url`
+- `config`
+- `theme`
+- `locale`
+- `now`
+- `open_graph_tags`
+- `feed_tag`
+- `favicon_tag`
+- `content_for_layout` (only when layout wrapping is used)
+
+### `site`
+- `id`, `slug`, `name`, `description`, `mode`, `publisher_id`, `config`
+
+### `route`
+- `path`
+- `query` (dictionary)
+- `params` (dictionary from `{param}`)
+- `index`, `page`
+
+### `page` (list pages)
+- `title`, `description`, `posts`
+- `current`, `total`, `total_size`
+- `prev_link`, `next_link`, `pagination_html`
+
+### `post` / `page.posts` items
+- `id`, `title`, `description`, `slug`
+- `layout`, `content`, `excerpt`
+- `path`, `url`
+- `photos` (image URLs)
+- `word_count`, `published_at`
+- `categories[]`, `tags[]`
+
+## 7. Minimal starter structure
+```text
+/
+  index.html.liquid
+  layout.html.liquid
+  404.html.liquid
+  routes.json
+  css/style.css
+  js/site.js
+  templates/
+    head.html.liquid
+    article.html.liquid
+```
+
+## 8. Example templates
+### `index.html.liquid`
+```liquid
+<h1>{{ site.name }}</h1>
+
+{% for post in page.posts %}
+  {% render 'article', post: post %}
+{% endfor %}
+```
+
+### `templates/article.html.liquid`
+```liquid
+<article>
+  <h2><a href="{{ post.path }}">{{ post.title }}</a></h2>
+  <p>{{ post.excerpt }}</p>
+</article>
+```
+
+## 9. Theming tips
+- Keep all theme partials under `templates/` for predictable lookup.
+- Put CSS/JS/fonts/images in static folders (`css/`, `js/`, `images/`) and reference with root-relative URLs.
+- Use `site.config` for site-level style toggles/content decisions.
+- Prefer route manifest for post detail pages (`/posts/{slug}`) instead of hardcoding path parsing in templates.
+
+## 10. Current limitations
+- `query_defaults` in `routes.json` is not applied yet.
+- `asset_url` is currently an empty string by default; use root-relative paths for assets.
+- `open_graph_tags`, `feed_tag`, and `favicon_tag` are placeholders (empty by default).
+
+## 11. RSS configuration per site
+RSS is configured via `site.config.rss` (in site create/update API payload).
+
+Example:
+
+```json
+{
+  "config": {
+    "rss": {
+      "enabled": true,
+      "path": "/feed.xml",
+      "source_route_path": "/posts",
+      "title": "My Site Feed",
+      "description": "Latest updates",
+      "order_by": "published_at",
+      "order_desc": true,
+      "item_limit": 30,
+      "types": ["article", "moment"],
+      "publisher_ids": [
+        "11111111-1111-1111-1111-111111111111",
+        "22222222-2222-2222-2222-222222222222"
+      ],
+      "include_replies": false,
+      "include_forwards": true,
+      "categories": ["tech"],
+      "tags": ["dotnet"],
+      "query": "release",
+      "content_mode": "excerpt",
+      "post_url_pattern": "/posts/{slug}"
+    }
+  }
+}
+```
+
+Fields:
+- `enabled`: turn RSS on/off for this site
+- `path`: request path to serve RSS (for example `/feed.xml`)
+- `source_route_path`: optional route path (from `routes.json`) to reuse regular posts-page filters
+- `title`, `description`: feed metadata overrides
+- `order_by`, `order_desc`, `item_limit`: post selection and ordering
+- `types`: `article` and/or `moment`
+- `publisher_ids`: custom publisher scope for feed (if empty, uses site publisher only)
+- `include_replies`: include/exclude reply posts
+- `include_forwards`: include/exclude forwarded posts
+- `categories`, `tags`, `query`: additional post filters
+- `content_mode`: `excerpt` | `html` | `none`
+- `post_url_pattern`: supports `{slug}` and `{id}`
+
+Notes:
+- RSS serving applies to `FullyManaged` sites (resolved in site middleware).
+- Request must still target the site context (for example with `X-SiteName` in gateway/internal routing flow).
+- When `source_route_path` is set, RSS can inherit route `data` filters (such as `types`, `categories`, `tags`, `query`, `publisher_ids`); explicit RSS fields still take precedence.
+
+## 12. Troubleshooting
+### `Unknown tag 'render'`
+- Ensure Zone is updated to a build that registers `render` alias.
+- Restart/redeploy Zone service/container after upgrade.
+
+### Template not found
+- Verify route conventions and actual filename.
+- Check whether file is uploaded under site root or `templates/`.
+
+### No posts rendered
+- Confirm route `data.mode` and `types` in `routes.json`.
+- Verify publisher has available posts.

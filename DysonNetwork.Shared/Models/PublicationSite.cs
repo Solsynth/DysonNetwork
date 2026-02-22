@@ -24,6 +24,46 @@ public class PublicationSiteConfig
 {
     public string? StyleOverride { get; set; }
     public List<PublicationSiteNavItem>? NavItems { get; set; } = [];
+    public PublicationSiteRssConfig Rss { get; set; } = new();
+}
+
+public class PublicationSiteRssConfig
+{
+    public bool Enabled { get; set; } = false;
+    [MaxLength(4096)] public string? Path { get; set; } = "/rss.xml";
+    /// <summary>
+    /// Optional route path from routes.json (e.g. /posts) to reuse page-level feed filters.
+    /// </summary>
+    [MaxLength(4096)] public string? SourceRoutePath { get; set; }
+    [MaxLength(4096)] public string? Title { get; set; }
+    [MaxLength(8192)] public string? Description { get; set; }
+    [MaxLength(1024)] public string? OrderBy { get; set; } = "published_at";
+    public bool OrderDesc { get; set; } = true;
+    public int ItemLimit { get; set; } = 20;
+    public List<string> Types { get; set; } = ["article"];
+    /// <summary>
+    /// Publisher IDs to include in RSS. If empty, fallback to current site's publisher.
+    /// </summary>
+    public List<string> PublisherIds { get; set; } = [];
+    /// <summary>
+    /// Include reply posts in feed results.
+    /// </summary>
+    public bool IncludeReplies { get; set; } = false;
+    /// <summary>
+    /// Include forwarded/reposted posts in feed results.
+    /// </summary>
+    public bool IncludeForwards { get; set; } = true;
+    public List<string> Categories { get; set; } = [];
+    public List<string> Tags { get; set; } = [];
+    [MaxLength(8192)] public string? Query { get; set; }
+    /// <summary>
+    /// Supported values: excerpt | html | none
+    /// </summary>
+    [MaxLength(64)] public string? ContentMode { get; set; } = "excerpt";
+    /// <summary>
+    /// Supported placeholders: {slug}, {id}
+    /// </summary>
+    [MaxLength(4096)] public string? PostUrlPattern { get; set; } = "/posts/{slug}";
 }
 
 public class PublicationSiteNavItem

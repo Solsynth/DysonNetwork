@@ -69,6 +69,24 @@ public class TemplateRouteDataOptions
     [JsonPropertyName("types")]
     public List<string>? Types { get; set; }
 
+    [JsonPropertyName("publisher_ids")]
+    public List<string>? PublisherIds { get; set; }
+
+    [JsonPropertyName("categories")]
+    public List<string>? Categories { get; set; }
+
+    [JsonPropertyName("tags")]
+    public List<string>? Tags { get; set; }
+
+    [JsonPropertyName("query")]
+    public string? Query { get; set; }
+
+    [JsonPropertyName("include_replies")]
+    public bool? IncludeReplies { get; set; }
+
+    [JsonPropertyName("include_forwards")]
+    public bool? IncludeForwards { get; set; }
+
     [JsonPropertyName("slug_param")]
     public string? SlugParam { get; set; }
 }
