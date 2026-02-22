@@ -171,36 +171,80 @@ public class TemplateContextBuilder(
     private async Task<(Dictionary<string, object?> Page, Dictionary<string, object?>? CurrentPost, Dictionary<string, object?> Posts)>
         BuildPostListingAsync(SnPublicationSite site, TemplateRouteResolution route, int pageSize, int pageIndex)
     {
-        var request = new ListPostsRequest
-        {
-            PublisherId = site.PublisherId.ToString(),
-            PageSize = pageSize,
-            PageToken = ((pageIndex - 1) * pageSize).ToString(),
-            OrderDesc = route.RouteEntry?.Data?.OrderDesc ?? true,
-        };
+        var data = route.RouteEntry?.Data;
+        var orderDesc = data?.OrderDesc ?? true;
+        var orderBy = string.IsNullOrWhiteSpace(data?.OrderBy) ? null : data!.OrderBy;
+        var includeReplies = data?.IncludeReplies ?? false;
+        var includeForwards = data?.IncludeForwards ?? true;
 
-        if (!string.IsNullOrWhiteSpace(route.RouteEntry?.Data?.OrderBy))
-            request.OrderBy = route.RouteEntry.Data.OrderBy;
+        var publisherIds = data?.PublisherIds is { Count: > 0 }
+            ? data.PublisherIds.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            : new List<string> { site.PublisherId.ToString() };
 
-        var typeHints = route.RouteEntry?.Data?.Types;
-        if (typeHints is { Count: > 0 })
+        var fetchSize = Math.Clamp(pageSize * pageIndex, pageSize, 200);
+        var allPosts = new List<SnPost>();
+        var totalSize = 0;
+
+        foreach (var publisherId in publisherIds)
         {
-            foreach (var type in typeHints)
+            var request = new ListPostsRequest
             {
-                var normalized = type.Trim().ToLowerInvariant();
-                if (normalized == "moment")
-                    request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Moment);
-                else if (normalized == "article")
-                    request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+                PublisherId = publisherId,
+                PageSize = fetchSize,
+                PageToken = "0",
+                OrderDesc = orderDesc,
+                IncludeReplies = includeReplies,
+            };
+
+            if (!string.IsNullOrWhiteSpace(orderBy))
+                request.OrderBy = orderBy;
+
+            var typeHints = data?.Types;
+            if (typeHints is { Count: > 0 })
+            {
+                foreach (var type in typeHints)
+                {
+                    var normalized = type.Trim().ToLowerInvariant();
+                    if (normalized == "moment")
+                        request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Moment);
+                    else if (normalized == "article")
+                        request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+                }
             }
+
+            if (request.Types_.Count == 0)
+                request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+
+            if (data?.Categories is { Count: > 0 })
+                request.Categories.AddRange(data.Categories.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()));
+
+            if (data?.Tags is { Count: > 0 })
+                request.Tags.AddRange(data.Tags.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()));
+
+            if (!string.IsNullOrWhiteSpace(data?.Query))
+                request.Query = data.Query;
+
+            var response = await postClient.ListPostsAsync(request);
+            totalSize += response.TotalSize;
+            allPosts.AddRange(response.Posts.Select(SnPost.FromProtoValue));
         }
 
-        if (request.Types_.Count == 0)
-            request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+        var mergedPosts = allPosts
+            .Where(p => includeReplies || p.RepliedPostId == null)
+            .Where(p => includeForwards || p.ForwardedPostId == null)
+            .GroupBy(p => p.Id)
+            .Select(g => g.First())
+            .OrderByDescending(GetOrderKey)
+            .ToList();
 
-        var response = await postClient.ListPostsAsync(request);
+        if (!orderDesc)
+            mergedPosts.Reverse();
 
-        var posts = response.Posts.Select(SnPost.FromProtoValue).ToList();
+        var posts = mergedPosts
+            .Skip((pageIndex - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
         foreach (var post in posts.Where(p => !string.IsNullOrWhiteSpace(p.Content)))
             post.Content = markdownConverter.ToHtml(
                 post.Content!,
@@ -209,7 +253,7 @@ public class TemplateContextBuilder(
 
         var renderedPosts = posts.Select(ToTemplatePost).ToList();
 
-        var totalSize = response.TotalSize;
+        totalSize = Math.Max(totalSize, mergedPosts.Count);
         var totalPages = Math.Max(1, (int)Math.Ceiling(totalSize / (double)pageSize));
         var prevIndex = pageIndex > 1 ? pageIndex - 1 : 1;
         var nextIndex = pageIndex < totalPages ? pageIndex + 1 : totalPages;
@@ -236,6 +280,13 @@ public class TemplateContextBuilder(
         };
 
         return (page, renderedPosts.FirstOrDefault(), postsObject);
+    }
+
+    private static DateTimeOffset GetOrderKey(SnPost post)
+    {
+        return post.PublishedAt?.ToDateTimeOffset()
+               ?? post.EditedAt?.ToDateTimeOffset()
+               ?? post.CreatedAt.ToDateTimeOffset();
     }
 
     private static string ResolveDataMode(TemplateRouteResolution route, string requestPath)
