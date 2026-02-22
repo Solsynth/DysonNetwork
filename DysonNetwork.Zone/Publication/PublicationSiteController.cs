@@ -69,9 +69,14 @@ public class PublicationSiteController(
         var publisher = await publisherService.GetPublisherByName(pubName);
         if (publisher == null) return NotFound();
 
+        if (string.IsNullOrWhiteSpace(request.Slug))
+            return BadRequest("slug is required.");
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest("name is required.");
+
         var site = new SnPublicationSite
         {
-            Mode = request.Mode,
+            Mode = request.Mode ?? PublicationSiteMode.FullyManaged,
             Slug = request.Slug,
             Name = request.Name,
             Description = request.Description,
@@ -114,11 +119,16 @@ public class PublicationSiteController(
         if (site == null || site.PublisherId != publisher.Id)
             return NotFound();
 
-        site.Mode = request.Mode;
-        site.Slug = request.Slug;
-        site.Name = request.Name;
-        site.Description = request.Description ?? site.Description;
-        site.Config = request.Config ?? site.Config;
+        if (request.Mode.HasValue)
+            site.Mode = request.Mode.Value;
+        if (!string.IsNullOrWhiteSpace(request.Slug))
+            site.Slug = request.Slug;
+        if (!string.IsNullOrWhiteSpace(request.Name))
+            site.Name = request.Name;
+        if (request.Description != null)
+            site.Description = request.Description;
+        if (request.Config != null)
+            site.Config = request.Config;
         if (request.Rss != null)
             site.Config.Rss = request.Rss;
 
@@ -277,9 +287,9 @@ public class PublicationSiteController(
 
     public class PublicationSiteRequest
     {
-        public PublicationSiteMode Mode { get; set; }
-        [MaxLength(4096)] public string Slug { get; set; } = null!;
-        [MaxLength(4096)] public string Name { get; set; } = null!;
+        public PublicationSiteMode? Mode { get; set; }
+        [MaxLength(4096)] public string? Slug { get; set; }
+        [MaxLength(4096)] public string? Name { get; set; }
         [MaxLength(8192)] public string? Description { get; set; }
         public PublicationSiteConfig? Config { get; set; }
         public PublicationSiteRssConfig? Rss { get; set; }
