@@ -80,6 +80,31 @@ public class SiteManagerController(
         }
     }
 
+    [HttpPost("folder")]
+    [Authorize]
+    public async Task<IActionResult> CreateFolder(Guid siteId, [FromBody] CreateFolderRequest request)
+    {
+        var check = await CheckAccess(siteId);
+        if (check != null) return check;
+
+        if (string.IsNullOrWhiteSpace(request.Path))
+            return BadRequest("Path is required");
+
+        try
+        {
+            await fileManager.CreateDirectory(siteId, request.Path);
+            return Ok();
+        }
+        catch (ArgumentException)
+        {
+            return BadRequest("Invalid path");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("deploy")]
     [Authorize]
     [Consumes("multipart/form-data")]
@@ -328,4 +353,9 @@ public class SiteManagerController(
 public class UpdateFileRequest
 {
     public string NewContent { get; set; } = null!;
+}
+
+public class CreateFolderRequest
+{
+    public string Path { get; set; } = null!;
 }

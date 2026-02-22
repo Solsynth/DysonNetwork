@@ -311,6 +311,26 @@ Upload a new file to the site.
 - File size must not exceed 1 MB
 - Total site size must not exceed 25 MB after upload
 
+### Create Folder
+
+Create a directory in the site file tree.
+
+**Endpoint**: `POST /api/sites/{siteId}/files/folder`
+
+**Request Body**:
+
+```json
+{
+  "path": "templates/partials"
+}
+```
+
+**Response**: `200 OK`
+
+**Validation**:
+- `path` is required
+- Path traversal is blocked
+
 ### Get File Content
 
 Retrieve the text content of a file.

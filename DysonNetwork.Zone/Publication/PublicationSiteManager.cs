@@ -89,6 +89,13 @@ public class PublicationSiteManager(
         await file.CopyToAsync(stream);
     }
 
+    public async Task CreateDirectory(Guid siteId, string relativePath)
+    {
+        await EnsureSiteDirectory(siteId);
+        var fullPath = GetFullPath(siteId, relativePath);
+        Directory.CreateDirectory(fullPath);
+    }
+
     public async Task<string> ReadFileContent(Guid siteId, string relativePath)
     {
         await EnsureSiteDirectory(siteId);
