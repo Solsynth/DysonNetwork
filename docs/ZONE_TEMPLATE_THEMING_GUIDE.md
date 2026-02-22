@@ -259,6 +259,17 @@ If you only need image URLs, `post.photos` remains available:
 {% endfor %}
 ```
 
+### Debug nested values (`photos`, `attachments`, `tags`, `categories`)
+DotLiquid may print CLR type names when you output whole objects directly.
+Use the built-in filters below for readable output:
+
+```liquid
+{{ post | json }}
+{{ post.attachments | json }}
+{{ post.tags | json }}
+{{ post.categories | inspect }}
+```
+
 ## 11. Current limitations
 - `query_defaults` in `routes.json` is not applied yet.
 - `asset_url` is currently an empty string by default; use root-relative paths for assets.

@@ -42,6 +42,7 @@ public class TemplateSiteRenderer
 
         // Shopify themes commonly use {% render 'partial' %}; DotLiquid exposes include by default.
         Template.RegisterTag<Include>("render");
+        Template.RegisterFilter(typeof(LiquidCustomFilters));
     }
 
     public async Task<TemplateRenderResult> RenderAsync(HttpContext context, SnPublicationSite site)
