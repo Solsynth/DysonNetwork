@@ -62,6 +62,8 @@ public class TemplateContextBuilder(
 
         var theme = BuildDefaultTheme();
 
+        var publisherObject = BuildPublisherDictionary(publisher, publisherPictureUrl, publisherBackgroundUrl);
+
         return new Dictionary<string, object?>
         {
             ["site"] = new Dictionary<string, object?>
@@ -78,7 +80,7 @@ public class TemplateContextBuilder(
                 ["publisher_background_url"] = publisherBackgroundUrl,
                 ["config"] = site.Config,
             },
-            ["publisher"] = publisher,
+            ["publisher"] = publisherObject,
             ["route"] = new Dictionary<string, object?>
             {
                 ["path"] = httpContext.Request.Path.Value ?? "/",
@@ -501,6 +503,40 @@ public class TemplateContextBuilder(
                 ["valine"] = new Dictionary<string, object?> { ["enable"] = false },
                 ["twikoo"] = new Dictionary<string, object?> { ["enable"] = false },
                 ["waline"] = new Dictionary<string, object?> { ["enable"] = false },
+            },
+        };
+    }
+
+    private static Dictionary<string, object?> BuildPublisherDictionary(
+        SnPublisher publisher,
+        string? pictureUrl,
+        string? backgroundUrl
+    )
+    {
+        return new Dictionary<string, object?>
+        {
+            ["id"] = publisher.Id.ToString(),
+            ["type"] = publisher.Type.ToString(),
+            ["name"] = publisher.Name,
+            ["nick"] = publisher.Nick,
+            ["bio"] = publisher.Bio,
+            ["picture_url"] = pictureUrl,
+            ["background_url"] = backgroundUrl,
+            ["picture"] = publisher.Picture is null ? null : new Dictionary<string, object?>
+            {
+                ["id"] = publisher.Picture.Id,
+                ["name"] = publisher.Picture.Name,
+                ["mime_type"] = publisher.Picture.MimeType,
+                ["size"] = publisher.Picture.Size,
+                ["url"] = pictureUrl,
+            },
+            ["background"] = publisher.Background is null ? null : new Dictionary<string, object?>
+            {
+                ["id"] = publisher.Background.Id,
+                ["name"] = publisher.Background.Name,
+                ["mime_type"] = publisher.Background.MimeType,
+                ["size"] = publisher.Background.Size,
+                ["url"] = backgroundUrl,
             },
         };
     }
