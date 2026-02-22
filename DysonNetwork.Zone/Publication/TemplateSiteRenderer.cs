@@ -51,6 +51,16 @@ public class TemplateSiteRenderer
         if (route.Kind == TemplateResolutionKind.None)
             return new TemplateRenderResult { Handled = false };
 
+        if (route.Kind == TemplateResolutionKind.Redirect)
+        {
+            return new TemplateRenderResult
+            {
+                Handled = true,
+                StatusCode = route.StatusCode,
+                RedirectLocation = route.RedirectTo,
+            };
+        }
+
         if (route.Kind == TemplateResolutionKind.StaticFile)
         {
             var fullPath = _siteManager.GetValidatedFullPath(site.Id, route.RelativePath);

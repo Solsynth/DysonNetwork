@@ -117,6 +117,11 @@ Place at root or `templates/routes.json`.
         "mode": "post_detail",
         "slug_param": "slug"
       }
+    },
+    {
+      "path": "/github",
+      "redirect_to": "https://github.com/your-org/your-repo",
+      "redirect_status": 302
     }
   ]
 }
@@ -126,6 +131,8 @@ Supported route fields:
 
 - `path` (supports `{param}` segment placeholders)
 - `template`
+- `redirect_to` (optional redirect target URL/path)
+- `redirect_status` (optional; supports 301, 302, 307, 308; default 302)
 - `page_type` (optional)
 - `data.mode`: `posts_list` | `post_detail` | `none`
 - `data.order_by`, `data.order_desc`, `data.page_size`, `data.types`, `data.publisher_ids`, `data.categories`, `data.tags`, `data.query`, `data.include_replies`, `data.include_forwards`, `data.slug_param`
@@ -316,29 +323,29 @@ Example:
 
 ```json
 {
-    "rss": {
-      "enabled": true,
-      "path": "/feed.xml",
-      "source_route_path": "/posts",
-      "title": "My Site Feed",
-      "description": "Latest updates",
-      "order_by": "published_at",
-      "order_desc": true,
-      "item_limit": 30,
-      "types": ["article", "moment"],
-      "publisher_ids": [
-        "11111111-1111-1111-1111-111111111111",
-        "22222222-2222-2222-2222-222222222222"
-      ],
-      "include_replies": false,
-      "include_forwards": true,
-      "categories": ["tech"],
-      "tags": ["dotnet"],
-      "query": "release",
-      "content_mode": "excerpt",
-      "post_url_pattern": "/posts/{slug}"
-    }
+  "rss": {
+    "enabled": true,
+    "path": "/feed.xml",
+    "source_route_path": "/posts",
+    "title": "My Site Feed",
+    "description": "Latest updates",
+    "order_by": "published_at",
+    "order_desc": true,
+    "item_limit": 30,
+    "types": ["article", "moment"],
+    "publisher_ids": [
+      "11111111-1111-1111-1111-111111111111",
+      "22222222-2222-2222-2222-222222222222"
+    ],
+    "include_replies": false,
+    "include_forwards": true,
+    "categories": ["tech"],
+    "tags": ["dotnet"],
+    "query": "release",
+    "content_mode": "excerpt",
+    "post_url_pattern": "/posts/{slug}"
   }
+}
 ```
 
 Fields:

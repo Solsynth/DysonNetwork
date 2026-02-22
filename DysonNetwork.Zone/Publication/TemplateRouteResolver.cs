@@ -107,6 +107,23 @@ public class TemplateRouteResolver(PublicationSiteManager siteManager)
             if (!TryMatchRoute(route.Path, normalizedPath, out var routeParams))
                 continue;
 
+            if (!string.IsNullOrWhiteSpace(route.RedirectTo))
+            {
+                var redirectStatus = route.RedirectStatus is 301 or 302 or 307 or 308
+                    ? route.RedirectStatus.Value
+                    : StatusCodes.Status302Found;
+
+                return new TemplateRouteResolution
+                {
+                    Kind = TemplateResolutionKind.Redirect,
+                    RedirectTo = route.RedirectTo,
+                    StatusCode = redirectStatus,
+                    PageType = "page",
+                    RouteEntry = route,
+                    RouteParams = routeParams,
+                };
+            }
+
             var templatePath = route.Template.Replace('\\', '/').TrimStart('/');
             if (!TryResolveExistingPath(site.Id, templatePath, out var kind))
                 continue;

@@ -7,6 +7,7 @@ public enum TemplateResolutionKind
     None,
     StaticFile,
     Template,
+    Redirect,
 }
 
 public class TemplateRenderResult
@@ -16,6 +17,7 @@ public class TemplateRenderResult
     public string ContentType { get; init; } = "text/html";
     public string? Content { get; init; }
     public string? StaticFilePath { get; init; }
+    public string? RedirectLocation { get; init; }
 }
 
 public class TemplateRouteResolution
@@ -26,6 +28,7 @@ public class TemplateRouteResolution
     public string PageType { get; init; } = "page";
     public Dictionary<string, string> RouteParams { get; init; } = [];
     public TemplateRouteEntry? RouteEntry { get; init; }
+    public string? RedirectTo { get; init; }
 }
 
 public class TemplateRouteManifest
@@ -41,6 +44,12 @@ public class TemplateRouteEntry
 
     [JsonPropertyName("template")]
     public string Template { get; set; } = string.Empty;
+
+    [JsonPropertyName("redirect_to")]
+    public string? RedirectTo { get; set; }
+
+    [JsonPropertyName("redirect_status")]
+    public int? RedirectStatus { get; set; }
 
     [JsonPropertyName("page_type")]
     public string? PageType { get; set; }

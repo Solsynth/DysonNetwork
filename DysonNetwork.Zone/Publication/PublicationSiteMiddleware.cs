@@ -51,6 +51,13 @@ public class PublicationSiteMiddleware(RequestDelegate next)
             if (renderResult.Handled)
             {
                 context.Response.StatusCode = renderResult.StatusCode;
+
+                if (!string.IsNullOrWhiteSpace(renderResult.RedirectLocation))
+                {
+                    context.Response.Headers.Location = renderResult.RedirectLocation;
+                    return;
+                }
+
                 context.Response.ContentType = renderResult.ContentType;
 
                 if (!string.IsNullOrWhiteSpace(renderResult.StaticFilePath))
