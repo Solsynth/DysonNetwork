@@ -1,29 +1,57 @@
 using DotLiquid;
+using DotLiquid.Tags;
+using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Caching.Memory;
-using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Zone.Publication;
 
-public class TemplateSiteRenderer(
-    TemplateRouteResolver routeResolver,
-    TemplateContextBuilder contextBuilder,
-    PublicationSiteManager siteManager,
-    IMemoryCache cache,
-    ILogger<TemplateSiteRenderer> logger
-)
+public class TemplateSiteRenderer
 {
     private static readonly object RenderSync = new();
+    private static int _liquidInitialized;
+
+    private readonly TemplateRouteResolver _routeResolver;
+    private readonly TemplateContextBuilder _contextBuilder;
+    private readonly PublicationSiteManager _siteManager;
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<TemplateSiteRenderer> _logger;
+
+    public TemplateSiteRenderer(
+        TemplateRouteResolver routeResolver,
+        TemplateContextBuilder contextBuilder,
+        PublicationSiteManager siteManager,
+        IMemoryCache cache,
+        ILogger<TemplateSiteRenderer> logger
+    )
+    {
+        _routeResolver = routeResolver;
+        _contextBuilder = contextBuilder;
+        _siteManager = siteManager;
+        _cache = cache;
+        _logger = logger;
+
+        InitializeLiquid();
+    }
+
+    private static void InitializeLiquid()
+    {
+        if (Interlocked.Exchange(ref _liquidInitialized, 1) == 1)
+            return;
+
+        // Shopify themes commonly use {% render 'partial' %}; DotLiquid exposes include by default.
+        Template.RegisterTag<Include>("render");
+    }
 
     public async Task<TemplateRenderResult> RenderAsync(HttpContext context, SnPublicationSite site)
     {
-        var route = await routeResolver.ResolveAsync(site, context.Request.Path.Value ?? "/");
+        var route = await _routeResolver.ResolveAsync(site, context.Request.Path.Value ?? "/");
         if (route.Kind == TemplateResolutionKind.None)
             return new TemplateRenderResult { Handled = false };
 
         if (route.Kind == TemplateResolutionKind.StaticFile)
         {
-            var fullPath = siteManager.GetValidatedFullPath(site.Id, route.RelativePath);
+            var fullPath = _siteManager.GetValidatedFullPath(site.Id, route.RelativePath);
             var contentType = GetContentType(route.RelativePath);
             return new TemplateRenderResult
             {
@@ -34,12 +62,12 @@ public class TemplateSiteRenderer(
             };
         }
 
-        var siteDirectory = siteManager.GetSiteDirectory(site.Id);
-        var templatePath = siteManager.GetValidatedFullPath(site.Id, route.RelativePath);
+        var siteDirectory = _siteManager.GetSiteDirectory(site.Id);
+        var templatePath = _siteManager.GetValidatedFullPath(site.Id, route.RelativePath);
         if (!File.Exists(templatePath))
             return new TemplateRenderResult { Handled = false };
 
-        var contextData = await contextBuilder.BuildAsync(site, route, context);
+        var contextData = await _contextBuilder.BuildAsync(site, route, context);
 
         var output = await RenderTemplateAsync(
             site.Id,
@@ -54,7 +82,7 @@ public class TemplateSiteRenderer(
             var layoutRelative = await ResolveLayoutRelativePathAsync(site.Id);
             if (layoutRelative is not null)
             {
-                var layoutFull = siteManager.GetValidatedFullPath(site.Id, layoutRelative);
+                var layoutFull = _siteManager.GetValidatedFullPath(site.Id, layoutRelative);
                 if (File.Exists(layoutFull))
                 {
                     contextData["content_for_layout"] = output;
@@ -101,7 +129,7 @@ public class TemplateSiteRenderer(
         var fileInfo = new FileInfo(fullPath);
         var cacheKey = $"tmpl:{siteId}:{relativePath}:{fileInfo.LastWriteTimeUtc.Ticks}:{fileInfo.Length}";
 
-        if (cache.TryGetValue(cacheKey, out Template? template) && template is not null)
+        if (_cache.TryGetValue(cacheKey, out Template? template) && template is not null)
             return template;
 
         var content = await File.ReadAllTextAsync(fullPath);
@@ -115,10 +143,10 @@ public class TemplateSiteRenderer(
         if (parsed.Errors.Count > 0)
         {
             var message = string.Join(" | ", parsed.Errors.Select(e => e.ToString()));
-            logger.LogWarning("Liquid parse warnings in {Path}: {Message}", relativePath, message);
+            _logger.LogWarning("Liquid parse warnings in {Path}: {Message}", relativePath, message);
         }
 
-        cache.Set(cacheKey, parsed, TimeSpan.FromMinutes(20));
+        _cache.Set(cacheKey, parsed, TimeSpan.FromMinutes(20));
         return parsed;
     }
 
@@ -126,7 +154,7 @@ public class TemplateSiteRenderer(
     {
         foreach (var candidate in new[] { "layout.html.liquid", "templates/layout.html.liquid" })
         {
-            var fullPath = siteManager.GetValidatedFullPath(siteId, candidate);
+            var fullPath = _siteManager.GetValidatedFullPath(siteId, candidate);
             if (File.Exists(fullPath))
                 return candidate;
         }
