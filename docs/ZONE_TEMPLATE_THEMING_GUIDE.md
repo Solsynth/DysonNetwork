@@ -156,6 +156,7 @@ Top-level variables injected by Zone:
 - `layout`, `content`, `excerpt`
 - `path`, `url`
 - `photos` (image URLs)
+- `attachments` (objects with `id`, `name`, `url`, `mime_type`, `size`, `width`, `height`, `is_image`)
 - `word_count`, `published_at`
 - `categories[]`, `tags[]`
 
@@ -197,12 +198,73 @@ Top-level variables injected by Zone:
 - Use `site.config` for site-level style toggles/content decisions.
 - Prefer route manifest for post detail pages (`/posts/{slug}`) instead of hardcoding path parsing in templates.
 
-## 10. Current limitations
+## 10. Rendering tags, categories, and attachments
+### Categories
+```liquid
+{% if post.categories and post.categories.size > 0 %}
+  <ul class="post-categories">
+    {% for category in post.categories %}
+      <li><a href="{{ category.path }}">{{ category.name }}</a></li>
+    {% endfor %}
+  </ul>
+{% endif %}
+```
+
+### Tags
+```liquid
+{% if post.tags and post.tags.size > 0 %}
+  <ul class="post-tags">
+    {% for tag in post.tags %}
+      <li><a href="{{ tag.path }}">#{{ tag.name }}</a></li>
+    {% endfor %}
+  </ul>
+{% endif %}
+```
+
+### Attachments (generic)
+```liquid
+{% if post.attachments and post.attachments.size > 0 %}
+  <ul class="post-attachments">
+    {% for file in post.attachments %}
+      <li>
+        <a href="{{ file.url }}" target="_blank" rel="noopener">
+          {{ file.name | default: file.id }}
+        </a>
+        {% if file.mime_type %} ({{ file.mime_type }}){% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+```
+
+### Attachments (images only)
+```liquid
+{% if post.attachments and post.attachments.size > 0 %}
+  <div class="post-gallery">
+    {% for file in post.attachments %}
+      {% if file.is_image %}
+        <img src="{{ file.url }}" alt="{{ file.name }}" loading="lazy" />
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+```
+
+### Existing shortcut: `post.photos`
+If you only need image URLs, `post.photos` remains available:
+
+```liquid
+{% for image in post.photos %}
+  <img src="{{ image }}" alt="" loading="lazy" />
+{% endfor %}
+```
+
+## 11. Current limitations
 - `query_defaults` in `routes.json` is not applied yet.
 - `asset_url` is currently an empty string by default; use root-relative paths for assets.
 - `open_graph_tags`, `feed_tag`, and `favicon_tag` are placeholders (empty by default).
 
-## 11. RSS configuration per site
+## 12. RSS configuration per site
 RSS is configured via `site.config.rss` (in site create/update API payload).
 
 Example:
@@ -255,7 +317,7 @@ Notes:
 - Request must still target the site context (for example with `X-SiteName` in gateway/internal routing flow).
 - When `source_route_path` is set, RSS can inherit route `data` filters (such as `types`, `categories`, `tags`, `query`, `publisher_ids`); explicit RSS fields still take precedence.
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 ### `Unknown tag 'render'`
 - Ensure Zone is updated to a build that registers `render` alias.
 - Restart/redeploy Zone service/container after upgrade.

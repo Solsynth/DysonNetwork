@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -91,7 +90,8 @@ public class TemplateContextBuilder(
             },
             ["theme"] = theme,
             ["locale"] = BuildLocaleDictionary(),
-            ["now"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            ["now"] = DateTime.UtcNow,
+            ["now_iso"] = DateTimeOffset.UtcNow.ToString("O"),
             ["open_graph_tags"] = string.Empty,
             ["feed_tag"] = string.Empty,
             ["favicon_tag"] = string.Empty,
@@ -261,11 +261,27 @@ public class TemplateContextBuilder(
         var path = post.Slug is { Length: > 0 } ? $"/posts/{post.Slug}" : $"/posts/{post.Id}";
         var content = post.Content ?? string.Empty;
         var plainText = StripHtml(content);
+        var publishedAt = post.PublishedAt?.ToDateTimeOffset() ?? post.CreatedAt.ToDateTimeOffset();
+        var createdAt = post.CreatedAt.ToDateTimeOffset();
+        var updatedAt = post.EditedAt?.ToDateTimeOffset() ?? post.UpdatedAt.ToDateTimeOffset();
 
         var photos = post.Attachments
             .Where(a => a.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false)
             .Select(a => string.IsNullOrWhiteSpace(a.Id) ? string.Empty : $"/drive/files/{a.Id}")
             .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+        var attachments = post.Attachments
+            .Select(a => new Dictionary<string, object?>
+            {
+                ["id"] = a.Id,
+                ["name"] = a.Name,
+                ["url"] = string.IsNullOrWhiteSpace(a.Url) ? $"/drive/files/{a.Id}" : a.Url,
+                ["mime_type"] = a.MimeType,
+                ["size"] = a.Size,
+                ["width"] = a.Width,
+                ["height"] = a.Height,
+                ["is_image"] = a.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ?? false,
+            })
             .ToList();
 
         return new Dictionary<string, object?>
@@ -282,9 +298,15 @@ public class TemplateContextBuilder(
             ["path"] = path,
             ["url"] = path,
             ["photos"] = photos,
+            ["attachments"] = attachments,
             ["word_count"] = CountWords(plainText),
-            ["published_at"] = post.PublishedAt?.ToDateTimeOffset().ToString("O")
-                               ?? post.CreatedAt.ToDateTimeOffset().ToString("O"),
+            ["date"] = publishedAt.UtcDateTime,
+            ["published_at"] = publishedAt.UtcDateTime,
+            ["created_at"] = createdAt.UtcDateTime,
+            ["updated_at"] = updatedAt.UtcDateTime,
+            ["published_at_iso"] = publishedAt.ToString("O"),
+            ["created_at_iso"] = createdAt.ToString("O"),
+            ["updated_at_iso"] = updatedAt.ToString("O"),
             ["categories"] = post.Categories.Select(c => new Dictionary<string, object?>
             {
                 ["slug"] = c.Slug,
