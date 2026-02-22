@@ -114,7 +114,7 @@ Supported route fields:
 - `template`
 - `page_type` (optional)
 - `data.mode`: `posts_list` | `post_detail` | `none`
-- `data.order_by`, `data.order_desc`, `data.page_size`, `data.types`, `data.slug_param`
+- `data.order_by`, `data.order_desc`, `data.page_size`, `data.types`, `data.publisher_ids`, `data.categories`, `data.tags`, `data.query`, `data.include_replies`, `data.include_forwards`, `data.slug_param`
 - `query_defaults` is accepted in schema but currently not applied at runtime.
 
 ## 6. Template variables available

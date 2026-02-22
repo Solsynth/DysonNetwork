@@ -117,26 +117,40 @@ public class TemplateContextBuilder(
         SnPost? post = null;
         if (!string.IsNullOrWhiteSpace(lookupSlug))
         {
-            try
-            {
-                var request = new GetPostRequest { PublisherId = site.PublisherId.ToString() };
-                if (Guid.TryParse(lookupSlug, out var id))
-                    request.Id = id.ToString();
-                else
-                    request.Slug = lookupSlug;
+            var publisherIds = route.RouteEntry?.Data?.PublisherIds is { Count: > 0 }
+                ? route.RouteEntry.Data.PublisherIds
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                : new List<string> { site.PublisherId.ToString() };
 
-                var response = await postClient.GetPostAsync(request);
-                post = response is null ? null : SnPost.FromProtoValue(response);
-
-                if (post is not null && !string.IsNullOrWhiteSpace(post.Content))
-                    post.Content = markdownConverter.ToHtml(
-                        post.Content!,
-                        softBreaks: post.Type != DysonNetwork.Shared.Models.PostType.Article
-                    );
-            }
-            catch
+            foreach (var publisherId in publisherIds)
             {
-                // Fall back to null post if upstream unavailable
+                try
+                {
+                    var request = new GetPostRequest { PublisherId = publisherId };
+                    if (Guid.TryParse(lookupSlug, out var id))
+                        request.Id = id.ToString();
+                    else
+                        request.Slug = lookupSlug;
+
+                    var response = await postClient.GetPostAsync(request);
+                    post = response is null ? null : SnPost.FromProtoValue(response);
+
+                    if (post is not null && !string.IsNullOrWhiteSpace(post.Content))
+                        post.Content = markdownConverter.ToHtml(
+                            post.Content!,
+                            softBreaks: post.Type != DysonNetwork.Shared.Models.PostType.Article
+                        );
+
+                    if (post is not null)
+                        break;
+                }
+                catch
+                {
+                    // Try next publisher if this one doesn't contain the post.
+                }
             }
         }
 
