@@ -26,6 +26,7 @@ public class PublicationSiteConfig
     public List<PublicationSiteNavItem>? NavItems { get; set; } = [];
     public bool AutoMinifyAssets { get; set; } = false;
     public PublicationSiteRssConfig Rss { get; set; } = new();
+    public PublicationSiteSitemapConfig Sitemap { get; set; } = new();
 }
 
 public class PublicationSiteRssConfig
@@ -65,6 +66,29 @@ public class PublicationSiteRssConfig
     /// Supported placeholders: {slug}, {id}
     /// </summary>
     [MaxLength(4096)] public string? PostUrlPattern { get; set; } = "/posts/{slug}";
+}
+
+public class PublicationSiteSitemapConfig
+{
+    public bool Enabled { get; set; } = false;
+    [MaxLength(4096)] public string? Path { get; set; } = "/sitemap.xml";
+    /// <summary>
+    /// Optional route path from routes.json (e.g. /posts) to reuse page-level filters.
+    /// </summary>
+    [MaxLength(4096)] public string? SourceRoutePath { get; set; }
+    public int ItemLimit { get; set; } = 1000;
+    [MaxLength(1024)] public string? OrderBy { get; set; } = "published_at";
+    public bool OrderDesc { get; set; } = true;
+    public List<string> Types { get; set; } = ["article"];
+    public List<string> PublisherIds { get; set; } = [];
+    public bool IncludeReplies { get; set; } = false;
+    public bool IncludeForwards { get; set; } = true;
+    public List<string> Categories { get; set; } = [];
+    public List<string> Tags { get; set; } = [];
+    [MaxLength(8192)] public string? Query { get; set; }
+    [MaxLength(4096)] public string? PostUrlPattern { get; set; } = "/posts/{slug}";
+    public bool IncludeHome { get; set; } = true;
+    public bool IncludeRoutePaths { get; set; } = true;
 }
 
 public class PublicationSiteNavItem

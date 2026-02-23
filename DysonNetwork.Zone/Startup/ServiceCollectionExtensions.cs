@@ -102,6 +102,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<TemplateContextBuilder>();
         services.AddScoped<TemplateSiteRenderer>();
         services.AddScoped<SiteRssService>();
+        services.AddScoped<SiteSitemapService>();
         services.AddMemoryCache();
 
         return services;

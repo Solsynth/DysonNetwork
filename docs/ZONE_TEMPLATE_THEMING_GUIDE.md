@@ -401,7 +401,57 @@ Notes:
 - Request must still target the site context (for example with `X-SiteName` in gateway/internal routing flow).
 - When `source_route_path` is set, RSS can inherit route `data` filters (such as `types`, `categories`, `tags`, `query`, `publisher_ids`); explicit RSS fields still take precedence.
 
-## 13. Troubleshooting
+## 13. Sitemap configuration per site
+
+Sitemap is configured via top-level `sitemap` in site create/update payload (stored in `site.config.sitemap`).
+
+Example:
+
+```json
+{
+  "sitemap": {
+    "enabled": true,
+    "path": "/sitemap.xml",
+    "source_route_path": "/posts",
+    "item_limit": 2000,
+    "order_by": "published_at",
+    "order_desc": true,
+    "types": ["article", "moment"],
+    "publisher_ids": [
+      "11111111-1111-1111-1111-111111111111"
+    ],
+    "include_replies": false,
+    "include_forwards": true,
+    "categories": ["tech"],
+    "tags": ["dotnet"],
+    "query": "release",
+    "post_url_pattern": "/posts/{slug}",
+    "include_home": true,
+    "include_route_paths": true
+  }
+}
+```
+
+Fields:
+
+- `enabled`: turn sitemap on/off for this site
+- `path`: request path to serve sitemap (for example `/sitemap.xml`)
+- `source_route_path`: optional route path (from `routes.json`) to reuse regular posts-page filters
+- `item_limit`, `order_by`, `order_desc`: post selection and ordering
+- `types`: `article` and/or `moment`
+- `publisher_ids`: custom publisher scope (if empty, uses site publisher only)
+- `include_replies`, `include_forwards`: include/exclude reply and forwarded posts
+- `categories`, `tags`, `query`: additional post filters
+- `post_url_pattern`: supports `{slug}` and `{id}`
+- `include_home`: include site root URL in sitemap
+- `include_route_paths`: include static paths from `routes.json` (non-parameter routes only)
+
+Notes:
+
+- Sitemap serving applies to `FullyManaged` sites (resolved in site middleware).
+- Request must target the site context (for example with `X-SiteName` in gateway/internal routing flow).
+
+## 14. Troubleshooting
 
 ### `Unknown tag 'render'`
 

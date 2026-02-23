@@ -15,7 +15,8 @@ public class PublicationSiteMiddleware(RequestDelegate next)
         AppDatabase db,
         PublicationSiteManager siteManager,
         TemplateSiteRenderer templateRenderer,
-        SiteRssService rssService
+        SiteRssService rssService,
+        SiteSitemapService sitemapService
     )
     {
         var siteNameValue = context.Request.Headers["X-SiteName"].ToString();
@@ -39,6 +40,15 @@ public class PublicationSiteMiddleware(RequestDelegate next)
 
         if (site.Mode == PublicationSiteMode.FullyManaged)
         {
+            var sitemapContent = await sitemapService.RenderSitemapIfMatched(context, site);
+            if (sitemapContent is not null)
+            {
+                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.ContentType = "application/xml; charset=utf-8";
+                await context.Response.WriteAsync(sitemapContent);
+                return;
+            }
+
             var rssContent = await rssService.RenderRssIfMatched(context, site);
             if (rssContent is not null)
             {
