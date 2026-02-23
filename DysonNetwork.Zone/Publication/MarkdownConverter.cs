@@ -6,11 +6,13 @@ public class MarkdownConverter
 {
     private readonly MarkdownPipeline _pipelineSoftBreak = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseMathematics()
         .UseSoftlineBreakAsHardlineBreak()
         .Build();
 
     private readonly MarkdownPipeline _pipeline = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        .UseMathematics()
         .Build();
 
     public string ToHtml(string markdown, bool softBreaks = true)

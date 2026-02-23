@@ -341,6 +341,22 @@ Use the built-in filters below for readable output:
 {{ post.categories | inspect }}
 ```
 
+### LaTeX in markdown content
+
+Zone markdown rendering supports LaTeX syntax now:
+
+- Inline: `$E = mc^2$`
+- Block:
+
+```markdown
+$$
+\int_0^1 x^2 \, dx
+$$
+```
+
+Note: this parses math syntax in markdown. Your theme still needs a frontend math renderer
+such as MathJax/KaTeX in `layout.html.liquid` to visually typeset formulas.
+
 ## 11. Current limitations
 
 - `query_defaults` in `routes.json` is not applied yet.
