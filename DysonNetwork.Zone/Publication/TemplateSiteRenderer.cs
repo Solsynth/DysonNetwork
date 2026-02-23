@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections;
+using System.Globalization;
 
 namespace DysonNetwork.Zone.Publication;
 
@@ -80,13 +81,14 @@ public class TemplateSiteRenderer
             return new TemplateRenderResult { Handled = false };
 
         var contextData = await _contextBuilder.BuildAsync(site, route, context);
+        var renderContext = BuildRenderContext(contextData);
 
         var output = await RenderTemplateAsync(
             site.Id,
             siteDirectory,
             route.RelativePath,
             templatePath,
-            contextData
+            renderContext
         );
 
         if (!route.RelativePath.EndsWith("layout.html.liquid", StringComparison.OrdinalIgnoreCase))
@@ -97,13 +99,16 @@ public class TemplateSiteRenderer
                 var layoutFull = _siteManager.GetValidatedFullPath(site.Id, layoutRelative);
                 if (File.Exists(layoutFull))
                 {
-                    contextData["content_for_layout"] = output;
+                    renderContext.Merge(Hash.FromDictionary(new Dictionary<string, object>
+                    {
+                        ["content_for_layout"] = ToLiquidValue(output)
+                    }));
                     output = await RenderTemplateAsync(
                         site.Id,
                         siteDirectory,
                         layoutRelative,
                         layoutFull,
-                        contextData
+                        renderContext
                     );
                 }
             }
@@ -123,17 +128,24 @@ public class TemplateSiteRenderer
         string siteDirectory,
         string relativePath,
         string fullPath,
-        Dictionary<string, object?> contextData
+        Context renderContext
     )
     {
         var template = await GetTemplateFromCacheAsync(siteId, relativePath, fullPath);
-        var hash = Hash.FromDictionary(ToLiquidDictionary(contextData));
+        var renderParameters = RenderParameters.FromContext(renderContext, CultureInfo.InvariantCulture);
 
         lock (RenderSync)
         {
             Template.FileSystem = new TemplateFileSystem(siteDirectory);
-            return template.Render(hash);
+            return template.Render(renderParameters);
         }
+    }
+
+    private static Context BuildRenderContext(IDictionary<string, object?> contextData)
+    {
+        var context = new Context(CultureInfo.InvariantCulture);
+        context.Merge(Hash.FromDictionary(ToLiquidDictionary(contextData)));
+        return context;
     }
 
     private static Dictionary<string, object> ToLiquidDictionary(IDictionary<string, object?> source)
