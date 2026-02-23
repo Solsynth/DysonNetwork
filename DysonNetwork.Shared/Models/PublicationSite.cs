@@ -24,6 +24,7 @@ public class PublicationSiteConfig
 {
     public string? StyleOverride { get; set; }
     public List<PublicationSiteNavItem>? NavItems { get; set; } = [];
+    public bool AutoMinifyAssets { get; set; } = false;
     public PublicationSiteRssConfig Rss { get; set; } = new();
 }
 

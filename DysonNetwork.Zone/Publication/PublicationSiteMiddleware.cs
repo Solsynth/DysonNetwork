@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Zone.SEO;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace DysonNetwork.Zone.Publication;
 
@@ -62,6 +63,16 @@ public class PublicationSiteMiddleware(RequestDelegate next)
 
                 if (!string.IsNullOrWhiteSpace(renderResult.StaticFilePath))
                 {
+                    if (await TryWriteMinifiedAssetAsync(
+                            context,
+                            renderResult.StaticFilePath,
+                            renderResult.ContentType,
+                            site.Config.AutoMinifyAssets
+                        ))
+                    {
+                        return;
+                    }
+
                     await context.Response.SendFileAsync(renderResult.StaticFilePath);
                     return;
                 }
@@ -84,6 +95,17 @@ public class PublicationSiteMiddleware(RequestDelegate next)
                     mimeType = "text/html";
 
                 context.Response.ContentType = mimeType;
+
+                if (await TryWriteMinifiedAssetAsync(
+                        context,
+                        hostedFilePath,
+                        mimeType,
+                        site.Config.AutoMinifyAssets
+                    ))
+                {
+                    return;
+                }
+
                 await context.Response.SendFileAsync(hostedFilePath);
                 return;
             }
@@ -110,5 +132,148 @@ public class PublicationSiteMiddleware(RequestDelegate next)
         }
 
         await next(context);
+    }
+
+    private static async Task<bool> TryWriteMinifiedAssetAsync(
+        HttpContext context,
+        string fullPath,
+        string contentType,
+        bool autoMinifyAssets
+    )
+    {
+        if (!autoMinifyAssets)
+            return false;
+
+        var ext = Path.GetExtension(fullPath).ToLowerInvariant();
+        if (ext != ".css" && ext != ".js")
+            return false;
+
+        // Skip files that are already minified by naming convention.
+        var fileName = Path.GetFileName(fullPath);
+        if (fileName.Contains(".min.", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        try
+        {
+            var source = await File.ReadAllTextAsync(fullPath);
+            var minified = ext == ".css" ? MinifyCss(source) : MinifyJs(source);
+
+            context.Response.ContentType = contentType.Contains("charset=", StringComparison.OrdinalIgnoreCase)
+                ? contentType
+                : $"{contentType}; charset=utf-8";
+            await context.Response.WriteAsync(minified, Encoding.UTF8);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string MinifyCss(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return string.Empty;
+
+        var withoutComments = System.Text.RegularExpressions.Regex.Replace(
+            source,
+            @"/\*[\s\S]*?\*/",
+            string.Empty
+        );
+
+        var compact = System.Text.RegularExpressions.Regex.Replace(withoutComments, @"\s+", " ");
+        compact = System.Text.RegularExpressions.Regex.Replace(compact, @"\s*([{}:;,>+~])\s*", "$1");
+        compact = compact.Replace(";}", "}", StringComparison.Ordinal);
+
+        return compact.Trim();
+    }
+
+    private static string MinifyJs(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return string.Empty;
+
+        // Conservative JS minification: remove comments and collapse whitespace,
+        // while preserving string/template/regex-like literals.
+        var sb = new StringBuilder(source.Length);
+        var inSingle = false;
+        var inDouble = false;
+        var inTemplate = false;
+        var inLineComment = false;
+        var inBlockComment = false;
+        var escape = false;
+
+        for (var i = 0; i < source.Length; i++)
+        {
+            var ch = source[i];
+            var next = i + 1 < source.Length ? source[i + 1] : '\0';
+
+            if (inLineComment)
+            {
+                if (ch == '\n')
+                {
+                    inLineComment = false;
+                    sb.Append(' ');
+                }
+                continue;
+            }
+
+            if (inBlockComment)
+            {
+                if (ch == '*' && next == '/')
+                {
+                    inBlockComment = false;
+                    i++;
+                }
+                continue;
+            }
+
+            if (!inSingle && !inDouble && !inTemplate && ch == '/' && next == '/')
+            {
+                inLineComment = true;
+                i++;
+                continue;
+            }
+
+            if (!inSingle && !inDouble && !inTemplate && ch == '/' && next == '*')
+            {
+                inBlockComment = true;
+                i++;
+                continue;
+            }
+
+            if (!escape)
+            {
+                if (!inDouble && !inTemplate && ch == '\'')
+                    inSingle = !inSingle;
+                else if (!inSingle && !inTemplate && ch == '"')
+                    inDouble = !inDouble;
+                else if (!inSingle && !inDouble && ch == '`')
+                    inTemplate = !inTemplate;
+            }
+
+            if (!inSingle && !inDouble && !inTemplate && char.IsWhiteSpace(ch))
+            {
+                if (sb.Length == 0 || char.IsWhiteSpace(sb[^1]))
+                    continue;
+                sb.Append(' ');
+                continue;
+            }
+
+            sb.Append(ch);
+
+            if (escape)
+                escape = false;
+            else if (ch == '\\' && (inSingle || inDouble || inTemplate))
+                escape = true;
+        }
+
+        var compact = sb.ToString();
+        compact = System.Text.RegularExpressions.Regex.Replace(
+            compact,
+            @"\s*([{}();,:<>\+\-\*/=\[\]])\s*",
+            "$1"
+        );
+        return compact.Trim();
     }
 }

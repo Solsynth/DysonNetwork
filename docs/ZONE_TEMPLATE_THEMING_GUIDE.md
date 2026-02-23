@@ -164,6 +164,13 @@ Top-level variables injected by Zone:
 
 - `id`, `slug`, `name`, `description`, `mode`, `publisher_id`, `config`
 
+### `publisher`
+
+- `id`, `type`, `name`, `nick`, `bio`
+- `picture_url`, `background_url`
+- `picture` (`id`, `name`, `mime_type`, `size`, `url`) when present
+- `background` (`id`, `name`, `mime_type`, `size`, `url`) when present
+
 ### `route`
 
 - `path`
@@ -182,10 +189,17 @@ Top-level variables injected by Zone:
 - `id`, `title`, `description`, `slug`
 - `layout`, `content`, `excerpt`
 - `path`, `url`
+- `thumbnail_id`, `thumbnail_url`
 - `photos` (image URLs)
 - `attachments` (objects with `id`, `name`, `url`, `mime_type`, `size`, `width`, `height`, `is_image`)
 - `word_count`, `published_at`
 - `categories[]`, `tags[]`
+
+`thumbnail_url` resolution order:
+
+1. `post.meta.thumbnail` file id (`/drive/files/{id}`)
+2. first image in `photos` (for `article` only)
+3. `null`
 
 ## 7. Minimal starter structure
 
@@ -229,6 +243,24 @@ Top-level variables injected by Zone:
 - Put CSS/JS/fonts/images in static folders (`css/`, `js/`, `images/`) and reference with root-relative URLs.
 - Use `site.config` for site-level style toggles/content decisions.
 - Prefer route manifest for post detail pages (`/posts/{slug}`) instead of hardcoding path parsing in templates.
+
+### Optional asset minification
+
+To enable runtime minification for static CSS/JS responses:
+
+```json
+{
+  "config": {
+    "auto_minify_assets": true
+  }
+}
+```
+
+Notes:
+
+- Applies to both `FullyManaged` static assets and `SelfManaged` file serving.
+- Only `.css` and `.js` are minified.
+- `*.min.css` and `*.min.js` files are not re-minified.
 
 ## 10. Rendering tags, categories, and attachments
 

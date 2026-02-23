@@ -86,6 +86,8 @@ public class PublicationSiteController(
         };
         if (request.Rss != null)
             site.Config.Rss = request.Rss;
+        if (request.AutoMinifyAssets.HasValue)
+            site.Config.AutoMinifyAssets = request.AutoMinifyAssets.Value;
 
         try
         {
@@ -131,6 +133,8 @@ public class PublicationSiteController(
             site.Config = request.Config;
         if (request.Rss != null)
             site.Config.Rss = request.Rss;
+        if (request.AutoMinifyAssets.HasValue)
+            site.Config.AutoMinifyAssets = request.AutoMinifyAssets.Value;
 
         try
         {
@@ -293,6 +297,7 @@ public class PublicationSiteController(
         [MaxLength(8192)] public string? Description { get; set; }
         public PublicationSiteConfig? Config { get; set; }
         public PublicationSiteRssConfig? Rss { get; set; }
+        public bool? AutoMinifyAssets { get; set; }
     }
 
     public class PublicationPageRequest
