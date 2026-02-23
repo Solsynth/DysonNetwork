@@ -25,49 +25,20 @@ public class SiteRssService(
 
         var routeData = await ResolveRouteDataAsync(site, rss);
         var options = BuildEffectiveOptions(site, rss, routeData);
+        var baseUrl = ResolveBaseUrl(site, context);
 
         var feed = new SyndicationFeed(
             string.IsNullOrWhiteSpace(rss.Title) ? $"{site.Name} RSS" : rss.Title,
             string.IsNullOrWhiteSpace(rss.Description) ? (site.Description ?? string.Empty) : rss.Description,
-            new Uri($"{context.Request.Scheme}://{context.Request.Host}/")
+            new Uri(baseUrl + "/")
         );
 
         var allPosts = new List<SnPost>();
 
         foreach (var publisherId in options.PublisherIds)
         {
-            var listRequest = new ListPostsRequest
-            {
-                PublisherId = publisherId,
-                OrderBy = options.OrderBy,
-                OrderDesc = options.OrderDesc,
-                PageSize = options.ItemLimit,
-                IncludeReplies = options.IncludeReplies,
-            };
-
-            foreach (var type in options.Types)
-            {
-                var normalized = type.Trim().ToLowerInvariant();
-                if (normalized == "article")
-                    listRequest.Types_.Add(Shared.Proto.PostType.Article);
-                else if (normalized == "moment")
-                    listRequest.Types_.Add(Shared.Proto.PostType.Moment);
-            }
-
-            if (listRequest.Types_.Count == 0)
-                listRequest.Types_.Add(Shared.Proto.PostType.Article);
-
-            foreach (var category in options.Categories)
-                listRequest.Categories.Add(category);
-
-            foreach (var tag in options.Tags)
-                listRequest.Tags.Add(tag);
-
-            if (!string.IsNullOrWhiteSpace(options.Query))
-                listRequest.Query = options.Query;
-
-            var response = await postClient.ListPostsAsync(listRequest);
-            allPosts.AddRange(response.Posts.Select(SnPost.FromProtoValue));
+            var posts = await FetchPostsForPublisherAsync(publisherId, options);
+            allPosts.AddRange(posts);
         }
 
         var filtered = allPosts
@@ -86,7 +57,7 @@ public class SiteRssService(
         var items = new List<SyndicationItem>();
         foreach (var post in feedPosts)
         {
-            var postUrl = BuildPostUrl(context, post, rss);
+            var postUrl = BuildPostUrl(baseUrl, post, rss);
 
             var title = string.IsNullOrWhiteSpace(post.Title)
                 ? (string.IsNullOrWhiteSpace(post.Description) ? "Untitled" : post.Description)
@@ -254,7 +225,60 @@ public class SiteRssService(
                 : string.Empty);
     }
 
-    private static string BuildPostUrl(HttpContext context, SnPost post, PublicationSiteRssConfig rss)
+    private async Task<List<SnPost>> FetchPostsForPublisherAsync(string publisherId, EffectiveRssOptions options)
+    {
+        var posts = new List<SnPost>();
+        var targetRawCount = Math.Clamp(options.ItemLimit * 3, options.ItemLimit, 2000);
+        var pageToken = "0";
+        var guard = 0;
+
+        while (guard++ < 200 && posts.Count < targetRawCount && !string.IsNullOrWhiteSpace(pageToken))
+        {
+            var listRequest = new ListPostsRequest
+            {
+                PublisherId = publisherId,
+                OrderBy = options.OrderBy,
+                OrderDesc = options.OrderDesc,
+                PageSize = Math.Min(100, Math.Max(1, targetRawCount - posts.Count)),
+                PageToken = pageToken,
+                IncludeReplies = options.IncludeReplies,
+            };
+
+            foreach (var type in options.Types)
+            {
+                var normalized = type.Trim().ToLowerInvariant();
+                if (normalized == "article")
+                    listRequest.Types_.Add(Shared.Proto.PostType.Article);
+                else if (normalized == "moment")
+                    listRequest.Types_.Add(Shared.Proto.PostType.Moment);
+            }
+
+            if (listRequest.Types_.Count == 0)
+                listRequest.Types_.Add(Shared.Proto.PostType.Article);
+
+            foreach (var category in options.Categories)
+                listRequest.Categories.Add(category);
+
+            foreach (var tag in options.Tags)
+                listRequest.Tags.Add(tag);
+
+            if (!string.IsNullOrWhiteSpace(options.Query))
+                listRequest.Query = options.Query;
+
+            var response = await postClient.ListPostsAsync(listRequest);
+            if (response?.Posts is not null)
+                posts.AddRange(response.Posts.Select(SnPost.FromProtoValue));
+
+            if (string.IsNullOrWhiteSpace(response?.NextPageToken))
+                break;
+
+            pageToken = response.NextPageToken;
+        }
+
+        return posts;
+    }
+
+    private static string BuildPostUrl(string baseUrl, SnPost post, PublicationSiteRssConfig rss)
     {
         var pattern = string.IsNullOrWhiteSpace(rss.PostUrlPattern) ? "/posts/{slug}" : rss.PostUrlPattern!;
 
@@ -266,7 +290,19 @@ public class SiteRssService(
         if (!path.StartsWith('/'))
             path = "/" + path;
 
-        return $"{context.Request.Scheme}://{context.Request.Host}{path}";
+        return $"{baseUrl}{path}";
+    }
+
+    private static string ResolveBaseUrl(SnPublicationSite site, HttpContext context)
+    {
+        var configured = site.Config.BaseUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            if (Uri.TryCreate(configured, UriKind.Absolute, out var uri))
+                return uri.GetLeftPart(UriPartial.Authority);
+        }
+
+        return $"{context.Request.Scheme}://{context.Request.Host}";
     }
 
     private static string NormalizePath(string path)

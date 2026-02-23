@@ -51,8 +51,8 @@ public class TemplateContextBuilder(
             effectivePageType = "post";
 
         var scheme = httpContext.Request.Scheme;
-        var host = httpContext.Request.Host.Value;
-        var baseUrl = $"{scheme}://{host}";
+        var host = httpContext.Request.Host.Value ?? string.Empty;
+        var baseUrl = ResolveBaseUrl(site, scheme, host);
         var publisherPictureUrl = publisher.Picture is { Id: { Length: > 0 } pictureId }
             ? $"/drive/files/{pictureId}"
             : null;
@@ -505,6 +505,18 @@ public class TemplateContextBuilder(
                 ["waline"] = new Dictionary<string, object?> { ["enable"] = false },
             },
         };
+    }
+
+    private static string ResolveBaseUrl(SnPublicationSite site, string scheme, string host)
+    {
+        var configured = site.Config.BaseUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured) &&
+            Uri.TryCreate(configured, UriKind.Absolute, out var uri))
+        {
+            return uri.GetLeftPart(UriPartial.Authority);
+        }
+
+        return $"{scheme}://{host}";
     }
 
     private static Dictionary<string, object?> BuildPublisherDictionary(

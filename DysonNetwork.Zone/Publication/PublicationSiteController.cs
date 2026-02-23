@@ -90,6 +90,8 @@ public class PublicationSiteController(
             site.Config.Sitemap = request.Sitemap;
         if (request.AutoMinifyAssets.HasValue)
             site.Config.AutoMinifyAssets = request.AutoMinifyAssets.Value;
+        if (!string.IsNullOrWhiteSpace(request.BaseUrl))
+            site.Config.BaseUrl = request.BaseUrl;
 
         try
         {
@@ -139,6 +141,8 @@ public class PublicationSiteController(
             site.Config.Sitemap = request.Sitemap;
         if (request.AutoMinifyAssets.HasValue)
             site.Config.AutoMinifyAssets = request.AutoMinifyAssets.Value;
+        if (!string.IsNullOrWhiteSpace(request.BaseUrl))
+            site.Config.BaseUrl = request.BaseUrl;
 
         try
         {
@@ -303,6 +307,7 @@ public class PublicationSiteController(
         public PublicationSiteRssConfig? Rss { get; set; }
         public PublicationSiteSitemapConfig? Sitemap { get; set; }
         public bool? AutoMinifyAssets { get; set; }
+        [MaxLength(4096)] public string? BaseUrl { get; set; }
     }
 
     public class PublicationPageRequest

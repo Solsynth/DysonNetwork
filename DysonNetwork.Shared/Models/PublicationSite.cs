@@ -22,6 +22,7 @@ public enum PublicationSiteMode
 
 public class PublicationSiteConfig
 {
+    [MaxLength(4096)] public string? BaseUrl { get; set; }
     public string? StyleOverride { get; set; }
     public List<PublicationSiteNavItem>? NavItems { get; set; } = [];
     public bool AutoMinifyAssets { get; set; } = false;

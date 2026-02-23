@@ -350,11 +350,13 @@ Use the built-in filters below for readable output:
 ## 12. RSS configuration per site
 
 RSS is configured via `site.config.rss` (in site create/update API payload).
+You can optionally set top-level `base_url` to control generated absolute URLs in RSS and sitemap.
 
 Example:
 
 ```json
 {
+  "base_url": "https://blog.example.com",
   "rss": {
     "enabled": true,
     "path": "/feed.xml",
@@ -400,6 +402,7 @@ Notes:
 - RSS serving applies to `FullyManaged` sites (resolved in site middleware).
 - Request must still target the site context (for example with `X-SiteName` in gateway/internal routing flow).
 - When `source_route_path` is set, RSS can inherit route `data` filters (such as `types`, `categories`, `tags`, `query`, `publisher_ids`); explicit RSS fields still take precedence.
+- `base_url` (or `site.config.base_url`) overrides request host when building feed links.
 
 ## 13. Sitemap configuration per site
 
@@ -409,6 +412,7 @@ Example:
 
 ```json
 {
+  "base_url": "https://blog.example.com",
   "sitemap": {
     "enabled": true,
     "path": "/sitemap.xml",
@@ -450,6 +454,7 @@ Notes:
 
 - Sitemap serving applies to `FullyManaged` sites (resolved in site middleware).
 - Request must target the site context (for example with `X-SiteName` in gateway/internal routing flow).
+- `base_url` (or `site.config.base_url`) overrides request host when building sitemap URLs.
 
 ## 14. Troubleshooting
 

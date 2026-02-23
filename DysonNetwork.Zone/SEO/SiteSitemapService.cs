@@ -31,7 +31,7 @@ public class SiteSitemapService(
         var options = BuildEffectiveOptions(site, sitemap, routeData);
 
         var urls = new Dictionary<string, DateTimeOffset?>(StringComparer.OrdinalIgnoreCase);
-        var baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
+        var baseUrl = ResolveBaseUrl(site, context);
 
         if (options.IncludeHome)
             urls[$"{baseUrl}/"] = null;
@@ -46,38 +46,8 @@ public class SiteSitemapService(
         var allPosts = new List<SnPost>();
         foreach (var publisherId in options.PublisherIds)
         {
-            var listRequest = new ListPostsRequest
-            {
-                PublisherId = publisherId,
-                OrderBy = options.OrderBy,
-                OrderDesc = options.OrderDesc,
-                PageSize = options.ItemLimit,
-                IncludeReplies = options.IncludeReplies,
-            };
-
-            foreach (var type in options.Types)
-            {
-                var normalized = type.Trim().ToLowerInvariant();
-                if (normalized == "article")
-                    listRequest.Types_.Add(Shared.Proto.PostType.Article);
-                else if (normalized == "moment")
-                    listRequest.Types_.Add(Shared.Proto.PostType.Moment);
-            }
-
-            if (listRequest.Types_.Count == 0)
-                listRequest.Types_.Add(Shared.Proto.PostType.Article);
-
-            foreach (var category in options.Categories)
-                listRequest.Categories.Add(category);
-
-            foreach (var tag in options.Tags)
-                listRequest.Tags.Add(tag);
-
-            if (!string.IsNullOrWhiteSpace(options.Query))
-                listRequest.Query = options.Query;
-
-            var response = await postClient.ListPostsAsync(listRequest);
-            allPosts.AddRange(response.Posts.Select(SnPost.FromProtoValue));
+            var posts = await FetchPostsForPublisherAsync(publisherId, options);
+            allPosts.AddRange(posts);
         }
 
         var filtered = allPosts
@@ -274,6 +244,58 @@ public class SiteSitemapService(
         return NormalizePath(path);
     }
 
+    private async Task<List<SnPost>> FetchPostsForPublisherAsync(string publisherId, EffectiveSitemapOptions options)
+    {
+        var posts = new List<SnPost>();
+        var pageToken = "0";
+        var guard = 0;
+
+        while (guard++ < 600 && posts.Count < options.ItemLimit && !string.IsNullOrWhiteSpace(pageToken))
+        {
+            var listRequest = new ListPostsRequest
+            {
+                PublisherId = publisherId,
+                OrderBy = options.OrderBy,
+                OrderDesc = options.OrderDesc,
+                PageSize = Math.Min(100, Math.Max(1, options.ItemLimit - posts.Count)),
+                PageToken = pageToken,
+                IncludeReplies = options.IncludeReplies,
+            };
+
+            foreach (var type in options.Types)
+            {
+                var normalized = type.Trim().ToLowerInvariant();
+                if (normalized == "article")
+                    listRequest.Types_.Add(Shared.Proto.PostType.Article);
+                else if (normalized == "moment")
+                    listRequest.Types_.Add(Shared.Proto.PostType.Moment);
+            }
+
+            if (listRequest.Types_.Count == 0)
+                listRequest.Types_.Add(Shared.Proto.PostType.Article);
+
+            foreach (var category in options.Categories)
+                listRequest.Categories.Add(category);
+
+            foreach (var tag in options.Tags)
+                listRequest.Tags.Add(tag);
+
+            if (!string.IsNullOrWhiteSpace(options.Query))
+                listRequest.Query = options.Query;
+
+            var response = await postClient.ListPostsAsync(listRequest);
+            if (response?.Posts is not null)
+                posts.AddRange(response.Posts.Select(SnPost.FromProtoValue));
+
+            if (string.IsNullOrWhiteSpace(response?.NextPageToken))
+                break;
+
+            pageToken = response.NextPageToken;
+        }
+
+        return posts;
+    }
+
     private static DateTimeOffset GetOrderKey(SnPost post, string? orderBy)
     {
         var normalized = (orderBy ?? "published_at").Trim().ToLowerInvariant();
@@ -296,6 +318,18 @@ public class SiteSitemapService(
             path = "/" + path;
 
         return path;
+    }
+
+    private static string ResolveBaseUrl(SnPublicationSite site, HttpContext context)
+    {
+        var configured = site.Config.BaseUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            if (Uri.TryCreate(configured, UriKind.Absolute, out var uri))
+                return uri.GetLeftPart(UriPartial.Authority);
+        }
+
+        return $"{context.Request.Scheme}://{context.Request.Host}";
     }
 
     private class EffectiveSitemapOptions
