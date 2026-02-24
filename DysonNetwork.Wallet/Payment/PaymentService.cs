@@ -65,7 +65,7 @@ public class PaymentService(
         {
             PayeeWalletId = payeeWalletId,
             Currency = currency,
-            Amount = amount,
+            Amount = TruncateToThreeDecimals(amount),
             ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
             AppIdentifier = appIdentifier,
             ProductIdentifier = productIdentifier,
@@ -129,7 +129,7 @@ public class PaymentService(
             PayerWalletId = payerWalletId,
             PayeeWalletId = payeeWalletId,
             Currency = currency,
-            Amount = amount,
+            Amount = TruncateToThreeDecimals(amount),
             Remarks = remarks,
             Type = type
         };
@@ -441,8 +441,9 @@ public class PaymentService(
         }
 
         // Calculate transfer fee (5%)
-        decimal fee = Math.Round(amount * 0.05m, 2);
-        decimal finalCost = amount + fee;
+        var truncatedAmount = TruncateToThreeDecimals(amount);
+        decimal fee = TruncateToThreeDecimals(truncatedAmount * 0.05m);
+        decimal finalCost = truncatedAmount + fee;
 
         // Make sure the account has sufficient balanace for both fee and the transfer
         var (payerPocket, isNewlyCreated) =
@@ -459,7 +460,7 @@ public class PaymentService(
             payerWallet.Id,
             payeeWallet.Id,
             currency,
-            amount,
+            truncatedAmount,
             localizer.Get("transferRemark", payeeAccount.Language,
                 new { payer = $"@{payerAccount.Name}", payee = $"@{payeeAccount.Name}" }),
             Shared.Models.TransactionType.Transfer
@@ -503,8 +504,9 @@ public class PaymentService(
                 throw new InvalidOperationException($"Wallet not found for recipient account {accountId}");
         }
 
+        var truncatedTotalAmount = TruncateToThreeDecimals(totalAmount);
         var (creatorPocket, _) = await wat.GetOrCreateWalletPocketAsync(creatorWallet.Id, currency);
-        if (creatorPocket.Amount < totalAmount)
+        if (creatorPocket.Amount < truncatedTotalAmount)
             throw new InvalidOperationException("Insufficient funds");
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -512,8 +514,8 @@ public class PaymentService(
         {
             CreatorAccountId = creatorAccountId,
             Currency = currency,
-            TotalAmount = totalAmount,
-            RemainingAmount = totalAmount,
+            TotalAmount = truncatedTotalAmount,
+            RemainingAmount = truncatedTotalAmount,
             AmountOfSplits = amountOfSplits,
             SplitType = splitType,
             Message = message,
@@ -529,7 +531,7 @@ public class PaymentService(
         // Deduct from creator's wallet
         await db.WalletPockets
             .Where(p => p.Id == creatorPocket.Id)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Amount, p => p.Amount - totalAmount));
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Amount, p => p.Amount - truncatedTotalAmount));
 
         db.WalletFunds.Add(fund);
         await db.SaveChangesAsync();
@@ -653,18 +655,20 @@ public class PaymentService(
                     if (amount <= 0)
                         throw new InvalidOperationException("No funds remaining to claim");
 
+                    var truncatedAmount = TruncateToThreeDecimals(amount);
+
                     // Create new recipient
                     recipient = new SnWalletFundRecipient
                     {
                         RecipientAccountId = recipientAccountId,
-                        Amount = amount,
+                        Amount = truncatedAmount,
                         IsReceived = false,
                         FundId = fund.Id,
                     };
                     db.WalletFundRecipients.Add(recipient);
                     await db.SaveChangesAsync();
 
-                    fund.RemainingAmount -= amount;
+                    fund.RemainingAmount -= truncatedAmount;
                     break;
                 }
                 case null:
@@ -678,8 +682,9 @@ public class PaymentService(
                 if (amount <= 0)
                     throw new InvalidOperationException("No funds remaining to claim");
 
-                recipient.Amount = amount;
-                fund.RemainingAmount -= amount;
+                var truncatedAmount = TruncateToThreeDecimals(amount);
+                recipient.Amount = truncatedAmount;
+                fund.RemainingAmount -= truncatedAmount;
             }
 
             db.Update(fund);
@@ -875,6 +880,11 @@ public class PaymentService(
         }
 
         return "unknown";
+    }
+
+    private static decimal TruncateToThreeDecimals(decimal amount)
+    {
+        return Math.Truncate(amount * 1000) / 1000;
     }
 }
 
