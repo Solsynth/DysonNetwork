@@ -92,9 +92,11 @@ public class LiveKitRealtimeService : IRealtimeService
         }
     }
 
-    public string GetUserToken(Account account, string sessionId, bool isAdmin = false)
+    public string GetUserToken(Account account, string sessionId, bool isAdmin = false, bool isTool = false)
     {
-        var token = _accessToken.WithIdentity(account.Name)
+        var identity = account.Name;
+        if (isTool) identity += "_tool";
+        var token = _accessToken.WithIdentity(identity)
             .WithName(account.Nick)
             .WithGrants(new VideoGrants
             {

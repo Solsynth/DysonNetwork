@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Swashbuckle.AspNetCore.Annotations;
 
 namespace DysonNetwork.Messager.Chat;
 
@@ -215,7 +214,7 @@ public class RealtimeCallController(
 
     [HttpGet("{roomId:guid}/join")]
     [Authorize]
-    public async Task<ActionResult<JoinCallResponse>> JoinCall(Guid roomId)
+    public async Task<ActionResult<JoinCallResponse>> JoinCall(Guid roomId, [FromQuery(Name = "tool")] bool isTool = false)
     {
         if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
 
@@ -241,7 +240,7 @@ public class RealtimeCallController(
             return BadRequest("Call session is not properly configured.");
 
         var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
-        var userToken = realtime.GetUserToken(currentUser, ongoingCall.SessionId, isAdmin);
+        var userToken = realtime.GetUserToken(currentUser, ongoingCall.SessionId, isAdmin, isTool);
 
         // Get LiveKit endpoint from configuration
         var endpoint = _config.Endpoint ??

@@ -35,7 +35,7 @@ public interface IRealtimeService
     /// <param name="sessionId">The session identifier</param>
     /// <param name="isAdmin">The user is the admin of session</param>
     /// <returns>User-specific token for the session</returns>
-    string GetUserToken(Account account, string sessionId, bool isAdmin = false);
+    string GetUserToken(Account account, string sessionId, bool isAdmin = false, bool isTool = false);
 
     /// <summary>
     /// Kicks a participant from the session

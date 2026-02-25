@@ -152,7 +152,11 @@ public class LiveStreamController(
     }
 
     [HttpGet("{id:guid}/token")]
-    public async Task<IActionResult> GetToken(Guid id, [FromQuery(Name = "streamer")] bool isStreamer = false)
+    public async Task<IActionResult> GetToken(
+        Guid id,
+        [FromQuery(Name = "streamer")] bool isStreamer = false,
+        [FromQuery(Name = "tool")] bool isTool = false
+    )
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -183,6 +187,9 @@ public class LiveStreamController(
         {
             return Unauthorized();
         }
+
+        if (isTool)
+            identity += "_tool";
 
         var token = liveKitService.GenerateToken(
             liveStream.RoomName,
