@@ -58,6 +58,7 @@ public class PostActionController(
         [MaxLength(32)] public List<string>? Attachments { get; set; }
 
         public Dictionary<string, object>? Meta { get; set; }
+        public Instant? DraftedAt { get; set; }
         public Instant? PublishedAt { get; set; }
         public Guid? RepliedPostId { get; set; }
         public Guid? ForwardedPostId { get; set; }
@@ -87,6 +88,8 @@ public class PostActionController(
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) &&
             !(request.Attachments?.Contains(request.ThumbnailId) ?? false))
             return BadRequest("Thumbnail must be presented in attachment list.");
+        if (request.DraftedAt is not null && request.PublishedAt is not null)
+            return BadRequest("Cannot set both draftedAt and publishedAt.");
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -117,6 +120,7 @@ public class PostActionController(
             Slug = request.Slug,
             Content = request.Content,
             Visibility = request.Visibility ?? Shared.Models.PostVisibility.Public,
+            DraftedAt = request.DraftedAt,
             PublishedAt = request.PublishedAt,
             Type = request.Type ?? PostType.Moment,
             Metadata = request.Meta,
@@ -630,6 +634,8 @@ public class PostActionController(
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) &&
             !(request.Attachments?.Contains(request.ThumbnailId) ?? false))
             return BadRequest("Thumbnail must be presented in attachment list.");
+        if (request.DraftedAt is not null && request.PublishedAt is not null)
+            return BadRequest("Cannot set both draftedAt and publishedAt.");
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -673,6 +679,8 @@ public class PostActionController(
             post.Type = request.Type.Value;
         if (request.Meta is not null)
             post.Metadata = request.Meta;
+        if (request.DraftedAt is not null)
+            post.DraftedAt = request.DraftedAt;
 
         // The same, this field can be null, so update it anyway.
         post.EmbedView = request.EmbedView;
@@ -847,6 +855,7 @@ public class PostActionController(
                 attachments: request.Attachments,
                 tags: request.Tags,
                 categories: request.Categories,
+                draftedAt: request.DraftedAt,
                 publishedAt: request.PublishedAt
             );
         }
@@ -920,5 +929,63 @@ public class PostActionController(
         );
 
         return NoContent();
+    }
+
+    [HttpPost("{id:guid}/publish")]
+    [Authorize]
+    [AskPermission("posts.create")]
+    public async Task<ActionResult<SnPost>> PublishDraft(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var post = await db
+            .Posts.Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
+            .FirstOrDefaultAsync();
+        if (post is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
+            return StatusCode(403, "You need at least be an editor to publish this post.");
+
+        if (post.DraftedAt is null)
+            return BadRequest("This post is not a draft.");
+
+        try
+        {
+            post = await ps.UpdatePostAsync(
+                post,
+                publishedAt: Instant.FromDateTimeUtc(DateTime.UtcNow)
+            );
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+
+        _ = als.CreateActionLogAsync(
+            new DyCreateActionLogRequest
+            {
+                Action = ActionLogType.PostUpdate,
+                Meta =
+                {
+                    {
+                        "post_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
+                    },
+                    { "operation", Google.Protobuf.WellKnownTypes.Value.ForString("publish") },
+                },
+                AccountId = currentUser.Id.ToString(),
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
+
+        return Ok(post);
     }
 }

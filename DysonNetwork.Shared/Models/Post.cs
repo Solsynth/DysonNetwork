@@ -81,6 +81,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     [MaxLength(1024)]
     public string? Slug { get; set; }
     public Instant? EditedAt { get; set; }
+    public Instant? DraftedAt { get; set; }
     public Instant? PublishedAt { get; set; }
     public PostVisibility Visibility { get; set; } = PostVisibility.Public;
 

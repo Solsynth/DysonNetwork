@@ -1,10 +1,12 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
+using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
 
 namespace DysonNetwork.Sphere.Post;
@@ -27,6 +29,57 @@ public class PostController(
         var currentUser = currentUserValue as DyAccount;
 
         var posts = await ps.ListFeaturedPostsAsync(currentUser);
+        return Ok(posts);
+    }
+
+    [HttpGet("drafts")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPost>>> ListDrafts(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "pub")] string? pubName = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var userPublishers = await pub.GetUserPublishers(accountId);
+        var publisherIds = userPublishers.Select(p => p.Id).ToList();
+
+        if (pubName is not null)
+        {
+            var selectedPublisher = await pub.GetPublisherByName(pubName);
+            if (selectedPublisher is null)
+                return NotFound();
+            if (
+                !await pub.IsMemberWithRole(
+                    selectedPublisher.Id,
+                    accountId,
+                    PublisherMemberRole.Editor
+                )
+            )
+                return StatusCode(403, "You need at least be an editor to view drafts.");
+
+            publisherIds = [selectedPublisher.Id];
+        }
+
+        var query = db
+            .Posts.Where(p =>
+                p.DraftedAt != null && p.PublisherId.HasValue && publisherIds.Contains(p.PublisherId.Value)
+            )
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
+            .OrderByDescending(e => e.DraftedAt ?? e.UpdatedAt);
+
+        var totalCount = await query.CountAsync();
+        var posts = await query.Skip(offset).Take(take).ToListAsync();
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
+
+        Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(posts);
     }
 

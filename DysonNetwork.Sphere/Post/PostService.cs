@@ -470,7 +470,12 @@ public partial class PostService(
         if (post.Empty)
             throw new InvalidOperationException("Cannot create a post with barely no content.");
 
-        if (post.PublishedAt is not null)
+        if (post.DraftedAt is not null)
+        {
+            if (post.PublishedAt is not null)
+                throw new InvalidOperationException("Cannot set both draftedAt and publishedAt.");
+        }
+        else if (post.PublishedAt is not null)
         {
             if (post.PublishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
                 throw new InvalidOperationException(
@@ -529,9 +534,14 @@ public partial class PostService(
         db.Posts.Add(post);
         await db.SaveChangesAsync();
 
+        var now = DateTime.UtcNow;
+        var isPublishedNow =
+            post.DraftedAt is null
+            && post.PublishedAt is not null
+            && post.PublishedAt.Value.ToDateTimeUtc() <= now;
+
         if (
-            post.PublishedAt is not null
-            && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
+            isPublishedNow
         )
             _ = Task.Run(async () =>
             {
@@ -542,8 +552,7 @@ public partial class PostService(
             });
 
         if (
-            post.PublishedAt is not null
-            && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
+            isPublishedNow
             && post.RepliedPost is not null
         )
         {
@@ -596,16 +605,18 @@ public partial class PostService(
             });
         }
 
-        // Send mention notifications in the background
-        _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
+        if (isPublishedNow)
+        {
+            // Send mention notifications in the background
+            _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
 
-        // Process link preview in the background to avoid delaying post creation
-        _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+            // Process link preview in the background to avoid delaying post creation
+            _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+        }
 
         // Send ActivityPub Create activity in background for public posts
         if (
-            post.PublishedAt is not null
-            && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
+            isPublishedNow
             && post.Visibility == PostVisibility.Public
         )
         {
@@ -627,8 +638,11 @@ public partial class PostService(
             });
         }
 
-        // Broadcast real-time update to connected clients
-        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.created"));
+        if (isPublishedNow)
+        {
+            // Broadcast real-time update to connected clients
+            _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.created"));
+        }
 
         return post;
     }
@@ -638,6 +652,7 @@ public partial class PostService(
         List<string>? attachments = null,
         List<string>? tags = null,
         List<string>? categories = null,
+        Instant? draftedAt = null,
         Instant? publishedAt = null
     )
     {
@@ -646,6 +661,9 @@ public partial class PostService(
 
         post.EditedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
 
+        if (draftedAt is not null && publishedAt is not null)
+            throw new InvalidOperationException("Cannot set both draftedAt and publishedAt.");
+
         if (publishedAt is not null)
         {
             // User cannot set the published at to the past to prevent scam,
@@ -653,7 +671,27 @@ public partial class PostService(
             // the published at will blocked the update operation
             if (publishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
                 throw new InvalidOperationException("Cannot set the published at to the past.");
+            post.PublishedAt = publishedAt;
+            post.DraftedAt = null;
         }
+
+        if (draftedAt is not null)
+        {
+            post.DraftedAt = draftedAt;
+            post.PublishedAt = null;
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var entity = db.Entry(post);
+        var previousDraftedAt = entity.Property(e => e.DraftedAt).OriginalValue;
+        var previousPublishedAt = entity.Property(e => e.PublishedAt).OriginalValue;
+
+        var wasPublished =
+            previousDraftedAt is null
+            && previousPublishedAt is not null
+            && previousPublishedAt.Value <= now;
+        var isPublished =
+            post.DraftedAt is null && post.PublishedAt is not null && post.PublishedAt.Value <= now;
 
         if (attachments is not null)
         {
@@ -699,11 +737,77 @@ public partial class PostService(
         db.Update(post);
         await db.SaveChangesAsync();
 
-        // Process link preview in the background to avoid delaying post update
-        _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+        if (!wasPublished && isPublished)
+        {
+            _ = Task.Run(async () =>
+            {
+                using var scope = factory.CreateScope();
+                var pubSub = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+                await pubSub.NotifySubscriberPost(post);
+            });
 
-        // Send ActivityPub Update activity in background for public posts
-        if (post.Visibility == PostVisibility.Public)
+            if (post.RepliedPost is not null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    var sender = post.Publisher;
+                    using var scope = factory.CreateScope();
+                    var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
+                    var nty =
+                        scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+                    var notifyTargets =
+                        scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
+                    try
+                    {
+                        var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId!.Value);
+                        var queryRequest = new DyGetAccountBatchRequest();
+                        queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
+                        var queryResponse = await notifyTargets.GetAccountBatchAsync(queryRequest);
+                        foreach (var member in queryResponse.Accounts)
+                        {
+                            if (member is null)
+                                continue;
+                            await nty.SendPushNotificationToUserAsync(
+                                new DySendPushNotificationToUserRequest
+                                {
+                                    UserId = member.Id,
+                                    Notification = new DyPushNotification
+                                    {
+                                        Topic = "post.replies",
+                                        Title = localizer.Get(
+                                            "postReplyTitle",
+                                            locale: member.Language,
+                                            args: new { user = sender!.Nick }
+                                        ),
+                                        Body = ChopPostForNotification(post).content,
+                                        IsSavable = true,
+                                        ActionUri = $"/posts/{post.Id}",
+                                    },
+                                }
+                            );
+                        }
+                    }
+                    catch (Exception err)
+                    {
+                        logger.LogError(
+                            $"Error when sending post reactions notification: {err.Message} {err.StackTrace}"
+                        );
+                    }
+                });
+            }
+
+            // Send mention notifications in the background on publish.
+            _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
+        }
+
+        if (isPublished)
+        {
+            // Process link preview in the background to avoid delaying post update
+            _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+        }
+
+        // Send ActivityPub activity in background for published public posts
+        if (isPublished && post.Visibility == PostVisibility.Public)
             _ = Task.Run(async () =>
             {
                 try
@@ -711,7 +815,10 @@ public partial class PostService(
                     using var scope = factory.CreateScope();
                     var deliveryService =
                         scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
-                    await deliveryService.SendUpdateActivityAsync(post);
+                    if (wasPublished)
+                        await deliveryService.SendUpdateActivityAsync(post);
+                    else
+                        await deliveryService.SendCreateActivityAsync(post);
                 }
                 catch (Exception err)
                 {
@@ -721,8 +828,14 @@ public partial class PostService(
                 }
             });
 
-        // Broadcast real-time update to connected clients
-        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.updated"));
+        if (isPublished)
+        {
+            // Broadcast real-time update to connected clients
+            _ = Task.Run(
+                async () =>
+                    await BroadcastPostUpdateAsync(post, wasPublished ? "post.updated" : "post.created")
+            );
+        }
 
         return post;
     }
@@ -1430,13 +1543,15 @@ public partial class PostService(
         if (currentUser is null)
         {
             // Anonymous user can only view public posts that are published
-            return post.PublishedAt != null
+            return post.DraftedAt is null
+                && post.PublishedAt != null
                 && now >= post.PublishedAt
                 && post.Visibility == PostVisibility.Public;
         }
 
         // Check publication status - either published or user is member
-        var isPublished = post.PublishedAt != null && now >= post.PublishedAt;
+        var isPublished =
+            post.DraftedAt is null && post.PublishedAt != null && now >= post.PublishedAt;
         var isMember = post.PublisherId.HasValue && publishersId.Contains(post.PublisherId.Value);
         if (!isPublished && !isMember)
             return false;
@@ -1727,12 +1842,13 @@ public static class PostQueryExtensions
 
         if (currentUser is null)
             return source
+                .Where(e => e.DraftedAt == null)
                 .Where(e => e.PublishedAt != null && now >= e.PublishedAt)
                 .Where(e => e.Visibility == Shared.Models.PostVisibility.Public);
 
         return source
             .Where(e =>
-                (e.PublishedAt != null && now >= e.PublishedAt)
+                (e.DraftedAt == null && e.PublishedAt != null && now >= e.PublishedAt)
                 || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))
             )
             .Where(e =>
