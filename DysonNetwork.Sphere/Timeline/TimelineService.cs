@@ -13,8 +13,7 @@ public class TimelineService(
     Publisher.PublisherService pub,
     Post.PostService ps,
     RemoteRealmService rs,
-    AccountService.AccountServiceClient accounts,
-    RemoteWebArticleService webArticles
+    AccountService.AccountServiceClient accounts
 )
 {
     private static double CalculateHotRank(SnPost post, Instant now)
@@ -31,7 +30,11 @@ public class TimelineService(
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
 
-    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(int take, Instant? cursor, bool showFediverse = false)
+    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(
+        int take,
+        Instant? cursor,
+        bool showFediverse = false
+    )
     {
         var activities = new List<SnTimelineEvent>();
 
@@ -147,8 +150,6 @@ public class TimelineService(
         if (Random.Shared.NextDouble() < 0.5)
             options.Add(() => GetPublisherDiscoveryActivity());
         if (Random.Shared.NextDouble() < 0.5)
-            options.Add(() => GetArticleDiscoveryActivity());
-        if (Random.Shared.NextDouble() < 0.5)
             options.Add(() => GetShuffledPostsActivity());
         if (options.Count == 0)
             return null;
@@ -216,8 +217,8 @@ public class TimelineService(
         var publicRealms = await rs.GetPublicRealms();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
-        var postsQuery = db.Posts
-            .Include(p => p.Categories)
+        var postsQuery = db
+            .Posts.Include(p => p.Categories)
             .Include(p => p.Tags)
             .Where(p => p.Visibility == PostVisibility.Public)
             .Where(p => p.RepliedPostId == null)
@@ -233,18 +234,6 @@ public class TimelineService(
             : new TimelineDiscoveryEvent(
                 posts.Select(x => new DiscoveryItem("post", x)).ToList()
             ).ToActivity();
-    }
-
-    private async Task<SnTimelineEvent?> GetArticleDiscoveryActivity(int count = 5)
-    {
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var recentArticles = await webArticles.GetRecentArticles(count);
-
-        return recentArticles.Count > 0
-            ? new TimelineDiscoveryEvent(
-                recentArticles.Select(x => new DiscoveryItem("article", x)).ToList()
-            ).ToActivity()
-            : null;
     }
 
     private async Task<List<SnPost>> GetAndProcessPosts(
@@ -293,7 +282,9 @@ public class TimelineService(
             .AsQueryable();
 
         if (filteredPublishersId != null && filteredPublishersId.Count != 0)
-            query = query.Where(p => p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value));
+            query = query.Where(p =>
+                p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value)
+            );
         if (userRealms == null)
         {
             // For anonymous users, only show public realm posts or posts without realm
@@ -350,3 +341,4 @@ public class TimelineService(
         return score + postCount;
     }
 }
+
