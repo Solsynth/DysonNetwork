@@ -129,6 +129,10 @@ public class ThoughtService(
         if (role == ThinkingThoughtRole.Assistant)
             sequence.TotalToken += tokenCount;
 
+        // Set free tokens for the first bot thought in agent-initiated conversations
+        if (role == ThinkingThoughtRole.Assistant && sequence.AgentInitiated && sequence.FreeTokens == 0)
+            sequence.FreeTokens = tokenCount;
+
         // Update LastMessageAt timestamp
         sequence.LastMessageAt = now;
 
@@ -273,7 +277,7 @@ public class ThoughtService(
                 continue;
             }
 
-            var totalUnpaidTokens = accountGroup.Sum(s => s.TotalToken - s.PaidToken);
+            var totalUnpaidTokens = accountGroup.Sum(s => s.TotalToken - s.PaidToken - s.FreeTokens);
             var cost = (long)Math.Ceiling(totalUnpaidTokens / 10.0);
 
             if (cost == 0)

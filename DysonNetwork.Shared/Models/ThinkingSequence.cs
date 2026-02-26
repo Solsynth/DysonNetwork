@@ -12,6 +12,7 @@ public class SnThinkingSequence : ModelBase
 
     public long TotalToken { get; set; }
     public long PaidToken { get; set; }
+    public long FreeTokens { get; set; }
 
     public bool IsPublic { get; set; } = false;
 
