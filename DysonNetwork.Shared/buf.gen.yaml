@@ -1,0 +1,11 @@
+version: v2
+
+inputs:
+    - git_repo: https://git.solsynth.dev/SolarNetwork/DysonProto.git
+      subdir: proto
+
+plugins:
+    - protoc_builtin: csharp
+      out: Proto
+    - local: grpc_csharp_plugin
+      out: Proto
