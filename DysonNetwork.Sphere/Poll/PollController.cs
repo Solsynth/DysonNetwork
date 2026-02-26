@@ -92,7 +92,7 @@ public class PollController(
             .FirstOrDefaultAsync(p => p.Id == id);
         if (poll is null) return NotFound("Poll not found");
 
-        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.DyViewer))
+        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Viewer))
             return StatusCode(403, "You need to be a viewer to view this poll's feedback.");
 
         var answerQuery = db.PollAnswers
@@ -208,7 +208,7 @@ public class PollController(
 
         var publisher = await pub.GetPublisherByName(pubName);
         if (publisher is null) return BadRequest("Publisher was not found.");
-        if (!await pub.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.DyEditor))
+        if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to create polls as this publisher.");
 
         var poll = new SnPoll
@@ -254,7 +254,7 @@ public class PollController(
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.DyEditor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to update this poll.");
 
             // Update properties if they are provided in the request
@@ -318,7 +318,7 @@ public class PollController(
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.DyEditor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need to be at least an editor to delete this poll.");
 
             // Delete all answers for this poll

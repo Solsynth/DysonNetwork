@@ -104,7 +104,7 @@ public class PublisherSubscriptionService(
         requestAccountIds.AddRange(subscribers.Select(x => x.AccountId.ToString()));
         requestAccountIds.AddRange(categorySubscribers.Select(x => x.AccountId.ToString()));
 
-        var queryRequest = new GetAccountBatchRequest();
+        var queryRequest = new DyGetAccountBatchRequest();
         queryRequest.Id.AddRange(requestAccountIds.Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
@@ -123,7 +123,7 @@ public class PublisherSubscriptionService(
                     IsSavable = true,
                     ActionUri = $"/posts/{post.Id}"
                 };
-                var request = new SendPushNotificationToUsersRequest { Notification = notification };
+                var request = new DySendPushNotificationToUsersRequest { Notification = notification };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
                 notifiedCount++;
@@ -172,7 +172,7 @@ public class PublisherSubscriptionService(
         if (subscribers.Count == 0)
             return 0;
 
-        var queryRequest = new GetAccountBatchRequest();
+        var queryRequest = new DyGetAccountBatchRequest();
         queryRequest.Id.AddRange(subscribers.Select(x => x.AccountId.ToString()));
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
@@ -190,7 +190,7 @@ public class PublisherSubscriptionService(
                     IsSavable = true,
                     ActionUri = $"/livestreams/{liveStream.Id}"
                 };
-                var request = new SendPushNotificationToUsersRequest { Notification = notification };
+                var request = new DySendPushNotificationToUsersRequest { Notification = notification };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
                 notifiedCount++;

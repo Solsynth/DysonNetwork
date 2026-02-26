@@ -12,7 +12,7 @@ namespace DysonNetwork.Wallet.Payment;
 public class OrderController(
     PaymentService payment,
     AppDatabase db,
-    CustomAppService.CustomAppServiceClient customApps
+    DyCustomAppService.DyCustomAppServiceClient customApps
 ) : ControllerBase
 {
     public class CreateOrderRequest
@@ -31,11 +31,11 @@ public class OrderController(
     [HttpPost]
     public async Task<ActionResult<SnWalletOrder>> CreateOrder([FromBody] CreateOrderRequest request)
     {
-        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        var clientResp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = request.ClientId });
         if (clientResp.App is null) return BadRequest("Client not found");
         var client = SnCustomApp.FromProtoValue(clientResp.App);
 
-        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var secret = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
         {
             AppId = client.Id.ToString(),
             Secret = request.ClientSecret,
@@ -105,11 +105,11 @@ public class OrderController(
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<SnWalletOrder>> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
     {
-        var clientResp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = request.ClientId });
+        var clientResp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = request.ClientId });
         if (clientResp.App is null) return BadRequest("Client not found");
         var client = SnCustomApp.FromProtoValue(clientResp.App);
 
-        var secret = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var secret = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
         {
             AppId = client.Id.ToString(),
             Secret = request.ClientSecret,

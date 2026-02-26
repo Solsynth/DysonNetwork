@@ -26,7 +26,7 @@ public class SiteManagerController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var isMember =
-            await remotePublisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
+            await remotePublisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
         return !isMember ? Forbid() : null;
     }
 

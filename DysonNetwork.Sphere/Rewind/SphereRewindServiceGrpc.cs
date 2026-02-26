@@ -17,8 +17,8 @@ public class SphereRewindServiceGrpc(
     Publisher.PublisherService ps
 ) : DyRewindService.DyRewindServiceBase
 {
-    public override async Task<RewindEvent> GetRewindEvent(
-        RequestRewindEvent request,
+    public override async Task<DyRewindEvent> GetRewindEvent(
+        DyRequestRewindEvent request,
         ServerCallContext context
     )
     {
@@ -135,7 +135,7 @@ public class SphereRewindServiceGrpc(
                 : null,
         };
 
-        return new RewindEvent
+        return new DyRewindEvent
         {
             ServiceId = "sphere",
             AccountId = request.AccountId,

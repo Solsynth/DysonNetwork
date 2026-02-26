@@ -302,8 +302,8 @@ public class ActivityPubActivityHandler(
         {
             FediverseUri = contentUri,
             FediverseType = objectType == "Article"
-                ? FediverseContentType.FediverseArticle
-                : FediverseContentType.FediverseNote,
+                ? DyFediverseContentType.DyFediverseArticle
+                : DyFediverseContentType.DyFediverseNote,
             Title = GetStringValue(objectDict, "name"),
             Description = GetStringValue(objectDict, "summary"),
             Content = GetStringValue(objectDict, "content"),
@@ -462,7 +462,7 @@ public class ActivityPubActivityHandler(
             content = new SnPost
             {
                 FediverseUri = objectUri,
-                FediverseType = FediverseContentType.FediverseNote,
+                FediverseType = DyFediverseContentType.DyFediverseNote,
                 Type = PostType.Moment,
                 Visibility = PostVisibility.Public,
                 ActorId = actor.Id

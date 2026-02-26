@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
@@ -587,7 +588,7 @@ public class LiveStreamService(
                 currency: "points",
                 amount: streamerShare.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 remarks: remarks,
-                DysonNetwork.Shared.Proto.TransactionType.System
+                DyTransactionType.System
             );
 
             liveStream.DistributedAwardAmount = totalPositiveAwards;

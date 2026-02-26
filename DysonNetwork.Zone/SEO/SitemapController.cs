@@ -48,7 +48,7 @@ public class SitemapController(AppDatabase db, DyPostService.DyPostServiceClient
 
         while (true)
         {
-            var request = new ListPostsRequest
+            var request = new DyListPostsRequest
             {
                 OrderBy = "date",
                 OrderDesc = true,
@@ -56,7 +56,7 @@ public class SitemapController(AppDatabase db, DyPostService.DyPostServiceClient
                 PageToken = pageToken ?? string.Empty,
             };
 
-            request.Types_.Add(DyPostType.Article);
+            request.Types_.Add(DyPostType.DyArticle);
 
             var response = await postClient.ListPostsAsync(request);
 

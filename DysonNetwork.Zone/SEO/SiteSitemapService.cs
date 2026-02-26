@@ -252,7 +252,7 @@ public class SiteSitemapService(
 
         while (guard++ < 600 && posts.Count < options.ItemLimit && !string.IsNullOrWhiteSpace(pageToken))
         {
-            var listRequest = new ListPostsRequest
+            var listRequest = new DyListPostsRequest
             {
                 PublisherId = publisherId,
                 OrderBy = options.OrderBy,
@@ -266,13 +266,13 @@ public class SiteSitemapService(
             {
                 var normalized = type.Trim().ToLowerInvariant();
                 if (normalized == "article")
-                    listRequest.Types_.Add(Shared.Proto.PostType.Article);
+                    listRequest.Types_.Add(DyPostType.DyArticle);
                 else if (normalized == "moment")
-                    listRequest.Types_.Add(Shared.Proto.PostType.Moment);
+                    listRequest.Types_.Add(DyPostType.DyMoment);
             }
 
             if (listRequest.Types_.Count == 0)
-                listRequest.Types_.Add(Shared.Proto.PostType.Article);
+                listRequest.Types_.Add(DyPostType.DyArticle);
 
             foreach (var category in options.Categories)
                 listRequest.Categories.Add(category);

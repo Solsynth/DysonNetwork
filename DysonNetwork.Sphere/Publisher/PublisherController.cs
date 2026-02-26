@@ -238,7 +238,7 @@ public class PublisherController(
             !await ps.IsMemberWithRole(
                 publisher.Id,
                 accountId,
-                Shared.Models.PublisherMemberRole.DyManager
+                PublisherMemberRole.Manager
             )
         )
             return StatusCode(
@@ -502,7 +502,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         if (member is null)
             return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < Shared.Models.PublisherMemberRole.DyManager)
+        if (member.Role < PublisherMemberRole.Manager)
             return StatusCode(
                 403,
                 "You need at least be the manager to update the publisher profile."
@@ -630,7 +630,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         if (member is null)
             return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < Shared.Models.PublisherMemberRole.DyOwner)
+        if (member.Role < PublisherMemberRole.Owner)
             return StatusCode(403, "You need to be the owner to delete the publisher.");
 
         var publisherResourceId = $"publisher:{publisher.Id}";
@@ -753,7 +753,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyViewer))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId,PublisherMemberRole.Viewer))
             return StatusCode(403, "You are not allowed to view stats data of this publisher.");
 
         var result = await ps.GetPublisherExpectedReward(publisher.Id);
@@ -770,7 +770,7 @@ public class PublisherController(
     [HttpPost("{name}/features")]
     [Authorize]
     [AskPermission("publishers.features")]
-    public async Task<ActionResult<PublisherFeature>> AddPublisherFeature(
+    public async Task<ActionResult<SnPublisherFeature>> AddPublisherFeature(
         string name,
         [FromBody] PublisherFeatureRequest request
     )
@@ -851,7 +851,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyManager))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(403, "You need at least be manager to enable fediverse for this publisher.");
 
         try
@@ -879,7 +879,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyManager))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(403, "You need at least be manager to disable fediverse for this publisher.");
 
         try

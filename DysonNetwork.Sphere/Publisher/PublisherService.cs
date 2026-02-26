@@ -23,8 +23,8 @@ public class FediverseStatus
 
 public class PublisherService(
     AppDatabase db,
-    SocialCreditService.SocialCreditServiceClient socialCredits,
-    ExperienceService.ExperienceServiceClient experiences,
+    DySocialCreditService.DySocialCreditServiceClient socialCredits,
+    DyExperienceService.DyExperienceServiceClient experiences,
     ICacheService cache,
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
@@ -201,7 +201,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = PublisherMemberRole.DyOwner,
+                    Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             ]
@@ -237,7 +237,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = PublisherMemberRole.DyOwner,
+                    Role = PublisherMemberRole.Owner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
@@ -587,7 +587,7 @@ public class PublisherService(
             // Use totalExperience for rewarding
             foreach (var receiver in receivers)
             {
-                await experiences.AddRecordAsync(new AddExperienceRecordRequest
+                await experiences.AddRecordAsync(new DyAddExperienceRecordRequest
                 {
                     Reason = localization.Get("publishingRewardTitle", receiver.Language,
                         new { publisher = $"@{publisherName}", date }),
@@ -621,7 +621,7 @@ public class PublisherService(
             // Set social credit for receivers, expired before next settle
             foreach (var receiver in receivers)
             {
-                await socialCredits.AddRecordAsync(new AddSocialCreditRecordRequest
+                await socialCredits.AddRecordAsync(new DyAddSocialCreditRecordRequest
                 {
                     Reason = localization.Get("publishingRewardTitle", receiver.Language,
                         new { publisher = $"@{publisherName}", date }),
@@ -642,7 +642,7 @@ public class PublisherService(
             .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
             .FirstOrDefaultAsync();
 
-        if (member == null || member.Role < PublisherMemberRole.DyManager)
+        if (member == null || member.Role < PublisherMemberRole.Manager)
             throw new UnauthorizedAccessException(
                 "You need at least Manager role to enable fediverse for this publisher");
 
@@ -712,7 +712,7 @@ public class PublisherService(
             .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
             .FirstOrDefaultAsync();
 
-        if (member == null || member.Role < PublisherMemberRole.DyManager)
+        if (member == null || member.Role < PublisherMemberRole.Manager)
             throw new UnauthorizedAccessException(
                 "You need at least Manager role to disable fediverse for this publisher");
 

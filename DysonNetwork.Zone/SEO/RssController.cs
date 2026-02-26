@@ -28,14 +28,14 @@ public class RssController(
 
         // Fetch posts - similar to SitemapController, but for RSS we usually only want recent ones
         // For simplicity, let's fetch the first page of posts
-        var request = new ListPostsRequest
+        var request = new DyListPostsRequest
         {
             OrderBy = "date",
             OrderDesc = true,
             PageSize = 20, // Get top 20 recent posts
         };
 
-        request.Types_.Add(DyPostType.Article);
+        request.Types_.Add(DyPostType.DyArticle);
 
         var response = await postClient.ListPostsAsync(request);
 

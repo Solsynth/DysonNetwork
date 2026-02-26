@@ -87,7 +87,7 @@ public class TimelineService(
 
         // Get user's friends and publishers
         var friendsResponse = await accounts.ListFriendsAsync(
-            new ListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
         );
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
@@ -238,7 +238,7 @@ public class TimelineService(
 
     private async Task<List<SnPost>> GetAndProcessPosts(
         IQueryable<SnPost> baseQuery,
-        Account? currentUser = null,
+        DyAccount? currentUser = null,
         bool trackViews = true
     )
     {

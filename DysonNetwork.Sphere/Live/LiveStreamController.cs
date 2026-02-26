@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
-using FileService = DysonNetwork.DyFileService;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -72,7 +71,7 @@ public class LiveStreamController(
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
                 return BadRequest("Publisher not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyEditor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to create live streams for this publisher.");
         }
 
@@ -140,7 +139,7 @@ public class LiveStreamController(
         {
             var accountId = Guid.Parse(currentUser.Id);
             isAuthorized = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor);
+                PublisherMemberRole.Editor);
         }
 
         if (!isAuthorized)
@@ -174,7 +173,7 @@ public class LiveStreamController(
             var isEditor = await pub.IsMemberWithRole(
                 liveStream.PublisherId!.Value,
                 accountId,
-                PublisherMemberRole.DyEditor
+                PublisherMemberRole.Editor
             );
 
             if (isEditor && isStreamer)
@@ -225,7 +224,7 @@ public class LiveStreamController(
             return NotFound(new { error = "LiveStream not found" });
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to start the live stream.");
         }
@@ -279,7 +278,7 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
@@ -311,7 +310,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
@@ -335,7 +334,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
@@ -385,7 +384,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
@@ -409,7 +408,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to end the live stream.");
         }
@@ -433,7 +432,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to update the live stream.");
         }
@@ -485,7 +484,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to delete the live stream.");
         }
@@ -532,7 +531,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.DyEditor))
+                PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to update the thumbnail.");
         }
@@ -642,7 +641,7 @@ public class LiveStreamController(
             return NotFound(new { error = "LiveStream not found" });
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need to be an editor of this publisher to moderate chat.");
 
         var message = await db.LiveStreamChatMessages.FindAsync(messageId);
@@ -666,7 +665,7 @@ public class LiveStreamController(
             return NotFound(new { error = "LiveStream not found" });
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to timeout users.");
         }

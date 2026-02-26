@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using PollQuestionType = DysonNetwork.DyPollQuestionType;
 
 namespace DysonNetwork.Sphere.Poll;
 

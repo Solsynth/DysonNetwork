@@ -180,7 +180,7 @@ public class StickerController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < Shared.Models.PublisherMemberRole.DyEditor)
+        if (member.Role < PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be at least an editor to update sticker packs");
 
         if (request.Name is not null)
@@ -222,7 +222,7 @@ public class StickerController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < Shared.Models.PublisherMemberRole.DyEditor)
+        if (member.Role < PublisherMemberRole.Editor)
             return StatusCode(403, "You need to be an editor to delete sticker packs");
 
         await st.DeleteStickerPackAsync(pack);
@@ -304,7 +304,7 @@ public class StickerController(
             return Unauthorized();
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.DyEditor);
+            await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -339,7 +339,7 @@ public class StickerController(
             return Unauthorized();
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.DyEditor);
+            await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -370,7 +370,7 @@ public class StickerController(
             return BadRequest("Image is required.");
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.DyEditor);
+            await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 

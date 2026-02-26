@@ -6,9 +6,9 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
 {
     public async Task SendEmail(string toName, string toAddress, string subject, string body)
     {
-        var request = new SendEmailRequest
+        var request = new DySendEmailRequest
         {
-            Email = new EmailMessage
+            Email = new DyEmailMessage
             {
                 ToName = toName,
                 ToAddress = toAddress,
@@ -21,10 +21,10 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
 
     public async Task PushWebSocketPacket(string accountId, string type, byte[] data, string? errorMessage = null)
     {
-        var request = new PushWebSocketPacketRequest
+        var request = new DyPushWebSocketPacketRequest
         {
             UserId = accountId,
-            Packet = new WebSocketPacket
+            Packet = new DyWebSocketPacket
             {
                 Type = type,
                 Data = Google.Protobuf.ByteString.CopyFrom(data)
@@ -42,7 +42,7 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
     {
         var request = new DyPushWebSocketPacketToUsersRequest
         {
-            Packet = new WebSocketPacket
+            Packet = new DyWebSocketPacket
             {
                 Type = type,
                 Data = Google.Protobuf.ByteString.CopyFrom(data)
@@ -59,10 +59,10 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
     public async Task PushWebSocketPacketToDevice(string deviceId, string type, byte[] data,
         string? errorMessage = null)
     {
-        var request = new PushWebSocketPacketToDeviceRequest
+        var request = new DyPushWebSocketPacketToDeviceRequest
         {
             DeviceId = deviceId,
-            Packet = new WebSocketPacket
+            Packet = new DyWebSocketPacket
             {
                 Type = type,
                 Data = Google.Protobuf.ByteString.CopyFrom(data)
@@ -78,9 +78,9 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
     public async Task PushWebSocketPacketToDevices(List<string> deviceIds, string type, byte[] data,
         string? errorMessage = null)
     {
-        var request = new PushWebSocketPacketToDevicesRequest
+        var request = new DyPushWebSocketPacketToDevicesRequest
         {
-            Packet = new WebSocketPacket
+            Packet = new DyWebSocketPacket
             {
                 Type = type,
                 Data = Google.Protobuf.ByteString.CopyFrom(data)
@@ -133,7 +133,7 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
     public async Task SendPushNotificationToUsers(List<string> userIds, string topic, string title, string subtitle,
         string body, byte[]? meta = null, string? actionUri = null, bool isSilent = false, bool isSavable = false)
     {
-        var request = new SendPushNotificationToUsersRequest
+        var request = new DySendPushNotificationToUsersRequest
         {
             Notification = new DyPushNotification
             {
@@ -162,7 +162,7 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
 
     public async Task UnsubscribePushNotifications(string deviceId)
     {
-        var request = new UnsubscribePushNotificationsRequest
+        var request = new DyUnsubscribePushNotificationsRequest
         {
             DeviceId = deviceId
         };
@@ -171,7 +171,7 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
 
     public async Task<bool> GetWebsocketConnectionStatus(string deviceIdOrUserId, bool isUserId = false)
     {
-        var request = new GetWebsocketConnectionStatusRequest();
+        var request = new DyGetWebsocketConnectionStatusRequest();
         if (isUserId)
         {
             request.UserId = deviceIdOrUserId;
@@ -187,7 +187,7 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
 
     public async Task<Dictionary<string, bool>> GetWebsocketConnectionStatusBatch(List<string> userIds)
     {
-        var request = new GetWebsocketConnectionStatusBatchRequest();
+        var request = new DyGetWebsocketConnectionStatusBatchRequest();
         request.UsersId.AddRange(userIds);
 
         var response = await ring.GetWebsocketConnectionStatusBatchAsync(request);

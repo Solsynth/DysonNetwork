@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime.Serialization.Protobuf;
-using PostType = DysonNetwork.DyPostType;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -175,8 +174,8 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
         {
             var types = request.Types_.Select(t => t switch
             {
-                PostType.Article => Shared.Models.PostType.Article,
-                _ => Shared.Models.PostType.Moment
+                DyPostType.DyArticle => PostType.Article,
+                _ => PostType.Moment
             }).Distinct();
             query = query.Where(p => types.Contains(p.Type));
         }
@@ -187,11 +186,11 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
         query = request.Pinned switch
         {
             // Pinned filtering
-            DyPostPinMode.RealmPage when !string.IsNullOrWhiteSpace(request.RealmId) => query.Where(p =>
-                p.PinMode == Shared.Models.PostPinMode.RealmPage),
-            DyPostPinMode.PublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId) =>
-                query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage),
-            DyPostPinMode.ReplyPage => query.Where(p => p.PinMode == Shared.Models.PostPinMode.ReplyPage),
+            DyPostPinMode.DyRealmPage when !string.IsNullOrWhiteSpace(request.RealmId) => query.Where(p =>
+                p.PinMode == PostPinMode.RealmPage),
+            DyPostPinMode.DyPublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId) =>
+                query.Where(p => p.PinMode == PostPinMode.PublisherPage),
+            DyPostPinMode.DyReplyPage => query.Where(p => p.PinMode == PostPinMode.ReplyPage),
             _ => query
         };
 

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AngleSharp.Html.Parser;
@@ -26,7 +28,7 @@ public partial class PostService(
     ICacheService cache,
     ILogger<PostService> logger,
     DyFileService.DyFileServiceClient files,
-    Publisher.PublisherService ps,
+    PublisherService ps,
     RemoteWebReaderService reader,
     DyAccountService.DyAccountServiceClient accounts,
     ActivityPubObjectFactory objFactory
@@ -119,7 +121,7 @@ public partial class PostService(
 
     public (string title, string content) ChopPostForNotification(SnPost post)
     {
-        var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
+        var locale = CultureInfo.CurrentUICulture.Name;
         var content = !string.IsNullOrEmpty(post.Description)
             ? post.Description?.Length >= 40
                 ? post.Description[..37] + "..."
@@ -150,7 +152,7 @@ public partial class PostService(
 
             // Filter users based on visibility
             List<string> targetUserIds;
-            if (post.Visibility == Shared.Models.PostVisibility.Public)
+            if (post.Visibility == PostVisibility.Public)
             {
                 // Public posts go to all connected users
                 targetUserIds = connectedUserIds;
@@ -175,7 +177,7 @@ public partial class PostService(
                 post,
                 InfraObjectCoder.SerializerOptionsWithoutIgnore
             );
-            var postBytes = System.Text.Encoding.UTF8.GetBytes(postData);
+            var postBytes = Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
             await scopedRing.PushWebSocketPacketToUsers(targetUserIds, eventType, postBytes);
@@ -211,7 +213,7 @@ public partial class PostService(
 
             // Filter users based on visibility
             List<string> targetUserIds;
-            if (post.Visibility == Shared.Models.PostVisibility.Public)
+            if (post.Visibility == PostVisibility.Public)
             {
                 // Public posts go to all connected users
                 targetUserIds = onlineUsers;
@@ -230,7 +232,7 @@ public partial class PostService(
                 reaction,
                 InfraObjectCoder.SerializerOptionsWithoutIgnore
             );
-            var reactionBytes = System.Text.Encoding.UTF8.GetBytes(reactionData);
+            var reactionBytes = Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
             await scopedRing.PushWebSocketPacketToUsers(targetUserIds, eventType, reactionBytes);
@@ -262,10 +264,10 @@ public partial class PostService(
 
         // Get friends if needed for Friends visibility
         HashSet<string>? friendAccountIds = null;
-        if (post.Visibility == Shared.Models.PostVisibility.Friends)
+        if (post.Visibility == PostVisibility.Friends)
         {
             // Get all accounts that are friends with the publisher
-            var queryRequest = new GetAccountBatchRequest();
+            var queryRequest = new DyGetAccountBatchRequest();
             queryRequest.Id.AddRange(
                 publisherMembers
                     .Where(m => m.AccountId != Guid.Empty)
@@ -279,7 +281,7 @@ public partial class PostService(
                 if (member == null)
                     continue;
                 var friendsResponse = await accounts.ListFriendsAsync(
-                    new ListRelationshipSimpleRequest { RelatedId = member.Id }
+                    new DyListRelationshipSimpleRequest { RelatedId = member.Id }
                 );
                 foreach (var friendId in friendsResponse.AccountsId)
                 {
@@ -290,31 +292,33 @@ public partial class PostService(
 
         foreach (var userId in connectedUserIds)
         {
-            var guid = Guid.Parse(userId);
-
             // Check if user is a member of the publisher
             var isMember = memberAccountIds.Contains(userId);
 
-            // Private posts: only members can see
-            if (post.Visibility == Shared.Models.PostVisibility.Private)
+            switch (post.Visibility)
             {
-                if (isMember)
+                // Private posts: only members can see
+                case PostVisibility.Private:
+                {
+                    if (isMember)
+                        filteredUserIds.Add(userId);
+                    continue;
+                }
+                // Friends posts: members and friends can see
+                case PostVisibility.Friends:
+                {
+                    if (isMember || (friendAccountIds != null && friendAccountIds.Contains(userId)))
+                        filteredUserIds.Add(userId);
+                    continue;
+                }
+                // Unlisted posts: same as public for real-time updates
+                case PostVisibility.Unlisted:
                     filteredUserIds.Add(userId);
-                continue;
-            }
-
-            // Friends posts: members and friends can see
-            if (post.Visibility == Shared.Models.PostVisibility.Friends)
-            {
-                if (isMember || (friendAccountIds != null && friendAccountIds.Contains(userId)))
-                    filteredUserIds.Add(userId);
-                continue;
-            }
-
-            // Unlisted posts: same as public for real-time updates
-            if (post.Visibility == Shared.Models.PostVisibility.Unlisted)
-            {
-                filteredUserIds.Add(userId);
+                    break;
+                case PostVisibility.Public:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -393,7 +397,7 @@ public partial class PostService(
                         continue;
 
                     // Get account details for language preferences
-                    var queryRequest = new GetAccountBatchRequest();
+                    var queryRequest = new DyGetAccountBatchRequest();
                     queryRequest.Id.AddRange(memberIds);
                     var queryResponse = await accountsClient.GetAccountBatchAsync(queryRequest);
 
@@ -480,7 +484,7 @@ public partial class PostService(
 
         if (attachments is not null)
         {
-            var queryRequest = new GetFileBatchRequest();
+            var queryRequest = new DyGetFileBatchRequest();
             queryRequest.Ids.AddRange(attachments);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
@@ -547,7 +551,7 @@ public partial class PostService(
             {
                 var sender = post.Publisher;
                 using var scope = factory.CreateScope();
-                var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
+                var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
                 var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
                 var notifyTargets =
                     scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
@@ -556,7 +560,7 @@ public partial class PostService(
                     var members = await pub.GetPublisherMembers(
                         post.RepliedPost.PublisherId!.Value
                     );
-                    var queryRequest = new GetAccountBatchRequest();
+                    var queryRequest = new DyGetAccountBatchRequest();
                     queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                     var queryResponse = await notifyTargets.GetAccountBatchAsync(queryRequest);
                     foreach (var member in queryResponse.Accounts)
@@ -602,7 +606,7 @@ public partial class PostService(
         if (
             post.PublishedAt is not null
             && post.PublishedAt.Value.ToDateTimeUtc() <= DateTime.UtcNow
-            && post.Visibility == Shared.Models.PostVisibility.Public
+            && post.Visibility == PostVisibility.Public
         )
         {
             _ = Task.Run(async () =>
@@ -654,7 +658,7 @@ public partial class PostService(
         if (attachments is not null)
         {
             // Update post attachments by getting files from database
-            var queryRequest = new GetFileBatchRequest();
+            var queryRequest = new DyGetFileBatchRequest();
             queryRequest.Ids.AddRange(attachments);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
 
@@ -699,7 +703,7 @@ public partial class PostService(
         _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
         // Send ActivityPub Update activity in background for public posts
-        if (post.Visibility == Shared.Models.PostVisibility.Public)
+        if (post.Visibility == PostVisibility.Public)
             _ = Task.Run(async () =>
             {
                 try
@@ -731,7 +735,7 @@ public partial class PostService(
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
-        if (item.Type != Shared.Models.PostType.Moment || string.IsNullOrEmpty(item.Content))
+        if (item.Type != PostType.Moment || string.IsNullOrEmpty(item.Content))
             return item;
 
         // Find all URLs in the content
@@ -864,7 +868,7 @@ public partial class PostService(
         }
 
         // Send ActivityPub Delete activity in background for public posts
-        if (post.Visibility == Shared.Models.PostVisibility.Public)
+        if (post.Visibility == PostVisibility.Public)
         {
             _ = Task.Run(async () =>
             {
@@ -888,13 +892,13 @@ public partial class PostService(
     public async Task<SnPost> PinPostAsync(
         SnPost post,
         DyAccount currentUser,
-        Shared.Models.PostPinMode pinMode
+        PostPinMode pinMode
     )
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
         {
-            if (pinMode != Shared.Models.PostPinMode.ReplyPage)
+            if (pinMode != PostPinMode.ReplyPage)
                 throw new InvalidOperationException(
                     "Replies can only be pinned in the reply page."
                 );
@@ -905,7 +909,7 @@ public partial class PostService(
                 !await ps.IsMemberWithRole(
                     post.RepliedPost.PublisherId!.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.DyEditor
+                    PublisherMemberRole.Editor
                 )
             )
                 throw new InvalidOperationException(
@@ -921,7 +925,7 @@ public partial class PostService(
                 || !await ps.IsMemberWithRole(
                     post.PublisherId.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.DyEditor
+                    PublisherMemberRole.Editor
                 )
             )
                 throw new InvalidOperationException("Only editors can pin replies.");
@@ -947,7 +951,7 @@ public partial class PostService(
                 !await ps.IsMemberWithRole(
                     post.RepliedPost.PublisherId!.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.DyEditor
+                    PublisherMemberRole.Editor
                 )
             )
                 throw new InvalidOperationException(
@@ -961,7 +965,7 @@ public partial class PostService(
                 || !await ps.IsMemberWithRole(
                     post.PublisherId.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.DyEditor
+                    PublisherMemberRole.Editor
                 )
             )
                 throw new InvalidOperationException("Only editors can unpin posts.");
@@ -1024,13 +1028,13 @@ public partial class PostService(
 
         switch (reaction.Attitude)
         {
-            case Shared.Models.PostReactionAttitude.Positive:
+            case PostReactionAttitude.Positive:
                 if (isRemoving)
                     post.Upvotes--;
                 else
                     post.Upvotes++;
                 break;
-            case Shared.Models.PostReactionAttitude.Negative:
+            case PostReactionAttitude.Negative:
                 if (isRemoving)
                     post.Downvotes--;
                 else
@@ -1066,7 +1070,7 @@ public partial class PostService(
             if (
                 accountActor != null
                 && publisherActor != null
-                && reaction.Attitude == Shared.Models.PostReactionAttitude.Positive
+                && reaction.Attitude == PostReactionAttitude.Positive
             )
             {
                 if (!isRemoving)
@@ -1126,7 +1130,7 @@ public partial class PostService(
         _ = Task.Run(async () =>
         {
             using var scope = factory.CreateScope();
-            var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
+            var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accounts =
                 scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
@@ -1135,7 +1139,7 @@ public partial class PostService(
                 if (post.PublisherId == null)
                     return;
                 var members = await pub.GetPublisherMembers(post.PublisherId.Value);
-                var queryRequest = new GetAccountBatchRequest();
+                var queryRequest = new DyGetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
                 foreach (var member in queryResponse.Accounts)
@@ -1340,7 +1344,7 @@ public partial class PostService(
 
     private async Task<List<SnPost>> LoadInteractive(
         List<SnPost> posts,
-        Account? currentUser = null
+        DyAccount? currentUser = null
     )
     {
         if (posts.Count == 0)
@@ -1360,7 +1364,7 @@ public partial class PostService(
         if (currentUser is not null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(
-                new ListRelationshipSimpleRequest { AccountId = currentUser.Id }
+                new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
             );
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
             publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
@@ -1411,7 +1415,7 @@ public partial class PostService(
 
     private bool CanViewPost(
         SnPost post,
-        Account? currentUser,
+        DyAccount? currentUser,
         List<SnPublisher> publishers,
         List<Guid> userFriends
     )
@@ -1428,7 +1432,7 @@ public partial class PostService(
             // Anonymous user can only view public posts that are published
             return post.PublishedAt != null
                 && now >= post.PublishedAt
-                && post.Visibility == Shared.Models.PostVisibility.Public;
+                && post.Visibility == PostVisibility.Public;
         }
 
         // Check publication status - either published or user is member
@@ -1438,11 +1442,11 @@ public partial class PostService(
             return false;
 
         // Check visibility
-        if (post.Visibility == Shared.Models.PostVisibility.Private && !isMember)
+        if (post.Visibility == PostVisibility.Private && !isMember)
             return false;
 
         if (
-            post.Visibility == Shared.Models.PostVisibility.Friends
+            post.Visibility == PostVisibility.Friends
             && !(
                 post.Publisher is not null
                     && post.Publisher.AccountId.HasValue
@@ -1466,7 +1470,7 @@ public partial class PostService(
 
     public async Task<List<SnPost>> LoadPostInfo(
         List<SnPost> posts,
-        Account? currentUser = null,
+        DyAccount? currentUser = null,
         bool truncate = false
     )
     {
@@ -1484,7 +1488,7 @@ public partial class PostService(
 
     public async Task<SnPost> LoadPostInfo(
         SnPost post,
-        Account? currentUser = null,
+        DyAccount? currentUser = null,
         bool truncate = false
     )
     {
@@ -1495,7 +1499,7 @@ public partial class PostService(
 
     private const string FeaturedPostCacheKey = "posts:featured";
 
-    public async Task<List<SnPost>> ListFeaturedPostsAsync(Account? currentUser = null)
+    public async Task<List<SnPost>> ListFeaturedPostsAsync(DyAccount? currentUser = null)
     {
         // Check cache first for featured post IDs
         var featuredIds = await cache.GetAsync<List<Guid>>(FeaturedPostCacheKey);
@@ -1512,7 +1516,7 @@ public partial class PostService(
             var periodEnd = today.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
 
             var postsInPeriod = await db
-                .Posts.Where(e => e.Visibility == Shared.Models.PostVisibility.Public)
+                .Posts.Where(e => e.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.FediverseUri == null)
                 .Select(e => e.Id)
@@ -1525,7 +1529,7 @@ public partial class PostService(
                 {
                     PostId = e.Key,
                     Score = e.Sum(r =>
-                        r.Attitude == Shared.Models.PostReactionAttitude.Positive ? 1 : -1
+                        r.Attitude == PostReactionAttitude.Positive ? 1 : -1
                     ),
                 })
                 .ToDictionaryAsync(e => e.PostId, e => e.Score);
@@ -1599,7 +1603,7 @@ public partial class PostService(
         Guid postId,
         Guid accountId,
         decimal amount,
-        Shared.Models.PostReactionAttitude attitude,
+        PostReactionAttitude attitude,
         string? message
     )
     {
@@ -1620,7 +1624,7 @@ public partial class PostService(
         await db.SaveChangesAsync();
 
         var delta =
-            award.Attitude == Shared.Models.PostReactionAttitude.Positive ? amount : -amount;
+            award.Attitude == PostReactionAttitude.Positive ? amount : -amount;
 
         await db
             .Posts.Where(p => p.Id == postId)
@@ -1631,7 +1635,7 @@ public partial class PostService(
         _ = Task.Run(async () =>
         {
             using var scope = factory.CreateScope();
-            var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
+            var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accounts =
                 scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
@@ -1643,7 +1647,7 @@ public partial class PostService(
                 if (post.PublisherId == null)
                     return;
                 var members = await pub.GetPublisherMembers(post.PublisherId.Value);
-                var queryRequest = new GetAccountBatchRequest();
+                var queryRequest = new DyGetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
                 foreach (var member in queryResponse.Accounts)
@@ -1702,9 +1706,9 @@ public static class PostQueryExtensions
 {
     public static IQueryable<SnPost> FilterWithVisibility(
         this IQueryable<SnPost> source,
-        Account? currentUser,
+        DyAccount? currentUser,
         List<Guid> userFriends,
-        List<Shared.Models.SnPublisher> publishers,
+        List<SnPublisher> publishers,
         bool isListing = false
     )
     {

@@ -4,9 +4,9 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentServiceClient payment)
+public class RemotePaymentService(DyPaymentService.DyPaymentServiceClient payment)
 {
-    public async Task<DysonNetwork.DyOrder> CreateOrder(
+    public async Task<DyOrder> CreateOrder(
         string currency,
         string amount,
         string? payeeWalletId = null,
@@ -15,9 +15,10 @@ public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentService
         string? productIdentifier = null,
         byte[]? meta = null,
         string? remarks = null,
-        bool reuseable = false)
+        bool reuseable = false
+    )
     {
-        var request = new DysonNetwork.DyCreateOrderRequest
+        var request = new DyCreateOrderRequest
         {
             Currency = currency,
             Amount = amount,
@@ -46,15 +47,15 @@ public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentService
         return response;
     }
 
-    public async Task<DysonNetwork.DyTransaction> CreateTransaction(
+    public async Task<DyTransaction> CreateTransaction(
         string? payerWalletId,
         string? payeeWalletId,
         string currency,
         string amount,
         string? remarks = null,
-        DysonNetwork.DyTransactionType type = DysonNetwork.DyTransactionType.Unspecified)
+        DyTransactionType type = DyTransactionType.Unspecified)
     {
-        var request = new DysonNetwork.Shared.Proto.CreateTransactionRequest
+        var request = new DysonNetwork.Shared.Proto.DyCreateTransactionRequest
         {
             Currency = currency,
             Amount = amount,
@@ -74,15 +75,15 @@ public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentService
         return response;
     }
 
-    public async Task<DysonNetwork.Shared.Proto.Transaction> CreateTransactionWithAccount(
+    public async Task<DyTransaction> CreateTransactionWithAccount(
         string? payerAccountId,
         string? payeeAccountId,
         string currency,
         string amount,
         string? remarks = null,
-        DysonNetwork.Shared.Proto.TransactionType type = DysonNetwork.Shared.Proto.TransactionType.Unspecified)
+        DyTransactionType type = DyTransactionType.Unspecified)
     {
-        var request = new DysonNetwork.Shared.Proto.CreateTransactionWithAccountRequest
+        var request = new DyCreateTransactionWithAccountRequest
         {
             Currency = currency,
             Amount = amount,
@@ -102,13 +103,13 @@ public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentService
         return response;
     }
 
-    public async Task<DysonNetwork.Shared.Proto.Transaction> Transfer(
+    public async Task<DyTransaction> Transfer(
         Guid payerAccountId,
         Guid payeeAccountId,
         string currency,
         string amount)
     {
-        var request = new DysonNetwork.Shared.Proto.TransferRequest
+        var request = new DysonNetwork.Shared.Proto.DyTransferRequest
         {
             PayerAccountId = payerAccountId.ToString(),
             PayeeAccountId = payeeAccountId.ToString(),
@@ -120,23 +121,23 @@ public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentService
         return response;
     }
 
-    public async Task<DysonNetwork.Shared.Proto.Order> CancelOrder(string orderId)
+    public async Task<DyOrder> CancelOrder(string orderId)
     {
-        var request = new DysonNetwork.Shared.Proto.CancelOrderRequest { OrderId = orderId };
+        var request = new DysonNetwork.Shared.Proto.DyCancelOrderRequest { OrderId = orderId };
         var response = await payment.CancelOrderAsync(request);
         return response;
     }
 
-    public async Task<DysonNetwork.Shared.Proto.RefundOrderResponse> RefundOrder(string orderId)
+    public async Task<DysonNetwork.Shared.Proto.DyRefundOrderResponse> RefundOrder(string orderId)
     {
-        var request = new DysonNetwork.Shared.Proto.RefundOrderRequest { OrderId = orderId };
+        var request = new DysonNetwork.Shared.Proto.DyRefundOrderRequest { OrderId = orderId };
         var response = await payment.RefundOrderAsync(request);
         return response;
     }
 
-    public async Task<WalletFund> GetWalletFund(string fundId)
+    public async Task<DyWalletFund> GetWalletFund(string fundId)
     {
-        var request = new GetWalletFundRequest { FundId = fundId };
+        var request = new DysonNetwork.Shared.Proto.DyGetWalletFundRequest { FundId = fundId };
         var response = await payment.GetWalletFundAsync(request);
         return response;
     }

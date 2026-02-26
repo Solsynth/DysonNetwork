@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,7 +35,7 @@ public class PublicationSiteController(
         var publisher = await publisherService.GetPublisherByName(pubName);
         if (publisher == null) return NotFound();
 
-        if (!await publisherService.IsMemberWithRole(publisher.Id, accountId, Models.PublisherMemberRole.DyViewer))
+        if (!await publisherService.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
             return Forbid();
 
         var sites = await publicationService.GetSitesByPublisherIds([publisher.Id]);

@@ -111,11 +111,13 @@ public class TemplateContextBuilder(
         };
     }
 
-    private async Task<(Dictionary<string, object?> Page, Dictionary<string, object?> Post, Dictionary<string, object?> Posts)>
+    private async Task<(Dictionary<string, object?> Page, Dictionary<string, object?> Post, Dictionary<string, object?>
+            Posts)>
         BuildPostDetailAsync(SnPublicationSite site, TemplateRouteResolution route, int pageSize, int pageIndex)
     {
         var slugKey = route.RouteEntry?.Data?.SlugParam;
-        var lookupSlug = !string.IsNullOrWhiteSpace(slugKey) && route.RouteParams.TryGetValue(slugKey!, out var configured)
+        var lookupSlug = !string.IsNullOrWhiteSpace(slugKey) &&
+                         route.RouteParams.TryGetValue(slugKey!, out var configured)
             ? configured
             : route.RouteParams.TryGetValue("slug", out var direct)
                 ? direct
@@ -195,7 +197,8 @@ public class TemplateContextBuilder(
         return (page, renderedPost, posts);
     }
 
-    private async Task<(Dictionary<string, object?> Page, Dictionary<string, object?>? CurrentPost, Dictionary<string, object?> Posts)>
+    private async Task<(Dictionary<string, object?> Page, Dictionary<string, object?>? CurrentPost,
+            Dictionary<string, object?> Posts)>
         BuildPostListingAsync(SnPublicationSite site, TemplateRouteResolution route, int pageSize, int pageIndex)
     {
         var data = route.RouteEntry?.Data;
@@ -205,24 +208,25 @@ public class TemplateContextBuilder(
         var includeForwards = data?.IncludeForwards ?? true;
 
         var publisherIds = data?.PublisherIds is { Count: > 0 }
-            ? data.PublisherIds.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            ? data.PublisherIds.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             : new List<string> { site.PublisherId.ToString() };
 
         var fetchSize = Math.Clamp(pageSize * pageIndex, pageSize, 200);
         var allPosts = new List<SnPost>();
         var totalSize = 0;
 
-        foreach (var publisherId in publisherIds)
-        {
-            var request = new ListPostsRequest
+        foreach (
+            var request in publisherIds.Select(publisherId => new DyListPostsRequest
             {
                 PublisherId = publisherId,
                 PageSize = fetchSize,
                 PageToken = "0",
                 OrderDesc = orderDesc,
                 IncludeReplies = includeReplies,
-            };
-
+            })
+        )
+        {
             if (!string.IsNullOrWhiteSpace(orderBy))
                 request.OrderBy = orderBy;
 
@@ -232,18 +236,24 @@ public class TemplateContextBuilder(
                 foreach (var type in typeHints)
                 {
                     var normalized = type.Trim().ToLowerInvariant();
-                    if (normalized == "moment")
-                        request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Moment);
-                    else if (normalized == "article")
-                        request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+                    switch (normalized)
+                    {
+                        case "moment":
+                            request.Types_.Add(DyPostType.DyMoment);
+                            break;
+                        case "article":
+                            request.Types_.Add(DyPostType.DyArticle);
+                            break;
+                    }
                 }
             }
 
             if (request.Types_.Count == 0)
-                request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+                request.Types_.Add(DyPostType.DyArticle);
 
             if (data?.Categories is { Count: > 0 })
-                request.Categories.AddRange(data.Categories.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()));
+                request.Categories.AddRange(data.Categories.Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim()));
 
             if (data?.Tags is { Count: > 0 })
                 request.Tags.AddRange(data.Tags.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()));
@@ -534,22 +544,26 @@ public class TemplateContextBuilder(
             ["bio"] = publisher.Bio,
             ["picture_url"] = pictureUrl,
             ["background_url"] = backgroundUrl,
-            ["picture"] = publisher.Picture is null ? null : new Dictionary<string, object?>
-            {
-                ["id"] = publisher.Picture.Id,
-                ["name"] = publisher.Picture.Name,
-                ["mime_type"] = publisher.Picture.MimeType,
-                ["size"] = publisher.Picture.Size,
-                ["url"] = pictureUrl,
-            },
-            ["background"] = publisher.Background is null ? null : new Dictionary<string, object?>
-            {
-                ["id"] = publisher.Background.Id,
-                ["name"] = publisher.Background.Name,
-                ["mime_type"] = publisher.Background.MimeType,
-                ["size"] = publisher.Background.Size,
-                ["url"] = backgroundUrl,
-            },
+            ["picture"] = publisher.Picture is null
+                ? null
+                : new Dictionary<string, object?>
+                {
+                    ["id"] = publisher.Picture.Id,
+                    ["name"] = publisher.Picture.Name,
+                    ["mime_type"] = publisher.Picture.MimeType,
+                    ["size"] = publisher.Picture.Size,
+                    ["url"] = pictureUrl,
+                },
+            ["background"] = publisher.Background is null
+                ? null
+                : new Dictionary<string, object?>
+                {
+                    ["id"] = publisher.Background.Id,
+                    ["name"] = publisher.Background.Name,
+                    ["mime_type"] = publisher.Background.MimeType,
+                    ["size"] = publisher.Background.Size,
+                    ["url"] = backgroundUrl,
+                },
         };
     }
 }

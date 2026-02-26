@@ -599,15 +599,13 @@ public class SubscriptionService(
     {
         // Validate subscription exists
         var subscriptionInfo = SubscriptionTypeData
-            .SubscriptionDict.TryGetValue(subscriptionIdentifier, out var template)
-            ? template
-            : null;
+            .SubscriptionDict.GetValueOrDefault(subscriptionIdentifier);
         if (subscriptionInfo is null)
             throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier),
                 $@"Subscription {subscriptionIdentifier} was not found.");
 
         // Check if recipient account exists (if specified)
-        Account? recipient = null;
+        DyAccount? recipient = null;
         if (recipientId.HasValue)
         {
             var accountProto =
@@ -989,7 +987,7 @@ public class SubscriptionService(
         try
         {
             // Get the account's existing sponsor badges using the AccountService
-            var listBadgesRequest = new ListBadgesRequest
+            var listBadgesRequest = new DyListBadgesRequest
             {
                 AccountId = subscription.AccountId.ToString(),
                 Type = "sponsor",
@@ -1015,7 +1013,7 @@ public class SubscriptionService(
             }
 
             // Create new sponsor badge
-            var newBadge = new AccountBadge
+            var newBadge = new DyAccountBadge
             {
                 Type = "sponsor",
                 Label = "Sponsor",
@@ -1028,7 +1026,7 @@ public class SubscriptionService(
             newBadge.Meta.Add("subscription_id", new Value { StringValue = subscription.Id.ToString() });
 
             // Grant the new badge using the AccountService
-            var grantBadgeRequest = new GrantBadgeRequest
+            var grantBadgeRequest = new DyGrantBadgeRequest
             {
                 AccountId = subscription.AccountId.ToString(),
                 Badge = newBadge

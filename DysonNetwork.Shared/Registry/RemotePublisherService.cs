@@ -13,7 +13,7 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
         if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(id))
             throw new ArgumentException("Only one of name or id can be provided.");
 
-        var request = new GetPublisherRequest();
+        var request = new DyGetPublisherRequest();
         if (!string.IsNullOrEmpty(name))
             request.Name = name;
         else
@@ -26,7 +26,7 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     public async Task<List<SnPublisher>> GetPublishersBatch(List<string> ids,
         CancellationToken cancellationToken = default)
     {
-        var request = new GetPublisherBatchRequest();
+        var request = new DyGetPublisherBatchRequest();
         request.Ids.AddRange(ids);
         var response = await publishers.GetPublisherBatchAsync(request, cancellationToken: cancellationToken);
         return response.Publishers.Select(SnPublisher.FromProtoValue).ToList();
@@ -35,7 +35,7 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     public async Task<List<SnPublisher>> ListPublishers(string? accountId = null, string? realmId = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new ListPublishersRequest
+        var request = new DyListPublishersRequest
         {
             AccountId = accountId ?? "",
             RealmId = realmId ?? ""
@@ -47,7 +47,7 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     public async Task<List<SnPublisherMember>> ListPublisherMembers(string publisherId,
         CancellationToken cancellationToken = default)
     {
-        var request = new ListPublisherMembersRequest { PublisherId = publisherId };
+        var request = new DyListPublisherMembersRequest { PublisherId = publisherId };
         var response = await publishers.ListPublisherMembersAsync(request, cancellationToken: cancellationToken);
         return response.Members.Select(SnPublisherMember.FromProtoValue).ToList();
     }
@@ -55,7 +55,7 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     public async Task<string?> SetPublisherFeatureFlag(string publisherId, string flag,
         CancellationToken cancellationToken = default)
     {
-        var request = new SetPublisherFeatureFlagRequest
+        var request = new DySetPublisherFeatureFlagRequest
         {
             PublisherId = publisherId,
             Flag = flag
@@ -67,7 +67,7 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     public async Task<bool> HasPublisherFeature(string publisherId, string flag,
         CancellationToken cancellationToken = default)
     {
-        var request = new HasPublisherFeatureRequest
+        var request = new DyHasPublisherFeatureRequest
         {
             PublisherId = publisherId,
             Flag = flag
@@ -77,9 +77,9 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     }
 
     public async Task<bool> IsPublisherMember(string publisherId, string accountId,
-        Proto.PublisherMemberRole? role = null, CancellationToken cancellationToken = default)
+        DyPublisherMemberRole? role = null, CancellationToken cancellationToken = default)
     {
-        var request = new IsPublisherMemberRequest
+        var request = new DyIsPublisherMemberRequest
         {
             PublisherId = publisherId,
             AccountId = accountId,
@@ -100,11 +100,10 @@ public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient 
     {
         var protoRole = role switch
         {
-            Models.PublisherMemberRole.DyOwner => Proto.PublisherMemberRole.DyOwner,
-            Models.PublisherMemberRole.DyManager => Proto.PublisherMemberRole.DyManager,
-            Models.PublisherMemberRole.DyEditor => Proto.PublisherMemberRole.DyEditor,
-            Models.PublisherMemberRole.DyViewer => Proto.PublisherMemberRole.DyViewer,
-            _ => Proto.PublisherMemberRole.DyUnspecified
+            PublisherMemberRole.Owner => DyPublisherMemberRole.DyOwner,
+            PublisherMemberRole.Manager => DyPublisherMemberRole.DyManager,
+            PublisherMemberRole.Editor => DyPublisherMemberRole.DyEditor,
+            _ => DyPublisherMemberRole.DyViewer
         };
         return await IsPublisherMember(publisherId.ToString(), accountId.ToString(), protoRole, cancellationToken);
     }

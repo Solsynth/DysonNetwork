@@ -103,7 +103,7 @@ public class PostActionController(
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
                 return BadRequest("Publisher was not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyEditor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
         }
 
@@ -337,7 +337,7 @@ public class PostActionController(
             return Unauthorized();
 
         var friendsResponse = await accounts.ListFriendsAsync(
-            new ListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
         );
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
@@ -439,11 +439,11 @@ public class PostActionController(
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
-        if (request.Attitude == Shared.Models.PostReactionAttitude.Neutral)
+        if (request.Attitude == PostReactionAttitude.Neutral)
             return BadRequest("You cannot create a neutral post award");
 
         var friendsResponse = await accounts.ListFriendsAsync(
-            new ListRelationshipSimpleRequest { AccountId = currentUser.Id.ToString() }
+            new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
         );
         var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
@@ -503,7 +503,7 @@ public class PostActionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (post.PublisherId == null ||
-            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.DyEditor))
+            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
@@ -568,7 +568,7 @@ public class PostActionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (post.PublisherId == null ||
-            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.DyEditor))
+            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
@@ -642,7 +642,7 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.DyEditor))
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (pubName is not null)
@@ -650,7 +650,7 @@ public class PostActionController(
             var publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
                 return NotFound();
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyEditor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(
                     403,
                     "You need at least be an editor to transfer this post to this publisher."
@@ -892,7 +892,7 @@ public class PostActionController(
             !await pub.IsMemberWithRole(
                 post.Publisher.Id,
                 Guid.Parse(currentUser.Id),
-                PublisherMemberRole.DyEditor
+                PublisherMemberRole.Editor
             )
         )
             return StatusCode(

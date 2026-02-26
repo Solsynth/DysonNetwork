@@ -1,16 +1,13 @@
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
-using ProtoLinkEmbed = DysonNetwork.DyLinkEmbed;
 using ModelsLinkEmbed = DysonNetwork.Shared.Models.Embed.LinkEmbed;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemoteWebReaderService(WebReaderService.WebReaderServiceClient webReader)
+public class RemoteWebReaderService(DyWebReaderService.DyWebReaderServiceClient webReader)
 {
     public async Task<(ModelsLinkEmbed LinkEmbed, string? Content)> ScrapeArticle(string url)
     {
-        var request = new ScrapeArticleRequest { Url = url };
+        var request = new DyScrapeArticleRequest { Url = url };
         var response = await webReader.ScrapeArticleAsync(request);
         return (
             LinkEmbed: response.Article?.LinkEmbed != null ? ModelsLinkEmbed.FromProtoValue(response.Article.LinkEmbed) : null!,
@@ -20,14 +17,14 @@ public class RemoteWebReaderService(WebReaderService.WebReaderServiceClient webR
 
     public async Task<ModelsLinkEmbed> GetLinkPreview(string url, bool bypassCache = false)
     {
-        var request = new GetLinkPreviewRequest { Url = url, BypassCache = bypassCache };
+        var request = new DyGetLinkPreviewRequest { Url = url, BypassCache = bypassCache };
         var response = await webReader.GetLinkPreviewAsync(request);
         return response.Preview != null ? ModelsLinkEmbed.FromProtoValue(response.Preview) : null!;
     }
 
     public async Task<bool> InvalidateLinkPreviewCache(string url)
     {
-        var request = new InvalidateLinkPreviewCacheRequest { Url = url };
+        var request = new DyInvalidateLinkPreviewCacheRequest { Url = url };
         var response = await webReader.InvalidateLinkPreviewCacheAsync(request);
         return response.Success;
     }

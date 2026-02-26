@@ -2,25 +2,25 @@ using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemoteWalletService(WalletService.WalletServiceClient wallet)
+public class RemoteWalletService(DyWalletService.DyWalletServiceClient wallet)
 {
-    public async Task<Wallet> GetWallet(Guid accountId)
+    public async Task<DyWallet> GetWallet(Guid accountId)
     {
-        var request = new GetWalletRequest { AccountId = accountId.ToString() };
+        var request = new DyGetWalletRequest { AccountId = accountId.ToString() };
         var response = await wallet.GetWalletAsync(request);
         return response;
     }
 
-    public async Task<Wallet> CreateWallet(Guid accountId)
+    public async Task<DyWallet> CreateWallet(Guid accountId)
     {
-        var request = new CreateWalletRequest { AccountId = accountId.ToString() };
+        var request = new DyCreateWalletRequest { AccountId = accountId.ToString() };
         var response = await wallet.CreateWalletAsync(request);
         return response;
     }
 
-    public async Task<WalletPocket> GetOrCreateWalletPocket(Guid walletId, string currency, decimal? initialAmount = null)
+    public async Task<DyWalletPocket> GetOrCreateWalletPocket(Guid walletId, string currency, decimal? initialAmount = null)
     {
-        var request = new GetOrCreateWalletPocketRequest
+        var request = new DyGetOrCreateWalletPocketRequest
         {
             WalletId = walletId.ToString(),
             Currency = currency

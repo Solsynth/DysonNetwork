@@ -31,7 +31,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         return new DyGetPublisherResponse { Publisher = p.ToProtoValue() };
     }
 
-    public override async Task<DyGetPublisherBatchResponse> GetPublisherBatch(
+    public override async Task<DyListPublishersResponse> GetPublisherBatch(
         DyGetPublisherBatchRequest request,
         ServerCallContext context
     )
@@ -40,9 +40,9 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             .Where(s => !string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out _))
             .Select(Guid.Parse)
             .ToList();
-        if (ids.Count == 0) return new DyGetPublisherBatchResponse();
+        if (ids.Count == 0) return new DyListPublishersResponse();
         var list = await db.Publishers.Where(p => ids.Contains(p.Id)).ToListAsync();
-        var resp = new DyGetPublisherBatchResponse();
+        var resp = new DyListPublishersResponse();
         resp.Publishers.AddRange(list.Select(p => p.ToProtoValue()));
         return resp;
     }
@@ -106,10 +106,10 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid account_id"));
         var requiredRole = request.Role switch
         {
-            DyPublisherMemberRole.DyOwner => PublisherMemberRole.DyOwner,
-            DyPublisherMemberRole.DyManager => PublisherMemberRole.DyManager,
-            DyPublisherMemberRole.DyEditor => PublisherMemberRole.DyEditor,
-            _ => PublisherMemberRole.DyViewer
+            DyPublisherMemberRole.DyOwner => PublisherMemberRole.Owner,
+            DyPublisherMemberRole.DyManager => PublisherMemberRole.Manager,
+            DyPublisherMemberRole.DyEditor => PublisherMemberRole.Editor,
+            _ =>PublisherMemberRole.Viewer
         };
         var valid = await service.IsMemberWithRole(pid, aid, requiredRole);
         return new DyIsPublisherMemberResponse { Valid = valid };

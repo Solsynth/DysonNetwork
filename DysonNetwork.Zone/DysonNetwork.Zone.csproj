@@ -92,6 +92,21 @@
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery-validation\dist\jquery.validate.min.js" />
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery-validation\LICENSE.md" />
       <_ContentIncludedByDefault Remove="wwwroot\SiteData\5755cb46-ae17-4b4e-9716-45b264e9851f\capture-the-flag.mp4" />
+      <_ContentIncludedByDefault Remove="Pages\About.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Dynamic\DynamicPage.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Error.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Index.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Posts.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Posts\Details.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_Layout.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_LayoutContained.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_PostItem.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_PublisherInfo.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_SiteInfo.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_UserInfo.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\Shared\_ValidationScriptsPartial.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\_ViewImports.cshtml" />
+      <_ContentIncludedByDefault Remove="Pages\_ViewStart.cshtml" />
     </ItemGroup>
 
     <ItemGroup>
