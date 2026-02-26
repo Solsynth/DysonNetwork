@@ -9,7 +9,7 @@ public interface IWebSocketPacketHandler
     string PacketType { get; }
 
     Task HandleAsync(
-        Account currentUser,
+        DyAccount currentUser,
         string deviceId,
         WebSocketPacket packet,
         WebSocket socket,

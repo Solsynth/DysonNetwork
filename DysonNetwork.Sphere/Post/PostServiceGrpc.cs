@@ -47,7 +47,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
         return post.ToProtoValue();
     }
 
-    public override async Task<GetPostBatchResponse> GetPostBatch(GetPostBatchRequest request,
+    public override async Task<DyGetPostBatchResponse> GetPostBatch(DyGetPostBatchRequest request,
         ServerCallContext context)
     {
         var ids = request.Ids
@@ -55,7 +55,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             .Select(Guid.Parse)
             .ToList();
 
-        if (ids.Count == 0) return new GetPostBatchResponse();
+        if (ids.Count == 0) return new DyGetPostBatchResponse();
 
         var posts = await db.Posts
             .Include(p => p.Publisher)
@@ -69,14 +69,14 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             .FilterWithVisibility(null, [], [])
             .ToListAsync();
 
-        posts = await ps.LoadPostInfo(posts, null);
+        posts = await ps.LoadPostInfo(posts, null, true);
 
-        var resp = new GetPostBatchResponse();
+        var resp = new DyGetPostBatchResponse();
         resp.Posts.AddRange(posts.Select(p => p.ToProtoValue()));
         return resp;
     }
 
-    public override async Task<SearchPostsResponse> SearchPosts(SearchPostsRequest request, ServerCallContext context)
+    public override async Task<DySearchPostsResponse> SearchPosts(DySearchPostsRequest request, ServerCallContext context)
     {
         var query = db.Posts
             .Include(p => p.Publisher)
@@ -122,7 +122,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
 
         var nextToken = offset + pageSize < totalSize ? (offset + pageSize).ToString() : string.Empty;
 
-        var resp = new SearchPostsResponse();
+        var resp = new DySearchPostsResponse();
         resp.Posts.AddRange(posts.Select(p => p.ToProtoValue()));
         resp.NextPageToken = nextToken;
         resp.TotalSize = totalSize;
@@ -130,7 +130,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
         return resp;
     }
 
-    public override async Task<ListPostsResponse> ListPosts(ListPostsRequest request, ServerCallContext context)
+    public override async Task<DyListPostsResponse> ListPosts(DyListPostsRequest request, ServerCallContext context)
     {
         var query = db.Posts
             .Include(p => p.Publisher)
@@ -240,7 +240,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
 
         var nextToken = offset + pageSize < totalSize ? (offset + pageSize).ToString() : string.Empty;
 
-        var resp = new ListPostsResponse();
+        var resp = new DyListPostsResponse();
         resp.Posts.AddRange(posts.Select(p => p.ToProtoValue()));
         resp.NextPageToken = nextToken;
         resp.TotalSize = totalSize;

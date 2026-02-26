@@ -11,8 +11,8 @@ public class SubscriptionServiceGrpc(
 {
     private readonly DyAccountService.DyAccountServiceClient _accounts = accounts;
 
-    public override async Task<Subscription> GetSubscription(
-        GetSubscriptionRequest request,
+    public override async Task<DySubscription> GetSubscription(
+        DyGetSubscriptionRequest request,
         ServerCallContext context
     )
     {
@@ -24,8 +24,8 @@ public class SubscriptionServiceGrpc(
                ?? throw new RpcException(new Status(StatusCode.NotFound, "Subscription not found"));
     }
 
-    public override async Task<Subscription> GetPerkSubscription(
-        GetPerkSubscriptionRequest request,
+    public override async Task<DySubscription> GetPerkSubscription(
+        DyGetPerkSubscriptionRequest request,
         ServerCallContext context
     )
     {
@@ -34,18 +34,18 @@ public class SubscriptionServiceGrpc(
         );
         // Return empty subscription if user has no active perk subscription (valid case)
         // RemoteSubscriptionService will convert empty subscription to null
-        return subscription?.ToProtoValue() ?? new Subscription { Id = "" };
+        return subscription?.ToProtoValue() ?? new DySubscription { Id = "" };
     }
 
-    public override async Task<GetPerkSubscriptionsResponse> GetPerkSubscriptions(
-        GetPerkSubscriptionsRequest request,
+    public override async Task<DyGetPerkSubscriptionsResponse> GetPerkSubscriptions(
+        DyGetPerkSubscriptionsRequest request,
         ServerCallContext context
     )
     {
         var accountIds = request.AccountIds.Select(Guid.Parse).ToList();
         var subscriptions = await subscriptionService.GetPerkSubscriptionsAsync(accountIds);
 
-        var response = new GetPerkSubscriptionsResponse();
+        var response = new DyGetPerkSubscriptionsResponse();
         foreach (var subscription in subscriptions.Values)
         {
             if (subscription != null)
@@ -57,8 +57,8 @@ public class SubscriptionServiceGrpc(
         return response;
     }
 
-    public override async Task<Subscription> CreateSubscription(
-        CreateSubscriptionRequest request,
+    public override async Task<DySubscription> CreateSubscription(
+        DyCreateSubscriptionRequest request,
         ServerCallContext context
     )
     {
@@ -83,8 +83,8 @@ public class SubscriptionServiceGrpc(
         return subscription.ToProtoValue();
     }
 
-    public override async Task<Subscription> CancelSubscription(
-        CancelSubscriptionRequest request,
+    public override async Task<DySubscription> CancelSubscription(
+        DyCancelSubscriptionRequest request,
         ServerCallContext context
     )
     {

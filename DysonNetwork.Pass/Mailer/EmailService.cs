@@ -19,9 +19,9 @@ public class EmailService(
     )
     {
         await pusher.SendEmailAsync(
-            new SendEmailRequest()
+            new DySendEmailRequest
             {
-                Email = new EmailMessage()
+                Email = new DyEmailMessage
                 {
                     ToName = recipientName,
                     ToAddress = recipientEmail,

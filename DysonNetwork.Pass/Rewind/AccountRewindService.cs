@@ -38,9 +38,9 @@ public class AccountRewindService(
     private async Task<SnRewindPoint> CreateRewindPoint(Guid accountId)
     {
         const int currentYear = 2025;
-        var rewindRequest = new RequestRewindEvent { AccountId = accountId.ToString(), Year = currentYear };
+        var rewindRequest = new DyRequestRewindEvent { AccountId = accountId.ToString(), Year = currentYear };
 
-        var rewindEventTasks = new List<Task<RewindEvent>>
+        var rewindEventTasks = new List<Task<DyRewindEvent>>
         {
             passRewindSrv.CreateRewindEvent(accountId, currentYear),
             CreateRewindServiceClient("sphere").GetRewindEventAsync(rewindRequest).ResponseAsync,
@@ -48,7 +48,7 @@ public class AccountRewindService(
         };
         var rewindEvents = await Task.WhenAll(rewindEventTasks);
 
-        var rewindData = rewindEvents.ToDictionary<RewindEvent, string, Dictionary<string, object?>>(
+        var rewindData = rewindEvents.ToDictionary<DyRewindEvent, string, Dictionary<string, object?>>(
             rewindEvent => rewindEvent.ServiceId,
             rewindEvent => InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(rewindEvent.Data) ??
                            new Dictionary<string, object?>()

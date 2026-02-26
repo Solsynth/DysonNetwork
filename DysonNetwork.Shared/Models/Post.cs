@@ -103,7 +103,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public PostEmbedView? EmbedView { get; set; }
 
     [MaxLength(8192)] public string? FediverseUri { get; set; }
-    public FediverseContentType? FediverseType { get; set; }
+    public DyFediverseContentType? FediverseType { get; set; }
     [MaxLength(2048)] public string? Language { get; set; }
     [Column(TypeName = "jsonb")]
     public List<ContentMention>? Mentions { get; set; }
@@ -333,8 +333,8 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
         if (!string.IsNullOrEmpty(proto.FediverseUri))
             post.FediverseUri = proto.FediverseUri;
 
-        if (proto.HasFediverseType && proto.FediverseType > 0)
-            post.FediverseType = (FediverseContentType)((int)proto.FediverseType - 1);
+        if (proto is { HasFediverseType: true, FediverseType: > 0 })
+            post.FediverseType = (DyFediverseContentType)((int)proto.FediverseType - 1);
 
         if (!string.IsNullOrEmpty(proto.Language))
             post.Language = proto.Language;
@@ -434,9 +434,9 @@ public class SnPostTag : ModelBase
     [NotMapped]
     public int? Usage { get; set; }
 
-    public PostTag ToProtoValue()
+    public DyPostTag ToProtoValue()
     {
-        return new PostTag
+        return new DyPostTag
         {
             Id = Id.ToString(),
             Slug = Slug,
@@ -446,7 +446,7 @@ public class SnPostTag : ModelBase
         };
     }
 
-    public static SnPostTag FromProtoValue(PostTag proto)
+    public static SnPostTag FromProtoValue(DyPostTag proto)
     {
         return new SnPostTag
         {
@@ -475,9 +475,9 @@ public class SnPostCategory : ModelBase
     [NotMapped]
     public int? Usage { get; set; }
 
-    public PostCategory ToProtoValue()
+    public DyPostCategory ToProtoValue()
     {
-        return new PostCategory
+        return new DyPostCategory
         {
             Id = Id.ToString(),
             Slug = Slug,
@@ -487,7 +487,7 @@ public class SnPostCategory : ModelBase
         };
     }
 
-    public static SnPostCategory FromProtoValue(PostCategory proto)
+    public static SnPostCategory FromProtoValue(DyPostCategory proto)
     {
         return new SnPostCategory
         {
@@ -539,9 +539,9 @@ public class SnPostFeaturedRecord : ModelBase
     public Instant? FeaturedAt { get; set; }
     public int SocialCredits { get; set; }
 
-    public PostFeaturedRecord ToProtoValue()
+    public DyPostFeaturedRecord ToProtoValue()
     {
-        var proto = new PostFeaturedRecord
+        var proto = new DyPostFeaturedRecord
         {
             Id = Id.ToString(),
             PostId = PostId.ToString(),
@@ -557,7 +557,7 @@ public class SnPostFeaturedRecord : ModelBase
         return proto;
     }
 
-    public static SnPostFeaturedRecord FromProtoValue(PostFeaturedRecord proto)
+    public static SnPostFeaturedRecord FromProtoValue(DyPostFeaturedRecord proto)
     {
         return new SnPostFeaturedRecord
         {
@@ -602,9 +602,9 @@ public class SnPostReaction : ModelBase
 
     public bool IsLocal { get; set; } = true;
 
-    public PostReaction ToProtoValue()
+    public DyPostReaction ToProtoValue()
     {
-        var proto = new PostReaction
+        var proto = new DyPostReaction
         {
             Id = Id.ToString(),
             Symbol = Symbol,
@@ -625,7 +625,7 @@ public class SnPostReaction : ModelBase
         return proto;
     }
 
-    public static SnPostReaction FromProtoValue(PostReaction proto)
+    public static SnPostReaction FromProtoValue(DyPostReaction proto)
     {
         return new SnPostReaction
         {
@@ -659,9 +659,9 @@ public class SnPostAward : ModelBase
     public SnPost Post { get; set; } = null!;
     public Guid AccountId { get; set; }
 
-    public PostAward ToProtoValue()
+    public DyPostAward ToProtoValue()
     {
-        var proto = new PostAward
+        var proto = new DyPostAward
         {
             Id = Id.ToString(),
             Amount = (double)Amount,

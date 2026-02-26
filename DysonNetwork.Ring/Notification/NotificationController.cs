@@ -88,10 +88,8 @@ public class NotificationController(
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as DyAccount;
-        if (currentUser == null) return Unauthorized();
-        var currentSession = currentSessionValue as AuthSession;
-        if (currentSession == null) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
+            return Unauthorized();
 
         var result =
             await nty.SubscribeDevice(
@@ -110,10 +108,8 @@ public class NotificationController(
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as DyAccount;
-        if (currentUser == null) return Unauthorized();
-        var currentSession = currentSessionValue as AuthSession;
-        if (currentSession == null) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var affectedRows = await db.PushSubscriptions

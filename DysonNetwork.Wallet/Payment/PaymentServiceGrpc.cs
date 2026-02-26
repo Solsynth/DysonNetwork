@@ -9,8 +9,8 @@ namespace DysonNetwork.Wallet.Payment;
 public class PaymentServiceGrpc(PaymentService paymentService)
     : DyPaymentService.DyPaymentServiceBase
 {
-    public override async Task<Order> CreateOrder(
-        CreateOrderRequest request,
+    public override async Task<DyOrder> CreateOrder(
+        DyCreateOrderRequest request,
         ServerCallContext context
     )
     {
@@ -32,8 +32,8 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         return order.ToProtoValue();
     }
 
-    public override async Task<Transaction> CreateTransactionWithAccount(
-        CreateTransactionWithAccountRequest request,
+    public override async Task<DyTransaction> CreateTransactionWithAccount(
+        DyCreateTransactionWithAccountRequest request,
         ServerCallContext context
     )
     {
@@ -49,7 +49,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
     }
 
     public override async Task<DyTransaction> CreateTransaction(
-        CreateTransactionRequest request,
+        DyCreateTransactionRequest request,
         ServerCallContext context
     )
     {
@@ -65,7 +65,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
     }
 
     public override async Task<DyOrder> CancelOrder(
-        CancelOrderRequest request,
+        DyCancelOrderRequest request,
         ServerCallContext context
     )
     {
@@ -73,23 +73,23 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         return order.ToProtoValue();
     }
 
-    public override async Task<RefundOrderResponse> RefundOrder(
-        RefundOrderRequest request,
+    public override async Task<DyRefundOrderResponse> RefundOrder(
+        DyRefundOrderRequest request,
         ServerCallContext context
     )
     {
         var (order, refundTransaction) = await paymentService.RefundOrderAsync(
             Guid.Parse(request.OrderId)
         );
-        return new RefundOrderResponse
+        return new DyRefundOrderResponse
         {
             Order = order.ToProtoValue(),
             RefundTransaction = refundTransaction.ToProtoValue(),
         };
     }
 
-    public override async Task<Transaction> Transfer(
-        TransferRequest request,
+    public override async Task<DyTransaction> Transfer(
+        DyTransferRequest request,
         ServerCallContext context
     )
     {
@@ -102,12 +102,12 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         return transaction.ToProtoValue();
     }
 
-    public override async Task<WalletFund> GetWalletFund(
-        GetWalletFundRequest request,
+    public override async Task<DyWalletFund> GetWalletFund(
+        DyGetWalletFundRequest request,
         ServerCallContext context
     )
     {
         var walletFund = await paymentService.GetWalletFundAsync(Guid.Parse(request.FundId));
-        return walletFund?.ToProtoValueWithRecipients() ?? new WalletFund();
+        return walletFund?.ToProtoValueWithRecipients() ?? new DyWalletFund();
     }
 }

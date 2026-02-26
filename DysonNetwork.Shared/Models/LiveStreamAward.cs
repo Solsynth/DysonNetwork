@@ -42,9 +42,9 @@ public class SnLiveStreamAward : ModelBase
     [JsonIgnore]
     public Instant? HighlightedUntil => CreatedAt.Plus(Duration.FromSeconds(HighlightDurationSeconds));
 
-    public LiveStreamAward ToProtoValue()
+    public DyLiveStreamAward ToProtoValue()
     {
-        var proto = new LiveStreamAward
+        var proto = new DyLiveStreamAward
         {
             Id = Id.ToString(),
             Amount = (double)Amount,

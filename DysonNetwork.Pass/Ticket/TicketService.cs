@@ -26,7 +26,7 @@ public class TicketService(
         var creator = await accounts.GetAccount(creatorId)
                       ?? throw new InvalidOperationException("Creator not found");
 
-        var fileRequestDataRequest = new GetFileBatchRequest();
+        var fileRequestDataRequest = new DyGetFileBatchRequest();
         fileRequestDataRequest.Ids.AddRange(fileIds ?? []);
         var fileData = await files.GetFileBatchAsync(fileRequestDataRequest);
         var fileDataParsed = fileData.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
@@ -127,7 +127,7 @@ public class TicketService(
         var sender = await accounts.GetAccount(senderId)
                      ?? throw new InvalidOperationException("Sender not found");
 
-        var fileRequestDataRequest = new GetFileBatchRequest();
+        var fileRequestDataRequest = new DyGetFileBatchRequest();
         fileRequestDataRequest.Ids.AddRange(fileIds ?? []);
         var fileData = await files.GetFileBatchAsync(fileRequestDataRequest);
         var fileDataParsed = fileData.Files.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();

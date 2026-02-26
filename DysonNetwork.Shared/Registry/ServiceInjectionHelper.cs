@@ -11,7 +11,7 @@ public static class ServiceInjectionHelper
         {
             services.AddGrpcClientWithSharedChannel<DyRingService.DyRingServiceClient>(
                 "https://_grpc.ring",
-                "RingService");
+                "DyRingService");
             services.AddSingleton<RemoteRingService>();
 
             return services;
@@ -19,12 +19,12 @@ public static class ServiceInjectionHelper
 
         public IServiceCollection AddAuthService()
         {
-            services.AddGrpcClientWithSharedChannel<AuthService.AuthServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyAuthService.DyAuthServiceClient>(
                 "https://_grpc.pass",
-                "AuthService");
-            services.AddGrpcClientWithSharedChannel<PermissionService.PermissionServiceClient>(
+                "DyAuthService");
+            services.AddGrpcClientWithSharedChannel<DyPermissionService.DyPermissionServiceClient>(
                 "https://_grpc.pass",
-                "PermissionService");
+                "DyPermissionService");
 
             return services;
         }
@@ -33,52 +33,52 @@ public static class ServiceInjectionHelper
         {
             services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
                 "https://_grpc.pass",
-                "AccountService");
+                "DyAccountService");
             services.AddSingleton<RemoteAccountService>();
 
-            services.AddGrpcClientWithSharedChannel<BotAccountReceiverService.BotAccountReceiverServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyBotAccountReceiverService.DyBotAccountReceiverServiceClient>(
                 "https://_grpc.pass",
-                "BotAccountReceiverService");
+                "DyBotAccountReceiverService");
             services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
                 "https://_grpc.pass",
-                "ActionLogService");
+                "DyActionLogService");
             services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
                 "https://_grpc.pass",
-                "PaymentService");
-            services.AddGrpcClientWithSharedChannel<WalletService.WalletServiceClient>(
+                "DyPaymentService");
+            services.AddGrpcClientWithSharedChannel<DyWalletService.DyWalletServiceClient>(
                 "https://_grpc.pass",
-                "WalletService");
-            services.AddGrpcClientWithSharedChannel<RealmService.RealmServiceClient>(
+                "DyWalletService");
+            services.AddGrpcClientWithSharedChannel<DyRealmService.DyRealmServiceClient>(
                 "https://_grpc.pass",
-                "RealmService");
+                "DyRealmService");
             services.AddSingleton<RemoteRealmService>();
 
-            services.AddGrpcClientWithSharedChannel<SocialCreditService.SocialCreditServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DySocialCreditService.DySocialCreditServiceClient>(
                 "https://_grpc.pass",
-                "SocialCreditService");
+                "DySocialCreditService");
 
-            services.AddGrpcClientWithSharedChannel<ExperienceService.ExperienceServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyExperienceService.DyExperienceServiceClient>(
                 "https://_grpc.pass",
-                "ExperienceService");
+                "DyExperienceService");
 
             return services;
         }
 
         public IServiceCollection AddWalletService()
         {
-            services.AddGrpcClientWithSharedChannel<WalletService.WalletServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyWalletService.DyWalletServiceClient>(
                 "https://_grpc.wallet",
-                "WalletService");
+                "DyWalletService");
             services.AddSingleton<RemoteWalletService>();
 
             services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
                 "https://_grpc.wallet",
-                "PaymentService");
+                "DyPaymentService");
             services.AddSingleton<RemotePaymentService>();
 
             services.AddGrpcClientWithSharedChannel<DySubscriptionService.DySubscriptionServiceClient>(
                 "https://_grpc.wallet",
-                "SubscriptionService");
+                "DySubscriptionService");
             services.AddSingleton<RemoteSubscriptionService>();
 
             return services;
@@ -88,7 +88,7 @@ public static class ServiceInjectionHelper
         {
             services.AddGrpcClientWithSharedChannel<DyFileService.DyFileServiceClient>(
                 "https://_grpc.drive",
-                "FileService");
+                "DyFileService");
 
             return services;
         }
@@ -97,15 +97,15 @@ public static class ServiceInjectionHelper
         {
             services.AddGrpcClientWithSharedChannel<DyPostService.DyPostServiceClient>(
                 "https://_grpc.sphere",
-                "PostService");
+                "DyPostService");
 
             services.AddGrpcClientWithSharedChannel<DyPublisherService.DyPublisherServiceClient>(
                 "https://_grpc.sphere",
-                "PublisherService");
+                "DyPublisherService");
 
             services.AddGrpcClientWithSharedChannel<DyPollService.DyPollServiceClient>(
                 "https://_grpc.sphere",
-                "PollService");
+                "DyPollService");
             services.AddSingleton<RemotePublisherService>();
 
             return services;
@@ -113,24 +113,24 @@ public static class ServiceInjectionHelper
 
         public IServiceCollection AddDevelopService()
         {
-            services.AddGrpcClientWithSharedChannel<CustomAppService.CustomAppServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyCustomAppService.DyCustomAppServiceClient>(
                 "https://_grpc.develop",
-                "CustomAppService");
+                "DyCustomAppService");
 
             return services;
         }
 
         public IServiceCollection AddInsightService()
         {
-            services.AddGrpcClientWithSharedChannel<WebFeedService.WebFeedServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyWebFeedService.DyWebFeedServiceClient>(
                 "https://_grpc.insight",
-                "WebFeedServiceClient");
-            services.AddGrpcClientWithSharedChannel<WebArticleService.WebArticleServiceClient>(
+                "DyWebFeedServiceClient");
+            services.AddGrpcClientWithSharedChannel<DyWebArticleService.DyWebArticleServiceClient>(
                 "https://_grpc.insight",
-                "WebArticleService");
-            services.AddGrpcClientWithSharedChannel<WebReaderService.WebReaderServiceClient>(
+                "DyWebArticleService");
+            services.AddGrpcClientWithSharedChannel<DyWebReaderService.DyWebReaderServiceClient>(
                 "https://_grpc.insight",
-                "WebReaderServiceClient");
+                "DyWebReaderServiceClient");
             
             services.AddSingleton<RemoteWebFeedService>();
             services.AddSingleton<RemoteWebReaderService>();

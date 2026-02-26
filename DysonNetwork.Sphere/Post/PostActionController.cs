@@ -174,7 +174,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     realm.Id,
                     accountId,
-                    new List<int> { RealmMemberRole.DyNormal }
+                    new List<int> { RealmMemberRole.Normal }
                 )
             )
                 return StatusCode(403, "You are not a member of this realm.");
@@ -512,7 +512,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     post.RealmId.Value,
                     accountId,
-                    new List<int> { RealmMemberRole.DyModerator }
+                    new List<int> { RealmMemberRole.Moderator }
                 )
             )
                 return StatusCode(403, "You are not a moderator of this realm");
@@ -577,7 +577,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     post.RealmId.Value,
                     accountId,
-                    new List<int> { RealmMemberRole.DyModerator }
+                    new List<int> { RealmMemberRole.Moderator }
                 )
             )
                 return StatusCode(403, "You are not a moderator of this realm");
@@ -829,7 +829,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     realm.Id,
                     accountId,
-                    new List<int> { RealmMemberRole.DyNormal }
+                    new List<int> { RealmMemberRole.Normal }
                 )
             )
                 return StatusCode(403, "You are not a member of this realm.");

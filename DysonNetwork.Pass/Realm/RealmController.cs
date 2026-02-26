@@ -237,7 +237,7 @@ public class RealmController(
         if (!realm.IsPublic)
         {
             if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyNormal))
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
@@ -322,7 +322,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (member.Role == RealmMemberRole.DyOwner)
+        if (member.Role == RealmMemberRole.Owner)
             return StatusCode(403, "Owner cannot leave their own realm.");
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
@@ -376,7 +376,7 @@ public class RealmController(
             {
                 new()
                 {
-                    Role = RealmMemberRole.DyOwner,
+                    Role = RealmMemberRole.Owner,
                     AccountId = currentUser.Id,
                     JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
@@ -431,7 +431,7 @@ public class RealmController(
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (member is null || member.Role < RealmMemberRole.DyModerator)
+        if (member is null || member.Role < RealmMemberRole.Moderator)
             return StatusCode(403, "You do not have permission to update this realm.");
 
         if (request.Slug is not null && request.Slug != realm.Slug)
@@ -535,7 +535,7 @@ public class RealmController(
         {
             AccountId = currentUser.Id,
             RealmId = realm.Id,
-            Role = RealmMemberRole.DyNormal,
+            Role = RealmMemberRole.Normal,
             JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
 
@@ -572,7 +572,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyModerator, member.Role))
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role))
             return StatusCode(403, "You do not have permission to remove members from this realm.");
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
@@ -596,7 +596,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
-        if (newRole >= RealmMemberRole.DyOwner) return BadRequest("Unable to set realm member to owner or greater role.");
+        if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
@@ -609,7 +609,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyModerator, member.Role,
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role,
                 newRole))
             return StatusCode(403, "You do not have permission to update member roles in this realm.");
 
@@ -645,7 +645,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyOwner))
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Owner))
             return StatusCode(403, "Only the owner can delete this realm.");
 
         try

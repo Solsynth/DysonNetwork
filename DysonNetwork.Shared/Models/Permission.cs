@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -47,8 +48,8 @@ public class SnPermissionNode : ModelBase, IDisposable
             Actor = Actor,
             Type = Type switch
             {
-                PermissionNodeActorType.Account => DyPermissionNodeActorType.Account,
-                PermissionNodeActorType.Group => DyPermissionNodeActorType.Group,
+                PermissionNodeActorType.Account => DyPermissionNodeActorType.DyAccount,
+                PermissionNodeActorType.Group => DyPermissionNodeActorType.DyGroup,
                 _ => throw new ArgumentOutOfRangeException()
             },
             Key = Key,
@@ -63,8 +64,8 @@ public class SnPermissionNode : ModelBase, IDisposable
     {
         return val switch
         {
-            DyPermissionNodeActorType.Account => PermissionNodeActorType.Account,
-            DyPermissionNodeActorType.Group => PermissionNodeActorType.Group,
+            DyPermissionNodeActorType.DyAccount => PermissionNodeActorType.Account,
+            DyPermissionNodeActorType.DyGroup => PermissionNodeActorType.Group,
             _ => PermissionNodeActorType.Account
         };
     }

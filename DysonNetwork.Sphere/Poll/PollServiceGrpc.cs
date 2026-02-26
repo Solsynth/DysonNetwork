@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.Poll;
 
 public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyPollServiceBase
 {
-    public override async Task<DyPoll> GetPoll(GetPollRequest request, ServerCallContext context)
+    public override async Task<DyPoll> GetPoll(DyGetPollRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var id))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));
@@ -24,7 +24,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         return poll.ToProtoValue();
     }
 
-    public override async Task<GetPollBatchResponse> GetPollBatch(GetPollBatchRequest request,
+    public override async Task<DyGetPollBatchResponse> GetPollBatch(DyGetPollBatchRequest request,
         ServerCallContext context)
     {
         var ids = request.Ids
@@ -32,7 +32,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
             .Select(Guid.Parse)
             .ToList();
 
-        if (ids.Count == 0) return new GetPollBatchResponse();
+        if (ids.Count == 0) return new DyGetPollBatchResponse();
 
         var polls = await db.Polls
             .Include(p => p.Publisher)
@@ -40,12 +40,12 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
             .Where(p => ids.Contains(p.Id))
             .ToListAsync();
 
-        var resp = new GetPollBatchResponse();
+        var resp = new DyGetPollBatchResponse();
         resp.Polls.AddRange(polls.Select(p => p.ToProtoValue()));
         return resp;
     }
 
-    public override async Task<ListPollsResponse> ListPolls(ListPollsRequest request, ServerCallContext context)
+    public override async Task<DyListPollsResponse> ListPolls(DyListPollsRequest request, ServerCallContext context)
     {
         var query = db.Polls
             .Include(p => p.Publisher)
@@ -98,7 +98,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
 
         var nextToken = offset + pageSize < totalSize ? (offset + pageSize).ToString() : string.Empty;
 
-        var resp = new ListPollsResponse();
+        var resp = new DyListPollsResponse();
         resp.Polls.AddRange(polls.Select(p => p.ToProtoValue()));
         resp.NextPageToken = nextToken;
         resp.TotalSize = totalSize;
@@ -106,7 +106,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         return resp;
     }
 
-    public override async Task<PollAnswer> GetPollAnswer(GetPollAnswerRequest request, ServerCallContext context)
+    public override async Task<DyPollAnswer> GetPollAnswer(DyGetPollAnswerRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.PollId, out var pollId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));
@@ -122,14 +122,14 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         return answer.ToProtoValue();
     }
 
-    public override async Task<GetPollStatsResponse> GetPollStats(GetPollStatsRequest request, ServerCallContext context)
+    public override async Task<DyGetPollStatsResponse> GetPollStats(DyGetPollStatsRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.PollId, out var pollId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));
 
         var stats = await ps.GetPollStats(pollId);
 
-        var resp = new GetPollStatsResponse();
+        var resp = new DyGetPollStatsResponse();
         foreach (var stat in stats)
         {
             var statsJson = JsonSerializer.Serialize(stat.Value);
@@ -139,7 +139,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         return resp;
     }
 
-    public override async Task<GetPollQuestionStatsResponse> GetPollQuestionStats(GetPollQuestionStatsRequest request,
+    public override async Task<DyGetPollQuestionStatsResponse> GetPollQuestionStats(DyGetPollQuestionStatsRequest request,
         ServerCallContext context)
     {
         if (!Guid.TryParse(request.QuestionId, out var questionId))
@@ -147,7 +147,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
 
         var stats = await ps.GetPollQuestionStats(questionId);
 
-        var resp = new GetPollQuestionStatsResponse();
+        var resp = new DyGetPollQuestionStatsResponse();
         foreach (var stat in stats)
         {
             resp.Stats[stat.Key] = stat.Value;

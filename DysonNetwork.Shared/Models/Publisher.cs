@@ -111,7 +111,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
         };
         if (Picture is not null)
         {
-            p.Picture = new CloudFile
+            p.Picture = new DyCloudFile
             {
                 Id = Picture.Id,
                 Name = Picture.Name,
@@ -123,7 +123,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
         if (Background is not null)
         {
-            p.Background = new CloudFile
+            p.Background = new DyCloudFile
             {
                 Id = Background.Id,
                 Name = Background.Name,

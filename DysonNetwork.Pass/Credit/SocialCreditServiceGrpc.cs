@@ -7,8 +7,8 @@ namespace DysonNetwork.Pass.Credit;
 public class SocialCreditServiceGrpc(SocialCreditService creditService)
     : DySocialCreditService.DySocialCreditServiceBase
 {
-    public override async Task<SocialCreditRecord> AddRecord(
-        AddSocialCreditRecordRequest request,
+    public override async Task<DySocialCreditRecord> AddRecord(
+        DyAddSocialCreditRecordRequest request,
         ServerCallContext context
     )
     {
@@ -24,14 +24,14 @@ public class SocialCreditServiceGrpc(SocialCreditService creditService)
         return record.ToProto();
     }
 
-    public override async Task<SocialCreditResponse> GetSocialCredit(
-        GetSocialCreditRequest request,
+    public override async Task<DySocialCreditResponse> GetSocialCredit(
+        DyGetSocialCreditRequest request,
         ServerCallContext context
     )
     {
         var accountId = Guid.Parse(request.AccountId);
         var amount = await creditService.GetSocialCredit(accountId);
 
-        return new SocialCreditResponse { Amount = amount };
+        return new DySocialCreditResponse { Amount = amount };
     }
 }

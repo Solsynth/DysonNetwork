@@ -84,13 +84,3 @@ public class SnChatReaction : ModelBase
     [MaxLength(256)] public string Symbol { get; set; } = null!;
     public MessageReactionAttitude Attitude { get; set; }
 }
-
-public class ChatReaction
-{
-    public string Id { get; set; } = null!;
-    public string Symbol { get; set; } = null!;
-    public int Attitude { get; set; }
-    public string MessageId { get; set; } = null!;
-    public string SenderId { get; set; } = null!;
-    public Account? Sender { get; set; }
-}

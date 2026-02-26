@@ -33,8 +33,7 @@ public class WebSocketController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         if (
-            currentUserValue is not DyAccount currentUser
-            || currentSessionValue is not AuthSession currentSession
+            currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession
         )
         {
             return Unauthorized();
@@ -137,7 +136,7 @@ public class WebSocketController(
 
     private async Task _ConnectionEventLoop(
         string deviceId,
-        Account currentUser,
+        DyAccount currentUser,
         WebSocket webSocket,
         CancellationToken cancellationToken
     )

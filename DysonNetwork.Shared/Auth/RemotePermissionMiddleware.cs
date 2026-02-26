@@ -6,16 +6,16 @@ using Microsoft.Extensions.Logging;
 namespace DysonNetwork.Shared.Auth;
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-public class AskPermissionAttribute(string key, PermissionNodeActorType type = PermissionNodeActorType.Account)
+public class AskPermissionAttribute(string key, DyPermissionNodeActorType type = DyPermissionNodeActorType.DyAccount)
     : Attribute
 {
     public string Key { get; } = key;
-    public PermissionNodeActorType Type { get; } = type;
+    public DyPermissionNodeActorType Type { get; } = type;
 }
 
 public class RemotePermissionMiddleware(RequestDelegate next)
 {
-    public async Task InvokeAsync(HttpContext httpContext, PermissionService.PermissionServiceClient permissionService,
+    public async Task InvokeAsync(HttpContext httpContext, DyPermissionService.DyPermissionServiceClient permissionService,
         ILogger<RemotePermissionMiddleware> logger)
     {
         var endpoint = httpContext.GetEndpoint();
@@ -42,7 +42,7 @@ public class RemotePermissionMiddleware(RequestDelegate next)
 
             try
             {
-                var permResp = await permissionService.HasPermissionAsync(new HasPermissionRequest
+                var permResp = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
                 {
                     Actor = currentUser.Id,
                     Key = attr.Key

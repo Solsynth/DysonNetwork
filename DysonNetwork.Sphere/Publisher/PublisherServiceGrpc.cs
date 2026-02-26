@@ -9,30 +9,30 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
     : DyPublisherService.DyPublisherServiceBase
 {
-    public override async Task<GetPublisherResponse> GetPublisher(
-        GetPublisherRequest request,
+    public override async Task<DyGetPublisherResponse> GetPublisher(
+        DyGetPublisherRequest request,
         ServerCallContext context
     )
     {
         SnPublisher? p = null;
         switch (request.QueryCase)
         {
-            case GetPublisherRequest.QueryOneofCase.Id:
+            case DyGetPublisherRequest.QueryOneofCase.Id:
                 if (!string.IsNullOrWhiteSpace(request.Id) && Guid.TryParse(request.Id, out var id))
                     p = await db.Publishers.FirstOrDefaultAsync(x => x.Id == id);
                 break;
-            case GetPublisherRequest.QueryOneofCase.Name:
+            case DyGetPublisherRequest.QueryOneofCase.Name:
                 if (!string.IsNullOrWhiteSpace(request.Name))
                     p = await service.GetPublisherByName(request.Name);
                 break;
         }
 
         if (p is null) throw new RpcException(new Status(StatusCode.NotFound, "Publisher not found"));
-        return new GetPublisherResponse { Publisher = p.ToProtoValue() };
+        return new DyGetPublisherResponse { Publisher = p.ToProtoValue() };
     }
 
-    public override async Task<ListPublishersResponse> GetPublisherBatch(
-        GetPublisherBatchRequest request,
+    public override async Task<DyGetPublisherBatchResponse> GetPublisherBatch(
+        DyGetPublisherBatchRequest request,
         ServerCallContext context
     )
     {
@@ -40,15 +40,15 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             .Where(s => !string.IsNullOrWhiteSpace(s) && Guid.TryParse(s, out _))
             .Select(Guid.Parse)
             .ToList();
-        if (ids.Count == 0) return new ListPublishersResponse();
+        if (ids.Count == 0) return new DyGetPublisherBatchResponse();
         var list = await db.Publishers.Where(p => ids.Contains(p.Id)).ToListAsync();
-        var resp = new ListPublishersResponse();
+        var resp = new DyGetPublisherBatchResponse();
         resp.Publishers.AddRange(list.Select(p => p.ToProtoValue()));
         return resp;
     }
 
-    public override async Task<ListPublishersResponse> ListPublishers(
-        ListPublishersRequest request,
+    public override async Task<DyListPublishersResponse> ListPublishers(
+        DyListPublishersRequest request,
         ServerCallContext context
     )
     {
@@ -63,24 +63,24 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             query = query.Where(p => p.RealmId == rid);
 
         var list = await query.ToListAsync();
-        var resp = new ListPublishersResponse();
+        var resp = new DyListPublishersResponse();
         resp.Publishers.AddRange(list.Select(p => p.ToProtoValue()));
         return resp;
     }
 
-    public override async Task<ListPublisherMembersResponse> ListPublisherMembers(ListPublisherMembersRequest request,
+    public override async Task<DyListPublisherMembersResponse> ListPublisherMembers(DyListPublisherMembersRequest request,
         ServerCallContext context)
     {
         if (!Guid.TryParse(request.PublisherId, out var pid))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid publisher_id"));
         var members = await service.GetPublisherMembers(pid);
-        var resp = new ListPublisherMembersResponse();
+        var resp = new DyListPublisherMembersResponse();
         resp.Members.AddRange(members.Select(m => m.ToProto()));
         return resp;
     }
 
     public override async Task<Google.Protobuf.WellKnownTypes.StringValue> SetPublisherFeatureFlag(
-        SetPublisherFeatureFlagRequest request, ServerCallContext context)
+        DySetPublisherFeatureFlagRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.PublisherId, out var pid))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid publisher_id"));
@@ -88,16 +88,16 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         return new Google.Protobuf.WellKnownTypes.StringValue { Value = request.Flag };
     }
 
-    public override async Task<HasPublisherFeatureResponse> HasPublisherFeature(HasPublisherFeatureRequest request,
+    public override async Task<DyHasPublisherFeatureResponse> HasPublisherFeature(DyHasPublisherFeatureRequest request,
         ServerCallContext context)
     {
         if (!Guid.TryParse(request.PublisherId, out var pid))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid publisher_id"));
         var enabled = await service.HasFeature(pid, request.Flag);
-        return new HasPublisherFeatureResponse { Enabled = enabled };
+        return new DyHasPublisherFeatureResponse { Enabled = enabled };
     }
 
-    public override async Task<IsPublisherMemberResponse> IsPublisherMember(IsPublisherMemberRequest request,
+    public override async Task<DyIsPublisherMemberResponse> IsPublisherMember(DyIsPublisherMemberRequest request,
         ServerCallContext context)
     {
         if (!Guid.TryParse(request.PublisherId, out var pid))
@@ -112,6 +112,6 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             _ => PublisherMemberRole.DyViewer
         };
         var valid = await service.IsMemberWithRole(pid, aid, requiredRole);
-        return new IsPublisherMemberResponse { Valid = valid };
+        return new DyIsPublisherMemberResponse { Valid = valid };
     }
 }

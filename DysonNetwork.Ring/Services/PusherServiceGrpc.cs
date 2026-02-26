@@ -15,7 +15,7 @@ public class RingServiceGrpc(
     PushService pushService
 ) : DyRingService.DyRingServiceBase
 {
-    public override async Task<Empty> SendEmail(SendEmailRequest request, ServerCallContext context)
+    public override async Task<Empty> SendEmail(DySendEmailRequest request, ServerCallContext context)
     {
         await queueService.EnqueueEmail(
             request.Email.ToName,
@@ -26,7 +26,7 @@ public class RingServiceGrpc(
         return new Empty();
     }
 
-    public override Task<Empty> PushWebSocketPacket(PushWebSocketPacketRequest request, ServerCallContext context)
+    public override Task<Empty> PushWebSocketPacket(DyPushWebSocketPacketRequest request, ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
 
@@ -45,7 +45,7 @@ public class RingServiceGrpc(
         return Task.FromResult(new Empty());
     }
 
-    public override Task<Empty> PushWebSocketPacketToDevice(PushWebSocketPacketToDeviceRequest request,
+    public override Task<Empty> PushWebSocketPacketToDevice(DyPushWebSocketPacketToDeviceRequest request,
         ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
@@ -54,7 +54,7 @@ public class RingServiceGrpc(
         return Task.FromResult(new Empty());
     }
 
-    public override Task<Empty> PushWebSocketPacketToDevices(PushWebSocketPacketToDevicesRequest request,
+    public override Task<Empty> PushWebSocketPacketToDevices(DyPushWebSocketPacketToDevicesRequest request,
         ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
@@ -95,7 +95,7 @@ public class RingServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<Empty> SendPushNotificationToUsers(SendPushNotificationToUsersRequest request,
+    public override async Task<Empty> SendPushNotificationToUsers(DySendPushNotificationToUsersRequest request,
         ServerCallContext context)
     {
         var notification = new SnNotification
@@ -127,32 +127,32 @@ public class RingServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<Empty> UnsubscribePushNotifications(UnsubscribePushNotificationsRequest request,
+    public override async Task<Empty> UnsubscribePushNotifications(DyUnsubscribePushNotificationsRequest request,
         ServerCallContext context)
     {
         await pushService.UnsubscribeDevice(request.DeviceId);
         return new Empty();
     }
 
-    public override Task<GetWebsocketConnectionStatusResponse> GetWebsocketConnectionStatus(
-        GetWebsocketConnectionStatusRequest request, ServerCallContext context)
+    public override Task<DyGetWebsocketConnectionStatusResponse> GetWebsocketConnectionStatus(
+        DyGetWebsocketConnectionStatusRequest request, ServerCallContext context)
     {
         var isConnected = request.IdCase switch
         {
-            GetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId =>
+            DyGetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId =>
                 WebSocketService.GetDeviceIsConnected(request.DeviceId),
-            GetWebsocketConnectionStatusRequest.IdOneofCase.UserId => WebSocketService.GetAccountIsConnected(
+            DyGetWebsocketConnectionStatusRequest.IdOneofCase.UserId => WebSocketService.GetAccountIsConnected(
                 Guid.Parse(request.UserId)),
             _ => false
         };
 
-        return Task.FromResult(new GetWebsocketConnectionStatusResponse { IsConnected = isConnected });
+        return Task.FromResult(new DyGetWebsocketConnectionStatusResponse { IsConnected = isConnected });
     }
 
-    public override Task<GetWebsocketConnectionStatusBatchResponse> GetWebsocketConnectionStatusBatch(
-        GetWebsocketConnectionStatusBatchRequest request, ServerCallContext context)
+    public override Task<DyGetWebsocketConnectionStatusBatchResponse> GetWebsocketConnectionStatusBatch(
+        DyGetWebsocketConnectionStatusBatchRequest request, ServerCallContext context)
     {
-        var resp = new GetWebsocketConnectionStatusBatchResponse();
+        var resp = new DyGetWebsocketConnectionStatusBatchResponse();
         foreach (var id in request.UsersId)
         {
             var gid = Guid.Parse(id);
@@ -162,10 +162,10 @@ public class RingServiceGrpc(
         return Task.FromResult(resp);
     }
 
-    public override Task<GetAllConnectedUserIdsResponse> GetAllConnectedUserIds(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
+    public override Task<DyGetAllConnectedUserIdsResponse> GetAllConnectedUserIds(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
     {
         var userIds = WebSocketService.GetAllConnectedUserIds();
-        var response = new GetAllConnectedUserIdsResponse();
+        var response = new DyGetAllConnectedUserIdsResponse();
         response.UserIds.AddRange(userIds.Select(id => id.ToString()));
         return Task.FromResult(response);
     }

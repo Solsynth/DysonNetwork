@@ -23,9 +23,9 @@ public class SnPoll : ModelBase
     public Guid PublisherId { get; set; }
     [JsonIgnore] public SnPublisher? Publisher { get; set; }
 
-    public Poll ToProtoValue()
+    public DyPoll ToProtoValue()
     {
-        var proto = new Poll
+        var proto = new DyPoll
         {
             Id = Id.ToString(),
             IsAnonymous = IsAnonymous,
@@ -52,13 +52,13 @@ public class SnPoll : ModelBase
         return proto;
     }
 
-    public static SnPoll FromProtoValue(Poll proto)
+    public static SnPoll FromProtoValue(DyPoll proto)
     {
         var poll = new SnPoll
         {
             Id = Guid.Parse(proto.Id),
-            Title = proto.Title != null ? proto.Title : null,
-            Description = proto.Description != null ? proto.Description : null,
+            Title = proto.Title,
+            Description = proto.Description,
             IsAnonymous = proto.IsAnonymous,
             PublisherId = Guid.Parse(proto.PublisherId),
             Publisher = proto.Publisher != null ? SnPublisher.FromProtoValue(proto.Publisher) : null,
@@ -102,9 +102,9 @@ public class SnPollQuestion : ModelBase
     public Guid PollId { get; set; }
     [JsonIgnore] public SnPoll Poll { get; set; } = null!;
 
-    public PollQuestion ToProtoValue()
+    public DyPollQuestion ToProtoValue()
     {
-        var proto = new PollQuestion
+        var proto = new DyPollQuestion
         {
             Id = Id.ToString(),
             Type = (DyPollQuestionType)((int)Type + 1),
@@ -122,7 +122,7 @@ public class SnPollQuestion : ModelBase
         return proto;
     }
 
-    public static SnPollQuestion FromProtoValue(PollQuestion proto)
+    public static SnPollQuestion FromProtoValue(DyPollQuestion proto)
     {
         var question = new SnPollQuestion
         {
@@ -150,9 +150,9 @@ public class SnPollOption
     [MaxLength(4096)] public string? Description { get; set; }
     public int Order { get; set; } = 0;
 
-    public PollOption ToProtoValue()
+    public DyPollOption ToProtoValue()
     {
-        var proto = new PollOption
+        var proto = new DyPollOption
         {
             Id = Id.ToString(),
             Label = Label,
@@ -165,13 +165,13 @@ public class SnPollOption
         return proto;
     }
 
-    public static SnPollOption FromProtoValue(PollOption proto)
+    public static SnPollOption FromProtoValue(DyPollOption proto)
     {
         return new SnPollOption
         {
             Id = Guid.Parse(proto.Id),
             Label = proto.Label,
-            Description = proto.Description != null ? proto.Description : null,
+            Description = proto.Description,
             Order = proto.Order,
         };
     }
@@ -180,16 +180,16 @@ public class SnPollOption
 public class SnPollAnswer : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    [Column(TypeName = "jsonb")] public Dictionary<string, JsonElement> Answer { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public Dictionary<string, JsonElement>? Answer { get; set; } = null!;
 
     public Guid AccountId { get; set; }
     public Guid PollId { get; set; }
     [JsonIgnore] public SnPoll? Poll { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
 
-    public PollAnswer ToProtoValue()
+    public DyPollAnswer ToProtoValue()
     {
-        var proto = new PollAnswer
+        var proto = new DyPollAnswer
         {
             Id = Id.ToString(),
             Answer = InfraObjectCoder.ConvertObjectToByteString(Answer),
@@ -205,7 +205,7 @@ public class SnPollAnswer : ModelBase
         return proto;
     }
 
-    public static SnPollAnswer FromProtoValue(PollAnswer proto)
+    public static SnPollAnswer FromProtoValue(DyPollAnswer proto)
     {
         var answer = new SnPollAnswer
         {

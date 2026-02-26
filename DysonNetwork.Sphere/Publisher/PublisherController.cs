@@ -401,7 +401,7 @@ public class PublisherController(
         var isAdmin = await remoteRealmService.IsMemberWithRole(
             realm.Id,
             accountId,
-            [RealmMemberRole.DyModerator]
+            [RealmMemberRole.Moderator]
         );
         if (!isAdmin)
             return StatusCode(

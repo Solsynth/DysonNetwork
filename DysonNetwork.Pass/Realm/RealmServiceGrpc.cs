@@ -15,17 +15,17 @@ public class RealmServiceGrpc(
     ILocalizationService localizer,
     ICacheService cache
 )
-    : DyRealmService.RealmServiceBase
+    : DyRealmService.DyRealmServiceBase
 {
     private const string CacheKeyPrefix = "account:realms:";
 
-    public override async Task<DyRealm> GetRealm(GetRealmRequest request, ServerCallContext context)
+    public override async Task<DyRealm> GetRealm(DyGetRealmRequest request, ServerCallContext context)
     {
         var realm = request.QueryCase switch
         {
-            GetRealmRequest.QueryOneofCase.Id when !string.IsNullOrWhiteSpace(request.Id) => await db.Realms.FindAsync(
+            DyGetRealmRequest.QueryOneofCase.Id when !string.IsNullOrWhiteSpace(request.Id) => await db.Realms.FindAsync(
                 Guid.Parse(request.Id)),
-            GetRealmRequest.QueryOneofCase.Slug when !string.IsNullOrWhiteSpace(request.Slug) => await db.Realms
+            DyGetRealmRequest.QueryOneofCase.Slug when !string.IsNullOrWhiteSpace(request.Slug) => await db.Realms
                 .FirstOrDefaultAsync(r => r.Slug == request.Slug),
             _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "Must provide either id or slug"))
         };
@@ -35,24 +35,24 @@ public class RealmServiceGrpc(
             : realm.ToProtoValue();
     }
 
-    public override async Task<GetRealmBatchResponse> GetRealmBatch(GetRealmBatchRequest request,
+    public override async Task<DyGetRealmBatchResponse> GetRealmBatch(DyGetRealmBatchRequest request,
         ServerCallContext context)
     {
         var ids = request.Ids.Select(Guid.Parse).ToList();
         var realms = await db.Realms.Where(r => ids.Contains(r.Id)).ToListAsync();
-        var response = new GetRealmBatchResponse();
+        var response = new DyGetRealmBatchResponse();
         response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
         return response;
     }
 
-    public override async Task<GetUserRealmsResponse> GetUserRealms(GetUserRealmsRequest request,
+    public override async Task<DyGetUserRealmsResponse> GetUserRealms(DyGetUserRealmsRequest request,
         ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
         var cacheKey = $"{CacheKeyPrefix}{accountId}";
         var (found, cachedRealms) = await cache.GetAsyncWithStatus<List<Guid>>(cacheKey);
         if (found && cachedRealms != null)
-            return new GetUserRealmsResponse { RealmIds = { cachedRealms.Select(g => g.ToString()) } };
+            return new DyGetUserRealmsResponse { RealmIds = { cachedRealms.Select(g => g.ToString()) } };
 
         var realms = await db.RealmMembers
             .Include(m => m.Realm)
@@ -65,11 +65,11 @@ public class RealmServiceGrpc(
         // Cache the result for 5 minutes
         await cache.SetAsync(cacheKey, realms, TimeSpan.FromMinutes(5));
 
-        return new GetUserRealmsResponse { RealmIds = { realms.Select(g => g.ToString()) } };
+        return new DyGetUserRealmsResponse { RealmIds = { realms.Select(g => g.ToString()) } };
     }
 
-    public override async Task<GetPublicRealmsResponse> GetPublicRealms(
-        GetPublicRealmsRequest request,
+    public override async Task<DyGetPublicRealmsResponse> GetPublicRealms(
+        DyGetPublicRealmsRequest request,
         ServerCallContext context
     )
     {
@@ -89,12 +89,12 @@ public class RealmServiceGrpc(
 
         var realms = await realmsQuery.Take(request.Take).ToListAsync();
 
-        var response = new GetPublicRealmsResponse();
+        var response = new DyGetPublicRealmsResponse();
         response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
         return response;
     }
 
-    public override async Task<GetPublicRealmsResponse> SearchRealms(SearchRealmsRequest request,
+    public override async Task<DyGetPublicRealmsResponse> SearchRealms(DySearchRealmsRequest request,
         ServerCallContext context)
     {
         var realms = await db.Realms
@@ -103,12 +103,12 @@ public class RealmServiceGrpc(
                         EF.Functions.Like(r.Name, $"{request.Query}%"))
             .Take(request.Limit)
             .ToListAsync();
-        var response = new GetPublicRealmsResponse();
+        var response = new DyGetPublicRealmsResponse();
         response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
         return response;
     }
 
-    public override async Task<Empty> SendInviteNotify(SendInviteNotifyRequest request, ServerCallContext context)
+    public override async Task<Empty> SendInviteNotify(DySendInviteNotifyRequest request, ServerCallContext context)
     {
         var member = request.Member;
         var account = await db.Accounts
@@ -136,7 +136,7 @@ public class RealmServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<BoolValue> IsMemberWithRole(IsMemberWithRoleRequest request, ServerCallContext context)
+    public override async Task<BoolValue> IsMemberWithRole(DyIsMemberWithRoleRequest request, ServerCallContext context)
     {
         if (request.RequiredRoles.Count == 0)
             return new BoolValue { Value = false };
@@ -149,7 +149,7 @@ public class RealmServiceGrpc(
         return new BoolValue { Value = member?.Role >= maxRequiredRole };
     }
 
-    public override async Task<RealmMember> LoadMemberAccount(LoadMemberAccountRequest request,
+    public override async Task<DyRealmMember> LoadMemberAccount(DyLoadMemberAccountRequest request,
         ServerCallContext context)
     {
         var member = request.Member;
@@ -158,11 +158,11 @@ public class RealmServiceGrpc(
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.Id == Guid.Parse(member.AccountId));
 
-        var response = new RealmMember(member) { Account = account?.ToProtoValue() };
+        var response = new DyRealmMember(member) { Account = account?.ToProtoValue() };
         return response;
     }
 
-    public override async Task<LoadMemberAccountsResponse> LoadMemberAccounts(LoadMemberAccountsRequest request,
+    public override async Task<DyLoadMemberAccountsResponse> LoadMemberAccounts(DyLoadMemberAccountsRequest request,
         ServerCallContext context)
     {
         var accountIds = request.Members.Select(m => Guid.Parse(m.AccountId)).ToList();
@@ -172,10 +172,10 @@ public class RealmServiceGrpc(
             .Where(a => accountIds.Contains(a.Id))
             .ToDictionaryAsync(a => a.Id, a => a.ToProtoValue());
 
-        var response = new LoadMemberAccountsResponse();
+        var response = new DyLoadMemberAccountsResponse();
         foreach (var member in request.Members)
         {
-            var updatedMember = new RealmMember(member);
+            var updatedMember = new DyRealmMember(member);
             if (accounts.TryGetValue(Guid.Parse(member.AccountId), out var account))
             {
                 updatedMember.Account = account;

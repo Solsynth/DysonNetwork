@@ -12,15 +12,15 @@ public class PermissionServiceGrpc(
     PermissionService psv,
     AppDatabase db,
     ILogger<PermissionServiceGrpc> logger
-) : DysonNetwork.DyPermissionService.PermissionServiceBase
+) : DyPermissionService.DyPermissionServiceBase
 {
-    public override async Task<HasPermissionResponse> HasPermission(HasPermissionRequest request, ServerCallContext context)
+    public override async Task<DyHasPermissionResponse> HasPermission(DyHasPermissionRequest request, ServerCallContext context)
     {
         var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
             var hasPermission = await psv.HasPermissionAsync(request.Actor, request.Key, type);
-            return new HasPermissionResponse { HasPermission = hasPermission };
+            return new DyHasPermissionResponse { HasPermission = hasPermission };
         }
         catch (Exception ex)
         {
@@ -30,13 +30,13 @@ public class PermissionServiceGrpc(
         }
     }
 
-    public override async Task<GetPermissionResponse> GetPermission(GetPermissionRequest request, ServerCallContext context)
+    public override async Task<DyGetPermissionResponse> GetPermission(DyGetPermissionRequest request, ServerCallContext context)
     {
         var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
             var permissionValue = await psv.GetPermissionAsync<JsonDocument>(request.Actor, request.Key, type);
-            return new GetPermissionResponse
+            return new DyGetPermissionResponse
             {
                 Value = permissionValue != null ? Value.Parser.ParseJson(permissionValue.RootElement.GetRawText()) : null
             };
@@ -49,7 +49,7 @@ public class PermissionServiceGrpc(
         }
     }
 
-    public override async Task<AddPermissionNodeResponse> AddPermissionNode(AddPermissionNodeRequest request, ServerCallContext context)
+    public override async Task<DyAddPermissionNodeResponse> AddPermissionNode(DyAddPermissionNodeRequest request, ServerCallContext context)
     {
         var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
@@ -74,7 +74,7 @@ public class PermissionServiceGrpc(
                 request.AffectedAt?.ToInstant(),
                 type
             );
-            return new AddPermissionNodeResponse { Node = node.ToProtoValue() };
+            return new DyAddPermissionNodeResponse { Node = node.ToProtoValue() };
         }
         catch (RpcException)
         {
@@ -88,7 +88,7 @@ public class PermissionServiceGrpc(
         }
     }
 
-    public override async Task<AddPermissionNodeToGroupResponse> AddPermissionNodeToGroup(AddPermissionNodeToGroupRequest request, ServerCallContext context)
+    public override async Task<DyAddPermissionNodeToGroupResponse> AddPermissionNodeToGroup(DyAddPermissionNodeToGroupRequest request, ServerCallContext context)
     {
         var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
@@ -120,7 +120,7 @@ public class PermissionServiceGrpc(
                 request.AffectedAt?.ToInstant(),
                 type
             );
-            return new AddPermissionNodeToGroupResponse { Node = node.ToProtoValue() };
+            return new DyAddPermissionNodeToGroupResponse { Node = node.ToProtoValue() };
         }
         catch (RpcException)
         {
@@ -134,13 +134,13 @@ public class PermissionServiceGrpc(
         }
     }
 
-    public override async Task<RemovePermissionNodeResponse> RemovePermissionNode(RemovePermissionNodeRequest request, ServerCallContext context)
+    public override async Task<DyRemovePermissionNodeResponse> RemovePermissionNode(DyRemovePermissionNodeRequest request, ServerCallContext context)
     {
         var type = SnPermissionNode.ConvertProtoActorType(request.Type);
         try
         {
             await psv.RemovePermissionNode(request.Actor, request.Key, type);
-            return new RemovePermissionNodeResponse { Success = true };
+            return new DyRemovePermissionNodeResponse { Success = true };
         }
         catch (Exception ex)
         {
@@ -150,7 +150,7 @@ public class PermissionServiceGrpc(
         }
     }
 
-    public override async Task<RemovePermissionNodeFromGroupResponse> RemovePermissionNodeFromGroup(RemovePermissionNodeFromGroupRequest request, ServerCallContext context)
+    public override async Task<DyRemovePermissionNodeFromGroupResponse> RemovePermissionNodeFromGroup(DyRemovePermissionNodeFromGroupRequest request, ServerCallContext context)
     {
         try
         {
@@ -161,7 +161,7 @@ public class PermissionServiceGrpc(
             }
 
             await psv.RemovePermissionNodeFromGroup<JsonDocument>(group, request.Actor, request.Key);
-            return new RemovePermissionNodeFromGroupResponse { Success = true };
+            return new DyRemovePermissionNodeFromGroupResponse { Success = true };
         }
         catch (RpcException)
         {

@@ -130,9 +130,9 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
 
     public string ResourceIdentifier => $"livestream:{Id}";
 
-    public LiveStream ToProtoValue()
+    public DyLiveStream ToProtoValue()
     {
-        var proto = new LiveStream
+        var proto = new DyLiveStream
         {
             Id = Id.ToString(),
             Title = Title ?? string.Empty,
@@ -194,7 +194,7 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
         return proto;
     }
 
-    public static SnLiveStream FromProtoValue(LiveStream proto)
+    public static SnLiveStream FromProtoValue(DyLiveStream proto)
     {
         var liveStream = new SnLiveStream
         {

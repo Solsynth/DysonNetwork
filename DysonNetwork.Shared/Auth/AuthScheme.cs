@@ -15,7 +15,7 @@ public class DysonTokenAuthHandler(
     IOptionsMonitor<DysonTokenAuthOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    AuthService.AuthServiceClient auth
+    DyAuthService.DyAuthServiceClient auth
 )
     : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
@@ -29,7 +29,7 @@ public class DysonTokenAuthHandler(
         try
         {
             // Validate token and extract session ID
-            AuthSession session;
+            DyAuthSession session;
             try
             {
                 session = await ValidateToken(
@@ -80,9 +80,9 @@ public class DysonTokenAuthHandler(
         }
     }
 
-    private async Task<AuthSession> ValidateToken(string token, string? ipAddress)
+    private async Task<DyAuthSession> ValidateToken(string token, string? ipAddress)
     {
-        var resp = await auth.AuthenticateAsync(new AuthenticateRequest
+        var resp = await auth.AuthenticateAsync(new DyAuthenticateRequest
         {
             Token = token,
             IpAddress = ipAddress

@@ -13,7 +13,7 @@ namespace DysonNetwork.Pass.Rewind;
 /// </summary>
 public class PassRewindService(AppDatabase db)
 {
-    public async Task<RewindEvent> CreateRewindEvent(Guid accountId, int year)
+    public async Task<DyRewindEvent> CreateRewindEvent(Guid accountId, int year)
     {
         var startDate = new LocalDate(year - 1, 12, 26).AtMidnight().InUtc().ToInstant();
         var endDate = new LocalDate(year, 12, 26).AtMidnight().InUtc().ToInstant();
@@ -119,7 +119,7 @@ public class PassRewindService(AppDatabase db)
             ["lotteries_win_rate"] = lotteriesWinRate,
         };
 
-        return new RewindEvent
+        return new DyRewindEvent
         {
             ServiceId = "pass",
             AccountId = accountId.ToString(),

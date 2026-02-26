@@ -71,7 +71,7 @@ public class PushService
         string deviceId,
         string deviceToken,
         PushProvider provider,
-        Account account
+        DyAccount account
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -111,7 +111,7 @@ public class PushService
         return subscription;
     }
 
-    public async Task SendNotification(Account account,
+    public async Task SendNotification(DyAccount account,
         string topic,
         string? title = null,
         string? subtitle = null,
